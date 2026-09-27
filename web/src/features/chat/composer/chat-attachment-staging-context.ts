@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 import type { ComposerPendingAttachment } from "@/components/assistant-ui/elements/attachment.aui";
 import type { LibraryFile } from "@/features/library/library";
 
@@ -14,7 +14,7 @@ export type AttachmentStaging = {
 export const AttachmentStagingContext = createContext<AttachmentStaging | undefined>(undefined);
 
 export function useChatAttachmentStaging(): AttachmentStaging {
-  const staging = useContext(AttachmentStagingContext);
+  const staging = use(AttachmentStagingContext);
   if (!staging) throw new Error("Attachment staging requires ChatAttachmentStaging");
   return staging;
 }

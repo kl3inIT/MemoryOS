@@ -45,7 +45,7 @@ export function LibraryDropZone({
       }}
       className={cn(
         "relative flex min-h-0 flex-1 flex-col",
-        over && "rounded-xl outline-2 outline-offset-4 outline-dashed outline-border-strong",
+        over && "rounded-xl outline-2 outline-offset-4 outline-border-strong outline-dashed",
       )}
     >
       {children}
@@ -68,7 +68,7 @@ export function LibraryUploadButton({ onFiles }: { onFiles: (files: File[]) => v
   return (
     <>
       <Button size="sm" prominence="secondary" onClick={() => input.current?.click()}>
-        <Upload className="size-4" aria-hidden="true" />
+        <Upload data-icon="inline-start" />
         {ui("Tải lên")}
       </Button>
       <input

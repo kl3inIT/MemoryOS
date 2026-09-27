@@ -62,8 +62,8 @@ export function LibraryRail({
           >
             <span className="flex items-center gap-2">
               <span className="truncate">{entry.label}</span>
-              {counts[entry.value] !== undefined && counts[entry.value]! > 0 && (
-                <span className="font-secondary-body tabular-nums text-content-muted">
+              {(counts[entry.value] ?? 0) > 0 && (
+                <span className="font-secondary-body text-content-muted tabular-nums">
                   {counts[entry.value]}
                 </span>
               )}
@@ -88,7 +88,7 @@ function StorageCard({ usage, onShowLargest }: { usage: LibraryUsage; onShowLarg
       className="rounded-xl border border-border-subtle p-3"
     >
       <h2 className="font-secondary-body text-content-muted">{ui("Dung lượng")}</h2>
-      <p className="mt-1 font-main-ui-action tabular-nums text-content-primary">
+      <p className="mt-1 font-main-ui-action text-content-primary tabular-nums">
         {fileSize(usage.usedBytes, i18n.language)}
         {limit !== null && (
           <span className="text-content-muted">
@@ -104,10 +104,8 @@ function StorageCard({ usage, onShowLargest }: { usage: LibraryUsage; onShowLarg
           <Progress
             value={percent}
             aria-label={ui("Dung lượng đã dùng")}
-            className={cn(
-              "mt-2",
-              nearlyFull && "[&_[data-slot=progress-indicator]]:bg-status-danger-emphasis",
-            )}
+            tone={nearlyFull ? "danger" : "default"}
+            className="mt-2"
           />
           <p
             className={cn(

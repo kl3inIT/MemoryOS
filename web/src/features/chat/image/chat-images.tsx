@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useState } from "react";
+import { use, useState } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAui, useAuiState } from "@assistant-ui/react";
 import { ImageGeneration } from "@/components/assistant-ui/elements/image-generation";
@@ -13,7 +13,7 @@ import { ChatImageEditContext } from "./chat-image-edit-context";
 export function ChatImages() {
   const ui = useAppTranslation();
   const aui = useAui();
-  const editing = useContext(ChatImageEditContext);
+  const editing = use(ChatImageEditContext);
   const [target, setTarget] = useState<string>();
   const images = useAuiState(
     (state) => state.message.metadata.custom.images as GeneratedImage[] | undefined,

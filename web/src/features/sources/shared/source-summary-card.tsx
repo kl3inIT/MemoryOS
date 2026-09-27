@@ -125,8 +125,8 @@ export function SourceSummaryCard({
                             v1: additionalGroupNames.join(", "),
                           })}
                         >
-                          <span
-                            tabIndex={0}
+                          <button
+                            type="button"
                             aria-label={ui("Additional groups: {{v1}}", {
                               v1: additionalGroupNames.join(", "),
                             })}
@@ -135,7 +135,7 @@ export function SourceSummaryCard({
                             {ui("+{{count}} more groups", {
                               count: additionalGroupNames.length,
                             })}
-                          </span>
+                          </button>
                         </SourceHint>
                       </>
                     ) : null}

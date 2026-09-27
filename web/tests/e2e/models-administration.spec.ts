@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoSeriousA11yViolations } from "./axe";
 import type {
   CurrentIdentity,
   ListChatProviderAdaptersResponse,
@@ -59,7 +60,7 @@ for (const width of [1280, 390]) {
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
     await page.getByRole("button", { name: "Tenant member", exact: true }).click();
     // The account menu and sidebar are distinct real entry points.
-    const accountEntry = page.getByRole("link", { name: "Admin Panel", exact: true }).last();
+    const accountEntry = page.getByRole("menuitem", { name: "Admin Panel", exact: true });
     await expect(accountEntry).toHaveAttribute("href", "/admin/models");
     await accountEntry.click();
     await expect(page).toHaveURL(/\/admin\/models$/);
@@ -67,6 +68,7 @@ for (const width of [1280, 390]) {
     const dialog = page.getByRole("dialog", { name: "Add provider", exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Provider name", { exact: true })).toBeFocused();
+    await expectNoSeriousA11yViolations(page);
     await dialog.getByLabel("Provider name", { exact: true }).fill("Private CPU service");
     await dialog
       .getByLabel("Endpoint URL", { exact: true })

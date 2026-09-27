@@ -21,10 +21,12 @@ describe("bundled language catalogs", () => {
     const vietnamese = flatten(vietnameseCatalog);
     expect(Object.keys(vietnamese).sort()).toEqual(Object.keys(english).sort());
     for (const [key, source] of Object.entries(english)) {
-      expect(vietnamese[key].trim(), key).not.toBe("");
+      // A key missing from Vietnamese reads as empty and fails here.
+      const translation = vietnamese[key] ?? "";
+      expect(translation.trim(), key).not.toBe("");
       const parameters = (text: string) =>
         [...text.matchAll(/{{\s*([\w]+)\s*}}/g)].map((match) => match[1]).sort();
-      expect(parameters(vietnamese[key]), key).toEqual(parameters(source));
+      expect(parameters(translation), key).toEqual(parameters(source));
     }
   });
   it("changes HTML language and renders both locales without translation keys", async () => {

@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -79,7 +80,7 @@ export function ModelDiscovery({
       description={provider.name}
       onClose={onClose}
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <ProviderModelsField
           connection={() => ({
             adapterType: provider.adapterType,
@@ -94,11 +95,19 @@ export function ModelDiscovery({
           listOnOpen
         />
         {failed.length > 0 && (
-          <p role="alert">
-            {ui(appText("These models were not added: {{models}}", { models: failed.join(", ") }))}
-          </p>
+          <Alert variant="destructive" role="alert">
+            <AlertDescription>
+              {ui(
+                appText("These models were not added: {{models}}", { models: failed.join(", ") }),
+              )}
+            </AlertDescription>
+          </Alert>
         )}
-        {adding.error && <p role="alert">{ui(adding.error)}</p>}
+        {adding.error && (
+          <Alert variant="destructive" role="alert">
+            <AlertDescription>{ui(adding.error)}</AlertDescription>
+          </Alert>
+        )}
         <div className="flex flex-wrap justify-end gap-2">
           <Button
             prominence="secondary"

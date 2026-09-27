@@ -30,11 +30,11 @@ export const iconSwapIn = "scale-100 opacity-100 blur-none";
 export const iconSwapOut = "scale-[0.25] opacity-0 blur-[4px]";
 
 export const labelSwap =
-  "col-start-1 row-start-1 flex w-max items-center gap-1.5 leading-none transition-[opacity,filter] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none";
+  "col-start-1 row-start-1 flex w-max items-center gap-1.5 leading-none transition duration-300 ease-out-quint motion-reduce:transition-none";
 
 export const labelSwapIn = "opacity-100 blur-none";
 
-export const labelSwapOut = "pointer-events-none select-none opacity-0 blur-[2px]";
+export const labelSwapOut = "pointer-events-none select-none opacity-0 blur-2xs";
 
 export const collapsePanel =
   "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] data-[ending-style]:h-0 data-[starting-style]:h-0 motion-reduce:transition-none";
@@ -93,7 +93,7 @@ export function SwapLabel({
     <span
       style={width === null ? undefined : { width }}
       className={cn(
-        "grid overflow-x-clip transition-[width] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
+        "grid overflow-x-clip transition-all duration-300 ease-out-quint motion-reduce:transition-none",
         className,
       )}
     >

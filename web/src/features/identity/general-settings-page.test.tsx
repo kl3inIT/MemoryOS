@@ -1,10 +1,17 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
+import {
+  handleGetChatPreferences,
+  handleGetCurrentIdentity,
+  handleSetCurrentIdentityLanguage,
+} from "@/lib/hey-api/msw.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { ApplicationSessionBoundary } from "./application-session-boundary";
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import { GeneralSettingsPage } from "./general-settings-page";
@@ -17,7 +24,24 @@ const identity: CurrentIdentity = {
   scopedCapabilities: [],
   uiLanguage: "en",
 };
-afterEach(() => vi.unstubAllGlobals());
+
+beforeEach(() => {
+  server.use(
+    handleGetChatPreferences({
+      body: {
+        workRole: "",
+        personalPreferences: "",
+        defaultModelId: null,
+        temperatureDefault: null,
+        reasoningEffortDefault: "OFF",
+        autoScroll: true,
+        displayName: "Fixture Member",
+        email: "member@example.com",
+      },
+    }),
+  );
+});
+
 function mount() {
   const client = createMemoryOsQueryClient();
   render(
@@ -33,29 +57,35 @@ function mount() {
   );
   return client;
 }
+
+/** A language save the test answers when it chooses, with the request it received. */
+function heldSave() {
+  const save: { request?: Request; finish?: (response: Response) => void } = {};
+  server.use(
+    handleSetCurrentIdentityLanguage(
+      ({ request }) =>
+        new Promise<Response>((resolve) => {
+          save.request = request;
+          save.finish = resolve;
+        }),
+    ),
+  );
+  return save;
+}
+
 describe("account language settings", () => {
   it("saves from an ordinary member with the guard, waits for confirmation and preserves the select node", async () => {
-    let finish!: (response: Response) => void;
-    const fetch = vi.fn((request: Request) =>
-      request.method === "PUT"
-        ? new Promise<Response>((resolve) => {
-            finish = resolve;
-          })
-        : Promise.resolve(Response.json(identity)),
-    );
-    vi.stubGlobal("fetch", fetch);
+    server.use(handleGetCurrentIdentity({ body: identity }));
+    const save = heldSave();
     const client = mount();
     const select = await screen.findByLabelText("Display language");
     fireEvent.change(select, { target: { value: "vi" } });
     await waitFor(() => expect(select).toBeDisabled());
     expect(document.documentElement.lang).toBe("en");
-    await waitFor(() => expect(finish).toBeTypeOf("function"));
-    const request = fetch.mock.calls
-      .map(([value]) => value)
-      .find((value) => value.method === "PUT")!;
-    expect(request.headers.get("X-MemoryOS-CSRF")).toBe("1");
-    expect(await request.json()).toEqual({ uiLanguage: "vi" });
-    await act(async () => finish(Response.json({ uiLanguage: "vi" })));
+    await waitFor(() => expect(save.finish).toBeTypeOf("function"));
+    expect(save.request?.headers.get("X-MemoryOS-CSRF")).toBe("1");
+    expect(await save.request?.json()).toEqual({ uiLanguage: "vi" });
+    await act(async () => save.finish?.(HttpResponse.json({ uiLanguage: "vi" })));
     expect(await screen.findByLabelText("Ngôn ngữ giao diện")).toBe(select);
     expect(select).toHaveValue("vi");
     expect(
@@ -65,14 +95,13 @@ describe("account language settings", () => {
   });
   it("reconciles a lost save response with the saved account preference", async () => {
     let saved = false;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (request: Request) => {
-        if (request.method === "PUT") {
-          saved = true;
-          throw new TypeError("private network diagnostic");
-        }
-        return Response.json({ ...identity, uiLanguage: saved ? "vi" : "en" });
+    server.use(
+      handleGetCurrentIdentity(() =>
+        HttpResponse.json({ ...identity, uiLanguage: saved ? "vi" : "en" }),
+      ),
+      handleSetCurrentIdentityLanguage(() => {
+        saved = true;
+        return HttpResponse.error();
       }),
     );
     mount();
@@ -80,27 +109,17 @@ describe("account language settings", () => {
     const select = await screen.findByLabelText("Ngôn ngữ giao diện");
     await waitFor(() => expect(select).not.toBeDisabled());
     expect(select).toHaveValue("vi");
-    expect(document.body.textContent).not.toContain("private network diagnostic");
   });
   it("ignores a late successful response after the active account changes", async () => {
-    let finish!: (response: Response) => void;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((request: Request) =>
-        request.method === "PUT"
-          ? new Promise<Response>((resolve) => {
-              finish = resolve;
-            })
-          : Promise.resolve(Response.json(identity)),
-      ),
-    );
+    server.use(handleGetCurrentIdentity({ body: identity }));
+    const save = heldSave();
     const client = mount();
     fireEvent.change(await screen.findByLabelText("Display language"), { target: { value: "vi" } });
-    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    await waitFor(() => expect(save.finish).toBeTypeOf("function"));
     await act(async () =>
       client.setQueryData(getCurrentIdentityQueryKey(), { ...identity, actorId: "actor-b" }),
     );
-    await act(async () => finish(Response.json({ uiLanguage: "vi" })));
+    await act(async () => save.finish?.(HttpResponse.json({ uiLanguage: "vi" })));
     await waitFor(() => expect(screen.getByLabelText("Display language")).toHaveValue("en"));
     expect(client.getQueryData<CurrentIdentity>(getCurrentIdentityQueryKey())?.actorId).toBe(
       "actor-b",

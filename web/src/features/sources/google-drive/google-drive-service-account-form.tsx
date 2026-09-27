@@ -1,15 +1,17 @@
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { TriangleAlert } from "lucide-react";
+import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useLayoutEffect, useRef, useState } from "react";
+import { useAppForm } from "@/components/form/app-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   createGoogleDriveServiceAccount,
   replaceGoogleDriveServiceAccount,
 } from "@/lib/hey-api/sdk.gen";
 import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/types.gen";
+import { zGoogleDriveServiceAccountRequest } from "@/lib/hey-api/zod.gen";
 import {
   GoogleDriveServiceAccountInput,
   type GoogleDriveServiceAccountInputHandle,
@@ -39,11 +41,21 @@ export function GoogleDriveServiceAccountForm({
   const ui = useAppTranslation();
   const keyInput = useRef<GoogleDriveServiceAccountInputHandle>(null);
   const controller = useRef<AbortController | null>(null);
-  const [name, setName] = useState(replacing?.name ?? "");
-  const [adminEmail, setAdminEmail] = useState(replacing?.accountEmail ?? "");
   const [keyReady, setKeyReady] = useState(false);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<AppCopy | null>(null);
+  const form = useAppForm({
+    defaultValues: { name: replacing?.name ?? "", adminEmail: replacing?.accountEmail ?? "" },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: zGoogleDriveServiceAccountRequest.pick({ name: true, adminEmail: true }),
+    },
+    onSubmit: ({ value }) => save(value),
+  });
+  const pending = useStore(form.store, (state) => state.isSubmitting);
+  // Save waits for a name, an admin email and a readable key, and names what is missing by staying disabled.
+  const complete = useStore(form.store, (state) =>
+    Boolean(state.values.name.trim() && state.values.adminEmail.trim()),
+  );
 
   useLayoutEffect(
     () => () => {
@@ -52,19 +64,18 @@ export function GoogleDriveServiceAccountForm({
     [],
   );
 
-  async function save() {
-    if (pending || disabled || !keyReady || !name.trim() || !adminEmail.trim()) return;
+  async function save(value: { name: string; adminEmail: string }) {
+    if (disabled || !keyReady || !value.name.trim() || !value.adminEmail.trim()) return;
     const request = new AbortController();
     controller.current = request;
     setError(null);
-    setPending(true);
     onPendingChange(true);
     try {
-      // The private key must never enter React Query variables or caches.
+      // A direct call, not a mutation: the private key must never enter React Query variables or caches.
       const body = {
-        name: name.trim(),
+        name: value.name.trim(),
         serviceAccountKeyJson: keyInput.current?.takeJson() ?? "",
-        adminEmail: adminEmail.trim(),
+        adminEmail: value.adminEmail.trim(),
       };
       const { data } = replacing
         ? await replaceGoogleDriveServiceAccount({
@@ -87,7 +98,6 @@ export function GoogleDriveServiceAccountForm({
     } finally {
       if (controller.current === request) {
         controller.current = null;
-        setPending(false);
         onPendingChange(false);
       }
     }
@@ -96,58 +106,46 @@ export function GoogleDriveServiceAccountForm({
   const locked = disabled || pending;
   return (
     <form
-      className="space-y-5"
+      className="flex flex-col gap-5"
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        void save();
+        void form.handleSubmit();
       }}
     >
-      <div>
-        <label
-          htmlFor="google-drive-service-account-name"
-          className="text-sm font-medium text-content-primary"
-        >
-          {ui("Credential name")}
-        </label>
-        <Input
-          id="google-drive-service-account-name"
-          value={name}
-          maxLength={120}
-          required
-          disabled={locked}
-          onChange={(event) => setName(event.target.value)}
-          placeholder={ui("e.g. Company Google Workspace")}
-          autoComplete="off"
-          className="mt-2"
-        />
-      </div>
-      <div>
-        <label
-          htmlFor="google-drive-service-account-admin"
-          className="text-sm font-medium text-content-primary"
-        >
-          {ui("Primary admin email")}
-        </label>
-        <Input
-          id="google-drive-service-account-admin"
-          type="email"
-          value={adminEmail}
-          maxLength={320}
-          required
-          disabled={locked}
-          onChange={(event) => setAdminEmail(event.target.value)}
-          placeholder={ui("admin@company.com")}
-          autoComplete="off"
-          className="mt-2"
-        />
-      </div>
+      <form.AppField name="name">
+        {(field) => (
+          <field.TextField
+            label={ui("Credential name")}
+            maxLength={120}
+            disabled={locked}
+            placeholder={ui("e.g. Company Google Workspace")}
+            autoComplete="off"
+          />
+        )}
+      </form.AppField>
+      <form.AppField name="adminEmail">
+        {(field) => (
+          <field.TextField
+            label={ui("Primary admin email")}
+            type="email"
+            maxLength={320}
+            disabled={locked}
+            placeholder={ui("admin@company.com")}
+            autoComplete="off"
+          />
+        )}
+      </form.AppField>
       {replacing ? (
-        <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-          {ui(
-            "Replacing the key affects all {{v1}} Sources using this credential. Use a key of the same service account; saved links and indexed documents are retained.",
-            { v1: replacing.sourceCount },
-          )}
-        </p>
+        <Alert variant="warning" role="note">
+          <TriangleAlert aria-hidden="true" />
+          <AlertDescription>
+            {ui(
+              "Replacing the key affects all {{v1}} Sources using this credential. Use a key of the same service account; saved links and indexed documents are retained.",
+              { v1: replacing.sourceCount },
+            )}
+          </AlertDescription>
+        </Alert>
       ) : null}
       <GoogleDriveServiceAccountInput
         ref={keyInput}
@@ -165,11 +163,7 @@ export function GoogleDriveServiceAccountForm({
           {ui("Verifying the service account with Google…")}
         </p>
       ) : null}
-      <Button
-        type="submit"
-        pending={pending}
-        disabled={locked || !keyReady || !name.trim() || !adminEmail.trim()}
-      >
+      <Button type="submit" pending={pending} disabled={locked || !keyReady || !complete}>
         {replacing ? ui("Replace key") : ui("Save service account")}
       </Button>
     </form>

@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Upload, X } from "lucide-react";
 import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
@@ -22,7 +23,7 @@ export function SourceUploadForm({
 
   return (
     <form
-      className="space-y-4 border-b border-border-subtle py-6"
+      className="flex flex-col gap-4 border-b border-border-subtle py-6"
       onSubmit={(event) => {
         event.preventDefault();
         void (activePendingFinalize ? upload.retryFinalize() : upload.submit());
@@ -38,19 +39,19 @@ export function SourceUploadForm({
         </p>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">
+        <Field className="min-w-0 flex-1">
+          <FieldLabel htmlFor="source-upload-file" className="sr-only">
             {ui("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file")}
-          </span>
+          </FieldLabel>
           <Input
+            id="source-upload-file"
             ref={fileInput}
             type="file"
             accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,text/csv,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
             disabled={phase !== "idle" || Boolean(pendingFinalize)}
             onChange={(event) => upload.select(event.target.files?.[0] ?? null)}
-            className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
           />
-        </label>
+        </Field>
         <Button
           type="submit"
           pending={upload.busy}
@@ -60,12 +61,12 @@ export function SourceUploadForm({
             disabled
           }
         >
-          <Upload />
+          <Upload data-icon="inline-start" />
           {activePendingFinalize ? ui("Retry finalization") : ui("Upload file")}
         </Button>
         {phase !== "idle" || activePendingFinalize ? (
           <Button type="button" prominence="secondary" onClick={upload.cancel}>
-            <X />
+            <X data-icon="inline-start" />
             {ui("Cancel")}
           </Button>
         ) : null}

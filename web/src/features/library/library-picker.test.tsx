@@ -1,24 +1,32 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
-import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
+import { handleListChatLibrary } from "@/lib/hey-api/msw.gen";
+import type { ChatLibraryFile, ChatLibraryPage } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { ChatLibraryPicker } from "./library-picker";
 
-const listChatLibrary = vi.hoisted(() => vi.fn());
-const copyChatLibraryFile = vi.hoisted(() => vi.fn());
-const getChatFile = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
-  copyChatLibraryFile: (...args: unknown[]) => copyChatLibraryFile(...args),
-  getChatFile: (...args: unknown[]) => getChatFile(...args),
-}));
-
-vi.mock("@/features/identity/application-session-context", () => ({
-  useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
-}));
+/** Every listing the picker asked for, as its query parameters. */
+let listed: URLSearchParams[] = [];
+const page = (items: ChatLibraryFile[]): ChatLibraryPage => ({
+  items,
+  totalCount: items.length,
+  totalBytes: items.length * 1024,
+  hasMore: false,
+});
+/** Answers each listing with `respond`, recording what it asked. */
+function listing(respond: (params: URLSearchParams) => ChatLibraryPage | Promise<ChatLibraryPage>) {
+  server.use(
+    handleListChatLibrary(async ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      listed.push(params);
+      return HttpResponse.json(await respond(params));
+    }),
+  );
+}
 
 const base: Pick<
   ChatLibraryFile,
@@ -73,9 +81,7 @@ const attached: ChatLibraryFile = {
 };
 
 function show(onAttach = vi.fn(), selected: string[] = []) {
-  listChatLibrary.mockResolvedValue({
-    data: { items: [upload, image, attached], totalCount: 3, totalBytes: 3072, hasMore: false },
-  });
+  listing(() => page([upload, image, attached]));
   const onOpenChange = vi.fn();
   render(
     <QueryClientProvider
@@ -89,7 +95,7 @@ function show(onAttach = vi.fn(), selected: string[] = []) {
 
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
-  vi.clearAllMocks();
+  listed = [];
 });
 afterEach(cleanup);
 
@@ -105,8 +111,8 @@ it("hands the chosen library files to the composer and closes", async () => {
     expect.objectContaining({ id: upload.id, source: "UPLOAD" }),
     expect.objectContaining({ id: image.id, source: "IMAGE" }),
   ]);
-  // The copy belongs to the composer, where the wait is shown; the dialog does not hold the person.
-  expect(copyChatLibraryFile).not.toHaveBeenCalled();
+  // The copy belongs to the composer, where the wait is shown; the dialog does not hold the person (an
+  // unanswered copy request would fail the test).
   expect(onOpenChange).toHaveBeenCalledWith(false);
 });
 
@@ -118,28 +124,24 @@ it("shows what is already on the draft as attached and filters by source on the 
   expect(within(row).getByText("Đã đính kèm")).toBeInTheDocument();
   expect(within(row).getByRole("checkbox")).toBeDisabled();
 
-  const narrowed = Promise.withResolvers<unknown>();
-  listChatLibrary.mockReturnValueOnce(narrowed.promise);
-  await user.click(screen.getByRole("tab", { name: "Ảnh AI" }));
-  await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ sources: ["IMAGE"] }) }),
-    ),
+  const narrowed = Promise.withResolvers<ChatLibraryPage>();
+  listing((params) =>
+    params.get("sources") === "IMAGE" ? narrowed.promise : page([upload, image, attached]),
   );
+  await user.click(screen.getByRole("tab", { name: "Ảnh AI" }));
+  await waitFor(() => expect(listed.at(-1)?.getAll("sources")).toEqual(["IMAGE"]));
   // The list being read stays on screen, marked busy, instead of emptying while the narrowed one loads.
   const list = screen.getByRole("list", { name: "Tệp trong thư viện" });
   await waitFor(() => expect(list).toHaveAttribute("aria-busy", "true"));
   expect(within(list).getByText("da-gan.txt")).toBeInTheDocument();
 
-  narrowed.resolve({ data: { items: [image], totalCount: 1, totalBytes: 1024, hasMore: false } });
+  narrowed.resolve(page([image]));
   await waitFor(() => expect(list).not.toHaveAttribute("aria-busy"));
   expect(within(list).queryByText("da-gan.txt")).not.toBeInTheDocument();
 });
 
 it("counts files the composer is still preparing against the message limit", async () => {
-  listChatLibrary.mockResolvedValue({
-    data: { items: [upload, image, attached], totalCount: 3, totalBytes: 3072, hasMore: false },
-  });
+  listing(() => page([upload, image, attached]));
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -178,9 +180,5 @@ it("narrows the library to one file kind from the filter", async () => {
   await user.click(await screen.findByRole("button", { name: "Loại tệp" }));
   await user.click(await screen.findByRole("button", { name: "Ảnh" }));
 
-  await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ categories: ["IMAGE"] }) }),
-    ),
-  );
+  await waitFor(() => expect(listed.at(-1)?.getAll("categories")).toEqual(["IMAGE"]));
 });

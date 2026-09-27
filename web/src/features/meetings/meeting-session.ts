@@ -5,7 +5,7 @@ import type { MeetingTrack, StreamedUtterance } from "./meeting-socket";
 import {
   finishMeeting,
   issueMeetingTicket,
-  meetingKey,
+  meetingQueryKey,
   invalidateMeetingList,
   type MeetingDetail,
 } from "./meetings-api";
@@ -29,10 +29,6 @@ function publish() {
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
-}
-
-export function activeMeeting() {
-  return active;
 }
 
 export function useActiveMeeting() {
@@ -82,7 +78,7 @@ export async function startRecording(
   return recorder;
 }
 
-export async function stopRecording() {
+async function stopRecording() {
   const current = active;
   if (!current) return;
   await current.recorder.stop();
@@ -103,7 +99,7 @@ export async function endMeeting(meetingId: string, cache: QueryClient) {
     failure = undefined;
     publish();
   }
-  cache.setQueryData(meetingKey(meetingId), ended);
+  cache.setQueryData(meetingQueryKey(meetingId), ended);
   void invalidateMeetingList(cache);
   return ended;
 }
@@ -115,7 +111,7 @@ function warnBeforeUnload(event: BeforeUnloadEvent) {
 
 /** Adds a live utterance to the cached meeting, keeping the transcript in time order. */
 function appendUtterance(cache: QueryClient, meetingId: string, utterance: StreamedUtterance) {
-  cache.setQueryData<MeetingDetail>(meetingKey(meetingId), (meeting) => {
+  cache.setQueryData<MeetingDetail>(meetingQueryKey(meetingId), (meeting) => {
     if (!meeting || meeting.utterances.some((item) => item.id === utterance.id)) return meeting;
     const speakers = meeting.speakers.some(
       (item) => item.track === utterance.track && item.label === utterance.speaker,

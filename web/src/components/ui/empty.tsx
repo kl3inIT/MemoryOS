@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
+import { Slot } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 
@@ -55,11 +56,32 @@ function EmptyMedia({
   );
 }
 
-function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
+/** `asChild` lets a page give the title its heading level. */
+const emptyTitleVariants = cva("text-content-primary", {
+  variants: {
+    size: {
+      default: "font-heading-h3",
+      // The one heading of a page that is nothing but this state (an error or a missing route).
+      page: "font-heading-h2",
+    },
+  },
+  defaultVariants: {
+    size: "default",
+  },
+});
+
+function EmptyTitle({
+  className,
+  asChild = false,
+  size = "default",
+  ...props
+}: React.ComponentProps<"div"> & { asChild?: boolean } & VariantProps<typeof emptyTitleVariants>) {
+  const Comp = asChild ? Slot.Root : "div";
   return (
-    <div
+    <Comp
       data-slot="empty-title"
-      className={cn("font-heading-h3 text-content-primary", className)}
+      data-size={size}
+      className={cn(emptyTitleVariants({ size, className }))}
       {...props}
     />
   );

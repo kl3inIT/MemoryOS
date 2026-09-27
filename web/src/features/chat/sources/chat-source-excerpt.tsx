@@ -1,15 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useApplicationSession } from "@/features/identity/application-session-context";
-import { stripGeneratedTitlePrefix } from "@/features/search/search-presentation";
-import { readChatDocumentPassages } from "@/lib/hey-api/sdk.gen";
+import { stripGeneratedTitlePrefix } from "@/features/documents/passage";
+import { readChatDocumentPassagesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
 import type { ChatSource } from "./chat-evidence";
 
 /** Cited text of a source as an inline block, so it can sit inside buttons and hover cards alike. */
 export function SourceExcerpt({ source, className }: { source: ChatSource; className?: string }) {
   const { t } = useTranslation("reader");
-  const style = cn("block break-words text-sm leading-5 text-content-secondary", className);
+  const style = cn("block text-sm leading-5 break-words text-content-secondary", className);
   if (source.web)
     return <span className={style}>{source.web.excerpt || new URL(source.web.url).hostname}</span>;
   if (source.fileId != null)
@@ -25,28 +24,15 @@ function DocumentSourceExcerpt({
   className: string;
 }) {
   const { t } = useTranslation("reader");
-  const { actorId, authorizationVersion } = useApplicationSession();
   const from = Math.max(0, source.startOrdinal - 2);
   const detail = useQuery({
-    queryKey: [
-      "chat-source-excerpt",
-      actorId,
-      authorizationVersion,
-      source.documentId,
-      source.generation,
-      from,
-    ],
-    queryFn: async ({ signal }) =>
-      (
-        await readChatDocumentPassages({
-          path: { documentId: source.documentId },
-          query: { generation: source.generation, from },
-          signal,
-        })
-      ).data,
+    ...readChatDocumentPassagesOptions({
+      path: { documentId: source.documentId },
+      query: { generation: source.generation, from },
+    }),
     retry: false,
-    // Short-lived, authority-scoped hover data. Opening the full reader uses its
-    // separate query and always revalidates the requested document generation.
+    // Short-lived hover data. Opening the full reader always revalidates the
+    // requested document generation.
     staleTime: 30_000,
     gcTime: 30_000,
   });

@@ -1,6 +1,5 @@
 import { injectQuoteContext } from "@assistant-ui/ai-sdk";
 import type { ChatTransport, UIMessageChunk } from "ai";
-import { z } from "zod";
 import { ApiError } from "@/lib/api";
 import {
   cancelChatMessage,
@@ -24,15 +23,24 @@ import {
   type ImageMode,
 } from "@/features/chat/image/chat-image";
 import {
-  generatedFileSchema,
   parseGeneratedFiles,
-  MAX_CODE_CHARACTERS,
-  MAX_OUTPUT_CHARACTERS,
   type CodeRun,
   type GeneratedFile,
 } from "@/features/chat/interpreter/chat-code";
 import { artifactsSchema, type ChatArtifact } from "@/features/chat/thread/chat-artifacts";
 import { sourcesSchema, type ChatSource } from "@/features/chat/sources/chat-evidence";
+import {
+  applyCodeEvent,
+  applyImageEvent,
+  boundedEventFetch,
+  codeSchema,
+  eventSchema,
+  imageSchema,
+  online,
+  outcomeSchema,
+  pause,
+  textSchema,
+} from "./chat-stream-events";
 import {
   ActivityChunks,
   activitySchema,
@@ -50,30 +58,6 @@ import {
   type ResearchState,
 } from "@/features/chat/research/chat-research";
 
-const eventSchema = z.object({
-  assistantMessageId: z.string().uuid(),
-  sequence: z.number().int().positive(),
-});
-const textSchema = eventSchema.extend({ text: z.string().max(1_000_000) });
-const outcomeSchema = eventSchema.extend({
-  status: z.enum(["COMPLETED", "CANCELED", "FAILED"]),
-  failureCode: z.string().max(100).nullish(),
-  hasArtifacts: z.boolean().default(false),
-});
-const codeSchema = eventSchema.extend({
-  toolCallId: z.string().min(1).max(256),
-  stage: z.enum(["RUNNING", "OUTPUT", "COMPLETED", "FAILED"]),
-  code: z.string().max(MAX_CODE_CHARACTERS).nullish(),
-  output: z.string().max(MAX_OUTPUT_CHARACTERS).nullish(),
-  stream: z.enum(["stdout", "stderr"]).nullish(),
-  files: z.array(generatedFileSchema).max(25).default([]),
-});
-const imageSchema = eventSchema.extend({
-  stage: z.enum(["GENERATING", "COMPLETED", "FAILED"]),
-  id: z.string().uuid().nullish(),
-  mediaType: z.string().max(128).nullish(),
-  revisedPrompt: z.string().max(4000).nullish(),
-});
 export type ConnectionState = "ready" | "sending" | "streaming" | "recovering" | "uncertain";
 type Callbacks = {
   state: (state: ConnectionState) => void;
@@ -131,7 +115,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   selectModel(id?: string) {
     this.modelConfigurationId = id;
   }
+  /** The model the server last accepted a turn with, kept while the thread stays mounted. */
+  lastModelSelection?: Accepted;
   recordModelSelection(selection: Accepted) {
+    this.lastModelSelection = selection;
     this.onModelAccepted?.(selection);
   }
   listenModelSelection(listener: (selection: Accepted) => void) {
@@ -282,7 +269,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       });
       this.runId = data.assistantMessageId;
       this.runCreatedAt = new Date().toISOString();
-      this.onModelAccepted?.(data);
+      this.recordModelSelection(data);
       this.runParentId = data.userMessageId;
       if (this.stopWhenAccepted) {
         // Stop can be pressed before the reservation response supplies its run ID.
@@ -486,53 +473,14 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               const cited = researchCitationsEventSchema.parse(data);
               yield* research.citations(cited.toolCallId, cited.citations);
             } else if (envelope.event === "image") {
-              const image = imageSchema.parse(data);
-              if (image.stage === "COMPLETED" && image.id) {
-                images = [
-                  ...images.filter((existing) => existing.id !== image.id),
-                  {
-                    id: image.id,
-                    mediaType: image.mediaType ?? "image/png",
-                    revisedPrompt: image.revisedPrompt ?? null,
-                  },
-                ];
-                imageGenerating = false;
-              } else imageGenerating = image.stage === "GENERATING";
+              ({ images, imageGenerating } = applyImageEvent(images, imageSchema.parse(data)));
               yield { type: "message-metadata", messageMetadata: { images, imageGenerating } };
             } else if (envelope.event === "code") {
-              const run = codeSchema.parse(data);
-              const previous = codeRuns[run.toolCallId] ?? {
-                code: "",
-                stdout: "",
-                stderr: "",
-                files: [],
-                status: "running" as const,
-              };
-              const delta = run.stage === "OUTPUT" ? (run.output ?? "") : "";
-              const onStderr = run.stream === "stderr";
-              codeRuns = {
-                ...codeRuns,
-                [run.toolCallId]: {
-                  code: run.stage === "RUNNING" ? (run.code ?? "") : previous.code,
-                  stdout: onStderr ? previous.stdout : previous.stdout + delta,
-                  stderr: onStderr ? previous.stderr + delta : previous.stderr,
-                  files:
-                    run.stage === "COMPLETED" || run.stage === "FAILED"
-                      ? run.files
-                      : previous.files,
-                  status:
-                    run.stage === "COMPLETED"
-                      ? "done"
-                      : run.stage === "FAILED"
-                        ? "failed"
-                        : "running",
-                },
-              };
-              if ((run.stage === "COMPLETED" || run.stage === "FAILED") && run.files.length)
-                generatedFiles = [
-                  ...generatedFiles.filter((file) => !run.files.some((one) => one.id === file.id)),
-                  ...run.files,
-                ];
+              ({ codeRuns, generatedFiles } = applyCodeEvent(
+                codeRuns,
+                generatedFiles,
+                codeSchema.parse(data),
+              ));
               yield { type: "message-metadata", messageMetadata: { codeRuns, generatedFiles } };
             }
             // Other event types from a newer server are skipped; the committed history stays authoritative.
@@ -630,60 +578,4 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       throw error;
     }
   }
-}
-
-/** Keep the generated SSE parser; bound bytes and preserve HTTP authorization errors. */
-const boundedEventFetch: typeof fetch = async (input, init) => {
-  const response = await fetch(input, init);
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new ApiError(response.status, undefined);
-  }
-  if (!response.headers.get("content-type")?.includes("text/event-stream") || !response.body) {
-    await response.body?.cancel();
-    throw new Error("Invalid reply stream");
-  }
-  let bytes = 0;
-  const body = response.body.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        bytes += chunk.byteLength;
-        if (bytes > 8 * 1024 * 1024) throw new Error("Reply stream exceeds the supported limit");
-        controller.enqueue(chunk);
-      },
-    }),
-  );
-  return new Response(body, { status: response.status, headers: response.headers });
-};
-
-function online(signal: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    signal.throwIfAborted();
-    const done = () => {
-      globalThis.removeEventListener("online", done);
-      signal.removeEventListener("abort", abort);
-      resolve();
-    };
-    const abort = () => {
-      globalThis.removeEventListener("online", done);
-      reject(signal.reason);
-    };
-    globalThis.addEventListener("online", done, { once: true });
-    signal.addEventListener("abort", abort, { once: true });
-  });
-}
-
-function pause(ms: number, signal: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    signal.throwIfAborted();
-    const abort = () => {
-      clearTimeout(timer);
-      reject(signal.reason);
-    };
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", abort);
-      resolve();
-    }, ms);
-    signal.addEventListener("abort", abort, { once: true });
-  });
 }

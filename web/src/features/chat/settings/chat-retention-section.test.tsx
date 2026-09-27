@@ -1,24 +1,43 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
+import {
+  handleGetChatRetention,
+  handlePreviewChatRetention,
+  handleSaveChatRetention,
+} from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { ChatRetentionSection } from "./chat-retention-section";
 
-const getChatRetention = vi.hoisted(() => vi.fn());
-const previewChatRetention = vi.hoisted(() => vi.fn());
-const saveChatRetention = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  getChatRetention: (...args: unknown[]) => getChatRetention(...args),
-  previewChatRetention: (...args: unknown[]) => previewChatRetention(...args),
-  saveChatRetention: (...args: unknown[]) => saveChatRetention(...args),
-}));
-vi.mock("@/features/identity/application-session-context", () => ({
-  useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
-}));
+/** What the server answers, and the requests it received. */
+const answers = {
+  policy: { days: null } as { days: number | null } | "failure",
+  affected: 0,
+};
+const previewChatRetention = vi.fn<(call: { query: { days?: number } }) => void>();
+const saveChatRetention = vi.fn<(call: { body: { days?: number } }) => void>();
 
 function show() {
+  server.use(
+    handleGetChatRetention(() =>
+      answers.policy === "failure"
+        ? HttpResponse.json({ title: "nope" }, { status: 500 })
+        : HttpResponse.json(answers.policy),
+    ),
+    handlePreviewChatRetention(({ request }) => {
+      const days = new URL(request.url).searchParams.get("days");
+      previewChatRetention({ query: { days: days === null ? undefined : Number(days) } });
+      return HttpResponse.json({ days: Number(days), affected: answers.affected });
+    }),
+    handleSaveChatRetention(async ({ request }) => {
+      const body = (await request.json()) as { days?: number };
+      saveChatRetention({ body });
+      return HttpResponse.json({ days: body.days ?? null });
+    }),
+  );
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -30,9 +49,8 @@ function show() {
 
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
-  getChatRetention.mockResolvedValue({ data: { days: null } });
-  previewChatRetention.mockResolvedValue({ data: { days: 90, affected: 0 } });
-  saveChatRetention.mockResolvedValue({ data: { days: 90 } });
+  answers.policy = { days: null };
+  answers.affected = 0;
 });
 afterEach(() => {
   cleanup();
@@ -40,7 +58,7 @@ afterEach(() => {
 });
 
 it("starts from no policy and saves the window the person picked", async () => {
-  previewChatRetention.mockResolvedValue({ data: { days: 90, affected: 2 } });
+  answers.affected = 2;
   show();
   const user = userEvent.setup();
 
@@ -62,15 +80,12 @@ it("starts from no policy and saves the window the person picked", async () => {
     within(screen.getByRole("alertdialog")).getByRole("button", { name: "Lưu thiết lập" }),
   );
 
-  await waitFor(() =>
-    expect(saveChatRetention).toHaveBeenCalledWith(expect.objectContaining({ body: { days: 90 } })),
-  );
+  await waitFor(() => expect(saveChatRetention).toHaveBeenCalledWith({ body: { days: 90 } }));
   expect(await screen.findByText("Đã lưu thiết lập tự xoá.")).toBeInTheDocument();
 });
 
 it("takes a number of days nobody offered as a preset", async () => {
-  getChatRetention.mockResolvedValue({ data: { days: 45 } });
-  previewChatRetention.mockResolvedValue({ data: { days: 7, affected: 0 } });
+  answers.policy = { days: 45 };
   show();
   const user = userEvent.setup();
 
@@ -91,8 +106,7 @@ it("takes a number of days nobody offered as a preset", async () => {
 });
 
 it("clears the policy by leaving the number out", async () => {
-  getChatRetention.mockResolvedValue({ data: { days: 30 } });
-  saveChatRetention.mockResolvedValue({ data: { days: null } });
+  answers.policy = { days: 30 };
   show();
   const user = userEvent.setup();
 
@@ -107,17 +121,13 @@ it("clears the policy by leaving the number out", async () => {
     within(screen.getByRole("alertdialog")).getByRole("button", { name: "Lưu thiết lập" }),
   );
 
-  await waitFor(() =>
-    expect(saveChatRetention).toHaveBeenCalledWith(expect.objectContaining({ body: {} })),
-  );
+  await waitFor(() => expect(saveChatRetention).toHaveBeenCalledWith({ body: {} }));
   // Nothing is previewed for "no policy": there is nothing to count.
-  expect(previewChatRetention).not.toHaveBeenCalledWith(
-    expect.objectContaining({ query: { days: undefined } }),
-  );
+  expect(previewChatRetention).not.toHaveBeenCalledWith({ query: { days: undefined } });
 });
 
 it("says so when the policy cannot be read", async () => {
-  getChatRetention.mockRejectedValue(new Error("nope"));
+  answers.policy = "failure";
   show();
 
   expect(await screen.findByText("Không tải được thiết lập tự xoá.")).toBeInTheDocument();

@@ -1,11 +1,15 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api";
-import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
+import {
+  getCurrentIdentityQueryKey,
+  listProjectChatSessionsQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { actionProblem } from "@/lib/action-errors";
 import {
+  invalidateChatVersions,
   loadChatHistory,
   toUiMessages,
   type ChatHistory,
@@ -157,7 +161,10 @@ export class ChatThreadController {
         );
         this.accepted = true;
         if (!this.state.session) this.set({ session });
-        void this.queries.invalidateQueries({ queryKey: ["chat-project-sessions"] });
+        if (session.projectId)
+          void this.queries.invalidateQueries({
+            queryKey: listProjectChatSessionsQueryKey({ path: { projectId: session.projectId } }),
+          });
       },
     });
     return unlisten;
@@ -288,8 +295,7 @@ export class ChatThreadController {
       this.onState("recovering");
       this.resumePending();
     } else this.onState("ready");
-    await this.queries.invalidateQueries({ queryKey: ["chat-branches", remoteId] });
-    await this.queries.invalidateQueries({ queryKey: ["chat-feedback", remoteId] });
+    await invalidateChatVersions(this.queries, remoteId);
   }
 
   private restore(history: ChatHistory) {
@@ -300,7 +306,6 @@ export class ChatThreadController {
       resume: running,
       connection: running ? "recovering" : this.state.connection,
     });
-    this.queries.setQueryData(["chat-session", history.session.id], history.session);
   }
 
   private onState(connection: ConnectionState) {
@@ -313,8 +318,7 @@ export class ChatThreadController {
     const id = this.transport.session?.id;
     if (this.accepted) this.answered.resolve();
     if (!id) return;
-    void this.queries.invalidateQueries({ queryKey: ["chat-branches", id] });
-    void this.queries.invalidateQueries({ queryKey: ["chat-feedback", id] });
+    void invalidateChatVersions(this.queries, id);
   }
 
   private handleError(cause: unknown) {

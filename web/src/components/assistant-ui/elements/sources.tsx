@@ -1,13 +1,12 @@
 "use client";
 
-import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils";
+import type { ComponentProps, CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
-import { DocumentSourceIcon } from "@/features/search/document-source-icon";
+import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
 import {
   documentKind,
   type DocumentSourceType,
-} from "@/features/search/document-source-presentation";
+} from "@/features/documents/document-source-presentation";
 import { SourceIcon } from "./source-icon";
 import { useTranslation } from "react-i18next";
 
@@ -44,7 +43,7 @@ export function Sources({
       prominence="internal"
       data-slot="sources"
       aria-label={t("sourcesCount", { count })}
-      className={cn("aria-expanded:bg-surface-sunken", className)}
+      className={className}
       {...props}
     >
       <span
@@ -55,8 +54,8 @@ export function Sources({
         {icons.map(([key, icon], index) => (
           <span
             key={key}
-            className="relative flex size-5 items-center justify-center rounded border border-border-subtle bg-surface-base"
-            style={{ zIndex: icons.length - index }}
+            className="relative z-(--stack) flex size-5 items-center justify-center rounded border border-border-subtle bg-surface-base"
+            style={{ "--stack": icons.length - index } as CSSProperties}
           >
             {icon.domain ? (
               <SourceIcon domain={icon.domain} fallback="globe" />

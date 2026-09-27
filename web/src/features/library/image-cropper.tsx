@@ -81,17 +81,31 @@ export function ImageCropper({
           }}
         />
         {rect ? (
-          // One ring dims everything around the selection, so the crop reads at a glance.
-          <div
-            aria-hidden
-            className="pointer-events-none absolute border border-border-on-media shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]"
-            style={{
-              left: `${rect.x * 100}%`,
-              top: `${rect.y * 100}%`,
-              width: `${rect.width * 100}%`,
-              height: `${rect.height * 100}%`,
-            }}
-          />
+          <>
+            {/* Everything around the selection is dimmed, so the crop reads at a glance. */}
+            <svg
+              aria-hidden
+              className="pointer-events-none absolute inset-0 size-full"
+              viewBox="0 0 1 1"
+              preserveAspectRatio="none"
+            >
+              <path
+                fillRule="evenodd"
+                className="fill-surface-scrim"
+                d={`M0 0H1V1H0Z M${rect.x} ${rect.y}h${rect.width}v${rect.height}h${-rect.width}Z`}
+              />
+            </svg>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute border border-border-on-media"
+              style={{
+                left: `${rect.x * 100}%`,
+                top: `${rect.y * 100}%`,
+                width: `${rect.width * 100}%`,
+                height: `${rect.height * 100}%`,
+              }}
+            />
+          </>
         ) : (
           <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-xs text-content-on-media">
             <span className="rounded-lg bg-surface-scrim px-2 py-1">

@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { revalidateLogic } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Ban,
   FileCheck,
@@ -9,24 +10,36 @@ import {
   ShieldAlert,
   Telescope,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
-import { Switch } from "@/components/ui/switch";
+import { z } from "zod";
+import { setServerErrors, useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useFieldValidity } from "@/components/form/form-context";
+import { SectionHeader } from "@/components/composites/section-header";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  getChatGuardrails,
-  getChatSettings,
-  saveChatGrounded,
-  saveChatGuardrails,
-  saveChatHistoryVisibility,
-  saveChatSettings,
-} from "@/lib/hey-api/sdk.gen";
-import type { ChatGuardrailTopic, ChatHistoryVisibilityRequest } from "@/lib/hey-api/types.gen";
+  getChatGuardrailsOptions,
+  getChatGuardrailsQueryKey,
+  getChatSettingsOptions,
+  getChatSettingsQueryKey,
+  saveChatGroundedMutation,
+  saveChatGuardrailsMutation,
+  saveChatHistoryVisibilityMutation,
+  saveChatSettingsMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type {
+  ChatGuardrailTopic,
+  ChatGuardrailsResponse,
+  ChatHistoryVisibilityRequest,
+} from "@/lib/hey-api/types.gen";
+import { zChatGuardrailsRequest, zChatGuardrailTopic } from "@/lib/hey-api/zod.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 
@@ -55,60 +68,73 @@ export function AdminChatSettings() {
   return (
     <SettingsLayout>
       <PageHeader title={ui("Chat")} icon={<MessageSquare />} />
-      <DeepResearchSection />
-      <ConversationHistorySection />
-      <GroundedSection />
-      <GuardrailsSection />
+      <div className="flex flex-col gap-8">
+        <DeepResearchSection />
+        <ConversationHistorySection />
+        <GroundedSection />
+        <GuardrailsSection />
+      </div>
     </SettingsLayout>
   );
 }
 
-function useChatSettings() {
-  const session = useApplicationSession();
-  return useQuery({
-    queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
-    retry: false,
-  });
+/** A section of the page: its heading, its content and the failure of its last change. */
+function ChatSection({
+  title,
+  description,
+  error,
+  children,
+}: {
+  title: string;
+  description?: ReactNode;
+  error?: ErrorMessage;
+  children: ReactNode;
+}) {
+  const problemMessage = useProblemMessage();
+  return (
+    <section aria-label={title} className="flex flex-col gap-3">
+      <SectionHeader title={title} description={description} />
+      {children}
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>{problemMessage(error)}</AlertTitle>
+        </Alert>
+      )}
+    </section>
+  );
 }
 
-function SectionError({ error }: { error?: ErrorMessage }) {
-  const problemMessage = useProblemMessage();
-  return error ? (
-    <p role="alert" className="text-sm text-status-danger-content">
-      {problemMessage(error)}
-    </p>
-  ) : null;
+function LoadFailure() {
+  const ui = useAppTranslation();
+  return (
+    <Alert variant="destructive">
+      <AlertTitle>{ui("Không tải được cài đặt Chat.")}</AlertTitle>
+    </Alert>
+  );
+}
+
+/** The Tenant Chat settings; a change to them refreshes every read of the settings. */
+function useChatSettings() {
+  const cache = useQueryClient();
+  const settings = useQuery({ ...getChatSettingsOptions(), retry: false });
+  const onSuccess = () => cache.invalidateQueries({ queryKey: getChatSettingsQueryKey() });
+  return { settings, onSuccess };
+}
+
+function mutationError(error: unknown) {
+  return error ? presentProblem(error, "mutation").message : undefined;
 }
 
 /** As Onyx Chat Preferences: Deep research is offered in the composer while enabled, and is enabled until changed. */
 function DeepResearchSection() {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
-  const settings = useChatSettings();
-  async function toggle(enabled: boolean) {
-    if (!settings.data) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await saveChatSettings({
-        body: { deepResearchEnabled: enabled, revision: settings.data.revision },
-      });
-      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation").message);
-    } finally {
-      setPending(false);
-    }
-  }
+  const { settings, onSuccess } = useChatSettings();
+  const save = useMutation({ ...saveChatSettingsMutation(), onSuccess });
   if (settings.isPending) return null;
   return (
-    <section aria-label={ui("Deep Research")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Deep Research")}</h2>
+    <ChatSection title={ui("Deep Research")} error={mutationError(save.error)}>
       {settings.isError ? (
-        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
+        <LoadFailure />
       ) : (
         <ProviderCard
           logo={<Telescope />}
@@ -120,17 +146,39 @@ function DeepResearchSection() {
           actions={
             <Switch
               checked={settings.data.deepResearchEnabled}
-              disabled={pending}
+              disabled={save.isPending}
               aria-label={ui("Bật Deep Research")}
-              onCheckedChange={(checked) => void toggle(checked)}
+              onCheckedChange={(checked) =>
+                save.mutate({
+                  body: { deepResearchEnabled: checked, revision: settings.data.revision },
+                })
+              }
             />
           }
         />
       )}
-      <SectionError error={error} />
-    </section>
+    </ChatSection>
   );
 }
+
+const historyModes: { value: ChatHistoryVisibility; label: AppCopy; detail: AppCopy }[] = [
+  {
+    value: "NORMAL",
+    label: "Show who asked",
+    detail: "A reader sees the name and e-mail of the person who asked.",
+  },
+  {
+    value: "ANONYMIZED",
+    label: "Hide who asked",
+    detail:
+      "The name and e-mail are hidden; the questions and answers are not. A question often names its author.",
+  },
+  {
+    value: "DISABLED",
+    label: "Nobody reads other people's conversations",
+    detail: "Conversations are still recorded; this screen and its export are refused.",
+  },
+];
 
 /**
  * Who may read other people's conversations (MEM-125). "Hide who asked" hides the name and the e-mail and nothing
@@ -138,57 +186,22 @@ function DeepResearchSection() {
  */
 function ConversationHistorySection() {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
-  const settings = useChatSettings();
-  async function choose(visibility: ChatHistoryVisibility) {
-    if (!settings.data) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await saveChatHistoryVisibility({
-        body: { visibility, revision: settings.data.revision },
-      });
-      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation").message);
-    } finally {
-      setPending(false);
-    }
-  }
+  const { settings, onSuccess } = useChatSettings();
+  const save = useMutation({ ...saveChatHistoryVisibilityMutation(), onSuccess });
   if (settings.isPending) return null;
-  const modes: { value: ChatHistoryVisibility; label: AppCopy; detail: AppCopy }[] = [
-    {
-      value: "NORMAL",
-      label: "Show who asked",
-      detail: "A reader sees the name and e-mail of the person who asked.",
-    },
-    {
-      value: "ANONYMIZED",
-      label: "Hide who asked",
-      detail:
-        "The name and e-mail are hidden; the questions and answers are not. A question often names its author.",
-    },
-    {
-      value: "DISABLED",
-      label: "Nobody reads other people's conversations",
-      detail: "Conversations are still recorded; this screen and its export are refused.",
-    },
-  ];
   return (
-    <section aria-label={ui("Conversation history")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Conversation history")}</h2>
-      <p className="text-content-muted">
-        {ui(
-          "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.",
-        )}
-      </p>
+    <ChatSection
+      title={ui("Conversation history")}
+      description={ui(
+        "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.",
+      )}
+      error={mutationError(save.error)}
+    >
       {settings.isError ? (
-        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
+        <LoadFailure />
       ) : (
         <div className="flex flex-col gap-2">
-          {modes.map((mode) => (
+          {historyModes.map((mode) => (
             <ProviderCard
               key={mode.value}
               logo={<MessagesSquare />}
@@ -198,48 +211,39 @@ function ConversationHistorySection() {
               actions={
                 <Switch
                   checked={settings.data.chatHistoryVisibility === mode.value}
-                  disabled={pending}
+                  disabled={save.isPending}
                   aria-label={ui(mode.label)}
-                  onCheckedChange={(checked) => (checked ? void choose(mode.value) : undefined)}
+                  onCheckedChange={(checked) => {
+                    if (checked)
+                      save.mutate({
+                        body: { visibility: mode.value, revision: settings.data.revision },
+                      });
+                  }}
                 />
               }
             />
           ))}
         </div>
       )}
-      <SectionError error={error} />
-    </section>
+    </ChatSection>
   );
 }
 
 /** MEM-195, after Amazon Q Business response settings: answers only from documents, and whether Web may be turned on. */
 function GroundedSection() {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
-  const settings = useChatSettings();
-  async function save(groundedAnswers: boolean, groundedAllowWeb: boolean) {
-    if (!settings.data) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await saveChatGrounded({
-        body: { groundedAnswers, groundedAllowWeb, revision: settings.data.revision },
-      });
-      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation").message);
-    } finally {
-      setPending(false);
-    }
-  }
+  const { settings, onSuccess } = useChatSettings();
+  const save = useMutation({ ...saveChatGroundedMutation(), onSuccess });
   if (settings.isPending) return null;
+  const change = (groundedAnswers: boolean, groundedAllowWeb: boolean) =>
+    settings.data &&
+    save.mutate({
+      body: { groundedAnswers, groundedAllowWeb, revision: settings.data.revision },
+    });
   return (
-    <section aria-label={ui("Trả lời từ tài liệu")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Trả lời từ tài liệu")}</h2>
+    <ChatSection title={ui("Trả lời từ tài liệu")} error={mutationError(save.error)}>
       {settings.isError ? (
-        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
+        <LoadFailure />
       ) : (
         <div className="flex flex-col gap-2">
           <ProviderCard
@@ -252,9 +256,9 @@ function GroundedSection() {
             actions={
               <Switch
                 checked={settings.data.groundedAnswers}
-                disabled={pending}
+                disabled={save.isPending}
                 aria-label={ui("Chỉ trả lời từ tài liệu của tổ chức")}
-                onCheckedChange={(checked) => void save(checked, settings.data.groundedAllowWeb)}
+                onCheckedChange={(checked) => change(checked, settings.data.groundedAllowWeb)}
               />
             }
           />
@@ -266,151 +270,200 @@ function GroundedSection() {
             actions={
               <Switch
                 checked={settings.data.groundedAllowWeb}
-                disabled={pending || !settings.data.groundedAnswers}
+                disabled={save.isPending || !settings.data.groundedAnswers}
                 aria-label={ui("Cho phép người dùng bật Tìm kiếm Web")}
-                onCheckedChange={(checked) => void save(settings.data.groundedAnswers, checked)}
+                onCheckedChange={(checked) => change(settings.data.groundedAnswers, checked)}
               />
             }
           />
         </div>
       )}
-      <SectionError error={error} />
-    </section>
+    </ChatSection>
   );
 }
 
-type Draft = { topics: ChatGuardrailTopic[]; phrases: string; message: string };
+const MAX_PHRASES = 20;
+const MAX_PHRASE_LENGTH = 100;
+
+/** The blocked phrases as the manager types them: one per line, blank lines ignored. */
+function phrasesOf(text: string) {
+  return text
+    .split("\n")
+    .map((phrase) => phrase.trim())
+    .filter(Boolean);
+}
+
+function guardrailsDraft(saved: ChatGuardrailsResponse) {
+  return {
+    topics: saved.topics,
+    phrases: saved.blockedPhrases.join("\n"),
+    message: saved.blockedPhraseMessage,
+  };
+}
 
 /** MEM-195, after Amazon Q Business topic controls and blocked phrases: the three built-in topics and exact phrases. */
 function GuardrailsSection() {
   const ui = useAppTranslation();
-  const session = useApplicationSession();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
-  const [draft, setDraft] = useState<Draft>();
-  const guardrails = useQuery({
-    queryKey: ["chat-guardrails", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatGuardrails({ signal })).data,
-    retry: false,
-  });
-  const saved = guardrails.data;
-  // The draft exists only while the manager edits; otherwise the page shows what is saved.
-  const view: Draft | undefined =
-    draft ??
-    (saved && {
-      topics: saved.topics,
-      phrases: saved.blockedPhrases.join("\n"),
-      message: saved.blockedPhraseMessage,
-    });
-  const dirty = draft !== undefined;
-  function topic(key: Topic, change: Partial<ChatGuardrailTopic>) {
-    if (!view) return;
-    setDraft({
-      ...view,
-      topics: view.topics.map((entry) => (entry.topic === key ? { ...entry, ...change } : entry)),
-    });
-  }
-  async function save() {
-    if (!saved || !view) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await saveChatGuardrails({
-        body: {
-          topics: view.topics,
-          blockedPhrases: view.phrases
-            .split("\n")
-            .map((phrase) => phrase.trim())
-            .filter(Boolean),
-          blockedPhraseMessage: view.message,
-          revision: saved.revision,
-        },
-      });
-      await guardrails.refetch();
-      setDraft(undefined);
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation").message);
-      // A conflict means another manager saved first; the draft stays and the next save carries
-      // the current revision.
-      await guardrails.refetch();
-    } finally {
-      setPending(false);
-    }
-  }
+  const guardrails = useQuery({ ...getChatGuardrailsOptions(), retry: false });
   if (guardrails.isPending) return null;
   return (
-    <section aria-label={ui("Chủ đề nhạy cảm")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Chủ đề nhạy cảm")}</h2>
-      {guardrails.isError || !view ? (
-        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
-      ) : (
-        <>
+    <ChatSection title={ui("Chủ đề nhạy cảm")}>
+      {guardrails.isError ? <LoadFailure /> : <GuardrailsForm saved={guardrails.data} />}
+    </ChatSection>
+  );
+}
+
+function GuardrailsForm({ saved }: { saved: ChatGuardrailsResponse }) {
+  const ui = useAppTranslation();
+  const cache = useQueryClient();
+  const problemErrors = useProblemErrors();
+  const save = useMutation(saveChatGuardrailsMutation());
+  const schema = z.object({
+    topics: z.array(zChatGuardrailTopic),
+    phrases: z
+      .string()
+      .refine((text) => phrasesOf(text).length <= MAX_PHRASES, ui("Tối đa 20 cụm từ."))
+      .refine(
+        (text) => phrasesOf(text).every((phrase) => phrase.length <= MAX_PHRASE_LENGTH),
+        ui("Mỗi cụm từ tối đa 100 ký tự."),
+      ),
+    message: zChatGuardrailsRequest.shape.blockedPhraseMessage.unwrap(),
+  });
+  const form = useAppForm({
+    defaultValues: guardrailsDraft(saved),
+    validationLogic: revalidateLogic(),
+    validators: { onDynamic: schema },
+    onSubmit: async ({ value, formApi }) => {
+      try {
+        // The saved revision is read at submit: after a conflict the refreshed guardrails carry the current one
+        // while the draft stays.
+        const next = await save.mutateAsync({
+          body: {
+            topics: value.topics,
+            blockedPhrases: phrasesOf(value.phrases),
+            blockedPhraseMessage: value.message,
+            revision: saved.revision,
+          },
+        });
+        cache.setQueryData(getChatGuardrailsQueryKey(), next);
+        formApi.reset(guardrailsDraft(next));
+      } catch (failed) {
+        setServerErrors(formApi, problemErrors(failed));
+        await cache.invalidateQueries({ queryKey: getChatGuardrailsQueryKey() });
+      }
+    },
+  });
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <form.Field name="topics">
+        {(topics) => (
           <div className="flex flex-col gap-2">
-            {view.topics.map((entry) => (
+            {topics.state.value.map((entry, index) => (
               <ProviderCard
                 key={entry.topic}
                 logo={<ShieldAlert />}
                 name={ui(TOPIC_NAMES[entry.topic])}
                 selected={entry.enabled}
                 actions={
-                  <Switch
-                    checked={entry.enabled}
-                    disabled={pending}
-                    aria-label={ui(TOPIC_NAMES[entry.topic])}
-                    onCheckedChange={(enabled) => topic(entry.topic, { enabled })}
-                  />
+                  <form.Field name={`topics[${index}].enabled`}>
+                    {(field) => (
+                      <Switch
+                        checked={field.state.value}
+                        aria-label={ui(TOPIC_NAMES[entry.topic])}
+                        onCheckedChange={field.handleChange}
+                      />
+                    )}
+                  </form.Field>
                 }
               >
                 {entry.enabled ? (
-                  <Input
-                    className="basis-full"
-                    value={entry.message}
-                    maxLength={500}
-                    disabled={pending}
-                    aria-label={ui("Câu trả lời khi bị chặn")}
-                    onChange={(event) => topic(entry.topic, { message: event.target.value })}
-                  />
+                  <form.Field name={`topics[${index}].message`}>
+                    {(field) => (
+                      <Input
+                        className="basis-full"
+                        value={field.state.value}
+                        maxLength={500}
+                        aria-label={ui("Câu trả lời khi bị chặn")}
+                        onBlur={field.handleBlur}
+                        onChange={(event) => field.handleChange(event.target.value)}
+                      />
+                    )}
+                  </form.Field>
                 ) : null}
               </ProviderCard>
             ))}
-            <ProviderCard
-              logo={<Ban />}
-              name={<label htmlFor="chat-blocked-phrases">{ui("Cụm từ bị chặn")}</label>}
-              selected={view.phrases.trim().length > 0}
-            >
-              <Textarea
-                id="chat-blocked-phrases"
-                className="basis-full"
-                rows={3}
-                value={view.phrases}
-                disabled={pending}
-                placeholder={ui("Mỗi dòng một cụm từ, tối đa 20")}
-                onChange={(event) => setDraft({ ...view, phrases: event.target.value })}
-              />
-              <label
-                htmlFor="chat-blocked-message"
-                className="basis-full text-sm text-content-secondary"
-              >
-                {ui("Câu trả lời khi bị chặn")}
-              </label>
-              <Input
-                id="chat-blocked-message"
-                className="basis-full"
-                value={view.message}
-                maxLength={500}
-                disabled={pending}
-                onChange={(event) => setDraft({ ...view, message: event.target.value })}
-              />
-            </ProviderCard>
           </div>
-          <div className="flex justify-end">
-            <Button disabled={!dirty || pending} onClick={() => void save()}>
-              {ui("Lưu")}
-            </Button>
-          </div>
-        </>
-      )}
-      <SectionError error={error} />
-    </section>
+        )}
+      </form.Field>
+      <form.Subscribe selector={(state) => state.values.phrases.trim().length > 0}>
+        {(hasPhrases) => (
+          <ProviderCard
+            logo={<Ban />}
+            name={<label htmlFor="phrases">{ui("Cụm từ bị chặn")}</label>}
+            selected={hasPhrases}
+          >
+            <form.AppField name="phrases">{() => <PhrasesControl />}</form.AppField>
+            <form.AppField name="message">
+              {() => <MessageControl label={ui("Câu trả lời khi bị chặn")} />}
+            </form.AppField>
+          </ProviderCard>
+        )}
+      </form.Subscribe>
+      <form.AppForm>
+        <form.FormError />
+        <form.Subscribe selector={(state) => state.isDirty}>
+          {(dirty) => (
+            <div className="flex justify-end">
+              <form.SubmitButton disabled={!dirty}>{ui("Lưu")}</form.SubmitButton>
+            </div>
+          )}
+        </form.Subscribe>
+      </form.AppForm>
+    </form>
+  );
+}
+
+function PhrasesControl() {
+  const ui = useAppTranslation();
+  const { field, invalid, errors } = useFieldValidity<string>();
+  return (
+    <div className="flex basis-full flex-col gap-1" data-invalid={invalid || undefined}>
+      <Textarea
+        id={field.name}
+        name={field.name}
+        rows={3}
+        value={field.state.value}
+        placeholder={ui("Mỗi dòng một cụm từ, tối đa 20")}
+        aria-invalid={invalid || undefined}
+        onBlur={field.handleBlur}
+        onChange={(event) => field.handleChange(event.target.value)}
+      />
+      {invalid ? <FieldError errors={errors} /> : null}
+    </div>
+  );
+}
+
+function MessageControl({ label }: { label: string }) {
+  const { field, invalid, errors } = useFieldValidity<string>();
+  return (
+    <div className="flex basis-full flex-col gap-1" data-invalid={invalid || undefined}>
+      <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
+      <Input
+        id={field.name}
+        name={field.name}
+        value={field.state.value}
+        maxLength={500}
+        aria-invalid={invalid || undefined}
+        onBlur={field.handleBlur}
+        onChange={(event) => field.handleChange(event.target.value)}
+      />
+      {invalid ? <FieldError errors={errors} /> : null}
+    </div>
   );
 }

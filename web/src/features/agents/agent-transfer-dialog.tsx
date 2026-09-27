@@ -1,16 +1,21 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { User, Users } from "lucide-react";
-import { transferChatPersona } from "@/lib/hey-api/sdk.gen";
+import { transferChatPersonaMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { Item } from "@/components/ui/item";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { personLabel } from "@/features/identity/principals";
-import type { Persona } from "@/features/chat/chat-personas-api";
+import { invalidateAgents, type Persona } from "@/features/chat/chat-personas-api";
 import { PrincipalPicker, type Principal } from "@/features/identity/principal-picker";
 
 export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClose: () => void }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
+  const transfer = useMutation({
+    ...transferChatPersonaMutation(),
+    onSuccess: () => invalidateAgents(cache, agent.id),
+  });
   const [target, setTarget] = useState<Principal>();
   const current = agent.owner.actor?.actorId ?? agent.owner.group?.id;
   return (
@@ -27,25 +32,20 @@ export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClos
       submitDisabled={!target}
       onSubmit={async () => {
         if (!target) return;
-        await transferChatPersona({
+        await transfer.mutateAsync({
           path: { personaId: agent.id },
           query: { revision: agent.revision },
           body:
             target.kind === "person"
               ? { actorId: target.person.actorId }
               : { groupId: target.group.id },
-          signal: AbortSignal.timeout(30000),
         });
-        await cache.invalidateQueries({ queryKey: ["chat-personas"] });
       }}
     >
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <PrincipalPicker exclude={new Set(current ? [current] : [])} onPick={setTarget} />
         {target && (
-          <p
-            role="status"
-            className="flex items-center gap-2 rounded-xl border border-border-default px-3 py-2 text-sm"
-          >
+          <Item role="status" variant="outline" size="sm">
             {target.kind === "person" ? (
               <User aria-hidden="true" className="size-4" />
             ) : (
@@ -54,7 +54,7 @@ export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClos
             {ui("Chủ sở hữu mới: {{v1}}", {
               v1: target.kind === "person" ? personLabel(target.person) : target.group.name,
             })}
-          </p>
+          </Item>
         )}
       </div>
     </FormDialog>

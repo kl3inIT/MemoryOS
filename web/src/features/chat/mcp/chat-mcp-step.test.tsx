@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
+import { handleListMcpConnections } from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 import {
   ActivityChunks,
@@ -11,14 +13,6 @@ import {
 } from "@/features/chat/activity/chat-activity";
 import { parseMcpToolName } from "@/features/mcp/mcp-connections";
 import { ChatMcpToolStep } from "./chat-mcp-step";
-
-const listMcpConnections = vi.fn();
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listMcpConnections: (...args: unknown[]) => listMcpConnections(...args),
-  startMcpConnectionAuthorization: vi.fn(),
-  saveMcpConnectionApiKey: vi.fn(),
-}));
 
 vi.mock("@tanstack/react-router", () => ({
   useParams: () => ({ sessionId: "session-7" }),
@@ -56,7 +50,7 @@ function show(
   state: "running" | "done" | "failed",
   failure: ToolProgress["failure"] = null,
 ) {
-  listMcpConnections.mockResolvedValue({ data: connections });
+  server.use(handleListMcpConnections({ body: connections }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>

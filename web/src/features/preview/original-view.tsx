@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { DownloadView } from "./download-view";
 import { FilePreview, type PreviewCitations } from "./file-preview";
@@ -51,10 +50,10 @@ export function OriginalView({
   thumbnails?: boolean;
 } & PreviewCitations) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const declared = mediaType || "application/octet-stream";
   const loaded = useQuery({
-    queryKey: ["document-original", actorId, authorizationVersion, reader.url],
+    // The reader's URL names the route and so the authority it is read with; the bytes are held only while open.
+    queryKey: ["document-original", reader.url],
     queryFn: ({ signal }) => load(reader, filename, declared, signal),
     retry: false,
     staleTime: 0,

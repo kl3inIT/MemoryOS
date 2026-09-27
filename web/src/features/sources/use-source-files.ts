@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { listSourceItemsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
-import { useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
+import { useCursorPaging } from "@/components/data-table/use-cursor-paging";
 
 /** The current files of a Source, a page at a time, polled while any of them is still changing. */
 export function useSourceFiles(sourceId: string, source: SourceSummary | undefined) {

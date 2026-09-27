@@ -7,7 +7,7 @@ import { modelActionError } from "./model-catalog";
 export type ProviderTestOutcome = { ok: boolean; message: AppCopy; detail?: string };
 
 /** Northstar's gateway test line: the outcome, its round trip and what the endpoint serves. */
-export function providerTestSuccess(
+function providerTestSuccess(
   latencyMillis: number,
   modelCount: number | null | undefined,
 ): AppText {

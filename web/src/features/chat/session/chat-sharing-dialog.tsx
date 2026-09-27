@@ -1,16 +1,31 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock, Share2, Users } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Lock, Share2, Users, type LucideIcon } from "lucide-react";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { getChatSharing, setChatSharing } from "@/lib/hey-api/sdk.gen";
+import {
+  getChatSharingOptions,
+  getChatSharingQueryKey,
+  setChatSharingMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { Sharing } from "@/lib/hey-api/types.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
-import { cn } from "@/lib/utils";
-import { z } from "zod";
 
-const sharingSchema = z.object({ enabled: z.boolean(), revision: z.number().int() });
+/** Link sharing of a conversation as the API sends it; the published contract marks both fields optional. */
+function sharingOf({ enabled = false, revision }: Sharing) {
+  if (revision === undefined) throw new TypeError("Conversation sharing carries its revision.");
+  return { enabled, revision };
+}
 
 export function SharingDialog({
   sessionId,
@@ -24,18 +39,21 @@ export function SharingDialog({
   trigger?: ReactNode;
 }) {
   const ui = useAppTranslation();
-
   const [internalOpen, setOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const [enabled, setEnabled] = useState<boolean>();
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const cache = useQueryClient();
+  const path = { sessionId };
   const sharing = useQuery({
-    queryKey: ["chat-sharing", sessionId],
-    queryFn: async ({ signal }) =>
-      sharingSchema.parse((await getChatSharing({ path: { sessionId }, signal })).data),
+    ...getChatSharingOptions({ path }),
+    select: sharingOf,
     enabled: open,
     staleTime: 0,
+  });
+  const save = useMutation({
+    ...setChatSharingMutation(),
+    onSuccess: (saved) => cache.setQueryData(getChatSharingQueryKey({ path }), saved),
   });
   const link = new URL(`/shared/${sessionId}`, window.location.origin).toString();
   const selected = enabled ?? sharing.data?.enabled ?? false;
@@ -50,6 +68,20 @@ export function SharingDialog({
       setCopyState("failed");
     }
   }
+  const choices: { value: boolean; title: string; description: string; Icon: LucideIcon }[] = [
+    {
+      value: false,
+      title: ui("Riêng tư"),
+      description: ui("Chỉ mình bạn xem được hội thoại."),
+      Icon: Lock,
+    },
+    {
+      value: true,
+      title: ui("Chia sẻ trong tổ chức"),
+      description: ui("Người có liên kết cần đăng nhập."),
+      Icon: Users,
+    },
+  ];
   return (
     <FormDialog
       title={ui("Chia sẻ hội thoại")}
@@ -67,7 +99,7 @@ export function SharingDialog({
         trigger ??
         (controlledOpen === undefined ? (
           <Button size="sm" prominence="internal">
-            <Share2 className="size-4" />
+            <Share2 data-icon="inline-start" />
             <span className="hidden sm:inline">{ui("Chia sẻ")}</span>
             <span className="sr-only sm:hidden">{ui("Chia sẻ")}</span>
           </Button>
@@ -86,12 +118,11 @@ export function SharingDialog({
         ready
           ? async () => {
               if (selected !== sharing.data!.enabled) {
-                const { data } = await setChatSharing({
-                  path: { sessionId },
+                await save.mutateAsync({
+                  path,
                   body: { enabled: selected, revision: sharing.data!.revision },
                   signal: AbortSignal.timeout(30000),
                 });
-                cache.setQueryData(["chat-sharing", sessionId], sharingSchema.parse(data));
                 setEnabled(undefined);
               }
               if (selected) await copy();
@@ -102,70 +133,58 @@ export function SharingDialog({
     >
       {sharing.isPending && <p role="status">{ui("Đang tải quyền chia sẻ…")}</p>}
       {sharing.isError && (
-        <p role="alert">
-          {ui("Không tải được quyền chia sẻ.")}{" "}
-          <Button type="button" prominence="internal" onClick={() => void sharing.refetch()}>
-            {ui("Tải lại")}
-          </Button>
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Không tải được quyền chia sẻ.")}</AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              size="sm"
+              prominence="internal"
+              onClick={() => void sharing.refetch()}
+            >
+              {ui("Tải lại")}
+            </Button>
+          </AlertAction>
+        </Alert>
       )}
       {sharing.data && !sharing.isError && (
         <>
           <RadioGroup
             aria-label={ui("Quyền chia sẻ")}
-            className="space-y-2"
             value={String(selected)}
             onValueChange={(next) => {
               setEnabled(next === "true");
               setCopyState("idle");
             }}
           >
-            {[
-              {
-                value: false,
-                title: "Riêng tư",
-                description: "Chỉ mình bạn xem được hội thoại.",
-                Icon: Lock,
-              },
-              {
-                value: true,
-                title: "Chia sẻ trong tổ chức",
-                description: "Người có liên kết cần đăng nhập.",
-                Icon: Users,
-              },
-            ].map(({ value, title, description, Icon }) => (
-              <label
-                key={title}
-                className={cn(
-                  "flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left has-focus-visible:ring-2 has-focus-visible:ring-ring has-disabled:opacity-50",
-                  selected === value
-                    ? "border-border-strong bg-surface-sunken"
-                    : "border-border-subtle hover:bg-surface-sunken",
-                )}
-              >
-                <RadioGroupItem
-                  value={String(value)}
-                  aria-label={ui(title)}
-                  disabled={!choosable}
-                />
-                <Icon className="size-5 shrink-0" />
-                <span>
-                  <span className="block font-medium">{ui(title)}</span>
-                  <span className="text-sm text-content-secondary">{ui(description)}</span>
-                </span>
-              </label>
+            {choices.map(({ value, title, description, Icon }) => (
+              <FieldLabel key={String(value)} htmlFor={`chat-sharing-${value}`}>
+                <Field orientation="horizontal" data-disabled={!choosable || undefined}>
+                  <RadioGroupItem
+                    id={`chat-sharing-${value}`}
+                    value={String(value)}
+                    aria-label={title}
+                    disabled={!choosable}
+                  />
+                  <Icon aria-hidden="true" className="size-5 shrink-0" />
+                  <FieldContent>
+                    <FieldTitle>{title}</FieldTitle>
+                    <FieldDescription>{description}</FieldDescription>
+                  </FieldContent>
+                </Field>
+              </FieldLabel>
             ))}
           </RadioGroup>
           {sharing.data.enabled && selected && (
-            <label className="block space-y-2">
-              <span className="text-sm">{ui("Liên kết chỉ đọc")}</span>
+            <Field>
+              <FieldLabel htmlFor="chat-sharing-link">{ui("Liên kết chỉ đọc")}</FieldLabel>
               <Input
-                aria-label={ui("Liên kết chỉ đọc")}
+                id="chat-sharing-link"
                 readOnly
                 value={link}
                 onFocus={(event) => event.target.select()}
               />
-            </label>
+            </Field>
           )}
           <p role="status" className="text-sm text-content-secondary">
             {copyState === "copied"

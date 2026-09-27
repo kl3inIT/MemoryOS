@@ -21,7 +21,7 @@ export async function waitForSourceOperation(operation: SourceOperation, signal:
   return operation;
 }
 
-export function abortableDelay(milliseconds: number, signal: AbortSignal) {
+function abortableDelay(milliseconds: number, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal.aborted) {
       reject(signal.reason);

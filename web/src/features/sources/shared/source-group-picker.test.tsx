@@ -1,20 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-// Configures the generated client's base URL, as the application shell does at startup.
-import "@/lib/api";
+import { HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import { handleListSourceGroupOptions } from "@/lib/hey-api/msw.gen";
 import type { SourceGroup } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { SourceGroupPicker } from "./source-group-picker";
 
 const team: SourceGroup = { id: "team", name: "Knowledge team", systemKey: null };
 const admin: SourceGroup = { id: "admin", name: "Admin", systemKey: "ADMIN" };
-
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
 
 function Picker({ onChange }: { onChange: (groupIds: Set<string>) => void }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -33,19 +29,20 @@ function Picker({ onChange }: { onChange: (groupIds: Set<string>) => void }) {
 
 function renderPicker() {
   const searches: string[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      const url = new URL(request.url);
-      if (url.pathname !== "/api/sources/group-options") {
-        throw new Error(`Unexpected request: ${request.method} ${url.pathname}`);
-      }
-      const search = url.searchParams.get("search") ?? "";
+  server.use(
+    handleListSourceGroupOptions(({ request }) => {
+      const search = new URL(request.url).searchParams.get("search") ?? "";
       searches.push(search);
       const items = [admin, team].filter((group) =>
         group.name.toLowerCase().includes(search.toLowerCase()),
       );
-      return Response.json({ items, page: 0, size: 25, totalItems: items.length, totalPages: 1 });
+      return HttpResponse.json({
+        items,
+        page: 0,
+        size: 25,
+        totalItems: items.length,
+        totalPages: 1,
+      });
     }),
   );
   const onChange = vi.fn();

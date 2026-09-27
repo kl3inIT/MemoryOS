@@ -34,8 +34,9 @@ class PcmCaptureProcessor extends AudioWorkletProcessor implements AudioWorkletP
     let position = this.position;
     while (position < channel.length - 1) {
       const index = Math.floor(position);
-      const from = index < 0 ? this.previous : channel[index];
-      const to = channel[index + 1];
+      // The loop keeps index + 1 below channel.length, so both reads are in bounds.
+      const from = index < 0 ? this.previous : channel[index]!;
+      const to = channel[index + 1]!;
       const value = Math.max(-1, Math.min(1, from + (to - from) * (position - index)));
       const sample = value < 0 ? value * 0x8000 : value * 0x7fff;
       this.chunk[this.filled++] = sample;
@@ -43,7 +44,8 @@ class PcmCaptureProcessor extends AudioWorkletProcessor implements AudioWorkletP
       if (this.filled === CHUNK_SAMPLES) this.flush();
       position += this.step;
     }
-    this.previous = channel[channel.length - 1];
+    // The channel is non-empty (checked above).
+    this.previous = channel[channel.length - 1]!;
     this.position = position - channel.length;
     return true;
   }

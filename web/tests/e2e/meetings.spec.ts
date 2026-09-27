@@ -5,6 +5,7 @@ import type {
   MeetingDetail,
   MeetingSummary,
 } from "../../src/lib/hey-api/types.gen";
+import { expectNoSeriousA11yViolations } from "./axe";
 
 // Chromium's fake capture device plays a tone, so the real AudioWorklet produces voiced PCM16 frames.
 test.use({
@@ -650,7 +651,8 @@ for (const width of [1440, 390]) {
     const dialog = page.getByRole("dialog", { name: "Ghi cuộc họp mới" });
     // Only what the recording needs is asked up front; the rest waits behind "Thêm chi tiết" or on the page.
     await expect(dialog.getByLabel("Tên cuộc họp")).toBeHidden();
-    await dialog.getByText("Họp trực tiếp", { exact: true }).click();
+    await dialog.getByRole("radio", { name: "Họp trực tiếp" }).click();
+    await expectNoSeriousA11yViolations(page);
     await page.screenshot({ path: `../output/playwright/meetings-new-short-${width}.png` });
     await dialog.getByRole("button", { name: "Thêm chi tiết" }).click();
     await dialog.getByLabel("Tên cuộc họp").fill("Giao ban tuần · Khối Tài chính");

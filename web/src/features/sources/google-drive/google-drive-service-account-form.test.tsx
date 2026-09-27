@@ -1,7 +1,13 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { assert, describe, expect, it, vi } from "vitest";
+import {
+  handleCreateGoogleDriveServiceAccount,
+  handleReplaceGoogleDriveServiceAccount,
+} from "@/lib/hey-api/msw.gen";
 import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { GoogleDriveServiceAccountForm } from "./google-drive-service-account-form";
 
 const key = {
@@ -27,22 +33,20 @@ const stored: GoogleDriveCredentialResponse = {
   actions: ["replace_key", "revoke", "delete"],
 };
 
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
-
 function jsonFile(content: unknown) {
   return new File([JSON.stringify(content)], "key.json", { type: "application/json" });
 }
 
 function setup(replacing: GoogleDriveCredentialResponse | null = null) {
   const requests: Request[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
+  server.use(
+    handleCreateGoogleDriveServiceAccount(({ request }) => {
       requests.push(request.clone());
-      return Response.json(stored, { status: replacing ? 200 : 201 });
+      return HttpResponse.json(stored, { status: 201 });
+    }),
+    handleReplaceGoogleDriveServiceAccount(({ request }) => {
+      requests.push(request.clone());
+      return HttpResponse.json(stored);
     }),
   );
   const onSaved = vi.fn();
@@ -84,10 +88,16 @@ describe("Google Drive service account form", () => {
 
     await user.click(screen.getByRole("button", { name: "Save service account" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(stored));
+    const [request] = requests;
     expect(requests).toHaveLength(1);
-    expect(new URL(requests[0].url).pathname).toBe("/api/credentials/google-drive/service-account");
-    expect(requests[0].method).toBe("POST");
-    const body = (await requests[0].json()) as Record<string, string>;
+    assert.isDefined(request);
+    expect(new URL(request.url).pathname).toBe("/api/credentials/google-drive/service-account");
+    expect(request.method).toBe("POST");
+    const body = (await request.json()) as {
+      name: string;
+      adminEmail: string;
+      serviceAccountKeyJson: string;
+    };
     expect(body.name).toBe("Workspace");
     expect(body.adminEmail).toBe("admin@example.com");
     expect(JSON.parse(body.serviceAccountKeyJson)).toEqual(key);
@@ -101,10 +111,12 @@ describe("Google Drive service account form", () => {
     await user.upload(screen.getByLabelText("Upload service account JSON key"), jsonFile(key));
     await user.click(await screen.findByRole("button", { name: "Replace key" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(new URL(requests[0].url).pathname).toBe(
+    const [request] = requests;
+    assert.isDefined(request);
+    expect(new URL(request.url).pathname).toBe(
       "/api/credentials/google-drive/credential-1/service-account",
     );
-    expect(requests[0].method).toBe("PUT");
-    expect(requests[0].headers.get("If-Match")).toBe('"1"');
+    expect(request.method).toBe("PUT");
+    expect(request.headers.get("If-Match")).toBe('"1"');
   });
 });

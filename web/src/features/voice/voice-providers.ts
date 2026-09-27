@@ -1,11 +1,21 @@
+import type { QueryClient } from "@tanstack/react-query";
+import {
+  getChatVoiceAvailabilityQueryKey,
+  listChatVoiceConnectionsQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { VoiceConnectionResponse, VoiceProviderResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 
 export type VoiceProviderId = VoiceProviderResponse["provider"];
 export type VoiceFunction = "STT" | "TTS";
 
-/** Every voice query shares this prefix, so a configuration change refreshes availability everywhere. */
-export const voiceQueryKey = ["chat-voice"] as const;
+/** Refreshes what a voice configuration change affects: the connections and the availability Chat and Search read. */
+export function invalidateVoice(cache: QueryClient) {
+  return Promise.all([
+    cache.invalidateQueries({ queryKey: listChatVoiceConnectionsQueryKey() }),
+    cache.invalidateQueries({ queryKey: getChatVoiceAvailabilityQueryKey() }),
+  ]);
+}
 
 export const voiceProblem = (error: unknown): ErrorMessage =>
   presentProblem(error, "mutation", {

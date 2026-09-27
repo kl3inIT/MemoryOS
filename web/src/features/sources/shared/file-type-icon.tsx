@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import type { CSSProperties } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { fileTypeOf } from "./file-types";
 
@@ -22,8 +23,9 @@ export function FileTypeIcon({
         icon={type.icon}
         ssr
         aria-hidden="true"
-        className="size-4"
-        style={type.color ? { color: type.color } : undefined}
+        // A brand colour arrives as data, so it reaches the icon through a custom property.
+        className="size-4 text-(--file-type-color)"
+        style={type.color ? ({ "--file-type-color": type.color } as CSSProperties) : undefined}
       />
       <span className="sr-only">{label}: </span>
     </span>

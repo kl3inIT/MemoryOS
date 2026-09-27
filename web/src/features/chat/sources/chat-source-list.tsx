@@ -2,8 +2,8 @@ import { ArrowUpRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
-import { DocumentSourceIcon } from "@/features/search/document-source-icon";
-import { DocumentMeta } from "@/features/search/provider-link";
+import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
+import { DocumentMeta } from "@/features/documents/provider-link";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ChatSource } from "./chat-evidence";
 import { SourceExcerpt } from "./chat-source-excerpt";
@@ -49,17 +49,17 @@ export function ChatSourceRow({
       data-slot="source-row"
       aria-label={t("readSource", { number: source.citationId, title: source.title })}
       onClick={() => onSelect(source.citationId)}
-      className="flex w-full cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 text-start outline-none transition-colors duration-150 hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-focus-ring/40 motion-reduce:transition-none"
+      className="flex w-full cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 text-start transition-colors duration-150 outline-none hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-focus-ring/40 motion-reduce:transition-none"
     >
       <SourceTile source={source} />
       <span className="min-w-0 flex-1">
         <span className="flex items-start gap-2">
-          <span className="line-clamp-2 min-w-0 flex-1 break-words text-sm font-medium leading-5 text-content-primary">
+          <span className="line-clamp-2 min-w-0 flex-1 text-sm leading-5 font-medium break-words text-content-primary">
             {source.title}
           </span>
           <span
             aria-hidden="true"
-            className="shrink-0 rounded-md bg-surface-sunken px-1.5 text-xs font-medium leading-5 text-content-secondary tabular-nums"
+            className="shrink-0 rounded-md bg-surface-sunken px-1.5 text-xs leading-5 font-medium text-content-secondary tabular-nums"
           >
             {source.citationId}
           </span>
@@ -89,12 +89,12 @@ export function ChatSourceHeader({
         <SourceTile source={source} />
         <div className="min-w-0 flex-1">
           <h3
-            className="line-clamp-3 break-words font-main-ui-action text-content-primary"
+            className="line-clamp-3 font-main-ui-action break-words text-content-primary"
             title={source.title}
           >
             {source.title}
           </h3>
-          <p className="mt-0.5 break-words text-xs leading-5 text-content-muted">
+          <p className="mt-0.5 text-xs leading-5 break-words text-content-muted">
             {source.web ? (
               <>
                 {t("sourceNumber", { number: source.citationId })}
@@ -105,7 +105,7 @@ export function ChatSourceHeader({
                   rel="noopener noreferrer"
                   title={source.web.url}
                   aria-label={ui("Mở trang gốc")}
-                  className="inline-flex max-w-full items-center gap-0.5 rounded-sm text-content-secondary underline decoration-border-default underline-offset-4 hover:text-content-primary hover:decoration-current focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+                  className="inline-flex max-w-full items-center gap-0.5 rounded-sm text-content-secondary underline decoration-border-default underline-offset-4 hover:text-content-primary hover:decoration-current focus-visible:ring-3 focus-visible:ring-focus-ring/30 focus-visible:outline-hidden"
                 >
                   <span className="truncate">{webDisplayUrl(source.web.url)}</span>
                   <ArrowUpRight className="size-3 shrink-0" aria-hidden="true" />

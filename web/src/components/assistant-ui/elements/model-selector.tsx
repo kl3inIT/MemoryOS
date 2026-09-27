@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
   createContext,
-  useContext,
+  use,
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
@@ -127,7 +127,7 @@ type ModelSelectorContextValue = {
 const ModelSelectorContext = createContext<ModelSelectorContextValue | null>(null);
 
 export function useModelSelectorContext() {
-  const ctx = useContext(ModelSelectorContext);
+  const ctx = use(ModelSelectorContext);
   if (!ctx) {
     throw new Error("ModelSelector sub-components must be used within ModelSelector.Root");
   }
@@ -210,20 +210,20 @@ function ModelSelectorRoot({
   );
 
   return (
-    <ModelSelectorContext.Provider value={contextValue}>
+    <ModelSelectorContext value={contextValue}>
       <Popover open={open ?? false} onOpenChange={setOpen}>
         {children}
       </Popover>
-    </ModelSelectorContext.Provider>
+    </ModelSelectorContext>
   );
 }
 
 export const modelSelectorTriggerVariants = cva(
-  "focus-visible:ring-ring/50 flex w-fit items-center justify-between gap-2 overflow-hidden rounded-md text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+  "flex w-fit items-center justify-between gap-2 overflow-hidden rounded-md text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
   {
     variants: {
       variant: {
-        outline: "border-input hover:bg-accent hover:text-accent-foreground border bg-transparent",
+        outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         muted: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
       },
@@ -258,8 +258,12 @@ function ModelSelectorTrigger({
       data-slot="model-selector-trigger"
       data-variant={variant ?? "outline"}
       data-size={size ?? "default"}
+      // Radix PopoverTrigger sets aria-expanded and aria-controls on the rendered button.
+      // oxlint-disable-next-line jsx-a11y/role-has-required-aria-props
       role="combobox"
       aria-haspopup="listbox"
+      // This element's own cva variants; the rule checks their class strings where they are declared.
+      // oxlint-disable-next-line shadcn/require-static-classes
       className={cn(modelSelectorTriggerVariants({ variant, size }), className)}
       onKeyDown={(e) => {
         onKeyDown?.(e);
@@ -326,7 +330,7 @@ function ModelSelectorValue({
       {selectedModel.icon && <ModelIcon>{selectedModel.icon}</ModelIcon>}
       <span className="truncate font-medium">{selectedModel.name}</span>
       {effortName && (
-        <span className="text-muted-foreground min-w-7.5 truncate text-center">{effortName}</span>
+        <span className="min-w-7.5 truncate text-center text-muted-foreground">{effortName}</span>
       )}
     </span>
   );
@@ -412,17 +416,10 @@ function ModelSelectorContent({
       align={align}
       side={renderedSide ?? side ?? "bottom"}
       sideOffset={sideOffset}
-      className={cn(
-        "bg-popover w-72 min-w-(--radix-popover-trigger-width) overflow-hidden rounded-xl p-0",
-        className,
-      )}
+      className={cn("w-72 min-w-(--radix-popover-trigger-width) overflow-hidden p-0", className)}
       {...props}
     >
-      <Command
-        className="bg-transparent"
-        shouldFilter={!unfiltered}
-        {...(value !== undefined ? { defaultValue: value } : {})}
-      >
+      <Command shouldFilter={!unfiltered} {...(value !== undefined ? { defaultValue: value } : {})}>
         {unfiltered && <ModelSelectorFocusAnchor />}
         {children ?? (
           <>
@@ -455,14 +452,7 @@ function ModelSelectorList({ className, children, ...props }: ModelSelectorListP
   const { models } = useModelSelectorContext();
 
   return (
-    <CommandList
-      data-slot="model-selector-list"
-      className={cn(
-        "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-        className,
-      )}
-      {...props}
-    >
+    <CommandList data-slot="model-selector-list" className={className} {...props}>
       {children ?? (
         <>
           <ModelSelectorEmpty />
@@ -526,25 +516,22 @@ function ModelSelectorItem({
         setOpen(false);
         onSelect?.(selectedValue);
       }}
-      className={cn(
-        "relative items-start gap-2 rounded-lg py-2 ps-3 pe-9 [&_svg:not([class*='size-'])]:size-3.5",
-        className,
-      )}
+      className={cn("items-start [&_svg:not([class*='size-'])]:size-3.5", className)}
       {...props}
     >
       {children ?? (
         <>
-          {model.icon && <ModelIcon className="mt-[3px]">{model.icon}</ModelIcon>}
+          {model.icon && <ModelIcon className="mt-0.75">{model.icon}</ModelIcon>}
           <span className="flex min-w-0 flex-col">
             <span className="truncate font-medium">{model.name}</span>
             {model.description && (
-              <span className="text-muted-foreground truncate text-xs">{model.description}</span>
+              <span className="truncate text-xs text-muted-foreground">{model.description}</span>
             )}
           </span>
         </>
       )}
       {isSelected && (
-        <span className="absolute end-3 top-2.5 flex size-4 items-center justify-center">
+        <span className="ms-auto flex size-4 shrink-0 items-center justify-center self-center">
           <CheckIcon className="size-4" />
         </span>
       )}
@@ -559,7 +546,6 @@ export type ModelSelectorEffortProps = ComponentPropsWithoutRef<"div"> & {
 function ModelSelectorEffort({
   label = "Thinking",
   className,
-  onKeyDown,
   ...props
 }: ModelSelectorEffortProps) {
   const ui = useAppTranslation();
@@ -575,40 +561,38 @@ function ModelSelectorEffort({
         "flex cursor-default items-center justify-between gap-3 border-t px-3 py-2",
         className,
       )}
-      onKeyDown={(e) => {
-        onKeyDown?.(e);
-        if (e.defaultPrevented) return;
-        // cmdk's Command root claims Home/End to jump the model list; stop
-        // them here so only the radiogroup reacts.
-        if (e.key === "Home" || e.key === "End") e.stopPropagation();
-        // Vertical arrows refocus cmdk's input before the event bubbles to
-        // the Command root: the same keypress then moves the list highlight,
-        // and Enter selects again (cmdk's Enter is inert while a radio has
-        // focus, so the highlight would otherwise move with no way to act).
-        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-          e.currentTarget
-            .closest("[cmdk-root]")
-            ?.querySelector<HTMLInputElement>("[cmdk-input]")
-            ?.focus();
-        }
-      }}
       {...props}
     >
-      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
       <RadioGroupPrimitive.Root
         value={effort ?? ""}
         onValueChange={setEffort}
         orientation="horizontal"
         aria-label={typeof label === "string" ? label : ui("Reasoning effort")}
         className="flex items-center gap-0.5"
+        onKeyDown={(e) => {
+          // cmdk's Command root claims Home/End to jump the model list; stop
+          // them here so only the radiogroup reacts.
+          if (e.key === "Home" || e.key === "End") e.stopPropagation();
+          // Vertical arrows refocus cmdk's input before the event bubbles to
+          // the Command root: the same keypress then moves the list highlight,
+          // and Enter selects again (cmdk's Enter is inert while a radio has
+          // focus, so the highlight would otherwise move with no way to act).
+          if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+            e.currentTarget
+              .closest("[cmdk-root]")
+              ?.querySelector<HTMLInputElement>("[cmdk-input]")
+              ?.focus();
+          }
+        }}
       >
         {efforts.map((option) => (
           <RadioGroupPrimitive.Item
             key={option.id}
             value={option.id}
             className={cn(
-              "focus-visible:ring-ring/50 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer rounded-md px-2 py-1 text-xs transition-colors outline-none focus-visible:ring-1",
-              "data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:font-medium",
+              "cursor-pointer rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring/50",
+              "data-[state=checked]:bg-accent data-[state=checked]:font-medium data-[state=checked]:text-accent-foreground",
             )}
           >
             {option.name}

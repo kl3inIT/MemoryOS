@@ -11,9 +11,7 @@ import {
 function adminAccess(capabilities: ApplicationCapability[]) {
   const session = { capabilities, scopedCapabilities: [] } as unknown as ApplicationSession;
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <ApplicationSessionContext.Provider value={session}>
-      {children}
-    </ApplicationSessionContext.Provider>
+    <ApplicationSessionContext value={session}>{children}</ApplicationSessionContext>
   );
   return renderHook(() => useAdminAccess(), { wrapper }).result.current;
 }

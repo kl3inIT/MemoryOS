@@ -14,12 +14,12 @@ const BYTES_PER_MS = 48;
 const MAX_QUEUED_BYTES = 30_000 * BYTES_PER_MS;
 const RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 20_000];
 /** Nojoin's quiet hint: a level under 6 on its 0–100 scale (RMS × 180) for 20 seconds. */
-export const QUIET_LEVEL = 6 / 180;
+const QUIET_LEVEL = 6 / 180;
 export const QUIET_AFTER_MS = 20_000;
 
-export type RecorderPhase = "recording" | "paused" | "stopping" | "stopped" | "failed";
+type RecorderPhase = "recording" | "paused" | "stopping" | "stopped" | "failed";
 
-export type TrackSnapshot = {
+type TrackSnapshot = {
   track: MeetingTrack;
   level: number;
   connected: boolean;

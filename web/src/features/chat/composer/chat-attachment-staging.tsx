@@ -72,9 +72,7 @@ export function ChatAttachmentStaging({ children }: { children: ReactNode }) {
     [staged, attach, drop],
   );
 
-  return (
-    <AttachmentStagingContext.Provider value={value}>{children}</AttachmentStagingContext.Provider>
-  );
+  return <AttachmentStagingContext value={value}>{children}</AttachmentStagingContext>;
 }
 
 /** The draft's files: the attachments assistant-ui holds, plus the library copies still being prepared. */

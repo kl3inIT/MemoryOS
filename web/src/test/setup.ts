@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { i18n } from "@/i18n";
 // Registers the API client defaults and interceptors, as main.tsx does.
 import "@/lib/api";
+import { server } from "./msw";
+
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
 // Radix primitives measure their trigger; jsdom ships no ResizeObserver.
 if (!("ResizeObserver" in globalThis)) {
@@ -12,6 +17,21 @@ if (!("ResizeObserver" in globalThis)) {
     unobserve() {}
     disconnect() {}
   } as unknown as typeof ResizeObserver;
+}
+
+// jsdom ships no matchMedia; tests run as a wide screen that asks for nothing, and may stub their own.
+if (typeof window.matchMedia !== "function") {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
 }
 
 // jsdom implements neither pointer capture nor scrollIntoView, which Radix popup

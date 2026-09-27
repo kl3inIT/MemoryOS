@@ -8,7 +8,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { PageHeader } from "@/components/ui/settings-layout";
+import { PageHeader } from "@/components/composites/settings-layout";
 
 type DetailHeaderProps<TRouter extends RegisteredRouter = RegisteredRouter, TOptions = unknown> = {
   /** The list this resource belongs to: its label and the router link options that open it. */
@@ -49,7 +49,7 @@ export function DetailHeader({
               <Link
                 {...link}
                 ref={backRef}
-                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="rounded-sm focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
               >
                 {label}
               </Link>
@@ -59,7 +59,7 @@ export function DetailHeader({
             <>
               <BreadcrumbSeparator />
               <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="truncate">{title}</BreadcrumbPage>
+                <BreadcrumbPage>{title}</BreadcrumbPage>
               </BreadcrumbItem>
             </>
           ) : null}

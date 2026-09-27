@@ -1,13 +1,16 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { focusManager, QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { redirectToSignIn } from "@/features/identity/sign-in-redirect";
+import { http } from "msw";
 import { ApiError } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
+import { handleGetCurrentIdentity } from "@/lib/hey-api/msw.gen";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
+import { server } from "@/test/msw";
 import { ApplicationSessionBoundary } from "./application-session-boundary";
 
 vi.mock("@/features/identity/sign-in-redirect", async (importOriginal) => ({
@@ -58,8 +61,9 @@ const MEMBER_SESSION: CurrentIdentity = {
 };
 
 afterEach(() => {
+  // Unmount before restoring focus, or the focus change refetches the identity after the test.
+  cleanup();
   focusManager.setFocused(undefined);
-  vi.unstubAllGlobals();
   window.sessionStorage.clear();
   vi.mocked(redirectToSignIn).mockClear();
 });
@@ -67,10 +71,7 @@ afterEach(() => {
 describe("ApplicationSessionBoundary", () => {
   it("changes account locale without remounting the draft or purging private data", async () => {
     let current = OWNER_SESSION;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json(current)),
-    );
+    server.use(handleGetCurrentIdentity(async () => Response.json(current)));
     const client = createMemoryOsQueryClient();
     renderBoundary(client, <ActorDraft />);
     const input = await screen.findByLabelText("Private draft");
@@ -88,9 +89,10 @@ describe("ApplicationSessionBoundary", () => {
 
   it("preserves mounted data and draft on transient background identity failure", async () => {
     let fail = false;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => (fail ? Response.json({}, { status: 503 }) : Response.json(OWNER_SESSION))),
+    server.use(
+      handleGetCurrentIdentity(async () =>
+        fail ? Response.json({}, { status: 503 }) : Response.json(OWNER_SESSION),
+      ),
     );
     const client = createMemoryOsQueryClient();
     renderBoundary(client, <ActorDraft />);
@@ -105,10 +107,7 @@ describe("ApplicationSessionBoundary", () => {
     expect(screen.getByLabelText("Private draft")).toBe(input);
   });
   it("provides the authenticated session to its child layout", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json(OWNER_SESSION)),
-    );
+    server.use(handleGetCurrentIdentity(async () => Response.json(OWNER_SESSION)));
 
     renderBoundary(createMemoryOsQueryClient());
 
@@ -116,9 +115,8 @@ describe("ApplicationSessionBoundary", () => {
   });
 
   it("renders the provisioning state when durable membership is absent", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
+    server.use(
+      handleGetCurrentIdentity(async () =>
         Response.json({
           ...MEMBER_SESSION,
           tenant: null,
@@ -137,10 +135,7 @@ describe("ApplicationSessionBoundary", () => {
 
   it("keeps the accepted authority fingerprint across boundary remounts", async () => {
     let currentSession = OWNER_SESSION;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json(currentSession)),
-    );
+    server.use(handleGetCurrentIdentity(async () => Response.json(currentSession)));
     const queryClient = createMemoryOsQueryClient();
     const firstRender = renderBoundary(queryClient);
     expect(await screen.findByText("OWNER")).toBeInTheDocument();
@@ -166,13 +161,11 @@ describe("ApplicationSessionBoundary", () => {
   it("drops mounted private data when authority revisions change without capability changes", async () => {
     let currentSession = OWNER_SESSION;
     let sourceVisible = true;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = input instanceof Request ? input.url : input.toString();
-        if (url.endsWith("/api/identity/me")) return Response.json(currentSession);
-        return sourceVisible ? new Response("Private Source") : new Response(null, { status: 404 });
-      }),
+    server.use(
+      handleGetCurrentIdentity(() => Response.json(currentSession)),
+      http.get("*/api/private-source", () =>
+        sourceVisible ? new Response("Private Source") : new Response(null, { status: 404 }),
+      ),
     );
     const queryClient = createMemoryOsQueryClient();
     renderBoundary(queryClient, <PrivateSource />);
@@ -193,10 +186,7 @@ describe("ApplicationSessionBoundary", () => {
 
   it("remounts private children when the actor changes without changing authority", async () => {
     let currentSession = OWNER_SESSION;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json(currentSession)),
-    );
+    server.use(handleGetCurrentIdentity(async () => Response.json(currentSession)));
     const queryClient = createMemoryOsQueryClient();
     renderBoundary(queryClient, <ActorDraft />);
     expect(await screen.findByText(OWNER_SESSION.actorId)).toBeInTheDocument();
@@ -226,10 +216,7 @@ describe("ApplicationSessionBoundary", () => {
 
   it("refetches identity on browser focus even while the query is fresh", async () => {
     let currentSession = OWNER_SESSION;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json(currentSession)),
-    );
+    server.use(handleGetCurrentIdentity(async () => Response.json(currentSession)));
     const queryClient = createMemoryOsQueryClient();
     renderBoundary(queryClient);
     expect(await screen.findByText("OWNER")).toBeInTheDocument();
@@ -245,9 +232,8 @@ describe("ApplicationSessionBoundary", () => {
 
   it("purges private client state when the identity query becomes unauthenticated", async () => {
     let authenticated = true;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
+    server.use(
+      handleGetCurrentIdentity(async () =>
         authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
       ),
     );
@@ -267,9 +253,8 @@ describe("ApplicationSessionBoundary", () => {
 
   it("resets active identity after a private query returns unauthenticated", async () => {
     let authenticated = true;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
+    server.use(
+      handleGetCurrentIdentity(async () =>
         authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
       ),
     );
@@ -296,9 +281,8 @@ describe("ApplicationSessionBoundary", () => {
 
   it("resets active identity after a private mutation returns unauthenticated", async () => {
     let authenticated = true;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
+    server.use(
+      handleGetCurrentIdentity(async () =>
         authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
       ),
     );
@@ -326,9 +310,8 @@ describe("ApplicationSessionBoundary", () => {
     async (operation) => {
       let currentSession: CurrentIdentity = OWNER_SESSION;
       let identityRequests = 0;
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => {
+      server.use(
+        handleGetCurrentIdentity(async () => {
           identityRequests += 1;
           return Response.json(currentSession);
         }),
@@ -379,9 +362,8 @@ describe("ApplicationSessionBoundary", () => {
   it("refreshes an inactive fresh identity and purges private state after a forbidden mutation", async () => {
     let currentSession: CurrentIdentity = OWNER_SESSION;
     let identityRequests = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
+    server.use(
+      handleGetCurrentIdentity(async () => {
         identityRequests += 1;
         return Response.json(currentSession);
       }),
@@ -423,9 +405,8 @@ describe("ApplicationSessionBoundary", () => {
   it("keeps private state when an ordinary forbidden operation leaves identity unchanged", async () => {
     let identityRequests = 0;
     let operationAttempts = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
+    server.use(
+      handleGetCurrentIdentity(async () => {
         identityRequests += 1;
         return Response.json(OWNER_SESSION);
       }),
@@ -456,9 +437,8 @@ describe("ApplicationSessionBoundary", () => {
   it("does not recursively refresh when the identity query itself returns forbidden", async () => {
     let identityForbidden = false;
     let identityRequests = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
+    server.use(
+      handleGetCurrentIdentity(async () => {
         identityRequests += 1;
         return identityForbidden
           ? new Response(null, { status: 403 })

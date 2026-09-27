@@ -9,7 +9,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { cn } from "@/lib/utils";
 import { MAX_TABLE_ROWS, parseCsv } from "./preview-kind";
 
 /** Every cell is one truncated line, so each row is the same height and none has to be measured. */
@@ -71,26 +70,22 @@ export function CsvView({
   const after = rows.getTotalSize() - (shown[shown.length - 1]?.end ?? 0);
   return (
     <div className="flex flex-col gap-2">
-      <div
-        ref={scroller}
-        className="max-h-[70vh] overflow-auto overscroll-contain rounded-lg border border-border-subtle bg-surface-base"
-      >
-        <Table className="table-fixed" style={{ width: sheet.width }}>
+      <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-base">
+        <Table
+          containerRef={scroller}
+          maxHeight="viewer"
+          className="table-fixed"
+          style={{ width: sheet.width }}
+        >
           <colgroup>
             {sheet.widths.map((width, index) => (
               <col key={index} style={{ width }} />
             ))}
           </colgroup>
-          <TableHeader className="sticky top-0 z-10 bg-surface-subtle">
+          <TableHeader sticky>
             <TableRow>
               {sheet.widths.map((_, index) => (
-                <TableHead
-                  key={index}
-                  className={cn(
-                    "truncate whitespace-nowrap",
-                    index === 0 && "sticky left-0 bg-surface-subtle",
-                  )}
-                >
+                <TableHead key={index} pinned={index === 0} className="truncate whitespace-nowrap">
                   {sheet.header[index] ?? ""}
                 </TableHead>
               ))}
@@ -104,7 +99,7 @@ export function CsvView({
               return (
                 <SheetRow
                   key={item.index}
-                  row={sheet.rows[item.index]!}
+                  row={sheet.rows[item.index] ?? []}
                   columns={sheet.widths.length}
                   cited={marked.has(sheetRow)}
                   current={active === sheetRow}
@@ -127,7 +122,7 @@ function Spacer({ height, columns }: { height: number; columns: number }) {
   if (height <= 0) return null;
   return (
     <tr aria-hidden="true">
-      <td colSpan={columns} style={{ height, padding: 0, border: 0 }} />
+      <td aria-hidden="true" colSpan={columns} style={{ height, padding: 0, border: 0 }} />
     </tr>
   );
 }
@@ -149,23 +144,14 @@ const SheetRow = memo(function SheetRow({
       data-cited={cited ? "true" : undefined}
       aria-current={current ? "true" : undefined}
       style={{ height: ROW_HEIGHT }}
-      className={cn(
-        "bg-surface-base",
-        // A marked row keeps its colour under the pointer; the mark is what the reader came for.
-        cited && "bg-evidence-highlight-surface/60 hover:bg-evidence-highlight-surface/60",
-        current && "bg-evidence-highlight-surface hover:bg-evidence-highlight-surface",
-      )}
+      tone={current ? "current" : cited ? "cited" : "surface"}
     >
       {Array.from({ length: columns }, (_, index) => (
         <TableCell
           key={index}
           title={row[index] || undefined}
-          className={cn(
-            "truncate whitespace-nowrap",
-            index === 0 && "sticky left-0 bg-inherit font-medium",
-            // The accent repeats the highlight colour the reader sees inside a document.
-            index === 0 && current && "border-pdf-highlight border-l-4",
-          )}
+          pinned={index === 0}
+          className="truncate whitespace-nowrap"
         >
           {row[index] ?? ""}
         </TableCell>
@@ -182,8 +168,8 @@ function parseSheet(csv: string) {
   const widths: number[] = [];
   for (let column = 0; column < columns; column++) {
     let longest = header[column]?.length ?? 0;
-    for (let row = 0; row < Math.min(rows.length, WIDTH_SAMPLE); row++) {
-      longest = Math.max(longest, rows[row]![column]?.length ?? 0);
+    for (const row of rows.slice(0, WIDTH_SAMPLE)) {
+      longest = Math.max(longest, row[column]?.length ?? 0);
     }
     widths.push(Math.min(Math.max(longest * CHARACTER + CELL_PADDING, MIN_COLUMN), MAX_COLUMN));
   }

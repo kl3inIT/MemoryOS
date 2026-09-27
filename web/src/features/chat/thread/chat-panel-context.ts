@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 import type { PreviewTarget } from "@/features/library/file-preview-modal";
 
 /** UI selection only; content and authority remain in the runtime and readers. */
@@ -15,5 +15,5 @@ export const ChatPanelContext = createContext<{
 }>({ open: () => {}, previewFile: () => {}, openArtifact: () => {}, close: () => {} });
 
 export function useChatFilePanel() {
-  return useContext(ChatPanelContext);
+  return use(ChatPanelContext);
 }

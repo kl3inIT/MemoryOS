@@ -78,7 +78,8 @@ function extension(filename: string): string {
 
 export function previewKind(filename: string, mediaType: string): PreviewKind {
   const ext = extension(filename);
-  const type = mediaType.split(";")[0]!.trim().toLowerCase();
+  const [essence = ""] = mediaType.split(";");
+  const type = essence.trim().toLowerCase();
   if (CODE_LANGUAGES[ext]) return "code";
   if (["image/png", "image/jpeg", "image/webp", "image/gif"].includes(type)) return "image";
   if (type === "application/pdf") return "pdf";
@@ -131,7 +132,7 @@ export function parseCsv(text: string): string[][] {
   let field = "";
   let quoted = false;
   for (let i = 0; i < text.length; i++) {
-    const char = text[i]!;
+    const char = text.charAt(i);
     if (quoted) {
       if (char !== '"') field += char;
       else if (text[i + 1] === '"') {

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
 import { fixtureModels, fixtureSource } from "../fixtures/chat-data";
+import { expectNoSeriousA11yViolations } from "./axe";
 
 const identity = {
   actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
@@ -544,6 +545,7 @@ test("new chat, native keyboard/IME, server IDs, multiple turns, markdown and re
   await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
   await expect(page.locator("pre")).toContainText('System.out.println("Hello");');
+  await expectNoSeriousA11yViolations(page);
   await page.getByRole("button", { name: "Sao chép mã" }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))

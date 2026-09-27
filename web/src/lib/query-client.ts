@@ -56,7 +56,7 @@ export function acceptCurrentIdentity(queryClient: QueryClient, identity: Curren
   acceptedSessionFingerprints.set(queryClient, nextFingerprint);
 }
 
-export function handleAuthorizationFailure(
+function handleAuthorizationFailure(
   queryClient: QueryClient,
   error: unknown,
   currentIdentityFailed = false,

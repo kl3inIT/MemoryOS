@@ -47,12 +47,14 @@ export function ConversationSearch({
     >
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className={cn(paper, "flex items-center gap-2 rounded-full py-1.5 pr-1.5 pl-3")}>
-          <SearchIcon className="text-content-muted size-3.5 shrink-0" />
+          <SearchIcon className="size-3.5 shrink-0 text-content-muted" />
           <input
             value={query}
             onChange={(event) => onQueryChange?.(event.target.value)}
             placeholder={ui("Tìm trong hội thoại này…")}
             aria-label={ui("Tìm trong hội thoại này…")}
+            // The person opened this search bar to type into it (Ctrl+F); the input takes focus as it appears.
+            // oxlint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.nativeEvent.isComposing) {
@@ -60,9 +62,9 @@ export function ConversationSearch({
                 onStep?.(event.shiftKey ? -1 : 1);
               }
             }}
-            className="text-content-primary placeholder:text-content-muted min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm text-content-primary outline-none placeholder:text-content-muted"
           />
-          <span role="status" className={cn(mono, "text-content-muted shrink-0 tabular-nums")}>
+          <span role="status" className={cn(mono, "shrink-0 text-content-muted tabular-nums")}>
             {hits.length === 0
               ? "0"
               : ui("{{current}}/{{total}}", { current: index + 1, total: hits.length })}
@@ -91,11 +93,11 @@ export function ConversationSearch({
           <div
             className={cn(
               field,
-              "fade-in animate-in rounded-xl px-3 py-2 text-xs leading-relaxed duration-200",
+              "animate-in rounded-xl px-3 py-2 text-xs leading-relaxed duration-200 fade-in",
             )}
           >
             <span className="text-content-secondary">{active.before}</span>
-            <span className="text-content-primary rounded bg-highlight-active px-0.5">
+            <span className="rounded bg-highlight-active px-0.5 text-content-primary">
               {active.match}
             </span>
             <span className="text-content-secondary">{active.after}</span>
@@ -103,7 +105,7 @@ export function ConversationSearch({
         )}
       </div>
 
-      <div className="bg-foreground/[0.04] relative w-1.5 shrink-0 rounded-full">
+      <div className="relative w-1.5 shrink-0 rounded-full bg-foreground/[0.04]">
         {hits.map((hit, i) => (
           <span
             key={hit.id}
