@@ -49,6 +49,8 @@ services:
       - --storage.tsdb.retention.time=15d
       - --storage.tsdb.retention.size=4GB
       - --web.enable-otlp-receiver
+      # Tempo's metrics-generator writes span metrics here; the receiver is on the private backend network only.
+      - --web.enable-remote-write-receiver
       - --enable-feature=exemplar-storage
     volumes:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
