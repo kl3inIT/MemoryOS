@@ -144,7 +144,7 @@ class ChatGroundedTurnTest {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
-            verify(guardrails).recordBlock(any(), any(), any());
+            verify(guardrails).recordBlock(any(), any(), any(), any(), any());
             verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ.", ChatMessage.BLOCKED_TOPIC);
         }
     }

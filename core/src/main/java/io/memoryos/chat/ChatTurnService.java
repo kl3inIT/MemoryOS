@@ -457,7 +457,7 @@ public final class ChatTurnService implements AutoCloseable {
         }
         run.check();
         if (result.kind() == ChatGuardrailCheck.Kind.BLOCKED) {
-            guardrails.recordBlock(run.setup, result, null);
+            guardrails.recordBlock(run.setup.tenant(), run.setup.actor(), run.setup.sessionId(), result, null);
             refuse(run, ChatMessage.BLOCKED_TOPIC, Objects.requireNonNull(result.message()));
             run.finish(ChatMessage.Status.COMPLETED, null);
             return false;
@@ -480,7 +480,7 @@ public final class ChatTurnService implements AutoCloseable {
             case UNCITED -> refuse(run, run.sourceCount() == 0 ? ChatMessage.NO_EVIDENCE : ChatMessage.UNCITED,
                     ChatRefusals.notInDocuments(run.uiLanguage));
             case BLOCKED -> {
-                if (guardrails != null) guardrails.recordBlock(run.setup,
+                if (guardrails != null) guardrails.recordBlock(run.setup.tenant(), run.setup.actor(), run.setup.sessionId(),
                         new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, null, null, ending.phrase()), null);
                 refuse(run, ChatMessage.BLOCKED_TOPIC, run.policy.guardrails().blockedPhraseMessage());
             }

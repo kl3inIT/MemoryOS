@@ -1,5 +1,8 @@
 package io.memoryos.chat.grounding;
 
+import java.util.UUID;
+import io.memoryos.shared.TenantId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.ai.ModelAccounting;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
@@ -55,12 +58,12 @@ public final class ChatGuardrailCheck {
     }
 
     /** The audit line of a blocked question; the question and the phrase stay out of the audit stream. */
-    public void recordBlock(ChatTurnSetup setup, Result result, @Nullable String agent) {
+    public void recordBlock(TenantId tenant, ActorId actor, UUID session, Result result, @Nullable String agent) {
         // A Chat turn runs outside any transaction; a block is recorded in its own, and a failed write never fails the turn.
-        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_GUARDRAIL_BLOCK, setup.tenant())
-                .actor(setup.actor()).resource("CHAT_SESSION", setup.sessionId().toString(), "Chat")
+        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_GUARDRAIL_BLOCK, tenant)
+                .actor(actor).resource("CHAT_SESSION", session.toString(), "Chat")
                 .detail("rule", result.topic() != null ? "topic" : "phrase")
                 .detail("topic", result.topic() == null ? null : result.topic().name())
-                .detail("agent", agent).detail("session", setup.sessionId().toString()).build());
+                .detail("agent", agent).detail("session", session.toString()).build());
     }
 }
