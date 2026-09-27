@@ -16,9 +16,6 @@ tasks.withType<Test>().configureEach {
     // renderer loads all live in one test JVM; a gigabyte stopped being enough once every capability had tests, and
     // 1.5 GB ran out on CI (2026-09-27) as the two forks split the classes differently. Two forks at 2 GB fit the runner.
     maxHeapSize = "2g"
-    // TEMPORARY diagnosis of the CI OOM: dump the class histogram and the threads where the report upload finds them.
-    val reports = layout.buildDirectory.dir("test-results/test").get().asFile
-    jvmArgs("-XX:OnOutOfMemoryError=jcmd %p GC.class_histogram -all > $reports/oom-histogram-%p.xml;jcmd %p Thread.print > $reports/oom-threads-%p.xml")
     // Core is the longest test task; two JVMs each own a PostgreSQL container and template (TestDatabase).
     maxParallelForks = 2
     // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
