@@ -10,8 +10,8 @@ type BrandProps = {
  *
  * The artwork is a black silhouette, so it is masked rather than drawn: one file serves the
  * sidebar in either theme, and it follows the colour around it instead of carrying its own.
- * The collapsed rail is as wide as a button, where a wordmark would be a smudge, so it keeps
- * the initial in the tile the mark used to occupy.
+ * The collapsed rail is as wide as a button, where a wordmark would be a smudge, so it shows the
+ * wordmark's own "T" (tenant-mark.png, cut from the same artwork) in the tile.
  */
 export function Brand({ compact = false }: BrandProps) {
   const name = TENANT_NAME;
@@ -19,10 +19,24 @@ export function Brand({ compact = false }: BrandProps) {
   if (compact) {
     return (
       <span
-        className="grid size-7 place-items-center rounded-md border border-border-default bg-surface-raised font-main-ui-action text-content-primary"
+        role="img"
+        className="grid size-7 place-items-center rounded-md border border-border-default bg-surface-raised"
         aria-label={name}
       >
-        <span aria-hidden="true">{name.slice(0, 1)}</span>
+        <span
+          aria-hidden="true"
+          className="size-4 bg-content-primary"
+          style={{
+            maskImage: "url(/tenant-mark.png)",
+            WebkitMaskImage: "url(/tenant-mark.png)",
+            maskRepeat: "no-repeat",
+            WebkitMaskRepeat: "no-repeat",
+            maskPosition: "center",
+            WebkitMaskPosition: "center",
+            maskSize: "contain",
+            WebkitMaskSize: "contain",
+          }}
+        />
       </span>
     );
   }
