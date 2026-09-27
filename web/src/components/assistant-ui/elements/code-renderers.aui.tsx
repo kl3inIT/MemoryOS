@@ -9,7 +9,7 @@ const Mermaid = lazy(() => import("./mermaid-diagram"));
 
 function PlainCode({ code }: { code: string }) {
   return (
-    <pre className="overflow-x-auto rounded-b-xl border border-t-0 border-border/50 bg-muted/30 p-3.5 text-[13px] leading-relaxed">
+    <pre className="overflow-x-auto rounded-b-xl border border-t-0 border-border/50 bg-muted/30 p-3.5 text-code leading-relaxed">
       <code>{code}</code>
     </pre>
   );

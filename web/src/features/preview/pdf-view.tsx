@@ -64,14 +64,16 @@ export function PdfView({
   const fitWidth = Math.max(240, useWidth(container, pageCount));
   const [zoom, setZoom] = useState(0);
   const [wholeFile, setWholeFile] = useState(false);
-  const renderedWidth = Math.round(fitWidth * ZOOM_STEPS[zoom]!);
+  const scale = ZOOM_STEPS[zoom] ?? 1;
+  const renderedWidth = Math.round(fitWidth * scale);
   const [pageViews, setPageViews] = useState<Record<number, PdfPageView>>({});
   const [nearPages, setNearPages] = useState<ReadonlySet<number>>(() => new Set());
   const [visiblePage, setVisiblePage] = useState<number>();
   // A new object per opening: react-pdf releases the document on unmount and never shares it across readers.
   const file = useMemo(() => (typeof url === "string" ? { url } : url), [url]);
   const cited = pages.length ? pages : [1];
-  const anchor = Math.min(cited[0]!, pageCount ?? cited[0]!);
+  const [firstCited = 1] = cited;
+  const anchor = Math.min(firstCited, pageCount ?? firstCited);
   const currentPage = visiblePage ?? anchor;
   const figures = useRef(new Map<number, HTMLElement>());
   const firstBox = useRef<HTMLSpanElement | null>(null);
@@ -185,7 +187,7 @@ export function PdfView({
           <PdfThumbnails total={pageCount} current={currentPage} onGo={goToPage} />
         ) : null}
         <PreviewCanvas ref={container} className="pb-16">
-          <div className="w-fit min-w-full space-y-5">
+          <div className="flex w-fit min-w-full flex-col gap-5">
             {Array.from({ length: pageCount ?? 0 }, (_, index) => {
               const pageNumber = index + 1;
               const view = pageViews[pageNumber];
@@ -253,7 +255,7 @@ export function PdfView({
                                   page: pageNumber,
                                 })}
                                 data-slot="pdf-citation-box"
-                                className="absolute scroll-m-12 rounded-[3px] bg-pdf-highlight ring-1 ring-pdf-highlight-border/80"
+                                className="absolute scroll-m-12 rounded-sm bg-pdf-highlight ring-1 ring-pdf-highlight-border/80"
                                 style={rect}
                               />
                             );
@@ -286,11 +288,7 @@ export function PdfView({
             </ToolbarGroup>
           ) : null}
           <ZoomControl
-            label={
-              zoom === 0
-                ? ui("Vừa khung")
-                : ui("{{percent}}%", { percent: ZOOM_STEPS[zoom]! * 100 })
-            }
+            label={zoom === 0 ? ui("Vừa khung") : ui("{{percent}}%", { percent: scale * 100 })}
             onOut={() => setZoom((value) => Math.max(0, value - 1))}
             onIn={() => setZoom((value) => Math.min(ZOOM_STEPS.length - 1, value + 1))}
             outDisabled={zoom === 0}
@@ -347,7 +345,7 @@ function PdfThumbnails({
     <nav
       ref={rail}
       aria-label={ui("Các trang")}
-      className="hidden w-32 shrink-0 overflow-y-auto overscroll-contain border-border-subtle border-r bg-surface-base p-2 lg:block"
+      className="hidden w-32 shrink-0 overflow-y-auto overscroll-contain border-r border-border-subtle bg-surface-base p-2 lg:block"
     >
       <ol className="flex flex-col gap-2">
         {Array.from({ length: total }, (_, index) => {
@@ -364,7 +362,7 @@ function PdfThumbnails({
                 aria-current={page === current ? "true" : undefined}
                 aria-label={ui("Trang {{pages}}", { pages: page })}
                 onClick={() => onGo(page)}
-                className="block w-full cursor-pointer rounded-md p-1 outline-none ring-1 ring-transparent transition-[box-shadow] focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:ring-pdf-highlight-border"
+                className="block w-full cursor-pointer rounded-md p-1 ring-1 ring-transparent transition-shadow outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:ring-pdf-highlight-border"
               >
                 <span
                   className="flex items-center justify-center overflow-hidden bg-surface-document shadow-sm"

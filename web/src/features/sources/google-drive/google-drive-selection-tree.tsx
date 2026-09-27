@@ -6,8 +6,8 @@ import { memo, useCallback, useEffect, useId, useMemo, useRef, useSyncExternalSt
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getGoogleDriveSelectionTreeQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { getGoogleDriveSelectionTree } from "@/lib/hey-api/sdk.gen";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { getGoogleDriveSelectionTreeInfiniteOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type {
   GetGoogleDriveConfigurationResponse,
   GoogleDriveSelectionItemResponse,
@@ -40,7 +40,6 @@ type SelectionControls = {
 };
 type TreeProps = SelectionControls & {
   sourceId: string;
-  actorId: string;
   configuration: GetGoogleDriveConfigurationResponse;
   onRefresh: () => Promise<void>;
 };
@@ -121,48 +120,18 @@ function useTreeView(): TreeView {
   }, []);
 }
 
-class SelectionTreeChangedError extends Error {}
-
 /**
  * One branch's page query, shared by the branch that renders it and by the hover prefetch that warms
- * it: expanding a folder costs a Google Drive round trip, so a branch read once is not read again.
+ * it: expanding a folder costs a Google Drive round trip, so a branch read once is not read again
+ * until the selection changes and the panel invalidates it.
  */
-function branchQuery(
-  { sourceId, actorId, configuration }: Pick<TreeProps, "sourceId" | "actorId" | "configuration">,
-  parentId?: string,
-) {
-  const request = { path: { sourceId }, query: { parentId, size: pageSize } };
+function branchQuery(sourceId: string, parentId?: string) {
   return {
-    queryKey: [
-      ...getGoogleDriveSelectionTreeQueryKey(request),
-      actorId,
-      configuration.revision,
-      configuration.discoveryRevision,
-      configuration.credentialRevision,
-    ],
-    queryFn: async ({
-      pageParam,
-      signal,
-    }: {
-      pageParam: string | undefined;
-      signal: AbortSignal;
-    }) => {
-      const { data } = await getGoogleDriveSelectionTree({
-        ...request,
-        query: { ...request.query, cursor: pageParam },
-        signal,
-      });
-      signal.throwIfAborted();
-      if (
-        data.revision !== configuration.revision ||
-        data.discoveryRevision !== configuration.discoveryRevision ||
-        data.credentialRevision !== configuration.credentialRevision
-      ) {
-        throw new SelectionTreeChangedError("Selection authority changed");
-      }
-      return data;
-    },
-    initialPageParam: undefined as string | undefined,
+    ...getGoogleDriveSelectionTreeInfiniteOptions({
+      path: { sourceId },
+      query: { parentId, size: pageSize },
+    }),
+    initialPageParam: { path: { sourceId }, query: {} },
     // Loaded pages stay on screen, so a long folder grows instead of replacing what was read.
     getNextPageParam: (last: GoogleDriveSelectionTreeResponse) => last.nextCursor ?? undefined,
     retry: false,
@@ -170,6 +139,18 @@ function branchQuery(
     staleTime: branchFreshness,
     gcTime: branchFreshness,
   };
+}
+
+/** Whether a page was read under the selection, discovery and credential the panel shows. */
+function readUnder(
+  page: GoogleDriveSelectionTreeResponse,
+  configuration: GetGoogleDriveConfigurationResponse,
+) {
+  return (
+    page.revision === configuration.revision &&
+    page.discoveryRevision === configuration.discoveryRevision &&
+    page.credentialRevision === configuration.credentialRevision
+  );
 }
 
 export function GoogleDriveSelectionTree(props: TreeProps) {
@@ -203,15 +184,18 @@ function SelectionBranch({
   const { view, ancestors } = props;
   // A branch's ancestors end with its parent, so they are the parent node's path.
   const path = ancestors.join("/");
-  const options = branchQuery(props, parent?.id);
+  const options = branchQuery(props.sourceId, parent?.id);
   const queryKey = options.queryKey;
   const branch = useInfiniteQuery(options);
-  const changed =
-    branch.error instanceof SelectionTreeChangedError ||
-    isGoogleDriveRevisionConflict(branch.error);
+  // Pages read under earlier revisions are read again after a change; until then they are not shown.
+  const outdated =
+    branch.data?.pages.some((page) => !readUnder(page, props.configuration)) ?? false;
+  const reading = branch.isPending || (outdated && branch.isFetching);
+  const changed = isGoogleDriveRevisionConflict(branch.error) || (outdated && !branch.isFetching);
+  const failed = changed || branch.isError;
   const items = useMemo(
-    () => branch.data?.pages.flatMap((page) => page.items) ?? [],
-    [branch.data],
+    () => (outdated ? [] : (branch.data?.pages.flatMap((page) => page.items) ?? [])),
+    [branch.data, outdated],
   );
   const label = parent ? `Contents of ${parent.name}` : "Selection items";
   // A node expanded with "expand everything" keeps opening the children of each page it loads.
@@ -228,8 +212,8 @@ function SelectionBranch({
     if (cascading && childPaths.length) onCascade(path, childPaths);
   }, [cascading, childPaths, onCascade, path]);
   return (
-    <div className="min-w-0 space-y-1">
-      {branch.isPending ? (
+    <div className="flex min-w-0 flex-col gap-1">
+      {reading ? (
         <p role="status" className="py-2 text-sm text-content-muted">
           {parent?.kind === "FOLDER"
             ? ui("Loading folder contents…")
@@ -238,8 +222,8 @@ function SelectionBranch({
               : ui("Loading selected content…")}
         </p>
       ) : null}
-      {branch.isError ? (
-        <div className="space-y-2 py-2">
+      {failed && !reading ? (
+        <div className="flex flex-col items-start gap-2 py-2">
           <p role="alert" className="text-sm text-status-danger-content">
             {changed
               ? ui(
@@ -269,7 +253,7 @@ function SelectionBranch({
           aria-label={label}
           aria-busy={branch.isFetchingNextPage || undefined}
           className={cn(
-            "min-w-0 space-y-px text-sm",
+            "flex min-w-0 flex-col gap-px text-sm",
             !parent && "border-y border-border-subtle py-1",
           )}
         >
@@ -278,7 +262,7 @@ function SelectionBranch({
           ))}
         </ul>
       ) : null}
-      {branch.isSuccess && !items.length ? (
+      {branch.isSuccess && !outdated && !items.length ? (
         <p className="py-2 text-sm text-content-muted">
           {branch.hasNextPage
             ? ui("No items were returned on this page. More pages are available.")
@@ -294,7 +278,7 @@ function SelectionBranch({
       {!changed && branch.hasNextPage ? (
         <Button
           prominence="tertiary"
-          className="h-auto w-full justify-start gap-1 py-2 text-content-secondary"
+          className="h-auto w-full justify-start py-2"
           disabled={branch.isFetchingNextPage}
           aria-label={
             parent
@@ -330,7 +314,7 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
   // Reaching for the control is a reliable signal, so the folder is read while the pointer travels.
   const warm = useCallback(() => {
     if (!expandable || expanded) return;
-    void client.prefetchInfiniteQuery(branchQuery(props, item.id));
+    void client.prefetchInfiniteQuery(branchQuery(props.sourceId, item.id));
   }, [client, expandable, expanded, item.id, props]);
   const branchControl = expandable && item.kind === "FILE" && props.allowSelection;
   return (
@@ -374,7 +358,7 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
             <TooltipTrigger asChild>
               <Button
                 prominence="tertiary"
-                className="size-8 shrink-0 p-0 text-content-muted"
+                className="size-8 shrink-0 p-0"
                 aria-label={ui("Expand everything in {{v1}}", { v1: item.name })}
                 onClick={() => view.onExpandAll(path)}
               >
@@ -477,7 +461,7 @@ function BranchSelectionControl({
   const ui = useAppTranslation();
   // enabled: false subscribes to the branch cache without fetching; the row only reflects children
   // the user already expanded or warmed.
-  const branch = useInfiniteQuery({ ...branchQuery(props, item.id), enabled: false });
+  const branch = useInfiniteQuery({ ...branchQuery(props.sourceId, item.id), enabled: false });
   const children = branch.data?.pages.flatMap((page) => page.items) ?? [];
   const linked = children.filter((child) => child.kind === "LINKED" && !child.coveredByRoots);
   const selected = linked.filter((child) => (approved ? approved.has(child.id) : child.selected));
@@ -488,14 +472,15 @@ function BranchSelectionControl({
         ? true
         : "indeterminate";
   return (
-    <label className="flex min-h-8 cursor-pointer items-center gap-2 text-xs">
+    <Field orientation="horizontal" className="w-auto shrink-0">
       <Checkbox
+        id={`select-branch-${item.id}`}
         aria-label={ui("Sync all links in {{v1}}", { v1: item.name })}
         checked={checked}
         disabled={disabled || linked.length === 0}
         onCheckedChange={(event) => onApproveBranch(item.id, event === true)}
       />
-      {ui("Select for sync")}
-    </label>
+      <FieldLabel htmlFor={`select-branch-${item.id}`}>{ui("Select for sync")}</FieldLabel>
+    </Field>
   );
 }

@@ -33,18 +33,16 @@ export function artifactSpec(spec: string): GenerativeUISpec | undefined {
     const record = value as Record<string, unknown>;
     if (Object.keys(record).some((key) => !["component", "props", "children"].includes(key)))
       return false;
-    if (typeof record.component !== "string" || !Object.hasOwn(properties, record.component))
-      return false;
+    if (typeof record.component !== "string") return false;
+    const allowed = Object.hasOwn(properties, record.component)
+      ? properties[record.component]
+      : undefined;
+    if (!allowed) return false;
     if (record.props !== undefined) {
       if (!record.props || typeof record.props !== "object" || Array.isArray(record.props))
         return false;
       for (const [key, text] of Object.entries(record.props)) {
-        if (
-          !properties[record.component].includes(key) ||
-          typeof text !== "string" ||
-          text.length > 2048
-        )
-          return false;
+        if (!allowed.includes(key) || typeof text !== "string" || text.length > 2048) return false;
       }
     }
     if (record.children !== undefined) {

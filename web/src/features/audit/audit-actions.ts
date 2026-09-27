@@ -5,7 +5,7 @@ import type { AuditEvent } from "@/lib/hey-api/types.gen";
  * A readable sentence for each recorded action, shown beside its code as PlanetScale and Okta show theirs. The codes
  * are an append-only contract (ADR 0013); an action this build does not know still shows its code.
  */
-export const actionLabels: Record<string, AppCopy> = {
+const actionLabels: Record<string, AppCopy> = {
   "auth.login": "Signed in",
   "auth.login_failure": "Sign-in refused",
   "auth.logout": "Signed out",
@@ -92,7 +92,7 @@ export function periodStart(period: AuditPeriod, now = Date.now()) {
 }
 
 /** Readable names for the declared detail fields; a field this build does not know shows its name. */
-export const fieldLabels: Record<string, AppCopy> = {
+const fieldLabels: Record<string, AppCopy> = {
   adapter: "Adapter",
   added: "Added",
   admission: "Admission",
@@ -147,7 +147,14 @@ const valueLabels: Record<string, AppCopy> = {
 type Translate = (copy: AppCopy) => string;
 
 export function fieldLabel(field: string, ui: Translate) {
-  return fieldLabels[field] ? ui(fieldLabels[field]!) : field;
+  const label = fieldLabels[field];
+  return label ? ui(label) : field;
+}
+
+/** The action's name, or its code when this client has no name for it. */
+export function actionLabel(action: string, ui: Translate) {
+  const label = actionLabels[action];
+  return label ? ui(label) : action;
 }
 
 /** A detail value as text: lists joined, objects as their fields, codes as words, nothing for an absent value. */
@@ -161,7 +168,8 @@ export function detailText(value: unknown, ui: Translate = (copy) => String(copy
       .join(" · ");
   if (typeof value === "boolean") return ui(value ? "Yes" : "No");
   const text = String(value);
-  return valueLabels[text] ? ui(valueLabels[text]!) : text;
+  const label = valueLabels[text];
+  return label ? ui(label) : text;
 }
 
 /**

@@ -83,6 +83,8 @@ services:
       MEMORYOS_OTLP_BASE_URL: http://memoryos-otel-collector:4318
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
       SPRING_PROFILES_ACTIVE: staging
+      # Labels this host's telemetry; the worker's profiles cannot, as it runs the production profile too.
+      MEMORYOS_ENVIRONMENT: staging
     depends_on:
       postgres-inspector-bootstrap:
         condition: service_completed_successfully
@@ -97,6 +99,7 @@ services:
       MEMORYOS_OTLP_BASE_URL: http://memoryos-otel-collector:4318
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
       SPRING_PROFILES_ACTIVE: production,staging
+      MEMORYOS_ENVIRONMENT: staging
       MEMORYOS_SCHEDULER_NAME: ${MEMORYOS_SCHEDULER_NAME:-memoryos-worker-staging-1}
 
   mailpit:

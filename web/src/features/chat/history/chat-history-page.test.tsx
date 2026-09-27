@@ -1,11 +1,12 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import { handleGetChatHistoryTranscript, handleListChatHistory } from "@/lib/hey-api/msw.gen";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
+import { server } from "@/test/msw";
 import { ChatHistoryPage } from "./chat-history-page";
-
-afterEach(() => vi.unstubAllGlobals());
 
 const entry = {
   id: "7f000000-0000-4000-8000-000000000001",
@@ -50,22 +51,19 @@ const transcript = {
 
 function mount(items: unknown[], overrides: Record<string, unknown> = {}) {
   const requested: URL[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      const url = new URL(request.url);
-      requested.push(url);
-      if (url.pathname.endsWith("/api/chat/history"))
-        return Response.json({
-          items,
-          nextCursor: null,
-          conversations: items.length,
-          positive: 1,
-          negative: 0,
-          ...overrides,
-        });
-      return Response.json(transcript);
+  server.use(
+    handleListChatHistory(({ request }) => {
+      requested.push(new URL(request.url));
+      return HttpResponse.json({
+        items,
+        nextCursor: null,
+        conversations: items.length,
+        positive: 1,
+        negative: 0,
+        ...overrides,
+      });
     }),
+    handleGetChatHistoryTranscript(() => HttpResponse.json(transcript)),
   );
   render(
     <QueryClientProvider client={createMemoryOsQueryClient()}>

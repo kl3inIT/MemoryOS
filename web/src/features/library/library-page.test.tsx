@@ -12,77 +12,66 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import { i18n } from "@/i18n/index";
-import { ApiError } from "@/lib/api";
+import { HttpResponse } from "msw";
+import {
+  handleChangeChatLibraryFile,
+  handleDeleteChatFile,
+  handleDeleteChatFileArtifact,
+  handleDeleteChatImageArtifact,
+  handleEmptyChatLibraryTrash,
+  handleGetChatLibraryArchive,
+  handleGetChatLibraryTrashWindow,
+  handleGetChatLibraryUsage,
+  handleListChatLibrary,
+  handlePurgeChatLibraryFile,
+  handleRequestChatLibraryArchive,
+  handleRestoreChatLibraryFile,
+  handleRetryChatFile,
+  handleSearchChatLibraryContent,
+} from "@/lib/hey-api/msw.gen";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { LibraryPage } from "./library-page";
 import { librarySearchDefaults, librarySearchSchema } from "./library-search";
 
-const listChatLibrary = vi.hoisted(() => vi.fn());
-const deleteChatFile = vi.hoisted(() => vi.fn());
-const deleteChatFileArtifact = vi.hoisted(() => vi.fn());
-const deleteChatImageArtifact = vi.hoisted(() => vi.fn());
-const listChatProjects = vi.hoisted(() => vi.fn());
-const getChatProject = vi.hoisted(() => vi.fn());
-const updateChatProject = vi.hoisted(() => vi.fn());
-const copyChatLibraryFile = vi.hoisted(() => vi.fn());
-const getChatFile = vi.hoisted(() => vi.fn());
-const changeChatLibraryFile = vi.hoisted(() => vi.fn());
-const searchChatLibraryContent = vi.hoisted(() => vi.fn());
-const retryChatFile = vi.hoisted(() => vi.fn());
 const uploadChatFile = vi.hoisted(() => vi.fn());
-const requestChatLibraryArchive = vi.hoisted(() => vi.fn());
-const getChatLibraryArchive = vi.hoisted(() => vi.fn());
-const getChatLibraryUsage = vi.hoisted(() => vi.fn());
-const getChatLibraryTrashWindow = vi.hoisted(() => vi.fn());
-const restoreChatLibraryFile = vi.hoisted(() => vi.fn());
-const purgeChatLibraryFile = vi.hoisted(() => vi.fn());
-const emptyChatLibraryTrash = vi.hoisted(() => vi.fn());
-const getChatRetention = vi.hoisted(() => vi.fn());
-const previewChatRetention = vi.hoisted(() => vi.fn());
-const createChatSession = vi.hoisted(() => vi.fn());
-const getChatImageArtifact = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
-  deleteChatFile: (...args: unknown[]) => deleteChatFile(...args),
-  deleteChatFileArtifact: (...args: unknown[]) => deleteChatFileArtifact(...args),
-  deleteChatImageArtifact: (...args: unknown[]) => deleteChatImageArtifact(...args),
-  listChatProjects: (...args: unknown[]) => listChatProjects(...args),
-  getChatProject: (...args: unknown[]) => getChatProject(...args),
-  updateChatProject: (...args: unknown[]) => updateChatProject(...args),
-  copyChatLibraryFile: (...args: unknown[]) => copyChatLibraryFile(...args),
-  getChatFile: (...args: unknown[]) => getChatFile(...args),
-  changeChatLibraryFile: (...args: unknown[]) => changeChatLibraryFile(...args),
-  searchChatLibraryContent: (...args: unknown[]) => searchChatLibraryContent(...args),
-  retryChatFile: (...args: unknown[]) => retryChatFile(...args),
-  requestChatLibraryArchive: (...args: unknown[]) => requestChatLibraryArchive(...args),
-  getChatLibraryArchive: (...args: unknown[]) => getChatLibraryArchive(...args),
-  getChatLibraryUsage: (...args: unknown[]) => getChatLibraryUsage(...args),
-  getChatLibraryTrashWindow: (...args: unknown[]) => getChatLibraryTrashWindow(...args),
-  restoreChatLibraryFile: (...args: unknown[]) => restoreChatLibraryFile(...args),
-  purgeChatLibraryFile: (...args: unknown[]) => purgeChatLibraryFile(...args),
-  emptyChatLibraryTrash: (...args: unknown[]) => emptyChatLibraryTrash(...args),
-  getChatRetention: (...args: unknown[]) => getChatRetention(...args),
-  previewChatRetention: (...args: unknown[]) => previewChatRetention(...args),
-  createChatSession: (...args: unknown[]) => createChatSession(...args),
-  getChatImageArtifact: (...args: unknown[]) => getChatImageArtifact(...args),
-  getChatFileArtifact: vi.fn(),
-  downloadChatFile: vi.fn(),
-  getChatFileArtifactPdfPreview: vi.fn(),
-  previewChatFileArtifactSpreadsheet: vi.fn(),
-  previewChatFileSpreadsheet: vi.fn(),
-  getChatSession: vi.fn(),
-  getChatHistory: vi.fn(),
-}));
 
 vi.mock("./files", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./files")>()),
   uploadChatFile: (...args: unknown[]) => uploadChatFile(...args),
 }));
 
-vi.mock("@/features/identity/application-session-context", () => ({
-  useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
-}));
+/** A request's query as one object: a repeated parameter as its list, a single one as its value. */
+function queryOf(request: Request) {
+  const params = new URL(request.url).searchParams;
+  return Object.fromEntries(
+    [...new Set(params.keys())].map((key) => {
+      const values = params.getAll(key);
+      return [key, values.length > 1 ? values : values[0]];
+    }),
+  );
+}
+
+/** Every listing the page asked for, in order. */
+let listed: Record<string, unknown>[] = [];
+const lastListed = () => listed.at(-1);
+
+/** Answers every listing with these files. */
+function listing(items: ChatLibraryFile[], hasMore = false) {
+  server.use(
+    handleListChatLibrary(({ request }) => {
+      listed.push(queryOf(request));
+      return HttpResponse.json({
+        items,
+        totalCount: hasMore ? 60 : items.length,
+        totalBytes: items.reduce((total, item) => total + item.sizeBytes, 0),
+        hasMore,
+      });
+    }),
+  );
+}
+
+const noContent = () => new HttpResponse(null, { status: 204 });
 
 const file = (overrides: Partial<ChatLibraryFile> = {}): ChatLibraryFile => ({
   source: "GENERATED",
@@ -124,14 +113,7 @@ async function show(
   path = "/library",
 ) {
   const first = items[0];
-  listChatLibrary.mockResolvedValue({
-    data: {
-      items,
-      totalCount: hasMore ? 60 : items.length,
-      totalBytes: items.reduce((total, item) => total + item.sizeBytes, 0),
-      hasMore,
-    },
-  });
+  listing(items, hasMore);
   const rootRoute = createRootRoute();
   const authenticatedRoute = createRoute({ getParentRoute: () => rootRoute, id: "_authenticated" });
   const route = createRoute({
@@ -168,12 +150,13 @@ async function show(
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
-  getChatLibraryUsage.mockResolvedValue({
-    data: { usedBytes: 3072, fileCount: 2, limitBytes: 10240, byCategory: [] },
-  });
-  getChatLibraryTrashWindow.mockResolvedValue({ data: { days: 30 } });
-  getChatRetention.mockResolvedValue({ data: { days: null } });
-  previewChatRetention.mockResolvedValue({ data: { days: null, affected: 0 } });
+  listed = [];
+  server.use(
+    handleGetChatLibraryUsage({
+      body: { usedBytes: 3072, fileCount: 2, limitBytes: 10240, byCategory: [] },
+    }),
+    handleGetChatLibraryTrashWindow({ body: { days: 30 } }),
+  );
 });
 afterEach(cleanup);
 
@@ -221,27 +204,19 @@ it("sends the filters, the search and the sort to the server", async () => {
   await user.click(await screen.findByRole("option", { name: "Dung lượng giảm dần" }));
 
   await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        query: expect.objectContaining({
-          query: "doanh",
-          sources: ["IMAGE"],
-          sort: "LARGEST",
-          offset: 0,
-        }),
-      }),
-    ),
+    expect(lastListed()).toMatchObject({
+      query: "doanh",
+      sources: "IMAGE",
+      sort: "LARGEST",
+      offset: "0",
+    }),
   );
 });
 
 it("opens the list the address names and keeps a changed order in it, leaving defaults out", async () => {
   const router = await show([file(), upload], false, "/library?category=IMAGE&view=ready");
   const user = userEvent.setup();
-  expect(listChatLibrary).toHaveBeenLastCalledWith(
-    expect.objectContaining({
-      query: expect.objectContaining({ categories: ["IMAGE"], offset: 0 }),
-    }),
-  );
+  expect(lastListed()).toMatchObject({ categories: "IMAGE", offset: "0" });
 
   await user.click(screen.getByRole("combobox", { name: "Sắp xếp" }));
   await user.click(await screen.findByRole("option", { name: "Dung lượng giảm dần" }));
@@ -261,8 +236,18 @@ it("deletes each selected file through its own route and reports a refusal", asy
   });
   await show([file(), image]);
   const user = userEvent.setup();
-  deleteChatFileArtifact.mockRejectedValue(new Error("refused"));
-  deleteChatImageArtifact.mockResolvedValue({ data: undefined });
+  const deletedArtifacts: string[] = [];
+  const deletedImages: string[] = [];
+  server.use(
+    handleDeleteChatFileArtifact(({ params }) => {
+      deletedArtifacts.push(params.artifactId);
+      return HttpResponse.json({ code: "REFUSED" }, { status: 500 });
+    }),
+    handleDeleteChatImageArtifact(({ params }) => {
+      deletedImages.push(params.artifactId);
+      return noContent();
+    }),
+  );
 
   await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
   await user.click(screen.getByRole("button", { name: "Xoá" }));
@@ -271,10 +256,8 @@ it("deletes each selected file through its own route and reports a refusal", asy
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá" }),
   );
 
-  await waitFor(() => expect(deleteChatImageArtifact).toHaveBeenCalledTimes(1));
-  expect(deleteChatFileArtifact).toHaveBeenCalledWith(
-    expect.objectContaining({ path: { artifactId: file().id } }),
-  );
+  await waitFor(() => expect(deletedImages).toEqual([image.id]));
+  expect(deletedArtifacts).toEqual([file().id]);
   // The refused file is named; the image beside it was still deleted.
   expect(await screen.findByText(/doanh-thu\.xlsx:/)).toBeInTheDocument();
 });
@@ -283,11 +266,13 @@ it("names the project holding an upload when the server refuses the deletion", a
   const held = { ...upload, deletable: true, usedBy: [] };
   await show([held]);
   const user = userEvent.setup();
-  deleteChatFile.mockRejectedValue(
-    new ApiError(409, {
-      code: "CHAT_FILE_IN_USE",
-      usedBy: [{ kind: "PROJECT", id: "p", name: "Kế hoạch" }],
-    }),
+  server.use(
+    handleDeleteChatFile(() =>
+      HttpResponse.json(
+        { code: "CHAT_FILE_IN_USE", usedBy: [{ kind: "PROJECT", id: "p", name: "Kế hoạch" }] },
+        { status: 409 },
+      ),
+    ),
   );
 
   await user.click(screen.getByRole("button", { name: "Thao tác với ghi-chú.pdf" }));
@@ -310,11 +295,7 @@ it("drops a selection made on another page, so paging cannot delete nothing sile
   // The bar plays its exit before it goes, so the selection is dropped a frame before the DOM says so.
   await waitFor(() => expect(screen.queryByText("Đã chọn 1 tệp")).not.toBeInTheDocument());
   // The page after the one shown is prefetched, so the request to assert is the page itself, not the last.
-  await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ offset: 50 }) }),
-    ),
-  );
+  await waitFor(() => expect(listed).toContainEqual(expect.objectContaining({ offset: "50" })));
 });
 
 it("chooses one day at its heading and leaves the other days alone", async () => {
@@ -387,42 +368,40 @@ it("lists uploads still being processed separately, with retry", async () => {
     status: "FAILED",
     errorCode: "EXTRACTION_FAILED",
   });
-  listChatLibrary.mockResolvedValue({
-    data: { items: [failed], totalCount: 1, totalBytes: failed.sizeBytes, hasMore: false },
-  });
-  retryChatFile.mockResolvedValue({ data: undefined });
+  listing([failed]);
+  const retried: string[] = [];
+  server.use(
+    handleRetryChatFile(({ params }) => {
+      retried.push(params.fileId);
+      return noContent();
+    }),
+  );
 
   await user.click(screen.getByRole("button", { name: "Đang xử lý" }));
 
-  await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ status: "PENDING" }) }),
-    ),
-  );
+  await waitFor(() => expect(lastListed()).toMatchObject({ status: "PENDING" }));
   expect(await screen.findByText("Xử lý lỗi")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Thử lại" }));
-  await waitFor(() =>
-    expect(retryChatFile).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { fileId: failed.id } }),
-    ),
-  );
+  await waitFor(() => expect(retried).toEqual([failed.id]));
 });
 
 it("renames a file, keeping its extension, and stars it", async () => {
   await show();
   const user = userEvent.setup();
-  changeChatLibraryFile.mockResolvedValue({
-    data: { ...file(), filename: "Doanh thu quý 3.xlsx" },
-  });
+  const changes: { path: unknown; body: unknown }[] = [];
+  server.use(
+    handleChangeChatLibraryFile(async ({ params, request }) => {
+      const body = await request.json();
+      changes.push({ path: { source: params.source, id: params.id }, body });
+      return HttpResponse.json({ ...file(), ...body });
+    }),
+  );
 
   await user.click(screen.getByRole("button", { name: "Đánh dấu yêu thích doanh-thu.xlsx" }));
   await waitFor(() =>
-    expect(changeChatLibraryFile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: { source: "GENERATED", id: file().id },
-        body: { favorite: true },
-      }),
-    ),
+    expect(changes).toEqual([
+      { path: { source: "GENERATED", id: file().id }, body: { favorite: true } },
+    ]),
   );
 
   await user.click(screen.getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
@@ -434,16 +413,14 @@ it("renames a file, keeping its extension, and stars it", async () => {
   await user.click(within(dialog).getByRole("button", { name: "Đổi tên" }));
 
   await waitFor(() =>
-    expect(changeChatLibraryFile).toHaveBeenLastCalledWith(
-      expect.objectContaining({ body: { filename: "Doanh thu quý 3" } }),
-    ),
+    expect(changes.at(-1)).toMatchObject({ body: { filename: "Doanh thu quý 3" } }),
   );
 });
 
 it("says so when starring a file fails", async () => {
   await show();
   const user = userEvent.setup();
-  changeChatLibraryFile.mockRejectedValue(new Error("offline"));
+  server.use(handleChangeChatLibraryFile(() => HttpResponse.error()));
 
   await user.click(screen.getByRole("button", { name: "Đánh dấu yêu thích doanh-thu.xlsx" }));
 
@@ -455,61 +432,63 @@ it("says so when starring a file fails", async () => {
 it("searches inside files and shows the matching passages", async () => {
   await show();
   const user = userEvent.setup();
-  searchChatLibraryContent.mockResolvedValue({
-    data: [
-      {
-        file: file({ filename: "hop-dong.pdf", source: "UPLOAD", category: "DOCUMENT" }),
-        passages: [{ text: "Điều khoản thanh toán trong 30 ngày", ordinal: 4 }],
-      },
-    ],
-  });
+  const searched: unknown[] = [];
+  server.use(
+    handleSearchChatLibraryContent(({ request }) => {
+      searched.push(queryOf(request));
+      return HttpResponse.json([
+        {
+          file: file({ filename: "hop-dong.pdf", source: "UPLOAD", category: "DOCUMENT" }),
+          passages: [{ text: "Điều khoản thanh toán trong 30 ngày", ordinal: 4 }],
+        },
+      ]);
+    }),
+  );
 
   await user.click(screen.getByRole("radio", { name: "Nội dung" }));
   await user.type(screen.getByRole("textbox", { name: "Tìm trong nội dung tệp" }), "thanh toán");
 
-  await waitFor(() =>
-    expect(searchChatLibraryContent).toHaveBeenLastCalledWith(
-      expect.objectContaining({ query: { query: "thanh toán" } }),
-    ),
-  );
+  await waitFor(() => expect(searched.at(-1)).toEqual({ query: "thanh toán" }));
   expect(await screen.findByText("hop-dong.pdf")).toBeInTheDocument();
   // The matched words are marked inside the passage.
   const marked = await screen.findByText("thanh toán", { selector: "mark" });
   expect(marked).toBeInTheDocument();
   // The name listing is not asked again while the content mode is open.
-  expect(listChatLibrary).not.toHaveBeenCalledWith(
-    expect.objectContaining({ query: expect.objectContaining({ query: "thanh toán" }) }),
-  );
+  expect(listed).not.toContainEqual(expect.objectContaining({ query: "thanh toán" }));
 });
 
 it("packs a selection into a ZIP, then downloads it and names what was skipped", async () => {
   await show();
   const user = userEvent.setup();
   const archiveId = "99999999-9999-4999-8999-999999999999";
-  requestChatLibraryArchive.mockResolvedValue({
-    data: {
-      id: archiveId,
-      status: "PENDING",
-      fileCount: 2,
-      sizeBytes: null,
-      skipped: [],
-      failure: null,
-      createdAt: new Date().toISOString(),
-      expiresAt: null,
-    },
-  });
-  getChatLibraryArchive.mockResolvedValue({
-    data: {
-      id: archiveId,
-      status: "READY",
-      fileCount: 2,
-      sizeBytes: 4096,
-      skipped: ["ghi-chú.pdf"],
-      failure: null,
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 3600_000).toISOString(),
-    },
-  });
+  const requested: unknown[] = [];
+  server.use(
+    handleRequestChatLibraryArchive(async ({ request }) => {
+      requested.push(await request.json());
+      return HttpResponse.json({
+        id: archiveId,
+        status: "PENDING",
+        fileCount: 2,
+        sizeBytes: null,
+        skipped: [],
+        failure: null,
+        createdAt: new Date().toISOString(),
+        expiresAt: null,
+      });
+    }),
+    handleGetChatLibraryArchive({
+      body: {
+        id: archiveId,
+        status: "READY",
+        fileCount: 2,
+        sizeBytes: 4096,
+        skipped: ["ghi-chú.pdf"],
+        failure: null,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+      },
+    }),
+  );
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
   await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
@@ -517,16 +496,14 @@ it("packs a selection into a ZIP, then downloads it and names what was skipped",
 
   expect(await screen.findByText(/Đang đóng gói 2 tệp/)).toBeInTheDocument();
   await waitFor(() =>
-    expect(requestChatLibraryArchive).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: {
-          files: [
-            { source: "GENERATED", id: file().id },
-            { source: "UPLOAD", id: upload.id },
-          ],
-        },
-      }),
-    ),
+    expect(requested).toEqual([
+      {
+        files: [
+          { source: "GENERATED", id: file().id },
+          { source: "UPLOAD", id: upload.id },
+        ],
+      },
+    ]),
   );
   // The browser polls the archive every 1.5s, so this waits past one poll.
   expect(await screen.findByText(/ZIP đã sẵn sàng/, {}, { timeout: 5000 })).toBeInTheDocument();
@@ -550,11 +527,7 @@ it("shows what the library holds against its limit and links to the largest file
 
   await user.click(within(bar).getByRole("button", { name: "Xem tệp lớn nhất" }));
 
-  await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ sort: "LARGEST" }) }),
-    ),
-  );
+  await waitFor(() => expect(lastListed()).toMatchObject({ sort: "LARGEST" }));
 });
 
 it("says a deleted file goes to the trash, and restores or ends it from there", async () => {
@@ -565,9 +538,23 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
     deletedAt: new Date().toISOString(),
     purgeAfter: new Date(Date.now() + 86_400_000).toISOString(),
   });
-  restoreChatLibraryFile.mockResolvedValue({ data: undefined });
-  purgeChatLibraryFile.mockResolvedValue({ data: undefined });
-  emptyChatLibraryTrash.mockResolvedValue({ data: { purged: 3 } });
+  const restored: unknown[] = [];
+  const purged: unknown[] = [];
+  let emptied = false;
+  server.use(
+    handleRestoreChatLibraryFile(({ params }) => {
+      restored.push({ source: params.source, id: params.id });
+      return noContent();
+    }),
+    handlePurgeChatLibraryFile(({ params }) => {
+      purged.push({ source: params.source, id: params.id });
+      return noContent();
+    }),
+    handleEmptyChatLibraryTrash(() => {
+      emptied = true;
+      return HttpResponse.json({ purged: 3 });
+    }),
+  );
 
   // The confirmation says where the file goes, not that it is gone.
   await user.click(screen.getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
@@ -575,43 +562,27 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   expect(await screen.findByText(/nằm trong thùng rác 30 ngày/)).toBeInTheDocument();
   await user.keyboard("{Escape}");
 
-  listChatLibrary.mockResolvedValue({
-    data: { items: [trashed], totalCount: 1, totalBytes: trashed.sizeBytes, hasMore: false },
-  });
+  listing([trashed]);
   await user.click(screen.getByRole("button", { name: "Thùng rác" }));
 
-  await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        query: expect.objectContaining({ status: "TRASH", sort: "DELETED" }),
-      }),
-    ),
-  );
+  await waitFor(() => expect(lastListed()).toMatchObject({ status: "TRASH", sort: "DELETED" }));
   expect(await screen.findByText(/Tệp đã xoá được giữ 30 ngày/)).toBeInTheDocument();
 
   await user.click(await screen.findByRole("button", { name: "Khôi phục" }));
-  await waitFor(() =>
-    expect(restoreChatLibraryFile).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { source: "GENERATED", id: trashed.id } }),
-    ),
-  );
+  await waitFor(() => expect(restored).toEqual([{ source: "GENERATED", id: trashed.id }]));
   expect(await screen.findByText("Đã khôi phục da-xoa.xlsx.")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Xoá vĩnh viễn da-xoa.xlsx" }));
   await user.click(
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá vĩnh viễn" }),
   );
-  await waitFor(() =>
-    expect(purgeChatLibraryFile).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { source: "GENERATED", id: trashed.id } }),
-    ),
-  );
+  await waitFor(() => expect(purged).toEqual([{ source: "GENERATED", id: trashed.id }]));
 
   await user.click(screen.getByRole("button", { name: "Dọn sạch thùng rác" }));
   await user.click(
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Dọn sạch" }),
   );
-  await waitFor(() => expect(emptyChatLibraryTrash).toHaveBeenCalled());
+  await waitFor(() => expect(emptied).toBe(true));
   expect(await screen.findByText("Đã xoá vĩnh viễn 3 tệp.")).toBeInTheDocument();
 });
 
@@ -621,11 +592,7 @@ it("asks for the favourites when the rail switches to them", async () => {
 
   await user.click(screen.getByRole("button", { name: "Yêu thích" }));
 
-  await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ favorite: true, offset: 0 }) }),
-    ),
-  );
+  await waitFor(() => expect(lastListed()).toMatchObject({ favorite: "true", offset: "0" }));
   // Favourites are a view, so the same thing is not also offered as a filter.
   await user.click(screen.getByRole("button", { name: "Bộ lọc" }));
   expect(
@@ -634,9 +601,6 @@ it("asks for the favourites when the rail switches to them", async () => {
 });
 
 it("says what an empty view means and offers the way out of a filter", async () => {
-  listChatLibrary.mockResolvedValue({
-    data: { items: [], totalCount: 0, totalBytes: 0, hasMore: false },
-  });
   await show([]);
   const user = userEvent.setup();
 
@@ -652,17 +616,19 @@ it("says what an empty view means and offers the way out of a filter", async () 
 });
 
 it("keeps the library's own settings on the library: what is stored and how long it stays in the trash", async () => {
-  getChatLibraryUsage.mockResolvedValue({
-    data: {
-      usedBytes: 3072,
-      fileCount: 2,
-      limitBytes: 10240,
-      byCategory: [
-        { category: "IMAGE", usedBytes: 2048 },
-        { category: "DOCUMENT", usedBytes: 1024 },
-      ],
-    },
-  });
+  server.use(
+    handleGetChatLibraryUsage({
+      body: {
+        usedBytes: 3072,
+        fileCount: 2,
+        limitBytes: 10240,
+        byCategory: [
+          { category: "IMAGE", usedBytes: 2048 },
+          { category: "DOCUMENT", usedBytes: 1024 },
+        ],
+      },
+    }),
+  );
   await show();
   const user = userEvent.setup();
 
@@ -679,13 +645,7 @@ it("keeps the library's own settings on the library: what is stored and how long
   // A kind of file narrows the list already behind the panel instead of navigating anywhere.
   await user.click(within(panel).getByRole("button", { name: /Ảnh/ }));
 
-  await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        query: expect.objectContaining({ categories: ["IMAGE"], offset: 0 }),
-      }),
-    ),
-  );
+  await waitFor(() => expect(lastListed()).toMatchObject({ categories: "IMAGE", offset: "0" }));
 });
 
 it("cuts the list into pages of the chosen size, from its first page", async () => {
@@ -694,18 +654,14 @@ it("cuts the list into pages of the chosen size, from its first page", async () 
 
   await user.click(screen.getByRole("button", { name: "Trang sau" }));
   await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ offset: 50, limit: 50 }) }),
-    ),
+    expect(listed).toContainEqual(expect.objectContaining({ offset: "50", limit: "50" })),
   );
 
   await user.click(screen.getByRole("combobox", { name: "Số tệp mỗi trang" }));
   await user.click(await screen.findByRole("option", { name: "12" }));
 
   await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ offset: 0, limit: 12 }) }),
-    ),
+    expect(listed).toContainEqual(expect.objectContaining({ offset: "0", limit: "12" })),
   );
   expect(screen.getByText("Hiển thị 1–12 trên 60 tệp")).toBeInTheDocument();
 });

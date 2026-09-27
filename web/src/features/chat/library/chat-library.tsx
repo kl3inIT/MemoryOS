@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import type { LibraryChat } from "@/features/library/library-chat";
 import { LibraryPage } from "@/features/library/library-page";
 import { StoragePage } from "@/features/library/storage-page";
-import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
+import { newChatSession } from "@/features/chat/chat-api";
 import { ChatModelPicker } from "@/features/chat/chat-model-picker";
 import { readChatModelPreference, writeChatModelPreference } from "@/features/chat/chat-models";
 import { ChatAddToProjectDialog } from "@/features/chat/projects/chat-add-to-project";
 import { removeFromProject } from "@/features/chat/projects/chat-project-files";
 import { ChatRetentionSection } from "@/features/chat/settings/chat-retention-section";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 /**
  * The library as the application shows it: the library's own page with what Chat adds to it. The library does not
@@ -27,12 +27,12 @@ export function ChatStoragePage() {
 
 function useLibraryChat(): LibraryChat {
   const navigate = useNavigate();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   return useMemo(
     () => ({
       ask: async ({ question, title, attach }, signal) => {
         const session = await newChatSession(title, signal);
-        await cache.invalidateQueries({ queryKey: chatSessionsKey });
+        await refreshSessions();
         await navigate({
           to: "/chat/$sessionId",
           params: { sessionId: session.id },
@@ -44,7 +44,7 @@ function useLibraryChat(): LibraryChat {
       removeFromProject,
       RetentionSection: ChatRetentionSection,
     }),
-    [cache, navigate],
+    [navigate, refreshSessions],
   );
 }
 

@@ -3,28 +3,23 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
+import { HttpResponse } from "msw";
+import {
+  handleCopyChatLibraryFile,
+  handleDeleteChatFileArtifact,
+  handleGetChatFile,
+  handleListChatLibrary,
+} from "@/lib/hey-api/msw.gen";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { ChatSessionFiles } from "./chat-session-files";
 
-const listChatLibrary = vi.hoisted(() => vi.fn());
-const deleteChatFileArtifact = vi.hoisted(() => vi.fn());
-const copyChatLibraryFile = vi.hoisted(() => vi.fn());
-const getChatFile = vi.hoisted(() => vi.fn());
 const composer = vi.hoisted(() => ({
   attachments: [] as unknown[],
   getState() {
     return { attachments: this.attachments };
   },
   addAttachment: vi.fn(),
-}));
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
-  deleteChatFile: vi.fn(),
-  deleteChatFileArtifact: (...args: unknown[]) => deleteChatFileArtifact(...args),
-  deleteChatImageArtifact: vi.fn(),
-  copyChatLibraryFile: (...args: unknown[]) => copyChatLibraryFile(...args),
-  getChatFile: (...args: unknown[]) => getChatFile(...args),
 }));
 
 vi.mock("@assistant-ui/react", () => ({
@@ -59,15 +54,21 @@ const generated: ChatLibraryFile = {
   deletable: true,
 };
 
+/** The library listings the panel asked for, as their query parameters. */
+let listings: URLSearchParams[] = [];
+
 function show(items: ChatLibraryFile[] = [generated], onShowMessage = vi.fn()) {
-  listChatLibrary.mockResolvedValue({
-    data: {
-      items,
-      totalCount: items.length,
-      totalBytes: items.reduce((total, item) => total + item.sizeBytes, 0),
-      hasMore: false,
-    },
-  });
+  server.use(
+    handleListChatLibrary(({ request }) => {
+      listings.push(new URL(request.url).searchParams);
+      return HttpResponse.json({
+        items,
+        totalCount: items.length,
+        totalBytes: items.reduce((total, item) => total + item.sizeBytes, 0),
+        hasMore: false,
+      });
+    }),
+  );
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -88,6 +89,7 @@ beforeEach(async () => {
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
   composer.attachments = [];
+  listings = [];
 });
 afterEach(cleanup);
 
@@ -95,9 +97,7 @@ it("counts this conversation's files on the button and lists them in the panel",
   show();
 
   await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ sessionId: SESSION }) }),
-    ),
+    expect(listings.some((params) => params.get("sessionId") === SESSION)).toBe(true),
   );
   const { panel } = await openPanel();
   expect(within(panel).getByText("doanh-thu.xlsx")).toBeInTheDocument();
@@ -122,39 +122,42 @@ it("searches and filters within the conversation on the server", async () => {
   await user.click(await screen.findByRole("button", { name: "Bảng tính" }));
 
   await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        query: expect.objectContaining({
-          sessionId: SESSION,
-          query: "doanh",
-          categories: ["SPREADSHEET"],
-        }),
-      }),
-    ),
+    expect(
+      listings.some(
+        (params) =>
+          params.get("sessionId") === SESSION &&
+          params.get("query") === "doanh" &&
+          params.getAll("categories").join() === "SPREADSHEET",
+      ),
+    ).toBe(true),
   );
 });
 
 it("attaches a generated file to the next question through its server copy", async () => {
   show();
   const copy = "44444444-4444-4444-8444-444444444444";
-  copyChatLibraryFile.mockResolvedValue({
-    data: {
-      id: copy,
-      filename: "doanh-thu.xlsx",
-      mediaType: "text/csv",
-      sizeBytes: 2048,
-      status: "PROCESSING",
-    },
-  });
-  getChatFile.mockResolvedValue({
-    data: {
-      id: copy,
-      filename: "doanh-thu.xlsx",
-      mediaType: "text/csv",
-      sizeBytes: 2048,
-      status: "READY",
-    },
-  });
+  const copied: string[] = [];
+  server.use(
+    handleCopyChatLibraryFile(({ params }) => {
+      copied.push(`${params.source}:${params.id}`);
+      return HttpResponse.json({
+        id: copy,
+        filename: "doanh-thu.xlsx",
+        mediaType: "text/csv",
+        sizeBytes: 2048,
+        status: "PROCESSING",
+      });
+    }),
+    handleGetChatFile({
+      body: {
+        id: copy,
+        filename: "doanh-thu.xlsx",
+        mediaType: "text/csv",
+        sizeBytes: 2048,
+        status: "READY",
+      },
+    }),
+  );
   const { user, panel } = await openPanel();
 
   await user.click(
@@ -169,9 +172,7 @@ it("attaches a generated file to the next question through its server copy", asy
       }),
     ),
   );
-  expect(copyChatLibraryFile).toHaveBeenCalledWith(
-    expect.objectContaining({ path: { source: "GENERATED", id: generated.id } }),
-  );
+  expect(copied).toEqual([`GENERATED:${generated.id}`]);
   expect(
     await within(panel).findByText("Đã đính kèm doanh-thu.xlsx vào câu hỏi tiếp theo."),
   ).toBeInTheDocument();
@@ -189,7 +190,13 @@ it("jumps to the message a file belongs to", async () => {
 
 it("deletes a file after the confirmation", async () => {
   show();
-  deleteChatFileArtifact.mockResolvedValue({ data: undefined });
+  const deleted: string[] = [];
+  server.use(
+    handleDeleteChatFileArtifact(({ params }) => {
+      deleted.push(params.artifactId);
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
   const { user, panel } = await openPanel();
 
   await user.click(within(panel).getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
@@ -198,9 +205,5 @@ it("deletes a file after the confirmation", async () => {
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá" }),
   );
 
-  await waitFor(() =>
-    expect(deleteChatFileArtifact).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { artifactId: generated.id } }),
-    ),
-  );
+  await waitFor(() => expect(deleted).toEqual([generated.id]));
 });

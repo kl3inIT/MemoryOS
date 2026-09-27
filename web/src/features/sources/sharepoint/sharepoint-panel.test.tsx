@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { afterEach, describe, expect, it } from "vitest";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
@@ -10,6 +11,17 @@ import type {
   SourceOperation,
   SourceSummary,
 } from "@/lib/hey-api/types.gen";
+import {
+  handleGetSharePointConfiguration,
+  handleGetSharePointRoots,
+  handleGetSharePointSelectionPolicy,
+  handleGetSourceOperation,
+  handleListSharePointCredentials,
+  handleListSourceGroups,
+  handleSynchronizeSharePointSource,
+  handleUpdateSharePointPause,
+} from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { SharePointPanel } from "./sharepoint-panel";
 
 const owner: ApplicationSession = {
@@ -43,11 +55,9 @@ const source: SourceSummary = {
 const clients: QueryClient[] = [];
 
 afterEach(() => {
-  cleanup();
   for (const client of clients) client.clear();
   clients.length = 0;
   sessionStorage.clear();
-  vi.unstubAllGlobals();
 });
 
 function setup(
@@ -84,74 +94,72 @@ function setup(
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   clients.push(queryClient);
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      requests.push(request.clone());
-      const url = new URL(request.url);
-      if (url.pathname === "/api/credentials/sharepoint" && request.method === "GET")
-        return Response.json([
-          {
-            id: configuration.credentialId,
-            name: configuration.credentialName,
-            directoryId: "d1f4a9b0-0000-4000-8000-000000000001",
-            clientId: "d1f4a9b0-0000-4000-8000-000000000002",
-            cloud: "GLOBAL",
-            authMethod: "CLIENT_SECRET",
-            status: configuration.credentialStatus,
-            credentialRevision: configuration.credentialRevision,
-            createdAt: "2026-09-01T00:00:00Z",
-            updatedAt: "2026-09-01T00:00:00Z",
-            sourceCount: 1,
-            actions: ["test", "rename", "replace_authentication", "delete"],
-          },
-        ]);
-      if (url.pathname === "/api/sources/sharepoint/selection-policy")
-        return Response.json({
-          maxRootsPerSource: 100,
-          maxExclusionsPerKind: 100,
-          maxRequestBytes: 2_097_152,
-        });
-      if (url.pathname.endsWith("/sharepoint/roots"))
-        return Response.json({
-          scopeRevision: configuration.scopeRevision,
-          roots: [
-            {
-              url: "https://contoso.sharepoint.com/sites/Finance",
-              kind: "SITE",
-              displayName: "Finance",
-              verified: true,
-            },
-          ],
-          total: 1,
-        });
-      if (url.pathname.endsWith("/sharepoint") && request.method === "GET")
-        return Response.json(configuration);
-      if (url.pathname.endsWith("/sharepoint/pause") && request.method === "PUT") {
-        const body = await request.json();
-        if (body.expectedRevision !== configuration.scheduleRevision)
-          return Response.json({ code: "SOURCE_SHAREPOINT_REVISION_CONFLICT" }, { status: 412 });
-        configuration = {
-          ...configuration,
-          syncPaused: body.paused,
-          scheduleRevision: configuration.scheduleRevision + 1,
-        };
-        return Response.json(configuration);
-      }
-      if (url.pathname.endsWith("/sharepoint/sync") && request.method === "POST") {
-        syncOperation = {
-          id: "sync-1",
-          type: "SYNC_SOURCE",
-          createdAt: "2026-09-08T10:00:00Z",
-          completedAt: "2026-09-08T10:00:01Z",
-          ...syncOutcome,
-        };
-        return Response.json(syncOperation, { status: 202 });
-      }
-      if (url.pathname.startsWith("/api/source-operations/") && syncOperation)
-        return Response.json(syncOperation);
-      throw new Error(`Unexpected request ${request.method} ${url.pathname}`);
+  const record = (request: Request) => requests.push(request.clone());
+  server.use(
+    handleListSharePointCredentials(({ request }) => {
+      record(request);
+      return HttpResponse.json([
+        {
+          id: configuration.credentialId,
+          name: configuration.credentialName,
+          directoryId: "d1f4a9b0-0000-4000-8000-000000000001",
+          clientId: "d1f4a9b0-0000-4000-8000-000000000002",
+          cloud: "GLOBAL",
+          authMethod: "CLIENT_SECRET",
+          status: configuration.credentialStatus,
+          credentialRevision: configuration.credentialRevision,
+          createdAt: "2026-09-01T00:00:00Z",
+          updatedAt: "2026-09-01T00:00:00Z",
+          sourceCount: 1,
+          actions: ["test", "rename", "replace_authentication", "delete"],
+        },
+      ]);
     }),
+    handleGetSharePointSelectionPolicy({
+      body: { maxRootsPerSource: 100, maxExclusionsPerKind: 100, maxRequestBytes: 2_097_152 },
+    }),
+    handleGetSharePointRoots({
+      body: {
+        scopeRevision: configuration.scopeRevision,
+        roots: [
+          {
+            url: "https://contoso.sharepoint.com/sites/Finance",
+            kind: "SITE",
+            displayName: "Finance",
+            verified: true,
+          },
+        ],
+        total: 1,
+      },
+    }),
+    handleGetSharePointConfiguration(() => HttpResponse.json(configuration)),
+    handleUpdateSharePointPause(async ({ request }) => {
+      record(request);
+      const body = (await request.json()) as { expectedRevision: number; paused: boolean };
+      if (body.expectedRevision !== configuration.scheduleRevision)
+        return HttpResponse.json({ code: "SOURCE_SHAREPOINT_REVISION_CONFLICT" }, { status: 412 });
+      configuration = {
+        ...configuration,
+        syncPaused: body.paused,
+        scheduleRevision: configuration.scheduleRevision + 1,
+      };
+      return HttpResponse.json(configuration);
+    }),
+    handleSynchronizeSharePointSource(({ request }) => {
+      record(request);
+      syncOperation = {
+        id: "sync-1",
+        type: "SYNC_SOURCE",
+        createdAt: "2026-09-08T10:00:00Z",
+        completedAt: "2026-09-08T10:00:01Z",
+        ...syncOutcome,
+      };
+      return HttpResponse.json(syncOperation, { status: 202 });
+    }),
+    handleListSourceGroups({ body: { items: [] } }),
+    handleGetSourceOperation(() =>
+      syncOperation ? HttpResponse.json(syncOperation) : new HttpResponse(null, { status: 404 }),
+    ),
   );
   const view = render(
     <QueryClientProvider client={queryClient}>

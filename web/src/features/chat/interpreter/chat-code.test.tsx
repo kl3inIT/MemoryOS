@@ -72,7 +72,7 @@ describe("files run_python generated", () => {
   it("opens the file in the preview modal from its name", () => {
     const opened: unknown[] = [];
     render(
-      <ChatPanelContext.Provider
+      <ChatPanelContext
         value={{
           panelId: "panel",
           open: () => {},
@@ -82,7 +82,7 @@ describe("files run_python generated", () => {
         }}
       >
         <Thread custom={{ generatedFiles: [file] }} />
-      </ChatPanelContext.Provider>,
+      </ChatPanelContext>,
     );
 
     const preview = screen.getByRole("button", { name: `Xem trước ${file.filename}` });

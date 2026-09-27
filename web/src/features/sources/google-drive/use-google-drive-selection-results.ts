@@ -1,7 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { getGoogleDriveSelectionQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { getGoogleDriveSelection } from "@/lib/hey-api/sdk.gen";
+import { getGoogleDriveSelectionOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GetGoogleDriveConfigurationResponse } from "@/lib/hey-api/types.gen";
 import type { SelectionKind } from "./google-drive-selection-parts";
 import {
@@ -12,19 +11,19 @@ import {
 } from "./google-drive-selection-paging";
 
 /**
- * Search and type filters over Selected content: unique result pages instead of the tree, pinned
- * to the selection, discovery and credential revisions they were read at.
+ * Search and type filters over Selected content: unique result pages instead of the tree. A page
+ * counts only while it carries the selection, discovery and credential revisions shown; a changed
+ * selection invalidates the pages (see `useGoogleDrivePanel`), and paging restarts with it.
  */
 export function useGoogleDriveSelectionResults(
   sourceId: string,
-  actorId: string,
   configuration: GetGoogleDriveConfigurationResponse,
 ) {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<SelectionKind>("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const authority = `${sourceId}:${actorId}:${configuration.revision}:${configuration.discoveryRevision}:${configuration.credentialRevision}`;
+  const authority = `${sourceId}:${configuration.revision}:${configuration.discoveryRevision}:${configuration.credentialRevision}`;
   const filtered = Boolean(search || kind);
   const [paging, setPaging] = useState<{ authority: string } & SelectionPaging>({
     authority,
@@ -41,14 +40,7 @@ export function useGoogleDriveSelectionResults(
     },
   };
   const selection = useQuery({
-    queryKey: [...getGoogleDriveSelectionQueryKey(pageRequest), authority],
-    queryFn: async ({ signal }) => {
-      const { data } = await getGoogleDriveSelection({
-        ...pageRequest,
-        signal,
-      });
-      return data;
-    },
+    ...getGoogleDriveSelectionOptions(pageRequest),
     // The shown page stays while the next one loads, so the pager keeps its place and focus.
     placeholderData: keepPreviousData,
     retry: false,
@@ -74,8 +66,10 @@ export function useGoogleDriveSelectionResults(
     rows,
     pageMatches,
     nextCursor: page?.nextCursor,
-    // A page kept while another authority's page loads is not a changed page.
-    pageStale: Boolean(page && !pageMatches && !selection.isPlaceholderData),
+    // A page kept while the next one loads, or read again after a change, is not a changed page.
+    pageStale: Boolean(
+      page && !pageMatches && !selection.isPlaceholderData && !selection.isFetching,
+    ),
     paging: resultsPage,
     firstPage,
     setSearchInput,

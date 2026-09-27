@@ -1,10 +1,12 @@
 import { ChevronDown, CirclePlus, X } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -66,64 +68,67 @@ export function SourceFilterMenu({
         selected.length ? "bg-surface-raised" : "border-dashed",
       )}
     >
-      {selected.length ? (
-        <IconButton
-          size="sm"
-          aria-label={ui(clearLabel)}
-          className="rounded-r-none"
-          onClick={() => {
-            onValueChange([]);
-            // The clear button unmounts with the value, so focus stays on the chip.
-            trigger.current?.focus();
-          }}
-        >
-          <X aria-hidden="true" />
-        </IconButton>
-      ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            ref={trigger}
+      <ButtonGroup className="min-w-0">
+        {selected.length ? (
+          <IconButton
             size="sm"
-            prominence="tertiary"
-            className={cn("min-w-0", selected.length && "rounded-l-none pl-1")}
+            aria-label={ui(clearLabel)}
+            onClick={() => {
+              onValueChange([]);
+              // The clear button unmounts with the value, so focus stays on the chip.
+              trigger.current?.focus();
+            }}
           >
-            {selected.length ? null : <CirclePlus aria-hidden="true" />}
-            {selected.length ? ui(label) : ui(addLabel)}
-            {selected.length ? (
-              <>
-                <span className="sr-only">: </span>
-                <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-default" />
-                <span aria-hidden="true" className="flex shrink-0 -space-x-0.5">
-                  {selected.map((option) => (
-                    <ToneDot key={option.value} tone={option.tone} />
-                  ))}
-                </span>
-                <span className="max-w-56 truncate text-content-primary">
-                  {selected.map((option) => ui(option.label)).join(", ")}
-                </span>
-                <ChevronDown aria-hidden="true" />
-              </>
-            ) : null}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-auto min-w-56">
-          <DropdownMenuLabel>{ui(label)}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {options.map((option) => (
-            <DropdownMenuCheckboxItem
-              key={option.value}
-              checked={value.includes(option.value)}
-              onCheckedChange={(checked) => toggle(option.value, checked)}
-              // Several values are usually ticked in one visit.
-              onSelect={(event) => event.preventDefault()}
+            <X aria-hidden="true" />
+          </IconButton>
+        ) : null}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              ref={trigger}
+              size="sm"
+              prominence="tertiary"
+              className={cn("min-w-0", selected.length && "pl-1")}
             >
-              <ToneDot tone={option.tone} />
-              {ui(option.label)}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              {selected.length ? null : <CirclePlus aria-hidden="true" />}
+              {selected.length ? ui(label) : ui(addLabel)}
+              {selected.length ? (
+                <>
+                  <span className="sr-only">: </span>
+                  <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-default" />
+                  <span aria-hidden="true" className="flex shrink-0 gap-0.5">
+                    {selected.map((option) => (
+                      <ToneDot key={option.value} tone={option.tone} />
+                    ))}
+                  </span>
+                  <span className="max-w-56 truncate text-content-primary">
+                    {selected.map((option) => ui(option.label)).join(", ")}
+                  </span>
+                  <ChevronDown aria-hidden="true" />
+                </>
+              ) : null}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-auto min-w-56">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{ui(label)}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {options.map((option) => (
+                <DropdownMenuCheckboxItem
+                  key={option.value}
+                  checked={value.includes(option.value)}
+                  onCheckedChange={(checked) => toggle(option.value, checked)}
+                  // Several values are usually ticked in one visit.
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  <ToneDot tone={option.tone} />
+                  {ui(option.label)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </ButtonGroup>
     </div>
   );
 }

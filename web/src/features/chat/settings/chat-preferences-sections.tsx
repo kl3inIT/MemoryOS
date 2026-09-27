@@ -11,7 +11,7 @@ import {
   ModelSelectorTrigger,
 } from "@/components/assistant-ui/elements/model-selector";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -71,7 +71,7 @@ export function ChatPreferencesSections() {
                   aria-label={ui("Default Model")}
                   aria-describedby="default-model-description"
                   disabled={disabled || !catalog.isSuccess}
-                  className="h-9 rounded-lg border-border-subtle bg-surface-raised sm:w-64"
+                  className="h-9 sm:w-64"
                 />
                 <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="end">
                   <ModelSelectorSearch
@@ -118,7 +118,7 @@ export function ChatPreferencesSections() {
                   onValueChange={([next]) => setTemperature(next)}
                   onValueCommit={([next]) => save.mutate({ temperatureDefault: next })}
                 />
-                <span className="w-8 text-right font-secondary-body tabular-nums text-content-secondary">
+                <span className="w-8 text-right font-secondary-body text-content-secondary tabular-nums">
                   {(temperature ?? data?.temperatureDefault ?? 1).toFixed(1)}
                 </span>
               </div>
@@ -134,7 +134,7 @@ export function ChatPreferencesSections() {
             )}
             className="flex-col items-stretch sm:flex-row sm:items-center"
             control={
-              <Select
+              <NativeSelect
                 id="default-reasoning"
                 aria-describedby="default-reasoning-description"
                 className="sm:w-64"
@@ -153,7 +153,7 @@ export function ChatPreferencesSections() {
                     {ui(level.name)}
                   </option>
                 ))}
-              </Select>
+              </NativeSelect>
             }
           />
           <SettingRow
@@ -181,7 +181,7 @@ export function ChatPreferencesSections() {
       >
         <div>
           <h2 id="personal-preferences-heading" className="font-heading-h3 text-content-primary">
-            <label htmlFor="personal-preferences">{ui("Personal Preferences")}</label>
+            {ui("Personal Preferences")}
           </h2>
           <p id="personal-preferences-description" className="text-content-muted">
             {ui("Provide your custom preferences in natural language.")}
@@ -189,6 +189,7 @@ export function ChatPreferencesSections() {
         </div>
         <Textarea
           id="personal-preferences"
+          aria-labelledby="personal-preferences-heading"
           aria-describedby="personal-preferences-description"
           rows={4}
           maxLength={PREFERENCES_LIMIT}
@@ -206,7 +207,7 @@ export function ChatPreferencesSections() {
               );
           }}
         />
-        <p className="text-right font-secondary-body tabular-nums text-content-muted">
+        <p className="text-right font-secondary-body text-content-muted tabular-nums">
           {ui(appText("{{count}}/{{limit}}", { count: draft.length, limit: PREFERENCES_LIMIT }))}
         </p>
       </section>

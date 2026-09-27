@@ -35,6 +35,7 @@ export function ThreadList({
   return (
     <div
       data-slot="thread-list"
+      role="group"
       aria-label={label}
       className={cn("flex w-full min-w-0 flex-col gap-0.5", className)}
     >
@@ -60,13 +61,13 @@ export function ThreadListRow({
       draggable={!!onDragStart}
       onDragStart={onDragStart}
       className={cn(
-        "group flex min-w-0 items-center gap-1 rounded-lg px-1 text-sm hover:bg-surface-sunken focus-within:bg-surface-sunken",
+        "group flex min-w-0 items-center gap-1 rounded-lg px-1 text-sm focus-within:bg-surface-sunken hover:bg-surface-sunken",
         selected && "bg-surface-sunken",
       )}
     >
       <div className="min-w-0 flex-1">{children}</div>
       {actions && (
-        <div className="shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
+        <div className="shrink-0 opacity-100 has-[[data-state=open]]:opacity-100 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
           {actions}
         </div>
       )}

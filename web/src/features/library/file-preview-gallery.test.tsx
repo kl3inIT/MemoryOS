@@ -2,24 +2,24 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
 import { i18n } from "@/i18n/index";
+import { handleGetChatImageArtifact } from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { ChatFilePreviewModal } from "./file-preview-modal";
 import type { PreviewTarget } from "./file-preview";
 
-const getChatImageArtifact = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  getChatImageArtifact: (...args: unknown[]) => getChatImageArtifact(...args),
-  getChatFileArtifact: vi.fn(),
-  downloadChatFile: vi.fn(),
-  getChatFileArtifactPdfPreview: vi.fn(),
-  previewChatFileArtifactSpreadsheet: vi.fn(),
-  previewChatFileSpreadsheet: vi.fn(),
-}));
-
-vi.mock("@/features/identity/application-session-context", () => ({
-  useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
-}));
+/** Every generated image the preview read, by id. */
+let readImages: string[] = [];
+const png = () =>
+  server.use(
+    handleGetChatImageArtifact(({ params }) => {
+      readImages.push(params.artifactId);
+      return new HttpResponse(new Blob(["png"], { type: "image/png" }), {
+        headers: { "Content-Type": "image/png" },
+      });
+    }),
+  );
 
 const first: PreviewTarget = {
   source: "image",
@@ -46,7 +46,8 @@ function show(siblings: PreviewTarget[] = [first, second]) {
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
-  getChatImageArtifact.mockResolvedValue({ data: new Blob(["png"], { type: "image/png" }) });
+  readImages = [];
+  png();
   // jsdom has no object URLs; the preview only needs a stable string.
   globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
   globalThis.URL.revokeObjectURL = vi.fn();
@@ -64,11 +65,7 @@ it("steps through the files beside the one opened, by button and by arrow key", 
 
   expect(await screen.findByText("2/2")).toBeInTheDocument();
   expect(screen.getByTitle("anh-sau.png")).toBeInTheDocument();
-  await waitFor(() =>
-    expect(getChatImageArtifact).toHaveBeenLastCalledWith(
-      expect.objectContaining({ path: { artifactId: second.id } }),
-    ),
-  );
+  await waitFor(() => expect(readImages.at(-1)).toBe(second.id));
   expect(screen.getByRole("button", { name: "Tệp sau" })).toBeDisabled();
 
   await user.keyboard("{ArrowLeft}");

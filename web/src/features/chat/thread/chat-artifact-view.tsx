@@ -15,12 +15,14 @@ const components = {
       <CardHeader>
         <CardTitle className="break-words">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="min-w-0 space-y-3">{children}</CardContent>
+      <CardContent className="min-w-0">
+        <div className="flex flex-col gap-3">{children}</div>
+      </CardContent>
     </Card>
   ),
-  Heading: ({ text }: { text?: string }) => <h3 className="break-words font-semibold">{text}</h3>,
+  Heading: ({ text }: { text?: string }) => <h3 className="font-semibold break-words">{text}</h3>,
   Text: ({ text }: { text?: string }) => (
-    <p className="whitespace-pre-wrap break-words text-sm leading-6">{text}</p>
+    <p className="text-sm leading-6 break-words whitespace-pre-wrap">{text}</p>
   ),
   Metric: ({ label, value }: { label?: string; value?: string }) => (
     <StatTile
@@ -31,16 +33,14 @@ const components = {
   ),
   Table: ({ children }: { children?: ReactNode }) => (
     <div className="max-w-full overflow-x-auto rounded-lg border border-border-subtle">
-      <Table className="w-full border-collapse text-sm">
+      <Table className="w-full border-collapse">
         <TableBody>{children}</TableBody>
       </Table>
     </div>
   ),
-  Row: ({ children }: { children?: ReactNode }) => (
-    <TableRow className="border-b border-border-subtle last:border-0">{children}</TableRow>
-  ),
+  Row: ({ children }: { children?: ReactNode }) => <TableRow>{children}</TableRow>,
   Cell: ({ text }: { text?: string }) => (
-    <TableCell className="min-w-24 break-words px-3 py-2 align-top">{text}</TableCell>
+    <TableCell className="min-w-24 px-3 py-2 align-top break-words">{text}</TableCell>
   ),
 };
 
@@ -49,7 +49,7 @@ export function ChatArtifactView({ artifact }: { artifact: ChatArtifact }) {
   const spec = useMemo(() => artifactSpec(artifact.spec), [artifact.spec]);
   if (!spec) return <ErrorState title={t("artifactUnavailable")} detail={t("artifactFallback")} />;
   return (
-    <div className="min-w-0 space-y-4" data-slot="chat-artifact">
+    <div className="flex min-w-0 flex-col gap-4" data-slot="chat-artifact">
       <p className="text-xs text-content-muted">{t("readOnlyArtifact")}</p>
       {/* Same allowlist renderer as MessagePrimitive.GenerativeUI, without a part scope in the sidebar. */}
       <GenerativeUIRender spec={spec} components={components} />
@@ -79,7 +79,7 @@ export function ChatArtifactCards() {
           onClick={(event) => panel.openArtifact(id, artifact.id, event.currentTarget)}
           className="flex max-w-sm min-w-0 items-center gap-3 rounded-xl border border-border-default bg-surface-raised p-4 text-left hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-ring"
         >
-          <PanelsTopLeft className="size-5 shrink-0" />
+          <PanelsTopLeft aria-hidden="true" className="size-5 shrink-0" />
           <span className="min-w-0">
             <span className="block truncate font-medium" title={artifact.title}>
               {artifact.title}

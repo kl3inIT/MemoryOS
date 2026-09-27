@@ -4,7 +4,7 @@ import { z } from "zod";
 export type ImageMode = "off" | "auto" | "required";
 
 /** A generated image reference persisted on an assistant message and served by the API. */
-export const generatedImageSchema = z.object({
+const generatedImageSchema = z.object({
   id: z.string().uuid(),
   mediaType: z.string().max(128),
   revisedPrompt: z

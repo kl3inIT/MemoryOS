@@ -1,15 +1,13 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import { ClampedList } from "@/components/ui/clamped-list";
 import { IconButton } from "@/components/ui/icon-button";
-import { Label } from "@/components/ui/label";
+import { Field, FieldTitle } from "@/components/ui/field";
 import { X } from "lucide-react";
 import { PrincipalPicker } from "@/features/identity/principal-picker";
-import { personLabel, type Person, type NamedRef } from "@/features/identity/principals";
-
-/** Who a meeting reaches beside its owner. Names typed for people outside MemoryOS are kept separately. */
-export type MeetingAudience = { people: Person[]; groups: NamedRef[] };
+import { personLabel } from "@/features/identity/principals";
+import type { MeetingAudience } from "./meetings-api";
 
 /**
  * Picks the members and Groups a meeting is shared with, reusing the invite field the Agent and Document Set
@@ -27,13 +25,14 @@ export function MeetingShareField({
   onChange: (audience: MeetingAudience) => void;
 }) {
   const ui = useAppTranslation();
+  const titleId = useId();
   const chosen = new Set([
     ...value.people.map((person) => person.actorId),
     ...value.groups.map((group) => group.id),
   ]);
   return (
-    <div className="grid gap-1.5">
-      <Label>{label}</Label>
+    <Field aria-labelledby={titleId}>
+      <FieldTitle id={titleId}>{label}</FieldTitle>
       <PrincipalPicker
         exclude={chosen}
         onPick={(principal) =>
@@ -78,7 +77,7 @@ export function MeetingShareField({
           ]}
         />
       )}
-    </div>
+    </Field>
   );
 }
 

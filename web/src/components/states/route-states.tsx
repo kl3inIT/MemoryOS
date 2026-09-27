@@ -57,7 +57,7 @@ export function RouteNotFound() {
         <EmptyHeader>
           <Brand />
           <p className="mt-6 font-secondary-body text-content-muted">404</p>
-          <EmptyTitle role="heading" aria-level={1} className="font-heading-h2">
+          <EmptyTitle role="heading" aria-level={1} size="page">
             {ui("This path isn’t part of your Tenant.")}
           </EmptyTitle>
           <EmptyDescription>{ui("No data changed. Return to MemoryOS.")}</EmptyDescription>

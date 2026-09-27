@@ -119,7 +119,7 @@ describe("SharePoint per-line problems", () => {
     expect(sharePointExclusionProblems("*/Archive/*")).toEqual([]);
     const problems = sharePointExclusionProblems(`ok\n${"x".repeat(513)}`);
     expect(problems).toHaveLength(1);
-    expect(problems[0].line).toBe(2);
+    expect(problems[0]?.line).toBe(2);
   });
 });
 

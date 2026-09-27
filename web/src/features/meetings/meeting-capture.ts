@@ -63,9 +63,7 @@ export async function pickMeetingTab(
 }
 
 /** The microphone with the browser's echo cancellation, noise suppression and gain control, as for dictation. */
-export async function openMicrophone(
-  media: MediaDevices = navigator.mediaDevices,
-): Promise<MediaStream> {
+async function openMicrophone(media: MediaDevices = navigator.mediaDevices): Promise<MediaStream> {
   return media.getUserMedia({
     audio: {
       channelCount: 1,

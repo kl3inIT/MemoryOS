@@ -84,8 +84,13 @@ describe("meeting track socket", () => {
     socket().receive({ type: "utterance", utterance: { id: "bad" } });
     expect(onPreview).toHaveBeenCalledWith("2", "Chốt ngân");
     expect(onUtterance).toHaveBeenCalledTimes(1);
-    expect(onUtterance.mock.calls[0][0].text).toBe("Chốt ngân sách.");
-    expect(onUtterance.mock.calls[0][0].spans).toEqual([{ start: 5, end: 14, confidence: 0.42 }]);
+    expect(onUtterance).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        text: "Chốt ngân sách.",
+        spans: [{ start: 5, end: 14, confidence: 0.42 }],
+      }),
+    );
 
     const finishing = live.finish();
     expect(socket().sent.at(-1)).toBe(JSON.stringify({ type: "end" }));
@@ -108,6 +113,9 @@ describe("meeting track socket", () => {
     socket().receive({ type: "error", code: "MEETING_PROVIDER_FAILED" });
     socket().close();
     expect(onFailure).toHaveBeenCalledTimes(1);
-    expect(onFailure.mock.calls[0][0].code).toBe("MEETING_PROVIDER_FAILED");
+    expect(onFailure).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ code: "MEETING_PROVIDER_FAILED" }),
+    );
   });
 });

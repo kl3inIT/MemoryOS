@@ -11,7 +11,7 @@ type PreloadErrorReloadOptions = {
   logger?: Pick<Console, "error">;
 };
 
-export function hasRecentlyReloadedAfterPreloadError(
+function hasRecentlyReloadedAfterPreloadError(
   storage: Storage = window.sessionStorage,
   windowMs = PRELOAD_ERROR_RELOAD_WINDOW_MS,
 ) {
@@ -23,7 +23,7 @@ export function hasRecentlyReloadedAfterPreloadError(
   }
 }
 
-export function markPreloadErrorReloaded(storage: Storage = window.sessionStorage) {
+function markPreloadErrorReloaded(storage: Storage = window.sessionStorage) {
   try {
     storage.setItem(PRELOAD_ERROR_RELOAD_KEY, String(Date.now()));
     return true;

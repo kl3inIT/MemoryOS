@@ -7,12 +7,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { appText } from "@/i18n/app-text";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { getChatHistoryTranscriptOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatHistoryEntry, ChatHistoryMessage } from "@/lib/hey-api/types.gen";
+import { cn } from "@/lib/utils";
 import { askerName } from "./chat-history";
 
 /**
@@ -35,22 +37,24 @@ export function ChatHistoryDialog({
   return (
     <Dialog open={entry !== null} onOpenChange={(open) => (open ? null : onClose())}>
       {/* A transcript is read, not edited beside the list, so it opens in the middle rather than at the edge. */}
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         {entry ? (
           <>
             <DialogHeader>
               <DialogTitle>{entry.title}</DialogTitle>
-              <DialogDescription className="flex flex-wrap items-center gap-2">
-                <span>{ui(askerName(entry))}</span>
-                <span aria-hidden="true">·</span>
-                <span>
-                  {formatUiDate(entry.updatedAt, { dateStyle: "medium", timeStyle: "short" })}
+              <DialogDescription>
+                <span className="flex flex-wrap items-center gap-2">
+                  <span>{ui(askerName(entry))}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    {formatUiDate(entry.updatedAt, { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                  {entry.deleted ? (
+                    <StatusBadge tone="neutral" size="sm">
+                      {ui("Deleted")}
+                    </StatusBadge>
+                  ) : null}
                 </span>
-                {entry.deleted ? (
-                  <StatusBadge tone="neutral" size="sm">
-                    {ui("Deleted")}
-                  </StatusBadge>
-                ) : null}
               </DialogDescription>
             </DialogHeader>
 
@@ -59,9 +63,9 @@ export function ChatHistoryDialog({
                 {ui("Loading the conversation…")}
               </p>
             ) : transcript.isError ? (
-              <p role="alert" className="font-secondary-body text-status-danger-content">
-                {ui("The conversation could not be loaded.")}
-              </p>
+              <Alert variant="destructive">
+                <AlertTitle>{ui("The conversation could not be loaded.")}</AlertTitle>
+              </Alert>
             ) : (
               <div className="flex flex-col gap-4">
                 {transcript.data?.messages.map((message) => (
@@ -81,11 +85,10 @@ function Turn({ message }: { message: ChatHistoryMessage }) {
   const asked = message.role === "USER";
   return (
     <article
-      className={
-        asked
-          ? "rounded-md border border-border-subtle bg-surface-subtle p-3"
-          : "rounded-md border border-border-subtle bg-surface-raised p-3"
-      }
+      className={cn(
+        "rounded-md border border-border-subtle p-3",
+        asked ? "bg-surface-subtle" : "bg-surface-raised",
+      )}
     >
       <p className="flex items-center gap-2 font-secondary-action text-content-muted">
         {asked ? ui("Question") : ui("Answer")}

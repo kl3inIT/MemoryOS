@@ -127,7 +127,7 @@ describe("voice transcription socket", () => {
     socket().receive({ type: "error", code: "VOICE_IDLE" });
     socket().close();
     expect(onFailure).toHaveBeenCalledWith(new VoiceStreamError("VOICE_IDLE"));
-    expect(onFailure.mock.calls[0][0].code).toBe("VOICE_IDLE");
+    expect(onFailure).toHaveBeenNthCalledWith(1, expect.objectContaining({ code: "VOICE_IDLE" }));
   });
 
   it("rejects when the handshake is refused", async () => {

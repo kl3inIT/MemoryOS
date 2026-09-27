@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ApiError } from "@/lib/api";
-import { patchMeeting, saveMeetingNotes, type MeetingDetail } from "./meetings-api";
+import { updateMeetingNotesMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { meetingQueryKey, patchMeeting, type MeetingDetail } from "./meetings-api";
 
 /** The owner's own notes, saved shortly after typing stops and whenever the field is left. */
 export function MeetingNotes({ meeting }: { meeting: MeetingDetail }) {
@@ -12,16 +13,13 @@ export function MeetingNotes({ meeting }: { meeting: MeetingDetail }) {
   const id = useId();
   const [value, setValue] = useState(meeting.notes);
   const [state, setState] = useState<"saved" | "saving" | "dirty" | "conflict">("saved");
-  const revision = useRef(meeting.revision);
+  const store = useMutation(updateMeetingNotesMutation());
   const timer = useRef<number>(undefined);
   const latest = useRef(meeting.notes);
   const stored = useRef(meeting.notes);
   // Saves run one after another, so the second never reuses the revision the first is about to replace.
   const queue = useRef<Promise<void>>(Promise.resolve());
 
-  useEffect(() => {
-    revision.current = meeting.revision;
-  }, [meeting.revision]);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   function change(next: string) {
@@ -45,8 +43,14 @@ export function MeetingNotes({ meeting }: { meeting: MeetingDetail }) {
     }
     setState("saving");
     try {
-      const saved = await saveMeetingNotes(meeting.id, next, revision.current);
-      revision.current = saved.revision;
+      // The cached meeting carries the latest revision: each save and each rename writes theirs back into it.
+      const revision =
+        cache.getQueryData<MeetingDetail>(meetingQueryKey(meeting.id))?.revision ??
+        meeting.revision;
+      const saved = await store.mutateAsync({
+        path: { meetingId: meeting.id },
+        body: { notes: next, revision },
+      });
       stored.current = next;
       patchMeeting(cache, meeting.id, (current) => ({
         ...current,

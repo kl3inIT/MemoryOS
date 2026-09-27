@@ -377,7 +377,6 @@ export const englishUi: Record<string, string> = {
   "Members could not be loaded.": "Không tải được thành viên.",
   "No members found": "Không tìm thấy thành viên",
   "No members": "Chưa có thành viên",
-  "Members of": "Thành viên của",
   Name: "Tên",
   "Account type": "Loại tài khoản",
   Status: "Trạng thái",
@@ -515,6 +514,16 @@ export const englishUi: Record<string, string> = {
   "No identity providers yet.": "Chưa có nhà cung cấp định danh.",
   "Add an upstream OIDC provider to let its members sign in through MemoryOS.":
     "Thêm nhà cung cấp OIDC upstream để thành viên của họ đăng nhập qua MemoryOS.",
+  "Enter an alias.": "Nhập alias.",
+  "Use lowercase letters, digits, dots, dashes or underscores.":
+    "Dùng chữ thường, chữ số, dấu chấm, gạch ngang hoặc gạch dưới.",
+  "Enter a display name.": "Nhập tên hiển thị.",
+  "Enter the issuer URL.": "Nhập issuer URL.",
+  "Enter the client ID.": "Nhập client ID.",
+  "Enter the client secret.": "Nhập client secret.",
+  "Enter an email address.": "Nhập địa chỉ email.",
+  "Enter a group name.": "Nhập tên Group.",
+  "Members of {{v1}}": "Thành viên của {{v1}}",
 };
 
 Object.assign(englishUi, {
@@ -598,6 +607,8 @@ Object.assign(englishUi, {
   "Add file source": "Thêm nguồn tệp",
   "Upload a document to start indexing.": "Tải tài liệu lên để bắt đầu lập chỉ mục.",
   "Source name": "Tên nguồn",
+  "Enter a source name.": "Nhập tên nguồn.",
+  "Enter a name.": "Nhập tên.",
   "e.g. Product documentation": "Ví dụ: Tài liệu sản phẩm",
   "Access groups": "Nhóm truy cập",
   "Optional · defaults to the protected Admin group":
@@ -1879,6 +1890,8 @@ Object.assign(englishUi, {
   "Feedback: {{comment}}": "Đánh giá: {{comment}}",
   "Spending limit": "Hạn mức chi tiêu",
   "Spending limits": "Hạn mức chi tiêu",
+  Spent: "Đã hết",
+  "Nearly spent": "Sắp hết",
   "Budget: {{whose}}": "Hạn mức: {{whose}}",
   "The budget is spent. It frees again on {{when}}.": "Đã dùng hết hạn mức. Mở lại vào {{when}}.",
   "Counted over {{days}} days. It frees again on {{when}}.":
@@ -2301,6 +2314,8 @@ Object.assign(englishUi, {
   "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.":
     "Nhà cung cấp mới chỉ dành cho quản lý. Liên kết quyền truy cập được giữ khi sửa; chọn mặc định không cấp quyền truy cập.",
   "Provider name": "Tên nhà cung cấp",
+  "Enter a provider name.": "Nhập tên nhà cung cấp.",
+  "Enter the endpoint URL.": "Nhập URL endpoint.",
   Protocol: "Giao thức",
   "OpenAI-compatible": "Chuẩn OpenAI",
   "{{adapter}} (unavailable)": "{{adapter}} (không khả dụng)",

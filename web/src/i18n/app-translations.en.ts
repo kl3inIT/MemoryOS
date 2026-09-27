@@ -15,6 +15,8 @@ export const vietnameseUi: Record<string, string> = {
   "Câu trả lời khi bị chặn": "Reply when blocked",
   "Cụm từ bị chặn": "Blocked phrases",
   "Mỗi dòng một cụm từ, tối đa 20": "One phrase per line, at most 20",
+  "Tối đa 20 cụm từ.": "At most 20 phrases.",
+  "Mỗi cụm từ tối đa 100 ký tự.": "Each phrase has at most 100 characters.",
   "Chỉ từ tài liệu của tổ chức": "Only from the organization's documents",
   "Chủ đề bị hạn chế": "Restricted topic",
   "Không có trong tài liệu của tổ chức": "Not in the organization's documents",

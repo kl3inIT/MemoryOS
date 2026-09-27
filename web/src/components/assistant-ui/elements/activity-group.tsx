@@ -135,7 +135,7 @@ export function ActivityStep({
         </span>
         <span
           className={cn(
-            "min-w-0 leading-5 [overflow-wrap:anywhere]",
+            "min-w-0 leading-5 wrap-anywhere",
             status === "failed" ? "text-content-secondary" : "text-content-primary",
           )}
         >

@@ -1,7 +1,7 @@
 import { MessageSquare } from "lucide-react";
 import { PersonalPromptShortcuts } from "@/features/agents/prompt-shortcuts";
 import { VoiceSettingsSection } from "@/features/voice/voice-settings-section";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatArchiveSection } from "./chat-archive-section";
 import { ChatExportSection } from "./chat-export-section";

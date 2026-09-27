@@ -80,11 +80,8 @@
   }
 
   @media (pointer: coarse) {
-    :root {
-      --sidebar-width-collapsed: 4rem;
-    }
-
-    [data-slot="icon-button"] {
+    [data-slot="icon-button"],
+    [data-collapsible="icon"] [data-slot="sidebar-menu-button"] {
       min-width: 2.75rem;
     }
     :where(
@@ -92,9 +89,10 @@
       [data-slot="icon-button"],
       [data-slot="text-button"],
       [data-slot="sidebar-tab"],
+      [data-slot="sidebar-menu-button"],
       [data-slot="menu-item"],
       [data-slot="input"],
-      [data-slot="select"],
+      [data-slot="native-select"],
       [data-slot="sources"]
     ) {
       min-height: 2.75rem;

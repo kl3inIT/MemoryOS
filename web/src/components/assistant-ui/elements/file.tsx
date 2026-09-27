@@ -15,14 +15,14 @@ import {
 } from "lucide-react";
 import type { FileMessagePartComponent } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
-import { DocumentKindIcon } from "@/features/search/document-source-icon";
+import { DocumentKindIcon } from "@/features/documents/document-source-icon";
 
 const fileVariants = cva(
   "aui-file-root inline-flex items-center gap-3 rounded-lg transition-colors",
   {
     variants: {
       variant: {
-        outline: "border-border hover:bg-muted/50 border",
+        outline: "border border-border hover:bg-muted/50",
         ghost: "hover:bg-muted/50",
         muted: "bg-muted/50 hover:bg-muted/70",
       },
@@ -129,7 +129,7 @@ function FileIconDisplay({
   return (
     <span
       data-slot="file-icon"
-      className={cn("text-muted-foreground shrink-0", className)}
+      className={cn("shrink-0 text-muted-foreground", className)}
       {...props}
     >
       {/* eslint-disable-next-line react-hooks/static-components -- The helper only selects module-level icon components. */}
@@ -160,7 +160,7 @@ function FileSize({ bytes, className, ...props }: FileSizeProps) {
   return (
     <span
       data-slot="file-size"
-      className={cn("text-muted-foreground shrink-0", className)}
+      className={cn("shrink-0 text-muted-foreground", className)}
       {...props}
     >
       {formatFileSize(bytes)}
@@ -197,7 +197,7 @@ function FileDownload({
       download={filename || "download"}
       {...(kind === "url" && { target: "_blank", rel: "noopener noreferrer" })}
       className={cn(
-        "text-muted-foreground hover:bg-accent hover:text-accent-foreground shrink-0 rounded-md p-1 transition-colors",
+        "shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
         className,
       )}
       {...props}

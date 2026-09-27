@@ -43,14 +43,14 @@ export function TablePagination({
       )}
     >
       {summary ? (
-        <p className="font-secondary-body tabular-nums text-content-muted">{summary}</p>
+        <p className="font-secondary-body text-content-muted tabular-nums">{summary}</p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         {children}
         <div className="flex items-center gap-2">
           <span
             role="status"
-            className="min-w-16 text-center font-secondary-body whitespace-nowrap tabular-nums text-content-secondary"
+            className="min-w-16 text-center font-secondary-body whitespace-nowrap text-content-secondary tabular-nums"
           >
             {/* A stream with no known end counts the page alone rather than showing an empty total. */}
             {totalPages === undefined ? (

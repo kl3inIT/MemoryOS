@@ -2,17 +2,32 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { Eye, EyeOff, Paperclip, X } from "lucide-react";
-import { IconButton } from "@/components/ui/icon-button";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cn } from "@/lib/utils";
 
-export const MAX_SHAREPOINT_KEYSTORE_BYTES = 16 * 1024;
-export const MAX_SHAREPOINT_SECRET_LENGTH = 256;
+const MAX_SHAREPOINT_KEYSTORE_BYTES = 16 * 1024;
+const MAX_SHAREPOINT_SECRET_LENGTH = 256;
 
 export type SharePointAuthMethod = "CLIENT_SECRET" | "CERTIFICATE";
 
-export type SharePointAuthentication =
+type SharePointAuthentication =
   | { authMethod: "CLIENT_SECRET"; clientSecret: string }
   | { authMethod: "CERTIFICATE"; certificate: string; certificatePassword: string };
 
@@ -139,51 +154,21 @@ export function SharePointCredentialInput({
   }
 
   return (
-    <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-4">
-      <legend className="sr-only">{ui("SharePoint authentication")}</legend>
-      <div className="space-y-2">
-        <p className="font-main-ui-action text-content-primary">{ui("Authentication")}</p>
-        <RadioGroup
-          className="flex flex-wrap gap-3"
-          value={method}
-          onValueChange={(value) => {
-            clear();
-            onMethodChange(value as SharePointAuthMethod);
-          }}
-        >
-          {(["CLIENT_SECRET", "CERTIFICATE"] as const).map((value) => (
-            <label
-              key={value}
-              className="flex min-h-11 flex-1 cursor-pointer items-start gap-2 rounded-lg border border-border-default p-3 has-checked:bg-surface-subtle has-disabled:cursor-default"
-            >
-              <RadioGroupItem value={value} className="mt-1" />
-              <span className="min-w-0">
-                <span className="block font-secondary-action text-content-primary">
-                  {value === "CLIENT_SECRET" ? ui("Client secret") : ui("Certificate")}
-                </span>
-                <span className="mt-0.5 block font-secondary-body text-content-muted">
-                  {value === "CLIENT_SECRET"
-                    ? ui("Fastest to set up; Entra expires it on its own schedule.")
-                    : ui("Upload a PKCS#12 keystore whose certificate is registered on the app.")}
-                </span>
-              </span>
-            </label>
-          ))}
-        </RadioGroup>
-      </div>
+    <FieldSet disabled={disabled} className="min-w-0">
+      <FieldLegend className="sr-only">{ui("SharePoint authentication")}</FieldLegend>
+      <AuthMethodChoice
+        id={id}
+        method={method}
+        onMethodChange={(value) => {
+          clear();
+          onMethodChange(value);
+        }}
+      />
       {method === "CLIENT_SECRET" ? (
-        <div className="flex flex-col gap-1">
-          <label htmlFor={`${id}-secret`} className="font-secondary-action text-content-primary">
-            {ui("Client secret Value")}
-          </label>
-          <div
-            className={cn(
-              "mt-1 flex w-full items-center justify-between gap-1 rounded-lg border border-border-subtle bg-surface-raised p-1.5 transition-colors focus-within:border-focus-ring hover:border-border-default",
-              disabled && "border-transparent bg-surface-sunken",
-              error && "border-status-danger-content",
-            )}
-          >
-            <Input
+        <Field data-invalid={error ? true : undefined}>
+          <FieldLabel htmlFor={`${id}-secret`}>{ui("Client secret Value")}</FieldLabel>
+          <InputGroup>
+            <InputGroupInput
               ref={secretInput}
               id={`${id}-secret`}
               type={revealSecret ? "text" : "password"}
@@ -195,29 +180,24 @@ export function SharePointCredentialInput({
               spellCheck={false}
               aria-describedby={`${id}-privacy${error ? ` ${id}-error` : ""}`}
               aria-invalid={Boolean(error)}
-              className="h-6 rounded-none border-0 bg-transparent p-0.5 focus-visible:shadow-none"
               onChange={(event) => updateSecret(event.target.value)}
             />
-            <IconButton
-              size="sm"
-              prominence="tertiary"
-              aria-label={revealSecret ? ui("Hide secret") : ui("Show secret")}
-              disabled={disabled}
-              onClick={() => setRevealSecret(!revealSecret)}
-            >
-              {revealSecret ? <EyeOff /> : <Eye />}
-            </IconButton>
-          </div>
-        </div>
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                size="icon-xs"
+                aria-label={revealSecret ? ui("Hide secret") : ui("Show secret")}
+                disabled={disabled}
+                onClick={() => setRevealSecret(!revealSecret)}
+              >
+                {revealSecret ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+        </Field>
       ) : (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor={`${id}-keystore`}
-              className="font-secondary-action text-content-primary"
-            >
-              {ui("Keystore (.pfx or .p12)")}
-            </label>
+        <FieldGroup>
+          <Field data-invalid={error ? true : undefined}>
+            <FieldLabel htmlFor={`${id}-keystore`}>{ui("Keystore (.pfx or .p12)")}</FieldLabel>
             <input
               ref={upload}
               id={`${id}-keystore`}
@@ -229,50 +209,38 @@ export function SharePointCredentialInput({
               className="hidden"
               onChange={(event) => void readKeystore(event.target.files?.[0])}
             />
-            <div
-              className={cn(
-                "mt-1 flex w-full items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 text-sm",
-                disabled && "border-transparent bg-surface-sunken",
-                error && "border-status-danger-content",
-              )}
-            >
-              <span className="min-w-0 flex-1 truncate text-content-secondary">
+            <InputGroup aria-invalid={error ? true : undefined}>
+              <span className="min-w-0 flex-1 truncate px-2.5 text-sm text-content-secondary">
                 {fileName ?? ui("No keystore chosen")}
               </span>
-              {fileName ? (
-                <IconButton
-                  size="sm"
-                  prominence="tertiary"
-                  aria-label={ui("Clear keystore")}
+              <InputGroupAddon align="inline-end">
+                {fileName ? (
+                  <InputGroupButton
+                    size="icon-xs"
+                    aria-label={ui("Clear keystore")}
+                    disabled={disabled}
+                    onClick={() => clear()}
+                  >
+                    <X aria-hidden="true" />
+                  </InputGroupButton>
+                ) : null}
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label={ui("Choose keystore")}
                   disabled={disabled}
-                  onClick={() => clear()}
+                  onClick={() => upload.current?.click()}
                 >
-                  <X />
-                </IconButton>
-              ) : null}
-              <IconButton
-                size="sm"
-                prominence="tertiary"
-                aria-label={ui("Choose keystore")}
-                disabled={disabled}
-                onClick={() => upload.current?.click()}
-              >
-                <Paperclip />
-              </IconButton>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor={`${id}-password`}
-              className="font-secondary-action text-content-primary"
-            >
-              {ui("Keystore password")}
-            </label>
+                  <Paperclip aria-hidden="true" />
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${id}-password`}>{ui("Keystore password")}</FieldLabel>
             <Input
               ref={passwordInput}
               id={`${id}-password`}
               type="password"
-              className="mt-1"
               disabled={disabled}
               autoComplete="off"
               maxLength={MAX_SHAREPOINT_SECRET_LENGTH}
@@ -281,10 +249,10 @@ export function SharePointCredentialInput({
                 password.current = event.target.value;
               }}
             />
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
       )}
-      <p id={`${id}-privacy`} className="font-secondary-body text-content-muted">
+      <FieldDescription id={`${id}-privacy`}>
         {method === "CLIENT_SECRET"
           ? ui(
               "Sent once to MemoryOS, stored encrypted, and never returned. It is not kept in browser storage and is cleared when you submit or leave this dialog.",
@@ -292,17 +260,59 @@ export function SharePointCredentialInput({
           : ui(
               "Maximum 16 KiB, exactly one RSA key of at least 2048 bits with an unexpired certificate. Only the private key and certificate are stored; the uploaded keystore and its password are not.",
             )}
-      </p>
+      </FieldDescription>
       {reading ? (
         <p role="status" className="text-sm text-content-secondary">
           {ui("Reading keystore…")}
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="text-sm text-status-danger-content">
+        <FieldError id={`${id}-error`} role="alert">
           {ui(error)}
-        </p>
+        </FieldError>
       ) : null}
-    </fieldset>
+    </FieldSet>
+  );
+}
+
+/** Client secret or certificate, as choice cards: the whole card is the radio's label. */
+function AuthMethodChoice({
+  id,
+  method,
+  onMethodChange,
+}: {
+  id: string;
+  method: SharePointAuthMethod;
+  onMethodChange: (method: SharePointAuthMethod) => void;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <Field>
+      <FieldTitle>{ui("Authentication")}</FieldTitle>
+      <RadioGroup
+        value={method}
+        onValueChange={(value) => onMethodChange(value as SharePointAuthMethod)}
+      >
+        <div className="flex flex-wrap gap-3">
+          {(["CLIENT_SECRET", "CERTIFICATE"] as const).map((value) => (
+            <FieldLabel key={value} htmlFor={`${id}-${value}`} className="min-w-48 flex-1">
+              <Field orientation="horizontal">
+                <RadioGroupItem id={`${id}-${value}`} value={value} />
+                <FieldContent>
+                  <FieldTitle>
+                    {value === "CLIENT_SECRET" ? ui("Client secret") : ui("Certificate")}
+                  </FieldTitle>
+                  <FieldDescription>
+                    {value === "CLIENT_SECRET"
+                      ? ui("Fastest to set up; Entra expires it on its own schedule.")
+                      : ui("Upload a PKCS#12 keystore whose certificate is registered on the app.")}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            </FieldLabel>
+          ))}
+        </div>
+      </RadioGroup>
+    </Field>
   );
 }
