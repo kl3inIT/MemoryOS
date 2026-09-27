@@ -56,7 +56,8 @@ public final class ChatGuardrailCheck {
 
     /** The audit line of a blocked question; the question and the phrase stay out of the audit stream. */
     public void recordBlock(ChatTurnSetup setup, Result result, @Nullable String agent) {
-        audit.record(AuditRecord.of(AuditAction.CHAT_GUARDRAIL_BLOCK, setup.tenant())
+        // A Chat turn runs outside any transaction; a block is recorded in its own, and a failed write never fails the turn.
+        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_GUARDRAIL_BLOCK, setup.tenant())
                 .actor(setup.actor()).resource("CHAT_SESSION", setup.sessionId().toString(), "Chat")
                 .detail("rule", result.topic() != null ? "topic" : "phrase")
                 .detail("topic", result.topic() == null ? null : result.topic().name())
