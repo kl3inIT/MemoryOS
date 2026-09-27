@@ -13,9 +13,8 @@ tasks.withType<Test>().configureEach {
     // The full PostgreSQL/migration corpus and real OpenSearch startup exceed ten minutes on a cold host.
     timeout = Duration.ofMinutes(15)
     // Modulith/ArchUnit metadata, the full persistence corpus and the OOXML schema type system the biên bản
-    // renderer loads all live in one test JVM; a gigabyte stopped being enough once every capability had tests, and
-    // 1.5 GB ran out on CI (2026-09-27) as the two forks split the classes differently. Two forks at 2 GB fit the runner.
-    maxHeapSize = "2g"
+    // renderer loads all live in one test JVM; a gigabyte stopped being enough once every capability had tests.
+    maxHeapSize = "1536m"
     // Core is the longest test task; two JVMs each own a PostgreSQL container and template (TestDatabase).
     maxParallelForks = 2
     // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
