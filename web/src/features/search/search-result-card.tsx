@@ -112,7 +112,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
                 <span aria-hidden="true" className="absolute left-1.5">
                   ·
                 </span>
-                {entry.node}
+                <span className="min-w-0">{entry.node}</span>
               </span>
             ))}
           </span>
