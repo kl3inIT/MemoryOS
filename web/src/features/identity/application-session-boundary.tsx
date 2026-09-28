@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Outlet } from "@tanstack/react-router";
-import { useLayoutEffect, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { i18n, uiLanguage } from "@/i18n";
 import { presentProblem } from "@/lib/problem-presentation";
@@ -25,7 +25,18 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
     void i18n.changeLanguage(uiLanguage(sessionQuery.data.uiLanguage));
   }, [sessionQuery.data]);
 
-  if (sessionQuery.isPending) {
+  // English loads on demand, and i18next switches once it has, so each signed-in person waits for their
+  // language on entry rather than seeing another language first. Entry is remembered per actor: the same
+  // person changing their language keeps the page mounted, a different actor waits for theirs.
+  const wanted = sessionQuery.data ? uiLanguage(sessionQuery.data.uiLanguage) : undefined;
+  const actorId = sessionQuery.data?.actorId;
+  const [enteredActor, setEnteredActor] = useState<string>();
+  const entered = actorId !== undefined && enteredActor === actorId;
+  if (!entered && actorId !== undefined && wanted !== undefined && i18n.language === wanted) {
+    setEnteredActor(actorId);
+  }
+
+  if (sessionQuery.isPending || (sessionQuery.data && !entered)) {
     return <SessionLoadingScreen />;
   }
 

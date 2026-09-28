@@ -100,10 +100,14 @@ function SummaryForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () =
             <Check data-icon="inline-start" aria-hidden="true" />
             {ui("Lưu")}
           </form.SubmitButton>
-          <Button size="sm" prominence="tertiary" onClick={onDone}>
-            <X data-icon="inline-start" aria-hidden="true" />
-            {ui("Huỷ")}
-          </Button>
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(submitting) => (
+              <Button size="sm" prominence="tertiary" disabled={submitting} onClick={onDone}>
+                <X data-icon="inline-start" aria-hidden="true" />
+                {ui("Huỷ")}
+              </Button>
+            )}
+          </form.Subscribe>
         </div>
       </form.AppForm>
     </form>
@@ -176,6 +180,7 @@ export function EditableItem({
           tone="danger"
           className="ml-auto"
           pending={remove.isPending}
+          disabled={edit.isPending}
           onClick={() => remove.mutate({ path: { meetingId: meeting.id, itemId: item.id } })}
         >
           <Trash2 data-icon="inline-start" aria-hidden="true" />
@@ -309,10 +314,19 @@ function ItemForm({
               </form.SubmitButton>
             )}
           </form.Subscribe>
-          <Button size="sm" prominence="tertiary" onClick={onCancel}>
-            <X data-icon="inline-start" aria-hidden="true" />
-            {ui("Huỷ")}
-          </Button>
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(submitting) => (
+              <Button
+                size="sm"
+                prominence="tertiary"
+                disabled={submitting || busy}
+                onClick={onCancel}
+              >
+                <X data-icon="inline-start" aria-hidden="true" />
+                {ui("Huỷ")}
+              </Button>
+            )}
+          </form.Subscribe>
           {extra}
         </div>
       </form.AppForm>

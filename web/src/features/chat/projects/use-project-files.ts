@@ -1,5 +1,5 @@
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
-import { isNotFound } from "@/lib/api";
+import { isNotFound, withRequestTimeout } from "@/lib/api";
 import {
   getChatFileOptions,
   updateChatProjectMutation,
@@ -34,7 +34,7 @@ export function useProjectFiles(project: Project) {
     }),
   });
   const update = useMutation({
-    ...updateChatProjectMutation(),
+    ...withRequestTimeout(updateChatProjectMutation()),
     onSuccess: () => invalidateProjects(cache, project.id),
   });
   const setFiles = (fileIds: string[]) =>

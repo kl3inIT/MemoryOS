@@ -114,5 +114,6 @@ change: restore the matching snapshot when reverting a major backend version;
 do not mount upgraded data blindly into an older image. Application rollback may
 leave V10's nullable columns in place. Never use `down --volumes` on staging.
 
-Versions and local verification are recorded in the MEM-57 increment. Frontend
-SDK work is MEM-58; no Spring AI runtime or external SaaS is required here.
+Versions and local verification are recorded in the MEM-57 increment. The browser
+has no error monitoring since Sentry was removed (MEM-200 tracks a replacement); no
+Spring AI runtime or external SaaS is required here.

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -168,5 +168,57 @@ describe("AgentEditorPage", () => {
 
     expect(await screen.findByText("Check the highlighted fields and try again.")).toBeVisible();
     expect(name).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("marks a token limit outside the accepted range without sending the agent", async () => {
+    let sent = false;
+    server.use(
+      handleCreateChatPersona(() => {
+        sent = true;
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
+    const user = await renderEditor();
+
+    await user.type(screen.getByRole("textbox", { name: "Assistant name" }), "Contract law");
+    const output = screen.getByRole("spinbutton", { name: "Max output (token)" });
+    await user.type(output, "999999");
+    await user.click(screen.getByRole("button", { name: "Create assistant" }));
+
+    expect(await screen.findByText("The maximum is 200000.")).toBeVisible();
+    expect(output).toHaveAttribute("aria-invalid", "true");
+    expect(output).toHaveAccessibleDescription("The maximum is 200000.");
+    expect(sent).toBe(false);
+
+    await user.clear(output);
+    await user.type(output, "4096");
+    expect(output).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("places the API's token limit violation on its control", async () => {
+    const problem: ApiProblem = {
+      title: "Validation failed",
+      status: 400,
+      detail: "One or more request values are invalid.",
+      instance: "/api/chat/personas",
+      code: "REQUEST_VALIDATION",
+      errors: [
+        {
+          field: "contextTokenLimit",
+          message: "must be greater than or equal to 256",
+          code: "MIN",
+          params: { min: 256 },
+        },
+      ],
+    };
+    server.use(handleCreateChatPersona(() => HttpResponse.json(problem, { status: 400 })));
+    const user = await renderEditor();
+
+    await user.type(screen.getByRole("textbox", { name: "Assistant name" }), "Contract law");
+    await user.click(screen.getByRole("button", { name: "Create assistant" }));
+
+    const context = screen.getByRole("spinbutton", { name: "Context window (token)" });
+    await waitFor(() => expect(context).toHaveAttribute("aria-invalid", "true"));
+    expect(context).toHaveAccessibleDescription("The minimum is 256.");
   });
 });

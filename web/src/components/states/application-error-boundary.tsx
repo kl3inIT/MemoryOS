@@ -1,19 +1,14 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import type { ErrorInfo, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { ApplicationError } from "@/components/states/application-error";
 
 interface ApplicationErrorBoundaryProps {
   children: ReactNode;
-  onError: (error: unknown, componentStack: ErrorInfo["componentStack"]) => void;
   onReset: () => void;
 }
 
-export function ApplicationErrorBoundary({
-  children,
-  onError,
-  onReset,
-}: ApplicationErrorBoundaryProps) {
+export function ApplicationErrorBoundary({ children, onReset }: ApplicationErrorBoundaryProps) {
   const ui = useAppTranslation();
 
   return (
@@ -28,7 +23,6 @@ export function ApplicationErrorBoundary({
           onRetry={resetErrorBoundary}
         />
       )}
-      onError={(error, info) => onError(error, info.componentStack)}
       onReset={onReset}
     >
       {children}

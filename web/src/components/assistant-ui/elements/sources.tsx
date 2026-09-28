@@ -58,7 +58,7 @@ export function Sources({
             style={{ "--stack": icons.length - index } as CSSProperties}
           >
             {icon.domain ? (
-              <SourceIcon domain={icon.domain} fallback="globe" />
+              <SourceIcon domain={icon.domain} />
             ) : (
               <span data-slot="source-document-icon" className="flex">
                 <DocumentSourceIcon

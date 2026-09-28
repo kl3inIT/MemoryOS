@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { PreviewCanvas, PreviewSkeleton } from "./preview-surface";
 import { PageField, PreviewToolbar, ToolbarGroup, ZoomControl } from "./preview-toolbar";
 import {
@@ -172,14 +171,7 @@ export function PdfView({
         suspense={false}
         loading={loadingPages}
         error={wholeFile ? failed : loadingPages}
-        onLoadError={(error) => {
-          captureWorkflowFailure(error, {
-            workflow: "pdf-view",
-            stage: wholeFile ? "whole-load" : "range-load",
-            failureKind: error.name,
-          });
-          setWholeFile(true);
-        }}
+        onLoadError={() => setWholeFile(true)}
         onLoadSuccess={(document) => setPageCount(document.numPages)}
         className="flex min-h-0 flex-1"
       >

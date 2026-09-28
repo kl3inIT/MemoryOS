@@ -4,11 +4,14 @@ export default {
   parser: {
     hooks: {
       operations: {
-        // SSE uses the generated SDK stream, not a paginated TanStack query.
-        isQuery: ({ path }: { path: string }) =>
+        // SSE uses the generated SDK stream, not a paginated TanStack query; the document search is a read sent
+        // as a POST, so it gets query options whose key carries its request body.
+        isQuery: ({ method, path }: { method: string; path: string }) =>
           path === "/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events"
             ? false
-            : undefined,
+            : method === "post" && path === "/api/search"
+              ? true
+              : undefined,
       },
     },
     patch: {

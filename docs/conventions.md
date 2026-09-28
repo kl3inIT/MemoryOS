@@ -156,8 +156,8 @@ Domain Story and Consumer
 - A request driven by typed input is debounced with `useDebouncedValue` (`web/src/hooks`), so the request waits, not only the render.
 - Poll fast only while the server reports running work, and stop (`refetchInterval` returns `false`) when nothing runs. A page that must notice a change made elsewhere and has no running-work signal polls slowly instead: a Source page falls back to `IDLE_SOURCE_POLL_MS` (30 s) while idle, and a shared conversation rechecks its access every 30 s.
 - Files are previewed through the shared kit in `web/src/features/preview` (`FilePreview`); a feature does not build its own viewer or import another feature's.
-- React root `onCaughtError` and `onUncaughtError` (`web/src/main.tsx`) report to Sentry, so an error a route error component catches is still reported. Do not swallow a failure in a `catch` that neither shows it nor rethrows it.
-- The deployment CSP is `style-src 'self'`: inline `<style>` elements and style attributes parsed from markup are dropped. Styles live in a stylesheet or in token classes.
+- React root `onCaughtError` and `onUncaughtError` (`web/src/main.tsx`) log to the console in development only; a router not-found or redirect is not a failure. Browser error monitoring is absent: Sentry Cloud was removed on 2026-09-28 and [MEM-200](https://linear.app/memory-os/issue/MEM-200) tracks a replacement. Do not swallow a failure in a `catch` that neither shows it nor rethrows it.
+- The deployment CSP is `style-src 'self'`: inline `<style>` elements and style attributes parsed from markup are dropped. Styles live in a stylesheet or in token classes; markup built at runtime is moved as nodes, not reparsed. Specs that import `test` from `web/tests/e2e/deployment-policy.ts` fail on any CSP or Permissions-Policy violation outside its listed third-party reports; CI runs them under the production build and nginx headers in the `frontend-preview` job (`MEMORYOS_E2E_PREVIEW=1`).
 - The initial load (the entry script, its modulepreloads and linked stylesheets) has a gzip budget that `pnpm build` enforces (`web/scripts/assert-bundle-budget.mjs`). The budget only ratchets down; do not raise it to absorb an eager import. Viewers, charts, grammars and other heavy code load through dynamic `import()`. Vietnamese ships in the entry bundle and the English catalog loads when a person chooses English ([localization](specs/localization.md)).
 
 ## Component and library reuse
@@ -221,6 +221,11 @@ Document Sets (`web/src/features/document-sets`) is the reference implementation
 
 - **Dependency patches.** A bug in a dependency's latest release is fixed with a `pnpm patch` under `web/patches/` (referenced from `pnpm-workspace.yaml`, copied by `web/Dockerfile` before install) rather than pinning an older release; the patch file names the upstream defect, and it is deleted once a release fixes it. Current: `@assistant-ui/ai-sdk@0.0.8` memoizes the tool-approval restore callback that re-ran the history-load effect on every render ("Maximum update depth exceeded" when switching conversations).
 - **Accessibility checks.** Playwright specs call the `tests/e2e/axe.ts` helper on the pages they open; it fails on any serious or critical WCAG 2.2 A/AA finding, and no rule is excluded. Navigation sections are groups named by their heading; radio cards take their name from their title.
+
+- **Request timeouts.** Generated mutations and queries that must not hang wrap their call in `withRequestTimeout` (`web/src/lib/api.ts`, 30 s per call, still honouring a caller's signal).
+- **Reads sent as POST.** An operation that reads but is sent as `POST` (search) is declared a query through `parser.hooks.operations.isQuery` in `web/openapi-ts.config.ts`, so it gets generated `*Options` like any other read.
+- **No third-party favicons.** Web sources show a bundled Simple Icons brand mark for well-known domains and a generic globe otherwise; the browser never asks an outside service about the pages a person reads.
+- **Browser error monitoring** is absent since 2026-09-28 (Sentry Cloud removed for cost); the replacement is Linear MEM-200. React root handlers ignore router signals and log only in development.
 
 ## Colour and design tokens
 

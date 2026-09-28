@@ -35,6 +35,18 @@ Branch `dathip04/frontend-audit`; wave 1 runs in parallel worktrees on disjoint 
 
   - Wave 2 landed 2026-09-27 on `dathip04/frontend-5b`: every feature on generated queries and mutations, TanStack Table 9 `DataTable`, TanStack Form `useAppForm` with shadcn `Field`, MSW unit tests; god components split; shadcn skill conformance; dependencies at their latest releases (Sentry 11; `@assistant-ui/ai-sdk@0.0.8` patched, see conventions); `cn` tables compiled by the Vite plugin; shadcn sidebar with the Onyx look (before/after screenshots compared); axe in Playwright; `noUncheckedIndexedAccess`; `pnpm lint` enforces `@shadcn/lint`, `jsx-a11y` and `import` (0 findings) and `pnpm check` runs knip (0); oxfmt sorts Tailwind classes. `main` (PRs #380, #383, #384) merged in with grounded answers and Admin › Chat re-applied on the new structure.
   - Verification: `pnpm typecheck`, `lint`, `format:check`, `check:i18n`, `check:knip`, `check:api`, `check:routes`; vitest 160 files / 757 tests; `pnpm build` initial load 380.0 KiB of the 395.5 KiB budget; Playwright run locally for the shell, administration, settings, meetings, Sources setup, chat and chat-workspace specs (45/45 chat); the full suite runs in CI. `exactOptionalPropertyTypes` measured at 682 errors and not enabled.
+## Sentry removal and deployment policy (owner 2026-09-28)
+
+- [x] Sentry Cloud removed for cost ([MEM-200](https://linear.app/memory-os/issue/MEM-200) tracks a replacement): SDK, Vite plugin and source maps, workflow-failure captures, `/runtime-config.js` (it carried only Sentry settings and the release), image build arguments and secret, compose and env Sentry variables, CI secrets and the main-release Sentry requirement, the CSP `connect-src` placeholder.
+- [x] nginx: no location declares `add_header`, so every response keeps CSP, nosniff, framing, referrer and permissions headers; `scripts/nginx-config.test.mjs` and the image job's curl check guard it.
+- [x] `frontend-preview` CI job: shell, Group administration, Search, meetings and file-preview specs on the production build with nginx's headers, failing on any CSP or Permissions-Policy report outside four listed third-party ones (Zod's eval probe, KaTeX parsing in `rehype-katex`, the `react-remove-scroll` and Radix Select `<style>` injections). The Word preview now sanitizes in place instead of reparsing, which removed its reports.
+  - Verification: `pnpm typecheck`, `lint`, `format:check`, `check:i18n`, `check:knip`, `check:ci`; vitest 159 files / 757 tests; `pnpm build` initial load 309.3 KiB, budget 323,000 bytes; deployment unittest 78 tests; the five specs in preview mode 50/50 (chromium, one worker).
+
+## Follow-ups (owner 2026-09-28)
+
+- [x] Final-audit regressions: sidebar shortcut ignored while typing, 30 s timeouts restored, dialogs locked while saving, prompt-shortcut and token-limit validation, whole-row activation restored (audit log, library day, Sources group), English catalog ready before first paint, Simple Icons brand marks instead of DuckDuckGo favicons, search on generated options.
+- [x] Sentry Cloud removed with `runtime-config.js`; initial load 309 KiB, budget 323,000 bytes; nginx locations may not set their own headers (config test and image header check); a `frontend-preview` CI job runs chat file preview, shell, groups, search and meetings under the production CSP. Known accepted CSP gaps: Radix scroll-lock and Select `<style>` tags, KaTeX markup, zod's eval probe.
+
 ## Verification
 
 Recorded per task as it lands.

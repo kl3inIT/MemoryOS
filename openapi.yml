@@ -22023,20 +22023,24 @@ components:
             type: string
             format: uuid
         modelConfigurationId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         contextTokenLimit:
-          oneOf:
-          - type: integer
-            format: int32
-          - type: "null"
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 2000000
+          minimum: 256
         outputTokenLimit:
-          oneOf:
-          - type: integer
-            format: int32
-          - type: "null"
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 200000
+          minimum: 1
         fileIds:
           type: array
           items:

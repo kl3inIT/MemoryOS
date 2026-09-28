@@ -269,6 +269,34 @@ jobs:
       - name: Exercise browser states
         run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
+  # The shards run the dev server, which sends no deployment policy. These specs run once against the production
+  # build served with nginx.conf's CSP and Permissions-Policy, and fail on any violation the browser reports.
+  frontend-preview:
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --user 1001
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install the frontend toolchain and dependencies
+        uses: ./.github/actions/pnpm-project
+        with:
+          directory: web
+
+      - name: Exercise the production build under the deployment policy
+        env:
+          MEMORYOS_E2E_PREVIEW: "1"
+        run: >-
+          pnpm --dir web test:e2e
+          chat-generated-file-preview identity-shell groups-list search meetings
+
 
   frontend-image:
     needs: changes
@@ -281,27 +309,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve image and Sentry build configuration
-        id: config
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-        run: |
-          sentry=false
-          if [[ -n "$SENTRY_AUTH_TOKEN" && -n "$SENTRY_ORG" && -n "$SENTRY_PROJECT" ]]; then
-            sentry=true
-          elif [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            echo "Sentry source-map configuration is required for a main release." >&2
-            exit 1
-          fi
-          printf 'sentry=%s\nbuild-date=%s\n' "$sentry" "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Resolve image metadata
+        id: meta
+        run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      # Layers are cached in the Actions cache; the source-map upload step still reruns for every commit
-      # because SENTRY_RELEASE is part of its cache key.
+      # Layers are cached in the Actions cache.
       - name: Build production frontend image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -313,11 +328,7 @@ jobs:
           sbom: false
           build-args: |
             VCS_REF=${{ github.sha }}
-            BUILD_DATE=${{ steps.config.outputs.build-date }}
-            SENTRY_ORG=${{ steps.config.outputs.sentry == 'true' && vars.SENTRY_ORG || '' }}
-            SENTRY_PROJECT=${{ steps.config.outputs.sentry == 'true' && vars.SENTRY_PROJECT || '' }}
-            SENTRY_RELEASE=${{ steps.config.outputs.sentry == 'true' && github.sha || '' }}
-          secrets: ${{ steps.config.outputs.sentry == 'true' && format('sentry_auth_token={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
@@ -345,6 +356,18 @@ jobs:
               exit 1
             fi
           done <<< "$modules"
+          # A location with its own add_header silently drops the server's security headers; check the page, a
+          # nested-location asset (.mjs) and the SPA fallback on the real nginx.
+          worker=$(grep -m 1 '\.mjs$' <<< "$modules")
+          for path in / "${worker#/usr/share/nginx/html}" /admin/users; do
+            headers=$(curl --silent --fail --output /dev/null --dump-header - "http://127.0.0.1:18080$path")
+            for header in content-security-policy x-content-type-options x-frame-options referrer-policy permissions-policy; do
+              if ! grep -qi "^$header:" <<< "$headers"; then
+                echo "$path is served without $header." >&2
+                exit 1
+              fi
+            done
+          done
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
             mkdir -p candidate
             docker save --output candidate/web.tar "memoryos-web:sha-$GITHUB_SHA"
@@ -651,7 +674,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, check, frontend-check, frontend, frontend-image, backend-images, landing, interpreter, secrets]
+    needs: [changes, check, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -666,11 +689,11 @@ jobs:
             | def selected(name; jobs): if $area[name] == "true"
                 then all(jobs[]; $jobs[.].result == "success")
                 else all(jobs[]; $jobs[.].result == "skipped") end;
-            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "interpreter", "landing", "secrets"]
+            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "frontend-preview", "interpreter", "landing", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
             and selected("backend"; ["check", "backend-images"])
-            and selected("web"; ["frontend-check", "frontend", "frontend-image"])
+            and selected("web"; ["frontend-check", "frontend", "frontend-preview", "frontend-image"])
             and selected("landing"; ["landing"])
             and selected("interpreter"; ["interpreter"])
           ' <<< "$RESULTS"

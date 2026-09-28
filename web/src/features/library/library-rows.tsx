@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type ReactNode } from "react";
+import { Fragment, useId, useRef, useState, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -174,6 +174,7 @@ function FileGroup({
 }) {
   const ui = useAppTranslation();
   const chosen = files.filter((file) => selected.includes(file.id)).length;
+  const dayId = useId();
   return (
     <section aria-label={label}>
       {showLabel && (
@@ -181,12 +182,16 @@ function FileGroup({
           {onSelectDay ? (
             <>
               <Checkbox
+                id={dayId}
                 aria-label={ui("Chọn tất cả {{day}}", { day: label })}
                 checked={chosen === 0 ? false : chosen === files.length ? true : "indeterminate"}
                 onCheckedChange={(checked) => onSelectDay(files, checked === true)}
               />
+              {/* The day's heading is a larger pointer target for its checkbox. */}
               <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
-                {label}
+                <label htmlFor={dayId} className="cursor-pointer">
+                  {label}
+                </label>
               </h2>
             </>
           ) : (

@@ -107,6 +107,12 @@ describe("audit log", () => {
     expect(within(panel).getByText("Replaced")).toBeVisible();
   });
 
+  it("opens an event from anywhere on its row", async () => {
+    mount([{ items: [event({})], nextCursor: null }]);
+    await userEvent.click(await screen.findByText("10.0.4.12"));
+    expect(await screen.findByRole("dialog")).toBeVisible();
+  });
+
   it("pages to older events with the cursor it was given, and back", async () => {
     const requested = mount([
       { items: [event({})], nextCursor: "older" },

@@ -4,7 +4,6 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { synchronizeGoogleDriveSourceMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceOperation, SourceSummary } from "@/lib/hey-api/types.gen";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { sourceOperationNotice } from "@/features/sources/shared/source-operation-notice";
 import { waitForSourceOperation } from "@/features/sources/shared/source-operations";
 
@@ -73,13 +72,6 @@ export function useGoogleDriveSynchronization({
   async function observe(operation: SourceOperation, controller: AbortController) {
     try {
       const completed = await waitForSourceOperation(operation, controller.signal);
-      const failureKind = completed.errorCode ?? "SOURCE_SYNC_FAILED";
-      if (completed.status === "FAILED" && isSystemSynchronizationFailure(failureKind))
-        captureWorkflowFailure(new Error("Google Drive synchronization failed"), {
-          workflow: "google-drive-sync",
-          stage: "operation-complete",
-          failureKind,
-        });
       notify(
         sourceOperationNotice(completed, {
           subject: source.name,
@@ -98,13 +90,8 @@ export function useGoogleDriveSynchronization({
         }),
       );
       await refresh();
-    } catch (cause) {
+    } catch {
       if (!controller.signal.aborted) {
-        captureWorkflowFailure(cause, {
-          workflow: "google-drive-sync",
-          stage: "operation-status",
-          failureKind: "status-unavailable",
-        });
         notify({
           tone: "error",
           title: "Synchronization status unavailable",
@@ -121,14 +108,4 @@ export function useGoogleDriveSynchronization({
   }
 
   return { sync, observing };
-}
-
-function isSystemSynchronizationFailure(errorCode: string) {
-  return (
-    errorCode.startsWith("SOURCE_STORAGE_") ||
-    errorCode === "SOURCE_ACQUISITION_INTERNAL" ||
-    errorCode === "SOURCE_GOOGLE_INTERNAL" ||
-    errorCode === "SOURCE_GOOGLE_INCOMPLETE" ||
-    errorCode === "SOURCE_SYNC_ITEM_FAILURES_EXCEEDED"
-  );
 }

@@ -13,6 +13,8 @@ import {
 import { EmptyState } from "@/components/composites/empty-state";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
+import { useFieldValidity } from "@/components/form/form-context";
+import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ChatFilePicker } from "@/features/library/file-picker";
@@ -28,6 +30,7 @@ import {
   StarterPromptsField,
   TextareaField,
 } from "./agent-editor-fields";
+import { tokenLimits } from "./agent-form";
 import { AgentSourcePicker } from "./agent-source-picker";
 import { toolIcons, useToolNames } from "./agent-tools";
 import type { AgentChoices, AgentFormApi } from "./use-agent-editor";
@@ -364,6 +367,51 @@ export function ToolsSection({ form, agent, choices }: SectionProps) {
   );
 }
 
+/** A token limit bound to its field, marked with the range or server message when it is refused. */
+function TokenLimitRow({
+  id,
+  title,
+  description,
+  min,
+  max,
+}: {
+  id: string;
+  title: string;
+  description: string;
+  min: number;
+  max: number;
+}) {
+  const ui = useAppTranslation();
+  const { field, invalid, errors } = useFieldValidity<string>();
+  const errorId = `${id}-error`;
+  return (
+    // One row of the list with its message under it.
+    <div>
+      <SettingRow
+        htmlFor={id}
+        title={title}
+        description={description}
+        control={
+          <Input
+            id={id}
+            type="number"
+            min={min}
+            max={max}
+            className="w-32 text-right"
+            aria-invalid={invalid || undefined}
+            aria-describedby={invalid ? errorId : undefined}
+            value={field.state.value}
+            placeholder={ui("Theo model")}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        }
+      />
+      {invalid && <FieldError id={errorId} className="mx-4 mb-3" errors={errors} />}
+    </div>
+  );
+}
+
 export function AdvancedSection({ form, agent, choices, editable }: SectionProps) {
   const ui = useAppTranslation();
   const { models } = choices;
@@ -442,46 +490,22 @@ export function AdvancedSection({ form, agent, choices, editable }: SectionProps
           }}
         </form.AppField>
         <form.AppField name="contextTokenLimit">
-          {(field) => (
-            <SettingRow
-              htmlFor="agent-context"
+          {() => (
+            <TokenLimitRow
+              id="agent-context"
               title={ui("Context window (token)")}
               description={ui("Lượng hội thoại và tài liệu tối đa gửi cho model.")}
-              control={
-                <Input
-                  id="agent-context"
-                  type="number"
-                  min={256}
-                  max={2000000}
-                  className="w-32 text-right"
-                  value={field.state.value}
-                  placeholder={ui("Theo model")}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                />
-              }
+              {...tokenLimits.contextTokenLimit}
             />
           )}
         </form.AppField>
         <form.AppField name="outputTokenLimit">
-          {(field) => (
-            <SettingRow
-              htmlFor="agent-output"
+          {() => (
+            <TokenLimitRow
+              id="agent-output"
               title={ui("Max output (token)")}
               description={ui("Độ dài tối đa của một câu trả lời.")}
-              control={
-                <Input
-                  id="agent-output"
-                  type="number"
-                  min={1}
-                  max={200000}
-                  className="w-32 text-right"
-                  value={field.state.value}
-                  placeholder={ui("Theo model")}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                />
-              }
+              {...tokenLimits.outputTokenLimit}
             />
           )}
         </form.AppField>

@@ -218,7 +218,7 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
             .map((source) => ({
               key: String(source.citationId),
               icon: source.web ? (
-                <SourceIcon domain={hostname(source.web.url)} fallback="globe" />
+                <SourceIcon domain={hostname(source.web.url)} />
               ) : (
                 <DocumentSourceIcon
                   size="xs"

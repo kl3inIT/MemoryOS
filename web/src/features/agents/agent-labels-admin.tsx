@@ -15,6 +15,7 @@ import {
   listChatPersonaLabelsOptions,
   renameChatPersonaLabelMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { withRequestTimeout } from "@/lib/api";
 
 /** The Tenant's agent labels: renamed or removed for every agent that carries them. */
 export function AgentLabelsAdministration() {
@@ -25,11 +26,11 @@ export function AgentLabelsAdministration() {
   const [removing, setRemoving] = useState<NamedRef>();
   const labels = useQuery({ ...listChatPersonaLabelsOptions(), select: namedRefsOf });
   const rename = useMutation({
-    ...renameChatPersonaLabelMutation(),
+    ...withRequestTimeout(renameChatPersonaLabelMutation()),
     onSuccess: () => invalidateAgents(cache),
   });
   const remove = useMutation({
-    ...deleteChatPersonaLabelMutation(),
+    ...withRequestTimeout(deleteChatPersonaLabelMutation()),
     onSuccess: () => invalidateAgents(cache),
   });
   return (

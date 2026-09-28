@@ -7,6 +7,7 @@ import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-con
 import { personLabel } from "@/features/identity/principals";
 import { createChatSessionMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { usePinUpdates } from "./agent-pins";
+import { withRequestTimeout } from "@/lib/api";
 
 /** Who an agent's card names as its owner: MemoryOS, the owning Group or person, or nobody. */
 export function useOwnerName() {
@@ -77,7 +78,7 @@ export function useAgentChatActions() {
   const navigate = useNavigate();
   const refreshSessions = useRefreshChatSessions();
   const updatePins = usePinUpdates();
-  const createSession = useMutation(createChatSessionMutation());
+  const createSession = useMutation(withRequestTimeout(createChatSessionMutation()));
   const start = useMutation({
     mutationFn: async ({ agent, ask }: { agent: Persona; ask?: string }) => {
       if (!agent.pinned && !agent.builtin)

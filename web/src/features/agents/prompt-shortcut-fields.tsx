@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useRef, type FocusEvent } from "react";
+import { useId, useRef, type FocusEvent } from "react";
 import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, MinusCircle } from "lucide-react";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
 import { invalidateShortcuts, type Shortcut } from "./prompt-shortcuts-api";
+import { withRequestTimeout } from "@/lib/api";
 
 export type ShortcutScope = "own" | "public";
 
@@ -28,11 +29,14 @@ function NameInput({
   value,
   readOnly,
   invalid,
+  describedBy,
   onChange,
 }: {
   value: string;
   readOnly?: boolean;
   invalid?: boolean;
+  /** The id of the message that explains why this control is invalid. */
+  describedBy?: string;
   onChange?: (value: string) => void;
 }) {
   const ui = useAppTranslation();
@@ -42,6 +46,7 @@ function NameInput({
       <InputGroupInput
         aria-label={ui("Tên lệnh tắt")}
         aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? describedBy : undefined}
         maxLength={100}
         readOnly={readOnly}
         value={value}
@@ -56,11 +61,14 @@ function ContentInput({
   value,
   readOnly,
   invalid,
+  describedBy,
   onChange,
 }: {
   value: string;
   readOnly?: boolean;
   invalid?: boolean;
+  /** The id of the message that explains why this control is invalid. */
+  describedBy?: string;
   onChange?: (value: string) => void;
 }) {
   const ui = useAppTranslation();
@@ -68,6 +76,7 @@ function ContentInput({
     <textarea
       aria-label={ui("Nội dung lệnh tắt")}
       aria-invalid={invalid || undefined}
+      aria-describedby={invalid ? describedBy : undefined}
       className={cn(
         formField,
         "min-w-0 flex-1 resize-y",
@@ -88,14 +97,23 @@ function useShortcutMutations(scope: ShortcutScope) {
   const cache = useQueryClient();
   const refresh = { onSuccess: () => invalidateShortcuts(cache) };
   const own = {
-    create: useMutation({ ...createChatPromptShortcutMutation(), ...refresh }),
-    update: useMutation({ ...updateChatPromptShortcutMutation(), ...refresh }),
-    remove: useMutation({ ...deleteChatPromptShortcutMutation(), ...refresh }),
+    create: useMutation({ ...withRequestTimeout(createChatPromptShortcutMutation()), ...refresh }),
+    update: useMutation({ ...withRequestTimeout(updateChatPromptShortcutMutation()), ...refresh }),
+    remove: useMutation({ ...withRequestTimeout(deleteChatPromptShortcutMutation()), ...refresh }),
   };
   const shared = {
-    create: useMutation({ ...createPublicChatPromptShortcutMutation(), ...refresh }),
-    update: useMutation({ ...updatePublicChatPromptShortcutMutation(), ...refresh }),
-    remove: useMutation({ ...deletePublicChatPromptShortcutMutation(), ...refresh }),
+    create: useMutation({
+      ...withRequestTimeout(createPublicChatPromptShortcutMutation()),
+      ...refresh,
+    }),
+    update: useMutation({
+      ...withRequestTimeout(updatePublicChatPromptShortcutMutation()),
+      ...refresh,
+    }),
+    remove: useMutation({
+      ...withRequestTimeout(deletePublicChatPromptShortcutMutation()),
+      ...refresh,
+    }),
   };
   return scope === "public" ? shared : own;
 }
@@ -120,12 +138,11 @@ export function ShortcutFields({
     defaultValues: { name: shortcut?.name ?? "", content: shortcut?.content ?? "" },
     validationLogic: revalidateLogic(),
     validators: {
-      onDynamic: z
-        .object({ name: z.string(), content: z.string() })
-        .refine(
-          (value) => value.name.trim() !== "" && value.content.trim() !== "",
-          ui("Cần cả tên và nội dung."),
-        ),
+      // The issues land on the fields, so the missing one is marked and the message shows under the pair.
+      onDynamic: z.object({
+        name: z.string().trim().min(1, ui("Cần cả tên và nội dung.")),
+        content: z.string().trim().min(1, ui("Cần cả tên và nội dung.")),
+      }),
     },
     onSubmit: async ({ value, formApi }) => {
       const body = { name: value.name.trim(), content: value.content };
@@ -149,7 +166,7 @@ export function ShortcutFields({
   });
   const name = useStore(form.store, (state) => state.values.name);
   const content = useStore(form.store, (state) => state.values.content);
-  const error = useStore(form.store, (state) => state.errors.find(Boolean));
+  const formError = useStore(form.store, (state) => state.errors.find(Boolean));
   const empty = !name.trim() && !content.trim();
 
   async function commit() {
@@ -177,14 +194,10 @@ export function ShortcutFields({
     form.reset({ name: "", content: "" });
   }
 
-  const message =
-    typeof error === "string"
-      ? error
-      : remove.error
-        ? actionErrorText(remove.error)
-        : error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : undefined;
+  const nameErrorId = useId();
+  const contentErrorId = useId();
+  const formMessage =
+    errorText(formError) ?? (remove.error ? actionErrorText(remove.error) : undefined);
   return (
     <div
       className="flex flex-col gap-1.5"
@@ -193,11 +206,16 @@ export function ShortcutFields({
       }}
     >
       <div className="flex items-center gap-1">
-        <NameInput
-          value={name}
-          invalid={!!message && !name.trim()}
-          onChange={(value) => form.setFieldValue("name", value)}
-        />
+        <form.Field name="name">
+          {(field) => (
+            <NameInput
+              value={field.state.value}
+              invalid={!field.state.meta.isValid}
+              describedBy={nameErrorId}
+              onChange={field.handleChange}
+            />
+          )}
+        </form.Field>
         {shortcut || !empty ? (
           <IconButton
             type="button"
@@ -218,16 +236,35 @@ export function ShortcutFields({
         )}
       </div>
       <div className="flex gap-1">
-        <ContentInput
-          value={content}
-          invalid={!!message && !content.trim()}
-          onChange={(value) => form.setFieldValue("content", value)}
-        />
+        <form.Field name="content">
+          {(field) => (
+            <ContentInput
+              value={field.state.value}
+              invalid={!field.state.meta.isValid}
+              describedBy={contentErrorId}
+              onChange={field.handleChange}
+            />
+          )}
+        </form.Field>
         <span className="w-9 shrink-0" />
       </div>
-      {message && <FieldError>{message}</FieldError>}
+      {/* Each control points at its own message, so a screen reader reads the right one on return. */}
+      <form.Subscribe selector={(state) => errorText(state.fieldMeta.name?.errors[0])}>
+        {(message) => message && <FieldError id={nameErrorId}>{message}</FieldError>}
+      </form.Subscribe>
+      <form.Subscribe selector={(state) => errorText(state.fieldMeta.content?.errors[0])}>
+        {(message) => message && <FieldError id={contentErrorId}>{message}</FieldError>}
+      </form.Subscribe>
+      {formMessage && <FieldError>{formMessage}</FieldError>}
     </div>
   );
+}
+
+/** The text of a form or field error: a string, or a zod issue or server violation with a message. */
+function errorText(error: unknown) {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) return String(error.message);
+  return undefined;
 }
 
 /** A public shortcut as members see it: read-only, hideable for themselves. */
@@ -236,7 +273,7 @@ export function SharedShortcut({ shortcut }: { shortcut: Shortcut }) {
   const cache = useQueryClient();
   const notify = useActionNotifications();
   const hide = useMutation({
-    ...hideChatPromptShortcutMutation(),
+    ...withRequestTimeout(hideChatPromptShortcutMutation()),
     onSuccess: () => invalidateShortcuts(cache),
     onError: (cause) => notify({ title: actionErrorText(cause), tone: "error" }),
   });

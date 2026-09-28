@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { loadDocumentSets } from "@/features/document-sets/document-sets-api";
 import type { DocumentSourceType } from "@/features/documents/document-source-presentation";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { listDocumentSetsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { searchDocuments } from "@/lib/hey-api/sdk.gen";
+import {
+  listDocumentSetsQueryKey,
+  searchDocumentsOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SearchRequest } from "@/lib/hey-api/types.gen";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { clearRecentSearches, readRecentSearches, rememberRecentSearch } from "./recent-searches";
 import { updatedSinceForTimeRange, type SearchTimeRange } from "./search-options";
 import { MAX_SEARCH_PAGES, type SearchPageSearch } from "./search-params";
@@ -53,31 +54,17 @@ export function useDocumentSearch() {
     queryKey: [...listDocumentSetsQueryKey(), "all"] as const,
     queryFn: ({ signal }) => loadDocumentSets(signal),
   });
-  // The search is a POST read, for which no generated query exists; its key is the request it sends.
+  // The search is a read sent as a POST; its generated key carries the request it sends.
   const result = useQuery({
-    queryKey: ["document-search", request],
-    queryFn: async ({ signal }) => (await searchDocuments({ body: request!, signal })).data,
+    ...searchDocumentsOptions({ body: request ?? {} }),
     enabled: request !== null,
     retry: false,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     // Another page or filter keeps the results on screen, dimmed; a different question starts from the loader.
     placeholderData: (previous, previousQuery) =>
-      (previousQuery?.queryKey[1] as SearchRequest | null | undefined)?.query === request?.query
-        ? previous
-        : undefined,
+      previousQuery?.queryKey[0].body?.query === request?.query ? previous : undefined,
   });
-  const reportedError = useRef<unknown>(null);
-  useEffect(() => {
-    // A failed search is reported to error monitoring once, however often the page renders it.
-    if (!request || !result.isError || result.error === reportedError.current) return;
-    reportedError.current = result.error;
-    captureWorkflowFailure(result.error, {
-      workflow: "search",
-      stage: "request",
-      failureKind: "api-or-network",
-    });
-  }, [request, result.error, result.isError]);
 
   /** A filter applies to the question on screen from its first page, replacing the entry it refines. */
   const show = (next: (current: SearchPageSearch) => SearchPageSearch, replace: boolean) =>

@@ -1,5 +1,7 @@
 # MEM-58 — Frontend error monitoring and trace correlation
 
+> Superseded 2026-09-28: the owner removed Sentry Cloud (cost); the web app, image and deployment no longer carry it, and [MEM-200](https://linear.app/memory-os/issue/MEM-200) tracks a replacement.
+
 ## Current decision
 
 The original research compared self-hosted Grafana Faro/Alloy with self-hosted

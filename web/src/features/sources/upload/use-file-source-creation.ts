@@ -8,7 +8,6 @@ import {
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { DirectUploadError } from "@/lib/direct-upload";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import {
   useSourceFileUpload,
@@ -164,11 +163,6 @@ export function useFileSourceCreation({
       await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: targetId } });
     } catch (cause) {
       if (!controller.signal.aborted) {
-        captureWorkflowFailure(cause, {
-          workflow: "file-source-upload",
-          stage,
-          failureKind: cause instanceof DirectUploadError ? "direct-upload" : "api-or-network",
-        });
         const message = accepted
           ? "Your upload was accepted, but the Source page could not be opened. Open the Source again; do not upload the file again."
           : cause instanceof DirectUploadError
