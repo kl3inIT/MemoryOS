@@ -132,6 +132,9 @@ class DefaultIdentityProviderAdministrationTest {
         assertEquals("S256", stored.getConfig().get("pkceMethod"));
         assertEquals("client_secret_basic", stored.getConfig().get("clientAuthMethod"));
         assertEquals("s3cret", stored.getConfig().get("clientSecret"));
+        assertEquals("openid email profile", stored.getConfig().get("defaultScope"));
+        assertTrue(stored.isTrustEmail());
+        assertEquals("IMPORT", stored.getConfig().get("syncMode"));
         assertEquals(DISCOVERED.logoutUrl(), stored.getConfig().get("logoutUrl"));
         assertEquals("true", stored.getConfig().get("backchannelSupported"));
         assertTrue(allowlist.allowedAliases().contains("tasco"));
@@ -159,6 +162,8 @@ class DefaultIdentityProviderAdministrationTest {
 
         assertEquals("true", gateway.providers.get("tasco").getConfig().get("backchannelSupported"));
         assertNull(gateway.providers.get("partner").getConfig().get("backchannelSupported"));
+        assertEquals("openid email profile", gateway.providers.get("tasco").getConfig().get("defaultScope"));
+        assertEquals("openid email profile", gateway.providers.get("partner").getConfig().get("defaultScope"));
     }
 
     @Test
@@ -184,6 +189,7 @@ class DefaultIdentityProviderAdministrationTest {
         assertFalse(view.jitAllowed());
         assertEquals("s3cret", gateway.providers.get("tasco").getConfig().get("clientSecret"));
         assertEquals("memoryos-broker-2", gateway.providers.get("tasco").getConfig().get("clientId"));
+        assertEquals("openid email profile", gateway.providers.get("tasco").getConfig().get("defaultScope"));
         assertFalse(allowlist.allowedAliases().contains("tasco"));
     }
 
