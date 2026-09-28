@@ -1,7 +1,9 @@
 # Library hub: every file a person can see or use
 
 Status: **accepted 2026-09-25; backend and web implemented** on `phamnhatanh811/library-hub`, awaiting live acceptance
-with real shared data. No Linear issue yet. Reference research with sources: [references.md](references.md).
+with real shared data. No Linear issue yet. Reference research with sources: [references.md](references.md). The rail
+and the meetings view described below were replaced by tabs in
+[library tabs and Sources](../library-tabs-and-sources/design.md) (2026-09-28).
 
 ## Problem
 

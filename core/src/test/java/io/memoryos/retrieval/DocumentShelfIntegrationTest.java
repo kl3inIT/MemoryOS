@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
@@ -276,6 +277,85 @@ class DocumentShelfIntegrationTest {
             if (document.documentId().equals(served)) assertEquals(generation, document.generation());
             else assertNull(document.generation(), document.filename());
         }
+    }
+
+    @Test
+    void catalogListsEverySourceTheReaderMayReadFromWhateverItsStateWithWhatTheyReadThere() {
+        document(publicSource, "handbook.pdf", "application/pdf", BASE, null);
+        document(publicSource, "policy.pdf", "application/pdf", BASE, null);
+        UUID withdrawn = document(publicSource, "withdrawn.pdf", "application/pdf", BASE, null);
+        jdbc.sql("UPDATE documents_by_connector_credential_pair SET retrieval_eligible=FALSE WHERE document_id=:id")
+                .param("id", withdrawn).update();
+        document(privateSource, "budget.xlsx", "application/vnd.ms-excel", BASE, null);
+        document(driveSource, "roadmap.pdf", "application/pdf", BASE, null);
+        grantDrive("roadmap.pdf", "{\"type\":\"user\",\"role\":\"reader\",\"emailAddress\":\"alice@example.test\"}");
+        document(driveSource, "salaries.pdf", "application/pdf", BASE, null);
+        grantDrive("salaries.pdf", "{\"type\":\"user\",\"role\":\"reader\",\"emailAddress\":\"ceo@example.test\"}");
+        UUID fresh = source(4, "Brand new", "FILE", "PUBLIC");
+        jdbc.sql("UPDATE connector_credential_pairs SET status='NOT_STARTED' WHERE id=:id").param("id", fresh).update();
+        UUID unshared = source(5, "Legal", "FILE", "PRIVATE");
+        group("Legal team", unshared, bob);
+        jdbc.sql("UPDATE actor_profiles SET display_name='Alice Nguyen' WHERE actor_id=:actor").param("actor", alice.value()).update();
+        jdbc.sql("UPDATE connector_credential_pairs SET manager_actor_id=:manager, last_succeeded_at=:at WHERE id=:id")
+                .param("manager", alice.value()).param("at", BASE.atOffset(ZoneOffset.UTC)).param("id", privateSource).update();
+
+        var forAlice = shelf.catalog(alice);
+        assertEquals(List.of("Brand new", "Drive", "Finance files", "Handbooks"), names(forAlice), "by name");
+        var brandNew = forAlice.get(0);
+        assertEquals(ShelfSource.Status.NOT_STARTED, brandNew.status());
+        assertEquals(0L, brandNew.readableDocuments(), "a new PUBLIC Source is listed before it holds a Document");
+        var drive = forAlice.get(1);
+        assertEquals(SourceAccess.SYNC, drive.access());
+        assertEquals(SourceType.GOOGLE_DRIVE, drive.type());
+        assertEquals(1L, drive.readableDocuments(), "only the Drive files that grant the reader count");
+        var finance = forAlice.get(2);
+        assertEquals(privateSource, finance.id());
+        assertEquals(SourceAccess.PRIVATE, finance.access());
+        assertEquals(ShelfSource.Status.ACTIVE, finance.status());
+        assertEquals(1L, finance.readableDocuments());
+        assertEquals(List.of("Audit", "Finance"), finance.groups(), "only the reader's own granted Groups");
+        assertEquals("Alice Nguyen", finance.managerName());
+        assertEquals(BASE, finance.lastSucceededAt());
+        var handbooks = forAlice.get(3);
+        assertEquals(SourceAccess.PUBLIC, handbooks.access());
+        assertEquals(2L, handbooks.readableDocuments(), "a withdrawn mapping is not counted");
+        assertEquals(List.of(), handbooks.groups());
+        assertNull(handbooks.managerName());
+        assertNull(handbooks.lastSucceededAt());
+
+        // Bob has no granted Group of Finance files and no Drive grant; Legal admits him through his Group.
+        var forBob = shelf.catalog(bob);
+        assertEquals(List.of("Brand new", "Handbooks", "Legal"), names(forBob));
+        assertEquals(List.of("Legal team"), forBob.get(2).groups());
+        assertEquals(List.of(), shelf.catalog(inactive), "an inactive membership reads nothing");
+
+        // A paused, failed or indexing Source stays listed with its count; a deleting Source or connector does not.
+        jdbc.sql("UPDATE connector_credential_pairs SET status='PAUSED' WHERE id=:id").param("id", publicSource).update();
+        jdbc.sql("UPDATE connector_credential_pairs SET sync_error_code='SOURCE_SYNC_FAILED' WHERE id=:id")
+                .param("id", privateSource).update();
+        jdbc.sql("UPDATE connector_credential_pairs SET status='INDEXING' WHERE id=:id").param("id", fresh).update();
+        var changed = shelf.catalog(alice);
+        assertEquals(List.of("Brand new", "Drive", "Finance files", "Handbooks"), names(changed));
+        assertEquals(ShelfSource.Status.INDEXING, changed.get(0).status());
+        assertEquals(ShelfSource.Status.FAILED, changed.get(2).status());
+        assertEquals(1L, changed.get(2).readableDocuments());
+        assertEquals(ShelfSource.Status.PAUSED, changed.get(3).status());
+        assertEquals(2L, changed.get(3).readableDocuments(), "a paused Source keeps its readable Documents");
+        assertEquals(List.of(), all(bob, Sort.NEWEST), "while Search leaves the paused Source's Documents out");
+
+        jdbc.sql("UPDATE connector_credential_pairs SET status='DELETING' WHERE id=:id").param("id", publicSource).update();
+        jdbc.sql("UPDATE connectors SET status='DELETING' WHERE id=:id").param("id", fresh).update();
+        assertEquals(List.of("Drive", "Finance files"), names(shelf.catalog(alice)));
+        // The Drive grant is the only thing that admits Alice to the SYNC Source.
+        jdbc.sql("DELETE FROM google_drive_acl_snapshots WHERE tenant_id=:tenant").param("tenant", tenant.value()).update();
+        assertEquals(List.of("Finance files"), names(shelf.catalog(alice)));
+
+        assertThrows(IamException.class, () -> shelf.catalog(withoutSearch));
+        assertThrows(SearchDocumentUnavailableException.class, () -> shelf.catalog(homeless));
+    }
+
+    private static List<String> names(List<ShelfSource> sources) {
+        return sources.stream().map(ShelfSource::name).toList();
     }
 
     private List<ShelfDocument> all(ActorId actor, Sort sort) {

@@ -40,6 +40,9 @@ import io.memoryos.api.mcp.contract.McpServerRequest;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.ReadableSource;
+import io.memoryos.connector.SourceAccess;
+import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceType;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthService;
@@ -729,6 +732,43 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
         mockMvc.perform(delete(entry+"/star").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void libraryListsTheSourcesAReaderMayReadFromOnlyUnderSearchAuthority() throws Exception {
+        UUID source = UUID.randomUUID();
+        Instant synced = Instant.parse("2026-09-20T08:00:00Z");
+        when(sourceSearch.readableSources(new TenantId(TENANT), actor.getPrincipal().actorId(), 500)).thenReturn(List.of(
+                new ReadableSource(source, "Finance files", SourceType.GOOGLE_DRIVE, SourceAccess.PRIVATE,
+                        SourceStatus.PAUSING, 12, synced, List.of("Audit", "Finance"), "Alice Nguyen"),
+                new ReadableSource(searchSource, "Handbooks", SourceType.FILE, SourceAccess.PUBLIC,
+                        SourceStatus.NOT_STARTED, 0, null, List.of(), null)));
+
+        mockMvc.perform(get("/api/chat/library/sources")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/chat/library/sources").with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(source.toString()))
+                .andExpect(jsonPath("$[0].name").value("Finance files"))
+                .andExpect(jsonPath("$[0].type").value("GOOGLE_DRIVE"))
+                .andExpect(jsonPath("$[0].access").value("PRIVATE"))
+                .andExpect(jsonPath("$[0].status").value("PAUSED"))
+                .andExpect(jsonPath("$[0].readableDocuments").value(12))
+                .andExpect(jsonPath("$[0].lastSucceededAt").value("2026-09-20T08:00:00Z"))
+                .andExpect(jsonPath("$[0].groups[0]").value("Audit"))
+                .andExpect(jsonPath("$[0].groups[1]").value("Finance"))
+                .andExpect(jsonPath("$[0].managerName").value("Alice Nguyen"))
+                .andExpect(jsonPath("$[1].status").value("NOT_STARTED"))
+                .andExpect(jsonPath("$[1].lastSucceededAt").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$[1].managerName").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$[1].groups").isEmpty());
+
+        // Without SEARCH_READ the caller reads no Source, as they read no Source document.
+        jdbc.sql("DELETE FROM iam_group_memberships m USING iam_groups g WHERE g.tenant_id=m.tenant_id AND g.id=m.group_id AND g.system_key='BASIC' AND m.actor_id=:actor")
+                .param("actor", actor.getPrincipal().actorId().value()).update();
+        mockMvc.perform(get("/api/chat/library/sources").with(authentication(actor)))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
     }
 
     @Test

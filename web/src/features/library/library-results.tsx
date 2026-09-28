@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { LIBRARY_PAGE_SIZES, type ContentMatch, type LibraryFile } from "./library";
 import { LibraryContentMatches } from "./library-content";
 import { FileActions, LibraryEmpty, LibraryList, type RowActions } from "./library-rows";
-import type { LibraryOwnedView } from "./library-rail";
+import type { LibraryOwnedView } from "./library-views";
 import type { LibraryLayout } from "./library-toolbar";
 import type { LibraryViewState } from "./use-library-view";
 

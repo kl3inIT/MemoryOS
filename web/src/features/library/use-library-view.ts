@@ -8,8 +8,8 @@ import {
   searchChatLibraryContentOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { libraryOptions, type LibraryFilter } from "./library";
-import { isEntryView } from "./library-entries";
 import { librarySearchDefaults, viewFilterDefaults, type LibrarySearch } from "./library-search";
+import { isOwnedView } from "./library-views";
 
 /** A deleted file stays restorable for days, so the window is read again only after minutes. */
 const trashWindowStaleTime = 5 * 60_000;
@@ -26,7 +26,7 @@ export function useLibraryView() {
     useSearch({ from: "/_authenticated/library", shouldThrow: false }) ?? librarySearchDefaults;
   const navigate = useNavigate({ from: "/library" });
   const { mode, category: categories, source: sources, sort, view, size, starred } = shown;
-  const owned = !isEntryView(view);
+  const owned = isOwnedView(view);
   const [search, setSearch] = useState(shown.q);
   const [shownSearch, setShownSearch] = useState(shown.q);
   if (shownSearch !== shown.q) {
@@ -103,8 +103,10 @@ export function useLibraryView() {
     owned,
     starred,
     kind: shown.kind,
-    owner: shown.owner,
     sourceId: shown.sourceId,
+    sourceStatus: shown.sourceStatus,
+    provider: shown.provider,
+    access: shown.access,
     size,
     offset,
     selected,
@@ -117,7 +119,6 @@ export function useLibraryView() {
       : query.length > 0 ||
         categories.length > 0 ||
         shown.kind !== undefined ||
-        shown.owner !== "ALL" ||
         shown.sourceId !== undefined,
     files: page.data?.items ?? [],
     page,
@@ -126,13 +127,13 @@ export function useLibraryView() {
     matches,
     filterBy,
     /**
-     * Moves to another view. A view of what reaches the person keeps no filter of another view and gives none
-     * back; `and` narrows the view being opened.
+     * Moves to another view. A view other than the person's own files keeps no filter of another view and gives
+     * none back; `and` narrows the view being opened.
      */
     showView: (next: LibrarySearch["view"], and: Partial<LibrarySearch> = {}) =>
       filterBy({
         view: next,
-        ...(isEntryView(next) || isEntryView(view) ? viewFilterDefaults : {}),
+        ...(!isOwnedView(next) || !owned ? viewFilterDefaults : {}),
         ...and,
       }),
     showPage: (nextOffset: number) => show({ page: Math.floor(nextOffset / size) }),

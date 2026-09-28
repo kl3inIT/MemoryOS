@@ -77,9 +77,6 @@ public class LibraryShelfService {
 
     public enum Sort { NEWEST, OLDEST, NAME }
 
-    /** Whose meetings the meetings view lists. */
-    public enum Owner { ALL, MINE, SHARED }
-
     public record Page(List<LibraryEntry> items, long totalCount, boolean hasMore) {
         public Page { items = List.copyOf(items); }
     }
@@ -93,8 +90,6 @@ public class LibraryShelfService {
                               Sort sort, int offset, int limit) {
         public SharedQuery { kinds = Set.copyOf(kinds); categories = Set.copyOf(categories); }
     }
-
-    public record MeetingQuery(String query, Owner owner, Sort sort, int offset, int limit) {}
 
     /** Owned favourites and starred reachable rows; {@code kinds} empty means every kind. */
     public record StarredQuery(String query, Set<LibraryEntry.Kind> kinds, int offset, int limit) {
@@ -120,22 +115,6 @@ public class LibraryShelfService {
                 .filter(entry -> categories.isEmpty() || entry.category() != null && categories.contains(entry.category()))
                 .sorted(order(query.sort())).toList();
         return page(tenant, actor, matching, query.offset(), query.limit(), owners);
-    }
-
-    @Transactional(readOnly = true)
-    public Page meetings(ActorId actor, MeetingQuery query) {
-        String text = text(query.query());
-        Paging.check(query.offset(), query.limit());
-        var tenant = tenant(actor);
-        var matching = meetings.readable(tenant, actor, MAX_MEETINGS).stream()
-                .filter(meeting -> switch (query.owner()) {
-                    case ALL -> true;
-                    case MINE -> meeting.owned();
-                    case SHARED -> !meeting.owned();
-                })
-                .map(LibraryShelfService::entry).filter(entry -> matches(entry, text))
-                .sorted(order(query.sort())).toList();
-        return page(tenant, actor, matching, query.offset(), query.limit(), Map.of());
     }
 
     /** A page of the Source documents the viewer may read; requires Search, as Search itself does. */

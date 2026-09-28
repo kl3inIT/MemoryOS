@@ -1,5 +1,6 @@
 package io.memoryos.retrieval;
 
+import io.memoryos.connector.ReadableSource;
 import io.memoryos.connector.SourceDocumentBrowse;
 import io.memoryos.connector.SourceDocumentEntry;
 import io.memoryos.connector.SourceSearchService;
@@ -100,6 +101,29 @@ public class DocumentShelfService {
             if (options.size() < MAX_LIMIT) break;
         }
         return List.copyOf(result);
+    }
+
+    /**
+     * Every Source the reader may read from, whatever its state except DELETING, by name, up to 500, with the
+     * Documents the reader may open there. Requires {@code SEARCH_READ}, as the documents themselves do.
+     */
+    public List<ShelfSource> catalog(ActorId actor) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        authorization.require(actor, IamCapability.SEARCH_READ, false);
+        return sources.readableSources(tenant, actor, MAX_SOURCES).stream().map(DocumentShelfService::source).toList();
+    }
+
+    private static ShelfSource source(ReadableSource source) {
+        var status = switch (source.status()) {
+            case NOT_STARTED -> ShelfSource.Status.NOT_STARTED;
+            case INDEXING -> ShelfSource.Status.INDEXING;
+            case ACTIVE -> ShelfSource.Status.ACTIVE;
+            case PAUSED, PAUSING -> ShelfSource.Status.PAUSED;
+            case FAILED -> ShelfSource.Status.FAILED;
+            case DELETING -> throw new IllegalStateException("a deleting Source is never readable");
+        };
+        return new ShelfSource(source.id(), source.name(), source.type(), source.access(), status,
+                source.readableDocuments(), source.lastSucceededAt(), source.groups(), source.managerName());
     }
 
     private static ShelfDocument document(SourceDocumentEntry entry) {

@@ -268,9 +268,9 @@ export const vietnameseUi: Record<string, string> = {
   "Xoá cuộc họp?": "Delete the meeting?",
   // MEM-152 file library v2: the library page redesign (rail, filter popover, rows and empty states)
   "Phần của thư viện": "Library sections",
+  "Tổ chức": "Organization",
+  "Nguồn dữ liệu": "Sources",
   "Đang xử lý": "Processing",
-  "Gần hết dung lượng · {{percent}}%": "Almost full · {{percent}}%",
-  "Đã dùng {{percent}}%": "{{percent}}% used",
   "{{count}} tệp": "{{count}} files",
   "Xem tệp lớn nhất": "See the largest files",
   "Xoá từ khoá tìm kiếm": "Clear the search",
@@ -307,7 +307,6 @@ export const vietnameseUi: Record<string, string> = {
   // Library hub: every file, meeting and document a person can see or use
   "Gần đây": "Recent",
   "Tệp của tôi": "My files",
-  "Được chia sẻ với tôi": "Shared with me",
   "Tài liệu tổ chức": "Organisation documents",
   "Có gắn sao": "Starred",
   "Gắn sao": "Stars",
@@ -340,8 +339,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chưa có gì được chia sẻ với bạn": "Nothing is shared with you yet",
   "Cuộc họp người khác chia sẻ và tệp của trợ lý bạn dùng sẽ hiện ở đây.":
     "Meetings others share with you and the files of assistants you use appear here.",
-  "Cuộc họp bạn ghi hoặc được chia sẻ sẽ hiện ở đây.":
-    "Meetings you record or that are shared with you appear here.",
   "Chưa có tài liệu nào": "No documents yet",
   "Tài liệu trong các nguồn bạn được đọc sẽ hiện ở đây.":
     "Documents in the sources you may read appear here.",
@@ -351,7 +348,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tìm theo tên": "Search by name",
   Loại: "Kind",
   "Tệp của trợ lý": "Assistant files",
-  "Của ai": "Whose",
   "Hiển thị {{first}}–{{last}} trên {{total}} mục": "Showing {{first}}–{{last}} of {{total}} items",
   "Số mục mỗi trang": "Items per page",
   "Số mục": "Items",
@@ -639,7 +635,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chọn tất cả {{day}}": "Select all in {{day}}",
   "Tên tệp": "File name",
   "Nguồn tệp": "Source",
-  "Dung lượng": "Size",
   "Ngày tạo": "Created",
   "Chọn {{name}}": "Select {{name}}",
   "Đang dùng trong {{name}}": "Used in {{name}}",

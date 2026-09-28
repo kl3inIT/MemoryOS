@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { LIBRARY_CATEGORIES, LIBRARY_PAGE_SIZE, LIBRARY_PAGE_SIZES } from "./library";
-import type { LibraryView } from "./library-rail";
+import type { LibraryView } from "./library-views";
 
 const LIBRARY_SOURCES = ["UPLOAD", "GENERATED", "IMAGE"] as const;
 const LIBRARY_VIEWS = [
   "recent",
   "ready",
   "shared",
-  "meetings",
+  "sources",
   "documents",
   "starred",
   "pending",
@@ -28,7 +28,8 @@ const some = <const T extends readonly [string, ...string[]]>(values: T) =>
 /**
  * What the library shows, in its address: the view, the search, the filters, the order and the page. The
  * defaults below are stripped from links, so `?category=IMAGE` opens the library narrowed to images. `starred`
- * narrows Tệp của tôi; `kind`, `owner` and `sourceId` narrow the views of what reaches the person otherwise.
+ * narrows Tệp của tôi; `kind` and `sourceId` narrow the views of what reaches the person otherwise; `sourceStatus`,
+ * `provider` and `access` narrow the Sources view.
  */
 export const librarySearchSchema = z.object({
   view: z.enum(LIBRARY_VIEWS).default("ready").catch("ready"),
@@ -42,8 +43,13 @@ export const librarySearchSchema = z.object({
     .catch("NEWEST"),
   starred: z.boolean().default(false).catch(false),
   kind: z.enum(ENTRY_KIND_CHIPS).optional().catch(undefined),
-  owner: z.enum(["ALL", "MINE", "SHARED"]).default("ALL").catch("ALL"),
   sourceId: z.string().uuid().optional().catch(undefined),
+  sourceStatus: z
+    .enum(["NOT_STARTED", "INDEXING", "ACTIVE", "PAUSED", "FAILED"])
+    .optional()
+    .catch(undefined),
+  provider: z.enum(["FILE", "GOOGLE_DRIVE", "SHAREPOINT"]).optional().catch(undefined),
+  access: z.enum(["PUBLIC", "PRIVATE", "SYNC"]).optional().catch(undefined),
   page: z.coerce.number().int().min(0).default(0).catch(0),
   size: z.coerce
     .number()
@@ -62,14 +68,13 @@ export const librarySearchDefaults = {
   source: [],
   sort: "NEWEST",
   starred: false,
-  owner: "ALL",
   page: 0,
   size: LIBRARY_PAGE_SIZE,
 } as const satisfies LibrarySearch;
 
 /**
- * The filters one view keeps that mean nothing on another. Moving to or from a view of what reaches the person
- * clears them; the search and the page size follow the person everywhere.
+ * The filters one view keeps that mean nothing on another. Moving to or from a view other than the person's own
+ * files clears them; the search and the page size follow the person everywhere.
  */
 export const viewFilterDefaults = {
   mode: "name",
@@ -78,6 +83,8 @@ export const viewFilterDefaults = {
   sort: "NEWEST",
   starred: false,
   kind: undefined,
-  owner: "ALL",
   sourceId: undefined,
+  sourceStatus: undefined,
+  provider: undefined,
+  access: undefined,
 } as const satisfies Partial<LibrarySearch>;

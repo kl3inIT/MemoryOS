@@ -6,6 +6,7 @@ import io.memoryos.api.chat.contract.ChatLibraryDocumentPageResponse;
 import io.memoryos.api.chat.contract.ChatLibraryEntryPageResponse;
 import io.memoryos.api.chat.contract.ChatLibraryEntryResponse;
 import io.memoryos.api.chat.contract.ChatLibrarySourceOptionResponse;
+import io.memoryos.api.chat.contract.ChatLibrarySourceResponse;
 import io.memoryos.api.chat.contract.ChatLibraryArchiveFileRequest;
 import io.memoryos.api.chat.contract.ChatLibraryArchiveRequest;
 import io.memoryos.api.chat.contract.ChatLibraryArchiveResponse;
@@ -25,6 +26,7 @@ import io.memoryos.library.LibraryFile;
 import io.memoryos.library.LibraryService;
 import io.memoryos.library.LibraryArchiveService;
 import io.memoryos.library.LibraryShelfService;
+import io.memoryos.retrieval.DocumentShelfService;
 import io.memoryos.retrieval.ShelfQuery;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -80,10 +82,13 @@ class ChatLibraryController {
     private final StorageQuotaService quotas;
     private final LibraryTrashService trash;
     private final LibraryShelfService shelf;
+    private final DocumentShelfService documentShelf;
 
     ChatLibraryController(LibraryService library, LibraryArchiveService archives,
-            StorageQuotaService quotas, LibraryTrashService trash, LibraryShelfService shelf) {
+            StorageQuotaService quotas, LibraryTrashService trash, LibraryShelfService shelf,
+            DocumentShelfService documentShelf) {
         this.library = library; this.archives = archives; this.quotas = quotas; this.trash = trash; this.shelf = shelf;
+        this.documentShelf = documentShelf;
     }
 
     @GetMapping
@@ -269,21 +274,6 @@ class ChatLibraryController {
         return ResponseEntity.ok().body(entries(page));
     }
 
-    @GetMapping("/meetings")
-    @Operation(operationId = "listChatLibraryMeetings",
-            summary = "Every meeting the caller may read: their own and the ones shared with them or their Groups")
-    @ApiResponse(responseCode = "200", description = "A page of meetings", useReturnTypeSchema = true)
-    ResponseEntity<ChatLibraryEntryPageResponse> meetings(@CurrentActor IdentityContext identity,
-            @RequestParam(defaultValue = "") String query,
-            @Parameter(schema = @Schema(allowableValues = {"ALL", "MINE", "SHARED"})) @RequestParam(defaultValue = "ALL") String owner,
-            @Parameter(schema = @Schema(allowableValues = {"NEWEST", "OLDEST", "NAME"})) @RequestParam(defaultValue = "NEWEST") String sort,
-            @RequestParam(defaultValue = "0") int offset,
-            @RequestParam(defaultValue = "50") int limit) {
-        var page = shelf.meetings(identity.actorId(), new LibraryShelfService.MeetingQuery(query,
-                value(owner, LibraryShelfService.Owner.class), value(sort, LibraryShelfService.Sort.class), offset, limit));
-        return ResponseEntity.ok().body(entries(page));
-    }
-
     @GetMapping("/documents")
     @Operation(operationId = "listChatLibraryDocuments",
             summary = "Browse the Source documents the caller may read under their Search authority, without a search term")
@@ -310,6 +300,17 @@ class ChatLibraryController {
     ResponseEntity<List<ChatLibrarySourceOptionResponse>> documentSources(@CurrentActor IdentityContext identity) {
         return ResponseEntity.ok().body(shelf.documentSources(identity.actorId())
                 .stream().map(ChatLibrarySourceOptionResponse::from).toList());
+    }
+
+    @GetMapping("/sources")
+    @Operation(operationId = "listChatLibrarySources",
+            summary = "Every Source the caller may read from under their Search authority, whatever its state except"
+                    + " being deleted, with the documents they may read there, by name and at most 500")
+    @ApiResponse(responseCode = "200", description = "Sources, without error details or Groups the caller is not in",
+            useReturnTypeSchema = true)
+    ResponseEntity<List<ChatLibrarySourceResponse>> sources(@CurrentActor IdentityContext identity) {
+        return ResponseEntity.ok().body(documentShelf.catalog(identity.actorId())
+                .stream().map(ChatLibrarySourceResponse::from).toList());
     }
 
     @GetMapping("/recent")

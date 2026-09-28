@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Design board — Thư viện</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root{--bg:#eceef1;--card:#fff;--c1:#000000e5;--c2:#000000bf;--c3:#0000008c;--b1:#e3e3e6;--acc:#286df8;--ok:#007a2d;--wa:#b54204;--da:#c12222;--in:#245fda;--ne:#5c5c5c}
+*{box-sizing:border-box}body{margin:0;font-family:"Hanken Grotesk","Segoe UI",sans-serif;font-size:14px;line-height:1.55;color:var(--c1);background:var(--bg);-webkit-font-smoothing:antialiased}
+svg.lucide{width:16px;height:16px;stroke-width:1.8;vertical-align:-3px}
+.wrap{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+nav.toc{position:sticky;top:0;height:100vh;padding:24px 16px;border-right:1px solid var(--b1);background:#f6f7f9;overflow:auto}
+nav.toc b{display:block;font-size:18px;margin-bottom:4px}nav.toc small{color:var(--c3)}
+nav.toc a{display:flex;gap:8px;align-items:center;padding:7px 10px;border-radius:8px;color:var(--c2);text-decoration:none;font-weight:500;margin-top:2px}
+nav.toc a:hover{background:#fff}nav.toc .n{width:20px;height:20px;border-radius:6px;background:#fff;border:1px solid var(--b1);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--c3)}
+main{padding:32px 40px 80px;max-width:1500px}
+header.hero{background:#111;color:#fff;border-radius:18px;padding:28px 32px;display:flex;gap:24px;align-items:flex-end}
+header.hero h1{margin:0;font-size:30px;line-height:1.2}header.hero p{margin:8px 0 0;color:#cfcfd4;max-width:760px}
+.tag{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;background:#ffffff1f;color:#fff;margin-right:6px}
+.hero .open{margin-left:auto;background:#fff;color:#111;border-radius:10px;padding:10px 14px;font-weight:700;text-decoration:none;white-space:nowrap}
+section{margin-top:40px}section>h2{font-size:22px;margin:0 0 4px;display:flex;gap:10px;align-items:center}
+section>h2 .n{width:28px;height:28px;border-radius:8px;background:#111;color:#fff;display:grid;place-items:center;font-size:13px}
+section>p.lead{margin:0 0 18px;color:var(--c2);max-width:900px}
+.card{background:var(--card);border:1px solid var(--b1);border-radius:14px;padding:18px}
+.cols{display:grid;gap:16px}.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:repeat(3,1fr)}.c4{grid-template-columns:repeat(4,1fr)}
+.shot{background:var(--card);border:1px solid var(--b1);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.shot .frame{position:relative;width:100%;aspect-ratio:1440/900;overflow:hidden;background:#fafafa;border-bottom:1px solid var(--b1)}
+.shot iframe{position:absolute;top:0;left:0;width:1440px;height:900px;border:0;transform-origin:0 0;pointer-events:none}
+.shot .cap{padding:12px 14px;display:flex;flex-direction:column;gap:4px}.shot .cap b{font-size:14px}.shot .cap span{color:var(--c2);font-size:13px}
+.shot .cap a{font-size:12px;font-weight:600;color:var(--acc);text-decoration:none;margin-top:2px}
+.shot.big .frame{aspect-ratio:1440/820}
+.pin{position:absolute;width:26px;height:26px;border-radius:13px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;box-shadow:0 0 0 3px #286df855;z-index:2}
+.notes{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:6px}.notes li{display:flex;gap:10px;color:var(--c2)}
+.notes li .pn{flex:none;width:22px;height:22px;border-radius:11px;background:var(--acc);color:#fff;font-weight:700;font-size:11px;display:grid;place-items:center}
+.pro,.con{display:flex;gap:8px;color:var(--c2);margin-top:6px}.pro svg{color:var(--ok)}.con svg{color:var(--da)}
+.verdict{display:inline-flex;gap:6px;align-items:center;font-weight:700;padding:4px 10px;border-radius:8px;font-size:12px}.verdict.yes{background:#e6f2e7;color:var(--ok)}.verdict.no{background:#f0f0f1;color:var(--c2)}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--b1);border-radius:14px;overflow:hidden}
+th,td{padding:10px 14px;text-align:left;border-top:1px solid var(--b1)}th{background:#f6f7f9;font-size:12px;color:var(--c3);border-top:0}td.y{color:var(--ok);font-weight:700}td.p{color:var(--wa);font-weight:600}td.nn{color:#0000004d}
+.pill{display:inline-flex;gap:5px;align-items:center;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:500;color:#fff}.pill svg.lucide{width:12px;height:12px}
+.ok{background:var(--ok)}.in{background:var(--in)}.wa{background:var(--wa)}.da{background:var(--da)}.ne{background:var(--ne)}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center}
+.mermaid{background:#fff;border:1px solid var(--b1);border-radius:14px;padding:16px;display:flex;justify-content:center}
+.dec{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--b1)}.dec:first-child{border-top:0}.dec .k{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center}
+.dec .k.done{background:#e6f2e7;color:var(--ok)}.dec .k.open{background:#fbeae4;color:var(--wa)}
+.ref{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--b1)}.ref:first-child{border-top:0}.ref a{font-weight:700;color:var(--acc);text-decoration:none;min-width:150px}
+.row{display:flex;gap:8px;align-items:center}
+.kbd{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:#f0f0f1;border-radius:5px;padding:1px 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc"><b>Thư viện</b><small>Design board · 28/9/2026</small>
+ <div style="height:14px"></div>
+ <a href="#nav"><span class="n">1</span>Điều hướng</a><a href="#ia"><span class="n">2</span>Sơ đồ thông tin</a><a href="#screens"><span class="n">3</span>Màn hình</a>
+ <a href="#sources"><span class="n">4</span>Nguồn dữ liệu</a><a href="#flows"><span class="n">5</span>Luồng thao tác</a><a href="#roles"><span class="n">6</span>Vai trò</a>
+ <a href="#states"><span class="n">7</span>Trạng thái</a><a href="#decisions"><span class="n">8</span>Quyết định</a><a href="#refs"><span class="n">9</span>Tham khảo</a>
+ <div style="height:18px"></div><a href="library.html" target="_blank"><i data-lucide="mouse-pointer-click"></i>Mở mockup tương tác</a>
+</nav>
+<main>
+<header class="hero"><div><span class="tag"><i data-lucide="pen-tool"></i>Mockup, dữ liệu giả</span><span class="tag"><i data-lucide="git-branch"></i>library-tabs-and-sources</span>
+ <h1>Thư viện: một nơi cho mọi thứ bạn xem và dùng được</h1>
+ <p>Tệp của bạn, cuộc họp và tệp trợ lý được chia sẻ, tài liệu và nguồn dữ liệu của tổ chức — kèm lý do vì sao bạn thấy từng mục. Nguồn dữ liệu chỉ để xem; quản lý nguồn vẫn ở trang quản trị.</p></div>
+ <a class="open" href="library.html" target="_blank">Mở mockup tương tác ↗</a></header>
+
+<section id="nav"><h2><span class="n">1</span>Điều hướng: một menu, không phải hai</h2>
+<p class="lead">Menu chính bên trái đã là điều hướng của cả ứng dụng. Thêm một cột menu thứ hai cho Thư viện làm mắt không biết đâu là chính, và “Cuộc họp” bị lặp. Đề xuất: các phần của Thư viện thành tab trên đầu trang.</p>
+<div class="cols c2">
+ <div class="shot big"><div class="frame"><iframe loading="lazy" data-src="library.html?embed=1&nav=tabs&view=ready"></iframe>
+  <span class="pin" style="left:37%;top:21%">1</span><span class="pin" style="left:24%;top:30.5%">2</span><span class="pin" style="left:93%;top:21%">3</span></div>
+  <div class="cap"><div class="row"><b>Tab trên</b> <span class="verdict yes"><i data-lucide="check"></i>Đề xuất</span></div>
+  <ul class="notes"><li><span class="pn">1</span>5 tab: Gần đây · Của tôi · Được chia sẻ · Có gắn sao · Tổ chức. Chấm đỏ ở Tổ chức khi có nguồn cần chú ý.</li>
+  <li><span class="pn">2</span>Tab con gọn trong một nút chuyển: Tệp / Đang xử lý / Thùng rác; Nguồn dữ liệu / Tài liệu.</li>
+  <li><span class="pn">3</span>Dung lượng thành thanh nhỏ; bấm vào mở cài đặt và “Xem tệp lớn nhất”.</li></ul>
+  <div class="pro"><i data-lucide="plus"></i>Một menu duy nhất, nội dung rộng hơn 240px.</div><div class="pro"><i data-lucide="plus"></i>Giống Notion, Glean, ChatGPT Library.</div>
+  <div class="con"><i data-lucide="minus"></i>Thêm một lớp nút chuyển trong Của tôi và Tổ chức.</div></div></div>
+ <div class="shot big"><div class="frame"><iframe loading="lazy" data-src="library.html?embed=1&nav=rail&view=ready"></iframe></div>
+  <div class="cap"><div class="row"><b>Menu trái trong trang</b> <span class="verdict no">Không chọn</span></div>
+  <div class="con"><i data-lucide="minus"></i>Hai cột menu cùng dạng đặt cạnh nhau, khó biết đâu là điều hướng chính.</div>
+  <div class="con"><i data-lucide="minus"></i>“Cuộc họp” xuất hiện ở cả hai menu.</div><div class="con"><i data-lucide="minus"></i>Mất ~240px bề ngang cho danh sách.</div>
+  <div class="pro"><i data-lucide="plus"></i>Thấy hết 9 mục cùng lúc.</div></div></div>
+</div></section>
+
+<section id="ia"><h2><span class="n">2</span>Sơ đồ thông tin</h2>
+<p class="lead">9 mục cũ được gom vào 5 tab. Cuộc họp của bạn nằm ở menu chính “Cuộc họp”; cuộc họp người khác chia sẻ nằm trong “Được chia sẻ”.</p>
+<div class="mermaid">
+flowchart LR
+  L[Thư viện] --> R[Gần đây]
+  L --> M[Của tôi]
+  L --> S[Được chia sẻ]
+  L --> ST[Có gắn sao]
+  L --> O[Tổ chức]
+  M --> M1[Tệp] & M2[Đang xử lý] & M3[Thùng rác]
+  S --> S1[Cuộc họp được chia sẻ] & S2[Tệp của trợ lý]
+  O --> O1[Nguồn dữ liệu] & O2[Tài liệu]
+  O1 --> D[Chi tiết nguồn]
+  D --> D1[Tệp / Nội dung] & D2[Lịch sử lập chỉ mục / đồng bộ] & D3[Nhóm / Kết nối và cấu hình]
+  R -.-> X((Mọi loại: tệp, cuộc họp, tệp trợ lý, tài liệu))
+  ST -.-> X
+</div></section>
+
+<section id="screens"><h2><span class="n">3</span>Các màn hình</h2>
+<p class="lead">Mỗi ô là mockup đang chạy ở đúng trạng thái đó. Bấm “Mở” để thao tác thật trên dữ liệu giả.</p>
+<div class="cols c3" id="gallery"></div></section>
+
+<section id="sources"><h2><span class="n">4</span>Nguồn dữ liệu — góc nhìn thành viên</h2>
+<p class="lead">Thư viện chỉ cho xem, theo đúng danh sách của trang Nguồn hiện có (<span class="kbd">/admin/sources</span>): cùng nhóm theo nhà cung cấp, trạng thái, truy cập. Quản trị viên và người phụ trách cấu hình nguồn ở trang quản trị như hiện nay.</p>
+<div class="cols c2">
+ <div class="shot big"><div class="frame"><iframe loading="lazy" data-src="library.html?embed=1&view=sources"></iframe>
+  <span class="pin" style="left:27%;top:34%">1</span><span class="pin" style="left:66%;top:41%">2</span><span class="pin" style="left:19%;top:47%">3</span></div>
+  <div class="cap"><b>Tổ chức › Nguồn dữ liệu</b><ul class="notes"><li><span class="pn">1</span>Tìm nguồn + lọc Trạng thái / Nhà cung cấp / Truy cập, như trang Nguồn hiện có.</li>
+  <li><span class="pn">2</span>Nhóm theo nhà cung cấp với tổng: số nguồn, đang hoạt động, hiển thị cho mọi người, tài liệu bạn đọc được.</li>
+  <li><span class="pn">3</span>Cột: Tên (kèm người phụ trách) · Lập chỉ mục gần nhất · Trạng thái · Truy cập (kèm nhóm của bạn) · Tài liệu bạn đọc được. Không có nút quản lý.</li></ul></div></div>
+ <div class="shot big"><div class="frame"><iframe loading="lazy" data-src="library.html?embed=1&view=documents&srcFilter=s4"></iframe></div>
+  <div class="cap"><b>Bấm tên nguồn → Tài liệu của nguồn đó</b><ul class="notes"><li><span class="pn">·</span>Mở tab Tài liệu, đã lọc sẵn theo nguồn.</li>
+  <li><span class="pn">·</span>Nguồn đang tạm dừng hoặc chưa có tài liệu thì tên không bấm được: Search chưa phục vụ tài liệu của nó.</li></ul></div></div>
+</div></section>
+
+<section id="flows"><h2><span class="n">5</span>Luồng thao tác chính</h2>
+<div class="cols c2">
+<div class="card"><b>Thành viên thiếu tài liệu</b><div class="mermaid">
+flowchart TD
+  A[Tìm không thấy tài liệu] --> B[Tổ chức › Nguồn dữ liệu]
+  B --> C{Nguồn có trong danh sách?}
+  C -->|Đang tạm dừng| D[Biết lý do, xem người phụ trách]
+  C -->|Hoạt động| E[Xem tài liệu của nguồn]
+  C -->|Không thấy| F[Chưa có quyền: nhờ người phụ trách thêm vào nhóm]
+</div></div>
+<div class="card"><b>Dọn dung lượng</b><div class="mermaid">
+flowchart TD
+  A[Thanh dung lượng] --> B[Cài đặt] --> C[Xem tệp lớn nhất] --> D[Xoá] --> E[Thùng rác 30 ngày]
+  E -->|Khôi phục| F[Tệp của tôi]
+  E -->|Xoá vĩnh viễn| G[Giải phóng dung lượng]
+</div></div>
+<div class="card"><b>Dùng lại một mục ở Chat</b><div class="mermaid">
+flowchart TD
+  A[Bất kỳ tệp, biên bản, tệp trợ lý] --> B[Xem trước]
+  B --> C[Hỏi Chat về tệp này] --> D[Hội thoại mới có tệp đính kèm]
+  A --> E[Gắn sao] --> F[Tab Có gắn sao]
+</div></div>
+</div></section>
+
+<section id="roles"><h2><span class="n">6</span>Vai trò</h2>
+<p class="lead">Thư viện chỉ có góc nhìn thành viên: ai có quyền Tìm kiếm tài liệu thấy tab <b>Tổ chức</b> với các nguồn mình đọc được. Đồng bộ, tạm dừng, tải tệp, nhóm, chế độ hiển thị và xoá nguồn vẫn làm ở trang quản trị Nguồn, theo quyền quản trị viên và người phụ trách như hiện nay.</p></section>
+
+<section id="states"><h2><span class="n">7</span>Trạng thái và ngôn ngữ</h2>
+<div class="cols c2"><div class="card"><b>Trạng thái nguồn (SourceStatus)</b><div class="legend" style="margin-top:12px">
+<span class="pill ne"><i data-lucide="clock"></i>Đã lên lịch</span><span>Chưa chạy lần đầu.</span>
+<span class="pill in"><i data-lucide="loader-circle"></i>Đang lập chỉ mục</span><span>Kèm “Có công việc đang chờ” khi còn việc.</span>
+<span class="pill ok"><i data-lucide="check"></i>Hoạt động</span><span>Đồng bộ và tìm kiếm bình thường.</span>
+<span class="pill da"><i data-lucide="triangle-alert"></i>Thất bại</span><span>Kèm thông báo lỗi của nguồn.</span>
+<span class="pill wa"><i data-lucide="pause"></i>Đã tạm dừng · Đang tạm dừng</span><span>Không đồng bộ, không tải tệp lên.</span>
+<span class="pill ne"><i data-lucide="trash-2"></i>Đang xóa</span><span>Dọn dẹp chạy nền.</span></div>
+<div style="margin-top:12px;color:var(--c2);font-size:13px">“Hoàn tất có lỗi” là kết quả của <b>một lần chạy</b>, không phải trạng thái nguồn.</div></div>
+<div class="card"><b>Lý do bạn thấy một mục</b><div class="legend" style="margin-top:12px">
+<span class="kbd">Qua nhóm Kế toán</span><span>Được chia sẻ cho nhóm bạn thuộc về.</span>
+<span class="kbd">Chia sẻ bởi Lê Minh</span><span>Được chia sẻ trực tiếp cho bạn.</span>
+<span class="kbd">Qua trợ lý Trợ lý nhân sự</span><span>Tệp kiến thức của trợ lý bạn dùng.</span>
+<span class="kbd">Toàn bộ thành viên</span><span>Nguồn mọi thành viên đọc được.</span>
+<span class="kbd">Đồng bộ quyền từ nguồn</span><span>Người có quyền trên Google Drive.</span></div></div></div></section>
+
+<section id="decisions"><h2><span class="n">8</span>Quyết định</h2>
+<div class="card">
+<div class="dec"><span class="k done"><i data-lucide="check"></i></span><div><b>Thư viện gom mọi thứ xem/dùng được</b><br><span style="color:var(--c2)">Mục không thuộc về bạn là tham chiếu chỉ đọc, không tính dung lượng, mất khi mất quyền.</span></div></div>
+<div class="dec"><span class="k done"><i data-lucide="check"></i></span><div><b>Nguồn dữ liệu dùng đúng mô hình Nguồn hiện có</b><br><span style="color:var(--c2)">Không thêm chỉ số, banner hay trạng thái mới.</span></div></div>
+<div class="dec"><span class="k done"><i data-lucide="check"></i></span><div><b>Chỉ vai thành viên trong Thư viện</b><br><span style="color:var(--c2)">Quản lý nguồn giữ ở trang quản trị Nguồn.</span></div></div>
+
+<div class="dec"><span class="k done"><i data-lucide="check"></i></span><div><b>Điều hướng: tab trên thay cho menu trái</b></div></div>
+<div class="dec"><span class="k open"><i data-lucide="circle-help"></i></span><div><b>“Có gắn sao” là tab riêng hay bộ lọc trong mỗi tab?</b><br><span style="color:var(--c2)">Hiện là tab riêng để gom mọi loại; nếu muốn 4 tab thì thành bộ lọc.</span></div></div>
+<div class="dec"><span class="k open"><i data-lucide="circle-help"></i></span><div><b>Mặc định mở vào tab nào?</b><br><span style="color:var(--c2)">Đề xuất “Gần đây” cho người dùng thường xuyên; hiện là “Của tôi”.</span></div></div>
+</div></section>
+
+<section id="refs"><h2><span class="n">9</span>Tham khảo (Mobbin)</h2>
+<div class="card">
+<div class="ref"><a href="https://mobbin.com/screens/926aa374-291e-4191-8247-dd97387764fc" target="_blank">Intercom</a><span>Nhóm nguồn theo đối tượng được đọc, mỗi dòng một hành động.</span></div>
+<div class="ref"><a href="https://mobbin.com/screens/cb148035-69d7-4c1b-ada8-a845fd5ef540" target="_blank">Sana AI</a><span>Bảng tài liệu có tab trạng thái, thẻ thông tin nguồn bên phải.</span></div>
+<div class="ref"><a href="https://mobbin.com/screens/7b7a9f07-cad9-4c17-807a-d9e2df6f45ac" target="_blank">Deel</a><span>Đầu trang có nút đồng bộ, banner cảnh báo một hành động.</span></div>
+<div class="ref"><a href="https://mobbin.com/screens/f661c7fc-aa21-4e95-96de-c9cb5a40cb37" target="_blank">Circle</a><span>Bảng lịch sử chạy với trạng thái và kết quả.</span></div>
+<div class="ref"><a href="https://mobbin.com/screens/d0af7038-64dd-4c2b-b2e0-dfb819f0f716" target="_blank">Google Drive</a><span>Bộ lọc dạng chip trên danh sách; Starred, Trash, Storage.</span></div>
+</div></section>
+</main></div>
+<script>
+const SHOTS=[
+ ['view=recent','Gần đây','Mọi loại mục bạn vừa mở, mới nhất trước.'],
+ ['view=ready','Của tôi › Tệp','Tìm, lọc loại, sắp xếp, chọn nhiều để ZIP/thêm vào dự án.'],
+ ['view=shared','Được chia sẻ','Cuộc họp và tệp trợ lý, mỗi dòng ghi lý do.'],
+ ['view=starred','Có gắn sao','Gom mọi mục đã gắn sao ở mọi loại.'],
+ ['view=documents','Tổ chức › Tài liệu','Lọc theo nguồn, loại; “Tải thêm”.'],
+ ['view=pending','Của tôi › Đang xử lý','Thử lại tệp lỗi, gỡ tệp.'],
+ ['view=trash','Của tôi › Thùng rác','Khôi phục, xoá vĩnh viễn, dọn thùng rác.'],
+ ['view=documents&srcFilter=s1','Tài liệu của một nguồn','Mở từ tên nguồn ở tab Nguồn dữ liệu.'],
+ ['view=ready&dialog=upload','Tải lên','Tệp vào Đang xử lý rồi sang Tệp.'],
+];
+document.getElementById('gallery').innerHTML=SHOTS.map(([q,t,d])=>`<div class="shot"><div class="frame"><iframe loading="lazy" data-src="library.html?embed=1&${q}"></iframe></div><div class="cap"><b>${t}</b><span>${d}</span><a href="library.html?${q}" target="_blank">Mở ↗</a></div></div>`).join('');
+function fit(){document.querySelectorAll('.shot .frame').forEach(f=>{const i=f.querySelector('iframe');i.style.transform=`scale(${f.clientWidth/1440})`})}
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const i=e.target;if(!i.src)i.src=i.dataset.src;io.unobserve(i)}}),{rootMargin:'400px'});
+document.querySelectorAll('iframe[data-src]').forEach(i=>io.observe(i));
+addEventListener('resize',fit);fit();lucide.createIcons();
+mermaid.initialize({startOnLoad:true,theme:'neutral',fontFamily:'Hanken Grotesk, Segoe UI, sans-serif',flowchart:{curve:'basis'}});
+</script>
+</body>
+</html>

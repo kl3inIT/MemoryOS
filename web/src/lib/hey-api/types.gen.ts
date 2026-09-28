@@ -3306,6 +3306,39 @@ export type ChatLibraryEntryReason = {
     names: Array<string>;
 };
 
+/**
+ * A Source the viewer may read from, whatever its state
+ */
+export type ChatLibrarySource = {
+    id: string;
+    name: string;
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    /**
+     * What admits the viewer: every member, a Group of theirs, or the provider's own grants
+     */
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
+    /**
+     * A paused Source keeps its documents out of Search until it resumes
+     */
+    status: 'NOT_STARTED' | 'INDEXING' | 'ACTIVE' | 'PAUSED' | 'FAILED';
+    /**
+     * Documents of this Source the viewer may read, counted whatever the Source status
+     */
+    readableDocuments: number;
+    /**
+     * When the last synchronization succeeded; null before the first one
+     */
+    lastSucceededAt: string | null;
+    /**
+     * The viewer's own Groups granted this PRIVATE Source, sorted; empty for other access
+     */
+    groups: Array<string>;
+    /**
+     * The person responsible for this Source, when one is appointed
+     */
+    managerName: string | null;
+};
+
 export type ChatLibraryContentMatch = {
     file: ChatLibraryFile;
     /**
@@ -15420,6 +15453,47 @@ export type ListChatLibraryStarredResponses = {
 
 export type ListChatLibraryStarredResponse = ListChatLibraryStarredResponses[keyof ListChatLibraryStarredResponses];
 
+export type ListChatLibrarySourcesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/sources';
+};
+
+export type ListChatLibrarySourcesErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibrarySourcesError = ListChatLibrarySourcesErrors[keyof ListChatLibrarySourcesErrors];
+
+export type ListChatLibrarySourcesResponses = {
+    /**
+     * Sources, without error details or Groups the caller is not in
+     */
+    200: Array<ChatLibrarySource>;
+};
+
+export type ListChatLibrarySourcesResponse = ListChatLibrarySourcesResponses[keyof ListChatLibrarySourcesResponses];
+
 export type ListChatLibrarySharedData = {
     body?: never;
     path?: never;
@@ -15559,53 +15633,6 @@ export type ListChatLibraryRecentResponses = {
 };
 
 export type ListChatLibraryRecentResponse = ListChatLibraryRecentResponses[keyof ListChatLibraryRecentResponses];
-
-export type ListChatLibraryMeetingsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        query?: string;
-        owner?: 'ALL' | 'MINE' | 'SHARED';
-        sort?: 'NEWEST' | 'OLDEST' | 'NAME';
-        offset?: number;
-        limit?: number;
-    };
-    url: '/api/chat/library/meetings';
-};
-
-export type ListChatLibraryMeetingsErrors = {
-    /**
-     * Invalid library request
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Chat is unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Storage unavailable
-     */
-    503: ApiProblem;
-};
-
-export type ListChatLibraryMeetingsError = ListChatLibraryMeetingsErrors[keyof ListChatLibraryMeetingsErrors];
-
-export type ListChatLibraryMeetingsResponses = {
-    /**
-     * A page of meetings
-     */
-    200: ChatLibraryEntryPage;
-};
-
-export type ListChatLibraryMeetingsResponse = ListChatLibraryMeetingsResponses[keyof ListChatLibraryMeetingsResponses];
 
 export type ListChatLibraryDocumentsData = {
     body?: never;

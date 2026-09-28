@@ -140,6 +140,8 @@ Every surface that draws a generated image small — the library rows and cards,
 
 `/library` also lists what a person may **see or use without owning it** ([library hub](../increments/active/library-hub/design.md)). These rows are read-only references. Every read authorizes them through the capability that owns them, so a revoked share, Group membership or Agent share removes the row at the next read. They are never copied and never count toward the storage limit, and nobody but their owner renames, trashes or purges them.
 
+The page has one row of tabs under its title, so the application sidebar stays the only menu beside it ([tabs and Sources](../increments/active/library-tabs-and-sources/design.md)): *Gần đây*, *Của tôi* (its views *Tệp*, *Đang xử lý* and *Thùng rác* are a choice below the row), *Được chia sẻ*, *Có gắn sao*, and *Tổ chức* for holders of `SEARCH_READ` (*Nguồn dữ liệu* and *Tài liệu*). What the account stores ends the row with *Xem tệp lớn nhất*. Meetings are not a library view of their own: the person's meetings are the Meetings page, and meetings shared with them are in *Được chia sẻ*, *Gần đây* and *Có gắn sao*. `view=sources` lists the Sources below; the library imports no screen of the connector capability, so the `/library` route hands that view in (ADR 0015).
+
 | Kind | Owner of the rule | Who sees it |
 | --- | --- | --- |
 | `MEETING` | `meeting`, through the library's `MeetingShelf` port | The owner, a member it is shared with, members of a Group it is shared with (`MeetingAccessSql.READS`) |
@@ -148,10 +150,11 @@ Every surface that draws a generated image small — the library rows and cards,
 
 The GET routes are listed in the route table below. The rules that apply to them:
 
-- **Bounds.** `shared` and `meetings` read bounded sets: 200 meetings and 1000 Agent files. `documents` pages with an opaque keyset cursor bound to its filters (`NEWEST` by source update time, or `NAME`). A reused cursor with other filters answers 400.
+- **Bounds.** `shared` reads bounded sets: 200 meetings and 1000 Agent files. `documents` pages with an opaque keyset cursor bound to its filters (`NEWEST` by source update time, or `NAME`). A reused cursor with other filters answers 400.
 - **Reason.** Every row says why it is visible: `reason.kind` is `OWNER`, `MEMBER_SHARE`, `GROUP_SHARE` (the viewer's own Groups), `AGENT` (the Agents), `PUBLIC_SOURCE`, `GROUP_SOURCE` (the viewer's granted Groups) or `PROVIDER_SOURCE`. The reason projects the predicate that admitted the row; it grants nothing.
 - **Previewing documents.** A document is previewed and downloaded through the Search reader and needs the generation the live index serves. A document the index does not serve yet has no generation and cannot be previewed.
 - **Asking Chat.** Chat is not offered for a document: Chat has no per-document turn scope, and a copy would detach a PRIVATE document from its Group authority.
+- **Sources.** `GET /sources` lists the Sources behind those documents under the same `SEARCH_READ`, with the Sources page's list read-only: the provider groups and totals, status, access and the documents the caller may read. A PUBLIC Source admits every active member and a PRIVATE one a member of a granted Group, even before it holds a document; a SYNC Source is listed only while its provider grants admit the caller to at least one document. Paused and failed Sources stay listed with their readable count; a paused Source's documents stay out of Search until it resumes, so its name opens nothing, while any other Source with readable documents opens *Tài liệu* narrowed to it. A DELETING Source or connector is absent. Managing a Source stays on `/admin/sources`, whose server checks are authoritative.
 
 Per-viewer marks live in `library_mark` (V133, cascading with the Tenant membership). A mark never grants access: every read resolves marked ids through the owning capability and drops those that no longer resolve.
 
@@ -259,8 +262,8 @@ Feedback belongs to the owner Actor and a specific saved ASSISTANT output with n
 | POST `/api/chat/library/{source}/{id}/restore` · `…/purge` | Take one of the caller's files out of the trash, or end its window now |
 | POST `/api/chat/library/trash/empty` | End the window of everything the caller deleted |
 | GET `/api/chat/library/shared` | Meetings shared with the caller and files of Agents they use, not their own; `query`, `kinds`, `categories`, `sort`, `offset`, `limit` ([library hub](#everything-a-person-can-reach-library-hub)) |
-| GET `/api/chat/library/meetings` | Every meeting the caller may read; `query`, `owner` (`ALL`, `MINE`, `SHARED`), `sort`, `offset`, `limit` |
 | GET `/api/chat/library/documents` · `…/documents/sources` | Source documents under the caller's Search authority, keyset-paged by `cursor`; `query`, `sourceIds`, `categories`, `sort` (`NEWEST`, `NAME`), `limit`; and the Sources to filter by. Requires `SEARCH_READ` |
+| GET `/api/chat/library/sources` | Every Source the caller may read from, whatever its state except DELETING, by name, at most 500: `{id, name, type, access, status, readableDocuments, lastSucceededAt, groups, managerName}`. `status` is `NOT_STARTED`, `INDEXING`, `ACTIVE`, `PAUSED` (also while pausing) or `FAILED`; `readableDocuments` counts under the Search document rule without its Source-status condition; `groups` names only the caller's own Groups granted a PRIVATE Source. No error details. Requires `SEARCH_READ` ([library hub](#everything-a-person-can-reach-library-hub)) |
 | GET `/api/chat/library/recent` · `…/starred` | What the caller opened lately (at most 100), and owned favourites with starred reachable rows, each re-authorized on read |
 | PUT/DELETE `/api/chat/library/entries/{kind}/{id}/star` · POST `…/opened` | Star, unstar or record an open of a row the caller may read now; 204, or 404 when not reachable |
 | GET/PUT `/api/chat/retention` · GET `…/preview` | Read, set and preview the caller's own retention window (any member, their own conversations only) |

@@ -1298,6 +1298,10 @@ Object.assign(englishUi, {
   "Workspace-visible sources": "Nguồn hiển thị trong không gian làm việc",
   "Total docs indexed": "Tổng tài liệu đã lập chỉ mục",
   "Total docs": "Tổng tài liệu",
+  "Documents you can read": "Tài liệu bạn đọc được",
+  "No sources you can read yet": "Chưa có nguồn nào bạn đọc được",
+  "Ask a Source manager or an administrator for access.":
+    "Hãy nhờ người phụ trách nguồn hoặc quản trị viên cấp quyền.",
   Manage: "Quản lý",
   "{{v1}} · system group": "{{v1}} · nhóm hệ thống",
   "{{v1}} more groups: {{v2}}": "{{v1}} nhóm khác: {{v2}}",

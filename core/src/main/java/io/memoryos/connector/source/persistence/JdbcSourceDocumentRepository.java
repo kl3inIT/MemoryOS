@@ -1,6 +1,7 @@
 package io.memoryos.connector.source.persistence;
 
 import io.memoryos.connector.DocumentAccess;
+import io.memoryos.connector.ReadableSource;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceDocumentBrowse;
 import io.memoryos.connector.SourceDocumentEntry;
@@ -8,6 +9,7 @@ import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
+import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.document.DocumentId;
@@ -121,6 +123,19 @@ public class JdbcSourceDocumentRepository {
     /** Source lists show SYNC Sources to active members; each of their documents is still rechecked. */
     private static final String SOURCE_READ_SCOPE = READ_SCOPE.formatted("TRUE");
     /**
+     * The names of the reader's Groups granted the Source whose id is {@code %1$s}, sorted; empty unless its access
+     * {@code %2$s} is PRIVATE.
+     */
+    private static final String READER_GROUP_NAMES = """
+            ARRAY(
+                SELECT DISTINCT grp.name FROM source_group_grants grant_row
+                JOIN iam_group_memberships member ON member.tenant_id=grant_row.tenant_id
+                    AND member.group_id=grant_row.group_id AND member.actor_id=:actor
+                JOIN iam_groups grp ON grp.tenant_id=grant_row.tenant_id AND grp.id=grant_row.group_id
+                WHERE %2$s='PRIVATE' AND grant_row.tenant_id=:tenant
+                    AND grant_row.connector_credential_pair_id=%1$s
+                ORDER BY grp.name)""";
+    /**
      * Readable Source documents, each under its first readable mapping by Source then item. The Sources the actor
      * may read are resolved once; each mapping is then rechecked with the document scope (%4$s), which also carries
      * the provider grants of SYNC Sources. %3$s narrows the mappings, %6$s filters, orders and limits the entries.
@@ -149,17 +164,41 @@ public class JdbcSourceDocumentRepository {
             ), categorized AS (
                 SELECT mapped.*, %5$s AS category FROM mapped
             )
-            SELECT entry.*, ARRAY(
-                SELECT DISTINCT grp.name FROM source_group_grants grant_row
-                JOIN iam_group_memberships member ON member.tenant_id=grant_row.tenant_id
-                    AND member.group_id=grant_row.group_id AND member.actor_id=:actor
-                JOIN iam_groups grp ON grp.tenant_id=grant_row.tenant_id AND grp.id=grant_row.group_id
-                WHERE entry.access_type='PRIVATE' AND grant_row.tenant_id=:tenant
-                    AND grant_row.connector_credential_pair_id=entry.source_id
-                ORDER BY grp.name) AS group_names
+            SELECT entry.*, """ + READER_GROUP_NAMES.formatted("entry.source_id", "entry.access_type") + """
+             AS group_names
             FROM (SELECT entry.* FROM categorized entry %6$s) entry
             ORDER BY %7$s
             """;
+    /**
+     * The Sources the reader may read from, whatever their state except DELETING. The Source read scope admits the
+     * reader; each is counted with the document scope minus its Source-status condition, and a SYNC Source, which only
+     * its provider grants open, is kept only when the reader may read one of its Documents.
+     */
+    private static final String READABLE_SOURCES = """
+            WITH admitted AS MATERIALIZED (
+                SELECT p.tenant_id, p.id, p.access_type, p.last_succeeded_at, p.manager_actor_id, c.name, c.connector_type
+                FROM connector_credential_pairs p
+                JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
+                WHERE p.tenant_id=:tenant AND p.status<>'DELETING' AND c.status='ACTIVE' AND %1$s AND %2$s
+            ), counted AS (
+                SELECT p.*, (
+                    SELECT count(DISTINCT m.document_id) FROM documents_by_connector_credential_pair m
+                    JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
+                    WHERE m.tenant_id=p.tenant_id AND m.connector_credential_pair_id=p.id
+                        AND m.retrieval_eligible=TRUE AND d.status='ELIGIBLE' AND %3$s
+                ) AS readable_documents
+                FROM admitted p
+            )
+            SELECT entry.id, entry.name, entry.connector_type, entry.access_type, entry.readable_documents,
+                entry.last_succeeded_at, %4$s AS status, profile.display_name AS manager_name, %5$s AS group_names
+            FROM counted entry
+            JOIN connector_credential_pairs pair ON pair.tenant_id=entry.tenant_id AND pair.id=entry.id
+            LEFT JOIN actor_profiles profile ON profile.actor_id=entry.manager_actor_id
+            WHERE entry.access_type<>'SYNC' OR entry.readable_documents>0
+            ORDER BY entry.name, entry.id
+            LIMIT :limit
+            """.formatted(SEARCHABLE_SOURCE, SOURCE_READ_SCOPE, DOCUMENT_READ_SCOPE, JdbcSourceQueryRepository.DERIVED_STATUS,
+            READER_GROUP_NAMES.formatted("entry.id", "entry.access_type"));
 
     private final JdbcClient jdbcClient;
 
@@ -440,6 +479,29 @@ public class JdbcSourceDocumentRepository {
     private static JdbcClient.StatementSpec bindBrowse(JdbcClient.StatementSpec statement, TenantId tenant, ActorId actor,
                                                        String indexIdentity) {
         return statement.param("tenant", tenant.value()).param("actor", actor.value()).param("identity", indexIdentity);
+    }
+
+    /**
+     * The Sources the reader may read from, whatever their state except DELETING, ordered by name, at most
+     * {@code limit} (1 to 500). A PUBLIC or PRIVATE Source is listed once its read scope admits the reader, before it
+     * holds any Document; a SYNC Source only while the reader may read one of its Documents.
+     */
+    public List<ReadableSource> readableSources(TenantId tenant, ActorId actor, int limit) {
+        if (limit < 1 || limit > 500) throw new IllegalArgumentException("source page out of bounds");
+        return jdbcClient.sql(READABLE_SOURCES).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("limit", limit).query((rs, _) -> {
+                    var groups = rs.getArray("group_names");
+                    try {
+                        return new ReadableSource(rs.getObject("id", UUID.class), rs.getString("name"),
+                                SourceType.valueOf(rs.getString("connector_type")),
+                                SourceAccess.valueOf(rs.getString("access_type")),
+                                SourceStatus.valueOf(rs.getString("status")), rs.getLong("readable_documents"),
+                                JdbcSourceRepository.instant(rs, "last_succeeded_at"),
+                                List.of((String[]) groups.getArray()), rs.getString("manager_name"));
+                    } finally {
+                        groups.free();
+                    }
+                }).list();
     }
 
     private static SourceDocumentEntry entry(ResultSet rs, int row) throws SQLException {

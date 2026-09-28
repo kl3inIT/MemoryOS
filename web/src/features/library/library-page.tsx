@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { FolderOpen } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { useActionNotifications } from "@/components/ui/action-notifications";
@@ -8,13 +9,15 @@ import { ChatFilePreviewModal } from "./file-preview-modal";
 import { libraryPreviewTarget, type LibraryFile } from "./library";
 import type { LibraryChat } from "./library-chat";
 import { DeleteFilesDialog, PurgeFilesDialog, RenameDialog } from "./library-dialogs";
-import { isEntryView, recordEntryOpened } from "./library-entries";
+import { recordEntryOpened } from "./library-entries";
 import { LibraryEntryViews } from "./library-entry-views";
 import { LibraryNotices, TrashBanner } from "./library-notices";
-import { LibraryRail } from "./library-rail";
 import { ContentResults, LibraryFiles } from "./library-results";
 import type { RowActions } from "./library-rows";
+import { viewFilterDefaults, type LibrarySearch } from "./library-search";
 import { LibrarySettingsButton } from "./library-settings";
+import type { LibrarySources } from "./library-sources";
+import { LibraryTabs } from "./library-tabs";
 import {
   LibraryFilterPills,
   LibrarySelectionBar,
@@ -23,6 +26,7 @@ import {
   type LibraryToolbarHandlers,
 } from "./library-toolbar";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
+import { isEntryView } from "./library-views";
 import { useLibraryActions } from "./use-library-actions";
 import { useLibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
@@ -32,13 +36,22 @@ import { useLibraryView } from "./use-library-view";
  * The library: everything the person can see or use, on one page. Their own files — uploads, files run_python
  * generated and generated images — keep every command; what reaches them through a share, an assistant or a
  * Source is listed read-only in views of its own. What it offers of Chat — asking about a file, Projects,
- * conversation retention — comes in through `chat`.
+ * conversation retention — comes in through `chat`, and the Sources behind the organisation's documents through
+ * `sources`.
  */
-export function LibraryPage({ chat }: { chat?: LibraryChat }) {
+export function LibraryPage({
+  chat,
+  sources: Sources,
+}: {
+  chat?: LibraryChat;
+  sources?: LibrarySources;
+}) {
   const ui = useAppTranslation();
   const notify = useActionNotifications();
   const library = useLibraryView();
-  const { view, files, selected, setSelected, trashWindow } = library;
+  const { files, selected, setSelected, trashWindow } = library;
+  // Without the Sources view the organisation's section holds its documents alone.
+  const view = library.view === "sources" && !Sources ? "documents" : library.view;
   const actions = useLibraryActions({
     chat,
     trashDays: trashWindow.data,
@@ -114,83 +127,105 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
             }
           />
 
-          <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:gap-8">
-            <div className="lg:w-52 lg:shrink-0">
-              <LibraryRail
-                view={view}
-                counts={library.owned ? { [view]: library.page.data?.totalCount } : {}}
-                usage={library.usage.data}
-                onView={(next) => {
-                  library.showView(next);
-                  actions.dismissRefusals();
-                }}
-                onShowLargest={() => library.showView("ready", { sort: "LARGEST" })}
-              />
-            </div>
-
-            {isEntryView(view) ? (
-              <div className="flex min-w-0 flex-1 flex-col gap-4">
-                {notices}
-                <LibraryEntryViews
-                  view={view}
-                  library={library}
-                  layout={layout}
-                  onLayout={setLayout}
-                  chat={chat}
-                  onSaveImage={(file) => uploads.start([file])}
-                />
-              </div>
-            ) : (
-              <div className="flex min-w-0 flex-1 flex-col gap-4">
-                <LibraryToolbar
-                  sortable={view === "ready"}
-                  starrable={view === "ready"}
-                  state={toolbarState}
-                  handlers={toolbarHandlers}
-                />
-                <LibraryFilterPills
-                  starrable={view === "ready"}
-                  state={toolbarState}
-                  handlers={toolbarHandlers}
-                />
-
-                {/* Always rendered: an empty selection is the bar leaving, which it animates itself. */}
-                <LibrarySelectionBar
-                  count={selected.length}
-                  packing={archive.state.phase === "packing"}
-                  trash={view === "trash"}
-                  onDownload={() => void archive.start(chosen)}
-                  onAddToProject={chat && (() => setProjectFiles(chosen))}
-                  onDelete={() => setDeleting(chosen)}
-                  onRestore={() => void actions.restoreFiles(chosen)}
-                  onPurge={() => setPurging(chosen)}
-                  onClear={() => setSelected([])}
-                />
-
-                {notices}
-
-                {view === "trash" && (
-                  <TrashBanner days={trashWindow.data} onEmpty={actions.emptyTheTrash} />
-                )}
-
-                {library.mode === "content" ? (
-                  <ContentResults
-                    query={library.query}
-                    matches={library.matches}
-                    onOpen={rowActions.onPreview}
-                    actions={rowActions}
-                  />
-                ) : (
-                  <LibraryFiles
-                    library={library}
+          <div className="mt-6">
+            <LibraryTabs
+              view={view}
+              count={library.owned ? library.page.data?.totalCount : undefined}
+              usage={library.usage.data}
+              sources={Sources !== undefined}
+              onView={(next) => {
+                library.showView(next);
+                actions.dismissRefusals();
+              }}
+              onShowLargest={() => library.showView("ready", { sort: "LARGEST" })}
+            >
+              {view === "sources" ? (
+                Sources && (
+                  <div className="flex min-w-0 flex-col gap-4">
+                    {notices}
+                    <Sources
+                      search={library.search}
+                      onSearch={library.setSearch}
+                      filters={{
+                        status: library.sourceStatus ?? "",
+                        provider: library.provider ?? "",
+                        access: library.access ?? "",
+                      }}
+                      onFilters={(next) =>
+                        library.filterBy({
+                          sourceStatus: (next.status || undefined) as LibrarySearch["sourceStatus"],
+                          provider: (next.provider || undefined) as LibrarySearch["provider"],
+                          access: (next.access || undefined) as LibrarySearch["access"],
+                        })
+                      }
+                      DocumentsLink={SourceDocumentsLink}
+                    />
+                  </div>
+                )
+              ) : isEntryView(view) ? (
+                <div className="flex min-w-0 flex-col gap-4">
+                  {notices}
+                  <LibraryEntryViews
                     view={view}
+                    library={library}
                     layout={layout}
-                    actions={rowActions}
-                    emptyAction={<LibraryUploadButton onFiles={uploads.start} />}
+                    onLayout={setLayout}
+                    chat={chat}
+                    onSaveImage={(file) => uploads.start([file])}
                   />
-                )}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="flex min-w-0 flex-col gap-4">
+                  <LibraryToolbar
+                    sortable={view === "ready"}
+                    starrable={view === "ready"}
+                    state={toolbarState}
+                    handlers={toolbarHandlers}
+                  />
+                  <LibraryFilterPills
+                    starrable={view === "ready"}
+                    state={toolbarState}
+                    handlers={toolbarHandlers}
+                  />
+
+                  {/* Always rendered: an empty selection is the bar leaving, which it animates itself. */}
+                  <LibrarySelectionBar
+                    count={selected.length}
+                    packing={archive.state.phase === "packing"}
+                    trash={view === "trash"}
+                    onDownload={() => void archive.start(chosen)}
+                    onAddToProject={chat && (() => setProjectFiles(chosen))}
+                    onDelete={() => setDeleting(chosen)}
+                    onRestore={() => void actions.restoreFiles(chosen)}
+                    onPurge={() => setPurging(chosen)}
+                    onClear={() => setSelected([])}
+                  />
+
+                  {notices}
+
+                  {view === "trash" && (
+                    <TrashBanner days={trashWindow.data} onEmpty={actions.emptyTheTrash} />
+                  )}
+
+                  {library.mode === "content" ? (
+                    <ContentResults
+                      query={library.query}
+                      matches={library.matches}
+                      onOpen={rowActions.onPreview}
+                      actions={rowActions}
+                    />
+                  ) : (
+                    <LibraryFiles
+                      library={library}
+                      view={view}
+                      layout={layout}
+                      actions={rowActions}
+                      emptyAction={<LibraryUploadButton onFiles={uploads.start} />}
+                    />
+                  )}
+                </div>
+              )}
+            </LibraryTabs>
           </div>
         </LibraryDropZone>
       </SettingsLayout>
@@ -252,5 +287,36 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
         }}
       />
     </>
+  );
+}
+
+/**
+ * One Source's documents, from the Sources view: the organisation's documents narrowed to it. The Sources view's
+ * search and filters mean nothing there, so they are not carried; the page size follows the person.
+ */
+function SourceDocumentsLink({
+  sourceId,
+  className,
+  children,
+}: {
+  sourceId: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to="/library"
+      search={(current) => ({
+        ...current,
+        ...viewFilterDefaults,
+        view: "documents",
+        sourceId,
+        q: "",
+        page: 0,
+      })}
+      className={className}
+    >
+      {children}
+    </Link>
   );
 }
