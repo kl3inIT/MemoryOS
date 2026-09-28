@@ -46,7 +46,7 @@ function Citation({ source }: { source: ChatSource }) {
           <div className="flex min-w-0 items-start gap-3">
             {source.web ? (
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle">
-                <SourceIcon domain={webHost!} fallback="globe" />
+                <SourceIcon domain={webHost!} />
               </span>
             ) : (
               <DocumentSourceIcon
@@ -164,7 +164,7 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
       title={href}
       className="mx-0.5 inline-flex max-w-64 items-center gap-1.5 rounded-md border border-border-default px-1.5 py-0.5 align-middle text-xs text-content-secondary no-underline transition-colors hover:bg-surface-sunken hover:text-content-primary"
     >
-      <SourceIcon domain={domain} favicon={webSource} />
+      <SourceIcon domain={domain} brand={webSource} />
       <span data-slot="source-title" className="truncate">
         {label}
       </span>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
@@ -34,7 +34,7 @@ it("shows one Sources control with up to three distinct icon types, not a row of
   expect(click).toHaveBeenCalledTimes(1);
 });
 
-it("does not request favicons for internal document sources and retains expanded state", () => {
+it("shows document icons for internal sources and retains expanded state", () => {
   const { container } = render(
     <Sources count={2} sources={[{}, {}]} aria-expanded aria-controls="panel" />,
   );
@@ -43,25 +43,27 @@ it("does not request favicons for internal document sources and retains expanded
   expect(screen.getByRole("button")).toHaveAttribute("aria-controls", "panel");
 });
 
-it("reuses favicon fallback and retries when the domain changes", () => {
-  const { container, rerender } = render(<SourceIcon domain="example.com" />);
-  const image = container.querySelector("img")!;
-  expect(image).toHaveAttribute("src", "https://icons.duckduckgo.com/ip3/example.com.ico");
-  expect(image).toHaveAttribute("referrerpolicy", "no-referrer");
-  expect(image).toHaveAttribute("crossorigin", "anonymous");
-  fireEvent.error(image);
-  expect(container.querySelector('[data-slot="source-icon-fallback"]')).toHaveTextContent("E");
-  rerender(<SourceIcon domain="react.dev" />);
-  expect(container.querySelector("img")).toHaveAttribute(
-    "src",
-    "https://icons.duckduckgo.com/ip3/react.dev.ico",
-  );
+it("shows a bundled brand mark for a well-known site, without any request", () => {
+  const { container, rerender } = render(<SourceIcon domain="docs.github.com" />);
+  expect(container.querySelector('svg[data-slot="source-icon"]')).not.toBeNull();
+  expect(container.querySelector("img")).toBeNull();
+  // A subdomain with its own mark takes it over its parent's.
+  rerender(<SourceIcon domain="aws.amazon.com" />);
+  const aws = container.querySelector('svg[data-slot="source-icon"]')!.innerHTML;
+  rerender(<SourceIcon domain="www.amazon.com" />);
+  expect(container.querySelector('svg[data-slot="source-icon"]')!.innerHTML).not.toBe(aws);
 });
 
-it("renders the letter fallback without a favicon request when favicons are not allowed", () => {
-  const { container } = render(<SourceIcon domain="intranet.example" favicon={false} />);
-  expect(container.querySelector("img")).toBeNull();
-  expect(container.querySelector('[data-slot="source-icon-fallback"]')).toHaveTextContent("I");
+it("shows the globe for any other site and for a name that is not a web host", () => {
+  const { container, rerender } = render(<SourceIcon domain="spring.io" />);
+  expect(container.querySelector('svg[data-slot="source-icon-fallback"]')).not.toBeNull();
+  expect(container.querySelector('[data-slot="source-icon"]')).toBeNull();
+  // A look-alike host does not borrow a brand.
+  rerender(<SourceIcon domain="notgithub.com" />);
+  expect(container.querySelector('[data-slot="source-icon"]')).toBeNull();
+  rerender(<SourceIcon domain="github.com" brand={false} />);
+  expect(container.querySelector('[data-slot="source-icon"]')).toBeNull();
+  expect(container.querySelector('svg[data-slot="source-icon-fallback"]')).not.toBeNull();
 });
 
 it("localizes the generic label without a visible count", async () => {
@@ -87,12 +89,7 @@ it("stacks one icon per document kind because chip-size icons carry no provider 
   expect(kinds).toEqual(["pdf", "spreadsheet"]);
 });
 
-it("uses a globe or no fallback where a letter would read as part of a citation number", () => {
-  const { container, rerender } = render(
-    <SourceIcon domain="react.dev" favicon={false} fallback="globe" />,
-  );
-  expect(container.querySelector('svg[data-slot="source-icon-fallback"]')).not.toBeNull();
-  expect(container).not.toHaveTextContent("R");
-  rerender(<SourceIcon domain="react.dev" favicon={false} fallback="none" />);
-  expect(container.querySelector('[data-slot="source-icon-fallback"]')).toBeNull();
+it("shows no fallback where it would read as part of a citation number", () => {
+  const { container } = render(<SourceIcon domain="spring.io" fallback="none" />);
+  expect(container).toBeEmptyDOMElement();
 });

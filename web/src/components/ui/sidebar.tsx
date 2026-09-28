@@ -25,6 +25,16 @@ import { cn } from "@/lib/utils";
 const SIDEBAR_STORAGE_KEY = "memoryos:sidebar";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
+/** Whether a key press lands in a place that edits text, whose own shortcuts come first. */
+function isTextEntry(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])") !==
+      null
+  );
+}
+
 type SidebarContextProps = {
   state: "expanded" | "collapsed";
   open: boolean;
@@ -104,7 +114,9 @@ function SidebarProvider({
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.altKey || event.shiftKey) return;
+      if (event.defaultPrevented || event.altKey || event.shiftKey || event.isComposing) return;
+      // Ctrl/Cmd+B belongs to a text field or editor that has focus, where it often means bold.
+      if (isTextEntry(event.target)) return;
       if (
         event.key.toLowerCase() === SIDEBAR_KEYBOARD_SHORTCUT &&
         (event.metaKey || event.ctrlKey)

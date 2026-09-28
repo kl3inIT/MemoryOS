@@ -27,6 +27,7 @@ import { zProjectInput } from "@/lib/hey-api/zod.gen";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { invalidateProjects, projectOf, type Project } from "./chat-projects-api";
 import { ProjectIconPicker } from "./project-icon";
+import { withRequestTimeout } from "@/lib/api";
 
 /** Creates a Project (name and icon) or edits one (name, icon and instructions) in a dialog. */
 export function ProjectEditor({ project, onClose }: { project?: Project; onClose: () => void }) {
@@ -38,8 +39,8 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
   const problemErrors = useProblemErrors();
   const problemMessage = useProblemMessage();
   const nameInput = useRef<HTMLInputElement>(null);
-  const create = useMutation(createChatProjectMutation());
-  const update = useMutation(updateChatProjectMutation());
+  const create = useMutation(withRequestTimeout(createChatProjectMutation()));
+  const update = useMutation(withRequestTimeout(updateChatProjectMutation()));
   // The generated request schema with the rules this editor adds.
   const schema = zProjectInput.pick({ name: true, instructions: true, iconName: true }).extend({
     name: zProjectInput.shape.name.unwrap().trim().min(1, errorText("required")).max(200),

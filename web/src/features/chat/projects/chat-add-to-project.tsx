@@ -11,6 +11,7 @@ import { FormDialog } from "@/components/composites/form-dialog";
 import { invalidateLibrary, type LibraryFile } from "@/features/library/library";
 import { addToProject, ProjectFull, PROJECT_FILE_LIMIT } from "./chat-project-files";
 import { invalidateProjects, projectOf, projectsOptions, type Project } from "./chat-projects-api";
+import { withRequestTimeout } from "@/lib/api";
 
 /**
  * Adds library files to one of the caller's Projects (MEM-152). The Project's own update admits them, so the
@@ -34,7 +35,7 @@ export function ChatAddToProjectDialog({
   const [newProject, setNewProject] = useState(false);
   const projects = useQuery({ ...projectsOptions(), enabled: open });
   const create = useMutation({
-    ...createChatProjectMutation(),
+    ...withRequestTimeout(createChatProjectMutation()),
     onSuccess: () => invalidateProjects(cache),
   });
   const add = useMutation({

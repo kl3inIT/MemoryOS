@@ -17,6 +17,7 @@ import {
 } from "@/features/chat/chat-personas-api";
 import { PrincipalPicker } from "@/features/identity/principal-picker";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
+import { withRequestTimeout } from "@/lib/api";
 
 type Access = "INVITED" | "VIEWER" | "EDITOR";
 const removeAccess = "__remove__";
@@ -30,7 +31,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const share = useMutation({
-    ...shareChatPersonaMutation(),
+    ...withRequestTimeout(shareChatPersonaMutation()),
     onSuccess: () => invalidateAgents(cache, agent.id),
   });
   const [people, setPeople] = useState<{ person: Person; permission: AgentPermission }[]>(

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { agentTools, type Persona } from "@/features/chat/chat-personas-api";
 import type { PersonaInput } from "@/lib/hey-api/types.gen";
+import type { ErrorMessage } from "@/lib/problem-presentation";
 
 /** A conversation starter list longer than this is refused by the API. */
 export const maxStarterPrompts = 8;
@@ -33,12 +34,42 @@ const agentValuesSchema = z.object({
 });
 export type AgentValues = z.infer<typeof agentValuesSchema>;
 
+/** The token limits the API accepts; a limit left empty uses the model's own. */
+export const tokenLimits = {
+  contextTokenLimit: { min: 256, max: 2_000_000 },
+  outputTokenLimit: { min: 1, max: 200_000 },
+} as const;
+
+/** A token limit as typed: empty, or a whole number within `min` and `max`. */
+function tokenLimit({ min, max }: { min: number; max: number }, message: ProblemMessage) {
+  const set = (value: string) => value !== "";
+  return z
+    .string()
+    .refine((value) => !set(value) || Number.isInteger(Number(value)), message({ key: "invalid" }))
+    .refine(
+      (value) => !set(value) || Number(value) >= min,
+      message({ key: "min", params: { min } }),
+    )
+    .refine(
+      (value) => !set(value) || Number(value) <= max,
+      message({ key: "max", params: { max } }),
+    );
+}
+
+type ProblemMessage = (message: ErrorMessage) => string;
+
 /**
  * The editor's validation. A nameless agent cannot be submitted (the save action waits for a name), and the
- * starter list never outgrows what the API keeps, so the values only need their shape here; the server's field
- * violations are placed on the controls after a failed save.
+ * starter list never outgrows what the API keeps; a token limit is checked against the range the API accepts, so
+ * the field is marked before a request is sent. The server's field violations are placed on the controls after a
+ * failed save.
  */
-export const agentValidation = agentValuesSchema;
+export function agentValidation(message: ProblemMessage) {
+  return agentValuesSchema.extend({
+    contextTokenLimit: tokenLimit(tokenLimits.contextTokenLimit, message),
+    outputTokenLimit: tokenLimit(tokenLimits.outputTokenLimit, message),
+  });
+}
 
 export function initialValues(agent?: Persona): AgentValues {
   return {

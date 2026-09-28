@@ -19,6 +19,7 @@ import { can } from "@/lib/resource-permissions";
 import { actionErrorText } from "@/lib/action-errors";
 import { invalidateAgents, type Persona } from "@/features/chat/chat-personas-api";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
+import { withRequestTimeout } from "@/lib/api";
 
 /** Secondary agent actions; each renders only when the server's permission hint allows it. */
 export function AgentActions({ agent }: { agent: Persona }) {
@@ -27,11 +28,11 @@ export function AgentActions({ agent }: { agent: Persona }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const [dialog, setDialog] = useState<"delete" | "leave" | "transfer">();
   const remove = useMutation({
-    ...deleteChatPersonaMutation(),
+    ...withRequestTimeout(deleteChatPersonaMutation()),
     onSuccess: () => invalidateAgents(cache, agent.id),
   });
   const leave = useMutation({
-    ...leaveChatPersonaMutation(),
+    ...withRequestTimeout(leaveChatPersonaMutation()),
     onSuccess: () => invalidateAgents(cache, agent.id),
   });
   const actions = [can(agent, "transfer"), can(agent, "leave"), can(agent, "delete")];

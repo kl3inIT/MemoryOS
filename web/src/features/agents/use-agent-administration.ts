@@ -9,6 +9,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { PersonaView } from "@/lib/hey-api/types.gen";
 import { administrationAgentsOptions } from "./agent-queries";
+import { withRequestTimeout } from "@/lib/api";
 
 /**
  * Agent administration for AGENTS_MANAGE: every agent in display order, restoring deleted agents, listing and
@@ -21,9 +22,15 @@ export function useAgentAdministration(includeDeleted: boolean) {
   const options = administrationAgentsOptions(includeDeleted);
   const agents = useQuery({ ...options, select: (views) => views.map(personaOf) });
   const refresh = () => invalidateAgents(cache);
-  const restore = useMutation({ ...restoreChatPersonaMutation(), onSuccess: refresh });
-  const listing = useMutation({ ...setChatPersonaListingMutation(), onSuccess: refresh });
-  const writeOrder = reorderChatPersonasMutation().mutationFn!;
+  const restore = useMutation({
+    ...withRequestTimeout(restoreChatPersonaMutation()),
+    onSuccess: refresh,
+  });
+  const listing = useMutation({
+    ...withRequestTimeout(setChatPersonaListingMutation()),
+    onSuccess: refresh,
+  });
+  const writeOrder = withRequestTimeout(reorderChatPersonasMutation()).mutationFn!;
   // Shows the new order at once, keeping the views as the API sent them; a failure puts the old order back.
   const reorder = useMutation({
     mutationFn: (next: Persona[], context) =>

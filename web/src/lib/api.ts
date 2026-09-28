@@ -1,3 +1,4 @@
+import type { UseMutationOptions } from "@tanstack/react-query";
 import { client } from "./hey-api/client.gen";
 import type { ApiProblem } from "./hey-api/types.gen";
 
@@ -56,4 +57,35 @@ export function problemOf(error: unknown): Partial<ApiProblem> | undefined {
 export function problemCode(error: ApiError) {
   const code = problemOf(error)?.code;
   return typeof code === "string" ? code : undefined;
+}
+
+/**
+ * A generated mutation whose every call gives up after `ms`, as an action should rather than spin while a request
+ * hangs. The signal is made per call, so it cannot be a factory option: one made when the hook mounts would
+ * already have fired for a call made later. A signal the caller passes still aborts the request too.
+ */
+export function withRequestTimeout<
+  TData,
+  TError,
+  TVariables extends { signal?: AbortSignal | null },
+  TContext,
+>(
+  options: UseMutationOptions<TData, TError, TVariables, TContext>,
+  ms = 30_000,
+): UseMutationOptions<TData, TError, TVariables, TContext> {
+  const run = options.mutationFn;
+  if (!run) return options;
+  return {
+    ...options,
+    mutationFn: (variables, context) => {
+      const timeout = AbortSignal.timeout(ms);
+      return run(
+        {
+          ...variables,
+          signal: variables.signal ? AbortSignal.any([variables.signal, timeout]) : timeout,
+        },
+        context,
+      );
+    },
+  };
 }
