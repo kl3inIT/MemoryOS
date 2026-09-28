@@ -181,7 +181,14 @@ export function useSharePointPanel({
       );
       await refresh();
     } catch {
-      // The status poll stopped; the source page refresh shows the operation's final state.
+      if (!own.signal.aborted)
+        notify({
+          tone: "error",
+          title: "Synchronization status unavailable",
+          description: appText(
+            "Synchronization may still be running. Refresh the source to check its status.",
+          ),
+        });
     } finally {
       if (controller.current === own) {
         controller.current = null;
