@@ -1,0 +1,67 @@
+{\rtf1\ansi\uc1\deff0{\fonttbl{\f0 Aptos;}}\f0\fs22
+Y\u234?u c\u7847?u t\u7841?o OIDC client memoryos-test cho Mytasco\par
+\par
+M\u7909?c \u273?\u237?ch\par
+MemoryOS d\u249?ng Keycloak l\u224?m OIDC broker cho \u273?\u259?ng nh\u7853?p Mytasco. Ng\u432?\u7901?i d\u249?ng ti\u7871?p t\u7909?c \u273?\u259?ng nh\u7853?p b\u7857?ng c\u417? ch\u7871? Mytasco hi\u7879?n c\u243?, g\u7891?m OTP s\u7889? \u273?i\u7879?n tho\u7841?i; MemoryOS kh\u244?ng nh\u7853?n ho\u7863?c l\u432?u m\u7853?t kh\u7849?u/OTP.\par
+\par
+Th\u244?ng tin c\u7847?n cung c\u7845?p\par
+- Realm/issuer URL Mytasco.\par
+- OIDC Discovery URL: https://sso.<mytasco-domain>/realms/<mytasco-realm>/.well-known/openid-configuration\par
+- client_id: memoryos-test.\par
+- client_secret: g\u7917?i qua k\u234?nh qu\u7843?n l\u253? secret \u273?\u227? \u273?\u432?\u7907?c hai b\u234?n th\u7889?ng nh\u7845?t, kh\u244?ng g\u7917?i qua chat/email th\u432?\u7901?ng.\par
+\par
+C\u7845?u h\u236?nh client Mytasco\par
+- Client type: Confidential.\par
+- B\u7853?t Standard Flow / Authorization Code Flow.\par
+- PKCE: S256.\par
+- Kh\u244?ng c\u7847?n Client Credentials / Service Account.\par
+- Kh\u244?ng c\u7847?n Web Origins/CORS cho broker callback.\par
+- Alias broker t\u7841?i Keycloak MemoryOS: mytasco.\par
+\par
+Redirect URI \u273?\u259?ng nh\u7853?p\par
+https://auth.kl3in.tech/realms/memoryos/broker/mytasco/endpoint\par
+\par
+Post-logout redirect URI\par
+Discovery document n\u234?n c\u244?ng b\u7889? end_session_endpoint. N\u7871?u Mytasco Keycloak y\u234?u c\u7847?u \u273?\u259?ng k\u253? redirect URI khi logout, cho ph\u233?p:\par
+https://auth.kl3in.tech/realms/memoryos/broker/mytasco/endpoint/logout_response\par
+\par
+Mytasco Keycloak c\u7847?n ch\u7845?p nh\u7853?n id_token_hint v\u224? post_logout_redirect_uri t\u7841?i logout endpoint.\par
+\par
+Scope v\u224? claim\par
+Cho ph\u233?p scope: openid email profile.\par
+\par
+C\u7845?u h\u236?nh c\u225?c claim sau trong ID Token v\u224? UserInfo, kh\u244?ng ch\u7881? access token:\par
+- sub: ID \u7893?n \u273?\u7883?nh, duy nh\u7845?t trong Realm; kh\u244?ng d\u249?ng s\u7889? \u273?i\u7879?n tho\u7841?i l\u224?m \u273?\u7883?nh danh c\u243? th\u7875? thay \u273?\u7893?i.\par
+- email: email Mytasco hi\u7879?n h\u224?nh.\par
+- email_verified: Boolean ph\u7843?n \u225?nh tr\u7841?ng th\u225?i x\u225?c th\u7921?c th\u7921?c t\u7871? c\u7911?a email.\par
+- name: t\u234?n hi\u7875?n th\u7883? n\u7871?u c\u243?.\par
+- given_name, family_name: optional; kh\u244?ng c\u243? th\u236? MemoryOS gi\u7919? tr\u7889?ng.\par
+\par
+V\u237? d\u7909? claim:\par
+\{\par
+  "sub": "stable-keycloak-user-id",\par
+  "email": "hung@tasco.com.vn",\par
+  "email_verified": true,\par
+  "name": "Nguy\u7877?n V\u259?n H\u249?ng",\par
+  "given_name": "H\u249?ng",\par
+  "family_name": "Nguy\u7877?n"\par
+\}\par
+\par
+Chu\u7849?n b\u7883? cho mapping Google Drive email kh\u225?c Mytasco email\par
+N\u7871?u Mytasco qu\u7843?n l\u253? quan h\u7879? user v\u7899?i nhi\u7873?u Google Drive email, c\u243? th\u7875? chu\u7849?n b\u7883? claim \u273?a tr\u7883? \u273?\u227? x\u225?c th\u7921?c:\par
+\{\par
+  "drive_emails": ["hung@gmail.com", "hung@tasco.com"]\par
+\}\par
+MemoryOS hi\u7879?n ch\u432?a s\u7917? d\u7909?ng drive_emails; claim n\u224?y l\u224? \u273?\u7847?u v\u224?o cho h\u7841?ng m\u7909?c mapping Actor sang verified Drive emails sau n\u224?y. Kh\u244?ng c\u7847?n g\u7917?i groups, roles, department ho\u7863?c employee_code cho integration hi\u7879?n t\u7841?i.\par
+\par
+User test\par
+- User A: email \u273?\u227? verified v\u224? c\u243? quy\u7873?n Google Drive tr\u234?n \u237?t nh\u7845?t m\u7897?t file/folder c\u7911?a Source Auto Sync.\par
+- User B: email \u273?\u227? verified nh\u432?ng kh\u244?ng c\u243? quy\u7873?n tr\u234?n c\u225?c file/folder \u273?\u243?.\par
+- N\u7871?u login d\u249?ng OTP s\u7889? \u273?i\u7879?n tho\u7841?i: vui l\u242?ng h\u432?\u7899?ng d\u7851?n test OTP ho\u7863?c c\u7845?p account test ph\u249? h\u7907?p.\par
+\par
+Kh\u244?ng y\u234?u c\u7847?u \u7903? giai \u273?o\u7841?n n\u224?y\par
+- Kh\u244?ng c\u7847?n quy\u7873?n Admin Console Mytasco.\par
+- Kh\u244?ng c\u7847?n danh s\u225?ch to\u224?n b\u7897? user Realm.\par
+- Kh\u244?ng c\u7847?n Client Credentials cho chatbot theo user.\par
+- Kh\u244?ng d\u249?ng access token Mytasco g\u7885?i th\u7859?ng API MemoryOS trong giai \u273?o\u7841?n broker login n\u224?y.
+}
