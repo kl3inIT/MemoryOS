@@ -323,7 +323,8 @@ it("chooses one day at its heading and leaves the other days alone", async () =>
     "indeterminate",
   );
 
-  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm nay" }));
+  // The day's heading toggles it too.
+  await user.click(within(screen.getByRole("heading", { name: "Hôm nay" })).getByText("Hôm nay"));
   await waitFor(() => expect(screen.queryByText("Đã chọn 2 tệp")).not.toBeInTheDocument());
 });
 

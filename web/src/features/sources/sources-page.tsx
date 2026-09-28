@@ -383,7 +383,13 @@ function SourceGroupBody({
 
   return (
     <TableBody>
-      <TableRow className="h-18">
+      {/* The whole row toggles its group; the provider's button stays the keyboard's way to it. */}
+      <TableRow
+        className="h-18 cursor-pointer"
+        onClick={(event) => {
+          if (!(event.target as Element).closest("button, a")) onToggle();
+        }}
+      >
         <TableHead scope="rowgroup" className="px-4">
           <button
             type="button"
