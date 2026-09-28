@@ -222,6 +222,11 @@ Document Sets (`web/src/features/document-sets`) is the reference implementation
 - **Dependency patches.** A bug in a dependency's latest release is fixed with a `pnpm patch` under `web/patches/` (referenced from `pnpm-workspace.yaml`, copied by `web/Dockerfile` before install) rather than pinning an older release; the patch file names the upstream defect, and it is deleted once a release fixes it. Current: `@assistant-ui/ai-sdk@0.0.8` memoizes the tool-approval restore callback that re-ran the history-load effect on every render ("Maximum update depth exceeded" when switching conversations).
 - **Accessibility checks.** Playwright specs call the `tests/e2e/axe.ts` helper on the pages they open; it fails on any serious or critical WCAG 2.2 A/AA finding, and no rule is excluded. Navigation sections are groups named by their heading; radio cards take their name from their title.
 
+- **Request timeouts.** Generated mutations and queries that must not hang wrap their call in `withRequestTimeout` (`web/src/lib/api.ts`, 30 s per call, still honouring a caller's signal).
+- **Reads sent as POST.** An operation that reads but is sent as `POST` (search) is declared a query through `parser.hooks.operations.isQuery` in `web/openapi-ts.config.ts`, so it gets generated `*Options` like any other read.
+- **No third-party favicons.** Web sources show a bundled Simple Icons brand mark for well-known domains and a generic globe otherwise; the browser never asks an outside service about the pages a person reads.
+- **Browser error monitoring** is absent since 2026-09-28 (Sentry Cloud removed for cost); the replacement is Linear MEM-200. React root handlers ignore router signals and log only in development.
+
 ## Colour and design tokens
 
 - Components and feature CSS use semantic tokens only: no hex, `rgb()`/`oklch()` or Tailwind palette classes (`bg-green-500`, `text-white`). A missing role is added to `web/src/styles/tokens.css` with light and dark values and mapped in `theme.css`. Brand artwork is the only exception.

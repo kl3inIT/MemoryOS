@@ -42,6 +42,11 @@ Branch `dathip04/frontend-audit`; wave 1 runs in parallel worktrees on disjoint 
 - [x] `frontend-preview` CI job: shell, Group administration, Search, meetings and file-preview specs on the production build with nginx's headers, failing on any CSP or Permissions-Policy report outside four listed third-party ones (Zod's eval probe, KaTeX parsing in `rehype-katex`, the `react-remove-scroll` and Radix Select `<style>` injections). The Word preview now sanitizes in place instead of reparsing, which removed its reports.
   - Verification: `pnpm typecheck`, `lint`, `format:check`, `check:i18n`, `check:knip`, `check:ci`; vitest 159 files / 757 tests; `pnpm build` initial load 309.3 KiB, budget 323,000 bytes; deployment unittest 78 tests; the five specs in preview mode 50/50 (chromium, one worker).
 
+## Follow-ups (owner 2026-09-28)
+
+- [x] Final-audit regressions: sidebar shortcut ignored while typing, 30 s timeouts restored, dialogs locked while saving, prompt-shortcut and token-limit validation, whole-row activation restored (audit log, library day, Sources group), English catalog ready before first paint, Simple Icons brand marks instead of DuckDuckGo favicons, search on generated options.
+- [x] Sentry Cloud removed with `runtime-config.js`; initial load 309 KiB, budget 323,000 bytes; nginx locations may not set their own headers (config test and image header check); a `frontend-preview` CI job runs chat file preview, shell, groups, search and meetings under the production CSP. Known accepted CSP gaps: Radix scroll-lock and Select `<style>` tags, KaTeX markup, zod's eval probe.
+
 ## Verification
 
 Recorded per task as it lands.
