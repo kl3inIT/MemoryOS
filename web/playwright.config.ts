@@ -24,7 +24,8 @@ export default defineConfig({
   webServer: {
     command: "pnpm dev:e2e",
     reuseExistingServer: false,
-    timeout: 120_000,
+    // Preview mode (MEMORYOS_E2E_PREVIEW=1) runs a production build before it serves.
+    timeout: process.env.MEMORYOS_E2E_PREVIEW === "1" ? 240_000 : 120_000,
     url: "http://127.0.0.1:4173",
   },
 });

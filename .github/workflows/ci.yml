@@ -269,6 +269,34 @@ jobs:
       - name: Exercise browser states
         run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
+  # The shards run the dev server, which sends no deployment policy. These specs run once against the production
+  # build served with nginx.conf's CSP and Permissions-Policy, and fail on any violation the browser reports.
+  frontend-preview:
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --user 1001
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install the frontend toolchain and dependencies
+        uses: ./.github/actions/pnpm-project
+        with:
+          directory: web
+
+      - name: Exercise the production build under the deployment policy
+        env:
+          MEMORYOS_E2E_PREVIEW: "1"
+        run: >-
+          pnpm --dir web test:e2e
+          chat-generated-file-preview identity-shell groups-list search meetings
+
 
   frontend-image:
     needs: changes
@@ -646,7 +674,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, check, frontend-check, frontend, frontend-image, backend-images, landing, interpreter, secrets]
+    needs: [changes, check, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -661,11 +689,11 @@ jobs:
             | def selected(name; jobs): if $area[name] == "true"
                 then all(jobs[]; $jobs[.].result == "success")
                 else all(jobs[]; $jobs[.].result == "skipped") end;
-            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "interpreter", "landing", "secrets"]
+            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "frontend-preview", "interpreter", "landing", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
             and selected("backend"; ["check", "backend-images"])
-            and selected("web"; ["frontend-check", "frontend", "frontend-image"])
+            and selected("web"; ["frontend-check", "frontend", "frontend-preview", "frontend-image"])
             and selected("landing"; ["landing"])
             and selected("interpreter"; ["interpreter"])
           ' <<< "$RESULTS"

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./deployment-policy";
 import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
 
 const documentId = "73835d74-d386-4b4e-b392-ad7f81e3b55a";
