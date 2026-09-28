@@ -2151,6 +2151,83 @@ export const createFileSourceMutation = (options?: Partial<Options<CreateFileSou
     return mutationOptions;
 };
 
+export const searchDocumentsQueryKey = (options: Options<SearchDocumentsData>) => createQueryKey('searchDocuments', options);
+
+/**
+ * Search current documents with keyword and semantic retrieval
+ */
+export const searchDocumentsOptions = (options: Options<SearchDocumentsData>) => queryOptions<SearchDocumentsResponse, DefaultError, SearchDocumentsResponse, ReturnType<typeof searchDocumentsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await searchDocuments({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: searchDocumentsQueryKey(options)
+});
+
+const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
+    const params = { ...queryKey[0] };
+    if (page.body) {
+        params.body = {
+            ...queryKey[0].body as any,
+            ...page.body as any
+        };
+    }
+    if (page.headers) {
+        params.headers = {
+            ...queryKey[0].headers,
+            ...page.headers
+        };
+    }
+    if (page.path) {
+        params.path = {
+            ...queryKey[0].path as any,
+            ...page.path as any
+        };
+    }
+    if (page.query) {
+        params.query = {
+            ...queryKey[0].query as any,
+            ...page.query as any
+        };
+    }
+    return params as unknown as typeof page;
+};
+
+export const searchDocumentsInfiniteQueryKey = (options: Options<SearchDocumentsData>): QueryKey<Options<SearchDocumentsData>> => createQueryKey('searchDocuments', options, true);
+
+/**
+ * Search current documents with keyword and semantic retrieval
+ */
+export const searchDocumentsInfiniteOptions = (options: Options<SearchDocumentsData>) => {
+    const opts = infiniteQueryOptions<SearchDocumentsResponse, DefaultError, InfiniteData<SearchDocumentsResponse>, QueryKey<Options<SearchDocumentsData>>, number | Pick<QueryKey<Options<SearchDocumentsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<SearchDocumentsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                body: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await searchDocuments({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: searchDocumentsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
 /**
  * Search current documents with keyword and semantic retrieval
  */
@@ -2785,35 +2862,6 @@ export const listInvitationsOptions = (options?: Options<ListInvitationsData>) =
     },
     queryKey: listInvitationsQueryKey(options)
 });
-
-const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
-    const params = { ...queryKey[0] };
-    if (page.body) {
-        params.body = {
-            ...queryKey[0].body as any,
-            ...page.body as any
-        };
-    }
-    if (page.headers) {
-        params.headers = {
-            ...queryKey[0].headers,
-            ...page.headers
-        };
-    }
-    if (page.path) {
-        params.path = {
-            ...queryKey[0].path as any,
-            ...page.path as any
-        };
-    }
-    if (page.query) {
-        params.query = {
-            ...queryKey[0].query as any,
-            ...page.query as any
-        };
-    }
-    return params as unknown as typeof page;
-};
 
 export const listInvitationsInfiniteQueryKey = (options?: Options<ListInvitationsData>): QueryKey<Options<ListInvitationsData>> => createQueryKey('listInvitations', options, true);
 

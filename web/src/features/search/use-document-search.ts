@@ -4,8 +4,10 @@ import { getRouteApi } from "@tanstack/react-router";
 import { loadDocumentSets } from "@/features/document-sets/document-sets-api";
 import type { DocumentSourceType } from "@/features/documents/document-source-presentation";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { listDocumentSetsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { searchDocuments } from "@/lib/hey-api/sdk.gen";
+import {
+  listDocumentSetsQueryKey,
+  searchDocumentsOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SearchRequest } from "@/lib/hey-api/types.gen";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { clearRecentSearches, readRecentSearches, rememberRecentSearch } from "./recent-searches";
@@ -53,19 +55,16 @@ export function useDocumentSearch() {
     queryKey: [...listDocumentSetsQueryKey(), "all"] as const,
     queryFn: ({ signal }) => loadDocumentSets(signal),
   });
-  // The search is a POST read, for which no generated query exists; its key is the request it sends.
+  // The search is a read sent as a POST; its generated key carries the request it sends.
   const result = useQuery({
-    queryKey: ["document-search", request],
-    queryFn: async ({ signal }) => (await searchDocuments({ body: request!, signal })).data,
+    ...searchDocumentsOptions({ body: request ?? {} }),
     enabled: request !== null,
     retry: false,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     // Another page or filter keeps the results on screen, dimmed; a different question starts from the loader.
     placeholderData: (previous, previousQuery) =>
-      (previousQuery?.queryKey[1] as SearchRequest | null | undefined)?.query === request?.query
-        ? previous
-        : undefined,
+      previousQuery?.queryKey[0].body?.query === request?.query ? previous : undefined,
   });
   const reportedError = useRef<unknown>(null);
   useEffect(() => {
