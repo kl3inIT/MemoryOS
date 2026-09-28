@@ -1,5 +1,7 @@
 # MEM-58 implementation plan
 
+> Superseded 2026-09-28: the owner removed Sentry Cloud (cost); the web app, image and deployment no longer carry it, and [MEM-200](https://linear.app/memory-os/issue/MEM-200) tracks a replacement.
+
 > Closed 2026-09-27 by owner decision (Linear Done); open acceptance items not run:
 > - Add private source-map/release upload through a CI-only token; verify a minified staging error.
 > - Prove or reject browser-to-API W3C trace correlation against Tempo.
