@@ -1,4 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { uiLocale } from "@/i18n/format";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
@@ -10,6 +11,8 @@ import {
   FileSearch,
   Globe,
   ImagePlus,
+  Info,
+  Lock,
   Paperclip,
   Plug,
   SquareTerminal,
@@ -32,12 +35,13 @@ import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createChatPersona,
-  createChatPersonaLabel,
   getChatPersona,
   listAvailableChatModels,
   listChatPersonaLabels,
@@ -95,6 +99,7 @@ const formSchema = z.object({
   tools: z.array(z.string()),
   mcpServerIds: z.array(z.string()),
   model: z.string(),
+  limitsMode: z.enum(["model", "custom"]).catch("model"),
   context: z.string(),
   output: z.string(),
   replaceBase: z.boolean(),
@@ -120,6 +125,8 @@ function initialForm(agent?: Persona): AgentForm {
     tools: agent?.tools ?? [...agentTools],
     mcpServerIds: agent?.mcpServers.map((server) => server.id) ?? [],
     model: agent?.modelConfigurationId ?? "",
+    limitsMode:
+      agent?.contextTokenLimit == null && agent?.outputTokenLimit == null ? "model" : "custom",
     context: agent?.contextTokenLimit?.toString() ?? "",
     output: agent?.outputTokenLimit?.toString() ?? "",
     replaceBase: agent?.replaceBaseSystemPrompt ?? false,
@@ -288,28 +295,39 @@ function AgentEditor({ agent }: { agent?: Persona }) {
     on
       ? [...values.filter((item) => item !== value), value]
       : values.filter((item) => item !== value);
+  const formatTokens = (value: number) => new Intl.NumberFormat(uiLocale()).format(value);
+  // Mirrors validateModel: an explicit selection wins; "Tự động" resolves to the Tenant default.
+  const selectedModel = models.data?.find((model) =>
+    form.model ? model.id === form.model : model.isDefault,
+  );
+  const contextCap = selectedModel?.contextWindow;
+  const outputCap =
+    selectedModel == null
+      ? null
+      : Math.min(selectedModel.maxOutputTokens ?? Infinity, selectedModel.contextWindow - 1);
+  const customLimits = form.limitsMode === "custom";
+  const contextValue = Number(form.context);
+  const outputValue = Number(form.output);
+  const contextValid =
+    !customLimits ||
+    form.context === "" ||
+    (Number.isInteger(contextValue) &&
+      contextValue >= 256 &&
+      (contextCap == null || contextValue <= contextCap));
+  const outputValid =
+    !customLimits ||
+    form.output === "" ||
+    (Number.isInteger(outputValue) &&
+      outputValue >= 1 &&
+      (outputCap == null || outputValue <= outputCap));
   const starterPrompts = form.starters.map((prompt) => prompt.trim()).filter(Boolean);
   const canSave =
-    editable && !saving && form.name.trim() !== "" && starterPrompts.length <= maxStarterPrompts;
-
-  async function createLabel(name: string) {
-    try {
-      const created = agentLabelSchema.parse(
-        (
-          await createChatPersonaLabel({
-            body: { name },
-            headers: sameOriginMutationHeaders,
-            signal: AbortSignal.timeout(30000),
-            throwOnError: true,
-          })
-        ).data,
-      );
-      setForm((current) => ({ ...current, labelIds: [...current.labelIds, created.id] }));
-      await cache.invalidateQueries({ queryKey: ["chat-persona-labels"] });
-    } catch (cause) {
-      throw new Error(chatActionError(cause));
-    }
-  }
+    editable &&
+    !saving &&
+    form.name.trim() !== "" &&
+    starterPrompts.length <= maxStarterPrompts &&
+    contextValid &&
+    outputValid;
 
   async function save() {
     if (!canSave) return;
@@ -327,8 +345,8 @@ function AgentEditor({ agent }: { agent?: Persona }) {
       mcpServerIds: agent?.builtin ? [] : form.mcpServerIds,
       fileIds: agent?.builtin ? undefined : form.fileIds,
       modelConfigurationId: form.model || null,
-      contextTokenLimit: form.context ? Number(form.context) : null,
-      outputTokenLimit: form.output ? Number(form.output) : null,
+      contextTokenLimit: customLimits && form.context ? Number(form.context) : null,
+      outputTokenLimit: customLimits && form.output ? Number(form.output) : null,
       iconName: form.avatarFileId || form.keepAvatar ? undefined : form.iconName,
       avatarFileId: form.avatarFileId ?? undefined,
       labelIds: form.labelIds,
@@ -491,7 +509,6 @@ function AgentEditor({ agent }: { agent?: Persona }) {
                 value={form.labelIds}
                 disabled={!editable}
                 onChange={(labelIds) => set({ labelIds })}
-                onCreate={createLabel}
               />
             </Field>
           </EditorSection>
@@ -694,7 +711,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
           <EditorSection
             id="agent-advanced"
             title={ui("Nâng cao")}
-            description={ui("Model và giới hạn token. Để trống để dùng giới hạn của model.")}
+            description={ui("Model và giới hạn token. Mặc định theo model đã chọn.")}
           >
             {models.isError && (
               <p role="alert" className="font-secondary-body text-status-danger-content">
@@ -741,40 +758,88 @@ function AgentEditor({ agent }: { agent?: Persona }) {
                   </ModelSelectorRoot>
                 }
               />
-              <SettingRow
-                htmlFor="agent-context"
-                title={ui("Context window (token)")}
-                description={ui("Lượng hội thoại và tài liệu tối đa gửi cho model.")}
-                control={
-                  <Input
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="block font-main-ui-action text-content-primary">
+                      {ui("Giới hạn token")}
+                    </span>
+                    <p className="mt-0.5 font-secondary-body text-content-muted">
+                      {ui(
+                        "Hiển thị giới hạn của model đã chọn. Bạn có thể tùy chỉnh nhỏ hơn giới hạn này.",
+                      )}
+                    </p>
+                  </div>
+                  <RadioGroup
+                    className="flex w-auto items-center gap-4"
+                    value={form.limitsMode}
+                    onValueChange={(value) =>
+                      set({ limitsMode: value === "custom" ? "custom" : "model" })
+                    }
+                  >
+                    <label
+                      htmlFor="agent-limits-model"
+                      className="flex items-center gap-2 font-secondary-body text-content-primary"
+                    >
+                      <RadioGroupItem id="agent-limits-model" value="model" />
+                      {ui("Theo model (Khuyến nghị)")}
+                    </label>
+                    <label
+                      htmlFor="agent-limits-custom"
+                      className="flex items-center gap-2 font-secondary-body text-content-primary"
+                    >
+                      <RadioGroupItem id="agent-limits-custom" value="custom" />
+                      {ui("Tùy chỉnh")}
+                    </label>
+                  </RadioGroup>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <TokenLimitField
                     id="agent-context"
-                    type="number"
+                    label={ui("Context window (token)")}
+                    topic="context window"
+                    help={ui(
+                      "Số token tối đa gửi vào model mỗi lượt: hướng dẫn, công cụ, lịch sử hội thoại và tài liệu. Thấp hơn giúp tiết kiệm chi phí nhưng trợ lý đọc được ít hơn.",
+                    )}
+                    custom={customLimits}
+                    valid={contextValid}
                     min={256}
-                    max={2000000}
-                    className="w-32 text-right tabular-nums"
-                    value={form.context}
-                    placeholder={ui("Theo model")}
-                    onChange={(event) => set({ context: event.target.value })}
+                    cap={contextCap}
+                    value={
+                      customLimits
+                        ? form.context
+                        : contextCap != null
+                          ? formatTokens(contextCap)
+                          : ""
+                    }
+                    formatTokens={formatTokens}
+                    onChange={(context) => set({ context })}
                   />
-                }
-              />
-              <SettingRow
-                htmlFor="agent-output"
-                title={ui("Max output (token)")}
-                description={ui("Độ dài tối đa của một câu trả lời.")}
-                control={
-                  <Input
+                  <TokenLimitField
                     id="agent-output"
-                    type="number"
+                    label={ui("Max output (token)")}
+                    topic="max output"
+                    help={ui(
+                      "Số token tối đa model được viết cho một câu trả lời, gồm cả phần suy luận. Đặt quá thấp có thể làm câu trả lời bị cắt.",
+                    )}
+                    custom={customLimits}
+                    valid={outputValid}
                     min={1}
-                    max={200000}
-                    className="w-32 text-right tabular-nums"
-                    value={form.output}
-                    placeholder={ui("Theo model")}
-                    onChange={(event) => set({ output: event.target.value })}
+                    cap={outputCap}
+                    value={
+                      customLimits
+                        ? form.output
+                        : selectedModel
+                          ? selectedModel.maxOutputTokens != null
+                            ? formatTokens(selectedModel.maxOutputTokens)
+                            : ui("Không giới hạn")
+                          : ""
+                    }
+                    formatTokens={formatTokens}
+                    onChange={(output) => set({ output })}
                   />
-                }
-              />
+                </div>
+              </div>
             </SettingRows>
             <SettingRows>
               {!agent?.builtin && (
@@ -906,6 +971,95 @@ function AgentPreview({
       </div>
       <p className="px-1 font-secondary-body text-content-muted">
         {ui("Lưu trợ lý rồi bấm Bắt đầu chat để thử.")}
+      </p>
+    </div>
+  );
+}
+
+function TokenLimitField({
+  id,
+  label,
+  topic,
+  help,
+  custom,
+  valid,
+  min,
+  cap,
+  value,
+  formatTokens,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  topic: string;
+  help: string;
+  custom: boolean;
+  valid: boolean;
+  min: number;
+  cap: number | null | undefined;
+  value: string;
+  formatTokens: (value: number) => string;
+  onChange: (value: string) => void;
+}) {
+  const ui = useAppTranslation();
+  const hintId = `${id}-hint`;
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex items-center gap-1.5">
+        <label htmlFor={id} className="font-secondary-body text-content-secondary">
+          {label}
+        </label>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={ui("Giải thích {{v1}}", { v1: topic })}
+                className="grid size-5 place-items-center rounded-full text-content-muted hover:text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring"
+              >
+                <Info className="size-3.5" aria-hidden="true" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-72">{help}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      <div className="relative">
+        <Input
+          id={id}
+          type={custom ? "number" : "text"}
+          min={min}
+          max={cap ?? undefined}
+          readOnly={!custom}
+          aria-invalid={!valid}
+          aria-describedby={hintId}
+          className={cn(
+            "tabular-nums",
+            !custom && "cursor-default pr-28 hover:border-border-subtle",
+          )}
+          value={value}
+          placeholder={cap != null ? formatTokens(cap) : undefined}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {!custom && (
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center gap-1.5 font-secondary-body text-content-muted">
+            <Lock className="size-3.5" aria-hidden="true" />
+            {ui("Theo model")}
+          </span>
+        )}
+      </div>
+      <p
+        id={hintId}
+        className={cn(
+          "font-secondary-body",
+          valid ? "text-content-muted" : "text-status-danger-content",
+        )}
+      >
+        {!custom
+          ? ui("Giới hạn tối đa của model hiện tại.")
+          : cap != null
+            ? ui("Tối đa {{v1}} token.", { v1: formatTokens(cap) })
+            : ui("Không giới hạn")}
       </p>
     </div>
   );

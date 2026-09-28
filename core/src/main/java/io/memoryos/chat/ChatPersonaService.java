@@ -314,7 +314,7 @@ public class ChatPersonaService {
     @Transactional
     public AgentRef createLabel(ActorId actor, String name) {
         var tenant = write(actor);
-        authorization.require(actor, IamCapability.CHAT_WRITE, false);
+        requireManage(actor);
         String normalized = labelName(name);
         if (agents.labelNameTaken(tenant.value(), normalized, null)) throw ChatException.conflict();
         var id = UUID.randomUUID();
@@ -550,8 +550,9 @@ public class ChatPersonaService {
         var selected = available.stream().filter(m -> entity.modelConfigurationId() == null ? m.isDefault() : m.id().equals(entity.modelConfigurationId()))
                 .findFirst().orElseThrow(() -> ChatException.invalid("Choose an available model."));
         Integer contextLimit = entity.contextTokenLimit(), outputLimit = entity.outputTokenLimit();
-        if (contextLimit != null && contextLimit >= selected.contextWindow()
-                || outputLimit != null && selected.maxOutputTokens() != null && outputLimit > selected.maxOutputTokens())
+        if (contextLimit != null && contextLimit > selected.contextWindow()
+                || outputLimit != null && (outputLimit >= selected.contextWindow()
+                || selected.maxOutputTokens() != null && outputLimit > selected.maxOutputTokens()))
             throw ChatException.invalid("Assistant limits exceed the selected model limits.");
     }
 

@@ -3526,7 +3526,7 @@ export const listChatPersonaLabelsOptions = (options?: Options<ListChatPersonaLa
 });
 
 /**
- * Create an agent label
+ * Create an agent label; requires AGENTS_MANAGE
  */
 export const createChatPersonaLabelMutation = (options?: Partial<Options<CreateChatPersonaLabelData>>): UseMutationOptions<CreateChatPersonaLabelResponse, CreateChatPersonaLabelError, Options<CreateChatPersonaLabelData>> => {
     const mutationOptions: UseMutationOptions<CreateChatPersonaLabelResponse, CreateChatPersonaLabelError, Options<CreateChatPersonaLabelData>> = {

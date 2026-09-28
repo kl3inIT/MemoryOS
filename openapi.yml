@@ -10230,7 +10230,7 @@ paths:
     post:
       tags:
       - Chat
-      summary: Create an agent label
+      summary: Create an agent label; requires AGENTS_MANAGE
       operationId: createChatPersonaLabel
       parameters:
       - name: X-MemoryOS-CSRF

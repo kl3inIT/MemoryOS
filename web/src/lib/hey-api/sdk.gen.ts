@@ -2872,7 +2872,7 @@ export const listChatPersonaLabels = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * Create an agent label
+ * Create an agent label; requires AGENTS_MANAGE
  */
 export const createChatPersonaLabel = <ThrowOnError extends boolean = false>(options: Options<CreateChatPersonaLabelData, ThrowOnError>): RequestResult<CreateChatPersonaLabelResponses, CreateChatPersonaLabelErrors, ThrowOnError> => (options.client ?? client).post<CreateChatPersonaLabelResponses, CreateChatPersonaLabelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

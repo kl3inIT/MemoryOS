@@ -227,112 +227,79 @@ export function AgentLabelPicker({
   value,
   disabled,
   onChange,
-  onCreate,
 }: {
   labels: AgentRef[];
   value: string[];
   disabled: boolean;
   onChange: (ids: string[]) => void;
-  onCreate: (name: string) => Promise<void>;
 }) {
   const ui = useAppTranslation();
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [error, setError] = useState<string>();
   const selected = value.flatMap((id) => labels.filter((label) => label.id === id));
-  const trimmed = query.trim();
-  const exact = labels.some(
-    (label) => label.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase(),
-  );
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {selected.map((label) => (
-          <span
-            key={label.id}
-            className="inline-flex h-7 items-center gap-1 rounded-full border border-border-subtle bg-surface-raised pr-1 pl-3 font-secondary-action text-content-secondary"
-          >
-            {label.name}
-            {!disabled && (
-              <button
-                type="button"
-                aria-label={ui("Bỏ nhãn {{v1}}", { v1: label.name })}
-                onClick={() => onChange(value.filter((id) => id !== label.id))}
-                className="grid size-5 place-items-center rounded-full text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary focus-visible:ring-2 focus-visible:ring-focus-ring/40"
-              >
-                <X aria-hidden="true" className="size-3" />
-              </button>
-            )}
-          </span>
-        ))}
-        {!disabled && (
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-border-default px-3 font-secondary-action text-content-muted outline-none hover:border-content-muted hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
-              >
-                <Plus aria-hidden="true" className="size-3.5" />
-                {ui("Thêm nhãn")}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-0">
-              <Command>
-                <CommandInput
-                  value={query}
-                  onValueChange={setQuery}
-                  placeholder={ui("Tìm hoặc tạo nhãn…")}
-                />
-                <CommandList>
-                  <CommandEmpty>{ui("Chưa có nhãn nào.")}</CommandEmpty>
-                  <CommandGroup>
-                    {labels.map((label) => {
-                      const checked = value.includes(label.id);
-                      return (
-                        <CommandItem
-                          key={label.id}
-                          value={label.name}
-                          onSelect={() =>
-                            onChange(
-                              checked
-                                ? value.filter((id) => id !== label.id)
-                                : [...value, label.id],
-                            )
-                          }
-                        >
-                          <Tag aria-hidden="true" className="text-content-muted" />
-                          <span className="flex-1 truncate">{label.name}</span>
-                          {checked && <Check aria-hidden="true" />}
-                        </CommandItem>
-                      );
-                    })}
-                    {trimmed && !exact && (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {selected.map((label) => (
+        <span
+          key={label.id}
+          className="inline-flex h-7 items-center gap-1 rounded-full border border-border-subtle bg-surface-raised pr-1 pl-3 font-secondary-action text-content-secondary"
+        >
+          {label.name}
+          {!disabled && (
+            <button
+              type="button"
+              aria-label={ui("Bỏ nhãn {{v1}}", { v1: label.name })}
+              onClick={() => onChange(value.filter((id) => id !== label.id))}
+              className="grid size-5 place-items-center rounded-full text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary focus-visible:ring-2 focus-visible:ring-focus-ring/40"
+            >
+              <X aria-hidden="true" className="size-3" />
+            </button>
+          )}
+        </span>
+      ))}
+      {!disabled && (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-border-default px-3 font-secondary-action text-content-muted outline-none hover:border-content-muted hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+            >
+              <Plus aria-hidden="true" className="size-3.5" />
+              {ui("Thêm nhãn")}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 p-0">
+            <Command>
+              {labels.length > 0 && <CommandInput placeholder={ui("Tìm nhãn…")} />}
+              <CommandList>
+                <CommandEmpty>
+                  {labels.length === 0
+                    ? ui("Chưa có nhãn. Quản trị viên tạo nhãn trong Quản trị › Trợ lý.")
+                    : ui("Không tìm thấy nhãn.")}
+                </CommandEmpty>
+                <CommandGroup>
+                  {labels.map((label) => {
+                    const checked = value.includes(label.id);
+                    return (
                       <CommandItem
-                        value={`__create__${trimmed}`}
-                        onSelect={() => {
-                          setError(undefined);
-                          onCreate(trimmed)
-                            .then(() => setQuery(""))
-                            .catch((cause: unknown) =>
-                              setError(cause instanceof Error ? cause.message : String(cause)),
-                            );
-                        }}
+                        key={label.id}
+                        value={label.name}
+                        onSelect={() =>
+                          onChange(
+                            checked ? value.filter((id) => id !== label.id) : [...value, label.id],
+                          )
+                        }
                       >
-                        <Plus aria-hidden="true" />
-                        {ui("Tạo nhãn “{{v1}}”", { v1: trimmed })}
+                        <Tag aria-hidden="true" className="text-content-muted" />
+                        <span className="flex-1 truncate">{label.name}</span>
+                        {checked && <Check aria-hidden="true" />}
                       </CommandItem>
-                    )}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        )}
-      </div>
-      {error && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {error}
-        </p>
+                    );
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );

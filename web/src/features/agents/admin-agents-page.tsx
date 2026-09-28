@@ -1,7 +1,17 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Eye, EyeOff, GripVertical, Pencil, Star, Trash2, UserRoundCog } from "lucide-react";
+import {
+  Bot,
+  Eye,
+  EyeOff,
+  GripVertical,
+  Pencil,
+  Plus,
+  Star,
+  Trash2,
+  UserRoundCog,
+} from "lucide-react";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { SortableList, type SortableHandle } from "@/components/composites/sortable-list";
 import { useActionNotifications } from "@/components/ui/action-notifications";
@@ -17,6 +27,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
+  createChatPersonaLabel,
   deleteChatPersonaLabel,
   listChatPersonaLabels,
   listChatPersonasForAdministration,
@@ -230,6 +241,9 @@ function AgentLabels() {
   const [renaming, setRenaming] = useState<AgentRef>();
   const [name, setName] = useState("");
   const [removing, setRemoving] = useState<AgentRef>();
+  const [draft, setDraft] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string>();
   const labels = useQuery({
     queryKey: ["chat-persona-labels", actorId, authorizationVersion],
     queryFn: async ({ signal }) =>
@@ -241,13 +255,74 @@ function AgentLabels() {
     await cache.invalidateQueries({ queryKey: ["chat-persona-labels"] });
     await cache.invalidateQueries({ queryKey: ["chat-personas"] });
   };
+  const trimmed = draft.trim();
+  const taken = (labels.data ?? []).some(
+    (label) => label.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase(),
+  );
+  const create = async () => {
+    if (!trimmed || taken || creating) return;
+    setCreating(true);
+    setCreateError(undefined);
+    try {
+      await createChatPersonaLabel({
+        body: { name: trimmed },
+        headers: sameOriginMutationHeaders,
+        signal: AbortSignal.timeout(30000),
+        throwOnError: true,
+      });
+      setDraft("");
+      await refresh();
+    } catch (cause) {
+      setCreateError(chatActionError(cause));
+    } finally {
+      setCreating(false);
+    }
+  };
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-medium">{ui("Nhãn trợ lý")}</h2>
-      {labels.data?.length === 0 && (
+      <div>
+        <h2 className="text-lg font-medium">{ui("Nhãn trợ lý")}</h2>
         <p className="text-sm text-content-muted">
-          {ui("Chưa có nhãn. Người tạo trợ lý thêm nhãn trong trình chỉnh sửa.")}
+          {ui("Người tạo trợ lý chọn các nhãn này trong trình chỉnh sửa để phân loại thư viện.")}
         </p>
+      </div>
+      <form
+        className="flex max-w-md items-start gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void create();
+        }}
+      >
+        <div className="min-w-0 flex-1 space-y-1">
+          <Input
+            aria-label={ui("Tên nhãn mới")}
+            aria-invalid={taken || createError !== undefined || undefined}
+            maxLength={100}
+            value={draft}
+            placeholder={ui("Tên nhãn mới")}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setCreateError(undefined);
+            }}
+          />
+          {(taken || createError) && (
+            <p role="alert" className="text-sm text-status-danger-content">
+              {taken ? ui("Nhãn này đã có.") : createError}
+            </p>
+          )}
+        </div>
+        <Button
+          type="submit"
+          prominence="secondary"
+          pending={creating}
+          disabled={!trimmed || taken}
+        >
+          <Plus aria-hidden="true" />
+          {ui("Thêm nhãn")}
+        </Button>
+      </form>
+      {labels.data?.length === 0 && (
+        <p className="text-sm text-content-muted">{ui("Chưa có nhãn nào.")}</p>
       )}
       <ul className="flex flex-wrap gap-2">
         {labels.data?.map((label) => (

@@ -1111,8 +1111,9 @@ class ChatPersistenceIntegrationTest {
         var creator = member(tenant); var reader = member(tenant);
         when(authorization.effectiveCapabilities(creator)).thenReturn(Set.of(IamCapability.CHAT_WRITE, IamCapability.AGENTS_CREATE));
         when(authorization.effectiveCapabilities(reader)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
-        var label = personas.createLabel(reader, "Tài chính");
-        assertThrows(ChatException.class, () -> personas.createLabel(creator, "tài chính"));
+        var label = personas.createLabel(owner, "Tài chính");
+        assertThrows(ChatException.class, () -> personas.createLabel(owner, "tài chính"));
+        assertThrows(ChatException.class, () -> personas.createLabel(creator, "Nhân sự"));
         assertThrows(ChatException.class, () -> personas.renameLabel(reader, label.id(), "Finance"));
         var agent = personas.create(creator, new ChatPersonaService.PersonaInput("Finance", "", "", "Always cite the report month.",
                 List.of(), List.of(), null, Set.of("search"), null, null, null, null, List.of(), "chart", null, List.of(label.id()),

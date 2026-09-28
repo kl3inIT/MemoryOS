@@ -1046,8 +1046,20 @@ export const vietnameseUi: Record<string, string> = {
   "Lưu trợ lý rồi bấm Bắt đầu chat để thử.":
     "Save the assistant, then choose Start chat to try it.",
   "Mô tả sẽ hiện ở đây.": "The description appears here.",
-  "Model và giới hạn token. Để trống để dùng giới hạn của model.":
-    "Model and token limits. Leave empty to use the model's limits.",
+  "Model và giới hạn token. Mặc định theo model đã chọn.":
+    "Model and token limits. Defaults follow the selected model.",
+  "Tùy chỉnh": "Custom",
+  "Giới hạn token": "Token limits",
+  "Hiển thị giới hạn của model đã chọn. Bạn có thể tùy chỉnh nhỏ hơn giới hạn này.":
+    "Shows the selected model's limits. You can set lower custom limits.",
+  "Giới hạn tối đa của model hiện tại.": "The current model's maximum.",
+  "Tối đa {{v1}} token.": "Up to {{v1}} tokens.",
+  "Giải thích {{v1}}": "About {{v1}}",
+  "Số token tối đa gửi vào model mỗi lượt: hướng dẫn, công cụ, lịch sử hội thoại và tài liệu. Thấp hơn giúp tiết kiệm chi phí nhưng trợ lý đọc được ít hơn.":
+    "The most tokens sent to the model each turn: instructions, tools, conversation history and documents. Lower saves cost but the assistant reads less.",
+  "Số token tối đa model được viết cho một câu trả lời, gồm cả phần suy luận. Đặt quá thấp có thể làm câu trả lời bị cắt.":
+    "The most tokens the model may write for one answer, including reasoning. Too low can cut answers off.",
+  "Theo model (Khuyến nghị)": "Follow model (Recommended)",
   "Người dùng chỉ nhận câu trả lời từ tài liệu họ được phép đọc.":
     "People only get answers from documents they are allowed to read.",
   "Người dùng vẫn đổi được model khi chat.": "People can still change the model while chatting.",
@@ -1055,7 +1067,6 @@ export const vietnameseUi: Record<string, string> = {
   "Quản trị viên kết nối máy chủ MCP để trợ lý dùng thêm công cụ như Jira, Google Sheets.":
     "Administrators connect MCP servers so the assistant can use more tools such as Jira or Google Sheets.",
   "Rời trang": "Leave page",
-  "Tạo nhãn “{{v1}}”": "Create label “{{v1}}”",
   "Tên, mô tả và nhãn giúp đồng nghiệp tìm đúng trợ lý trong thư viện.":
     "Name, description and labels help colleagues find the right assistant in the library.",
   "Thêm câu gợi ý": "Add starter prompt",
@@ -1128,7 +1139,6 @@ export const vietnameseUi: Record<string, string> = {
   "Bỏ bộ tài liệu {{v1}}": "Remove Document Set {{v1}}",
   "Theo model": "Model default",
   "Thông tin chung": "General",
-  "Tìm hoặc tạo nhãn…": "Search or create a label…",
   "Tìm nguồn…": "Search sources…",
   "Tìm trong mọi nguồn người dùng được phép đọc": "Searches every source the person can read",
   "Trợ lý chưa đặt tên": "Untitled assistant",
@@ -1361,8 +1371,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chủ sở hữu mới: {{v1}}": "New owner: {{v1}}",
   "Chưa có chủ sở hữu": "No owner",
   "Chưa có máy chủ MCP nào.": "No MCP servers yet.",
-  "Chưa có nhãn. Người tạo trợ lý thêm nhãn trong trình chỉnh sửa.":
-    "No labels yet. Agent creators add labels in the editor.",
   "Chưa có trợ lý nào được chia sẻ": "No agents have been shared with you",
   Chung: "General",
   "Chuyển chủ sở hữu": "Transfer owner",
@@ -1432,6 +1440,14 @@ export const vietnameseUi: Record<string, string> = {
   "Thao tác khác cho {{v1}}": "More actions for {{v1}}",
   "Thay hướng dẫn hệ thống mặc định": "Replace the default system instructions",
   "Thêm nhãn": "Add label",
+  "Tìm nhãn…": "Search labels…",
+  "Không tìm thấy nhãn.": "No matching label.",
+  "Chưa có nhãn. Quản trị viên tạo nhãn trong Quản trị › Trợ lý.":
+    "No labels yet. Administrators create labels in Administration › Assistants.",
+  "Người tạo trợ lý chọn các nhãn này trong trình chỉnh sửa để phân loại thư viện.":
+    "Assistant creators pick these labels in the editor to organize the library.",
+  "Tên nhãn mới": "New label name",
+  "Nhãn này đã có.": "This label already exists.",
   "Thử đổi bộ lọc hoặc từ khóa tìm kiếm.": "Try another filter or search term.",
   "Tìm người": "Search people",
   "Tìm tài liệu nội bộ": "Internal document search",

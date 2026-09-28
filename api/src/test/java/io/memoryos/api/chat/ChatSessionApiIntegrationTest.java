@@ -2148,6 +2148,37 @@ class ChatSessionApiIntegrationTest {
             assertTrue(inherited.has("modelConfigurationId") && inherited.path("modelConfigurationId").isNull());
         }
     }
+    @Test
+    void personaTokenLimitsAreBoundedByTheSelectedModel() throws Exception {
+        grantModelManagement();
+        grantCapability("AGENTS_CREATE");
+        var configured = createConfiguredModel(createProvider("http://limits.internal/v1", true), "limits-model", 0.4);
+        String modelId = configured.path("id").asText(); // contextWindow 8192, maxOutputTokens 512
+        String create = """
+                {"name":"Limited","description":"","instructions":"","starterPrompts":[],"sourceIds":[],"tools":[],
+                 "modelConfigurationId":"%s","contextTokenLimit":%d,"outputTokenLimit":%d}""";
+        mockMvc.perform(post("/api/chat/personas").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(create.formatted(modelId, 8193, 512)))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/chat/personas").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(create.formatted(modelId, 8192, 513)))
+                .andExpect(status().isBadRequest());
+        var saved = Json.mapper().readTree(mockMvc.perform(post("/api/chat/personas").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(create.formatted(modelId, 8192, 512))).andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+        assertEquals(8192, saved.path("contextTokenLimit").asInt());
+        assertEquals(512, saved.path("outputTokenLimit").asInt());
+        // The same bound applies on update.
+        String update = """
+                {"name":"Limited","description":"","instructions":"","starterPrompts":[],"sourceIds":[],"tools":[],
+                 "modelConfigurationId":"%s","contextTokenLimit":8193,"outputTokenLimit":512}""".formatted(modelId);
+        mockMvc.perform(put("/api/chat/personas/" + saved.path("id").asText()).param("revision", saved.path("revision").asText())
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(update))
+                .andExpect(status().isBadRequest());
+    }
+
 
     @Test
     void restrictedProviderUsesGroupAccessAndPersonaAllowlistAlsoAppliesToManagers() throws Exception {

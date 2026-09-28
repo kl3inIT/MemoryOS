@@ -14,6 +14,21 @@ const sources = [
   { id: "70000000-0000-4000-8000-000000000021", name: "Báo cáo tài chính Q2/2026", type: "FILE" },
 ];
 
+const editorModels = [
+  {
+    id: "10000000-0000-4000-8000-000000000001",
+    providerId: "20000000-0000-4000-8000-000000000001",
+    providerName: "OpenAI",
+    modelName: "gpt-5-mini",
+    displayName: "GPT-5 mini",
+    isDefault: true,
+    capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: true },
+    contextWindow: 32000,
+    maxOutputTokens: 4096,
+    pricing: null,
+  },
+];
+
 function identity(capabilities: string[]) {
   return {
     actorId: me,
@@ -73,13 +88,24 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     pins: undefined as unknown,
     deleted: undefined as string | undefined,
     listings: [] as { id: string; body: unknown }[],
+    labels: [{ id: "70000000-0000-4000-8000-000000000030", name: "Tài chính" }],
+    createdLabel: undefined as unknown,
   };
   await page.route("**/api/identity/me", (route) =>
     route.fulfill({ json: identity(capabilities) }),
   );
-  await page.route("**/api/chat/persona-labels**", (route) =>
-    route.fulfill({ json: [{ id: "70000000-0000-4000-8000-000000000030", name: "Tài chính" }] }),
-  );
+  await page.route("**/api/chat/persona-labels**", (route) => {
+    if (route.request().method() === "POST") {
+      state.createdLabel = route.request().postDataJSON();
+      const label = {
+        id: "70000000-0000-4000-8000-000000000031",
+        name: (state.createdLabel as { name: string }).name,
+      };
+      state.labels = [...state.labels, label];
+      return route.fulfill({ status: 201, json: label });
+    }
+    return route.fulfill({ json: state.labels });
+  });
   await page.route("**/api/chat/persona-pins**", (route) => {
     if (route.request().method() === "PUT") {
       const { personaIds } = route.request().postDataJSON() as { personaIds: string[] };
@@ -113,7 +139,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (path.endsWith("/sources")) return route.fulfill({ json: sources });
-    if (path.endsWith("/models")) return route.fulfill({ json: [] });
+    if (path.endsWith("/models")) return route.fulfill({ json: editorModels });
     const detail = /\/api\/chat\/personas\/([0-9a-f-]{36})$/.exec(path)?.[1];
     if (detail && request.method() === "GET")
       return route.fulfill({ json: state.agents.find((item) => item.id === detail) });
@@ -398,6 +424,8 @@ test("creates an agent on its own page and shares it with a Group and the organi
     sourceIds: [sources[1]!.id],
     tools: ["search", "web_search", "code_interpreter"],
     knowledgeCutoff: "2026-01-01T00:00:00Z",
+    contextTokenLimit: null,
+    outputTokenLimit: null,
   });
 
   const hrCard = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
@@ -440,24 +468,35 @@ test("edits an agent on its own page, saving only changes and guarding unsaved e
   await expect(page.getByLabel(/^Câu hỏi gợi ý \d$/)).toHaveCount(8);
   await expect(addStarter).toBeDisabled();
   await page.getByLabel("Câu hỏi gợi ý 1", { exact: true }).fill("Chế độ nghỉ phép năm 2026?");
-  await page.getByLabel("Max output (token)").fill("2048");
+  // Token limits default to the selected model's bounds; a custom value must stay within them.
+  await expect(page.getByLabel("Context window (token)")).toHaveValue("32.000");
+  await expect(page.getByLabel("Max output (token)")).toHaveValue("4.096");
+  await page.getByRole("radio", { name: "Tùy chỉnh" }).click();
+  const outputInput = page.getByLabel("Max output (token)");
+  await outputInput.fill("8192");
+  await expect(save).toBeDisabled();
+  await outputInput.fill("2048");
 
   await page.getByRole("link", { name: "Trợ lý", exact: true }).first().click();
+
   const guard = page.getByRole("alertdialog", { name: "Bỏ thay đổi chưa lưu?" });
   await expect(guard).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/edit$/);
 
   await save.click();
+
   await expect(page).toHaveURL(/\/agents$/);
   expect(state.updated).toMatchObject({
     name: "Chính sách nhân sự",
     description: "Giải đáp chính sách lương và nghỉ phép năm 2026.",
     starterPrompts: ["Chế độ nghỉ phép năm 2026?"],
+    contextTokenLimit: null,
     outputTokenLimit: 2048,
   });
 
   const card = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
+
   await card.hover();
   await card.getByRole("button", { name: "Thao tác khác cho Chính sách nhân sự" }).click();
   await page.getByRole("menuitem", { name: "Xóa trợ lý" }).click();
@@ -500,6 +539,7 @@ test("manages prompt shortcuts inline and inserts them from /", async ({ page })
   });
 
   await page.goto("/settings/chat");
+
   await expect(page.getByRole("heading", { name: "Lệnh tắt", exact: true })).toBeVisible({
     timeout: 15000,
   });
@@ -520,6 +560,7 @@ test("manages prompt shortcuts inline and inserts them from /", async ({ page })
     });
 
   await page.goto("/");
+
   const composer = page.getByRole("textbox", { name: "Câu hỏi" });
   await composer.click();
   await composer.pressSequentially("/tom tat");
@@ -545,6 +586,7 @@ test("reorders and unpins sidebar agents and features agents from administration
   await expect(pins.getByRole("listitem")).toHaveCount(3);
 
   const handle = pins.getByRole("button", { name: "Kéo để sắp xếp OKR/KPI hằng tháng" });
+
   await handle.focus();
   await page.keyboard.press("Space");
   await page.waitForTimeout(150);
@@ -554,16 +596,30 @@ test("reorders and unpins sidebar agents and features agents from administration
   await expect.poll(() => state.pins).toEqual([finance, kpi, hr]);
 
   await pins.getByRole("listitem").filter({ hasText: "Báo cáo tài chính" }).hover();
+
   await pins.getByRole("button", { name: "Bỏ ghim Báo cáo tài chính" }).click();
   await expect.poll(() => state.pins).toEqual([kpi, hr]);
 
   await page.goto("/admin/agents");
+
   const row = page.getByRole("listitem").filter({ hasText: "Chính sách nhân sự" });
   await row.hover();
   await row.getByRole("button", { name: "Đặt Chính sách nhân sự nổi bật" }).click();
   await expect
     .poll(() => state.listings.find((item) => item.id === hr)?.body)
     .toMatchObject({ featured: true, listed: true });
+
+  // Labels are created on the administration page; a duplicate name is refused before sending.
+  const labelName = page.getByLabel("Tên nhãn mới");
+  const addLabel = page.getByRole("button", { name: "Thêm nhãn" });
+  await labelName.fill("tài chính");
+  await expect(page.getByText("Nhãn này đã có.")).toBeVisible();
+  await expect(addLabel).toBeDisabled();
+  await labelName.fill("Nhân sự");
+  await addLabel.click();
+  await expect.poll(() => state.createdLabel).toEqual({ name: "Nhân sự" });
+  await expect(labelName).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Đổi tên nhãn Nhân sự" })).toBeVisible();
 });
 
 test("sends a starter prompt from the agent's detail view into a new conversation", async ({
