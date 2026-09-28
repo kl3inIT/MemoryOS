@@ -147,6 +147,37 @@ describe("the minutes items", () => {
     expect(await screen.findByRole("alert")).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Nội dung" })).toHaveValue("Kiểm tra bảng cân đối");
   });
+
+  it("holds Huỷ and Xoá while an edit is saving", async () => {
+    let answer: () => void = () => undefined;
+    server.use(
+      handleEditMeetingMinutesItem(
+        () =>
+          new Promise((resolve) => {
+            answer = () => resolve(HttpResponse.json(item("a1", "Kiểm tra bảng cân đối")));
+          }),
+      ),
+    );
+    const user = userEvent.setup();
+    mount((current) => (
+      <MinutesItems
+        meeting={current}
+        items={current.minutes.actions}
+        kind="ACTION"
+        onReveal={() => undefined}
+      />
+    ));
+
+    await user.click(await screen.findByRole("button", { name: "Sửa" }));
+    await user.click(screen.getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Huỷ" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Xoá" })).toBeDisabled();
+    answer();
+    await waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: "Nội dung" })).not.toBeInTheDocument(),
+    );
+  });
 });
 
 describe("the meeting details", () => {
@@ -180,5 +211,35 @@ describe("the meeting details", () => {
     expect(sent).toEqual([
       { title: "Giao ban quý 4", participants: ["Anh Thanh", "Chị Lan", "Anh Minh"] },
     ]);
+  });
+
+  it("stays open while the details are saving", async () => {
+    let answer: () => void = () => undefined;
+    server.use(
+      handleUpdateMeeting(async ({ request }) => {
+        const body = await request.json();
+        return new Promise((resolve) => {
+          answer = () => resolve(HttpResponse.json({ ...body, revision: 5 }));
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    mount((current) => <MeetingDetailsDialog meeting={current} />);
+
+    await user.click(await screen.findByRole("button", { name: "Sửa thông tin" }));
+    const dialog = screen.getByRole("dialog", { name: "Thông tin cuộc họp" });
+    await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Huỷ" })).toBeDisabled());
+    // The only close control is Huỷ, and Escape waits for the save too.
+    expect(
+      within(dialog)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Huỷ", "Lưu"]);
+    await user.keyboard("{Escape}");
+    expect(dialog).toBeInTheDocument();
+    answer();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });
