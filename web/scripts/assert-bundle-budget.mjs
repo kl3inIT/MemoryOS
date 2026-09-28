@@ -5,9 +5,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 
-// Measured on the image build, which injects the Sentry release (about 7 KiB more than a local build).
+// 309.3 KiB (316,723 bytes) measured after Sentry was removed. The image build now emits the same bundle as a
+// local build (nothing injects a release any more), so the margin is only the usual ~6 KiB for ordinary growth.
 // Ratchet: lower it when the initial load shrinks, never raise it to absorb an eager import.
-const INITIAL_GZIP_BUDGET_BYTES = 405_000;
+const INITIAL_GZIP_BUDGET_BYTES = 323_000;
 
 const dist = join(import.meta.dirname, "..", "dist");
 const html = readFileSync(join(dist, "index.html"), "utf8");
