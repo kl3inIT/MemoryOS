@@ -1,7 +1,7 @@
 import { Spinner } from "@/components/ui/spinner";
 import { useEffect, useRef, useState } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sanitizeDocxHtml } from "./preview-kind";
+import { sanitizeDocxInPlace } from "./preview-kind";
 
 /**
  * A Word document rendered by docx-preview, sanitized before it reaches the page. The pages stay on
@@ -48,11 +48,10 @@ export function DocxView({
           renderEndnotes: true,
         });
         if (!current) return;
-        bodyElement.innerHTML = sanitizeDocxHtml(renderedBody.innerHTML);
-        // The deployment CSP (style-src 'self') ignores style attributes parsed from markup and inline <style>
-        // elements; the same rules are applied through CSSOM, which the policy allows.
-        for (const element of bodyElement.querySelectorAll<HTMLElement>("[style]"))
-          element.style.cssText = element.getAttribute("style") ?? "";
+        sanitizeDocxInPlace(renderedBody);
+        bodyElement.replaceChildren(...renderedBody.childNodes);
+        // The deployment CSP (style-src 'self') refuses inline <style> elements; their rules are adopted as
+        // constructed stylesheets, which the policy allows.
         adopted = Array.from(renderedStyles.querySelectorAll("style")).flatMap((style) => {
           try {
             const sheet = new CSSStyleSheet();

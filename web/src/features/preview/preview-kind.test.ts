@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCsv, previewKind, sanitizeDocxHtml } from "./preview-kind";
+import { parseCsv, previewKind, sanitizeDocxInPlace } from "./preview-kind";
 
 describe("generated file preview", () => {
   it("picks the first Onyx variant that matches", () => {
@@ -30,11 +30,14 @@ describe("generated file preview", () => {
     expect(parseCsv("")).toEqual([]);
   });
 
-  it("keeps only http(s) and mailto links and base64 images in docx output", () => {
-    const html = sanitizeDocxHtml(
-      '<p onclick="x()">Chào</p><a href="javascript:alert(1)">bad</a><a href="https://memoryos.vn">ok</a>' +
-        '<img src="data:image/png;base64,AAAA"><script>alert(1)</script>',
-    );
+  it("keeps only http(s) and mailto links, base64 images and inline styles in docx output", () => {
+    const root = document.createElement("div");
+    root.innerHTML =
+      '<p onclick="x()" style="padding: 4pt">Chào</p><a href="javascript:alert(1)">bad</a>' +
+      '<a href="https://memoryos.vn">ok</a><img src="data:image/png;base64,AAAA"><script>alert(1)</script>';
+    sanitizeDocxInPlace(root);
+    const html = root.innerHTML;
+    expect(html).toContain('style="padding: 4pt"');
     expect(html).not.toContain("onclick");
     expect(html).not.toContain("javascript:");
     expect(html).not.toContain("<script");

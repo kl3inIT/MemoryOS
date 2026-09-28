@@ -161,7 +161,9 @@ export function parseCsv(text: string): string[][] {
 /**
  * Onyx sanitizeDocxHtml: docx-preview writes document-controlled HTML and hrefs, so its output is sanitized
  * again. Only http(s) and mailto links survive; base64 images stay because DOMPurify allows data: in img.
+ * The rendered tree is sanitized in place rather than serialized and parsed again: docx-preview sets its styles
+ * through CSSOM, which the deployment CSP allows, while style attributes parsed from markup are refused.
  */
-export function sanitizeDocxHtml(html: string): string {
-  return DOMPurify.sanitize(html, { ALLOWED_URI_REGEXP: /^(?:https?|mailto):/i });
+export function sanitizeDocxInPlace(root: HTMLElement) {
+  DOMPurify.sanitize(root, { ALLOWED_URI_REGEXP: /^(?:https?|mailto):/i, IN_PLACE: true });
 }
