@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Outlet } from "@tanstack/react-router";
-import { useLayoutEffect, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { i18n, uiLanguage } from "@/i18n";
 import { presentProblem } from "@/lib/problem-presentation";
@@ -25,7 +25,13 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
     void i18n.changeLanguage(uiLanguage(sessionQuery.data.uiLanguage));
   }, [sessionQuery.data]);
 
-  if (sessionQuery.isPending) {
+  // English loads on demand, and i18next switches once it has, so the application waits for the account's
+  // language on entry rather than showing Vietnamese first; a later change keeps the page mounted.
+  const wanted = sessionQuery.data ? uiLanguage(sessionQuery.data.uiLanguage) : undefined;
+  const [entered, setEntered] = useState(false);
+  if (!entered && wanted !== undefined && i18n.language === wanted) setEntered(true);
+
+  if (sessionQuery.isPending || (sessionQuery.data && !entered)) {
     return <SessionLoadingScreen />;
   }
 

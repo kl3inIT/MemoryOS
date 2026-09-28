@@ -1,10 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { focusManager, QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { redirectToSignIn } from "@/features/identity/sign-in-redirect";
 import { http } from "msw";
+import { i18n } from "@/i18n";
 import { ApiError } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
@@ -106,6 +108,34 @@ describe("ApplicationSessionBoundary", () => {
     expect(input).toHaveValue("Keep this draft");
     expect(screen.getByLabelText("Private draft")).toBe(input);
   });
+  it("opens in English for an English account without showing Vietnamese first", async () => {
+    await i18n.changeLanguage("vi");
+    const seen: string[] = [];
+    function Language() {
+      const { i18n: current } = useTranslation();
+      seen.push(current.language);
+      return <span>{current.language}</span>;
+    }
+    server.use(handleGetCurrentIdentity(async () => Response.json(OWNER_SESSION)));
+
+    renderBoundary(createMemoryOsQueryClient(), <Language />);
+
+    expect(await screen.findByText("en")).toBeInTheDocument();
+    expect(seen).not.toContain("vi");
+  });
+
+  it("opens at once for a Vietnamese account", async () => {
+    await i18n.changeLanguage("vi");
+    server.use(
+      handleGetCurrentIdentity(async () => Response.json({ ...OWNER_SESSION, uiLanguage: "vi" })),
+    );
+
+    renderBoundary(createMemoryOsQueryClient());
+
+    expect(await screen.findByText("OWNER")).toBeInTheDocument();
+    expect(i18n.language).toBe("vi");
+  });
+
   it("provides the authenticated session to its child layout", async () => {
     server.use(handleGetCurrentIdentity(async () => Response.json(OWNER_SESSION)));
 
