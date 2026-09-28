@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useRef, type FocusEvent } from "react";
+import { useId, useRef, type FocusEvent } from "react";
 import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, MinusCircle } from "lucide-react";
@@ -29,11 +29,14 @@ function NameInput({
   value,
   readOnly,
   invalid,
+  describedBy,
   onChange,
 }: {
   value: string;
   readOnly?: boolean;
   invalid?: boolean;
+  /** The id of the message that explains why this control is invalid. */
+  describedBy?: string;
   onChange?: (value: string) => void;
 }) {
   const ui = useAppTranslation();
@@ -43,6 +46,7 @@ function NameInput({
       <InputGroupInput
         aria-label={ui("Tên lệnh tắt")}
         aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? describedBy : undefined}
         maxLength={100}
         readOnly={readOnly}
         value={value}
@@ -57,11 +61,14 @@ function ContentInput({
   value,
   readOnly,
   invalid,
+  describedBy,
   onChange,
 }: {
   value: string;
   readOnly?: boolean;
   invalid?: boolean;
+  /** The id of the message that explains why this control is invalid. */
+  describedBy?: string;
   onChange?: (value: string) => void;
 }) {
   const ui = useAppTranslation();
@@ -69,6 +76,7 @@ function ContentInput({
     <textarea
       aria-label={ui("Nội dung lệnh tắt")}
       aria-invalid={invalid || undefined}
+      aria-describedby={invalid ? describedBy : undefined}
       className={cn(
         formField,
         "min-w-0 flex-1 resize-y",
@@ -186,6 +194,8 @@ export function ShortcutFields({
     form.reset({ name: "", content: "" });
   }
 
+  const nameErrorId = useId();
+  const contentErrorId = useId();
   const formMessage =
     errorText(formError) ?? (remove.error ? actionErrorText(remove.error) : undefined);
   return (
@@ -201,6 +211,7 @@ export function ShortcutFields({
             <NameInput
               value={field.state.value}
               invalid={!field.state.meta.isValid}
+              describedBy={nameErrorId}
               onChange={field.handleChange}
             />
           )}
@@ -230,21 +241,21 @@ export function ShortcutFields({
             <ContentInput
               value={field.state.value}
               invalid={!field.state.meta.isValid}
+              describedBy={contentErrorId}
               onChange={field.handleChange}
             />
           )}
         </form.Field>
         <span className="w-9 shrink-0" />
       </div>
-      <form.Subscribe
-        selector={(state) =>
-          errorText(state.fieldMeta.name?.errors[0]) ??
-          errorText(state.fieldMeta.content?.errors[0]) ??
-          formMessage
-        }
-      >
-        {(message) => message && <FieldError>{message}</FieldError>}
+      {/* Each control points at its own message, so a screen reader reads the right one on return. */}
+      <form.Subscribe selector={(state) => errorText(state.fieldMeta.name?.errors[0])}>
+        {(message) => message && <FieldError id={nameErrorId}>{message}</FieldError>}
       </form.Subscribe>
+      <form.Subscribe selector={(state) => errorText(state.fieldMeta.content?.errors[0])}>
+        {(message) => message && <FieldError id={contentErrorId}>{message}</FieldError>}
+      </form.Subscribe>
+      {formMessage && <FieldError>{formMessage}</FieldError>}
     </div>
   );
 }

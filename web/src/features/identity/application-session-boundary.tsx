@@ -25,11 +25,16 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
     void i18n.changeLanguage(uiLanguage(sessionQuery.data.uiLanguage));
   }, [sessionQuery.data]);
 
-  // English loads on demand, and i18next switches once it has, so the application waits for the account's
-  // language on entry rather than showing Vietnamese first; a later change keeps the page mounted.
+  // English loads on demand, and i18next switches once it has, so each signed-in person waits for their
+  // language on entry rather than seeing another language first. Entry is remembered per actor: the same
+  // person changing their language keeps the page mounted, a different actor waits for theirs.
   const wanted = sessionQuery.data ? uiLanguage(sessionQuery.data.uiLanguage) : undefined;
-  const [entered, setEntered] = useState(false);
-  if (!entered && wanted !== undefined && i18n.language === wanted) setEntered(true);
+  const actorId = sessionQuery.data?.actorId;
+  const [enteredActor, setEnteredActor] = useState<string>();
+  const entered = actorId !== undefined && enteredActor === actorId;
+  if (!entered && actorId !== undefined && wanted !== undefined && i18n.language === wanted) {
+    setEnteredActor(actorId);
+  }
 
   if (sessionQuery.isPending || (sessionQuery.data && !entered)) {
     return <SessionLoadingScreen />;

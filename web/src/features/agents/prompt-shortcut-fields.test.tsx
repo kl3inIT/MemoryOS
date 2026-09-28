@@ -32,10 +32,10 @@ it("does not save a shortcut without content, and says why", async () => {
   await user.click(screen.getByRole("button", { name: "Elsewhere" }));
 
   expect(await screen.findByText("Cần cả tên và nội dung.")).toBeVisible();
-  expect(screen.getByRole("textbox", { name: "Nội dung lệnh tắt" })).toHaveAttribute(
-    "aria-invalid",
-    "true",
-  );
+  const content = screen.getByRole("textbox", { name: "Nội dung lệnh tắt" });
+  expect(content).toHaveAttribute("aria-invalid", "true");
+  expect(content).toHaveAccessibleDescription("Cần cả tên và nội dung.");
+  expect(name).not.toHaveAttribute("aria-describedby");
 });
 
 it("shows the server's refusal under the pair", async () => {
