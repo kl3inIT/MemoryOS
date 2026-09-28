@@ -82,11 +82,9 @@ class OpenApiConfiguration {
                     // API-owned records declare scalar nulls inline with @Schema(types = {..., "null"}). What remains
                     // here cannot: core-owned schemas (no OpenAPI annotations in core), and references and enums,
                     // whose null must be a oneOf branch because a sibling type or enum would reject it.
-                    for (String schema : List.of("PersonaInput", "PersonaView")) {
-                        configureNullableProperty(components, schema, "modelConfigurationId", new StringSchema().format("uuid"));
-                        configureNullableProperty(components, schema, "contextTokenLimit", new IntegerSchema());
-                        configureNullableProperty(components, schema, "outputTokenLimit", new IntegerSchema());
-                    }
+                    configureNullableProperty(components, "PersonaView", "modelConfigurationId", new StringSchema().format("uuid"));
+                    configureNullableProperty(components, "PersonaView", "contextTokenLimit", new IntegerSchema());
+                    configureNullableProperty(components, "PersonaView", "outputTokenLimit", new IntegerSchema());
                     for (String property : List.of("parentMessageId", "latestChildMessageId"))
                         configureNullableProperty(components, "ChatBranch", property, new StringSchema().format("uuid"));
                     configureNullableProperty(components, "Feedback", "positive", new BooleanSchema());

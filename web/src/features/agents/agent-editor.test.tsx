@@ -197,11 +197,19 @@ describe("AgentEditorPage", () => {
 
   it("places the API's token limit violation on its control", async () => {
     const problem: ApiProblem = {
-      title: "Bad Request",
+      title: "Validation failed",
       status: 400,
-      detail: "Invalid agent",
+      detail: "One or more request values are invalid.",
       instance: "/api/chat/personas",
-      errors: [{ field: "contextTokenLimit", message: "min", code: "MIN", params: { min: 256 } }],
+      code: "REQUEST_VALIDATION",
+      errors: [
+        {
+          field: "contextTokenLimit",
+          message: "must be greater than or equal to 256",
+          code: "MIN",
+          params: { min: 256 },
+        },
+      ],
     };
     server.use(handleCreateChatPersona(() => HttpResponse.json(problem, { status: 400 })));
     const user = await renderEditor();

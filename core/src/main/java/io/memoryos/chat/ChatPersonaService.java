@@ -81,6 +81,10 @@ public class ChatPersonaService {
                                @Nullable String iconName, @Nullable UUID avatarFileId, @Nullable List<UUID> labelIds,
                                @Nullable Boolean replaceBaseSystemPrompt, @Nullable Instant knowledgeCutoff,
                                @Nullable Boolean grounded) {
+        /** The accepted range of an agent's own context token limit; the API declares the same bounds. */
+        public static final int MIN_CONTEXT_TOKEN_LIMIT = 256, MAX_CONTEXT_TOKEN_LIMIT = 2_000_000;
+        /** The accepted range of an agent's own output token limit; the API declares the same bounds. */
+        public static final int MIN_OUTPUT_TOKEN_LIMIT = 1, MAX_OUTPUT_TOKEN_LIMIT = 200_000;
     }
 
     public record AgentSourceRef(UUID id, String name) {}
@@ -391,8 +395,8 @@ public class ChatPersonaService {
         // A revoked selection may be retained to keep an allowlist narrow, but cannot be newly introduced.
         if (input.sourceIds().stream().anyMatch(id -> !allowed.contains(id) && !entity.sourceIds().contains(id)))
             throw ChatException.invalid("A selected source is unavailable.");
-        if (input.contextTokenLimit() != null && (input.contextTokenLimit() < 256 || input.contextTokenLimit() > 2000000)
-                || input.outputTokenLimit() != null && (input.outputTokenLimit() < 1 || input.outputTokenLimit() > 200000))
+        if (outside(input.contextTokenLimit(), PersonaInput.MIN_CONTEXT_TOKEN_LIMIT, PersonaInput.MAX_CONTEXT_TOKEN_LIMIT)
+                || outside(input.outputTokenLimit(), PersonaInput.MIN_OUTPUT_TOKEN_LIMIT, PersonaInput.MAX_OUTPUT_TOKEN_LIMIT))
             throw ChatException.invalid("Invalid assistant token limits.");
         if (input.fileIds() != null) {
             if (entity.builtin() && !input.fileIds().isEmpty()) throw ChatException.invalid("Personal files cannot be attached to the shared default assistant.");
@@ -546,6 +550,10 @@ public class ChatPersonaService {
 
     static void text(@Nullable String text, int max, boolean required) {
         if (text == null || text.length() > max || required && text.isBlank()) throw ChatException.invalid("Invalid text length (maximum " + max + ").");
+    }
+
+    private static boolean outside(@Nullable Integer value, int min, int max) {
+        return value != null && (value < min || value > max);
     }
 
     static void page(int offset, int limit) {

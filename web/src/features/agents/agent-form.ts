@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { agentTools, type Persona } from "@/features/chat/chat-personas-api";
 import type { PersonaInput } from "@/lib/hey-api/types.gen";
+import { zPersonaInput } from "@/lib/hey-api/zod.gen";
 import type { ErrorMessage } from "@/lib/problem-presentation";
 
 /** A conversation starter list longer than this is refused by the API. */
@@ -34,11 +35,18 @@ const agentValuesSchema = z.object({
 });
 export type AgentValues = z.infer<typeof agentValuesSchema>;
 
+/** The bounds the API contract declares for a token limit; a contract without both is a generation error. */
+function contractRange(schema: z.ZodNumber) {
+  const { minValue: min, maxValue: max } = schema;
+  if (min === null || max === null) throw new Error("The token limit contract declares no range.");
+  return { min, max };
+}
+
 /** The token limits the API accepts; a limit left empty uses the model's own. */
 export const tokenLimits = {
-  contextTokenLimit: { min: 256, max: 2_000_000 },
-  outputTokenLimit: { min: 1, max: 200_000 },
-} as const;
+  contextTokenLimit: contractRange(zPersonaInput.shape.contextTokenLimit.unwrap().unwrap()),
+  outputTokenLimit: contractRange(zPersonaInput.shape.outputTokenLimit.unwrap().unwrap()),
+};
 
 /** A token limit as typed: empty, or a whole number within `min` and `max`. */
 function tokenLimit({ min, max }: { min: number; max: number }, message: ProblemMessage) {

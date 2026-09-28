@@ -1770,6 +1770,17 @@ class ChatSessionApiIntegrationTest {
                      "starterPrompts":["Start here"],"sourceIds":[],"tools":[],
                      "contextTokenLimit":8000,"outputTokenLimit":1000}
                     """, 201);
+            var outOfRange = workspaceRequest(http, ownerToken, "POST", "/api/chat/personas", """
+                    {"name":"Limits","description":"","instructions":"","starterPrompts":[],"sourceIds":[],
+                     "contextTokenLimit":255,"outputTokenLimit":200001}
+                    """, 400);
+            assertEquals("REQUEST_VALIDATION", outOfRange.path("code").asText());
+            assertEquals("contextTokenLimit", outOfRange.path("errors").path(0).path("field").asText());
+            assertEquals("MIN", outOfRange.path("errors").path(0).path("code").asText());
+            assertEquals(256, outOfRange.path("errors").path(0).path("params").path("min").asInt());
+            assertEquals("outputTokenLimit", outOfRange.path("errors").path(1).path("field").asText());
+            assertEquals("MAX", outOfRange.path("errors").path(1).path("code").asText());
+            assertEquals(200000, outOfRange.path("errors").path(1).path("params").path("max").asInt());
             String projectId = project.path("id").asText(), personaId = persona.path("id").asText();
             assertTrue(persona.path("permissions").path("edit").asBoolean());
             assertTrue(persona.path("permissions").path("delete").asBoolean());
