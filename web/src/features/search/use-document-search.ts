@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { loadDocumentSets } from "@/features/document-sets/document-sets-api";
@@ -7,7 +7,6 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { listDocumentSetsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
 import type { SearchRequest } from "@/lib/hey-api/types.gen";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { clearRecentSearches, readRecentSearches, rememberRecentSearch } from "./recent-searches";
 import { updatedSinceForTimeRange, type SearchTimeRange } from "./search-options";
 import { MAX_SEARCH_PAGES, type SearchPageSearch } from "./search-params";
@@ -67,17 +66,6 @@ export function useDocumentSearch() {
         ? previous
         : undefined,
   });
-  const reportedError = useRef<unknown>(null);
-  useEffect(() => {
-    // A failed search is reported to error monitoring once, however often the page renders it.
-    if (!request || !result.isError || result.error === reportedError.current) return;
-    reportedError.current = result.error;
-    captureWorkflowFailure(result.error, {
-      workflow: "search",
-      stage: "request",
-      failureKind: "api-or-network",
-    });
-  }, [request, result.error, result.isError]);
 
   /** A filter applies to the question on screen from its first page, replacing the entry it refines. */
   const show = (next: (current: SearchPageSearch) => SearchPageSearch, replace: boolean) =>

@@ -17,7 +17,6 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceOperation, SourceSummary } from "@/lib/hey-api/types.gen";
 import { can } from "@/lib/resource-permissions";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { sourceOperationNotice } from "@/features/sources/shared/source-operation-notice";
@@ -164,12 +163,6 @@ export function useSharePointPanel({
     setObserving(true);
     try {
       const completed = await waitForSourceOperation(operation, own.signal);
-      if (completed.status === "FAILED")
-        captureWorkflowFailure(new Error("SharePoint synchronization failed"), {
-          workflow: "sharepoint-sync",
-          stage: "operation-complete",
-          failureKind: completed.errorCode ?? "SOURCE_SYNC_FAILED",
-        });
       notify(
         sourceOperationNotice(completed, {
           subject: source.name,
@@ -187,13 +180,8 @@ export function useSharePointPanel({
         }),
       );
       await refresh();
-    } catch (cause) {
-      if (!own.signal.aborted)
-        captureWorkflowFailure(cause, {
-          workflow: "sharepoint-sync",
-          stage: "operation-status",
-          failureKind: "status-unavailable",
-        });
+    } catch {
+      // The status poll stopped; the source page refresh shows the operation's final state.
     } finally {
       if (controller.current === own) {
         controller.current = null;

@@ -2,7 +2,6 @@ import { appText, type AppCopy } from "@/i18n/app-text";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { DirectUploadError } from "@/lib/direct-upload";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { useSourceFileUpload } from "@/features/sources/shared/use-source-file-upload";
 import { useSourceUploadRecovery } from "@/features/sources/upload/source-upload-recovery-context";
@@ -83,11 +82,6 @@ export function useSourceUpload({
         await upload.finalize(stored, controller.signal);
       } catch (cause) {
         if (!controller.signal.aborted) {
-          captureWorkflowFailure(cause, {
-            workflow: "file-source-upload",
-            stage: "finalize",
-            failureKind: "api-or-network",
-          });
           setPendingFinalize(stored);
           setPhase("finalize-retry");
           setError(
@@ -123,12 +117,6 @@ export function useSourceUpload({
     } catch (cause) {
       if (!active.current) return;
       setPhase("idle");
-      if (!controller.signal.aborted)
-        captureWorkflowFailure(cause, {
-          workflow: "file-source-upload",
-          stage: "upload",
-          failureKind: cause instanceof DirectUploadError ? "direct-upload" : "api-or-network",
-        });
       const message = controller.signal.aborted
         ? "Upload cancelled. If finalization had started, it may already be accepted; refresh the source to check."
         : cause instanceof DirectUploadError
@@ -172,12 +160,6 @@ export function useSourceUpload({
     } catch (cause) {
       if (!active.current) return;
       setPhase("finalize-retry");
-      if (!controller.signal.aborted)
-        captureWorkflowFailure(cause, {
-          workflow: "file-source-upload",
-          stage: "finalize-retry",
-          failureKind: "api-or-network",
-        });
       const message = controller.signal.aborted
         ? "Finalization stopped waiting. It may already be accepted; refresh the source before retrying."
         : appText(

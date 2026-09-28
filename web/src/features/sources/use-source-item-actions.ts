@@ -7,7 +7,6 @@ import {
   removeSourceItemMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { sourceOperationNotice } from "@/features/sources/shared/source-operation-notice";
 import { waitForSourceOperation } from "@/features/sources/shared/source-operations";
@@ -72,15 +71,6 @@ export function useSourceItemActions({
       notify({ tone: "info", title: "Reindex requested", description: filename });
       void refresh();
       operation = await waitForSourceOperation(operation, controller.signal);
-      if (operation.status === "FAILED") {
-        const failureKind = operation.errorCode ?? "SOURCE_INDEX_FAILED";
-        if (isSystemIndexFailure(failureKind))
-          captureWorkflowFailure(new Error("Source indexing operation failed"), {
-            workflow: "indexing",
-            stage: "operation-complete",
-            failureKind,
-          });
-      }
       notify(
         sourceOperationNotice(operation, {
           subject: filename,
@@ -96,11 +86,6 @@ export function useSourceItemActions({
       await refresh();
     } catch (cause) {
       if (controller.signal.aborted) return;
-      captureWorkflowFailure(cause, {
-        workflow: "indexing",
-        stage: accepted ? "operation-status" : "request",
-        failureKind: accepted ? "status-unavailable" : "api-or-network",
-      });
       const message = accepted
         ? appText(
             "{{filename}}: processing may still be running. Refresh the source to check its status.",
@@ -203,12 +188,4 @@ export function useSourceItemActions({
     working: (itemId: string) => reindexingItems.includes(itemId) || removingItems.includes(itemId),
     busy: reindexItem.isPending || removeItem.isPending,
   };
-}
-
-function isSystemIndexFailure(errorCode: string) {
-  return (
-    errorCode.startsWith("SOURCE_INDEX_") ||
-    errorCode.startsWith("SOURCE_STORAGE_") ||
-    errorCode === "SOURCE_ACQUISITION_INTERNAL"
-  );
 }
