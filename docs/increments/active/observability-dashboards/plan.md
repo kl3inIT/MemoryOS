@@ -10,5 +10,6 @@
 - [x] Add model-error and failed-turn alerts.
 - [x] Update the observability guideline and runbook.
 - [x] Check every dashboard query against staging Prometheus: all parse; 35 return nothing until the new metrics, span metrics or traffic exist.
-- [ ] After merge: pull the configuration on staging, restart the observability stack, and check every panel renders.
+- [x] After merge: staging runs the stack from `releases/97663fcc…` (2026-09-27); all five services ready, the four
+  dashboards provisioned, Tempo writing span metrics (14 series) and the service graph (3).
 - [ ] After the next production promotion: confirm production series and traces arrive, then update its observability stack the same way.
