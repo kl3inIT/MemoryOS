@@ -21,6 +21,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
 import { invalidateShortcuts, type Shortcut } from "./prompt-shortcuts-api";
+import { withRequestTimeout } from "@/lib/api";
 
 export type ShortcutScope = "own" | "public";
 
@@ -88,14 +89,23 @@ function useShortcutMutations(scope: ShortcutScope) {
   const cache = useQueryClient();
   const refresh = { onSuccess: () => invalidateShortcuts(cache) };
   const own = {
-    create: useMutation({ ...createChatPromptShortcutMutation(), ...refresh }),
-    update: useMutation({ ...updateChatPromptShortcutMutation(), ...refresh }),
-    remove: useMutation({ ...deleteChatPromptShortcutMutation(), ...refresh }),
+    create: useMutation({ ...withRequestTimeout(createChatPromptShortcutMutation()), ...refresh }),
+    update: useMutation({ ...withRequestTimeout(updateChatPromptShortcutMutation()), ...refresh }),
+    remove: useMutation({ ...withRequestTimeout(deleteChatPromptShortcutMutation()), ...refresh }),
   };
   const shared = {
-    create: useMutation({ ...createPublicChatPromptShortcutMutation(), ...refresh }),
-    update: useMutation({ ...updatePublicChatPromptShortcutMutation(), ...refresh }),
-    remove: useMutation({ ...deletePublicChatPromptShortcutMutation(), ...refresh }),
+    create: useMutation({
+      ...withRequestTimeout(createPublicChatPromptShortcutMutation()),
+      ...refresh,
+    }),
+    update: useMutation({
+      ...withRequestTimeout(updatePublicChatPromptShortcutMutation()),
+      ...refresh,
+    }),
+    remove: useMutation({
+      ...withRequestTimeout(deletePublicChatPromptShortcutMutation()),
+      ...refresh,
+    }),
   };
   return scope === "public" ? shared : own;
 }
@@ -236,7 +246,7 @@ export function SharedShortcut({ shortcut }: { shortcut: Shortcut }) {
   const cache = useQueryClient();
   const notify = useActionNotifications();
   const hide = useMutation({
-    ...hideChatPromptShortcutMutation(),
+    ...withRequestTimeout(hideChatPromptShortcutMutation()),
     onSuccess: () => invalidateShortcuts(cache),
     onError: (cause) => notify({ title: actionErrorText(cause), tone: "error" }),
   });

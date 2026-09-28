@@ -26,6 +26,7 @@ import { invalidateProjects, type Project } from "./chat-projects-api";
 import { ProjectEditor } from "./project-editor";
 import { ProjectIcon } from "./project-icon";
 import { useProjectFiles } from "./use-project-files";
+import { withRequestTimeout } from "@/lib/api";
 
 /** The Project page above its composer: name, actions, description and shared files. */
 export function ProjectContextPanel({ project }: { project: Project }) {
@@ -36,7 +37,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
   const cache = useQueryClient();
   const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
-  const remove = useMutation(deleteChatProjectMutation());
+  const remove = useMutation(withRequestTimeout(deleteChatProjectMutation()));
   return (
     <div className="flex flex-col gap-5 pt-4 text-left">
       <div className="flex items-center gap-3">

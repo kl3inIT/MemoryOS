@@ -24,6 +24,7 @@ import {
 import { can } from "@/lib/resource-permissions";
 import { agentRequest, agentValidation, initialValues, readDraft, writeDraft } from "./agent-form";
 import { agentDocumentSetsOptions } from "./agent-queries";
+import { withRequestTimeout } from "@/lib/api";
 
 /** The choices the editor offers: Sources, Document Sets, models, labels and MCP servers. */
 export function useAgentChoices(agent?: Persona) {
@@ -43,7 +44,7 @@ export function useAgentChoices(agent?: Persona) {
   const labels = useQuery({ ...listChatPersonaLabelsOptions(), select: namedRefsOf });
   const mcp = useMcpConnections();
   const createLabel = useMutation({
-    ...createChatPersonaLabelMutation(),
+    ...withRequestTimeout(createChatPersonaLabelMutation()),
     onSuccess: () => cache.invalidateQueries({ queryKey: listChatPersonaLabelsQueryKey() }),
   });
   return { sources, documentSets, models, labels, mcp, createLabel };
@@ -58,8 +59,8 @@ export function useAgentForm(agent?: Persona) {
   const navigate = useNavigate();
   const problemErrors = useProblemErrors();
   const { actorId } = useApplicationSession();
-  const create = useMutation(createChatPersonaMutation());
-  const update = useMutation(updateChatPersonaMutation());
+  const create = useMutation(withRequestTimeout(createChatPersonaMutation()));
+  const update = useMutation(withRequestTimeout(updateChatPersonaMutation()));
   const [initial] = useState(() => initialValues(agent));
   const [restored, setRestored] = useState(() => (agent ? undefined : readDraft(actorId)));
   const saved = useRef(false);
