@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import type { LibraryChat } from "@/features/library/library-chat";
 import { LibraryPage } from "@/features/library/library-page";
+import type { LibrarySources } from "@/features/library/library-sources";
 import { StoragePage } from "@/features/library/storage-page";
 import { newChatSession } from "@/features/chat/chat-api";
 import { ChatModelPicker } from "@/features/chat/chat-model-picker";
@@ -14,10 +15,10 @@ import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-con
 
 /**
  * The library as the application shows it: the library's own page with what Chat adds to it. The library does not
- * depend on Chat (ADR 0015), so Chat composes the two here.
+ * depend on Chat (ADR 0015), so Chat composes the two here; the route hands in the Sources view it composes.
  */
-export function ChatLibraryPage() {
-  return <LibraryPage chat={useLibraryChat()} />;
+export function ChatLibraryPage({ sources }: { sources?: LibrarySources }) {
+  return <LibraryPage chat={useLibraryChat()} sources={sources} />;
 }
 
 /** The person's storage settings, with how long their conversations are kept. */

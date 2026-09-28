@@ -130,7 +130,7 @@ class LibraryShelfIntegrationTest {
     void aMeetingSharedWithTheViewerOrTheirGroupIsListedUntilTheShareEnds() {
         var direct = meeting(owner, "Họp giao ban");
         var viaGroup = meeting(owner, "Họp kế toán");
-        var own = meeting(viewer, "Họp của tôi");
+        meeting(viewer, "Họp của tôi");
         meeting(owner, "Họp riêng");
         var accounting = group("Kế toán", viewer);
         var board = group("Ban giám đốc", owner);
@@ -150,17 +150,11 @@ class LibraryShelfIntegrationTest {
         assertEquals(new LibraryEntry.MeetingState("RECORDING", false, false, 0), rows.get(viaGroup).meeting());
         assertEquals(0, shelf.shared(stranger, sharedMeetings()).totalCount());
 
-        // The meetings view holds every meeting they may read, and tells theirs from the shared ones.
-        assertEquals(Set.of(direct, viaGroup, own), Set.copyOf(ids(meetingsOf(LibraryShelfService.Owner.ALL))));
-        assertEquals(List.of(own), ids(meetingsOf(LibraryShelfService.Owner.MINE)));
-        assertEquals(Set.of(direct, viaGroup), Set.copyOf(ids(meetingsOf(LibraryShelfService.Owner.SHARED))));
-
         // Unsharing, or leaving the Group, removes the meeting at the next read.
         meetings.share(tenant.value(), direct, List.of(), List.of());
         jdbc.sql("DELETE FROM iam_group_memberships WHERE tenant_id = :tenant AND group_id = :group")
                 .param("tenant", tenant.value()).param("group", accounting).update();
         assertEquals(List.of(), ids(shelf.shared(viewer, sharedMeetings()).items()));
-        assertEquals(List.of(own), ids(meetingsOf(LibraryShelfService.Owner.ALL)));
     }
 
     @Test
@@ -345,11 +339,6 @@ class LibraryShelfIntegrationTest {
     private LibraryShelfService.SharedQuery sharedAgentFiles() {
         return new LibraryShelfService.SharedQuery("", Set.of(LibraryEntry.Kind.AGENT_FILE), Set.of(),
                 LibraryShelfService.Sort.NAME, 0, 50);
-    }
-
-    private List<LibraryEntry> meetingsOf(LibraryShelfService.Owner whose) {
-        return shelf.meetings(viewer, new LibraryShelfService.MeetingQuery("", whose, LibraryShelfService.Sort.NAME, 0, 50))
-                .items();
     }
 
     /** The Source documents among {@code ids} the stand-in for Search lets the viewer read. */

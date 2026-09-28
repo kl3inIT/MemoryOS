@@ -390,7 +390,7 @@ it("lists uploads still being processed separately, with retry", async () => {
     }),
   );
 
-  await user.click(screen.getByRole("button", { name: "Đang xử lý" }));
+  await user.click(screen.getByRole("radio", { name: "Đang xử lý" }));
 
   await waitFor(() => expect(lastListed()).toMatchObject({ status: "PENDING" }));
   expect(await screen.findByText("Xử lý lỗi")).toBeInTheDocument();
@@ -576,7 +576,7 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   await user.keyboard("{Escape}");
 
   listing([trashed]);
-  await user.click(screen.getByRole("button", { name: "Thùng rác" }));
+  await user.click(screen.getByRole("radio", { name: "Thùng rác" }));
 
   await waitFor(() => expect(lastListed()).toMatchObject({ status: "TRASH", sort: "DELETED" }));
   expect(await screen.findByText(/Tệp đã xoá được giữ 30 ngày/)).toBeInTheDocument();
@@ -625,7 +625,7 @@ it("says what an empty view means and offers the way out of a filter", async () 
   await user.click(screen.getByRole("button", { name: "Xoá bộ lọc" }));
   expect(await screen.findByText("Thư viện đang trống")).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Thùng rác" }));
+  await user.click(screen.getByRole("radio", { name: "Thùng rác" }));
   expect(await screen.findByText("Thùng rác trống")).toBeInTheDocument();
 });
 

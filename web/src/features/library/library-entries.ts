@@ -11,7 +11,6 @@ import {
 } from "@/lib/hey-api/sdk.gen";
 import {
   listChatLibraryDocumentsInfiniteOptions,
-  listChatLibraryMeetingsOptions,
   listChatLibrarySharedOptions,
   listChatLibraryStarredOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -20,7 +19,6 @@ import { imageArtifactUrl } from "./content-urls";
 import { downloadUrl, type PreviewTarget } from "./file-preview";
 import type { ChatFile } from "./files";
 import { libraryCopy, type LibraryCategory } from "./library";
-import type { LibraryEntryView, LibraryView } from "./library-rail";
 
 /**
  * One row of a view other than the owned listing: an owned file, or a read-only reference to a meeting, an
@@ -30,19 +28,6 @@ import type { LibraryEntryView, LibraryView } from "./library-rail";
 export type LibraryEntry = ChatLibraryEntry;
 export type LibraryEntryKind = ChatLibraryEntry["kind"];
 export type EntrySort = "NEWEST" | "OLDEST" | "NAME";
-export type MeetingOwner = "ALL" | "MINE" | "SHARED";
-
-const ENTRY_VIEWS: Record<LibraryEntryView, true> = {
-  recent: true,
-  shared: true,
-  meetings: true,
-  documents: true,
-  starred: true,
-};
-
-export function isEntryView(view: LibraryView): view is LibraryEntryView {
-  return Object.hasOwn(ENTRY_VIEWS, view);
-}
 
 /** What an entry view narrows by; each route reads only the fields it knows. */
 export type EntryFilter = {
@@ -50,7 +35,6 @@ export type EntryFilter = {
   kinds: LibraryEntryKind[];
   categories: LibraryCategory[];
   sort: EntrySort;
-  owner: MeetingOwner;
   sourceIds: string[];
 };
 
@@ -59,18 +43,16 @@ export const RECENT_LIMIT = 100;
 
 /** One page of one of the offset-paged views, as its generated query reads it. */
 export function entryPageOptions(
-  view: "shared" | "meetings" | "starred",
+  view: "shared" | "starred",
   filter: EntryFilter,
   offset: number,
   limit: number,
 ) {
-  const { query, kinds, categories, sort, owner } = filter;
+  const { query, kinds, categories, sort } = filter;
   if (view === "shared")
     return listChatLibrarySharedOptions({
       query: { query, kinds, categories, sort, offset, limit },
     });
-  if (view === "meetings")
-    return listChatLibraryMeetingsOptions({ query: { query, owner, sort, offset, limit } });
   return listChatLibraryStarredOptions({ query: { query, kinds, offset, limit } });
 }
 

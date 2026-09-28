@@ -62,6 +62,14 @@ public class SourceSearchService {
         return ids.isEmpty() ? List.of() : documents.sourceNames(tenant, ids);
     }
 
+    /**
+     * The Sources the actor may read from in {@code tenant}, whatever their state except DELETING, by name, at most
+     * {@code limit} (1 to 500), each with the Documents the actor may read in it. Callers check Search authority.
+     */
+    public List<ReadableSource> readableSources(TenantId tenant, ActorId actor, int limit) {
+        return documents.readableSources(tenant, actor, limit);
+    }
+
     public Map<UUID, List<DocumentSourceMetadata>> readableMetadata(SourceSearchScope scope, List<UUID> ids) {
         if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()) return Map.of();
         var metadata = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();

@@ -50,7 +50,7 @@ import {
 import { recordEntryOpened } from "./library-entries";
 import { categoryIcon, categoryLabels, sourceLabels, statusLabel } from "./library-labels";
 import { type LibraryLayout } from "./library-toolbar";
-import type { LibraryOwnedView } from "./library-rail";
+import type { LibraryOwnedView } from "./library-views";
 
 /**
  * A row's actions appear on hover and on keyboard focus, so a long list reads as names rather than as buttons; a

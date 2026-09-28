@@ -56,11 +56,10 @@ import {
   type EntrySort,
   type LibraryEntry,
   type LibraryEntryKind,
-  type MeetingOwner,
 } from "./library-entries";
 import { LibraryEntryEmpty, LibraryEntryList, type EntryActions } from "./library-entry-list";
 import { categoryLabels } from "./library-labels";
-import type { LibraryEntryView } from "./library-rail";
+import type { LibraryEntryView } from "./library-views";
 import { LibraryListSkeleton } from "./library-results";
 import { LibraryNoMatch } from "./library-rows";
 import type { EntryKindChip } from "./library-search";
@@ -87,8 +86,8 @@ const EVERY_SOURCE = "ALL";
 
 /**
  * The views of what the person can see or use beyond their own files: what they opened, what others share with
- * them, meetings, the organisation's documents and what they starred. Their search, filters, order and page live
- * in the library's address as the owned views' do; the layout is the page's and follows the person across views.
+ * them, the organisation's documents and what they starred. Their search, filters, order and page live in the
+ * library's address as the owned views' do; the layout is the page's and follows the person across views.
  */
 export function LibraryEntryViews({
   view,
@@ -108,7 +107,7 @@ export function LibraryEntryViews({
 }) {
   const ui = useAppTranslation();
   const canReadDocuments = useGlobalCapability("SEARCH_READ");
-  const { query, kind, owner, sourceId, filterBy } = library;
+  const { query, kind, sourceId, filterBy } = library;
   const category = library.categories[0];
   const sorts = view === "documents" ? DOCUMENT_SORTS : ENTRY_SORTS;
   // A link may carry an order this view does not offer, such as the owned files' largest first.
@@ -122,10 +121,9 @@ export function LibraryEntryViews({
       kinds: kind ? KIND_CHIPS[kind] : [],
       categories: category ? [category] : [],
       sort,
-      owner,
       sourceIds: sourceId ? [sourceId] : [],
     }),
-    [query, kind, category, sort, owner, sourceId],
+    [query, kind, category, sort, sourceId],
   );
   const categories = categoryLabels(ui);
   const categoryChips = (
@@ -159,7 +157,7 @@ export function LibraryEntryViews({
             onChange={(next) => filterBy({ sourceId: next })}
           />
         )}
-        {(view === "shared" || view === "meetings" || view === "documents") && (
+        {(view === "shared" || view === "documents") && (
           <LibrarySortSelect
             sort={sort}
             sorts={sorts}
@@ -181,19 +179,6 @@ export function LibraryEntryViews({
           />
           {categoryChips}
         </div>
-      )}
-      {view === "meetings" && (
-        <FilterChips
-          label={ui("Của ai")}
-          chips={[
-            { value: "ALL", label: ui("Tất cả") },
-            { value: "MINE", label: ui("Của tôi") },
-            { value: "SHARED", label: ui("Được chia sẻ") },
-          ]}
-          value={owner}
-          // Pressing the chosen chip clears it, which is every meeting again.
-          onChange={(next) => filterBy({ owner: (next ?? "ALL") as MeetingOwner })}
-        />
       )}
       {view === "documents" && categoryChips}
       {view === "starred" && (
@@ -251,7 +236,7 @@ function RecentEntries(props: ResultsProps) {
 function PagedEntries({
   library,
   ...props
-}: ResultsProps & { view: "shared" | "meetings" | "starred"; library: LibraryViewState }) {
+}: ResultsProps & { view: "shared" | "starred"; library: LibraryViewState }) {
   const ui = useAppTranslation();
   const { offset, size } = library;
   const page = useQuery({

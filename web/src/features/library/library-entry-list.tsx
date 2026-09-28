@@ -41,7 +41,7 @@ import {
   type LibraryEntry,
 } from "./library-entries";
 import { categoryLabels, entryIcon, entryKindLabels } from "./library-labels";
-import type { LibraryEntryView } from "./library-rail";
+import type { LibraryEntryView } from "./library-views";
 import { LibraryPicture, rowActionsReveal } from "./library-rows";
 import type { LibraryLayout } from "./library-toolbar";
 
@@ -497,11 +497,6 @@ export function LibraryEntryEmpty({ view }: { view: LibraryEntryView }) {
       icon: <Users />,
       title: ui("Chưa có gì được chia sẻ với bạn"),
       description: ui("Cuộc họp người khác chia sẻ và tệp của trợ lý bạn dùng sẽ hiện ở đây."),
-    },
-    meetings: {
-      icon: <Mic />,
-      title: ui("Chưa có cuộc họp nào"),
-      description: ui("Cuộc họp bạn ghi hoặc được chia sẻ sẽ hiện ở đây."),
     },
     documents: {
       icon: <Building2 />,

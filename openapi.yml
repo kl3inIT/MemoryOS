@@ -16527,6 +16527,53 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/sources:
+    get:
+      tags:
+      - Chat
+      summary: "Every Source the caller may read from under their Search authority,\
+        \ whatever its state except being deleted, with the documents they may read\
+        \ there, by name and at most 500"
+      operationId: listChatLibrarySources
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Sources, without error details or Groups the caller is not\
+            \ in"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibrarySource"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/library/shared:
     get:
       tags:
@@ -16716,88 +16763,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ChatLibraryEntry"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/library/meetings:
-    get:
-      tags:
-      - Chat
-      summary: "Every meeting the caller may read: their own and the ones shared with\
-        \ them or their Groups"
-      operationId: listChatLibraryMeetings
-      parameters:
-      - name: query
-        in: query
-        required: false
-        schema:
-          type: string
-          default: ""
-      - name: owner
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - ALL
-          - MINE
-          - SHARED
-      - name: sort
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - NEWEST
-          - OLDEST
-          - NAME
-      - name: offset
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 0
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 50
-      responses:
-        "400":
-          description: Invalid library request
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Tenant membership or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat is unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "503":
-          description: Storage unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: A page of meetings
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatLibraryEntryPage"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -28375,6 +28340,73 @@ components:
       required:
       - kind
       - names
+    ChatLibrarySource:
+      type: object
+      description: "A Source the viewer may read from, whatever its state"
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+          - SHAREPOINT
+        access:
+          type: string
+          description: "What admits the viewer: every member, a Group of theirs, or\
+            \ the provider's own grants"
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
+        status:
+          type: string
+          description: A paused Source keeps its documents out of Search until it
+            resumes
+          enum:
+          - NOT_STARTED
+          - INDEXING
+          - ACTIVE
+          - PAUSED
+          - FAILED
+        readableDocuments:
+          type: integer
+          format: int64
+          description: "Documents of this Source the viewer may read, counted whatever\
+            \ the Source status"
+          minimum: 0
+        lastSucceededAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When the last synchronization succeeded; null before the first
+            one
+        groups:
+          type: array
+          description: "The viewer's own Groups granted this PRIVATE Source, sorted;\
+            \ empty for other access"
+          items:
+            type: string
+        managerName:
+          type:
+          - string
+          - "null"
+          description: "The person responsible for this Source, when one is appointed"
+      required:
+      - access
+      - groups
+      - id
+      - lastSucceededAt
+      - managerName
+      - name
+      - readableDocuments
+      - status
+      - type
     ChatLibraryContentMatch:
       type: object
       properties:
