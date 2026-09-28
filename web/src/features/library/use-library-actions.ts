@@ -10,8 +10,8 @@ import {
   restoreChatLibraryFileMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { AskExtras } from "./file-ask-composer";
-import { uploadChatFile } from "./files";
 import {
+  askLibraryQuestion,
   deleteLibraryFile,
   invalidateLibrary,
   libraryUpload,
@@ -19,12 +19,11 @@ import {
   type LibraryFile,
 } from "./library";
 import type { LibraryChat } from "./library-chat";
+import { recordEntryOpened } from "./library-entries";
 import type { RowActions } from "./library-rows";
 
 /** How long one command on one file may take before it counts as failed. */
 const commandTimeout = 30_000;
-/** Asking about a file may copy it and wait for its extraction first. */
-const askTimeout = 120_000;
 const pathOf = (file: LibraryFile) => ({ path: { source: file.source, id: file.id } });
 
 /**
@@ -143,30 +142,21 @@ export function useLibraryActions({
       signal: AbortSignal.timeout(commandTimeout),
     });
 
-  /**
-   * A question asked where the file is read (MEM-152): the file becomes an upload, a conversation is created for
-   * it, and Chat attaches it and sends the question once the conversation is open. An empty question opens that
-   * conversation with the files attached and nothing sent. A crop applied in the preview is asked about as
-   * itself, so the question is about what was on screen rather than the untouched original.
-   */
+  /** A question asked where the file is read (MEM-152); asking counts as opening it, for Gần đây. */
   const askAbout = async (
     file: LibraryFile | undefined,
     question: string,
     extras: AskExtras & { edited?: File },
   ) => {
     if (!chat) return;
-    const signal = AbortSignal.timeout(askTimeout);
-    const subject = extras.edited
-      ? await uploadChatFile(extras.edited, crypto.randomUUID(), signal, () => {})
-      : file && (await libraryUpload(file, signal));
-    if (!subject) return;
-    const attach = [subject.id];
-    for (const chosen of extras.library) attach.push((await libraryUpload(chosen, signal)).id);
-    for (const chosen of extras.uploads)
-      attach.push((await uploadChatFile(chosen, crypto.randomUUID(), signal, () => {})).id);
-    // The copies made for the question are library files too.
-    await invalidate();
-    await chat.ask({ question, title: question || subject.filename, attach }, signal);
+    if (file) recordEntryOpened(file.source, file.id);
+    await askLibraryQuestion(
+      chat,
+      async (signal) => file && (await libraryUpload(file, signal)),
+      question,
+      extras,
+      invalidate,
+    );
   };
 
   /** The commands a file row offers, beside the ones that open a dialog of the page. */

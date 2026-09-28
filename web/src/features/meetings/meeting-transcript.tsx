@@ -10,7 +10,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import type { MeetingTrack } from "./meeting-socket";
-import { slug } from "./meeting-file-name";
+import { slug } from "@/lib/meeting-file-name";
 import { exportMeetingTranscript } from "@/lib/hey-api/sdk.gen";
 import { formatClock, saveDocument, type MeetingDetail } from "./meetings-api";
 import { useRecorderValue } from "./recorder-state";

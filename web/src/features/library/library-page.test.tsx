@@ -27,12 +27,20 @@ import {
   handleRequestChatLibraryArchive,
   handleRestoreChatLibraryFile,
   handleRetryChatFile,
+  handleRecordChatLibraryEntryOpened,
   handleSearchChatLibraryContent,
 } from "@/lib/hey-api/msw.gen";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
+import {
+  ApplicationSessionContext,
+  type ApplicationSession,
+} from "@/features/identity/application-session-context";
 import { server } from "@/test/msw";
 import { LibraryPage } from "./library-page";
 import { librarySearchDefaults, librarySearchSchema } from "./library-search";
+
+/** A person without Search, so the library offers no organisation documents. */
+const session = { capabilities: [], scopedCapabilities: [] } as unknown as ApplicationSession;
 
 const uploadChatFile = vi.hoisted(() => vi.fn());
 
@@ -135,13 +143,15 @@ async function show(
   });
   await router.load();
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
-      <ActionNotifications>
-        <RouterProvider router={router} />
-      </ActionNotifications>
-    </QueryClientProvider>,
+    <ApplicationSessionContext value={session}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ActionNotifications>
+          <RouterProvider router={router} />
+        </ActionNotifications>
+      </QueryClientProvider>
+    </ApplicationSessionContext>,
   );
   if (first) await screen.findByText(first.filename);
   return router;
@@ -156,6 +166,8 @@ beforeEach(async () => {
       body: { usedBytes: 3072, fileCount: 2, limitBytes: 10240, byCategory: [] },
     }),
     handleGetChatLibraryTrashWindow({ body: { days: 30 } }),
+    // Opening a file is recorded for Gần đây; the page never waits on it.
+    handleRecordChatLibraryEntryOpened(noContent),
   );
 });
 afterEach(cleanup);
@@ -397,7 +409,7 @@ it("renames a file, keeping its extension, and stars it", async () => {
     }),
   );
 
-  await user.click(screen.getByRole("button", { name: "Đánh dấu yêu thích doanh-thu.xlsx" }));
+  await user.click(screen.getByRole("button", { name: "Gắn sao doanh-thu.xlsx" }));
   await waitFor(() =>
     expect(changes).toEqual([
       { path: { source: "GENERATED", id: file().id }, body: { favorite: true } },
@@ -422,7 +434,7 @@ it("says so when starring a file fails", async () => {
   const user = userEvent.setup();
   server.use(handleChangeChatLibraryFile(() => HttpResponse.error()));
 
-  await user.click(screen.getByRole("button", { name: "Đánh dấu yêu thích doanh-thu.xlsx" }));
+  await user.click(screen.getByRole("button", { name: "Gắn sao doanh-thu.xlsx" }));
 
   expect(
     await screen.findByText("Chưa xác nhận được kết quả. Tải lại để kiểm tra trước khi thử lại."),
@@ -586,18 +598,19 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   expect(await screen.findByText("Đã xoá vĩnh viễn 3 tệp.")).toBeInTheDocument();
 });
 
-it("asks for the favourites when the rail switches to them", async () => {
+it("narrows Tệp của tôi to its starred files, and takes that filter off like any other", async () => {
   await show();
   const user = userEvent.setup();
 
-  await user.click(screen.getByRole("button", { name: "Yêu thích" }));
+  await user.click(screen.getByRole("button", { name: "Bộ lọc" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Chỉ tệp gắn sao" }),
+  );
 
   await waitFor(() => expect(lastListed()).toMatchObject({ favorite: "true", offset: "0" }));
-  // Favourites are a view, so the same thing is not also offered as a filter.
-  await user.click(screen.getByRole("button", { name: "Bộ lọc" }));
-  expect(
-    within(await screen.findByRole("dialog")).queryByText("Chỉ tệp yêu thích"),
-  ).not.toBeInTheDocument();
+  await user.keyboard("{Escape}");
+  await user.click(screen.getByRole("button", { name: "Bỏ lọc Chỉ tệp gắn sao" }));
+  await waitFor(() => expect(lastListed()).not.toHaveProperty("favorite"));
 });
 
 it("says what an empty view means and offers the way out of a filter", async () => {

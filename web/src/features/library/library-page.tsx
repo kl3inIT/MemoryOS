@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FolderOpen } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
@@ -7,6 +8,8 @@ import { ChatFilePreviewModal } from "./file-preview-modal";
 import { libraryPreviewTarget, type LibraryFile } from "./library";
 import type { LibraryChat } from "./library-chat";
 import { DeleteFilesDialog, PurgeFilesDialog, RenameDialog } from "./library-dialogs";
+import { isEntryView, recordEntryOpened } from "./library-entries";
+import { LibraryEntryViews } from "./library-entry-views";
 import { LibraryNotices, TrashBanner } from "./library-notices";
 import { LibraryRail } from "./library-rail";
 import { ContentResults, LibraryFiles } from "./library-results";
@@ -26,8 +29,10 @@ import { useLibraryUploads } from "./use-library-uploads";
 import { useLibraryView } from "./use-library-view";
 
 /**
- * The file library: uploads, files run_python generated and generated images in one owner-private list. What it
- * offers of Chat — asking about a file, Projects, conversation retention — comes in through `chat`.
+ * The library: everything the person can see or use, on one page. Their own files — uploads, files run_python
+ * generated and generated images — keep every command; what reaches them through a share, an assistant or a
+ * Source is listed read-only in views of its own. What it offers of Chat — asking about a file, Projects,
+ * conversation retention — comes in through `chat`.
  */
 export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const ui = useAppTranslation();
@@ -51,7 +56,11 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
 
   const rowActions: RowActions = {
     ...actions.rowCommands,
-    onPreview: setPreview,
+    onPreview: (file) => {
+      // Gần đây lists what the person opened, their own files included.
+      recordEntryOpened(file.source, file.id);
+      setPreview(file);
+    },
     onDelete: (file) => setDeleting([file]),
     onAddToProject: chat && ((file) => setProjectFiles([file])),
     onRename: setRenaming,
@@ -63,6 +72,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
     categories: library.categories,
     sort: library.sort,
     layout,
+    starredOnly: library.starred,
   };
   const toolbarHandlers: LibraryToolbarHandlers = {
     onSearch: library.setSearch,
@@ -71,7 +81,15 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
     onCategories: (next) => library.filterBy({ category: next }),
     onSort: (next) => library.filterBy({ sort: next }),
     onLayout: setLayout,
+    onStarredOnly: (next) => library.filterBy({ starred: next }),
   };
+  const notices = (
+    <LibraryNotices
+      archive={archive}
+      refusals={actions.refusals}
+      onDismiss={actions.dismissRefusals}
+    />
+  );
 
   return (
     <>
@@ -79,7 +97,9 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
       <SettingsLayout wide>
         <LibraryDropZone onFiles={uploads.start}>
           <PageHeader
+            icon={<FolderOpen />}
             title={ui("Thư viện")}
+            description={ui("Mọi tệp, cuộc họp và tài liệu bạn xem và dùng được, ở cùng một chỗ.")}
             actions={
               <>
                 <LibraryUploadButton onFiles={uploads.start} />
@@ -87,9 +107,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
                   usage={library.usage.data}
                   usageFailed={library.usage.isError}
                   trashDays={trashWindow.data}
-                  onCategory={(category) =>
-                    library.filterBy({ view: "ready", category: [category] })
-                  }
+                  onCategory={(category) => library.showView("ready", { category: [category] })}
                   retention={chat && <chat.RetentionSection />}
                 />
               </>
@@ -100,63 +118,79 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
             <div className="lg:w-52 lg:shrink-0">
               <LibraryRail
                 view={view}
-                counts={{ [view]: library.page.data?.totalCount }}
+                counts={library.owned ? { [view]: library.page.data?.totalCount } : {}}
                 usage={library.usage.data}
                 onView={(next) => {
-                  library.filterBy({ view: next });
+                  library.showView(next);
                   actions.dismissRefusals();
                 }}
-                onShowLargest={() => library.filterBy({ view: "ready", sort: "LARGEST" })}
+                onShowLargest={() => library.showView("ready", { sort: "LARGEST" })}
               />
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-4">
-              <LibraryToolbar
-                sortable={view === "ready" || view === "favorite"}
-                state={toolbarState}
-                handlers={toolbarHandlers}
-              />
-              <LibraryFilterPills state={toolbarState} handlers={toolbarHandlers} />
-
-              {/* Always rendered: an empty selection is the bar leaving, which it animates itself. */}
-              <LibrarySelectionBar
-                count={selected.length}
-                packing={archive.state.phase === "packing"}
-                trash={view === "trash"}
-                onDownload={() => void archive.start(chosen)}
-                onAddToProject={chat && (() => setProjectFiles(chosen))}
-                onDelete={() => setDeleting(chosen)}
-                onRestore={() => void actions.restoreFiles(chosen)}
-                onPurge={() => setPurging(chosen)}
-                onClear={() => setSelected([])}
-              />
-
-              <LibraryNotices
-                archive={archive}
-                refusals={actions.refusals}
-                onDismiss={actions.dismissRefusals}
-              />
-
-              {view === "trash" && (
-                <TrashBanner days={trashWindow.data} onEmpty={actions.emptyTheTrash} />
-              )}
-
-              {library.mode === "content" ? (
-                <ContentResults
-                  query={library.query}
-                  matches={library.matches}
-                  onOpen={setPreview}
-                  actions={rowActions}
-                />
-              ) : (
-                <LibraryFiles
+            {isEntryView(view) ? (
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
+                {notices}
+                <LibraryEntryViews
+                  view={view}
                   library={library}
                   layout={layout}
-                  actions={rowActions}
-                  emptyAction={<LibraryUploadButton onFiles={uploads.start} />}
+                  onLayout={setLayout}
+                  chat={chat}
+                  onSaveImage={(file) => uploads.start([file])}
                 />
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
+                <LibraryToolbar
+                  sortable={view === "ready"}
+                  starrable={view === "ready"}
+                  state={toolbarState}
+                  handlers={toolbarHandlers}
+                />
+                <LibraryFilterPills
+                  starrable={view === "ready"}
+                  state={toolbarState}
+                  handlers={toolbarHandlers}
+                />
+
+                {/* Always rendered: an empty selection is the bar leaving, which it animates itself. */}
+                <LibrarySelectionBar
+                  count={selected.length}
+                  packing={archive.state.phase === "packing"}
+                  trash={view === "trash"}
+                  onDownload={() => void archive.start(chosen)}
+                  onAddToProject={chat && (() => setProjectFiles(chosen))}
+                  onDelete={() => setDeleting(chosen)}
+                  onRestore={() => void actions.restoreFiles(chosen)}
+                  onPurge={() => setPurging(chosen)}
+                  onClear={() => setSelected([])}
+                />
+
+                {notices}
+
+                {view === "trash" && (
+                  <TrashBanner days={trashWindow.data} onEmpty={actions.emptyTheTrash} />
+                )}
+
+                {library.mode === "content" ? (
+                  <ContentResults
+                    query={library.query}
+                    matches={library.matches}
+                    onOpen={rowActions.onPreview}
+                    actions={rowActions}
+                  />
+                ) : (
+                  <LibraryFiles
+                    library={library}
+                    view={view}
+                    layout={layout}
+                    actions={rowActions}
+                    emptyAction={<LibraryUploadButton onFiles={uploads.start} />}
+                  />
+                )}
+              </div>
+            )}
           </div>
         </LibraryDropZone>
       </SettingsLayout>

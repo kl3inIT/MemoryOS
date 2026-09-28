@@ -5366,6 +5366,136 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/entries/{kind}/{id}/star:
+    put:
+      tags:
+      - Chat
+      summary: Star an entry the caller may read now; an owned file is starred as
+        its own favourite
+      operationId: starChatLibraryEntry
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+          - MEETING
+          - AGENT_FILE
+          - DOCUMENT
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Starred
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Take the caller's star off an entry they may read now
+      operationId: unstarChatLibraryEntry
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+          - MEETING
+          - AGENT_FILE
+          - DOCUMENT
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Not starred
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/interpreter:
     get:
       tags:
@@ -12457,6 +12587,72 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/entries/{kind}/{id}/opened:
+    post:
+      tags:
+      - Chat
+      summary: "Record that the caller opened an entry they may read now, for their\
+        \ recent list"
+      operationId: recordChatLibraryEntryOpened
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+          - MEETING
+          - AGENT_FILE
+          - DOCUMENT
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Recorded
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/library/archives:
     get:
       tags:
@@ -16259,6 +16455,167 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/starred:
+    get:
+      tags:
+      - Chat
+      summary: "The caller's starred files and starred shared rows they may still\
+        \ read, most recently starred first"
+      operationId: listChatLibraryStarred
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: kinds
+        in: query
+        description: Empty means every kind
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: A page of starred entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryEntryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/shared:
+    get:
+      tags:
+      - Chat
+      summary: "Meetings shared with the caller and files of the assistants they use,\
+        \ read-only and never their own, each authorized at this read"
+      operationId: listChatLibraryShared
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: kinds
+        in: query
+        description: MEETING or AGENT_FILE; empty means both
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: categories
+        in: query
+        description: Empty means every category; a meeting has none
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - NEWEST
+          - OLDEST
+          - NAME
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: A page of what others share with the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryEntryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/library/search:
     get:
       tags:
@@ -16307,6 +16664,274 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ChatLibraryContentMatch"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/recent:
+    get:
+      tags:
+      - Chat
+      summary: "What the caller opened lately, newest first, that they may still read"
+      operationId: listChatLibraryRecent
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Up to 100 entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibraryEntry"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/meetings:
+    get:
+      tags:
+      - Chat
+      summary: "Every meeting the caller may read: their own and the ones shared with\
+        \ them or their Groups"
+      operationId: listChatLibraryMeetings
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: owner
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ALL
+          - MINE
+          - SHARED
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - NEWEST
+          - OLDEST
+          - NAME
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: A page of meetings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryEntryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/documents:
+    get:
+      tags:
+      - Chat
+      summary: "Browse the Source documents the caller may read under their Search\
+        \ authority, without a search term"
+      operationId: listChatLibraryDocuments
+      parameters:
+      - name: query
+        in: query
+        description: Matches the file name or the title
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: sourceIds
+        in: query
+        description: Empty means every Source the caller may search
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            format: uuid
+      - name: categories
+        in: query
+        description: Empty means every category
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - NEWEST
+          - NAME
+      - name: cursor
+        in: query
+        description: "The nextCursor of the previous page, with the same filters and\
+          \ sort"
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: A page of documents and the cursor of the next one
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryDocumentPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/documents/sources:
+    get:
+      tags:
+      - Chat
+      summary: The Sources the caller may narrow the documents view to
+      operationId: listChatLibraryDocumentSources
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Sources, as Search offers them"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibrarySourceOption"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -17271,8 +17896,8 @@ paths:
     get:
       tags:
       - Chat
-      summary: "Read an owner-private xlsx attachment as CSV text per sheet, each\
-        \ cut at a row boundary"
+      summary: "Read an xlsx attachment the caller owns, or reads through an assistant\
+        \ they use, as CSV text per sheet, each cut at a row boundary"
       operationId: previewChatFileSpreadsheet
       parameters:
       - name: fileId
@@ -17395,7 +18020,8 @@ paths:
     get:
       tags:
       - Chat
-      summary: Download an owner-private original file without inline execution
+      summary: "Download an original file the caller owns, or reads through an assistant\
+        \ they use, without inline execution"
       operationId: downloadChatFile
       parameters:
       - name: fileId
@@ -27508,6 +28134,243 @@ components:
             at once
       required:
       - days
+    ChatLibraryEntry:
+      type: object
+      description: "One row of a library view: an owned file, or a read-only reference\
+        \ to something the viewer may read now through a share, an assistant or a\
+        \ Source"
+      properties:
+        kind:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+          - MEETING
+          - AGENT_FILE
+          - DOCUMENT
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        mediaType:
+          type:
+          - string
+          - "null"
+          description: Null for a meeting
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: Null for a meeting
+        category:
+          type:
+          - string
+          - "null"
+          description: Null for a meeting
+          enum:
+          - DOCUMENT
+          - SPREADSHEET
+          - IMAGE
+          - PRESENTATION
+          - OTHER
+        at:
+          type: string
+          format: date-time
+          description: "When the file or meeting was created, or when a Source document\
+            \ last changed"
+        owned:
+          type: boolean
+          description: "The viewer owns it; only owned rows are renamed, trashed or\
+            \ counted toward storage"
+        starred:
+          type: boolean
+          description: Starred by the viewer
+        openedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When the viewer last opened it
+        ownerName:
+          type:
+          - string
+          - "null"
+          description: Who owns a meeting shared with the viewer or uploaded an assistant's
+            file
+        reason:
+          $ref: "#/components/schemas/ChatLibraryEntryReason"
+        sessionId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The conversation that produced a generated file or image
+        sessionTitle:
+          type:
+          - string
+          - "null"
+        messageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The answer that produced a generated file or image
+        meeting:
+          type:
+          - object
+          - "null"
+          $ref: "#/components/schemas/ChatLibraryEntryMeeting"
+          description: Set for a meeting
+        agents:
+          type: array
+          description: The assistants granting an assistant's file; empty for every
+            other kind
+          items:
+            $ref: "#/components/schemas/ChatLibraryEntryAgent"
+        document:
+          type:
+          - object
+          - "null"
+          $ref: "#/components/schemas/ChatLibraryEntryDocument"
+          description: Set for a Source document
+      required:
+      - agents
+      - at
+      - category
+      - document
+      - id
+      - kind
+      - mediaType
+      - meeting
+      - messageId
+      - name
+      - openedAt
+      - owned
+      - ownerName
+      - reason
+      - sessionId
+      - sessionTitle
+      - sizeBytes
+      - starred
+    ChatLibraryEntryAgent:
+      type: object
+      description: An assistant the viewer uses that grants them this file
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    ChatLibraryEntryDocument:
+      type: object
+      description: Where a Source document comes from and what Search serves of it
+      properties:
+        generation:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: "The generation Search serves, to preview it; null while it\
+            \ is being indexed"
+        title:
+          type:
+          - string
+          - "null"
+        sourceId:
+          type: string
+          format: uuid
+        sourceName:
+          type: string
+        sourceType:
+          type: string
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+          - SHAREPOINT
+        providerUrl:
+          type:
+          - string
+          - "null"
+          description: "The document in its provider, when it has one"
+      required:
+      - generation
+      - providerUrl
+      - sourceId
+      - sourceName
+      - sourceType
+      - title
+    ChatLibraryEntryMeeting:
+      type: object
+      description: "What a meeting row offers: its biên bản and its transcript"
+      properties:
+        status:
+          type: string
+          enum:
+          - RECORDING
+          - TRANSCRIBING
+          - ENDED
+        minutesReady:
+          type: boolean
+          description: The minutes are written
+        hasTranscript:
+          type: boolean
+          description: "Somebody spoke, so a transcript exists"
+        durationMs:
+          type: integer
+          format: int64
+          description: Milliseconds covered by the transcript
+      required:
+      - durationMs
+      - hasTranscript
+      - minutesReady
+      - status
+    ChatLibraryEntryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatLibraryEntry"
+        totalCount:
+          type: integer
+          format: int64
+          description: "Rows matching the filter, not only this page"
+        hasMore:
+          type: boolean
+      required:
+      - hasMore
+      - items
+      - totalCount
+    ChatLibraryEntryReason:
+      type: object
+      description: "Why the row is visible: the rule that admitted it"
+      properties:
+        kind:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER_SHARE
+          - GROUP_SHARE
+          - AGENT
+          - PUBLIC_SOURCE
+          - GROUP_SOURCE
+          - PROVIDER_SOURCE
+        names:
+          type: array
+          description: "The viewer's Groups for GROUP_SHARE and GROUP_SOURCE, the\
+            \ assistants for AGENT; empty otherwise, where the owner or the Source\
+            \ is named on the row itself"
+          items:
+            type: string
+      required:
+      - kind
+      - names
     ChatLibraryContentMatch:
       type: object
       properties:
@@ -27532,6 +28395,41 @@ components:
       required:
       - ordinal
       - text
+    ChatLibraryDocumentPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatLibraryEntry"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: "Pass as cursor, with the same filters and sort, for the next\
+            \ page; null on the last"
+      required:
+      - items
+      - nextCursor
+    ChatLibrarySourceOption:
+      type: object
+      description: A Source the viewer may narrow the documents view to
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+          - SHAREPOINT
+      required:
+      - id
+      - name
+      - type
     InterpreterHealthResponse:
       type: object
       properties:

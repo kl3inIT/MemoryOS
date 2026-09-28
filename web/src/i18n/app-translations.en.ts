@@ -268,7 +268,6 @@ export const vietnameseUi: Record<string, string> = {
   "Xoá cuộc họp?": "Delete the meeting?",
   // MEM-152 file library v2: the library page redesign (rail, filter popover, rows and empty states)
   "Phần của thư viện": "Library sections",
-  "Tất cả tệp": "All files",
   "Đang xử lý": "Processing",
   "Gần hết dung lượng · {{percent}}%": "Almost full · {{percent}}%",
   "Đã dùng {{percent}}%": "{{percent}}% used",
@@ -294,9 +293,6 @@ export const vietnameseUi: Record<string, string> = {
   "Thư viện đang trống": "The library is empty",
   "Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây.":
     "Upload a file or let Chat make one, and it appears here.",
-  "Chưa có tệp yêu thích": "No favourites yet",
-  "Bấm ngôi sao trên một tệp để giữ nó ở chỗ dễ tìm.":
-    "Star a file to keep it where it is easy to find.",
   "Không có tệp nào đang xử lý": "Nothing is being processed",
   "Tệp mới tải lên sẽ hiện ở đây cho tới khi dùng được.":
     "A file you upload stays here until it is usable.",
@@ -308,6 +304,59 @@ export const vietnameseUi: Record<string, string> = {
     "What you attach and what Chat makes appears here.",
   "Tệp bạn xoá sẽ nằm ở đây trước khi bị xoá vĩnh viễn.":
     "A file you delete waits here before it is deleted for good.",
+  // Library hub: every file, meeting and document a person can see or use
+  "Gần đây": "Recent",
+  "Tệp của tôi": "My files",
+  "Được chia sẻ với tôi": "Shared with me",
+  "Tài liệu tổ chức": "Organisation documents",
+  "Có gắn sao": "Starred",
+  "Gắn sao": "Stars",
+  "Chỉ tệp gắn sao": "Starred files only",
+  "Gắn sao {{name}}": "Star {{name}}",
+  "Bỏ gắn sao {{name}}": "Unstar {{name}}",
+  "Mọi tệp, cuộc họp và tài liệu bạn xem và dùng được, ở cùng một chỗ.":
+    "Every file, meeting and document you can see and use, in one place.",
+  "Chia sẻ bởi {{name}}": "Shared by {{name}}",
+  "Qua nhóm {{names}}": "Through the group {{names}}",
+  "Qua trợ lý {{names}}": "Through the assistant {{names}}",
+  "{{source}} · Công khai trong tổ chức": "{{source}} · Public in the organisation",
+  "{{source}} · Qua nhóm {{names}}": "{{source}} · Through the group {{names}}",
+  "{{source}} · Quyền từ {{provider}}": "{{source}} · Access from {{provider}}",
+  Mục: "Items",
+  "Đang lập chỉ mục": "Being indexed",
+  "{{count}} phút": "{{count}} min",
+  "Đã mở {{date}}": "Opened {{date}}",
+  "Đang chép lời": "Transcribing",
+  "Mở cuộc họp": "Open the meeting",
+  "Mở cuộc họp {{name}}": "Open the meeting {{name}}",
+  "Hỏi Chat": "Ask Chat",
+  "Tải biên bản (Word)": "Download the minutes (Word)",
+  "Tải lời thoại (Word)": "Download the transcript (Word)",
+  "Mở trợ lý {{name}}": "Open the assistant {{name}}",
+  "Mở trong nguồn": "Open in its source",
+  "Chưa mở mục nào gần đây": "Nothing opened lately",
+  "Tệp, cuộc họp và tài liệu bạn mở sẽ hiện ở đây để quay lại nhanh.":
+    "Files, meetings and documents you open appear here, so you can get back to them.",
+  "Chưa có gì được chia sẻ với bạn": "Nothing is shared with you yet",
+  "Cuộc họp người khác chia sẻ và tệp của trợ lý bạn dùng sẽ hiện ở đây.":
+    "Meetings others share with you and the files of assistants you use appear here.",
+  "Cuộc họp bạn ghi hoặc được chia sẻ sẽ hiện ở đây.":
+    "Meetings you record or that are shared with you appear here.",
+  "Chưa có tài liệu nào": "No documents yet",
+  "Tài liệu trong các nguồn bạn được đọc sẽ hiện ở đây.":
+    "Documents in the sources you may read appear here.",
+  "Chưa gắn sao mục nào": "Nothing starred yet",
+  "Bấm ngôi sao trên tệp, cuộc họp hay tài liệu để giữ nó ở chỗ dễ tìm.":
+    "Star a file, meeting or document to keep it where it is easy to find.",
+  "Tìm theo tên": "Search by name",
+  Loại: "Kind",
+  "Tệp của trợ lý": "Assistant files",
+  "Của ai": "Whose",
+  "Hiển thị {{first}}–{{last}} trên {{total}} mục": "Showing {{first}}–{{last}} of {{total}} items",
+  "Số mục mỗi trang": "Items per page",
+  "Số mục": "Items",
+  "Không có mục nào khớp": "Nothing matches",
+  "Tất cả nguồn": "Every source",
   // MEM-152 file library v2, phase 4: storage limits and the trash
   "Thùng rác": "Trash",
   "Thùng rác đang trống.": "The trash is empty.",
@@ -499,7 +548,6 @@ export const vietnameseUi: Record<string, string> = {
   "Cách tìm": "Search by",
   "Nội dung": "Contents",
   "Tên A → Z": "Name A → Z",
-  "Yêu thích": "Favourites",
   "Trạng thái tệp": "File state",
   "Đang xử lý / Lỗi": "Processing / failed",
   "Nhập điều bạn nhớ về nội dung tệp.": "Type what you remember of the contents.",
@@ -517,8 +565,6 @@ export const vietnameseUi: Record<string, string> = {
   "Đổi tên tệp": "Rename file",
   "Tên mới hiển thị ở mọi nơi và khi tải về. Phần đuôi tệp được giữ nguyên.":
     "The new name is shown everywhere and used for downloads. The extension is kept.",
-  "Bỏ yêu thích {{name}}": "Unstar {{name}}",
-  "Đánh dấu yêu thích {{name}}": "Star {{name}}",
   "Thả tệp vào đây để tải lên": "Drop files here to upload them",
   "Tải lên": "Upload",
   "Tải tệp lên thư viện": "Upload files to the library",

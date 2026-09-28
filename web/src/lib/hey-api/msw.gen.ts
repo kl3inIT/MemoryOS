@@ -2,7 +2,7 @@
 
 import { http, type HttpHandler, HttpResponse, type HttpResponseResolver, type RequestHandlerOptions as RequestHandlerOptions2 } from 'msw';
 
-import type { AcceptAllMeetingCorrectionsData, AcceptAllMeetingCorrectionsResponses, AcceptMeetingCorrectionData, AcceptMeetingCorrectionResponses, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AddMeetingMinutesItemData, AddMeetingMinutesItemResponses, ArchiveAllChatSessionsResponses, ArchiveChatSessionResponses, AssignGroupManagerResponses, AssignSourceManagerData, AssignSourceManagerResponses, BookmarkMeetingMomentData, BookmarkMeetingMomentResponses, BranchChatSessionData, BranchChatSessionResponses, CancelChatMessageResponses, CancelSearchFutureGenerationResponses, ChangeChatLibraryFileData, ChangeChatLibraryFileResponses, ClientOptions, ConfigureChatSessionData, ConfigureChatSessionResponses, CopyChatLibraryFileResponses, CorrectMeetingWordsData, CorrectMeetingWordsResponses, CreateAiUsageLimitData, CreateAiUsageLimitResponses, CreateChatModelData, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaLabelData, CreateChatPersonaLabelResponses, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectResponses, CreateChatPromptShortcutData, CreateChatPromptShortcutResponses, CreateChatProviderData, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionResponses, CreateChatVoiceTicketData, CreateChatVoiceTicketResponses, CreateDocumentSetData, CreateDocumentSetResponses, CreateEmbeddingProviderData, CreateEmbeddingProviderResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveServiceAccountData, CreateGoogleDriveServiceAccountResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateIdentityProviderData, CreateIdentityProviderResponses, CreateInvitationData, CreateInvitationResponses, CreateMcpServerData, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientResponses, CreateMcpServerResponses, CreateMeetingData, CreateMeetingResponses, CreateMeetingTicketData, CreateMeetingTicketResponses, CreateProjectChatSessionData, CreateProjectChatSessionResponses, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutResponses, CreateSearchFutureGenerationData, CreateSearchFutureGenerationResponses, CreateSharePointCredentialData, CreateSharePointCredentialResponses, CreateSharePointSourceData, CreateSharePointSourceResponses, DeactivateUserResponses, DeleteAiUsageLimitResponses, DeleteAllChatSessionsResponses, DeleteChatFileArtifactResponses, DeleteChatFileResponses, DeleteChatImageArtifactResponses, DeleteChatModelResponses, DeleteChatPersonaLabelResponses, DeleteChatPersonaResponses, DeleteChatProjectResponses, DeleteChatPromptShortcutResponses, DeleteChatProviderResponses, DeleteChatSessionResponses, DeleteChatVoiceConnectionResponses, DeleteDocumentSetResponses, DeleteEmbeddingProviderResponses, DeleteGoogleDriveCredentialResponses, DeleteGroupResponses, DeleteIdentityProviderResponses, DeleteMcpServerOAuthClientResponses, DeleteMcpServerResponses, DeleteMeetingResponses, DeletePublicChatPromptShortcutResponses, DeleteSharePointCredentialResponses, DeleteSourceResponses, DisconnectMcpConnectionResponses, DisconnectMcpServerOAuthResponses, DiscoverGoogleDriveLinkedDocumentsResponses, DiscoverIdentityProviderData, DiscoverIdentityProviderResponses, DiscoverMcpServerOAuthResponses, DismissMeetingSpeakerSuggestionResponses, DownloadChatExportResponses, DownloadChatFileResponses, DownloadChatLibraryArchiveResponses, DownloadUsageReportResponses, EditChatMessageData, EditChatMessageResponses, EditMeetingMinutesItemData, EditMeetingMinutesItemResponses, EditMeetingMinutesSummaryData, EditMeetingMinutesSummaryResponses, EmptyChatLibraryTrashResponses, EndMeetingResponses, ExportAuditEventsResponses, ExportChatHistoryResponses, ExportMeetingMinutesData, ExportMeetingMinutesResponses, ExportMeetingTranscriptResponses, FinalizeChatFileUploadResponses, FinalizeMeetingRecordingResponses, FinalizeSourceUploadResponses, GenerateChatTitleResponses, GetAiCostDetailResponses, GetAiCostSummaryResponses, GetAuditCatalogResponses, GetAuditEventResponses, GetChatBranchesResponses, GetChatExportResponses, GetChatFeedbackResponses, GetChatFileArtifactChartResponses, GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactResponses, GetChatFilePolicyResponses, GetChatFileResponses, GetChatFileThumbnailResponses, GetChatGuardrailsResponses, GetChatHistoryResponses, GetChatHistoryTranscriptResponses, GetChatImageArtifactResponses, GetChatImageAvailabilityResponses, GetChatInterpreterHealthResponses, GetChatInterpreterSettingsResponses, GetChatLibraryArchiveResponses, GetChatLibraryTrashWindowResponses, GetChatLibraryUsageResponses, GetChatModelDefaultResponses, GetChatPersonaAvatarResponses, GetChatPersonaResponses, GetChatPreferencesResponses, GetChatProjectResponses, GetChatPromptShortcutPreferencesResponses, GetChatRetentionResponses, GetChatSessionResponses, GetChatSettingsResponses, GetChatSharingResponses, GetChatVoiceAvailabilityResponses, GetChatVoiceSettingsResponses, GetChatWebAvailabilityResponses, GetCurrentIdentityResponses, GetCurrentInvitationResponses, GetDocumentSetResponses, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeResponses, GetGroupResponses, GetMcpServerResponses, GetMeetingMinutesHeadingResponses, GetMeetingResponses, GetMyAiCostsResponses, GetMyAiUsageStandingResponses, GetPersonaModelResponses, GetSearchDocumentResponses, GetSearchSettingsResponses, GetSharedChatHistoryResponses, GetSharedChatSessionResponses, GetSharePointConfigurationResponses, GetSharePointRootsResponses, GetSharePointSelectionPolicyResponses, GetSharePointSelectionRequestResponses, GetSourceOperationResponses, GetSourceResponses, GetSourceRunResponses, HideChatPromptShortcutData, HideChatPromptShortcutResponses, InitiateChatFileUploadData, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, KeepMeetingWordingResponses, LeaveChatPersonaResponses, ListAiCostBreakdownResponses, ListAiCostDaysResponses, ListAiUsageLimitsResponses, ListAuditEventsResponses, ListAvailableChatModelsResponses, ListChatExportsResponses, ListChatFilesResponses, ListChatGroupOptionsResponses, ListChatHistoryResponses, ListChatImageConnectionsResponses, ListChatImageProvidersResponses, ListChatLibraryArchivesResponses, ListChatLibraryResponses, ListChatModelFlowsResponses, ListChatModelPersonasResponses, ListChatPersonaLabelsResponses, ListChatPersonaModelsResponses, ListChatPersonaPinsResponses, ListChatPersonasForAdministrationResponses, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsResponses, ListChatPromptShortcutsResponses, ListChatProviderAdaptersResponses, ListChatProvidersResponses, ListChatSessionsResponses, ListChatVoiceConnectionsResponses, ListChatVoiceProvidersResponses, ListChatWebConnectionsResponses, ListChatWebEnginesData, ListChatWebEnginesResponses, ListConfiguredChatModelsResponses, ListDocumentSetsResponses, ListEmbeddingModelPresetsResponses, ListEmbeddingProvidersResponses, ListGoogleDriveCredentialsResponses, ListGroupCandidatesResponses, ListGroupCapabilitiesResponses, ListGroupMembersResponses, ListGroupSourcesResponses, ListGroupsResponses, ListIdentityProvidersResponses, ListInvitationsResponses, ListMcpConnectionsResponses, ListMcpGroupOptionsResponses, ListMcpServerOAuthClientsResponses, ListMcpServersResponses, ListMcpServerToolsResponses, ListMeetingCorrectionsResponses, ListMeetingsResponses, ListMeetingTranscribersResponses, ListProjectChatSessionsResponses, ListPublicChatPromptShortcutsResponses, ListReportedProviderModelsData, ListReportedProviderModelsResponses, ListSharePointCredentialsResponses, ListSourceGroupOptionsResponses, ListSourceGroupsResponses, ListSourceIndexAttemptsResponses, ListSourceItemsResponses, ListSourceRunErrorsResponses, ListSourceRunsResponses, ListSourcesResponses, ListUsageReportsResponses, ListUsersResponses, MarkMeetingMinutesItemData, MarkMeetingMinutesItemResponses, MoveChatProjectData, MoveChatProjectResponses, NameMeetingSpeakerData, NameMeetingSpeakerResponses, PauseSourceResponses, PinChatReasoningEffortData, PinChatReasoningEffortResponses, PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileSpreadsheetResponses, PreviewChatRetentionResponses, ProposeMeetingCorrectionsResponses, PublishMeetingMinutesResponses, PurgeChatLibraryFileResponses, ReadChatDocumentOriginalResponses, ReadChatDocumentPassagesResponses, ReadChatDocumentSpreadsheetResponses, ReadChatFilePassagesResponses, ReadChatFileTextResponses, ReadSearchDocumentOriginalResponses, ReadSearchDocumentSpreadsheetResponses, RefreshMcpServerToolsResponses, RegenerateChatMessageData, RegenerateChatMessageResponses, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientResponses, ReindexSourceItemResponses, RemoveChatFeedbackResponses, RemoveGroupManagerResponses, RemoveGroupMemberResponses, RemoveGroupSourceResponses, RemoveMeetingBookmarkResponses, RemoveMeetingMinutesItemResponses, RemoveSourceItemResponses, RenameChatPersonaLabelData, RenameChatPersonaLabelResponses, RenameChatSessionData, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, RenameSharePointCredentialData, RenameSharePointCredentialResponses, RenameSourceData, RenameSourceResponses, ReorderChatPersonasData, ReorderChatPersonasResponses, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGoogleDriveServiceAccountData, ReplaceGoogleDriveServiceAccountResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointScopeData, ReplaceSharePointScopeResponses, ReplaceUserGroupsData, ReplaceUserGroupsResponses, RequestChatExportResponses, RequestChatLibraryArchiveData, RequestChatLibraryArchiveResponses, RequestUsageReportData, RequestUsageReportResponses, RerunMeetingMinutesResponses, ReserveMeetingRecordingData, ReserveMeetingRecordingResponses, RestoreChatLibraryFileResponses, RestoreChatPersonaResponses, RestoreSearchPastGenerationResponses, ResumeSourceResponses, RetryChatFileResponses, RevertAllMeetingCorrectionsData, RevertAllMeetingCorrectionsResponses, RevertMeetingCorrectionResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationResponses, RotateInvitationResponses, SaveChatGroundedData, SaveChatGroundedResponses, SaveChatGuardrailsData, SaveChatGuardrailsResponses, SaveChatHistoryVisibilityData, SaveChatHistoryVisibilityResponses, SaveChatImageConnectionData, SaveChatImageConnectionResponses, SaveChatPreferencesData, SaveChatPreferencesResponses, SaveChatRetentionData, SaveChatRetentionResponses, SaveChatSettingsData, SaveChatSettingsResponses, SaveChatVoiceConnectionData, SaveChatVoiceConnectionResponses, SaveChatWebConnectionData, SaveChatWebConnectionResponses, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyResponses, SaveMeetingMinutesHeadingData, SaveMeetingMinutesHeadingResponses, SearchChatLibraryContentResponses, SearchChatSessionsResponses, SearchDocumentsData, SearchDocumentsResponses, SearchPrincipalsResponses, SelectChatBranchData, SelectChatBranchResponses, SelectChatImageProviderData, SelectChatImageProviderResponses, SelectChatPersonaData, SelectChatPersonaResponses, SelectChatVoiceProviderData, SelectChatVoiceProviderResponses, SelectChatWebProviderData, SelectChatWebProviderResponses, SendChatMessageData, SendChatMessageResponses, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledResponses, SetChatFeedbackData, SetChatFeedbackResponses, SetChatModelDefaultResponses, SetChatModelFlowResponses, SetChatPersonaListingData, SetChatPersonaListingResponses, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesResponses, SetChatSharingData, SetChatSharingResponses, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponses, SetMcpServerToolEnabledData, SetMcpServerToolEnabledResponses, SetPersonaModelResponses, ShareChatPersonaData, ShareChatPersonaResponses, ShareDocumentSetData, ShareDocumentSetResponses, ShareMeetingData, ShareMeetingResponses, StarMeetingUtteranceResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationResponses, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationResponses, StreamChatMessageResponses, SwitchSearchFutureGenerationResponses, SynchronizeGoogleDriveSourceResponses, SynchronizeSharePointSourceResponses, SynthesizeChatVoiceData, SynthesizeChatVoiceResponses, TestChatImageConnectionData, TestChatImageConnectionResponses, TestChatProviderData, TestChatProviderResponses, TestChatVoiceConnectionResponses, TestChatWebConnectionData, TestChatWebConnectionResponses, TestEmbeddingProviderData, TestEmbeddingProviderResponses, TestSharePointCredentialResponses, TransferChatPersonaData, TransferChatPersonaResponses, UnarchiveChatSessionResponses, UnstarMeetingUtteranceResponses, UpdateAiUsageLimitData, UpdateAiUsageLimitResponses, UpdateChatInterpreterSettingsData, UpdateChatInterpreterSettingsResponses, UpdateChatModelData, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectResponses, UpdateChatPromptShortcutData, UpdateChatPromptShortcutResponses, UpdateChatProviderData, UpdateChatProviderResponses, UpdateChatVoiceSettingsData, UpdateChatVoiceSettingsResponses, UpdateDocumentSetData, UpdateDocumentSetResponses, UpdateEmbeddingProviderData, UpdateEmbeddingProviderResponses, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateIdentityProviderData, UpdateIdentityProviderResponses, UpdateMcpServerData, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientResponses, UpdateMcpServerResponses, UpdateMeetingData, UpdateMeetingNotesData, UpdateMeetingNotesResponses, UpdateMeetingResponses, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutResponses, UpdateSharePointPauseData, UpdateSharePointPauseResponses, UpdateSharePointScheduleData, UpdateSharePointScheduleResponses, UpdateSourceAccessData, UpdateSourceAccessResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelResponses } from './types.gen';
+import type { AcceptAllMeetingCorrectionsData, AcceptAllMeetingCorrectionsResponses, AcceptMeetingCorrectionData, AcceptMeetingCorrectionResponses, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AddMeetingMinutesItemData, AddMeetingMinutesItemResponses, ArchiveAllChatSessionsResponses, ArchiveChatSessionResponses, AssignGroupManagerResponses, AssignSourceManagerData, AssignSourceManagerResponses, BookmarkMeetingMomentData, BookmarkMeetingMomentResponses, BranchChatSessionData, BranchChatSessionResponses, CancelChatMessageResponses, CancelSearchFutureGenerationResponses, ChangeChatLibraryFileData, ChangeChatLibraryFileResponses, ClientOptions, ConfigureChatSessionData, ConfigureChatSessionResponses, CopyChatLibraryFileResponses, CorrectMeetingWordsData, CorrectMeetingWordsResponses, CreateAiUsageLimitData, CreateAiUsageLimitResponses, CreateChatModelData, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaLabelData, CreateChatPersonaLabelResponses, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectResponses, CreateChatPromptShortcutData, CreateChatPromptShortcutResponses, CreateChatProviderData, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionResponses, CreateChatVoiceTicketData, CreateChatVoiceTicketResponses, CreateDocumentSetData, CreateDocumentSetResponses, CreateEmbeddingProviderData, CreateEmbeddingProviderResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveServiceAccountData, CreateGoogleDriveServiceAccountResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateIdentityProviderData, CreateIdentityProviderResponses, CreateInvitationData, CreateInvitationResponses, CreateMcpServerData, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientResponses, CreateMcpServerResponses, CreateMeetingData, CreateMeetingResponses, CreateMeetingTicketData, CreateMeetingTicketResponses, CreateProjectChatSessionData, CreateProjectChatSessionResponses, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutResponses, CreateSearchFutureGenerationData, CreateSearchFutureGenerationResponses, CreateSharePointCredentialData, CreateSharePointCredentialResponses, CreateSharePointSourceData, CreateSharePointSourceResponses, DeactivateUserResponses, DeleteAiUsageLimitResponses, DeleteAllChatSessionsResponses, DeleteChatFileArtifactResponses, DeleteChatFileResponses, DeleteChatImageArtifactResponses, DeleteChatModelResponses, DeleteChatPersonaLabelResponses, DeleteChatPersonaResponses, DeleteChatProjectResponses, DeleteChatPromptShortcutResponses, DeleteChatProviderResponses, DeleteChatSessionResponses, DeleteChatVoiceConnectionResponses, DeleteDocumentSetResponses, DeleteEmbeddingProviderResponses, DeleteGoogleDriveCredentialResponses, DeleteGroupResponses, DeleteIdentityProviderResponses, DeleteMcpServerOAuthClientResponses, DeleteMcpServerResponses, DeleteMeetingResponses, DeletePublicChatPromptShortcutResponses, DeleteSharePointCredentialResponses, DeleteSourceResponses, DisconnectMcpConnectionResponses, DisconnectMcpServerOAuthResponses, DiscoverGoogleDriveLinkedDocumentsResponses, DiscoverIdentityProviderData, DiscoverIdentityProviderResponses, DiscoverMcpServerOAuthResponses, DismissMeetingSpeakerSuggestionResponses, DownloadChatExportResponses, DownloadChatFileResponses, DownloadChatLibraryArchiveResponses, DownloadUsageReportResponses, EditChatMessageData, EditChatMessageResponses, EditMeetingMinutesItemData, EditMeetingMinutesItemResponses, EditMeetingMinutesSummaryData, EditMeetingMinutesSummaryResponses, EmptyChatLibraryTrashResponses, EndMeetingResponses, ExportAuditEventsResponses, ExportChatHistoryResponses, ExportMeetingMinutesData, ExportMeetingMinutesResponses, ExportMeetingTranscriptResponses, FinalizeChatFileUploadResponses, FinalizeMeetingRecordingResponses, FinalizeSourceUploadResponses, GenerateChatTitleResponses, GetAiCostDetailResponses, GetAiCostSummaryResponses, GetAuditCatalogResponses, GetAuditEventResponses, GetChatBranchesResponses, GetChatExportResponses, GetChatFeedbackResponses, GetChatFileArtifactChartResponses, GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactResponses, GetChatFilePolicyResponses, GetChatFileResponses, GetChatFileThumbnailResponses, GetChatGuardrailsResponses, GetChatHistoryResponses, GetChatHistoryTranscriptResponses, GetChatImageArtifactResponses, GetChatImageAvailabilityResponses, GetChatInterpreterHealthResponses, GetChatInterpreterSettingsResponses, GetChatLibraryArchiveResponses, GetChatLibraryTrashWindowResponses, GetChatLibraryUsageResponses, GetChatModelDefaultResponses, GetChatPersonaAvatarResponses, GetChatPersonaResponses, GetChatPreferencesResponses, GetChatProjectResponses, GetChatPromptShortcutPreferencesResponses, GetChatRetentionResponses, GetChatSessionResponses, GetChatSettingsResponses, GetChatSharingResponses, GetChatVoiceAvailabilityResponses, GetChatVoiceSettingsResponses, GetChatWebAvailabilityResponses, GetCurrentIdentityResponses, GetCurrentInvitationResponses, GetDocumentSetResponses, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeResponses, GetGroupResponses, GetMcpServerResponses, GetMeetingMinutesHeadingResponses, GetMeetingResponses, GetMyAiCostsResponses, GetMyAiUsageStandingResponses, GetPersonaModelResponses, GetSearchDocumentResponses, GetSearchSettingsResponses, GetSharedChatHistoryResponses, GetSharedChatSessionResponses, GetSharePointConfigurationResponses, GetSharePointRootsResponses, GetSharePointSelectionPolicyResponses, GetSharePointSelectionRequestResponses, GetSourceOperationResponses, GetSourceResponses, GetSourceRunResponses, HideChatPromptShortcutData, HideChatPromptShortcutResponses, InitiateChatFileUploadData, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, KeepMeetingWordingResponses, LeaveChatPersonaResponses, ListAiCostBreakdownResponses, ListAiCostDaysResponses, ListAiUsageLimitsResponses, ListAuditEventsResponses, ListAvailableChatModelsResponses, ListChatExportsResponses, ListChatFilesResponses, ListChatGroupOptionsResponses, ListChatHistoryResponses, ListChatImageConnectionsResponses, ListChatImageProvidersResponses, ListChatLibraryArchivesResponses, ListChatLibraryDocumentSourcesResponses, ListChatLibraryDocumentsResponses, ListChatLibraryMeetingsResponses, ListChatLibraryRecentResponses, ListChatLibraryResponses, ListChatLibrarySharedResponses, ListChatLibraryStarredResponses, ListChatModelFlowsResponses, ListChatModelPersonasResponses, ListChatPersonaLabelsResponses, ListChatPersonaModelsResponses, ListChatPersonaPinsResponses, ListChatPersonasForAdministrationResponses, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsResponses, ListChatPromptShortcutsResponses, ListChatProviderAdaptersResponses, ListChatProvidersResponses, ListChatSessionsResponses, ListChatVoiceConnectionsResponses, ListChatVoiceProvidersResponses, ListChatWebConnectionsResponses, ListChatWebEnginesData, ListChatWebEnginesResponses, ListConfiguredChatModelsResponses, ListDocumentSetsResponses, ListEmbeddingModelPresetsResponses, ListEmbeddingProvidersResponses, ListGoogleDriveCredentialsResponses, ListGroupCandidatesResponses, ListGroupCapabilitiesResponses, ListGroupMembersResponses, ListGroupSourcesResponses, ListGroupsResponses, ListIdentityProvidersResponses, ListInvitationsResponses, ListMcpConnectionsResponses, ListMcpGroupOptionsResponses, ListMcpServerOAuthClientsResponses, ListMcpServersResponses, ListMcpServerToolsResponses, ListMeetingCorrectionsResponses, ListMeetingsResponses, ListMeetingTranscribersResponses, ListProjectChatSessionsResponses, ListPublicChatPromptShortcutsResponses, ListReportedProviderModelsData, ListReportedProviderModelsResponses, ListSharePointCredentialsResponses, ListSourceGroupOptionsResponses, ListSourceGroupsResponses, ListSourceIndexAttemptsResponses, ListSourceItemsResponses, ListSourceRunErrorsResponses, ListSourceRunsResponses, ListSourcesResponses, ListUsageReportsResponses, ListUsersResponses, MarkMeetingMinutesItemData, MarkMeetingMinutesItemResponses, MoveChatProjectData, MoveChatProjectResponses, NameMeetingSpeakerData, NameMeetingSpeakerResponses, PauseSourceResponses, PinChatReasoningEffortData, PinChatReasoningEffortResponses, PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileSpreadsheetResponses, PreviewChatRetentionResponses, ProposeMeetingCorrectionsResponses, PublishMeetingMinutesResponses, PurgeChatLibraryFileResponses, ReadChatDocumentOriginalResponses, ReadChatDocumentPassagesResponses, ReadChatDocumentSpreadsheetResponses, ReadChatFilePassagesResponses, ReadChatFileTextResponses, ReadSearchDocumentOriginalResponses, ReadSearchDocumentSpreadsheetResponses, RecordChatLibraryEntryOpenedResponses, RefreshMcpServerToolsResponses, RegenerateChatMessageData, RegenerateChatMessageResponses, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientResponses, ReindexSourceItemResponses, RemoveChatFeedbackResponses, RemoveGroupManagerResponses, RemoveGroupMemberResponses, RemoveGroupSourceResponses, RemoveMeetingBookmarkResponses, RemoveMeetingMinutesItemResponses, RemoveSourceItemResponses, RenameChatPersonaLabelData, RenameChatPersonaLabelResponses, RenameChatSessionData, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, RenameSharePointCredentialData, RenameSharePointCredentialResponses, RenameSourceData, RenameSourceResponses, ReorderChatPersonasData, ReorderChatPersonasResponses, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGoogleDriveServiceAccountData, ReplaceGoogleDriveServiceAccountResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointScopeData, ReplaceSharePointScopeResponses, ReplaceUserGroupsData, ReplaceUserGroupsResponses, RequestChatExportResponses, RequestChatLibraryArchiveData, RequestChatLibraryArchiveResponses, RequestUsageReportData, RequestUsageReportResponses, RerunMeetingMinutesResponses, ReserveMeetingRecordingData, ReserveMeetingRecordingResponses, RestoreChatLibraryFileResponses, RestoreChatPersonaResponses, RestoreSearchPastGenerationResponses, ResumeSourceResponses, RetryChatFileResponses, RevertAllMeetingCorrectionsData, RevertAllMeetingCorrectionsResponses, RevertMeetingCorrectionResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationResponses, RotateInvitationResponses, SaveChatGroundedData, SaveChatGroundedResponses, SaveChatGuardrailsData, SaveChatGuardrailsResponses, SaveChatHistoryVisibilityData, SaveChatHistoryVisibilityResponses, SaveChatImageConnectionData, SaveChatImageConnectionResponses, SaveChatPreferencesData, SaveChatPreferencesResponses, SaveChatRetentionData, SaveChatRetentionResponses, SaveChatSettingsData, SaveChatSettingsResponses, SaveChatVoiceConnectionData, SaveChatVoiceConnectionResponses, SaveChatWebConnectionData, SaveChatWebConnectionResponses, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyResponses, SaveMeetingMinutesHeadingData, SaveMeetingMinutesHeadingResponses, SearchChatLibraryContentResponses, SearchChatSessionsResponses, SearchDocumentsData, SearchDocumentsResponses, SearchPrincipalsResponses, SelectChatBranchData, SelectChatBranchResponses, SelectChatImageProviderData, SelectChatImageProviderResponses, SelectChatPersonaData, SelectChatPersonaResponses, SelectChatVoiceProviderData, SelectChatVoiceProviderResponses, SelectChatWebProviderData, SelectChatWebProviderResponses, SendChatMessageData, SendChatMessageResponses, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledResponses, SetChatFeedbackData, SetChatFeedbackResponses, SetChatModelDefaultResponses, SetChatModelFlowResponses, SetChatPersonaListingData, SetChatPersonaListingResponses, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesResponses, SetChatSharingData, SetChatSharingResponses, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponses, SetMcpServerToolEnabledData, SetMcpServerToolEnabledResponses, SetPersonaModelResponses, ShareChatPersonaData, ShareChatPersonaResponses, ShareDocumentSetData, ShareDocumentSetResponses, ShareMeetingData, ShareMeetingResponses, StarChatLibraryEntryResponses, StarMeetingUtteranceResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationResponses, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationResponses, StreamChatMessageResponses, SwitchSearchFutureGenerationResponses, SynchronizeGoogleDriveSourceResponses, SynchronizeSharePointSourceResponses, SynthesizeChatVoiceData, SynthesizeChatVoiceResponses, TestChatImageConnectionData, TestChatImageConnectionResponses, TestChatProviderData, TestChatProviderResponses, TestChatVoiceConnectionResponses, TestChatWebConnectionData, TestChatWebConnectionResponses, TestEmbeddingProviderData, TestEmbeddingProviderResponses, TestSharePointCredentialResponses, TransferChatPersonaData, TransferChatPersonaResponses, UnarchiveChatSessionResponses, UnstarChatLibraryEntryResponses, UnstarMeetingUtteranceResponses, UpdateAiUsageLimitData, UpdateAiUsageLimitResponses, UpdateChatInterpreterSettingsData, UpdateChatInterpreterSettingsResponses, UpdateChatModelData, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectResponses, UpdateChatPromptShortcutData, UpdateChatPromptShortcutResponses, UpdateChatProviderData, UpdateChatProviderResponses, UpdateChatVoiceSettingsData, UpdateChatVoiceSettingsResponses, UpdateDocumentSetData, UpdateDocumentSetResponses, UpdateEmbeddingProviderData, UpdateEmbeddingProviderResponses, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateIdentityProviderData, UpdateIdentityProviderResponses, UpdateMcpServerData, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientResponses, UpdateMcpServerResponses, UpdateMeetingData, UpdateMeetingNotesData, UpdateMeetingNotesResponses, UpdateMeetingResponses, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutResponses, UpdateSharePointPauseData, UpdateSharePointPauseResponses, UpdateSharePointScheduleData, UpdateSharePointScheduleResponses, UpdateSourceAccessData, UpdateSourceAccessResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelResponses } from './types.gen';
 
 export type RequestHandlerOptions = RequestHandlerOptions2 & {
     baseUrl?: ClientOptions['baseUrl'];
@@ -2732,6 +2732,72 @@ export function handleSetChatModelDefault(response?: HandleSetChatModelDefaultRe
         const body = response?.body;
         if (body !== undefined) {
             return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUnstarChatLibraryEntryResponse = {
+    body: UnstarChatLibraryEntryResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/chat/library/entries/{kind}/{id}/star` operation.
+ */
+export function handleUnstarChatLibraryEntry(response?: HandleUnstarChatLibraryEntryResponse | HttpResponseResolver<{
+    kind: string;
+    id: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        kind: string;
+        id: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/chat/library/entries/:kind/:id/star`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleStarChatLibraryEntryResponse = {
+    body: StarChatLibraryEntryResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `PUT /api/chat/library/entries/{kind}/{id}/star` operation.
+ */
+export function handleStarChatLibraryEntry(response?: HandleStarChatLibraryEntryResponse | HttpResponseResolver<{
+    kind: string;
+    id: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        kind: string;
+        id: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/chat/library/entries/:kind/:id/star`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
         }
         if (options?.responseFallback === 'passthrough') {
             return;
@@ -6768,6 +6834,39 @@ export function handleEmptyChatLibraryTrash(response?: HandleEmptyChatLibraryTra
     }, options);
 }
 
+export type HandleRecordChatLibraryEntryOpenedResponse = {
+    body: RecordChatLibraryEntryOpenedResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `POST /api/chat/library/entries/{kind}/{id}/opened` operation.
+ */
+export function handleRecordChatLibraryEntryOpened(response?: HandleRecordChatLibraryEntryOpenedResponse | HttpResponseResolver<{
+    kind: string;
+    id: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        kind: string;
+        id: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/chat/library/entries/:kind/:id/opened`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleListChatLibraryArchivesResponse = {
     body: ListChatLibraryArchivesResponses[200];
     status?: 200;
@@ -9087,6 +9186,60 @@ export function handleGetChatLibraryTrashWindow(response?: HandleGetChatLibraryT
     }, options);
 }
 
+export type HandleListChatLibraryStarredResponse = {
+    body: ListChatLibraryStarredResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/library/starred` operation.
+ */
+export function handleListChatLibraryStarred(response?: HandleListChatLibraryStarredResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/library/starred`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChatLibrarySharedResponse = {
+    body: ListChatLibrarySharedResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/library/shared` operation.
+ */
+export function handleListChatLibraryShared(response?: HandleListChatLibrarySharedResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/library/shared`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleSearchChatLibraryContentResponse = {
     body: SearchChatLibraryContentResponses[200];
     status?: 200;
@@ -9097,6 +9250,114 @@ export type HandleSearchChatLibraryContentResponse = {
  */
 export function handleSearchChatLibraryContent(response?: HandleSearchChatLibraryContentResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
     return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/library/search`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChatLibraryRecentResponse = {
+    body: ListChatLibraryRecentResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/library/recent` operation.
+ */
+export function handleListChatLibraryRecent(response?: HandleListChatLibraryRecentResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/library/recent`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChatLibraryMeetingsResponse = {
+    body: ListChatLibraryMeetingsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/library/meetings` operation.
+ */
+export function handleListChatLibraryMeetings(response?: HandleListChatLibraryMeetingsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/library/meetings`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChatLibraryDocumentsResponse = {
+    body: ListChatLibraryDocumentsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/library/documents` operation.
+ */
+export function handleListChatLibraryDocuments(response?: HandleListChatLibraryDocumentsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/library/documents`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChatLibraryDocumentSourcesResponse = {
+    body: ListChatLibraryDocumentSourcesResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/library/documents/sources` operation.
+ */
+export function handleListChatLibraryDocumentSources(response?: HandleListChatLibraryDocumentSourcesResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/library/documents/sources`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -10898,6 +11159,14 @@ export type MswHandlerFactories = {
      */
     setChatModelDefault: typeof handleSetChatModelDefault;
     /**
+     * Handler for the `DELETE /api/chat/library/entries/{kind}/{id}/star` operation.
+     */
+    unstarChatLibraryEntry: typeof handleUnstarChatLibraryEntry;
+    /**
+     * Handler for the `PUT /api/chat/library/entries/{kind}/{id}/star` operation.
+     */
+    starChatLibraryEntry: typeof handleStarChatLibraryEntry;
+    /**
      * Handler for the `GET /api/chat/interpreter` operation.
      */
     getChatInterpreterSettings: typeof handleGetChatInterpreterSettings;
@@ -11438,6 +11707,10 @@ export type MswHandlerFactories = {
      */
     emptyChatLibraryTrash: typeof handleEmptyChatLibraryTrash;
     /**
+     * Handler for the `POST /api/chat/library/entries/{kind}/{id}/opened` operation.
+     */
+    recordChatLibraryEntryOpened: typeof handleRecordChatLibraryEntryOpened;
+    /**
      * Handler for the `GET /api/chat/library/archives` operation.
      */
     listChatLibraryArchives: typeof handleListChatLibraryArchives;
@@ -11758,9 +12031,33 @@ export type MswHandlerFactories = {
      */
     getChatLibraryTrashWindow: typeof handleGetChatLibraryTrashWindow;
     /**
+     * Handler for the `GET /api/chat/library/starred` operation.
+     */
+    listChatLibraryStarred: typeof handleListChatLibraryStarred;
+    /**
+     * Handler for the `GET /api/chat/library/shared` operation.
+     */
+    listChatLibraryShared: typeof handleListChatLibraryShared;
+    /**
      * Handler for the `GET /api/chat/library/search` operation.
      */
     searchChatLibraryContent: typeof handleSearchChatLibraryContent;
+    /**
+     * Handler for the `GET /api/chat/library/recent` operation.
+     */
+    listChatLibraryRecent: typeof handleListChatLibraryRecent;
+    /**
+     * Handler for the `GET /api/chat/library/meetings` operation.
+     */
+    listChatLibraryMeetings: typeof handleListChatLibraryMeetings;
+    /**
+     * Handler for the `GET /api/chat/library/documents` operation.
+     */
+    listChatLibraryDocuments: typeof handleListChatLibraryDocuments;
+    /**
+     * Handler for the `GET /api/chat/library/documents/sources` operation.
+     */
+    listChatLibraryDocumentSources: typeof handleListChatLibraryDocumentSources;
     /**
      * Handler for the `GET /api/chat/library/archives/{archiveId}` operation.
      */
@@ -12060,6 +12357,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         setChatModelFlow: wrap(handleSetChatModelFlow),
         getChatModelDefault: wrap(handleGetChatModelDefault),
         setChatModelDefault: wrap(handleSetChatModelDefault),
+        unstarChatLibraryEntry: wrap(handleUnstarChatLibraryEntry),
+        starChatLibraryEntry: wrap(handleStarChatLibraryEntry),
         getChatInterpreterSettings: wrap(handleGetChatInterpreterSettings),
         updateChatInterpreterSettings: wrap(handleUpdateChatInterpreterSettings),
         selectChatImageProvider: wrap(handleSelectChatImageProvider),
@@ -12195,6 +12494,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         purgeChatLibraryFile: wrap(handlePurgeChatLibraryFile),
         copyChatLibraryFile: wrap(handleCopyChatLibraryFile),
         emptyChatLibraryTrash: wrap(handleEmptyChatLibraryTrash),
+        recordChatLibraryEntryOpened: wrap(handleRecordChatLibraryEntryOpened),
         listChatLibraryArchives: wrap(handleListChatLibraryArchives),
         requestChatLibraryArchive: wrap(handleRequestChatLibraryArchive),
         testChatImageConnection: wrap(handleTestChatImageConnection),
@@ -12275,7 +12575,13 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listChatLibrary: wrap(handleListChatLibrary),
         getChatLibraryUsage: wrap(handleGetChatLibraryUsage),
         getChatLibraryTrashWindow: wrap(handleGetChatLibraryTrashWindow),
+        listChatLibraryStarred: wrap(handleListChatLibraryStarred),
+        listChatLibraryShared: wrap(handleListChatLibraryShared),
         searchChatLibraryContent: wrap(handleSearchChatLibraryContent),
+        listChatLibraryRecent: wrap(handleListChatLibraryRecent),
+        listChatLibraryMeetings: wrap(handleListChatLibraryMeetings),
+        listChatLibraryDocuments: wrap(handleListChatLibraryDocuments),
+        listChatLibraryDocumentSources: wrap(handleListChatLibraryDocumentSources),
         getChatLibraryArchive: wrap(handleGetChatLibraryArchive),
         downloadChatLibraryArchive: wrap(handleDownloadChatLibraryArchive),
         getChatInterpreterHealth: wrap(handleGetChatInterpreterHealth),
@@ -12335,6 +12641,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         }
         const overrides = options.pick ?? {};
         return [
+            invoke(pick.unstarChatLibraryEntry, overrides.unstarChatLibraryEntry),
+            invoke(pick.starChatLibraryEntry, overrides.starChatLibraryEntry),
+            invoke(pick.recordChatLibraryEntryOpened, overrides.recordChatLibraryEntryOpened),
             invoke(pick.registerMcpServerOAuthClient, overrides.registerMcpServerOAuthClient),
             invoke(pick.deleteMcpServerOAuthClient, overrides.deleteMcpServerOAuthClient),
             invoke(pick.updateMcpServerOAuthClient, overrides.updateMcpServerOAuthClient),
@@ -12384,6 +12693,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.nameMeetingSpeaker, overrides.nameMeetingSpeaker),
             invoke(pick.switchSearchFutureGeneration, overrides.switchSearchFutureGeneration),
             invoke(pick.emptyChatLibraryTrash, overrides.emptyChatLibraryTrash),
+            invoke(pick.listChatLibraryDocumentSources, overrides.listChatLibraryDocumentSources),
             invoke(pick.saveChatWebConnection, overrides.saveChatWebConnection),
             invoke(pick.deleteChatVoiceConnection, overrides.deleteChatVoiceConnection),
             invoke(pick.saveChatVoiceConnection, overrides.saveChatVoiceConnection),
@@ -12512,7 +12822,12 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listChatPersonasForAdministration, overrides.listChatPersonasForAdministration),
             invoke(pick.getChatLibraryUsage, overrides.getChatLibraryUsage),
             invoke(pick.getChatLibraryTrashWindow, overrides.getChatLibraryTrashWindow),
+            invoke(pick.listChatLibraryStarred, overrides.listChatLibraryStarred),
+            invoke(pick.listChatLibraryShared, overrides.listChatLibraryShared),
             invoke(pick.searchChatLibraryContent, overrides.searchChatLibraryContent),
+            invoke(pick.listChatLibraryRecent, overrides.listChatLibraryRecent),
+            invoke(pick.listChatLibraryMeetings, overrides.listChatLibraryMeetings),
+            invoke(pick.listChatLibraryDocuments, overrides.listChatLibraryDocuments),
             invoke(pick.getChatInterpreterHealth, overrides.getChatInterpreterHealth),
             invoke(pick.listChatImageProviders, overrides.listChatImageProviders),
             invoke(pick.listChatImageConnections, overrides.listChatImageConnections),

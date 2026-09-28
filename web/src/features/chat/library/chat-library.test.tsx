@@ -25,6 +25,7 @@ import {
   handleListAvailableChatModels,
   handleListChatProjects,
   handlePreviewChatRetention,
+  handleRecordChatLibraryEntryOpened,
   handleUpdateChatProject,
 } from "@/lib/hey-api/msw.gen";
 import type { ChatLibraryFile, ProjectInput } from "@/lib/hey-api/types.gen";
@@ -35,6 +36,7 @@ import { ChatLibraryPage, ChatStoragePage } from "./chat-library";
 
 vi.mock("@/features/identity/application-session-context", () => ({
   useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
+  useGlobalCapability: () => false,
 }));
 
 vi.mock("@/components/app-shell/app-shell", () => ({
@@ -126,6 +128,8 @@ beforeEach(async () => {
     handleGetChatLibraryTrashWindow({ body: { days: 30 } }),
     handleGetChatRetention({ body: { days: null } }),
     handlePreviewChatRetention({ body: { days: null, affected: 0 } }),
+    // Opening a file is recorded for Gần đây; the page never waits on it.
+    handleRecordChatLibraryEntryOpened(() => new HttpResponse(null, { status: 204 })),
   );
 });
 

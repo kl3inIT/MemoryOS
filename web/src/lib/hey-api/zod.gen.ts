@@ -3290,6 +3290,103 @@ export const zChatLibraryTrashWindow = z.object({
     days: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
+/**
+ * An assistant the viewer uses that grants them this file
+ */
+export const zChatLibraryEntryAgent = z.object({
+    id: z.uuid(),
+    name: z.string()
+});
+
+/**
+ * Where a Source document comes from and what Search serves of it
+ */
+export const zChatLibraryEntryDocument = z.object({
+    generation: z.uuid().nullable(),
+    title: z.string().nullable(),
+    sourceId: z.uuid(),
+    sourceName: z.string(),
+    sourceType: z.enum([
+        'FILE',
+        'GOOGLE_DRIVE',
+        'SHAREPOINT'
+    ]),
+    providerUrl: z.string().nullable()
+});
+
+/**
+ * What a meeting row offers: its biên bản and its transcript
+ */
+export const zChatLibraryEntryMeeting = z.object({
+    status: z.enum([
+        'RECORDING',
+        'TRANSCRIBING',
+        'ENDED'
+    ]),
+    minutesReady: z.boolean(),
+    hasTranscript: z.boolean(),
+    durationMs: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Why the row is visible: the rule that admitted it
+ */
+export const zChatLibraryEntryReason = z.object({
+    kind: z.enum([
+        'OWNER',
+        'MEMBER_SHARE',
+        'GROUP_SHARE',
+        'AGENT',
+        'PUBLIC_SOURCE',
+        'GROUP_SOURCE',
+        'PROVIDER_SOURCE'
+    ]),
+    names: z.array(z.string())
+});
+
+/**
+ * One row of a library view: an owned file, or a read-only reference to something the viewer may read now through a share, an assistant or a Source
+ */
+export const zChatLibraryEntry = z.object({
+    kind: z.enum([
+        'UPLOAD',
+        'GENERATED',
+        'IMAGE',
+        'MEETING',
+        'AGENT_FILE',
+        'DOCUMENT'
+    ]),
+    id: z.uuid(),
+    name: z.string(),
+    mediaType: z.string().nullable(),
+    sizeBytes: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).nullable(),
+    category: z.enum([
+        'DOCUMENT',
+        'SPREADSHEET',
+        'IMAGE',
+        'PRESENTATION',
+        'OTHER'
+    ]),
+    at: z.iso.datetime(),
+    owned: z.boolean(),
+    starred: z.boolean(),
+    openedAt: z.iso.datetime().nullable(),
+    ownerName: z.string().nullable(),
+    reason: zChatLibraryEntryReason,
+    sessionId: z.uuid().nullable(),
+    sessionTitle: z.string().nullable(),
+    messageId: z.uuid().nullable(),
+    meeting: zChatLibraryEntryMeeting.nullable(),
+    agents: z.array(zChatLibraryEntryAgent),
+    document: zChatLibraryEntryDocument.nullable()
+});
+
+export const zChatLibraryEntryPage = z.object({
+    items: z.array(zChatLibraryEntry),
+    totalCount: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    hasMore: z.boolean()
+});
+
 export const zChatLibraryPassage = z.object({
     text: z.string(),
     ordinal: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
@@ -3298,6 +3395,24 @@ export const zChatLibraryPassage = z.object({
 export const zChatLibraryContentMatch = z.object({
     file: zChatLibraryFile,
     passages: z.array(zChatLibraryPassage)
+});
+
+export const zChatLibraryDocumentPage = z.object({
+    items: z.array(zChatLibraryEntry),
+    nextCursor: z.string().nullable()
+});
+
+/**
+ * A Source the viewer may narrow the documents view to
+ */
+export const zChatLibrarySourceOption = z.object({
+    id: z.uuid(),
+    name: z.string(),
+    type: z.enum([
+        'FILE',
+        'GOOGLE_DRIVE',
+        'SHAREPOINT'
+    ])
 });
 
 export const zInterpreterHealthResponse = z.object({
@@ -4556,6 +4671,40 @@ export const zSetChatModelDefaultQuery = z.object({
  * Successful result
  */
 export const zSetChatModelDefaultResponse = zDefault;
+
+export const zUnstarChatLibraryEntryPath = z.object({
+    kind: z.enum([
+        'UPLOAD',
+        'GENERATED',
+        'IMAGE',
+        'MEETING',
+        'AGENT_FILE',
+        'DOCUMENT'
+    ]),
+    id: z.uuid()
+});
+
+/**
+ * Not starred
+ */
+export const zUnstarChatLibraryEntryResponse = z.void();
+
+export const zStarChatLibraryEntryPath = z.object({
+    kind: z.enum([
+        'UPLOAD',
+        'GENERATED',
+        'IMAGE',
+        'MEETING',
+        'AGENT_FILE',
+        'DOCUMENT'
+    ]),
+    id: z.uuid()
+});
+
+/**
+ * Starred
+ */
+export const zStarChatLibraryEntryResponse = z.void();
 
 /**
  * Code Interpreter setting
@@ -5855,6 +6004,23 @@ export const zCopyChatLibraryFileResponse = zChatFileResponse;
  */
 export const zEmptyChatLibraryTrashResponse = zChatLibraryTrashEmptied;
 
+export const zRecordChatLibraryEntryOpenedPath = z.object({
+    kind: z.enum([
+        'UPLOAD',
+        'GENERATED',
+        'IMAGE',
+        'MEETING',
+        'AGENT_FILE',
+        'DOCUMENT'
+    ]),
+    id: z.uuid()
+});
+
+/**
+ * Recorded
+ */
+export const zRecordChatLibraryEntryOpenedResponse = z.void();
+
 /**
  * Archives, newest first
  */
@@ -6638,6 +6804,36 @@ export const zGetChatLibraryUsageResponse = zChatLibraryUsage;
  */
 export const zGetChatLibraryTrashWindowResponse = zChatLibraryTrashWindow;
 
+export const zListChatLibraryStarredQuery = z.object({
+    query: z.string().optional().default(''),
+    kinds: z.array(z.string()).optional(),
+    offset: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0),
+    limit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(50)
+});
+
+/**
+ * A page of starred entries
+ */
+export const zListChatLibraryStarredResponse = zChatLibraryEntryPage;
+
+export const zListChatLibrarySharedQuery = z.object({
+    query: z.string().optional().default(''),
+    kinds: z.array(z.string()).optional(),
+    categories: z.array(z.string()).optional(),
+    sort: z.enum([
+        'NEWEST',
+        'OLDEST',
+        'NAME'
+    ]).optional(),
+    offset: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0),
+    limit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(50)
+});
+
+/**
+ * A page of what others share with the caller
+ */
+export const zListChatLibrarySharedResponse = zChatLibraryEntryPage;
+
 export const zSearchChatLibraryContentQuery = z.object({
     query: z.string()
 });
@@ -6646,6 +6842,55 @@ export const zSearchChatLibraryContentQuery = z.object({
  * Matching files, best first
  */
 export const zSearchChatLibraryContentResponse = z.array(zChatLibraryContentMatch);
+
+export const zListChatLibraryRecentQuery = z.object({
+    limit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(100)
+});
+
+/**
+ * Up to 100 entries
+ */
+export const zListChatLibraryRecentResponse = z.array(zChatLibraryEntry);
+
+export const zListChatLibraryMeetingsQuery = z.object({
+    query: z.string().optional().default(''),
+    owner: z.enum([
+        'ALL',
+        'MINE',
+        'SHARED'
+    ]).optional(),
+    sort: z.enum([
+        'NEWEST',
+        'OLDEST',
+        'NAME'
+    ]).optional(),
+    offset: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0),
+    limit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(50)
+});
+
+/**
+ * A page of meetings
+ */
+export const zListChatLibraryMeetingsResponse = zChatLibraryEntryPage;
+
+export const zListChatLibraryDocumentsQuery = z.object({
+    query: z.string().optional().default(''),
+    sourceIds: z.array(z.uuid()).optional(),
+    categories: z.array(z.string()).optional(),
+    sort: z.enum(['NEWEST', 'NAME']).optional(),
+    cursor: z.string().optional(),
+    limit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(50)
+});
+
+/**
+ * A page of documents and the cursor of the next one
+ */
+export const zListChatLibraryDocumentsResponse = zChatLibraryDocumentPage;
+
+/**
+ * Sources, as Search offers them
+ */
+export const zListChatLibraryDocumentSourcesResponse = z.array(zChatLibrarySourceOption);
 
 export const zGetChatLibraryArchivePath = z.object({
     archiveId: z.uuid()

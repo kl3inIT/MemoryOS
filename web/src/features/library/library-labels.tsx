@@ -1,5 +1,7 @@
-import type { useAppTranslation } from "@/i18n/use-app-translation";
+import { Mic } from "lucide-react";
+import type { AppTranslate, useAppTranslation } from "@/i18n/use-app-translation";
 import type { LibraryCategory, LibraryFile, LibrarySource } from "./library";
+import type { LibraryEntry, LibraryEntryKind } from "./library-entries";
 import { CATEGORY_ICONS } from "./library-icons";
 
 /** How a file is named on screen: where it came from, what kind it is, and how far along it is. */
@@ -9,6 +11,16 @@ export function sourceLabels(ui: ReturnType<typeof useAppTranslation>) {
     GENERATED: ui("Do mã tạo"),
     IMAGE: ui("Ảnh AI"),
   } satisfies Record<LibrarySource, string>;
+}
+
+/** What an entry is, as its row names it; an owned file reads as its source does in Tệp của tôi. */
+export function entryKindLabels(ui: AppTranslate) {
+  return {
+    ...sourceLabels(ui),
+    MEETING: ui("Cuộc họp"),
+    AGENT_FILE: ui("Tệp của trợ lý"),
+    DOCUMENT: ui("Tài liệu tổ chức"),
+  } satisfies Record<LibraryEntryKind, string>;
 }
 
 export function categoryLabels(ui: ReturnType<typeof useAppTranslation>) {
@@ -38,5 +50,11 @@ export function statusLabel(file: LibraryFile, ui: ReturnType<typeof useAppTrans
 
 export function categoryIcon(file: LibraryFile, className = "size-4 text-content-muted") {
   const Icon = CATEGORY_ICONS[file.category];
+  return <Icon className={className} aria-hidden="true" />;
+}
+
+/** A meeting is a recording, not a file; everything else wears the icon of its category. */
+export function entryIcon(entry: LibraryEntry, className = "size-4 text-content-muted") {
+  const Icon = entry.kind === "MEETING" ? Mic : CATEGORY_ICONS[entry.category ?? "OTHER"];
   return <Icon className={className} aria-hidden="true" />;
 }
