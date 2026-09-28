@@ -73,3 +73,31 @@ describe("nginx WebSocket routes", () => {
     expect(general.body).toMatch(/proxy_set_header\s+Connection\s+""\s*;/);
   });
 });
+
+/**
+ * Nginx inherits `add_header` into a location only when that location declares none of its own, so one
+ * `add_header` in a location silently strips the policy headers from every response it serves.
+ */
+describe("nginx security headers", () => {
+  const server = locations(config).reduce(
+    (text, block) => text.replace(block.body, ""),
+    config.slice(config.indexOf("server {")),
+  );
+
+  it.each([
+    "Content-Security-Policy",
+    "Referrer-Policy",
+    "X-Content-Type-Options",
+    "X-Frame-Options",
+    "Permissions-Policy",
+  ])("declares %s for the whole server", (header) => {
+    expect(server).toMatch(new RegExp(`add_header\\s+${header}\\s+.+\\s+always\\s*;`));
+  });
+
+  it("lets every location inherit them", () => {
+    const overriding = locations(config)
+      .filter((block) => /(^|\s)add_header\s/.test(block.body))
+      .map((block) => block.selector);
+    expect(overriding).toEqual([]);
+  });
+});

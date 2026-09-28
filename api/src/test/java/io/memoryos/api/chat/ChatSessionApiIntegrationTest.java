@@ -1944,8 +1944,7 @@ class ChatSessionApiIntegrationTest {
                 .map(line -> line.split(" ")[1]).findFirst().orElseThrow();
         String nginx = Files.readString(web.resolve("nginx.conf"))
                 .replace("proxy_pass $memoryos_api;", "proxy_pass http://host.testcontainers.internal:" + port + ";")
-                .replace("${MEMORYOS_OBJECT_STORAGE_CONNECT_SRC}", "")
-                .replace("${MEMORYOS_SENTRY_CONNECT_SRC}", "");
+                .replace("${MEMORYOS_OBJECT_STORAGE_CONNECT_SRC}", "");
         try (var proxy = new GenericContainer<>(image);
              var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
             proxy.withExposedPorts(8080).withCopyToContainer(Transferable.of(nginx), "/etc/nginx/nginx.conf");
