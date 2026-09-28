@@ -21,7 +21,7 @@ function SourceTile({ source }: { source: ChatSource }) {
     );
   return (
     <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle">
-      <SourceIcon domain={new URL(source.web.url).hostname} fallback="globe" className="size-4" />
+      <SourceIcon domain={new URL(source.web.url).hostname} className="size-4" />
     </span>
   );
 }
