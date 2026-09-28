@@ -36,7 +36,7 @@ import {
   type MeetingDetail,
   type MeetingHeadingRequest,
 } from "./meetings-api";
-import { slug } from "./meeting-file-name";
+import { slug } from "@/lib/meeting-file-name";
 import { useFailureText } from "./use-failure-text";
 
 /**

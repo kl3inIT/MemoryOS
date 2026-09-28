@@ -1,7 +1,15 @@
 # Plan
 
 > Closed 2026-09-27 by owner decision (Linear Done); open acceptance items not run:
-> - Staging acceptance and the grounded baseline (status line of this plan)
+> - The grounded benchmark baseline (`baseline.grounded.json`)
+>
+> Staging acceptance through the API, 2026-09-28, release `7f583270`, actor `exec`, Tenant grounded with the three
+> topics and one blocked phrase: a greeting answers normally; an in-corpus question answers with a citation; a
+> general-knowledge question is refused (`uncited`: search returned sources the model did not cite); a leaders
+> question and an NFD-spelled blocked phrase answer with the Tenant's message (`blocked_topic`) and record
+> `chat_guardrail.block`; Web and Research requests are refused (`CHAT_WEB_UNAVAILABLE`,
+> `CHAT_RESEARCH_UNAVAILABLE`). The first run found every block failing the turn: `recordBlock` called the
+> transactional `AuditTrail.record` from the Chat thread, fixed by PR #387 (`recordSeparately`).
 > - Phase 3 grounding checks
 
 

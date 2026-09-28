@@ -644,6 +644,94 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void aReaderThroughAnAssistantDownloadsItsFileAndFindsItInTheLibraryUntilTheShareEnds() throws Exception {
+        var checksum = new ContentSha256("a".repeat(64));
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization(
+                "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(4,"text/plain",checksum));
+        String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","quy-che.txt",
+                "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
+        var created = mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk()).andReturn();
+        String id = Json.mapper().readTree(created.getResponse().getContentAsString()).path("file").path("id").asText();
+        mockMvc.perform(post("/api/chat/files/"+id+"/finalize").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isAccepted());
+        jdbc.sql("UPDATE chat_user_file SET status='READY',detected_media_type='text/plain' WHERE id=:id")
+                .param("id", UUID.fromString(id)).update();
+        var reader = actor();
+        UUID agent = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model,file_ids)
+                VALUES (:id,:tenant,:owner,'Trợ lý nhân sự','','model',CAST(:files AS jsonb))
+                """).param("id", agent).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value())
+                .param("files", "[\"" + id + "\"]").update();
+        jdbc.sql("INSERT INTO persona_user_share(tenant_id,persona_id,actor_id,permission) VALUES (:tenant,:agent,:actor,'VIEWER')")
+                .param("tenant", TENANT).param("agent", agent).param("actor", reader.getPrincipal().actorId().value()).update();
+        var original = mock(ObjectContent.class);
+        when(original.metadata()).thenReturn(new ObjectMetadata(4,"text/plain",checksum));
+        when(original.inputStream()).thenReturn(new ByteArrayInputStream("test".getBytes(UTF_8)));
+        when(fileStorage.open(any())).thenReturn(original);
+        String download = "/api/chat/files/" + id + "/content";
+
+        // Owner decision 2: the assistant's reader downloads the file; a member it is not shared with cannot.
+        mockMvc.perform(get(download).with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(content().string("test"))
+                .andExpect(header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"));
+        mockMvc.perform(get(download).with(authentication(other))).andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/chat/library/shared").with(authentication(reader)).param("kinds","AGENT_FILE"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(jsonPath("$.totalCount").value(1)).andExpect(jsonPath("$.hasMore").value(false))
+                .andExpect(jsonPath("$.items[0].kind").value("AGENT_FILE"))
+                .andExpect(jsonPath("$.items[0].id").value(id))
+                .andExpect(jsonPath("$.items[0].name").value("quy-che.txt"))
+                .andExpect(jsonPath("$.items[0].category").value("DOCUMENT"))
+                .andExpect(jsonPath("$.items[0].owned").value(false))
+                .andExpect(jsonPath("$.items[0].starred").value(false))
+                .andExpect(jsonPath("$.items[0].reason.kind").value("AGENT"))
+                .andExpect(jsonPath("$.items[0].reason.names[0]").value("Trợ lý nhân sự"))
+                .andExpect(jsonPath("$.items[0].agents[0].id").value(agent.toString()))
+                .andExpect(jsonPath("$.items[0].meeting").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$.items[0].document").value(Matchers.nullValue()));
+        mockMvc.perform(get("/api/chat/library/shared").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library/shared").with(authentication(reader)).param("kinds","DOCUMENT"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
+
+        String entry = "/api/chat/library/entries/AGENT_FILE/" + id;
+        mockMvc.perform(put(entry+"/star").with(authentication(reader))).andExpect(status().isForbidden());
+        mockMvc.perform(put(entry+"/star").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post(entry+"/opened").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/chat/library/starred").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(id)).andExpect(jsonPath("$.items[0].starred").value(true));
+        mockMvc.perform(get("/api/chat/library/recent").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(id)).andExpect(jsonPath("$[0].openedAt").isNotEmpty());
+        // Nobody marks what they cannot read, and an unknown kind is refused.
+        mockMvc.perform(post(entry+"/opened").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CHAT_UNAVAILABLE"));
+        mockMvc.perform(put("/api/chat/library/entries/FOLDER/"+id+"/star").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isBadRequest());
+
+        // Ending the share takes the file off every surface at the next read; the marks grant nothing.
+        jdbc.sql("DELETE FROM persona_user_share WHERE persona_id=:agent").param("agent", agent).update();
+        mockMvc.perform(get(download).with(authentication(reader))).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/chat/library/shared").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library/starred").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library/recent").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(delete(entry+"/star").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne() throws Exception {
         when(fileStorage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization(
                 "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));

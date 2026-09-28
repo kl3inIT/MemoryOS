@@ -71,7 +71,7 @@ class ChatFileController {
     }
 
     @GetMapping("/{fileId}/preview")
-    @Operation(operationId="previewChatFileSpreadsheet", summary="Read an owner-private xlsx attachment as CSV text per sheet, each cut at a row boundary")
+    @Operation(operationId="previewChatFileSpreadsheet", summary="Read an xlsx attachment the caller owns, or reads through an assistant they use, as CSV text per sheet, each cut at a row boundary")
     @ApiResponse(responseCode="200",description="Sheets in workbook order",content=@Content(mediaType=MediaType.APPLICATION_JSON_VALUE, schema=@Schema(implementation=ChatSpreadsheetPreviewResponse.class)))
     ResponseEntity<ChatSpreadsheetPreviewResponse> preview(@CurrentActor IdentityContext identity,
             @PathVariable UUID fileId) {
@@ -81,11 +81,11 @@ class ChatFileController {
     }
 
     @GetMapping(value="/{fileId}/content", produces=MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @Operation(operationId="downloadChatFile", summary="Download an owner-private original file without inline execution")
+    @Operation(operationId="downloadChatFile", summary="Download an original file the caller owns, or reads through an assistant they use, without inline execution")
     @ApiResponse(responseCode="200",description="Original file bytes",content=@Content(mediaType=MediaType.APPLICATION_OCTET_STREAM_VALUE, schema=@Schema(type="string",format="binary")))
     void download(@CurrentActor IdentityContext identity,
             @PathVariable UUID fileId, HttpServletResponse response) throws IOException {
-        var file = files.get(identity.actorId(), fileId);
+        var file = files.servable(identity.actorId(), fileId);
         try (var input = content.open(identity.actorId(), fileId)) {
             response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
             response.setHeader("Content-Disposition", ContentDisposition.attachment().filename(file.filename(), StandardCharsets.UTF_8).build().toString());

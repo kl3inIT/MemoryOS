@@ -1,11 +1,14 @@
 package io.memoryos.library.persistence;
 
+import io.memoryos.shared.FileCategorySql;
 import io.memoryos.shared.LikePattern;
 import io.memoryos.library.LibraryFile;
 import io.memoryos.library.UserFile;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -37,24 +40,8 @@ public class JdbcLibraryRepository {
 
     public record Page(List<LibraryFile> items, long totalCount, long totalBytes) {}
 
-    /**
-     * A category is derived from the stored media type and name rather than stored, so it cannot drift from
-     * the file and a new type needs no migration.
-     */
-    private static final String CATEGORY = """
-            CASE
-                WHEN f.media_type LIKE 'image/%' THEN 'IMAGE'
-                WHEN f.media_type IN ('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                      'application/vnd.ms-excel','text/csv','text/tab-separated-values')
-                     OR lower(f.filename) ~ '\\.(xlsx|xlsm|xls|csv|tsv)$' THEN 'SPREADSHEET'
-                WHEN f.media_type IN ('application/vnd.openxmlformats-officedocument.presentationml.presentation',
-                                      'application/vnd.ms-powerpoint')
-                     OR lower(f.filename) ~ '\\.(pptx|ppt)$' THEN 'PRESENTATION'
-                WHEN f.media_type IN ('application/pdf','application/msword','text/markdown','text/plain',
-                                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-                     OR lower(f.filename) ~ '\\.(pdf|docx|doc|md|txt|rtf|odt)$' THEN 'DOCUMENT'
-                ELSE 'OTHER'
-            END""";
+    /** The category of an owned file, by the rule every listing shares. */
+    private static final String CATEGORY = FileCategorySql.caseExpression("f.media_type", "f.filename");
 
     /**
      * Uploads carry no conversation: they may be attached to several, to a Project or Agent, or to none. Only a
@@ -156,15 +143,7 @@ public class JdbcLibraryRepository {
                 ORDER BY %s OFFSET :offset LIMIT :limit
                 """.formatted(filtered(), order)), tenant, actor, filter)
                 .param("offset", offset).param("limit", limit)
-                .query((row, ignored) -> new Row(new LibraryFile(
-                        LibraryFile.Source.valueOf(row.getString("source")), row.getObject("id", UUID.class),
-                        row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
-                        row.getTimestamp("created_at").toInstant(), LibraryFile.Category.valueOf(row.getString("category")),
-                        row.getObject("session_id", UUID.class), row.getString("session_title"),
-                        row.getObject("message_id", UUID.class), row.getTimestamp("favorite_at") != null,
-                        UserFile.Status.valueOf(row.getString("status")), row.getString("error_code"),
-                        instant(row.getTimestamp("deleted_at")), instant(row.getTimestamp("purge_after")), List.of()),
-                        row.getLong("total_count"), row.getLong("total_bytes")))
+                .query((row, ignored) -> new Row(file(row), row.getLong("total_count"), row.getLong("total_bytes")))
                 .list();
         // A page past the end carries no window row, and the filter's totals must not collapse with it.
         if (rows.isEmpty()) return totals(tenant, actor, filter);
@@ -180,6 +159,35 @@ public class JdbcLibraryRepository {
                 """.formatted(filtered())), tenant, actor, filter)
                 .query((row, ignored) -> new Page(List.of(), row.getLong("total_count"), row.getLong("total_bytes")))
                 .single();
+    }
+
+    /** An owned file its owner starred, with when they starred it. */
+    public record Favorite(LibraryFile file, Instant favoritedAt) {}
+
+    /**
+     * The owner's starred files, most recently starred first, at most {@code limit}: the rows the listing shows
+     * with its starred filter, ordered by the star rather than by the file.
+     */
+    public List<Favorite> favorites(TenantId tenant, ActorId actor, int limit) {
+        return bind(jdbc.sql("""
+                SELECT source, id, filename, media_type, size_bytes, created_at, session_id, session_title, category,
+                       message_id, favorite_at, status, error_code, deleted_at, purge_after
+                FROM (%s) categorized
+                ORDER BY favorite_at DESC, id LIMIT :limit
+                """.formatted(filtered())), tenant, actor, new Filter("", Set.of(), Set.of(), null, true, false, null))
+                .param("limit", limit)
+                .query((row, ignored) -> new Favorite(file(row), row.getTimestamp("favorite_at").toInstant()))
+                .list();
+    }
+
+    private static LibraryFile file(ResultSet row) throws SQLException {
+        return new LibraryFile(LibraryFile.Source.valueOf(row.getString("source")), row.getObject("id", UUID.class),
+                row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
+                row.getTimestamp("created_at").toInstant(), LibraryFile.Category.valueOf(row.getString("category")),
+                row.getObject("session_id", UUID.class), row.getString("session_title"),
+                row.getObject("message_id", UUID.class), row.getTimestamp("favorite_at") != null,
+                UserFile.Status.valueOf(row.getString("status")), row.getString("error_code"),
+                instant(row.getTimestamp("deleted_at")), instant(row.getTimestamp("purge_after")), List.of());
     }
 
     private static String filtered() { return FILTERED.formatted(CATEGORY, SOURCES); }

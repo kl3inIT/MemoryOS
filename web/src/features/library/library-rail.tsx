@@ -1,14 +1,22 @@
-import { FolderOpen, LoaderCircle, Star, Trash2 } from "lucide-react";
+import { Building2, Clock, FolderOpen, LoaderCircle, Mic, Star, Trash2, Users } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { TextButton } from "@/components/ui/text-button";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
 import { fileSize } from "@/lib/file-size";
 
-/** Which slice of the library is on screen. Favourites are a slice of the usable files, not a state of their own. */
-export type LibraryView = "ready" | "favorite" | "pending" | "trash";
+/**
+ * The views that read everything the person can see or use, each behind the capability that owns what it lists.
+ * Their rows are references the server re-authorizes on every read.
+ */
+export type LibraryEntryView = "recent" | "shared" | "meetings" | "documents" | "starred";
+/** The views of what the person owns: usable files, what is arriving, and the trash. */
+export type LibraryOwnedView = "ready" | "pending" | "trash";
+/** Which slice of the library is on screen. */
+export type LibraryView = LibraryEntryView | LibraryOwnedView;
 
 export type LibraryUsage = {
   usedBytes: number;
@@ -20,10 +28,11 @@ export type LibraryUsage = {
 const NEARLY_FULL = 90;
 
 /**
- * The library's own navigation, beside the list rather than stacked above it: the four slices a file can be in,
- * and what the account has stored. Above the page's rail breakpoint the views read as a column that stays in
- * place while the list scrolls, and scroll on their own when the window is too short to hold them; below it they
- * scroll as one row, so a phone keeps the list in view.
+ * The library's own navigation, beside the list rather than stacked above it: the views of what the person can
+ * see or use, and what the account has stored. Above the page's rail breakpoint the views read as a column that
+ * stays in place while the list scrolls, and scroll on their own when the window is too short to hold them; below
+ * it they scroll as one row, so a phone keeps the list in view. The organisation's documents need Search, so a
+ * person without it never sees that view.
  */
 export function LibraryRail({
   view,
@@ -39,9 +48,16 @@ export function LibraryRail({
   onShowLargest: () => void;
 }) {
   const ui = useAppTranslation();
+  const canReadDocuments = useGlobalCapability("SEARCH_READ");
   const views: { value: LibraryView; label: string; icon: React.ReactNode }[] = [
-    { value: "ready", label: ui("Tất cả tệp"), icon: <FolderOpen /> },
-    { value: "favorite", label: ui("Yêu thích"), icon: <Star /> },
+    { value: "recent", label: ui("Gần đây"), icon: <Clock /> },
+    { value: "ready", label: ui("Tệp của tôi"), icon: <FolderOpen /> },
+    { value: "shared", label: ui("Được chia sẻ với tôi"), icon: <Users /> },
+    { value: "meetings", label: ui("Cuộc họp"), icon: <Mic /> },
+    ...(canReadDocuments
+      ? [{ value: "documents" as const, label: ui("Tài liệu tổ chức"), icon: <Building2 /> }]
+      : []),
+    { value: "starred", label: ui("Có gắn sao"), icon: <Star /> },
     { value: "pending", label: ui("Đang xử lý"), icon: <LoaderCircle /> },
     { value: "trash", label: ui("Thùng rác"), icon: <Trash2 /> },
   ];

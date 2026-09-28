@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { LIBRARY_PAGE_SIZES, type ContentMatch, type LibraryFile } from "./library";
 import { LibraryContentMatches } from "./library-content";
 import { FileActions, LibraryEmpty, LibraryList, type RowActions } from "./library-rows";
+import type { LibraryOwnedView } from "./library-rail";
 import type { LibraryLayout } from "./library-toolbar";
 import type { LibraryViewState } from "./use-library-view";
 
@@ -21,21 +22,24 @@ import type { LibraryViewState } from "./use-library-view";
  */
 export function LibraryFiles({
   library,
+  view,
   layout,
   actions,
   emptyAction,
 }: {
   library: LibraryViewState;
+  /** The view of the person's own files on screen; the other views list their rows themselves. */
+  view: LibraryOwnedView;
   layout: LibraryLayout;
   actions: RowActions;
   /** The upload control an empty library offers, which owns the browser's file dialog. */
   emptyAction: ReactNode;
 }) {
   const ui = useAppTranslation();
-  const { page, files, selected, setSelected, offset, size, view, sort } = library;
+  const { page, files, selected, setSelected, offset, size, sort } = library;
   return (
     <>
-      {page.isPending && <ListSkeleton />}
+      {page.isPending && <LibraryListSkeleton />}
       {page.isError && (
         <Alert variant="destructive">
           <AlertTitle>{ui("Không tải được thư viện.")}</AlertTitle>
@@ -164,7 +168,7 @@ export function ContentResults({
           {ui("Nhập điều bạn nhớ về nội dung tệp.")}
         </p>
       )}
-      {matches.isFetching && <ListSkeleton />}
+      {matches.isFetching && <LibraryListSkeleton />}
       {matches.isError && (
         <Alert variant="destructive">
           <AlertTitle>{ui("Không tìm được trong nội dung tệp.")}</AlertTitle>
@@ -195,7 +199,8 @@ export function ContentResults({
   );
 }
 
-function ListSkeleton() {
+/** The shape of a list while its first page is on its way. */
+export function LibraryListSkeleton() {
   return (
     <div className="flex flex-col gap-2" aria-hidden="true">
       {[0, 1, 2, 3, 4].map((row) => (

@@ -23,6 +23,16 @@ public class ChatFileAttachments implements FileAttachments {
     }
 
     @Override
+    public List<AgentFile> agentFiles(TenantId tenant, ActorId actor, int limit) {
+        return attachments.agentFiles(tenant, actor, null, limit);
+    }
+
+    @Override
+    public List<AgentFile> agentFiles(TenantId tenant, ActorId actor, Collection<UUID> files) {
+        return attachments.agentFiles(tenant, actor, files, files.size());
+    }
+
+    @Override
     public List<Holder> holders(TenantId tenant, Collection<UUID> files) {
         return attachments.holders(tenant, files);
     }
