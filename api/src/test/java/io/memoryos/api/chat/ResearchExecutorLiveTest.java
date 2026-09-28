@@ -30,6 +30,7 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchTasks;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import reactor.core.publisher.Mono;
@@ -106,7 +108,7 @@ class ResearchExecutorLiveTest {
             assertTrue(searches.get() > 0, "Agents call their tools");
             assertFalse(output.isEmpty(), "The final report is the answer");
             assertEquals(sources.stream().map(s -> s.source().citationId()).toList(),
-                    java.util.stream.IntStream.rangeClosed(1, sources.size()).boxed().toList(), "Merged sources keep one turn sequence");
+                    IntStream.rangeClosed(1, sources.size()).boxed().toList(), "Merged sources keep one turn sequence");
             assertTrue(guards.stream().allMatch(ChatModelGuard::usageKnown), "Every research inference reports usage");
         } finally { meters.close(); }
     }
@@ -127,6 +129,6 @@ class ResearchExecutorLiveTest {
     }
 
     private static UUID uuid(String name) {
-        return UUID.nameUUIDFromBytes(name.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8));
     }
 }

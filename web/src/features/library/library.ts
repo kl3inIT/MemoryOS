@@ -1,24 +1,30 @@
-import { ApiError } from "@/lib/api";
+import type { QueryClient } from "@tanstack/react-query";
+import { problemOf } from "@/lib/api";
 import { i18n } from "@/i18n/index";
 import {
-  changeChatLibraryFile,
+  getChatLibraryTrashWindowQueryKey,
+  getChatLibraryUsageQueryKey,
+  listChatLibraryDocumentsQueryKey,
+  listChatLibraryMeetingsQueryKey,
+  listChatLibraryOptions,
+  listChatLibraryQueryKey,
+  listChatLibraryRecentQueryKey,
+  listChatLibrarySharedQueryKey,
+  listChatLibraryStarredQueryKey,
+  searchChatLibraryContentQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import {
   copyChatLibraryFile,
-  emptyChatLibraryTrash,
-  getChatLibraryTrashWindow,
-  getChatLibraryUsage,
-  purgeChatLibraryFile,
-  restoreChatLibraryFile,
   deleteChatFile,
   deleteChatFileArtifact,
   deleteChatImageArtifact,
-  listChatLibrary,
-  searchChatLibraryContent,
 } from "@/lib/hey-api/sdk.gen";
 import type {
   ChatLibraryContentMatch,
   ChatLibraryFile,
-  ChatLibraryPage,
+  SearchChatLibraryContentData,
 } from "@/lib/hey-api/types.gen";
+import type { Options } from "@/lib/hey-api/sdk.gen";
 import type { AskExtras } from "./file-ask-composer";
 import type { PreviewTarget } from "./file-preview";
 import { chatFileSchema, uploadChatFile, waitForChatFile, type ChatFile } from "./files";
@@ -29,10 +35,14 @@ export type LibraryFile = ChatLibraryFile;
 export type LibrarySource = ChatLibraryFile["source"];
 export type LibraryCategory = ChatLibraryFile["category"];
 export type LibrarySort = "NEWEST" | "OLDEST" | "LARGEST" | "SMALLEST" | "NAME" | "DELETED";
-export type LibraryStatus = "READY" | "PENDING" | "TRASH";
+type LibraryStatus = "READY" | "PENDING" | "TRASH";
 export type ContentMatch = ChatLibraryContentMatch;
 
-export const chatLibraryKey = ["chat-library"] as const;
+/**
+ * The prefix of the library queries Chat still builds by hand (a conversation's own files). The library's own
+ * reads use the generated keys; {@link invalidateLibrary} refreshes both.
+ */
+const chatLibraryKey = ["chat-library"] as const;
 /** Every category a file can fall into, in the order the filters and the storage page show them. */
 export const LIBRARY_CATEGORIES = [
   "DOCUMENT",
@@ -61,27 +71,55 @@ export type LibraryFilter = {
   status?: LibraryStatus;
 };
 
-export async function loadLibrary(
+/** The listing's parameters for one page of a filter. */
+function libraryQuery(filter: LibraryFilter, offset: number, limit: number) {
+  return {
+    query: filter.query,
+    sources: filter.sources,
+    categories: filter.categories,
+    sessionId: filter.sessionId,
+    favorite: filter.favorite,
+    status: filter.status,
+    sort: filter.sort,
+    offset,
+    limit,
+  };
+}
+
+/** One page of the library as the generated query reads it. */
+export function libraryOptions(
   filter: LibraryFilter,
   offset: number,
-  signal: AbortSignal,
   limit: number = LIBRARY_PAGE_SIZE,
-): Promise<ChatLibraryPage> {
-  const { data } = await listChatLibrary({
-    query: {
-      query: filter.query,
-      sources: filter.sources,
-      categories: filter.categories,
-      sessionId: filter.sessionId,
-      favorite: filter.favorite,
-      status: filter.status,
-      sort: filter.sort,
-      offset,
-      limit,
-    },
-    signal,
-  });
-  return data;
+) {
+  return listChatLibraryOptions({ query: libraryQuery(filter, offset, limit) });
+}
+
+/**
+ * Every content search, whatever it asked: the generated key without a query is the prefix of all of them.
+ */
+const everyContentSearch = searchChatLibraryContentQueryKey(
+  {} as Options<SearchChatLibraryContentData>,
+);
+
+/**
+ * Refreshes every read of the library after a change: the listings, the usage, the trash window, the content
+ * searches, the views of what reaches the person (a star on an owned file is its favourite, and a copy made for
+ * a question is a file of their own), and the queries Chat keys under {@link chatLibraryKey}.
+ */
+export function invalidateLibrary(cache: QueryClient) {
+  return Promise.all([
+    cache.invalidateQueries({ queryKey: listChatLibraryQueryKey() }),
+    cache.invalidateQueries({ queryKey: getChatLibraryUsageQueryKey() }),
+    cache.invalidateQueries({ queryKey: getChatLibraryTrashWindowQueryKey() }),
+    cache.invalidateQueries({ queryKey: everyContentSearch }),
+    cache.invalidateQueries({ queryKey: listChatLibraryRecentQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatLibrarySharedQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatLibraryMeetingsQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatLibraryStarredQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatLibraryDocumentsQueryKey() }),
+    cache.invalidateQueries({ queryKey: chatLibraryKey }),
+  ]);
 }
 
 /** Each source owns its own delete route; an upload keeps the lifecycle the composer already uses. */
@@ -148,14 +186,9 @@ export function groupByDate(items: readonly LibraryFile[], now = new Date()): Li
  * instead of showing the generic conflict message.
  */
 export function refusedBy(error: unknown): string[] {
-  if (!(error instanceof ApiError) || !error.cause || typeof error.cause !== "object") return [];
-  const usedBy = (error.cause as { usedBy?: unknown }).usedBy;
+  const usedBy = problemOf(error)?.usedBy;
   if (!Array.isArray(usedBy)) return [];
-  return usedBy.flatMap((usage) =>
-    usage && typeof usage === "object" && typeof (usage as { name?: unknown }).name === "string"
-      ? [(usage as { name: string }).name]
-      : [],
-  );
+  return usedBy.flatMap((usage) => (typeof usage?.name === "string" ? [usage.name] : []));
 }
 
 /** What holds an upload, for the label and for the refusal the delete route returns. */
@@ -217,30 +250,6 @@ export async function askLibraryQuestion(
   await onCopied();
   await chat.ask({ question, title: question || file.filename, attach }, signal);
 }
-
-/** Renames a file or stars it; the library shows the result at once, as does every surface reading its name. */
-export async function changeLibraryFile(
-  file: LibraryFile,
-  change: { filename?: string; favorite?: boolean },
-  signal: AbortSignal,
-): Promise<LibraryFile> {
-  const { data } = await changeChatLibraryFile({
-    path: { source: file.source, id: file.id },
-    body: change,
-    signal,
-  });
-  return data;
-}
-
-/** Finds the caller's own indexed uploads by what they contain, with the passages that matched. */
-export async function searchLibraryContent(
-  query: string,
-  signal: AbortSignal,
-): Promise<ContentMatch[]> {
-  const { data } = await searchChatLibraryContent({ query: { query }, signal });
-  return data;
-}
-
 /** The query's occurrences inside a passage, so a match can be seen without opening the file. */
 export function highlightParts(text: string, query: string): { text: string; match: boolean }[] {
   const needle = query.trim().toLocaleLowerCase(i18n.language);
@@ -255,38 +264,4 @@ export function highlightParts(text: string, query: string): { text: string; mat
   }
   if (from < text.length) parts.push({ text: text.slice(from), match: false });
   return parts.length > 0 ? parts : [{ text, match: false }];
-}
-
-/** What the caller's library holds and the limit that applies to them (MEM-152). */
-export async function loadLibraryUsage(signal: AbortSignal) {
-  const { data } = await getChatLibraryUsage({ signal });
-  return data;
-}
-
-/** How many days a deleted file stays restorable in this deployment. */
-export async function loadTrashWindow(signal: AbortSignal) {
-  const { data } = await getChatLibraryTrashWindow({ signal });
-  return data.days;
-}
-
-export async function restoreLibraryFile(file: LibraryFile, signal: AbortSignal): Promise<void> {
-  await restoreChatLibraryFile({
-    path: { source: file.source, id: file.id },
-    signal,
-  });
-}
-
-/** Ends one file's trash window, so its bytes are released by the usual routes. */
-export async function purgeLibraryFile(file: LibraryFile, signal: AbortSignal): Promise<void> {
-  await purgeChatLibraryFile({
-    path: { source: file.source, id: file.id },
-    signal,
-  });
-}
-
-export async function emptyLibraryTrash(signal: AbortSignal): Promise<number> {
-  const { data } = await emptyChatLibraryTrash({
-    signal,
-  });
-  return data.purged;
 }

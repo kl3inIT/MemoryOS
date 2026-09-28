@@ -3,6 +3,8 @@ package io.memoryos.chat.files.persistence;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.StoredObjectId;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -101,7 +103,7 @@ public class JdbcChatArtifactCleanupRepository {
                 .update() == 1;
     }
 
-    private static Claim map(Kind kind, java.sql.ResultSet row) throws java.sql.SQLException {
+    private static Claim map(Kind kind, ResultSet row) throws SQLException {
         String previewKey = row.getString("preview_object_key");
         UUID previewObject = row.getObject("preview_stored_object_id", UUID.class);
         return new Claim(kind, new TenantId(row.getObject("tenant_id", UUID.class)), row.getObject("id", UUID.class),

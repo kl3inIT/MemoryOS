@@ -8,6 +8,7 @@ import {
   type ActionProminence,
   type ActionTone,
 } from "@/components/ui/action-styles";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const buttonSizes = cva(
@@ -15,9 +16,9 @@ const buttonSizes = cva(
   {
     variants: {
       size: {
-        sm: "h-[var(--control-height-sm)] gap-1.5 px-2 [&_svg:not([class*='size-'])]:size-[var(--control-icon-sm)]",
-        md: "h-[var(--control-height-md)] gap-2 px-3 [&_svg:not([class*='size-'])]:size-[var(--control-icon-md)]",
-        lg: "h-[var(--control-height-lg)] gap-2 px-3 [&_svg:not([class*='size-'])]:size-[var(--control-icon-lg)]",
+        sm: "h-[var(--control-height-sm)] gap-1.5 px-2 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-[var(--control-icon-sm)]",
+        md: "h-[var(--control-height-md)] gap-2 px-3 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5 [&_svg:not([class*='size-'])]:size-[var(--control-icon-md)]",
+        lg: "h-[var(--control-height-lg)] gap-2 px-3 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5 [&_svg:not([class*='size-'])]:size-[var(--control-icon-lg)]",
       },
     },
     defaultVariants: {
@@ -75,7 +76,14 @@ function Button({
       disabled={asChild ? undefined : blocked}
       className={cn(actionVariants({ tone, prominence }), buttonSizes({ size }), className)}
     >
-      {renderedChildren}
+      {pending && !asChild ? (
+        <>
+          <Spinner data-icon="inline-start" aria-hidden="true" />
+          {children}
+        </>
+      ) : (
+        renderedChildren
+      )}
     </Comp>
   );
 }

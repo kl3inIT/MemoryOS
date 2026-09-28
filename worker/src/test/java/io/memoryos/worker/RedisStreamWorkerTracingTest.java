@@ -3,9 +3,22 @@ package io.memoryos.worker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+import io.memoryos.connector.ConnectorCleanupPort;
+import io.memoryos.connector.ConnectorIndexingPort;
+import io.memoryos.document.DocumentCommandPort;
+import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
+import io.memoryos.ingestion.SourceContentExtractor;
+import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
+import io.memoryos.ingestion.application.SelectionValidationProcessor;
+import io.memoryos.ingestion.application.SourceSyncProcessor;
+import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.StoredObjectRegistry;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -13,27 +26,32 @@ import io.opentelemetry.sdk.trace.ReadableSpan;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.Mockito;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class RedisStreamWorkerTracingTest {
-    @org.junit.jupiter.api.Test
+    @Test
     void acknowledgementFailureDoesNotReclassifyOrDoubleCountCoordinatorOutcome() {
-        var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
-        var coordinator = new io.memoryos.ingestion.application.DefaultIngestionCoordinator(mock(io.memoryos.connector.ConnectorIndexingPort.class),
-        mock(io.memoryos.connector.ConnectorCleanupPort.class),
-        mock(io.memoryos.document.DocumentCommandPort.class),
-        mock(io.memoryos.ingestion.SourceContentExtractor.class),
-        mock(io.memoryos.objectstorage.ObjectStorage.class),
-        mock(io.memoryos.objectstorage.StoredObjectRegistry.class),
-        mock(org.springframework.transaction.support.TransactionTemplate.class),
-        mock(java.util.concurrent.ScheduledExecutorService.class),
-        mock(io.memoryos.document.ExtractionArtifactPort.class), registry, org.mockito.Mockito.mock(io.memoryos.ingestion.application.SourceSyncProcessor.class), org.mockito.Mockito.mock(io.memoryos.ingestion.application.SelectionValidationProcessor.class));
+        var registry = new SimpleMeterRegistry();
+        var coordinator = new DefaultIngestionCoordinator(mock(ConnectorIndexingPort.class),
+        mock(ConnectorCleanupPort.class),
+        mock(DocumentCommandPort.class),
+        mock(SourceContentExtractor.class),
+        mock(ObjectStorage.class),
+        mock(StoredObjectRegistry.class),
+        mock(TransactionTemplate.class),
+        mock(ScheduledExecutorService.class),
+        mock(ExtractionArtifactPort.class), registry, Mockito.mock(SourceSyncProcessor.class), Mockito.mock(SelectionValidationProcessor.class));
         var redis = mock(StringRedisTemplate.class, RETURNS_DEEP_STUBS);
         var settings = new RedisExecutionProperties.Workload("ingestion", "workers", 8);
         var id = RecordId.of("1-0");
@@ -42,18 +60,18 @@ class RedisStreamWorkerTracingTest {
                 "operation_id", UUID.randomUUID().toString(), "delivery_id", UUID.randomUUID().toString()))
                 .withId(id);
         when(redis.opsForStream().acknowledge("ingestion", "workers", id))
-                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("test ACK outage"));
+                .thenThrow(new DataAccessResourceFailureException("test ACK outage"));
         var transportMetrics = mock(RedisExecutionMetrics.class);
         var worker = new RedisStreamWorker(redis, mock(RedisExecutionTopology.class),
                 mock(RedisExecutionProperties.class), mock(OperationDispatchPort.class),
-                coordinator, transportMetrics, io.opentelemetry.api.OpenTelemetry.noop());
+                coordinator, transportMetrics, OpenTelemetry.noop());
 
         ReflectionTestUtils.invokeMethod(worker, "process", settings, OperationWorkload.INGESTION, record);
 
         assertThat(registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "SKIPPED")
                 .counter().count()).isEqualTo(1);
         assertThat(registry.find("memoryos.operation.outcomes").counters().stream()
-                .mapToDouble(io.micrometer.core.instrument.Counter::count).sum()).isEqualTo(1);
+                .mapToDouble(Counter::count).sum()).isEqualTo(1);
         verify(transportMetrics).delivery(OperationWorkload.INGESTION, RedisExecutionMetrics.DeliveryOutcome.PENDING);
         verify(redis.opsForStream(), never()).delete("ingestion", id);
     }

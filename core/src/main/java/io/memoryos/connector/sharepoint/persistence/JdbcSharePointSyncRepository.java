@@ -1,11 +1,15 @@
 package io.memoryos.connector.sharepoint.persistence;
 
 import io.memoryos.connector.ConnectorSyncPort.Work;
+import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.DueSource;
 import io.memoryos.connector.sync.persistence.WorkLeases;
 import io.memoryos.shared.TenantId;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -24,7 +28,7 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcSharePointSyncRepository {
     /** Repeats part of the previous window so a change written during it is not missed. */
-    public static final java.time.Duration OVERLAP = java.time.Duration.ofMinutes(30);
+    public static final Duration OVERLAP = Duration.ofMinutes(30);
 
     private final JdbcClient jdbc;
 
@@ -74,7 +78,7 @@ public class JdbcSharePointSyncRepository {
                         r.getBoolean("include_pages"), r.getInt("prune_interval_hours"),
                         r.getTimestamp("refresh_window_end") == null ? null : r.getTimestamp("refresh_window_end").toInstant(),
                         r.getString("tenant_host"), r.getBoolean("prune_due")))
-                .optional().orElseThrow(io.memoryos.connector.SourceException::notFound);
+                .optional().orElseThrow(SourceException::notFound);
     }
 
     /** The run a previous delivery of this attempt left unfinished. */
@@ -291,7 +295,7 @@ public class JdbcSharePointSyncRepository {
                 """).param("tenant", run.tenantId().value()).param("source", run.sourceId().value()).update();
     }
 
-    private Run run(java.sql.ResultSet r, int ignored) throws java.sql.SQLException {
+    private Run run(ResultSet r, int ignored) throws SQLException {
         return new Run(new TenantId(r.getObject("tenant_id", UUID.class)), r.getObject("id", UUID.class),
                 new SourceId(r.getObject("source_id", UUID.class)), r.getString("kind"),
                 r.getTimestamp("window_start") == null ? null : r.getTimestamp("window_start").toInstant(),

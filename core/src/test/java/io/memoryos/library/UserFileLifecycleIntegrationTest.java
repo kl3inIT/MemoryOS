@@ -13,6 +13,9 @@ import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
+import io.memoryos.objectstorage.application.DefaultObjectWriteService;
+import io.memoryos.objectstorage.application.DefaultStoredObjectRegistry;
+import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -27,11 +30,24 @@ import io.memoryos.objectstorage.application.DefaultObjectUploadService;
 import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
+import java.security.MessageDigest;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 import java.util.UUID;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,11 +101,11 @@ class UserFileLifecycleIntegrationTest {
                 new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc)),
                 // This suite covers the release itself, so deletion releases at once; the trash window is
                 // covered by LibraryTrashIntegrationTest.
-                new LibraryTrashProperties(java.time.Duration.ZERO),
+                new LibraryTrashProperties(Duration.ZERO),
                 jpa.transactionManager());
         var storedObjects = new JdbcStoredObjectRepository(jdbc);
-        var writes = new io.memoryos.objectstorage.application.DefaultObjectWriteService(storedObjects,
-                new io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository(jdbc), storage,
+        var writes = new DefaultObjectWriteService(storedObjects,
+                new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         fileContent = new UserFileContentService(new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)), tenants, storage, writes,
@@ -97,7 +113,7 @@ class UserFileLifecycleIntegrationTest {
         documents = TestDatabase.transactionalProxy(new JdbcDocumentRepository(jdbc, new ObjectMapper(), ignored -> {}),
                 DocumentCommandPort.class, jpa.transactionManager());
         work = TestDatabase.transactionalProxy(new DefaultUserFileWorkService(new JdbcUserFileWorkRepository(jdbc), documents,
-                uploads, tenants, new io.memoryos.objectstorage.application.DefaultStoredObjectRegistry(storedObjects), writes,
+                uploads, tenants, new DefaultStoredObjectRegistry(storedObjects), writes,
                 storage), UserFileWorkPort.class, jpa.transactionManager());
     }
 
@@ -157,7 +173,7 @@ class UserFileLifecycleIntegrationTest {
         assertTrue(work.complete(claim, content()));
         assertFalse(work.complete(claim, content()));
         var document = new DocumentId(jdbc.sql("SELECT document_id FROM chat_user_file WHERE id=:id").param("id",id).query(UUID.class).single());
-        documents.removeUnreferenced(tenant, java.util.List.of(document));
+        documents.removeUnreferenced(tenant, List.of(document));
         assertEquals(1, count("documents"));
         assertEquals(id.toString(),jdbc.sql("SELECT metadata_json::jsonb ->> 'user_file_id' FROM documents").query(String.class).single());
         assertEquals("hello",jdbc.sql("SELECT plaintext FROM chat_user_file WHERE id=:id").param("id",id).query(String.class).single());
@@ -234,11 +250,11 @@ class UserFileLifecycleIntegrationTest {
     void resumedAuthorizationCannotOutliveItsDurableCleanupReservation() {
         var input = input(UUID.randomUUID(),4);
         files.initiate(owner,input);
-        Instant signedExpiry = Instant.now().plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.SECONDS).plusNanos(123456100);
+        Instant signedExpiry = Instant.now().plusSeconds(3600).truncatedTo(ChronoUnit.SECONDS).plusNanos(123456100);
         when(storage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization("PUT",URI.create("https://storage.invalid/upload"),Map.of(),signedExpiry));
         var resumed = files.initiate(owner,input);
         assertNotNull(resumed.upload());
-        Instant retained = jdbc.sql("SELECT expires_at FROM stored_objects").query(java.sql.Timestamp.class).single().toInstant();
+        Instant retained = jdbc.sql("SELECT expires_at FROM stored_objects").query(Timestamp.class).single().toInstant();
         assertFalse(retained.isBefore(signedExpiry));
     }
 
@@ -305,7 +321,7 @@ class UserFileLifecycleIntegrationTest {
     @Test
     void uploadedImageRendersOneThumbnailThatIsReusedAndReleasedWithTheUpload() throws Exception {
         byte[] png = noisyPng();
-        var written = new java.util.HashMap<ObjectKey, byte[]>();
+        var written = new HashMap<ObjectKey, byte[]>();
         doAnswer(call -> { written.put(call.getArgument(0), call.getArgument(1)); return null; })
                 .when(storage).write(any(), any(), any());
         when(storage.inspect(any())).thenAnswer(call -> {
@@ -360,24 +376,24 @@ class UserFileLifecycleIntegrationTest {
     }
 
     /** Noise, so the PNG is past the size below which a thumbnail would not pay for itself. */
-    private static byte[] noisyPng() throws java.io.IOException {
-        var image = new java.awt.image.BufferedImage(600, 600, java.awt.image.BufferedImage.TYPE_INT_RGB);
-        var random = new java.util.Random(7);
+    private static byte[] noisyPng() throws IOException {
+        var image = new BufferedImage(600, 600, BufferedImage.TYPE_INT_RGB);
+        var random = new Random(7);
         for (int y = 0; y < image.getHeight(); y++)
             for (int x = 0; x < image.getWidth(); x++) image.setRGB(x, y, random.nextInt(0xFFFFFF));
-        var out = new java.io.ByteArrayOutputStream();
-        javax.imageio.ImageIO.write(image, "png", out);
+        var out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
         return out.toByteArray();
     }
 
     private static String sha256(byte[] bytes) throws Exception {
-        return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     private static ObjectContent content(byte[] bytes, String mediaType) throws Exception {
         var stream = mock(ObjectContent.class);
         when(stream.metadata()).thenReturn(new ObjectMetadata(bytes.length, mediaType, new ContentSha256(sha256(bytes))));
-        when(stream.inputStream()).thenReturn(new java.io.ByteArrayInputStream(bytes));
+        when(stream.inputStream()).thenReturn(new ByteArrayInputStream(bytes));
         return stream;
     }
 
@@ -387,7 +403,7 @@ class UserFileLifecycleIntegrationTest {
     }
 
     private OperationDelivery dispatch() {
-        return java.util.Objects.requireNonNull(tx.execute(ignored -> new JdbcOperationDispatchRepository(jdbc).claim(OperationWorkload.USER_FILE,1)))
+        return Objects.requireNonNull(tx.execute(ignored -> new JdbcOperationDispatchRepository(jdbc).claim(OperationWorkload.USER_FILE,1)))
                 .getFirst().delivery();
     }
     private static UserFileService.UploadInput input(UUID request,long size) {

@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -121,7 +122,7 @@ public class LibraryArchiveService {
                 () -> archives.failAbandoned(MAX_ATTEMPTS),
                 () -> archives.claim(LEASE, MAX_ATTEMPTS),
                 this::pack,
-                (claim, failure) -> archives.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
+                (claim, _) -> archives.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
                         "The archive could not be packed.")));
     }
 
@@ -177,7 +178,7 @@ public class LibraryArchiveService {
                 throw new LeaseLost();
             }));
         } catch (LeaseLost lost) {
-            LOG.warn("Library archive lease lapsed before it was stored");
+            LOG.atWarn().addKeyValue("event", "chat.library.archive.lease_lost").log("Library archive lease lapsed before it was stored");
         } finally {
             if (!adopted) writes.discard(tenant, staged);
         }
@@ -209,7 +210,7 @@ public class LibraryArchiveService {
         return released;
     }
 
-    private List<LibraryFile> listed(TenantId tenant, ActorId owner, java.util.Collection<LibraryArchiveItem> requested) {
+    private List<LibraryFile> listed(TenantId tenant, ActorId owner, Collection<LibraryArchiveItem> requested) {
         return contents.listed(tenant, owner, requested, MAX_FILES);
     }
 

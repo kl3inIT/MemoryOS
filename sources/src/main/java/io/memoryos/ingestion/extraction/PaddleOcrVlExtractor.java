@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.imageio.ImageIO;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.ObjectMapper;
 
@@ -68,8 +69,8 @@ final class PaddleOcrVlExtractor implements AutoCloseable {
     private static void admitImage(PaddleOcrVlClient.Input input, int maxPages) throws ExtractionException {
         try {
             if (input.size() < 1 || input.size() > MAX_IMAGE_BYTES) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
-            try (var stream = input.open(); var image = javax.imageio.ImageIO.createImageInputStream(stream)) {
-                var readers = image == null ? null : javax.imageio.ImageIO.getImageReaders(image);
+            try (var stream = input.open(); var image = ImageIO.createImageInputStream(stream)) {
+                var readers = image == null ? null : ImageIO.getImageReaders(image);
                 if (readers == null || !readers.hasNext()) throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
                 var reader = readers.next();
                 try {

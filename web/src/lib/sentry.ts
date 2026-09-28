@@ -39,7 +39,17 @@ export function initializeSentry() {
       dsn: configuration.dsn,
       environment: configuration.environment,
       release: configuration.release,
-      sendDefaultPii: false,
+      dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpHeaders: false,
+        httpBodies: [],
+        urlQueryParams: false,
+        genAI: { inputs: false, outputs: false },
+        databaseQueryData: false,
+        queues: false,
+        graphQL: { document: false, variables: false },
+      },
       tracesSampleRate: 0,
       integrations: configuration.replayEnabled
         ? [

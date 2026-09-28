@@ -3,15 +3,26 @@ package io.memoryos;
 import io.memoryos.audit.AuditRequestContext;
 import io.memoryos.audit.AuditTrail;
 import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.audit.persistence.JdbcAuditEventRepository;
+import io.memoryos.shared.ActorId;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 
+import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Objects;
 import javax.sql.DataSource;
 
 
 import org.flywaydb.core.Flyway;
+import org.jspecify.annotations.Nullable;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
@@ -103,9 +114,9 @@ public final class TestDatabase {
         return dataSource;
     }
 
-    private static void createDatabase(PostgreSQLContainer container, String database, @org.jspecify.annotations.Nullable String template)
+    private static void createDatabase(PostgreSQLContainer container, String database, @Nullable String template)
             throws SQLException {
-        try (var admin = java.sql.DriverManager.getConnection(container.getJdbcUrl(), container.getUsername(), container.getPassword());
+        try (var admin = DriverManager.getConnection(container.getJdbcUrl(), container.getUsername(), container.getPassword());
              var statement = admin.createStatement()) {
             // Identifiers are fixed prefixes and counters; PostgreSQL cannot bind database names.
             statement.execute("CREATE DATABASE " + database + (template == null ? "" : " TEMPLATE " + template));
@@ -114,9 +125,9 @@ public final class TestDatabase {
 
     /** Frees disk from earlier fixtures; a clone still used by an open pool is kept. */
     private static void dropUnusedClones(PostgreSQLContainer container) throws SQLException {
-        try (var admin = java.sql.DriverManager.getConnection(container.getJdbcUrl(), container.getUsername(), container.getPassword());
+        try (var admin = DriverManager.getConnection(container.getJdbcUrl(), container.getUsername(), container.getPassword());
              var statement = admin.createStatement()) {
-            var unused = new java.util.ArrayList<String>();
+            var unused = new ArrayList<String>();
             try (var rows = statement.executeQuery("""
                     SELECT datname FROM pg_database
                     WHERE datname LIKE 'memoryos\\_clone\\_%'
@@ -165,7 +176,7 @@ public final class TestDatabase {
         factoryBean.setDataSource(dataSource);
         factoryBean.setPackagesToScan("io.memoryos.iam", "io.memoryos.ai.persistence", "io.memoryos.chat", "io.memoryos.mcp.persistence", "io.memoryos.voice.persistence");
         factoryBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-        factoryBean.setJpaPropertyMap(java.util.Map.of(
+        factoryBean.setJpaPropertyMap(Map.of(
                 "hibernate.hbm2ddl.auto", validateSchema ? "validate" : "none",
                 "hibernate.jdbc.time_zone", "UTC",
                 "hibernate.cache.use_second_level_cache", "false",
@@ -173,7 +184,7 @@ public final class TestDatabase {
         ));
         factoryBean.setPersistenceUnitName("memoryos-test");
         factoryBean.afterPropertiesSet();
-        EntityManagerFactory factory = java.util.Objects.requireNonNull(
+        EntityManagerFactory factory = Objects.requireNonNull(
                 factoryBean.getObject(),
                 "test EntityManagerFactory was not created"
         );
@@ -216,18 +227,18 @@ public final class TestDatabase {
     }
 
     /** The audit writer over the test database; it joins whatever transaction the service under test opened. */
-    public static AuditTrail audit(org.springframework.jdbc.core.simple.JdbcClient jdbc,
+    public static AuditTrail audit(JdbcClient jdbc,
                                                          PlatformTransactionManager transactions) {
-        return new AuditTrail(new io.memoryos.audit.persistence.JdbcAuditEventRepository(jdbc), AuditRequestContext.TRACE_ONLY,
-                new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), transactions);
+        return new AuditTrail(new JdbcAuditEventRepository(jdbc), AuditRequestContext.TRACE_ONLY,
+                new SimpleMeterRegistry(), transactions);
     }
 
     /** An audit writer that records nothing, for tests of behaviour other than the audit stream itself. */
     public static AuditTrail noAudit() {
-        var audit = org.mockito.Mockito.mock(AuditTrail.class);
-        org.mockito.Mockito.when(audit.person(org.mockito.ArgumentMatchers.any())).thenAnswer(call ->
+        var audit = Mockito.mock(AuditTrail.class);
+        Mockito.when(audit.person(ArgumentMatchers.any())).thenAnswer(call ->
                 new AuditTrail.Person(
-                        call.<io.memoryos.shared.ActorId>getArgument(0).value().toString(), null));
+                        call.<ActorId>getArgument(0).value().toString(), null));
         return audit;
     }
 }

@@ -5,13 +5,14 @@ import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import org.jspecify.annotations.NonNull;
 
 /**
  * {@code sourceTypes} and {@code documentSetIds} narrow results to currently readable Documents; neither widens Source scope.
  */
 public record SearchRequest(String query, List<String> mediaTypes, Instant updatedSince, int page, int pageSize,
-        List<SourceType> sourceTypes, List<java.util.UUID> documentSetIds) {
+        List<SourceType> sourceTypes, List<UUID> documentSetIds) {
     public SearchRequest {
         query = query == null ? "" : query.strip();
         mediaTypes = mediaTypes == null ? List.of() : mediaTypes;

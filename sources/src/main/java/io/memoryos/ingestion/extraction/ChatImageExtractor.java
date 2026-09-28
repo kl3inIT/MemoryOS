@@ -9,6 +9,7 @@ import io.memoryos.document.StructuredContent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import javax.imageio.ImageIO;
 import tools.jackson.databind.ObjectMapper;
 
 final class ChatImageExtractor {
@@ -16,8 +17,8 @@ final class ChatImageExtractor {
         if (Files.size(file) > 20971520) throw StructuredContent.failure(ExtractionFailure.WRITE_LIMIT);
         int width; int height;
         try {
-            try (var input = javax.imageio.ImageIO.createImageInputStream(file.toFile())) {
-                var readers = javax.imageio.ImageIO.getImageReaders(input);
+            try (var input = ImageIO.createImageInputStream(file.toFile())) {
+                var readers = ImageIO.getImageReaders(input);
                 if (!readers.hasNext()) throw StructuredContent.failure(ExtractionFailure.MALFORMED);
                 var reader = readers.next();
                 try {

@@ -11,6 +11,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.FailureCategory;
+import io.memoryos.TestDatabase;
+import io.memoryos.ai.ProviderConnections;
 import io.memoryos.chat.ChatException;
 import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.image.persistence.ImageConnectionEntity;
@@ -38,7 +40,7 @@ class ImageConnectionServiceTest {
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final ImageConnectionService service =
             new ImageConnectionService(connections,
-                    new io.memoryos.ai.ProviderConnections(credentials, io.memoryos.TestDatabase.noAudit()), authorization, tenants);
+                    new ProviderConnections(credentials, TestDatabase.noAudit()), authorization, tenants);
 
     @Test
     void providersRequireModelManagement() {

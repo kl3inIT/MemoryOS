@@ -11,20 +11,27 @@ import static io.memoryos.connector.SharePointProviderException.Failure.UNAVAILA
 
 import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
+import io.memoryos.connector.adapter.RetryAfter;
 import io.memoryos.connector.adapter.sharepoint.SharePointProviderMetrics.Operation;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -34,8 +41,10 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.jspecify.annotations.Nullable;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 
 public final class RestSharePointProvider implements SharePointProvider, AutoCloseable {
     static final String PAGE_SCHEMA = "memoryos-sharepoint-page-v1";
@@ -314,7 +323,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
     private static SharePointProviderException httpFailure(HttpResponse<?> response) {
         int status = response.statusCode();
         var retryAfter = status == 429 || status == 503
-                ? io.memoryos.connector.adapter.RetryAfter.of(response.headers(), java.time.Clock.systemUTC()) : null;
+                ? RetryAfter.of(response.headers(), Clock.systemUTC()) : null;
         return new SharePointProviderException(failure(status), SharePointProviderException.Reason.UNCLASSIFIED,
                 retryAfter);
     }
@@ -336,7 +345,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
             JsonNode node = mapper.readTree(bytes);
             if (node == null || !node.isObject()) throw new SharePointProviderException(MALFORMED);
             return node;
-        } catch (tools.jackson.core.JacksonException exception) {
+        } catch (JacksonException exception) {
             throw new SharePointProviderException(MALFORMED);
         }
     }
@@ -347,7 +356,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
      */
     private static void requireTenantHost(URI uri, String tenantHost) {
         String host = uri.getHost();
-        boolean loopback = host != null && java.util.Set.of("localhost", "127.0.0.1", "[::1]").contains(host);
+        boolean loopback = host != null && Set.of("localhost", "127.0.0.1", "[::1]").contains(host);
         if (host == null || !host.equalsIgnoreCase(tenantHost)
                 || (!"https".equalsIgnoreCase(uri.getScheme()) && !loopback)) {
             throw new SharePointProviderException(AUTHORIZATION);
@@ -368,7 +377,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
                     optional(parent, "id"), root < 0 ? null : decode(parentPath.substring(root + "root:".length())),
                     optional(node, "webUrl"), optional(node, "@microsoft.graph.downloadUrl"),
                     parentDrive == null ? driveId : parentDrive);
-        } catch (java.time.DateTimeException exception) {
+        } catch (DateTimeException exception) {
             throw new SharePointProviderException(MALFORMED);
         }
     }
@@ -378,13 +387,13 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
     }
 
     private static String decode(String value) {
-        return java.net.URLDecoder.decode(value, java.nio.charset.StandardCharsets.UTF_8);
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
     private static String instant(String token) {
         try {
             return Instant.parse(token).toString();
-        } catch (java.time.DateTimeException exception) {
+        } catch (DateTimeException exception) {
             throw new SharePointProviderException(MALFORMED);
         }
     }
@@ -402,7 +411,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
     }
 
     private static String encodeQuery(String value) {
-        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private static SitePageMetadata pageMetadata(JsonNode node) {
@@ -412,7 +421,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
             return new SitePageMetadata(required(node, "id"), title == null ? required(node, "id") : title,
                     required(node, "webUrl"), optional(node, "eTag"),
                     instantOrNull(optional(node, "lastModifiedDateTime")));
-        } catch (java.time.DateTimeException exception) {
+        } catch (DateTimeException exception) {
             throw new SharePointProviderException(MALFORMED);
         }
     }
@@ -447,7 +456,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         return mapper.writeValueAsBytes(snapshot);
     }
 
-    private void part(tools.jackson.databind.node.ArrayNode parts, JsonNode webPart) {
+    private void part(ArrayNode parts, JsonNode webPart) {
         if (parts.size() >= MAX_WEB_PARTS) throw new SharePointProviderException(LIMIT_EXCEEDED);
         String html = webPart.path("innerHtml").asString("");
         if (!html.isBlank()) {
@@ -483,14 +492,14 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         URI uri = URI.create(webUrl);
         String path = uri.getPath();
         if (path == null || path.isBlank()) throw new SharePointProviderException(MALFORMED);
-        return java.net.URLDecoder.decode(path, java.nio.charset.StandardCharsets.UTF_8);
+        return URLDecoder.decode(path, StandardCharsets.UTF_8);
     }
 
     private static String encodePath(String value) {
         if (value.isBlank() || value.length() > 2048 || value.contains("?") || value.contains("#")) {
             throw new SharePointProviderException(MALFORMED);
         }
-        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8)
+        return URLEncoder.encode(value, StandardCharsets.UTF_8)
                 .replace("+", "%20").replace("%2F", "/").replace("%3A", ":");
     }
 

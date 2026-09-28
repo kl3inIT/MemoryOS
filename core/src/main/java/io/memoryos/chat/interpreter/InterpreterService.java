@@ -1,5 +1,14 @@
 package io.memoryos.chat.interpreter;
 
+import io.memoryos.document.SpreadsheetPreview;
+import io.memoryos.objectstorage.ObjectKey;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.modulith.NamedInterface;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
@@ -26,7 +35,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 @NamedInterface("interpreter")
 public class InterpreterService {
-    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(InterpreterService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(InterpreterService.class);
     private final JdbcInterpreterRepository repository;
     private final InterpreterProperties properties;
     private final IamAuthorization authorization;
@@ -99,9 +108,9 @@ public class InterpreterService {
      * Generated files for an already-authorized page of messages, keyed by message id. The caller has resolved these
      * message ids from an ownership-checked history read; results are scoped to the actor's active Tenant.
      */
-    public java.util.Map<UUID, java.util.List<GeneratedFile>> forMessages(
-            ActorId actor, java.util.Collection<UUID> messageIds) {
-        var tenant = tenants.findActiveTenant(actor).orElseThrow(io.memoryos.chat.ChatException::unavailable);
+    public Map<UUID, List<GeneratedFile>> forMessages(
+            ActorId actor, Collection<UUID> messageIds) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         return repository.byMessages(tenant, messageIds);
     }
 
@@ -124,7 +133,7 @@ public class InterpreterService {
 
     /** Persists a generated file with optional chart data (a JSON object) captured from its figure. */
     public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes,
-                      @org.jspecify.annotations.Nullable String chart) {
+                      @Nullable String chart) {
         requireRoom(tenant, messageId, bytes.length);
         UUID id = UUID.randomUUID();
         var staged = writes.stage(tenant, new ObjectWriteService.Specification(filename, mediaType, false), bytes);
@@ -162,7 +171,7 @@ public class InterpreterService {
         return tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
     }
 
-    public ObjectContent openObject(io.memoryos.objectstorage.ObjectKey key) {
+    public ObjectContent openObject(ObjectKey key) {
         return storage.open(key);
     }
 
@@ -195,12 +204,12 @@ public class InterpreterService {
     static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     /** Onyx {@code fetch_chat_file(parsed=true)}: an owner-private generated xlsx as CSV text per sheet. */
-    public java.util.List<io.memoryos.document.SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
+    public List<SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
         var served = open(actor, id);
         try (var content = served.content()) {
             if (!XLSX.equals(served.mediaType())) throw ChatException.invalid("Only xlsx files have a spreadsheet preview");
-            return io.memoryos.document.SpreadsheetPreview.parse(content.inputStream());
-        } catch (java.io.IOException failed) {
+            return SpreadsheetPreview.parse(content.inputStream());
+        } catch (IOException failed) {
             throw ChatException.invalid("The workbook cannot be previewed");
         }
     }

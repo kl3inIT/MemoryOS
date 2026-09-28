@@ -1,7 +1,8 @@
-import { useDeferredValue, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   keepPreviousData,
   useInfiniteQuery,
+  useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -16,39 +17,41 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/radix-select";
+} from "@/components/ui/select";
 import { TablePagination } from "@/components/ui/table-pagination";
-import {
-  useApplicationSession,
-  useGlobalCapability,
-} from "@/features/identity/application-session-context";
-import { DocumentPreviewDialog } from "@/features/search/document-preview-dialog";
+import { DocumentPreviewDialog } from "@/features/documents/document-preview-dialog";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { actionErrorText } from "@/lib/action-errors";
+import {
+  listChatLibraryDocumentSourcesOptions,
+  listChatLibraryRecentOptions,
+  starChatLibraryEntryMutation,
+  unstarChatLibraryEntryMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
 import { ChatFilePreviewModal } from "./file-preview-modal";
 import {
   askLibraryQuestion,
-  chatLibraryKey,
+  invalidateLibrary,
   LIBRARY_CATEGORIES,
   LIBRARY_PAGE_SIZE,
   LIBRARY_PAGE_SIZES,
   type LibraryCategory,
+  type LibrarySort,
 } from "./library";
 import type { LibraryChat } from "./library-chat";
 import {
+  documentPagesOptions,
   downloadMeetingMinutes,
   downloadMeetingTranscript,
   entriesNamed,
+  entryPageOptions,
   entryPreviewTarget,
   entryUpload,
-  loadDocumentPage,
-  loadDocumentSources,
-  loadEntryPage,
-  loadRecentEntries,
   meetingMinutesUpload,
+  RECENT_LIMIT,
   recordEntryOpened,
-  setEntryStarred,
   type EntryFilter,
   type EntrySort,
   type LibraryEntry,
@@ -58,16 +61,19 @@ import {
 import { LibraryEntryEmpty, LibraryEntryList, type EntryActions } from "./library-entry-list";
 import { categoryLabels } from "./library-labels";
 import type { LibraryEntryView } from "./library-rail";
-import { LibraryListSkeleton, LibraryNoMatch } from "./library-rows";
+import { LibraryListSkeleton } from "./library-results";
+import { LibraryNoMatch } from "./library-rows";
+import type { EntryKindChip } from "./library-search";
 import {
   LibraryLayoutToggle,
   LibrarySearchField,
   LibrarySortSelect,
   type LibraryLayout,
 } from "./library-toolbar";
+import type { LibraryViewState } from "./use-library-view";
 
 /** The kinds a chip narrows to; the person's own files are one choice, whatever made them. */
-const KIND_CHIPS: Record<string, LibraryEntryKind[]> = {
+const KIND_CHIPS: Record<EntryKindChip, LibraryEntryKind[]> = {
   OWNED: ["UPLOAD", "GENERATED", "IMAGE"],
   MEETING: ["MEETING"],
   AGENT_FILE: ["AGENT_FILE"],
@@ -81,17 +87,19 @@ const EVERY_SOURCE = "ALL";
 
 /**
  * The views of what the person can see or use beyond their own files: what they opened, what others share with
- * them, meetings, the organisation's documents and what they starred. Each view keeps its own filters, so the page
- * mounts one per view; the layout is the page's and follows the person across views.
+ * them, meetings, the organisation's documents and what they starred. Their search, filters, order and page live
+ * in the library's address as the owned views' do; the layout is the page's and follows the person across views.
  */
 export function LibraryEntryViews({
   view,
+  library,
   layout,
   onLayout,
   chat,
   onSaveImage,
 }: {
   view: LibraryEntryView;
+  library: LibraryViewState;
   layout: LibraryLayout;
   onLayout: (next: LibraryLayout) => void;
   chat?: LibraryChat;
@@ -100,20 +108,18 @@ export function LibraryEntryViews({
 }) {
   const ui = useAppTranslation();
   const canReadDocuments = useGlobalCapability("SEARCH_READ");
-  const [search, setSearch] = useState("");
-  const query = useDeferredValue(search.trim());
-  const [kind, setKind] = useState<string>();
-  const [category, setCategory] = useState<LibraryCategory>();
-  const [sort, setSort] = useState<EntrySort>("NEWEST");
-  const [owner, setOwner] = useState<MeetingOwner>("ALL");
-  const [sourceId, setSourceId] = useState<string>();
+  const { query, kind, owner, sourceId, filterBy } = library;
+  const category = library.categories[0];
+  const sorts = view === "documents" ? DOCUMENT_SORTS : ENTRY_SORTS;
+  // A link may carry an order this view does not offer, such as the owned files' largest first.
+  const sort = sorts.find((offered) => offered === library.sort) ?? "NEWEST";
   const fallbackFocus = useRef<HTMLDivElement>(null);
   const { actions, dialogs } = useEntryActions(chat, onSaveImage, fallbackFocus);
 
   const filter = useMemo<EntryFilter>(
     () => ({
       query,
-      kinds: kind ? (KIND_CHIPS[kind] ?? []) : [],
+      kinds: kind ? KIND_CHIPS[kind] : [],
       categories: category ? [category] : [],
       sort,
       owner,
@@ -121,40 +127,44 @@ export function LibraryEntryViews({
     }),
     [query, kind, category, sort, owner, sourceId],
   );
-  const filtered =
-    query.length > 0 ||
-    kind !== undefined ||
-    category !== undefined ||
-    owner !== "ALL" ||
-    sourceId !== undefined;
-  const clearFilters = () => {
-    setSearch("");
-    setKind(undefined);
-    setCategory(undefined);
-    setOwner("ALL");
-    setSourceId(undefined);
-  };
   const categories = categoryLabels(ui);
   const categoryChips = (
     <FilterChips
       label={ui("Loại tệp")}
       chips={LIBRARY_CATEGORIES.map((value) => ({ value, label: categories[value] }))}
       value={category}
-      onChange={(next) => setCategory(next as LibraryCategory | undefined)}
+      onChange={(next) => filterBy({ category: next ? [next as LibraryCategory] : [] })}
     />
   );
-  const results = { view, filter, filtered, layout, actions, onClearFilters: clearFilters };
+  const results = {
+    view,
+    filter,
+    filtered: library.filtered,
+    layout,
+    actions,
+    onClearFilters: library.clearFilters,
+  };
 
   return (
     <div ref={fallbackFocus} tabIndex={-1} className="flex flex-col gap-4 outline-none">
       <div className="flex flex-wrap items-center gap-2">
-        <LibrarySearchField value={search} onChange={setSearch} label={ui("Tìm theo tên")} />
-        {view === "documents" && <DocumentSourceSelect value={sourceId} onChange={setSourceId} />}
-        {(view === "shared" || view === "meetings") && (
-          <LibrarySortSelect sort={sort} sorts={ENTRY_SORTS} onSort={setSort} />
-        )}
+        <LibrarySearchField
+          value={library.search}
+          onChange={library.setSearch}
+          label={ui("Tìm theo tên")}
+        />
         {view === "documents" && (
-          <LibrarySortSelect sort={sort} sorts={DOCUMENT_SORTS} onSort={setSort} />
+          <DocumentSourceSelect
+            value={sourceId}
+            onChange={(next) => filterBy({ sourceId: next })}
+          />
+        )}
+        {(view === "shared" || view === "meetings" || view === "documents") && (
+          <LibrarySortSelect
+            sort={sort}
+            sorts={sorts}
+            onSort={(next: LibrarySort) => filterBy({ sort: next })}
+          />
         )}
         <LibraryLayoutToggle layout={layout} onLayout={onLayout} />
       </div>
@@ -167,7 +177,7 @@ export function LibraryEntryViews({
               { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
             ]}
             value={kind}
-            onChange={setKind}
+            onChange={(next) => filterBy({ kind: next as EntryKindChip | undefined })}
           />
           {categoryChips}
         </div>
@@ -182,7 +192,7 @@ export function LibraryEntryViews({
           ]}
           value={owner}
           // Pressing the chosen chip clears it, which is every meeting again.
-          onChange={(next) => setOwner((next ?? "ALL") as MeetingOwner)}
+          onChange={(next) => filterBy({ owner: (next ?? "ALL") as MeetingOwner })}
         />
       )}
       {view === "documents" && categoryChips}
@@ -196,7 +206,7 @@ export function LibraryEntryViews({
             ...(canReadDocuments ? [{ value: "DOCUMENT", label: ui("Tài liệu tổ chức") }] : []),
           ]}
           value={kind}
-          onChange={setKind}
+          onChange={(next) => filterBy({ kind: next as EntryKindChip | undefined })}
         />
       )}
 
@@ -205,7 +215,7 @@ export function LibraryEntryViews({
       ) : view === "documents" ? (
         <DocumentEntries {...results} />
       ) : (
-        <PagedEntries {...results} view={view} />
+        <PagedEntries {...results} view={view} library={library} />
       )}
       {dialogs}
     </div>
@@ -223,10 +233,8 @@ type ResultsProps = {
 
 /** What the person opened last; the server keeps at most a hundred, so the name search runs here. */
 function RecentEntries(props: ResultsProps) {
-  const { actorId, authorizationVersion } = useApplicationSession();
   const recent = useQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "entries", "recent"],
-    queryFn: ({ signal }) => loadRecentEntries(signal),
+    ...listChatLibraryRecentOptions({ query: { limit: RECENT_LIMIT } }),
     // Every visit reads the opens made since, including those made on the other views a moment ago.
     staleTime: 0,
   });
@@ -240,30 +248,14 @@ function RecentEntries(props: ResultsProps) {
 }
 
 /** The views the server pages by offset, with the same pager and page sizes as the person's own files. */
-function PagedEntries(props: ResultsProps & { view: "shared" | "meetings" | "starred" }) {
+function PagedEntries({
+  library,
+  ...props
+}: ResultsProps & { view: "shared" | "meetings" | "starred"; library: LibraryViewState }) {
   const ui = useAppTranslation();
-  const { view, filter } = props;
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const [size, setSize] = useState<number>(LIBRARY_PAGE_SIZE);
-  const [offset, setOffset] = useState(0);
-  // Every filter change starts the list again: page 3 of the previous filter means nothing.
-  const [pagedFilter, setPagedFilter] = useState(filter);
-  if (pagedFilter !== filter) {
-    setPagedFilter(filter);
-    setOffset(0);
-  }
+  const { offset, size } = library;
   const page = useQuery({
-    queryKey: [
-      ...chatLibraryKey,
-      actorId,
-      authorizationVersion,
-      "entries",
-      view,
-      filter,
-      offset,
-      size,
-    ],
-    queryFn: ({ signal }) => loadEntryPage(view, filter, offset, size, signal),
+    ...entryPageOptions(props.view, props.filter, offset, size),
     // Paging keeps the page being read on screen until the next one arrives, instead of emptying the list.
     placeholderData: keepPreviousData,
   });
@@ -274,7 +266,6 @@ function PagedEntries(props: ResultsProps & { view: "shared" | "meetings" | "sta
       {page.data && total > 0 && (
         <TablePagination
           label={ui("Phân trang thư viện")}
-          className="px-0"
           page={Math.floor(offset / size)}
           totalPages={Math.ceil(total / size)}
           summary={ui("Hiển thị {{first}}–{{last}} trên {{total}} mục", {
@@ -286,8 +277,8 @@ function PagedEntries(props: ResultsProps & { view: "shared" | "meetings" | "sta
           nextDisabled={!page.data.hasMore}
           previousLabel={ui("Trang trước")}
           nextLabel={ui("Trang sau")}
-          onPrevious={() => setOffset(Math.max(0, offset - size))}
-          onNext={() => setOffset(offset + size)}
+          onPrevious={() => library.showPage(Math.max(0, offset - size))}
+          onNext={() => library.showPage(offset + size)}
         >
           <PageSizeSelect
             label={ui("Số mục mỗi trang")}
@@ -296,10 +287,7 @@ function PagedEntries(props: ResultsProps & { view: "shared" | "meetings" | "sta
             sizes={LIBRARY_PAGE_SIZES}
             disabled={page.isPlaceholderData}
             // A page size change re-cuts the list, so it restarts at its first page.
-            onSizeChange={(next) => {
-              setSize(next);
-              setOffset(0);
-            }}
+            onSizeChange={(next) => library.filterBy({ size: next })}
           />
         </TablePagination>
       )}
@@ -313,13 +301,9 @@ function PagedEntries(props: ResultsProps & { view: "shared" | "meetings" | "sta
  */
 function DocumentEntries(props: ResultsProps) {
   const ui = useAppTranslation();
-  const { filter } = props;
-  const { actorId, authorizationVersion } = useApplicationSession();
   const documents = useInfiniteQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "entries", "documents", filter],
-    queryFn: ({ pageParam, signal }) =>
-      loadDocumentPage(filter, pageParam, LIBRARY_PAGE_SIZE, signal),
-    initialPageParam: undefined as string | undefined,
+    ...documentPagesOptions(props.filter, LIBRARY_PAGE_SIZE),
+    initialPageParam: undefined as unknown as string,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
   });
@@ -407,10 +391,8 @@ function DocumentSourceSelect({
   onChange: (next: string | undefined) => void;
 }) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const sources = useQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "document-sources"],
-    queryFn: ({ signal }) => loadDocumentSources(signal),
+    ...listChatLibraryDocumentSourcesOptions(),
     staleTime: 5 * 60_000,
   });
   return (
@@ -449,7 +431,9 @@ function useEntryActions(
   const [reading, setReading] = useState<LibraryEntry>();
   const [pending, setPending] = useState<string>();
   const returnFocus = useRef<HTMLElement | null>(null);
-  const refresh = () => cache.invalidateQueries({ queryKey: chatLibraryKey });
+  const refresh = () => invalidateLibrary(cache);
+  const starEntry = useMutation(starChatLibraryEntryMutation());
+  const unstarEntry = useMutation(unstarChatLibraryEntryMutation());
 
   /** One command at a time per row, so a slow export is not started twice. */
   const run = async (entry: LibraryEntry, work: (signal: AbortSignal) => Promise<void>) => {
@@ -465,8 +449,12 @@ function useEntryActions(
   };
 
   const star = async (entry: LibraryEntry) => {
+    const change = entry.starred ? unstarEntry : starEntry;
     try {
-      await setEntryStarred(entry, !entry.starred, AbortSignal.timeout(30_000));
+      await change.mutateAsync({
+        path: { kind: entry.kind, id: entry.id },
+        signal: AbortSignal.timeout(30_000),
+      });
     } catch (failure) {
       notify({ title: actionErrorText(failure), tone: "error" });
     } finally {

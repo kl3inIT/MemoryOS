@@ -1,5 +1,6 @@
 package io.memoryos.library.work.persistence;
 
+import io.memoryos.FailureEvidence;
 import io.memoryos.library.UserFileWork;
 import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
@@ -134,8 +135,8 @@ public class JdbcUserFileWorkRepository {
                 WHERE id=:id AND tenant_id=:tenant AND claim_token=:token AND status='IN_PROGRESS'
                     AND lease_expires_at>=CURRENT_TIMESTAMP
                 """).param("status", terminal ? "FAILED" : "NOT_STARTED").param("code", code)
-                .param("errorMessage", io.memoryos.FailureEvidence.safeErrorMessage(errorMessage))
-                .param("errorDetail", io.memoryos.FailureEvidence.safeErrorDetail(errorDetail))
+                .param("errorMessage", FailureEvidence.safeErrorMessage(errorMessage))
+                .param("errorDetail", FailureEvidence.safeErrorDetail(errorDetail))
                 .param("id", work.operationId()).param("tenant", work.tenantId().value()).param("token", work.token()).update();
         if (changed == 1 && terminal) {
             jdbc.sql("""

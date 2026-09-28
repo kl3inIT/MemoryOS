@@ -15,7 +15,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * One person's marks on what their library shows (V131): stars on reachable rows and the time they last opened any
+ * One person's marks on what their library shows (V133): stars on reachable rows and the time they last opened any
  * row. A mark names an item and never grants it; the library resolves every marked id through its owner first.
  */
 @Repository

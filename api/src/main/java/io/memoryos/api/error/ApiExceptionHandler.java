@@ -5,7 +5,10 @@ import io.memoryos.FailureCategory;
 import io.memoryos.library.UserFileInUseException;
 import io.memoryos.connector.GoogleDriveProviderException;
 
+import io.memoryos.usage.AiUsageLimitException;
 import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -13,6 +16,7 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import jakarta.validation.ConstraintViolation;
 import org.springframework.context.MessageSourceResolvable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.ObjectError;
 
 import org.springframework.core.Ordered;
@@ -20,6 +24,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -42,15 +47,15 @@ final class ApiExceptionHandler {
     }
 
     /** A spent AI budget: which budget it was and when it frees, plus Retry-After, as Onyx answers. */
-    @ExceptionHandler(io.memoryos.usage.AiUsageLimitException.class)
-    org.springframework.http.ResponseEntity<ProblemDetail> handleAiUsageLimit(io.memoryos.usage.AiUsageLimitException exception) {
+    @ExceptionHandler(AiUsageLimitException.class)
+    ResponseEntity<ProblemDetail> handleAiUsageLimit(AiUsageLimitException exception) {
         ProblemDetail problem = handleBusinessException(exception);
         problem.setProperty("scope", exception.scope().name());
         if (exception.groupName() != null) problem.setProperty("group", exception.groupName());
         problem.setProperty("resetsAt", exception.resetsAt().toString());
-        long seconds = Math.max(1, java.time.Duration.between(java.time.Instant.now(), exception.resetsAt()).toSeconds());
+        long seconds = Math.max(1, Duration.between(Instant.now(), exception.resetsAt()).toSeconds());
         problem.setProperty("retryAfterSeconds", seconds);
-        return org.springframework.http.ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header("Retry-After", Long.toString(seconds)).body(problem);
     }
 
@@ -109,7 +114,7 @@ final class ApiExceptionHandler {
         return validationProblem(errors);
     }
 
-    private static ConstraintViolation<?> violation(org.springframework.validation.method.ParameterValidationResult result,
+    private static ConstraintViolation<?> violation(ParameterValidationResult result,
                                                      MessageSourceResolvable error) {
         if (error instanceof ObjectError objectError && objectError.contains(ConstraintViolation.class)) {
             return objectError.unwrap(ConstraintViolation.class);

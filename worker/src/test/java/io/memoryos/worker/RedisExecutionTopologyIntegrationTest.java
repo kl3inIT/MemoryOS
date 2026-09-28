@@ -4,10 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.ingestion.OperationWorkload;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
@@ -91,9 +94,9 @@ class RedisExecutionTopologyIntegrationTest {
     }
 
     @SuppressWarnings("unchecked")
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.EnumSource(io.memoryos.ingestion.OperationWorkload.class)
-    void createsGroupsAndAcknowledgesIdentifierOnlyDelivery(io.memoryos.ingestion.OperationWorkload kind) {
+    @ParameterizedTest
+    @EnumSource(OperationWorkload.class)
+    void createsGroupsAndAcknowledgesIdentifierOnlyDelivery(OperationWorkload kind) {
         var workload = properties.workload(kind);
         topology.ensureTopology();
         topology.ensureTopology();

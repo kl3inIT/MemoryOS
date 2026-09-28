@@ -1,5 +1,10 @@
 package io.memoryos.chat.session.persistence;
 
+import io.memoryos.chat.ChatActivity;
+import io.memoryos.chat.ChatArtifact;
+import io.memoryos.chat.ChatPersonaService;
+import io.memoryos.chat.ChatResearch;
+import io.memoryos.chat.WebSearchMode;
 import io.memoryos.chat.persona.persistence.AgentAccessSql;
 import io.memoryos.chat.persona.persistence.DocumentSetAccessSql;
 import io.memoryos.ai.ReasoningEffort;
@@ -13,6 +18,10 @@ import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatFileDescriptor;
+import io.memoryos.chat.prompts.ChatPrompts;
+import java.sql.Timestamp;
+import java.util.Collection;
+import java.util.function.Function;
 import tools.jackson.databind.ObjectMapper;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -20,7 +29,6 @@ import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.time.Instant;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -55,7 +63,7 @@ public class JdbcChatRepository {
                         INSERT INTO persona_tool(tenant_id, persona_id, tool_key)
                         SELECT :tenant, :id, tool FROM unnest(CAST(:tools AS text[])) AS tool
                         """).param("tenant", tenant.value()).param("id", id)
-                .param("tools", io.memoryos.chat.ChatPersonaService.TOOLS.stream().sorted().toArray(String[]::new)).update();
+                .param("tools", ChatPersonaService.TOOLS.stream().sorted().toArray(String[]::new)).update();
         return defaultPersona(tenant).orElseThrow();
     }
 
@@ -135,13 +143,13 @@ public class JdbcChatRepository {
                                          finished_at, deadline_at, sources, files, artifacts, activity, model_name,
                                          input_tokens, output_tokens, requested_model_configuration_id,
                                          selected_model_configuration_id, model_selection_fallback,
-                                         is_clarification, research_plan, research_agents, failure_code)
+                                         is_clarification, research_plan, research_agents, failure_code, refusal_reason)
                 SELECT c.copy_id, :branch, c.parent_id, c.child_id, m.role, m.content, m.status, c.request_id, c.reply_id,
                        m.created_at, m.finished_at, m.deadline_at, m.sources, m.files, m.artifacts, m.activity,
                        m.model_name,
                        m.input_tokens, m.output_tokens, m.requested_model_configuration_id,
                        m.selected_model_configuration_id, m.model_selection_fallback, m.is_clarification,
-                       m.research_plan, m.research_agents, m.failure_code
+                       m.research_plan, m.research_agents, m.failure_code, m.refusal_reason
                 FROM unnest(CAST(:originals AS uuid[]), CAST(:copies AS uuid[]), CAST(:parents AS uuid[]),
                             CAST(:children AS uuid[]), CAST(:requests AS uuid[]), CAST(:replies AS uuid[]))
                          WITH ORDINALITY AS c(original_id, copy_id, parent_id, child_id, request_id, reply_id, position)
@@ -159,7 +167,7 @@ public class JdbcChatRepository {
     }
 
     /** A column of {@code copies} as a text array PostgreSQL casts to {@code uuid[]}; absent values stay null. */
-    private static String[] uuids(List<MessageCopy> copies, java.util.function.Function<MessageCopy, @Nullable UUID> column) {
+    private static String[] uuids(List<MessageCopy> copies, Function<MessageCopy, @Nullable UUID> column) {
         return copies.stream().map(column).map(id -> id == null ? null : id.toString()).toArray(String[]::new);
     }
 
@@ -262,13 +270,13 @@ public class JdbcChatRepository {
                         row.getObject("assistant_message_id", UUID.class), row.getObject("requested_model_id", UUID.class),
                         row.getObject("selected_model_id", UUID.class), row.getString("fallback_reason"),
                         ChatCommand.Operation.valueOf(row.getString("operation")),
-                        List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), io.memoryos.chat.WebSearchMode.valueOf(row.getString("web_search")),
+                        List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), WebSearchMode.valueOf(row.getString("web_search")),
                         row.getBoolean("deep_research"))).optional();
     }
 
     public record ReservedRequest(UUID userMessageId, UUID parentMessageId, String content, UUID assistantMessageId,
                                   @Nullable UUID requestedModelId, @Nullable UUID selectedModelId, @Nullable String fallbackReason,
-                                  ChatCommand.Operation operation, List<UUID> fileIds, io.memoryos.chat.WebSearchMode webSearch,
+                                  ChatCommand.Operation operation, List<UUID> fileIds, WebSearchMode webSearch,
                                   boolean deepResearch) {
     }
 
@@ -343,17 +351,16 @@ public class JdbcChatRepository {
      *
      * @param tools          agent tool keys ({@code search}, {@code web_search}, {@code image_generation})
      * @param mcpServerIds   attached MCP servers; null for the builtin agent, which reaches every accessible server
+     * @param reasoningEffort the level pinned on this conversation, which outranks the model configuration
      */
-    /** {@code reasoningEffort} is the level pinned on this conversation, which outranks the model configuration. */
     public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
                           @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
-                          @Nullable List<UUID> mcpServerIds, boolean datetimeAware,
+                          @Nullable List<UUID> mcpServerIds,
                           @Nullable ReasoningEffort reasoningEffort) {
         public Persona(String instructions, String model, ChatTurnOptions options, String revision,
                        @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
-                       @Nullable List<UUID> mcpServerIds, boolean datetimeAware) {
-            this(instructions, model, options, revision, modelConfigurationId, fileIds, tools, mcpServerIds,
-                    datetimeAware, null);
+                       @Nullable List<UUID> mcpServerIds) {
+            this(instructions, model, options, revision, modelConfigurationId, fileIds, tools, mcpServerIds, null);
         }
     }
 
@@ -389,7 +396,9 @@ public class JdbcChatRepository {
             WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
             """ + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id");
 
-    private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision)";
+    /** The Tenant's Chat settings are part of it because the turn reads grounded answers from them (MEM-195). */
+    private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision,"
+            + "(SELECT cs.revision FROM chat_settings cs WHERE cs.tenant_id = p.tenant_id))";
 
     /**
      * Everything a turn takes from its agent, in one statement: tools, MCP servers and the Sources it searches are
@@ -399,10 +408,12 @@ public class JdbcChatRepository {
         return jdbc.sql("""
                         SELECT p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
                             s.reasoning_effort,
-                            p.task_prompt, p.datetime_aware, p.knowledge_cutoff,
+                            p.task_prompt, p.knowledge_cutoff,
+                            p.grounded OR COALESCE((SELECT cs.grounded_answers FROM chat_settings cs
+                                                    WHERE cs.tenant_id = p.tenant_id), FALSE) AS grounded,
                             CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
                             %s AS revision,
-                            CASE WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt AND p.datetime_aware
+                            CASE WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt
                                       AND position('{{CURRENT_DATETIME}}' IN p.instructions) = 0
                                      THEN concat_ws(chr(10), p.instructions, 'The current date is {{CURRENT_DATETIME}}.')
                                  WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt THEN p.instructions
@@ -425,7 +436,7 @@ public class JdbcChatRepository {
                                   ORDER BY 1) AS sources
                         """.formatted(REVISION, DocumentSetAccessSql.USES.replace(":actor", "s.owner_actor_id"))
                         + SESSION_AGENT + (lock ? " FOR SHARE OF p" : ""))
-                .param("session", session).param("base", io.memoryos.chat.prompts.ChatPrompts.DEFAULT_SYSTEM)
+                .param("session", session).param("base", ChatPrompts.DEFAULT_SYSTEM)
                 .param("agentsManage", agentsManage)
                 .query((row, ignored) -> {
                     boolean builtin = row.getString("builtin_key") != null;
@@ -437,11 +448,10 @@ public class JdbcChatRepository {
                                     row.getBoolean("restricts_sources"),
                                     row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class),
                                     cutoff == null ? null : cutoff.toInstant(), row.getString("task_prompt"),
-                                    tools.contains("code_interpreter")),
+                                    tools.contains("code_interpreter")).withGrounded(row.getBoolean("grounded")),
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
-                            row.getBoolean("datetime_aware"),
                             pinned == null ? null : ReasoningEffort.valueOf(pinned));
                 })
                 .optional().orElseThrow(ChatException::unavailable);
@@ -475,7 +485,7 @@ public class JdbcChatRepository {
 
     public void completeTitle(ChatSession expected, String title) {
         jdbc.sql("UPDATE chat_session SET title=:title,updated_at=CURRENT_TIMESTAMP WHERE id=:id AND updated_at=:updated AND title=:previous AND deleted_at IS NULL")
-                .param("id", expected.id()).param("updated", java.sql.Timestamp.from(expected.updatedAt()))
+                .param("id", expected.id()).param("updated", Timestamp.from(expected.updatedAt()))
                 .param("previous", expected.title()).param("title", title).update();
     }
 
@@ -495,8 +505,8 @@ public class JdbcChatRepository {
 
     /** A conversation that leaves no history cannot be put in a Project or shared; both commands refuse it. */
     public boolean temporary(UUID session) {
-        return Boolean.TRUE.equals(jdbc.sql("SELECT temporary FROM chat_session WHERE id = :session")
-                .param("session", session).query(Boolean.class).optional().orElse(false));
+        return jdbc.sql("SELECT temporary FROM chat_session WHERE id = :session")
+                .param("session", session).query(Boolean.class).optional().orElse(false);
     }
 
     public void moveProject(UUID session, @Nullable UUID project) {
@@ -553,9 +563,9 @@ public class JdbcChatRepository {
      * At most one reply per session is RUNNING, so these row locks never overlap a session-first terminal lock cycle.
      * Returns the renewed IDs; a row that already ended is not renewed.
      */
-    public java.util.Set<UUID> renewLeases(java.util.Collection<UUID> assistants, Duration lease) {
-        if (assistants.isEmpty()) return java.util.Set.of();
-        return java.util.Set.copyOf(jdbc.sql("""
+    public Set<UUID> renewLeases(Collection<UUID> assistants, Duration lease) {
+        if (assistants.isEmpty()) return Set.of();
+        return Set.copyOf(jdbc.sql("""
                 UPDATE chat_message SET deadline_at = clock_timestamp() + :lease * interval '1 millisecond'
                 WHERE id IN (:ids) AND role = 'ASSISTANT' AND status = 'RUNNING' RETURNING id
                 """).param("ids", assistants).param("lease", lease.toMillis()).query(UUID.class).list());
@@ -570,14 +580,14 @@ public class JdbcChatRepository {
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources) {
         return finish(session, assistant, status, content, failure, model, input, output, cost, sources,
-                io.memoryos.chat.ChatActivity.EMPTY, io.memoryos.chat.ChatResearch.EMPTY);
+                ChatActivity.EMPTY, ChatResearch.EMPTY);
     }
 
     public boolean finish(UUID session, UUID assistant, Status status, String content,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity,
-                          io.memoryos.chat.ChatResearch research) {
-        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research)
+                          @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
+                          ChatResearch research) {
+        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research, null)
                 .isPresent();
     }
 
@@ -587,16 +597,16 @@ public class JdbcChatRepository {
      */
     public Control finishAndRead(UUID session, UUID assistant, Status status, String content,
                                  @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                                 @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity,
-                                 io.memoryos.chat.ChatResearch research) {
-        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research)
+                                 @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
+                                 ChatResearch research, @Nullable String refusal) {
+        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research, refusal)
                 .orElseGet(() -> control(assistant));
     }
 
     private Optional<Control> terminal(UUID session, UUID assistant, Status status, String content,
                                        @Nullable String failure, @Nullable String model, @Nullable Long input,
                                        @Nullable Long output, @Nullable Double cost, List<ChatSource> sources,
-                                       io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research) {
+                                       ChatActivity activity, ChatResearch research, @Nullable String refusal) {
         // Same lock order as reserve/Stop: session, then message. Reversing it can deadlock terminal races.
         if (jdbc.sql("SELECT id FROM chat_session WHERE id = :session FOR UPDATE").param("session", session)
                 .query(UUID.class).optional().isEmpty()) return Optional.empty();
@@ -607,7 +617,7 @@ public class JdbcChatRepository {
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
                             cost_usd = :cost, sources = CAST(:sources AS jsonb),
                             activity = CAST(:activity AS jsonb), is_clarification = :clarification, research_plan = :plan,
-                            research_agents = CAST(:agents AS jsonb),
+                            research_agents = CAST(:agents AS jsonb), refusal_reason = :refusal,
                             finished_at = clock_timestamp()
                         WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status = 'RUNNING'
                         RETURNING status, failure_code
@@ -618,6 +628,7 @@ public class JdbcChatRepository {
                 .param("sources", JSON.writeValueAsString(sources))
                 .param("activity", JSON.writeValueAsString(activity)).param("clarification", research.clarification())
                 .param("plan", research.plan(), Types.VARCHAR).param("agents", JSON.writeValueAsString(research.agents()))
+                .param("refusal", refusal, Types.VARCHAR)
                 .query((row, ignored) -> new Control(Status.valueOf(row.getString("status")), row.getString("failure_code")))
                 .optional();
         if (written.isPresent()) touch(session);
@@ -668,10 +679,10 @@ public class JdbcChatRepository {
                 row.getTimestamp("created_at").toInstant(), finished == null ? null : finished.toInstant(),
                 List.of(JSON.readValue(row.getString("sources"), ChatSource[].class)),
                 List.of(JSON.readValue(row.getString("files"), ChatFileDescriptor[].class)),
-                List.of(JSON.readValue(row.getString("artifacts"), io.memoryos.chat.ChatArtifact[].class)),
-                JSON.readValue(row.getString("activity"), io.memoryos.chat.ChatActivity.class),
-                new io.memoryos.chat.ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan"),
-                        List.of(JSON.readValue(row.getString("research_agents"), io.memoryos.chat.ChatResearch.Agent[].class))),
-                row.getString("failure_code"));
+                List.of(JSON.readValue(row.getString("artifacts"), ChatArtifact[].class)),
+                JSON.readValue(row.getString("activity"), ChatActivity.class),
+                new ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan"),
+                        List.of(JSON.readValue(row.getString("research_agents"), ChatResearch.Agent[].class))),
+                row.getString("failure_code"), row.getString("refusal_reason"));
     }
 }

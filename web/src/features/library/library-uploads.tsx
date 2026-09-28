@@ -45,14 +45,14 @@ export function LibraryDropZone({
       }}
       className={cn(
         "relative flex min-h-0 flex-1 flex-col",
-        over && "rounded-xl outline-2 outline-offset-4 outline-dashed outline-border-strong",
+        over && "rounded-xl outline-2 outline-offset-4 outline-border-strong outline-dashed",
       )}
     >
       {children}
       {over && (
         <p
           role="status"
-          className="pointer-events-none absolute inset-x-0 top-2 mx-auto w-fit rounded-full bg-surface-accent px-4 py-1 text-sm text-content-on-accent"
+          className="pointer-events-none absolute inset-x-0 top-2 mx-auto w-fit rounded-full bg-primary px-4 py-1 text-sm text-primary-foreground"
         >
           {ui("Thả tệp vào đây để tải lên")}
         </p>
@@ -68,7 +68,7 @@ export function LibraryUploadButton({ onFiles }: { onFiles: (files: File[]) => v
   return (
     <>
       <Button size="sm" prominence="secondary" onClick={() => input.current?.click()}>
-        <Upload className="size-4" aria-hidden="true" />
+        <Upload data-icon="inline-start" />
         {ui("Tải lên")}
       </Button>
       <input
@@ -133,7 +133,7 @@ export function LibraryUploadTray({
                 <span
                   className={cn(
                     "block text-xs",
-                    upload.state === "failed" ? "text-content-danger" : "text-content-muted",
+                    upload.state === "failed" ? "text-status-danger-content" : "text-content-muted",
                   )}
                 >
                   {upload.state === "done"

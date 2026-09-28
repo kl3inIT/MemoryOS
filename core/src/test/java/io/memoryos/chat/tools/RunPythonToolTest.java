@@ -15,11 +15,18 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.memoryos.chat.ChatCodeEvent;
+import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.library.UserFileContentService;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.library.UserFile;
 import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.StoredObjectId;
+import io.memoryos.objectstorage.StoredObjectReference;
+import io.memoryos.retrieval.DocumentOriginalService;
+import io.memoryos.retrieval.SearchHit;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ContentSha256;
@@ -27,11 +34,14 @@ import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectMetadata;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import tools.jackson.databind.JsonNode;
@@ -46,11 +56,11 @@ class RunPythonToolTest {
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final UUID messageId = UUID.randomUUID();
     private final List<UserFile> attached = new ArrayList<>();
-    private final List<io.memoryos.chat.ChatCodeEvent> published = new ArrayList<>();
+    private final List<ChatCodeEvent> published = new ArrayList<>();
 
     private RunPythonTool tool() {
         when(files.readable(eq(actor), eq(tenant), any())).thenReturn(attached);
-        when(activity.current()).thenReturn(new io.memoryos.chat.ChatToolEvent.Call("call-1", "run_python"));
+        when(activity.current()).thenReturn(new ChatToolEvent.Call("call-1", "run_python"));
         return new RunPythonTool(client, artifacts, files, actor, tenant, messageId, attached.stream().map(UserFile::id).toList(),
                 () -> {}, activity, published::add);
     }
@@ -108,17 +118,17 @@ class RunPythonToolTest {
 
     @Test void searchedSourceFilesAreStagedAfterTheChatFilesThroughCitationAuthority() throws Exception {
         attach("notes.csv", 10, 5);
-        var originals = mock(io.memoryos.retrieval.DocumentOriginalService.class);
+        var originals = mock(DocumentOriginalService.class);
         UUID document = UUID.randomUUID(), generation = UUID.randomUUID();
-        var stored = new io.memoryos.objectstorage.StoredObjectId(UUID.randomUUID());
-        when(originals.citationOriginals(eq(actor), any())).thenReturn(java.util.Map.of(document,
-                new io.memoryos.objectstorage.StoredObjectReference(stored, new io.memoryos.objectstorage.ObjectKey("raw/r"),
+        var stored = new StoredObjectId(UUID.randomUUID());
+        when(originals.citationOriginals(eq(actor), any())).thenReturn(Map.of(document,
+                new StoredObjectReference(stored, new ObjectKey("raw/r"),
                         "report.xlsx", new ObjectMetadata(20, "application/vnd.ms-excel", new ContentSha256("c".repeat(64))))));
-        var closed = new java.util.concurrent.atomic.AtomicBoolean();
-        when(originals.citationOriginal(actor, document, generation)).thenReturn(new io.memoryos.retrieval.DocumentOriginalService
+        var closed = new AtomicBoolean();
+        when(originals.citationOriginal(actor, document, generation)).thenReturn(new DocumentOriginalService
                 .Original(null, null, new ByteArrayInputStream(new byte[20]), () -> closed.set(true)));
         var sandbox = new SandboxDocuments(originals, actor);
-        sandbox.register(List.of(new io.memoryos.retrieval.SearchHit(document, generation, 0, "Report", "text/plain", "x", "[]",
+        sandbox.register(List.of(new SearchHit(document, generation, 0, "Report", "text/plain", "x", "[]",
                 Instant.EPOCH, .5)));
         String name = "Report_" + stored.value() + ".xlsx";
         when(client.upload(eq(name), eq("application/vnd.ms-excel"), any())).thenReturn("svc-report");
@@ -198,10 +208,10 @@ class RunPythonToolTest {
                 new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-2.json", "file", "json-2"),
                 new InterpreterClient.WorkspaceFile(".memoryos-charts/other.txt", "file", "other")));
         when(client.download("png-1")).thenReturn(new byte[]{1});
-        when(client.download("json-1")).thenReturn(line.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(client.download("json-1")).thenReturn(line.getBytes(StandardCharsets.UTF_8));
         when(client.download("png-2")).thenReturn(new byte[]{2});
         // Not a chart object: the PNG is kept without chart data.
-        when(client.download("json-2")).thenReturn("[1,2]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(client.download("json-2")).thenReturn("[1,2]".getBytes(StandardCharsets.UTF_8));
         when(artifacts.store(tenant, messageId, "Doanh thu quý 3.png", "image/png", new byte[]{1}, line)).thenReturn(chart);
         when(artifacts.store(tenant, messageId, "chart-2.png", "image/png", new byte[]{2}, null)).thenReturn(plain);
 
@@ -217,8 +227,8 @@ class RunPythonToolTest {
         assertFalse(reply.contains("elements"));
         for (var id : List.of("png-1", "json-1", "png-2", "json-2", "other")) verify(client).delete(id);
         var terminal = published.getLast();
-        assertEquals(List.of(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(chart, "Doanh thu quý 3.png", "image/png", 1, true),
-                new io.memoryos.chat.ChatCodeEvent.GeneratedFile(plain, "chart-2.png", "image/png", 1, false)), terminal.files());
+        assertEquals(List.of(new ChatCodeEvent.GeneratedFile(chart, "Doanh thu quý 3.png", "image/png", 1, true),
+                new ChatCodeEvent.GeneratedFile(plain, "chart-2.png", "image/png", 1, false)), terminal.files());
     }
 
     @Test void chartDataMustBeABoundedObjectWithAType() {
@@ -281,7 +291,7 @@ class RunPythonToolTest {
         when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenAnswer(call -> {
             InterpreterClient.OutputListener listener = call.getArgument(3);
             listener.output("stdout", "first\n");
-            listener.output("stderr", "x".repeat(io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS));
+            listener.output("stderr", "x".repeat(ChatCodeEvent.MAX_OUTPUT_CHARACTERS));
             listener.output("stdout", "dropped, the budget is gone");
             return ok("", new InterpreterClient.WorkspaceFile("chart.png", "file", "33333333-3333-3333-3333-333333333333"));
         });
@@ -290,16 +300,16 @@ class RunPythonToolTest {
 
         tool().runPython("plt.savefig('chart.png')");
 
-        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.RUNNING, published.getFirst().stage());
+        assertEquals(ChatCodeEvent.Stage.RUNNING, published.getFirst().stage());
         assertEquals("plt.savefig('chart.png')", published.getFirst().code());
-        var streamed = published.stream().filter(event -> event.stage() == io.memoryos.chat.ChatCodeEvent.Stage.OUTPUT).toList();
+        var streamed = published.stream().filter(event -> event.stage() == ChatCodeEvent.Stage.OUTPUT).toList();
         assertEquals("first\n", streamed.getFirst().output());
-        assertEquals(List.of("stdout", "stderr"), streamed.stream().map(io.memoryos.chat.ChatCodeEvent::stream).toList());
-        assertEquals(io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS,
+        assertEquals(List.of("stdout", "stderr"), streamed.stream().map(ChatCodeEvent::stream).toList());
+        assertEquals(ChatCodeEvent.MAX_OUTPUT_CHARACTERS,
                 streamed.stream().mapToInt(event -> event.output().length()).sum());
         var completed = published.getLast();
-        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.COMPLETED, completed.stage());
-        assertEquals(List.of(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(artifact, "chart.png", "image/png", 1)),
+        assertEquals(ChatCodeEvent.Stage.COMPLETED, completed.stage());
+        assertEquals(List.of(new ChatCodeEvent.GeneratedFile(artifact, "chart.png", "image/png", 1)),
                 completed.files());
     }
 
@@ -314,14 +324,14 @@ class RunPythonToolTest {
         tool().runPython("1/0");
 
         var last = published.getLast();
-        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, last.stage());
-        assertEquals(List.of(artifact), last.files().stream().map(io.memoryos.chat.ChatCodeEvent.GeneratedFile::id).toList());
+        assertEquals(ChatCodeEvent.Stage.FAILED, last.stage());
+        assertEquals(List.of(artifact), last.files().stream().map(ChatCodeEvent.GeneratedFile::id).toList());
 
         published.clear();
         when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(
                 new InterpreterClient.Execution("", "", null, true, List.of()));
         tool().runPython("while True: pass");
-        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, published.getLast().stage());
+        assertEquals(ChatCodeEvent.Stage.FAILED, published.getLast().stage());
     }
 
     @Test void aFailedRunShowsTheErrorOnStderrBeforeTheFailedStage() throws Exception {
@@ -330,10 +340,10 @@ class RunPythonToolTest {
         tool().runPython("print(1)");
 
         var error = published.get(published.size() - 2);
-        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.OUTPUT, error.stage());
+        assertEquals(ChatCodeEvent.Stage.OUTPUT, error.stage());
         assertEquals("stderr", error.stream());
         assertEquals("Code interpreter error: boom", error.output());
-        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, published.getLast().stage());
+        assertEquals(ChatCodeEvent.Stage.FAILED, published.getLast().stage());
     }
 
     @Test void namesAreSanitizedAndDeduplicatedLikeOnyx() {

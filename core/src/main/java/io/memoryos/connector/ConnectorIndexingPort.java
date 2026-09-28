@@ -6,6 +6,7 @@ import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public interface ConnectorIndexingPort {
 
@@ -13,8 +14,8 @@ public interface ConnectorIndexingPort {
 
     boolean renew(IndexWork work);
 
-    boolean retry(IndexWork work, String errorCode, @org.jspecify.annotations.Nullable String errorMessage,
-            @org.jspecify.annotations.Nullable String errorDetail, int maxAttempts, Duration backoff);
+    boolean retry(IndexWork work, String errorCode, @Nullable String errorMessage,
+            @Nullable String errorDetail, int maxAttempts, Duration backoff);
 
     Optional<DocumentId> findMappedDocument(IndexWork work);
 
@@ -22,6 +23,6 @@ public interface ConnectorIndexingPort {
 
     void supersede(IndexWork work);
 
-    boolean fail(IndexWork work, String errorCode, @org.jspecify.annotations.Nullable String errorMessage,
-            @org.jspecify.annotations.Nullable String errorDetail);
+    boolean fail(IndexWork work, String errorCode, @Nullable String errorMessage,
+            @Nullable String errorDetail);
 }

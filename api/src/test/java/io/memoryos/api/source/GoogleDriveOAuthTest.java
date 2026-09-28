@@ -13,13 +13,18 @@ import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
-import io.memoryos.connector.GoogleDriveException;
+import io.memoryos.connector.GoogleDriveAccountClient;
 import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.adapter.googledrive.GoogleDriveProviderProperties;
+import io.memoryos.connector.adapter.googledrive.RestGoogleDriveAccountClient;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.shared.TenantId;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -34,10 +39,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import tools.jackson.databind.ObjectMapper;
@@ -65,14 +70,11 @@ class GoogleDriveOAuthTest {
         signingKey = new RSAKeyGenerator(2048).keyID("test-key").generate();
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         issuer = "http://127.0.0.1:" + server.getAddress().getPort();
-        var environment = new MockEnvironment()
-                .withProperty("memoryos.google-drive.authorization-uri", issuer + "/authorize")
-                .withProperty("memoryos.google-drive.redirect-uri", "http://127.0.0.1:8080/login/oauth2/code/google-drive")
-                .withProperty("memoryos.google-drive.token-uri", issuer + "/token")
-                .withProperty("memoryos.google-drive.issuer-uri", issuer)
-                .withProperty("memoryos.google-drive.jwk-set-uri", issuer + "/jwks")
-                .withProperty("memoryos.google-drive.drive-api-base-url", issuer + "/drive/v3");
-        accounts = new GoogleDriveAccountClient(new GoogleDriveOAuthProperties(environment), mapper);
+        // The API wires the provider bundle's real client; its protocol rules are covered in RestGoogleDriveAccountClientTest.
+        accounts = new RestGoogleDriveAccountClient(new GoogleDriveProviderProperties(URI.create(issuer + "/token"),
+                URI.create(issuer + "/drive/v3"), null, null, null, null, null, null, 0, 0, 0, 0, 0, 0,
+                URI.create("http://127.0.0.1:8080/login/oauth2/code/google-drive"), URI.create(issuer + "/authorize"),
+                null, URI.create(issuer + "/jwks"), URI.create(issuer)), mapper);
         authorizations = mock(GoogleDriveAuthorizationService.class);
         callback = new GoogleDriveOAuthCallbackController(authorizations, accounts);
         credential = new CredentialId(UUID.randomUUID());
@@ -98,7 +100,7 @@ class GoogleDriveOAuthTest {
             try {
                 body = mapper.writeValueAsBytes(Map.of("access_token", "test-access-secret", "refresh_token", "test-refresh-secret",
                         "token_type", "Bearer", "expires_in", 3600, "id_token", idToken()));
-            } catch (Exception exception) { throw new java.io.IOException(exception); }
+            } catch (Exception exception) { throw new IOException(exception); }
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, body.length);
             try (var output = exchange.getResponseBody()) { output.write(body); }
@@ -119,7 +121,7 @@ class GoogleDriveOAuthTest {
 
     @Test
     void completesPkceNonceBoundCallbackOnceWithoutReplacingActorOrSavingTokens() throws Exception {
-        URI launch = URI.create(accounts.authorizationUrl(state, clientId));
+        URI launch = URI.create(accounts.authorizationUrl(clientId, state.consent()));
         Map<String, String> parameters = query(launch.getRawQuery());
         assertEquals(state.challenge(), parameters.get("code_challenge"));
         assertEquals("S256", parameters.get("code_challenge_method"));
@@ -132,12 +134,12 @@ class GoogleDriveOAuthTest {
         assertEquals("http://127.0.0.1:8080/login/oauth2/code/google-drive", exchangedForm.get("redirect_uri"));
         assertEquals(clientId, exchangedForm.get("client_id"));
         assertEquals("test-client-secret", exchangedForm.get("client_secret"));
-        var context = (org.springframework.security.core.context.SecurityContext) session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+        var context = (SecurityContext) session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
         assertEquals(identity, context.getAuthentication().getPrincipal());
         for (var names = session.getAttributeNames(); names.hasMoreElements();) {
             Object attribute = session.getAttribute(names.nextElement());
-            var bytes = new java.io.ByteArrayOutputStream();
-            try (var serialized = new java.io.ObjectOutputStream(bytes)) { serialized.writeObject(attribute); }
+            var bytes = new ByteArrayOutputStream();
+            try (var serialized = new ObjectOutputStream(bytes)) { serialized.writeObject(attribute); }
             String stored = bytes.toString(StandardCharsets.ISO_8859_1);
             assertFalse(stored.contains("test-refresh-secret"));
             assertFalse(stored.contains("test-access-secret"));
@@ -178,7 +180,6 @@ class GoogleDriveOAuthTest {
         assertThrows(SourceException.class, () -> GoogleDriveSourceController.revision("W/\"7\""));
         assertThrows(SourceException.class, () -> GoogleDriveSourceController.revision("*"));
         assertThrows(SourceException.class, () -> GoogleDriveSourceController.revision("\"9223372036854775808\""));
-        assertThrows(GoogleDriveException.class, () -> new GoogleDriveOAuthProperties(new MockEnvironment()).requireConfigured());
     }
 
     @Test
@@ -207,66 +208,10 @@ class GoogleDriveOAuthTest {
         var response = deliver(state.state());
         assertEquals("/admin/sources/new/google-drive?googleDrive=authorization-failed&credentialId=" + credential.value(),
                 response.getRedirectedUrl());
-        assertEquals("no-store", response.getHeader("Cache-Control"));
         assertEquals("no-referrer", response.getHeader("Referrer-Policy"));
         verify(authorizations).oauthClient(identity.actorId(), preparation);
         verify(authorizations, never()).complete(any(), any(), any());
         assertEquals(0, exchanges.get());
-    }
-
-    @Test
-    void acceptsOnlyBoundedWebClientJsonWithExactConfiguredCallback() {
-        String json = clientJson();
-        try (var parsed = accounts.parseClient(json + " ".repeat(16384 - json.length()))) {
-            assertEquals(clientId, parsed.clientId());
-            assertArrayEquals("test-client-secret".getBytes(StandardCharsets.UTF_8), parsed.clientSecret());
-            assertFalse(parsed.toString().contains("test-client-secret"));
-        }
-        for (String invalid : new String[]{
-                "", "{", json + "{}", json.replace("\"web\"", "\"installed\""),
-                json.replace("/login/oauth2/code/google-drive", "/login/oauth2/code/google-drive/"),
-                json.replace("\"client_secret\":", "\"client_secret\":\"duplicate\",\"client_secret\":"),
-                json.replace("test-client-secret", "x".repeat(4097)),
-                json.replace("\"client_id\":", "\"project_id\":\"" + "界".repeat(6000) + "\",\"client_id\":"),
-                json.replace("\"client_id\":", "\"project_id\":\"" + "x".repeat(16384) + "\",\"client_id\":")}) {
-            var failure = assertThrows(GoogleDriveException.class, () -> accounts.parseClient(invalid));
-            assertEquals("GOOGLE_DRIVE_OAUTH_CLIENT_INVALID", failure.code());
-            assertFalse(failure.toString().contains("test-client-secret"));
-            assertNull(failure.getCause());
-        }
-    }
-
-    @Test
-    void uploadedEndpointsCannotChooseTokenAuthorizationOrJwksHosts() {
-        for (String field : new String[]{"token_uri", "auth_uri", "auth_provider_x509_cert_url"}) {
-            String json = clientJson().replace("\"client_id\":", "\"" + field + "\":\"" + issuer + "/stolen\",\"client_id\":");
-            assertEquals("GOOGLE_DRIVE_OAUTH_CLIENT_INVALID",
-                    assertThrows(GoogleDriveException.class, () -> accounts.parseClient(json)).code());
-        }
-        assertEquals(0, exchanges.get());
-    }
-
-    @Test
-    void tokenEndpointRedirectDoesNotForwardClientSecret() {
-        AtomicInteger stolen = new AtomicInteger();
-        server.removeContext("/token");
-        server.createContext("/token", exchange -> {
-            exchange.getResponseHeaders().set("Location", issuer + "/stolen");
-            exchange.sendResponseHeaders(307, -1);
-            exchange.close();
-        });
-        server.createContext("/stolen", exchange -> { stolen.incrementAndGet(); exchange.sendResponseHeaders(500, -1); exchange.close(); });
-        try (var client = oauthClient(clientId)) {
-            var failure = assertThrows(RuntimeException.class, () -> accounts.exchange("code", state, client));
-            assertFalse(failure.toString().contains("test-client-secret"));
-            assertNull(failure.getCause());
-            assertEquals(0, stolen.get());
-        }
-    }
-
-    private String clientJson() {
-        return "{\"web\":{\"client_id\":\"" + clientId + "\",\"client_secret\":\"test-client-secret\","
-                + "\"redirect_uris\":[\"http://127.0.0.1:8080/login/oauth2/code/google-drive\"]}}";
     }
 
     private static GoogleDriveOAuthClient oauthClient(String clientId) {

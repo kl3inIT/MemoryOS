@@ -3,6 +3,7 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
+import { cn } from "cn/vite";
 import { readdirSync, readFileSync } from "node:fs";
 import { defineConfig, type Plugin, type ProxyOptions } from "vite";
 
@@ -75,6 +76,13 @@ export default defineConfig({
   plugins: [
     pdfjsDecoders(),
     tailwindcss(),
+    // Class-merge tables fitted to the classes the app uses (src/lib/cn-tables.ts, committed and checked).
+    cn({
+      content: ["src/**/*.{ts,tsx}"],
+      css: "src/index.css",
+      config: "cn.config.mjs",
+      out: "src/lib/cn-tables.ts",
+    }),
     tanstackRouter({
       target: "react",
       autoCodeSplitting: true,

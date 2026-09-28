@@ -6,13 +6,18 @@ import static org.mockito.Mockito.mock;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.memoryos.document.application.StructuredDocumentChunker;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
+import javax.imageio.ImageIO;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 import tools.jackson.databind.ObjectMapper;
 
 /** Real OOXML with referenced PNG pictures, not padded bytes or a mocked extraction response. */
@@ -31,23 +36,23 @@ class LargeChatSpreadsheetExtractionTest {
             var parsed = new BoundedChatFileExtractor(docling, mapper).extract(input, size, "large.xlsx");
             assertTrue(parsed.normalizedText().contains("B1: 127"));
             assertTrue(parsed.structuredJson().length() < 10_000);
-            assertTrue(new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(parsed.title(), parsed.structuredJson())
+            assertTrue(new StructuredDocumentChunker(mapper).chunk(parsed.title(), parsed.structuredJson())
                     .stream().anyMatch(chunk -> chunk.content().contains("[B1] 127")));
         }
         try (var input = Files.newInputStream(file)) {
             assertEquals(ExtractionFailure.WRITE_LIMIT, assertThrows(ExtractionException.class,
                     () -> new SourceContentExtractorRouter(docling, mapper).extract(input, size, "large.xlsx", SourceInputDescriptor.binary())).failure());
         }
-        org.mockito.Mockito.verifyNoInteractions(docling);
+        Mockito.verifyNoInteractions(docling);
     }
 
     static void createWorkbook(Path file, int limitMiB) throws Exception {
-        var bitmap = new java.awt.image.BufferedImage(512, 512, java.awt.image.BufferedImage.TYPE_INT_RGB);
-        var random = new java.util.Random(81);
+        var bitmap = new BufferedImage(512, 512, BufferedImage.TYPE_INT_RGB);
+        var random = new Random(81);
         for (int row = 0; row < 512; row++) for (int column = 0; column < 512; column++) bitmap.setRGB(column, row, random.nextInt());
         byte[] png;
         try (var out = new ByteArrayOutputStream()) {
-            assertTrue(javax.imageio.ImageIO.write(bitmap, "png", out)); png = out.toByteArray();
+            assertTrue(ImageIO.write(bitmap, "png", out)); png = out.toByteArray();
         } finally { bitmap.flush(); }
         long limit = limitMiB * 1024L * 1024;
         int pictures = (int) ((limit - 1024 * 1024) / png.length);

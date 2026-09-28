@@ -2,6 +2,9 @@ package io.memoryos.ai;
 
 import java.time.Duration;
 import io.memoryos.shared.ActorId;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -50,34 +53,28 @@ public final class ModelResolver {
     /**
      * Models the provider endpoint reports, so an administrator selects real models instead of typing their
      * specs, as Onyx's per-provider {@code available-models} fetchers do. Limits and capabilities the endpoint
-     * publishes come first; the installed catalog fills the rest by name. The stored credential is read in its own
-     * transaction; the provider call follows it.
+     * publishes come first; the installed catalog fills the rest by name. This serves a connection the administrator
+     * is still editing too, so the provider form fills its model list before the provider exists, as Onyx's provider
+     * form does. The caller authorizes the connection.
      */
-    public java.util.List<ReportedModelSpec> reportedModels(ActorId actor, UUID providerId) {
-        return reportedModels(catalog.providerConnection(actor, providerId));
-    }
-
-    /**
-     * The same listing for a connection the administrator is still editing, so the provider form fills its model list
-     * before the provider exists, as Onyx's provider form does. The caller authorizes the connection.
-     */
-    public java.util.List<ReportedModelSpec> reportedModels(ModelCatalogService.ProviderConnection connection) {
+    public List<ReportedModelSpec> reportedModels(ModelCatalogService.ProviderConnection connection) {
         var adapter = adapters.require(connection.adapterType());
         try {
             var reported = adapter.reportedModels(
                             new ProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
                             providerReadTimeout);
-            var seen = new java.util.HashSet<String>();
+            var seen = new HashSet<String>();
             return reported.stream()
                     .filter(model -> !model.modelName().isBlank() && model.modelName().length() <= 200)
                     .filter(model -> seen.add(model.modelName()))
-                    .sorted(java.util.Comparator.comparing(ProviderAdapter.ReportedModel::modelName))
+                    .sorted(Comparator.comparing(ProviderAdapter.ReportedModel::modelName))
                     .limit(1000)
                     .map(model -> spec(model, adapter.knownModels()))
                     .toList();
         } catch (AiException expected) { throw expected; }
         catch (RuntimeException failure) {
-            LOG.warn("Provider model listing failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "ai.provider.model_listing_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Provider model listing failed");
             throw AiException.providerUnavailable();
         }
     }
@@ -94,14 +91,15 @@ public final class ModelResolver {
                     providerReadTimeout).size();
         } catch (AiException expected) { throw expected; }
         catch (RuntimeException failure) {
-            LOG.warn("Provider connection check failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "ai.provider.connection_check_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Provider connection check failed");
             throw AiException.providerUnreachable();
         }
     }
 
     public static final int FALLBACK_CONTEXT_WINDOW = 32_000;
 
-    public static ReportedModelSpec spec(ProviderAdapter.ReportedModel reported, java.util.List<ProviderAdapter.KnownModel> known) {
+    public static ReportedModelSpec spec(ProviderAdapter.ReportedModel reported, List<ProviderAdapter.KnownModel> known) {
         var catalogModel = findKnown(reported.modelName(), known);
         Integer context = valid(reported.contextWindow(), 256, 10_000_000);
         Integer output = reported.maxOutputTokens();
@@ -112,20 +110,21 @@ public final class ModelResolver {
         // The context window is what one request may fill. OpenRouter reports OpenAI's total window (gpt-5-mini
         // 400,000) where OpenAI caps input at 272,000, and a 1M beta window for Claude: when both know the model,
         // the smaller window is the one every route accepts.
-        else if (context != null && catalogModel != null && catalogModel.contextWindow() < context)
+        else if (catalogModel != null && catalogModel.contextWindow() < context)
             context = catalogModel.contextWindow();
-        if (output == null || context == null || output < 1 || output >= context)
-            output = catalogModel != null && context != null && catalogModel.maxOutputTokens() < context
+        if (output == null || output < 1 || output >= context)
+            output = catalogModel != null && catalogModel.maxOutputTokens() < context
                     ? catalogModel.maxOutputTokens() : null;
         // Onyx sends tools to every model; an unknown model is assumed to call them, and the saved-connection check
         // probes a tool request so a model that rejects tools is caught before the first turn.
-        Boolean tools = first(first(reported.toolCalling(), catalogModel == null ? null : catalogModel.capabilities().toolCalling()), true);
+        Boolean toolCalling = first(reported.toolCalling(), catalogModel == null ? null : catalogModel.capabilities().toolCalling());
+        boolean tools = toolCalling == null || toolCalling;
         Boolean vision = first(reported.vision(), catalogModel == null ? null : catalogModel.capabilities().vision());
         Boolean reasoning = first(reported.reasoning(), catalogModel == null ? null : catalogModel.capabilities().reasoning());
         // An unpublished answer limit is never guessed: it stays empty and no cap is sent. Vision and reasoning are
         // only declared when published, since declaring them changes what the request carries.
         var capabilities = new ModelSettings.Capabilities(true,
-                Boolean.TRUE.equals(tools), Boolean.TRUE.equals(vision), Boolean.TRUE.equals(reasoning));
+                tools, Boolean.TRUE.equals(vision), Boolean.TRUE.equals(reasoning));
         var pricing = reported.pricing() != null ? reported.pricing() : catalogModel == null ? null : catalogModel.pricing();
         var source = fromProvider ? ReportedModelSpec.Source.PROVIDER
                 : catalogModel != null ? ReportedModelSpec.Source.CATALOG : ReportedModelSpec.Source.NONE;
@@ -133,7 +132,7 @@ public final class ModelResolver {
     }
 
     /** Catalog names are bare (gpt-5-mini); endpoints may prefix them (models/gemini-2.5-pro, openai/gpt-5-mini). */
-    public static ProviderAdapter.@Nullable KnownModel findKnown(String reported, java.util.List<ProviderAdapter.KnownModel> known) {
+    public static ProviderAdapter.@Nullable KnownModel findKnown(String reported, List<ProviderAdapter.KnownModel> known) {
         String name = reported.startsWith("models/") ? reported.substring("models/".length()) : reported;
         for (var candidate : new String[] {name, name.substring(name.lastIndexOf('/') + 1)})
             for (var model : known) if (model.modelName().equals(candidate)) return model;
@@ -163,7 +162,9 @@ public final class ModelResolver {
                 return adapter.create(new ProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), providerReadTimeout);
             } catch (AiException expected) { throw expected; }
             catch (RuntimeException failure) {
-                LOG.warn("Chat model {} client initialization failed ({})", model.id(), failure.getClass().getSimpleName());
+                LOG.atWarn().addKeyValue("event", "ai.model.client_initialization_failed")
+                        .addKeyValue("model_configuration_id", model.id())
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat model client initialization failed");
                 throw AiException.providerUnavailable();
             }
         });

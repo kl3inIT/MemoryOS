@@ -18,6 +18,7 @@ import io.memoryos.iam.group.persistence.GroupInvariantRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -27,7 +28,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -143,7 +146,7 @@ class PostgresIamAuthorizationTest {
         grant(GROUP_ONE, IamCapability.MODELS_MANAGE);
         grant(GROUP_TWO, IamCapability.MCP_MANAGE);
 
-        org.junit.jupiter.api.Assertions.assertTrue(authorization.effectiveCapabilities(ACTOR)
+        Assertions.assertTrue(authorization.effectiveCapabilities(ACTOR)
                 .containsAll(Set.of(IamCapability.MODELS_MANAGE, IamCapability.MCP_MANAGE)));
         assertEquals(
                 Authority.GLOBAL,
@@ -233,11 +236,11 @@ class PostgresIamAuthorizationTest {
         assertEquals(
                 Set.of(new GroupId(GROUP_ONE)),
                 page.items().stream().map(GroupProjectionRepository.GroupRecord::id).collect(
-                        java.util.stream.Collectors.toSet()
+                        Collectors.toSet()
                 )
         );
         assertEquals(
-                java.util.Optional.empty(),
+                Optional.empty(),
                 projections.detail(TENANT, ACTOR, new GroupId(GROUP_TWO), false)
         );
     }

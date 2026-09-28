@@ -1,5 +1,6 @@
 package io.memoryos.chat.execution;
 
+import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelRequestPolicy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,6 +27,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import reactor.core.publisher.Flux;
 
 class ChatModelBindingTest {
@@ -43,7 +45,7 @@ class ChatModelBindingTest {
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 LocalDate.of(2025, 1, 1), List.of(), pricing);
         var binding = new ModelBinding(configured, prompt -> prompt, ModelRequestPolicy.hosted(
-                new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         var process = mock(AgentProcess.class);
         var budget = mock(Budget.class, RETURNS_DEEP_STUBS);
         when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null);

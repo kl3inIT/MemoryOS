@@ -1,6 +1,8 @@
 package io.memoryos.audit;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -51,7 +53,10 @@ public enum AuditAction {
     VOICE_CONNECTION_CHANGE("voice_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     IMAGE_CONNECTION_CHANGE("image_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     INTERPRETER_CHANGE("interpreter.change", AuditEventClass.API_ACTIVITY, "enabled"),
-    CHAT_SETTINGS_CHANGE("chat_settings.change", AuditEventClass.API_ACTIVITY, "deepResearchEnabled", "chatHistoryVisibility"),
+    CHAT_SETTINGS_CHANGE("chat_settings.change", AuditEventClass.API_ACTIVITY, "deepResearchEnabled", "chatHistoryVisibility",
+            "groundedAnswers", "groundedAllowWeb", "guardrailTopics", "blockedPhrases"),
+    /** MEM-195: a question stopped by a sensitive topic or a blocked phrase; the question itself is not recorded. */
+    CHAT_GUARDRAIL_BLOCK("chat_guardrail.block", AuditEventClass.API_ACTIVITY, "rule", "topic", "agent", "session"),
     MCP_SERVER_CREATE("mcp_server.create", AuditEventClass.API_ACTIVITY, "after"),
     MCP_SERVER_UPDATE("mcp_server.update", AuditEventClass.API_ACTIVITY, "before", "after", "credentialChange"),
     MCP_SERVER_DELETE("mcp_server.delete", AuditEventClass.API_ACTIVITY, "url"),
@@ -109,12 +114,12 @@ public enum AuditAction {
     public Set<String> fields() { return fields; }
 
     /** A stored event's action, or empty when a row predates it; a reader never fails over an unknown value. */
-    public static java.util.Optional<AuditAction> of(String value) {
-        return java.util.Optional.ofNullable(BY_VALUE.get(value));
+    public static Optional<AuditAction> of(String value) {
+        return Optional.ofNullable(BY_VALUE.get(value));
     }
 
     private static Map<String, AuditAction> buildIndex() {
-        var index = new java.util.HashMap<String, AuditAction>();
+        var index = new HashMap<String, AuditAction>();
         for (AuditAction action : values()) {
             if (index.put(action.value, action) != null)
                 throw new IllegalStateException("Duplicate audit action " + action.value);

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { ChatLibraryEntry } from "../../src/lib/hey-api/types.gen.ts";
+import { expectNoSeriousA11yViolations } from "./axe";
 
 const me = "e62a621f-41d2-4853-aa76-b600dafd8e34";
 const source = "70000000-0000-4000-8000-000000000050";
@@ -181,6 +182,11 @@ test("says why each shared row is visible, and stars one", async ({ page }) => {
   await expect(row(page, "Giao ban tuần 38")).toContainText("Qua nhóm Kế toán");
   await expect(row(page, "Giao ban tuần 38")).toContainText("Đã kết thúc");
   await expect(row(page, "noi-quy-lao-dong.pdf")).toContainText("Qua trợ lý Trợ lý nhân sự");
+  await expectNoSeriousA11yViolations(page);
+  // The view lives in the library's address, so a reload opens it again.
+  await expect(page).toHaveURL(/[?&]view=shared(&|$)/);
+  await page.reload();
+  await expect(row(page, "noi-quy-lao-dong.pdf")).toContainText("Qua trợ lý Trợ lý nhân sự");
 
   await row(page, "noi-quy-lao-dong.pdf").hover();
   await page.getByRole("button", { name: "Gắn sao noi-quy-lao-dong.pdf" }).click();
@@ -210,6 +216,7 @@ test("pages the organisation's documents with Tải thêm", async ({ page }) => 
   // The next page continues the first, and a document Search does not serve yet cannot be opened.
   await expect(row(page, "quy-trinh-1.pdf")).toBeVisible();
   await expect(row(page, "quy-trinh-3.pdf")).toContainText("Đang lập chỉ mục");
+  await expectNoSeriousA11yViolations(page);
   await expect(page.getByRole("button", { name: "Tải thêm" })).toHaveCount(0);
   expect(sent.documentCursors).toEqual([null, "next-2"]);
 });

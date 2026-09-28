@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 /** Unframed brand-mark slot shared by provider cards and the expandable connection rows on the Models page. */
 export const providerTileClassName =
-  "grid size-9 shrink-0 place-items-center text-content-primary [&_img]:size-7 [&_svg:not([class*='size-'])]:size-6";
+  "grid size-9 shrink-0 place-items-center [&_img]:size-7 [&_svg:not([class*='size-'])]:size-6";
 
 type ProviderCardProps = Omit<HTMLAttributes<HTMLElement>, "title"> & {
   as?: "div" | "section" | "li";
@@ -42,12 +42,9 @@ export function ProviderCard({
     <Item
       asChild
       variant="outline"
+      size="lg"
       data-selected={selected || undefined}
-      className={cn(
-        "gap-3 rounded-2xl px-4 py-4",
-        selected && "border-border-strong bg-surface-sunken",
-        className,
-      )}
+      className={className}
     >
       <Element {...props}>
         <ItemMedia
@@ -59,7 +56,7 @@ export function ProviderCard({
           {logo}
         </ItemMedia>
         {/* A readable minimum makes actions wrap below the name instead of squeezing it. */}
-        <ItemContent className="min-w-28 gap-1">
+        <ItemContent className="min-w-28">
           <ItemTitle>{name}</ItemTitle>
           {description && (
             <ItemDescription className="wrap-anywhere">{description}</ItemDescription>

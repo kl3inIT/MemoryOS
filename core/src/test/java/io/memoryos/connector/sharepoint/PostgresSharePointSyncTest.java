@@ -10,7 +10,9 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.SharePointSourceService;
 import io.memoryos.connector.googledrive.GoogleDriveConnectionService;
+import io.memoryos.connector.sync.LockingStatementCounter;
 import io.memoryos.connector.sync.ProviderAuthorityService;
 import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
@@ -38,23 +40,41 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.application.DefaultObjectWriteService;
+import io.memoryos.objectstorage.application.ObjectUploadProperties;
+import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
+import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.Base64;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
@@ -68,7 +88,7 @@ class PostgresSharePointSyncTest {
     private static final String SITE = "site-1";
 
     private HikariDataSource dataSource;
-    private io.memoryos.connector.sync.LockingStatementCounter locks;
+    private LockingStatementCounter locks;
     private JdbcClient jdbc;
     private DataSourceTransactionManager manager;
     private TenantId tenant;
@@ -83,7 +103,7 @@ class PostgresSharePointSyncTest {
     private ProviderAuthorityService authority;
     private OperationDispatchPort dispatch;
     private SourceSyncEngine service;
-    private org.springframework.transaction.support.TransactionTemplate tx;
+    private TransactionTemplate tx;
     private ObjectStorage storage;
     private Answer<Void> storeObject;
 
@@ -95,10 +115,10 @@ class PostgresSharePointSyncTest {
     @BeforeEach
     void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
-        locks = new io.memoryos.connector.sync.LockingStatementCounter(dataSource);
+        locks = new LockingStatementCounter(dataSource);
         jdbc = JdbcClient.create(locks.dataSource());
         manager = new DataSourceTransactionManager(locks.dataSource());
-        tx = new org.springframework.transaction.support.TransactionTemplate(manager);
+        tx = new TransactionTemplate(manager);
         tenant = new TenantId(UUID.randomUUID());
         owner = new ActorId(UUID.randomUUID());
         source = new SourceId(UUID.randomUUID());
@@ -116,7 +136,7 @@ class PostgresSharePointSyncTest {
         var currentConnections = new SharePointConnectionService(credentialRows, sharePoint,
                 mock(SharePointProvider.class), manager);
         authority = new ProviderAuthorityService(
-                mock(io.memoryos.connector.googledrive.GoogleDriveConnectionService.class), currentConnections);
+                mock(GoogleDriveConnectionService.class), currentConnections);
         indexing = new JdbcIndexAttemptRepository(jdbc, sources, documents, authority);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc),
                 OperationDispatchPort.class, manager);
@@ -132,25 +152,25 @@ class PostgresSharePointSyncTest {
                 new SharePointConnectionService.Connection(session, 1L, "contoso.sharepoint.com"));
 
         storage = mock(ObjectStorage.class);
-        var storedBytes = new java.util.concurrent.ConcurrentHashMap<io.memoryos.objectstorage.ObjectKey, byte[]>();
-        var storedMetadata = new java.util.concurrent.ConcurrentHashMap<io.memoryos.objectstorage.ObjectKey,
-                io.memoryos.objectstorage.ObjectMetadata>();
+        var storedBytes = new ConcurrentHashMap<ObjectKey, byte[]>();
+        var storedMetadata = new ConcurrentHashMap<ObjectKey,
+                ObjectMetadata>();
         storeObject = call -> {
-            io.memoryos.objectstorage.ObjectKey key = call.getArgument(0);
+            ObjectKey key = call.getArgument(0);
             byte[] value = call.getArgument(1);
             storedBytes.put(key, value);
-            storedMetadata.put(key, new io.memoryos.objectstorage.ObjectMetadata(value.length, call.getArgument(2),
+            storedMetadata.put(key, new ObjectMetadata(value.length, call.getArgument(2),
                     checksum(value)));
             return null;
         };
         doAnswer(storeObject).when(storage).write(any(), any(), any());
         when(storage.inspect(any())).thenAnswer(call -> storedMetadata.get(call.getArgument(0)));
-        var writes = new io.memoryos.objectstorage.application.DefaultObjectWriteService(
-                new io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository(jdbc),
-                new io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository(jdbc), storage,
-                new io.memoryos.objectstorage.application.ObjectUploadProperties(java.time.Duration.ofMinutes(15),
-                        java.time.Duration.ofSeconds(30), java.time.Duration.ofMinutes(5),
-                        java.time.Duration.ofMinutes(1), 16), manager);
+        var writes = new DefaultObjectWriteService(
+                new JdbcStoredObjectRepository(jdbc),
+                new JdbcObjectWriteRepository(jdbc), storage,
+                new ObjectUploadProperties(Duration.ofMinutes(15),
+                        Duration.ofSeconds(30), Duration.ofMinutes(5),
+                        Duration.ofMinutes(1), 16), manager);
         service = new SourceSyncEngine(attempts, sources, items, indexing, documents, writes,
                 List.of(new SharePointSyncTraversal(runs, sharePoint, attempts, connections)), manager);
         seedSource();
@@ -202,7 +222,7 @@ class PostgresSharePointSyncTest {
         when(session.item(DRIVE, "file-new")).thenReturn(file);
         when(session.content(any(), eq("contoso.sharepoint.com"), anyInt()))
                 .thenReturn(new SharePointProvider.Content("Bao cao.pdf", "application/pdf",
-                        "noi dung bao cao".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                        "noi dung bao cao".getBytes(StandardCharsets.UTF_8)));
 
         var result = service.execute(claim(enqueue()));
 
@@ -232,7 +252,7 @@ class PostgresSharePointSyncTest {
         when(session.pages(eq(SITE), any()))
                 .thenReturn(new SharePointProvider.SitePageList(List.of(metadata), null));
         when(session.page(SITE, "page-1")).thenReturn(new SharePointProvider.PageContent(metadata,
-                "{\"schema\":\"memoryos-sharepoint-page-v1\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                "{\"schema\":\"memoryos-sharepoint-page-v1\"}".getBytes(StandardCharsets.UTF_8)));
 
         var result = service.execute(claim(enqueue()));
 
@@ -292,13 +312,13 @@ class PostgresSharePointSyncTest {
         Instant old = Instant.now().minus(400, ChronoUnit.DAYS);
         var moved = file("file-moved", "Moved.docx", old);
         jdbc.sql("UPDATE sharepoint_sources SET refresh_window_end = :end WHERE tenant_id = :tenant")
-                .param("end", java.sql.Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)))
+                .param("end", Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)))
                 .param("tenant", tenant.value()).update();
         when(session.delta(eq(DRIVE), any(), any()))
                 .thenReturn(new SharePointProvider.DeltaPage(List.of(moved), null, "delta-link"));
         // Reading the item back is where acquisition starts; one unreadable item does not fail the run.
-        when(session.item(any(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
-                io.memoryos.connector.SharePointProviderException.Failure.NOT_FOUND));
+        when(session.item(any(), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.NOT_FOUND));
 
         var result = service.execute(claim(enqueue()));
 
@@ -332,8 +352,8 @@ class PostgresSharePointSyncTest {
         seedItem("file-present", "Present.docx");
         pruneDue();
         when(session.delta(eq(DRIVE), isNull(), any())).thenThrow(
-                new io.memoryos.connector.SharePointProviderException(
-                        io.memoryos.connector.SharePointProviderException.Failure.UNAVAILABLE));
+                new SharePointProviderException(
+                        SharePointProviderException.Failure.UNAVAILABLE));
 
         var result = service.execute(claim(enqueue()));
 
@@ -363,8 +383,8 @@ class PostgresSharePointSyncTest {
 
     @Test
     void aFailedAttemptClosesItsRun() {
-        when(session.delta(eq(DRIVE), any(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
-                io.memoryos.connector.SharePointProviderException.Failure.AUTHENTICATION));
+        when(session.delta(eq(DRIVE), any(), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.AUTHENTICATION));
         assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(enqueue())));
 
         assertEquals(List.of("FAILED"), runStatuses());
@@ -420,7 +440,7 @@ class PostgresSharePointSyncTest {
 
     @Test
     void failuresOfMoreThanThreeItemsAndATenthOfTheRunAbortItAndRetryTheAttempt() {
-        var files = new java.util.ArrayList<SharePointProvider.DriveItem>();
+        var files = new ArrayList<SharePointProvider.DriveItem>();
         for (int index = 0; index < 5; index++) files.add(file("file-" + index, "Report " + index + ".pdf", Instant.now()));
         when(session.delta(eq(DRIVE), any(), any()))
                 .thenReturn(new SharePointProvider.DeltaPage(files, null, "delta-link"));
@@ -450,7 +470,7 @@ class PostgresSharePointSyncTest {
     void aThrottledRunWaitsAsLongAsMicrosoftAsked() {
         when(session.delta(eq(DRIVE), any(), any())).thenThrow(new SharePointProviderException(
                 SharePointProviderException.Failure.QUOTA, SharePointProviderException.Reason.UNCLASSIFIED,
-                java.time.Duration.ofMinutes(5)));
+                Duration.ofMinutes(5)));
         var operation = enqueue();
 
         assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(operation)));
@@ -472,7 +492,7 @@ class PostgresSharePointSyncTest {
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
         when(session.libraries(SITE)).thenReturn(List.of(new SharePointProvider.Library(DRIVE, "Documents",
                 "/sites/Finance/Shared Documents")));
-        var pages = new java.util.concurrent.atomic.AtomicInteger();
+        var pages = new AtomicInteger();
         when(session.delta(eq(DRIVE), any(), any())).thenAnswer(_ -> pages.incrementAndGet() < 20
                 ? new SharePointProvider.DeltaPage(List.of(), "next-page", null)
                 : new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
@@ -487,7 +507,7 @@ class PostgresSharePointSyncTest {
 
     @Test
     void anUnchangedFileTakesOneFenceOfFourLocks() {
-        var files = new java.util.ArrayList<SharePointProvider.DriveItem>();
+        var files = new ArrayList<SharePointProvider.DriveItem>();
         for (int index = 0; index < 10; index++) {
             var file = file("file-" + index, "Report " + index + ".pdf", Instant.now());
             files.add(file);
@@ -559,7 +579,7 @@ class PostgresSharePointSyncTest {
         var scope = new Scope(ScopeMode.SPECIFIC, List.of("https://contoso.sharepoint.com/sites/Finance/Shared Documents"),
                 List.of(), List.of(), true, false, 30, 168);
         tx.executeWithoutResult(_ -> sharePoint.replaceScope(tenant, source, revision, scope,
-                List.of(new ResolvedRoot(io.memoryos.connector.SharePointSourceService.RootKind.LIBRARY,
+                List.of(new ResolvedRoot(SharePointSourceService.RootKind.LIBRARY,
                         "https://contoso.sharepoint.com/sites/Finance/Shared Documents", SITE, DRIVE, null,
                         "Documents")), "contoso.sharepoint.com"));
         assertNull(refreshWindowEnd(), "the documents of the old scope were hidden, so nothing may be skipped");
@@ -576,14 +596,14 @@ class PostgresSharePointSyncTest {
         // A chain deeper than one execution's step budget, one file per folder.
         int depth = 20;
         for (int level = 0; level < depth; level++) {
-            var children = new java.util.ArrayList<SharePointProvider.DriveItem>();
+            var children = new ArrayList<SharePointProvider.DriveItem>();
             children.add(file("file-" + level, "Report " + level + ".pdf", Instant.now()));
             if (level + 1 < depth) children.add(folder("folder-" + (level + 1)));
             when(session.children(DRIVE, "folder-" + level, null))
                     .thenReturn(new SharePointProvider.ItemPage(children, null));
         }
-        when(session.item(any(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
-                io.memoryos.connector.SharePointProviderException.Failure.NOT_FOUND));
+        when(session.item(any(), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.NOT_FOUND));
 
         var operation = enqueue();
         assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(operation)));
@@ -612,12 +632,12 @@ class PostgresSharePointSyncTest {
         jdbc.sql("UPDATE sharepoint_sources SET refresh_window_end = CURRENT_TIMESTAMP WHERE tenant_id = :tenant")
                 .param("tenant", tenant.value()).update();
         var file = file("file-again", "Again.pdf", Instant.now());
-        when(session.delta(eq(DRIVE), notNull(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
-                io.memoryos.connector.SharePointProviderException.Failure.RESYNC_REQUIRED));
+        when(session.delta(eq(DRIVE), notNull(), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.RESYNC_REQUIRED));
         when(session.delta(DRIVE, null, null))
                 .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
-        when(session.item(any(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
-                io.memoryos.connector.SharePointProviderException.Failure.NOT_FOUND));
+        when(session.item(any(), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.NOT_FOUND));
 
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
         assertEquals(1, ledger("file-again"));
@@ -664,11 +684,11 @@ class PostgresSharePointSyncTest {
                 .param("tenant", tenant.value()).query(String.class).list();
     }
 
-    private static io.memoryos.objectstorage.ContentSha256 checksum(byte[] value) {
+    private static ContentSha256 checksum(byte[] value) {
         try {
-            return new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of()
-                    .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value)));
-        } catch (java.security.NoSuchAlgorithmException exception) {
+            return new ContentSha256(HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value)));
+        } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }
     }
@@ -731,7 +751,7 @@ class PostgresSharePointSyncTest {
                 List.of(), List.of(), true, false, 30, 168);
         tx.executeWithoutResult(_ -> sharePoint.create(tenant, source, owner, null, "Finance", credential,
                 SourceAccess.PUBLIC, scope,
-                List.of(new ResolvedRoot(io.memoryos.connector.SharePointSourceService.RootKind.LIBRARY,
+                List.of(new ResolvedRoot(SharePointSourceService.RootKind.LIBRARY,
                         "https://contoso.sharepoint.com/sites/Finance/Shared Documents", SITE, DRIVE, null,
                         "Documents")), "contoso.sharepoint.com"));
     }
@@ -783,13 +803,13 @@ class PostgresSharePointSyncTest {
                 .param("tenant", tenant.value()).query(Long.class).single();
     }
 
-    private java.sql.@org.jspecify.annotations.Nullable Timestamp refreshWindowEnd() {
+    private @Nullable Timestamp refreshWindowEnd() {
         return jdbc.sql("SELECT refresh_window_end FROM sharepoint_sources WHERE tenant_id = :tenant")
-                .param("tenant", tenant.value()).query(java.sql.Timestamp.class).optional().orElse(null);
+                .param("tenant", tenant.value()).query(Timestamp.class).optional().orElse(null);
     }
 
-    private java.sql.@org.jspecify.annotations.Nullable Timestamp lastPrunedAt() {
+    private @Nullable Timestamp lastPrunedAt() {
         return jdbc.sql("SELECT last_pruned_at FROM sharepoint_sources WHERE tenant_id = :tenant")
-                .param("tenant", tenant.value()).query(java.sql.Timestamp.class).optional().orElse(null);
+                .param("tenant", tenant.value()).query(Timestamp.class).optional().orElse(null);
     }
 }

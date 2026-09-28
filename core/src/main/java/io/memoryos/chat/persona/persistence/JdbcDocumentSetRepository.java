@@ -2,6 +2,8 @@ package io.memoryos.chat.persona.persistence;
 
 import io.memoryos.chat.AgentPerson;
 import io.memoryos.chat.AgentRef;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -121,11 +123,6 @@ public class JdbcDocumentSetRepository {
                 .param("tenant", tenant).param("persona", persona).param("set", set).update());
     }
 
-    public List<UUID> personaSets(UUID tenant, UUID persona) {
-        return jdbc.sql("SELECT document_set_id FROM persona_document_set WHERE tenant_id = :tenant AND persona_id = :persona ORDER BY document_set_id")
-                .param("tenant", tenant).param("persona", persona).query(UUID.class).list();
-    }
-
     /** All requested IDs must be usable; an empty set remains a valid, narrowing selection. */
     public Set<UUID> usableSourceIds(UUID tenant, UUID actor, boolean agentsManage, Collection<UUID> sets) {
         if (sets.isEmpty()) return Set.of();
@@ -168,7 +165,7 @@ public class JdbcDocumentSetRepository {
                         WHERE tenant_id = :tenant AND persona_id IN (:personas)
                         ORDER BY persona_id, document_set_id
                         """).param("tenant", tenant).param("personas", personas)
-                .query((row, ignored) -> result.computeIfAbsent(row.getObject("persona_id", UUID.class), key -> new ArrayList<>())
+                .query((row, ignored) -> result.computeIfAbsent(row.getObject("persona_id", UUID.class), _ -> new ArrayList<>())
                         .add(row.getObject("document_set_id", UUID.class))).list();
         return result;
     }
@@ -191,7 +188,7 @@ public class JdbcDocumentSetRepository {
                         """).param("tenant", tenant).param("id", id).param("revision", revision).update() == 1;
     }
 
-    private Row row(java.sql.ResultSet row, int ignored) throws java.sql.SQLException {
+    private Row row(ResultSet row, int ignored) throws SQLException {
         var deleted = row.getTimestamp("deleted_at");
         return new Row(row.getObject("id", UUID.class), row.getObject("owner_actor_id", UUID.class), row.getLong("revision"), row.getString("name"),
                 row.getString("description"), row.getBoolean("is_public"), row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),

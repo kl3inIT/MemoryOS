@@ -4,6 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.sun.net.httpserver.HttpServer;
+import io.micrometer.observation.ObservationRegistry;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.util.HexFormat;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -18,10 +24,14 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.web.client.RestClient;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -37,7 +47,7 @@ import org.springframework.test.context.TestPropertySource;
                 "memoryos.initial-tenant.display-name=Smoke",
                 "memoryos.initial-tenant.change-reference=TEST-SMOKE-BOOTSTRAP",
         })
-@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
+@ExtendWith(OutputCaptureExtension.class)
 @ActiveProfiles("staging")
 @TestPropertySource(properties = {
         "management.otlp.metrics.export.step=1s",
@@ -55,11 +65,11 @@ class StagingTelemetryIntegrationTest {
     private static final String BROWSER_ISSUER = "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
 
     @Autowired Tracer tracer;
-    @Autowired io.micrometer.observation.ObservationRegistry observations;
-    @org.springframework.boot.test.web.server.LocalServerPort int port;
+    @Autowired ObservationRegistry observations;
+    @LocalServerPort int port;
     private static volatile String propagatedTraceparent;
     private static volatile boolean unavailable;
-    private static final java.util.concurrent.atomic.AtomicInteger rejected = new java.util.concurrent.atomic.AtomicInteger();
+    private static final AtomicInteger rejected = new AtomicInteger();
 
 
     @DynamicPropertySource
@@ -69,26 +79,26 @@ class StagingTelemetryIntegrationTest {
     }
 
     @Test
-    void exportsCorrelatedStructuredLogAndTraceAndMetrics(org.springframework.boot.test.system.CapturedOutput output) {
+    void exportsCorrelatedStructuredLogAndTraceAndMetrics(CapturedOutput output) {
         var span = tracer.nextSpan().name("memoryos.telemetry.contract").start();
         try (var _ = tracer.withSpan(span)) {
             LoggerFactory.getLogger(getClass()).atInfo().addKeyValue("event", "telemetry.contract")
                     .addKeyValue("operation_id", "contract-operation").log("Telemetry contract event");
-            org.springframework.web.client.RestClient.builder().observationRegistry(observations).build().get().uri("http://127.0.0.1:" + COLLECTOR.getAddress().getPort() + "/echo").retrieve().toBodilessEntity();
+            RestClient.builder().observationRegistry(observations).build().get().uri("http://127.0.0.1:" + COLLECTOR.getAddress().getPort() + "/echo").retrieve().toBodilessEntity();
             assertThat(propagatedTraceparent).contains(span.context().traceId());
         } finally {
             span.end();
         }
-        assertThat(org.springframework.web.client.RestClient.create("http://127.0.0.1:" + port)
+        assertThat(RestClient.create("http://127.0.0.1:" + port)
                 .get().uri("/actuator/health").retrieve().toBodilessEntity().getStatusCode().value()).isEqualTo(200);
-        int identityStatus = org.springframework.web.client.RestClient.create("http://127.0.0.1:" + port)
+        int identityStatus = RestClient.create("http://127.0.0.1:" + port)
                 .get().uri("/api/identity/me").exchange((_, response) -> response.getStatusCode().value());
         assertThat(identityStatus).isEqualTo(401);
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
             assertThat(text("/v1/logs")).contains("Telemetry contract event", "telemetry.contract", "contract-operation");
             assertThat(text("/v1/traces")).contains("memoryos.telemetry.contract", "memoryos-api");
             assertThat(text("/v1/metrics")).contains("jvm.memory.used", "memoryos-api", "http.client.requests", "http.server.requests");
-            String traceBytes = new String(java.util.HexFormat.of().parseHex(span.context().traceId()), StandardCharsets.ISO_8859_1);
+            String traceBytes = new String(HexFormat.of().parseHex(span.context().traceId()), StandardCharsets.ISO_8859_1);
             assertThat(text("/v1/logs")).contains(traceBytes);
             assertThat(text("/v1/traces")).contains(traceBytes);
         });
@@ -100,7 +110,7 @@ class StagingTelemetryIntegrationTest {
             LoggerFactory.getLogger(getClass()).info("Collector outage contract");
             await().atMost(Duration.ofSeconds(10)).until(() -> rejected.get() > 0);
             long start = System.nanoTime();
-            assertThat(org.springframework.web.client.RestClient.create("http://127.0.0.1:" + port)
+            assertThat(RestClient.create("http://127.0.0.1:" + port)
                     .get().uri("/actuator/health").retrieve().toBodilessEntity().getStatusCode().value()).isEqualTo(200);
             assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(5));
         } finally { unavailable = false; }
@@ -128,7 +138,7 @@ class StagingTelemetryIntegrationTest {
                 }
                 String forward = System.getenv("MEMORYOS_TEST_OTLP_FORWARD");
                 if (forward != null && exchange.getRequestURI().getPath().startsWith("/v1/")) {
-                    var connection = (java.net.HttpURLConnection) java.net.URI.create(forward + exchange.getRequestURI().getPath()).toURL().openConnection();
+                    var connection = (HttpURLConnection) URI.create(forward + exchange.getRequestURI().getPath()).toURL().openConnection();
                     connection.setConnectTimeout(2000); connection.setReadTimeout(2000);
                     connection.setRequestMethod("POST"); connection.setDoOutput(true);
                     connection.setRequestProperty("Content-Type", "application/x-protobuf");
@@ -142,7 +152,7 @@ class StagingTelemetryIntegrationTest {
             });
             server.start();
             return server;
-        } catch (java.io.IOException exception) {
+        } catch (IOException exception) {
             throw new IllegalStateException(exception);
         }
     }

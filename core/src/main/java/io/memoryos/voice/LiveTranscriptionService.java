@@ -13,6 +13,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +25,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class LiveTranscriptionService {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(LiveTranscriptionService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LiveTranscriptionService.class);
     static final int MAX_STREAMS = 32;
     /** An online meeting streams the microphone and the shared tab at once. */
     static final int MAX_STREAMS_PER_ACTOR = 2;
@@ -115,7 +117,8 @@ public class LiveTranscriptionService {
                     connection.provider().name(), connection.sttModel(), connection.id(), null, null, 1, 0, 0, 0, 0,
                     bytes / (double) Pcm16.BYTES_PER_SECOND, null, Instant.now()));
         } catch (RuntimeException failure) {
-            LOG.warn("Live transcription usage not recorded ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "voice.live_transcription.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Live transcription usage not recorded");
         }
     }
 }

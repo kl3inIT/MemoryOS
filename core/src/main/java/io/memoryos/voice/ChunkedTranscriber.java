@@ -1,6 +1,7 @@
 package io.memoryos.voice;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -47,7 +48,7 @@ public final class ChunkedTranscriber implements TranscriptionSession {
         if (closed || finishing) throw new IllegalStateException("Transcription no longer accepts audio");
         if (pcm.length % 2 != 0) throw new IllegalArgumentException("PCM16 audio must contain whole samples");
         if (length + pcm.length > recording.length) {
-            recording = java.util.Arrays.copyOf(recording, Math.max(recording.length * 2, length + pcm.length));
+            recording = Arrays.copyOf(recording, Math.max(recording.length * 2, length + pcm.length));
         }
         System.arraycopy(pcm, 0, recording, length, pcm.length);
         length += pcm.length;

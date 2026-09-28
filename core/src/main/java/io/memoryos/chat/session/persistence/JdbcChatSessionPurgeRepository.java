@@ -65,7 +65,7 @@ public class JdbcChatSessionPurgeRepository {
      * Deletes the conversations of one Tenant whose last activity is older than its retention policy, in
      * batches; the purge then treats them exactly like a conversation someone deleted.
      */
-    public int applyRetention(java.util.UUID tenant, java.util.UUID owner, int days, int limit) {
+    public int applyRetention(UUID tenant, UUID owner, int days, int limit) {
         return jdbc.sql("""
                 UPDATE chat_session SET deleted_at = CURRENT_TIMESTAMP
                 WHERE id IN (
@@ -93,7 +93,7 @@ public class JdbcChatSessionPurgeRepository {
      * How many of this person's own conversations a policy of {@code days} would delete, so they see the size
      * of the change before saving it. A temporary conversation is not counted: it deletes itself anyway.
      */
-    public long affectedByRetention(java.util.UUID tenant, java.util.UUID owner, int days) {
+    public long affectedByRetention(UUID tenant, UUID owner, int days) {
         return jdbc.sql("""
                 SELECT count(*) FROM chat_session s
                 WHERE s.tenant_id = :tenant AND s.owner_actor_id = :owner AND s.deleted_at IS NULL

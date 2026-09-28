@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
 @Schema(name = "ChatPersonaPage")
 public record ChatPersonaPageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatPersonaResponse> items,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String nextCursor
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String nextCursor
 ) {
     public static ChatPersonaPageResponse from(ChatModelAccess.PersonaPage value) {
         return new ChatPersonaPageResponse(value.items().stream().map(ChatPersonaResponse::from).toList(), value.nextCursor());

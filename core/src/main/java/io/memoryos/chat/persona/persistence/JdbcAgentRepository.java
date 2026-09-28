@@ -7,7 +7,6 @@ import io.memoryos.chat.AgentOwner;
 import io.memoryos.chat.AgentPermission;
 import io.memoryos.chat.AgentPerson;
 import io.memoryos.chat.AgentRef;
-import io.memoryos.chat.AgentShareOptions;
 import io.memoryos.chat.AgentUserShare;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -125,7 +124,7 @@ public class JdbcAgentRepository {
                         WHERE s.tenant_id = :tenant AND s.persona_id IN (:ids)
                         ORDER BY lower(coalesce(profile.display_name, profile.email, '')), s.actor_id
                         """).param("tenant", tenant).param("ids", ids)
-                .query((row, ignored) -> userShares.computeIfAbsent(row.getObject("persona_id", UUID.class), key -> new ArrayList<>())
+                .query((row, ignored) -> userShares.computeIfAbsent(row.getObject("persona_id", UUID.class), _ -> new ArrayList<>())
                         .add(new AgentUserShare(new AgentPerson(row.getObject("actor_id", UUID.class), row.getString("display_name"), row.getString("email")),
                                 AgentPermission.valueOf(row.getString("permission"))))).list();
         var groupShares = new HashMap<UUID, List<AgentGroupShare>>();
@@ -134,7 +133,7 @@ public class JdbcAgentRepository {
                         JOIN iam_groups g ON g.tenant_id = s.tenant_id AND g.id = s.group_id
                         WHERE s.tenant_id = :tenant AND s.persona_id IN (:ids) ORDER BY lower(g.name), g.id
                         """).param("tenant", tenant).param("ids", ids)
-                .query((row, ignored) -> groupShares.computeIfAbsent(row.getObject("persona_id", UUID.class), key -> new ArrayList<>())
+                .query((row, ignored) -> groupShares.computeIfAbsent(row.getObject("persona_id", UUID.class), _ -> new ArrayList<>())
                         .add(new AgentGroupShare(new AgentRef(row.getObject("id", UUID.class), row.getString("name")),
                                 AgentPermission.valueOf(row.getString("permission"))))).list();
         var pinned = Set.copyOf(jdbc.sql("""
@@ -219,25 +218,6 @@ public class JdbcAgentRepository {
                 .param("tenant", tenant).param("group", group).param("actor", actor).query(Boolean.class).single();
     }
 
-    public AgentShareOptions shareOptions(UUID tenant, @Nullable String query, int limit) {
-        String pattern = query == null ? null : LikePattern.containing(query);
-        var people = jdbc.sql("""
-                        SELECT m.actor_id, profile.display_name, profile.email FROM tenant_memberships m
-                        LEFT JOIN actor_profiles profile ON profile.actor_id = m.actor_id
-                        WHERE m.tenant_id = :tenant AND m.status = 'ACTIVE'
-                          AND (CAST(:pattern AS text) IS NULL OR profile.display_name ILIKE :pattern OR profile.email ILIKE :pattern)
-                        ORDER BY lower(coalesce(profile.display_name, profile.email, '')), m.actor_id LIMIT :limit
-                        """).param("tenant", tenant).param("pattern", pattern, Types.VARCHAR).param("limit", limit)
-                .query((row, ignored) -> new AgentPerson(row.getObject("actor_id", UUID.class), row.getString("display_name"), row.getString("email"))).list();
-        var groups = jdbc.sql("""
-                        SELECT id, name FROM iam_groups WHERE tenant_id = :tenant AND system_key IS NULL
-                          AND (CAST(:pattern AS text) IS NULL OR name ILIKE :pattern)
-                        ORDER BY lower(name), id LIMIT :limit
-                        """).param("tenant", tenant).param("pattern", pattern, Types.VARCHAR).param("limit", limit)
-                .query((row, ignored) -> new AgentRef(row.getObject("id", UUID.class), row.getString("name"))).list();
-        return new AgentShareOptions(people, groups);
-    }
-
     public List<AgentRef> labels(UUID tenant) {
         return jdbc.sql("SELECT id, name FROM persona_label WHERE tenant_id = :tenant ORDER BY lower(name), id LIMIT 500")
                 .param("tenant", tenant).query((row, ignored) -> new AgentRef(row.getObject("id", UUID.class), row.getString("name"))).list();
@@ -319,7 +299,7 @@ public class JdbcAgentRepository {
     private Map<UUID, List<AgentRef>> refs(String sql, UUID tenant, Collection<UUID> ids) {
         var result = new LinkedHashMap<UUID, List<AgentRef>>();
         jdbc.sql(sql).param("tenant", tenant).param("ids", ids)
-                .query((row, ignored) -> result.computeIfAbsent(row.getObject(1, UUID.class), key -> new ArrayList<>())
+                .query((row, ignored) -> result.computeIfAbsent(row.getObject(1, UUID.class), _ -> new ArrayList<>())
                         .add(new AgentRef(row.getObject(2, UUID.class), row.getString(3)))).list();
         return result;
     }

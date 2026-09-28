@@ -5,6 +5,7 @@ import type {
   MeetingDetail,
   MeetingSummary,
 } from "../../src/lib/hey-api/types.gen";
+import { expectNoSeriousA11yViolations } from "./axe";
 
 // Chromium's fake capture device plays a tone, so the real AudioWorklet produces voiced PCM16 frames.
 test.use({
@@ -336,7 +337,7 @@ async function mockMeetings(page: Page) {
     };
     await route.fulfill({ json: meeting!.minutes.actions.find((item) => item.id === id) });
   });
-  await page.route("**/api/chat/persona-share-options*", (route) =>
+  await page.route("**/api/identity/principals*", (route) =>
     route.fulfill({
       json: {
         people: [
@@ -650,7 +651,8 @@ for (const width of [1440, 390]) {
     const dialog = page.getByRole("dialog", { name: "Ghi cuộc họp mới" });
     // Only what the recording needs is asked up front; the rest waits behind "Thêm chi tiết" or on the page.
     await expect(dialog.getByLabel("Tên cuộc họp")).toBeHidden();
-    await dialog.getByText("Họp trực tiếp", { exact: true }).click();
+    await dialog.getByRole("radio", { name: "Họp trực tiếp" }).click();
+    await expectNoSeriousA11yViolations(page);
     await page.screenshot({ path: `../output/playwright/meetings-new-short-${width}.png` });
     await dialog.getByRole("button", { name: "Thêm chi tiết" }).click();
     await dialog.getByLabel("Tên cuộc họp").fill("Giao ban tuần · Khối Tài chính");
@@ -824,7 +826,7 @@ for (const width of [1440, 390]) {
       .click();
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
     await expect(
-      page.locator('ol[aria-live="polite"]').getByText("Tuần này bên mình phải chốt"),
+      page.getByRole("region", { name: "Transcript" }).getByText("Tuần này bên mình phải chốt"),
     ).toHaveCount(0);
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
 
@@ -877,7 +879,7 @@ for (const width of [1440, 390]) {
     expect(written.body).toEqual({ start: 59, end: 70, text: "Vinaconex 09" });
     await expect(
       page
-        .locator('ol[aria-live="polite"]')
+        .getByRole("region", { name: "Transcript" })
         .getByText("còn thiếu số liệu của Vinaconex 09 và Tower 3."),
     ).toBeVisible();
     // The answer carries the correction, so it joins the applied ones without reading them again.

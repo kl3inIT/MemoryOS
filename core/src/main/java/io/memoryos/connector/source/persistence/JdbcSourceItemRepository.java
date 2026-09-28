@@ -1,13 +1,24 @@
 package io.memoryos.connector.source.persistence;
 
+import io.memoryos.connector.CleanupObject;
+import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.SourceException;
+import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceItemId;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.shared.TenantId;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -150,8 +161,8 @@ public class JdbcSourceItemRepository {
     }
 
     /** Same-content re-synchronization refreshes the current version's provider version in place (see sameContent). */
-    public java.util.Optional<ItemVersion> unchanged(
-            io.memoryos.connector.ConnectorSyncPort.Work work, String fileId, String providerVersion) {
+    public Optional<ItemVersion> unchanged(
+            ConnectorSyncPort.Work work, String fileId, String providerVersion) {
         return jdbcClient.sql("""
                 SELECT i.id, v.id AS version_id FROM connector_items i
                 JOIN connector_credential_pairs p ON p.tenant_id = i.tenant_id AND p.connector_id = i.connector_id
@@ -171,7 +182,7 @@ public class JdbcSourceItemRepository {
      * credential revisions, and records the newer provider version in place. A provider version also advances for
      * sharing or metadata changes, which must not create a new input version or re-extraction.
      */
-    public java.util.Optional<ItemVersion> sameContent(io.memoryos.connector.ConnectorSyncPort.Work work, String fileId,
+    public Optional<ItemVersion> sameContent(ConnectorSyncPort.Work work, String fileId,
             String contentSha256, String filename, String providerVersion) {
         var current = jdbcClient.sql("""
                 SELECT i.id, v.id AS version_id FROM connector_items i
@@ -193,9 +204,9 @@ public class JdbcSourceItemRepository {
         return current;
     }
 
-    public ItemVersion acceptRemote(io.memoryos.connector.ConnectorSyncPort.Work work,
+    public ItemVersion acceptRemote(ConnectorSyncPort.Work work,
             JdbcSourceRepository.SourcePair pair, StoredObjectReference object,
-            io.memoryos.connector.SourceInputDescriptor input) {
+            SourceInputDescriptor input) {
         var existing = jdbcClient.sql("""
                 SELECT id, status FROM connector_items
                 WHERE tenant_id = :tenant AND connector_id = :connector AND provider_file_id = :file FOR UPDATE
@@ -240,9 +251,9 @@ public class JdbcSourceItemRepository {
         return new ItemVersion(item, version, true);
     }
 
-    public java.util.List<io.memoryos.connector.CleanupObject> objects(
-            TenantId tenant, io.memoryos.connector.SourceId source,
-            @org.jspecify.annotations.Nullable SourceItemId item) {
+    public List<CleanupObject> objects(
+            TenantId tenant, SourceId source,
+            @Nullable SourceItemId item) {
         return jdbcClient.sql("""
                 SELECT o.* FROM connector_item_versions v
                 JOIN connector_credential_pairs p ON p.tenant_id = v.tenant_id AND p.connector_id = v.connector_id
@@ -251,12 +262,12 @@ public class JdbcSourceItemRepository {
                 ORDER BY o.id
                 """).param("tenant", tenant.value()).param("source", source.value())
                 .param("allItems", item == null).param("item", item == null ? null : item.value())
-                .query((r, _) -> new io.memoryos.connector.CleanupObject(new StoredObjectReference(
-                        new io.memoryos.objectstorage.StoredObjectId(r.getObject("id", UUID.class)),
-                        new io.memoryos.objectstorage.ObjectKey(r.getString("object_key")), r.getString("filename"),
-                        new io.memoryos.objectstorage.ObjectMetadata(r.getLong("size_bytes"),
+                .query((r, _) -> new CleanupObject(new StoredObjectReference(
+                        new StoredObjectId(r.getObject("id", UUID.class)),
+                        new ObjectKey(r.getString("object_key")), r.getString("filename"),
+                        new ObjectMetadata(r.getLong("size_bytes"),
                                 r.getString("declared_media_type"),
-                                new io.memoryos.objectstorage.ContentSha256(r.getString("content_sha256")))))).list();
+                                new ContentSha256(r.getString("content_sha256")))))).list();
     }
 
     public record ItemVersion(SourceItemId itemId, UUID versionId, boolean created) {

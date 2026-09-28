@@ -1,5 +1,6 @@
 package io.memoryos.ai.openai;
 
+import com.sun.net.httpserver.HttpServer;
 import io.memoryos.ai.AiException;
 import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ProviderAdapter;
@@ -9,25 +10,32 @@ import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.ai.ModelSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 class OpenAiProviderAdapterTest {
     @Test
     void helperReasoningOverrideSurvivesConversionAndSdkSerializationWithoutChangingAnswerOptions() throws Exception {
-        var request = new java.util.concurrent.atomic.AtomicReference<tools.jackson.databind.JsonNode>();
-        var mapper = new tools.jackson.databind.ObjectMapper();
-        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        var request = new AtomicReference<JsonNode>();
+        var mapper = new ObjectMapper();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v1/chat/completions", exchange -> {
             request.set(mapper.readTree(exchange.getRequestBody().readAllBytes()));
             byte[] body = """
                     {"id":"test","object":"chat.completion","created":1,"model":"configured-model",
                     "choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],
                     "usage":{"prompt_tokens":2,"completion_tokens":1,"total_tokens":3}}
-                    """.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    """.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, body.length);
             try (var output = exchange.getResponseBody()) { output.write(body); }
@@ -37,11 +45,11 @@ class OpenAiProviderAdapterTest {
         var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
         try {
             var connection = new ProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
-            for (String lowest : java.util.List.of("default", "none", "minimal", "low")) {
+            for (String lowest : List.of("default", "none", "minimal", "low")) {
                 Map<String, Object> options = lowest.equals("default")
                         ? Map.of("maxCompletionTokens", true, "reasoningEffort", "high")
                         : Map.of("maxCompletionTokens", true, "reasoningEffort", "high", "helperReasoningEffort", lowest);
-                try (var client = adapter.create(connection, "configured-model", settings(options, true), java.time.Duration.ofSeconds(5))) {
+                try (var client = adapter.create(connection, "configured-model", settings(options, true), Duration.ofSeconds(5))) {
                     var service = client.binding().service();
                     service.getChatModel().call(new Prompt("Helper", service.convertOptions(new LlmOptions().withMaxTokens(100).withoutThinking())));
                     assertEquals(lowest.equals("default") ? "minimal" : lowest, request.get().path("reasoning_effort").asString());
@@ -91,7 +99,7 @@ class OpenAiProviderAdapterTest {
         var meters = new SimpleMeterRegistry();
         var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
         try {
-            for (var options : java.util.List.<Map<String, Object>>of(Map.of("apiKey", "must-not-be-an-option"),
+            for (var options : List.<Map<String, Object>>of(Map.of("apiKey", "must-not-be-an-option"),
                     Map.of("temperature", "hot"), Map.of("temperature", 3), Map.of("topP", Double.NaN),
                     Map.of("maxCompletionTokens", "true"), Map.of("reasoningEffort", "unlimited"),
                     Map.of("maxCompletionTokens", true, "temperature", 0.5), Map.of("webSearch", "hosted"), Map.of("webSearch", true))) {
@@ -111,11 +119,11 @@ class OpenAiProviderAdapterTest {
             assertFalse(adapter.supportsNativeWebSearch(noTools));
             assertThrows(AiException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", noTools));
             var connection = new ProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
-            try (var client = adapter.create(connection, "gpt-5.6", declared, java.time.Duration.ofSeconds(1))) {
+            try (var client = adapter.create(connection, "gpt-5.6", declared, Duration.ofSeconds(1))) {
                 assertInstanceOf(ModelTurns.class, client.binding().service().getChatModel());
                 assertFalse(client.binding().service().getChatModel() instanceof ChatCompletionsReasoning);
             }
-            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of(), false), java.time.Duration.ofSeconds(1))) {
+            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of(), false), Duration.ofSeconds(1))) {
                 assertInstanceOf(ChatCompletionsReasoning.class, client.binding().service().getChatModel());
             }
         } finally { meters.close(); }
@@ -129,7 +137,7 @@ class OpenAiProviderAdapterTest {
             assertThrows(AiException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", settings(Map.of("reasoningSummary", "auto"), false)));
             assertThrows(AiException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", settings(Map.of("reasoningSummary", "detailed"), true)));
             var connection = new ProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
-            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of("reasoningSummary", "auto"), true), java.time.Duration.ofSeconds(1))) {
+            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of("reasoningSummary", "auto"), true), Duration.ofSeconds(1))) {
                 var model = assertInstanceOf(ModelTurns.class, client.binding().service().getChatModel());
                 assertFalse(model instanceof ChatCompletionsReasoning, "the Responses route");
                 assertFalse(model.nativeWebSearch());
@@ -150,13 +158,13 @@ class OpenAiProviderAdapterTest {
         try {
             var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
             var openAi = new ProviderAdapter.Connection("https://api.openai.com/v1", "fixture-only");
-            try (var client = adapter.create(openAi, "gpt-5.6-terra", settings(Map.of(), true), java.time.Duration.ofSeconds(1))) {
+            try (var client = adapter.create(openAi, "gpt-5.6-terra", settings(Map.of(), true), Duration.ofSeconds(1))) {
                 var model = assertInstanceOf(ModelTurns.class, client.binding().service().getChatModel());
                 assertFalse(model instanceof ChatCompletionsReasoning, "the Responses route");
                 assertFalse(model.nativeWebSearch());
             }
             var gateway = new ProviderAdapter.Connection("https://openrouter.ai/api/v1", "fixture-only");
-            try (var client = adapter.create(gateway, "qwen/qwen3.8-27b", settings(Map.of(), true), java.time.Duration.ofSeconds(1))) {
+            try (var client = adapter.create(gateway, "qwen/qwen3.8-27b", settings(Map.of(), true), Duration.ofSeconds(1))) {
                 // Chat Completions, which still publishes the reasoning the gateway streams beside the answer.
                 assertInstanceOf(ChatCompletionsReasoning.class, client.binding().service().getChatModel());
             }

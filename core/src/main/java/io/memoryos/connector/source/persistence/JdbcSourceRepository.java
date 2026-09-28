@@ -1,6 +1,7 @@
 package io.memoryos.connector.source.persistence;
 
 import io.memoryos.connector.SourceAccess;
+import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
@@ -10,6 +11,7 @@ import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceStatus;
+import io.memoryos.connector.SourceType;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 
@@ -71,14 +73,14 @@ public class JdbcSourceRepository {
     }
 
     /** The connector kind behind a Source, which decides whose synchronization runs it. */
-    public io.memoryos.connector.SourceType type(TenantId tenantId, SourceId sourceId) {
+    public SourceType type(TenantId tenantId, SourceId sourceId) {
         return jdbcClient.sql("""
                         SELECT c.connector_type FROM connector_credential_pairs p
                         JOIN connectors c ON c.tenant_id = p.tenant_id AND c.id = p.connector_id
                         WHERE p.tenant_id = :tenantId AND p.id = :sourceId
                         """)
                 .param("tenantId", tenantId.value()).param("sourceId", sourceId.value())
-                .query(String.class).optional().map(io.memoryos.connector.SourceType::valueOf)
+                .query(String.class).optional().map(SourceType::valueOf)
                 .orElseThrow(SourceException::notFound);
     }
 
@@ -205,7 +207,7 @@ public class JdbcSourceRepository {
                 """).param("tenantId", tenantId.value()).param("pairId", sourceId.value())
                 .param("access", access.name()).update();
         if (updated != 1) throw SourceException.conflict("Auto Sync requires a Google Drive source");
-        events.publishEvent(new io.memoryos.connector.SourceAccessChanged(tenantId, sourceId));
+        events.publishEvent(new SourceAccessChanged(tenantId, sourceId));
     }
 
     public boolean ownsCleanup(TenantId tenantId, ActorId actorId, SourceOperationId operationId) {
@@ -458,7 +460,7 @@ public class JdbcSourceRepository {
     /** What an audit record names a Source by: its name, provider and access at this moment. */
     public record AuditView(String name, String provider, String access, @Nullable UUID manager) {}
 
-    public java.util.Optional<AuditView> auditView(TenantId tenantId, SourceId sourceId) {
+    public Optional<AuditView> auditView(TenantId tenantId, SourceId sourceId) {
         return jdbcClient.sql("""
                 SELECT connector.name, connector.connector_type, pair.access_type, pair.manager_actor_id
                 FROM connector_credential_pairs pair

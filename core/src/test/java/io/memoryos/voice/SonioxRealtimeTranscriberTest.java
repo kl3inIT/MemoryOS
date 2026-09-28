@@ -21,7 +21,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import tools.jackson.databind.ObjectMapper;
 
 class SonioxRealtimeTranscriberTest {
@@ -44,12 +46,12 @@ class SonioxRealtimeTranscriberTest {
             binaries.add(((ByteBuffer) call.getArgument(0)).remaining());
             return CompletableFuture.completedFuture(socket);
         });
-        when(socket.sendClose(org.mockito.ArgumentMatchers.anyInt(), anyString()))
+        when(socket.sendClose(ArgumentMatchers.anyInt(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(socket));
         when(socket.isOutputClosed()).thenReturn(false);
     }
 
-    private SonioxRealtimeTranscriber session(java.util.function.Function<byte[], String> batch) {
+    private SonioxRealtimeTranscriber session(Function<byte[], String> batch) {
         return SonioxRealtimeTranscriber.open("https://api.soniox.com/v1", "voice-secret", "stt-rt-v5", "vi", batch,
                 transcripts::add, released::incrementAndGet, meters, (target, listener) -> {
                     uri.set(target);

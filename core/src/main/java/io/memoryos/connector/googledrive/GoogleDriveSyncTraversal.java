@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -409,7 +410,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
     private record Acl(@Nullable List<GoogleDriveProvider.Permission> permissions,
                        @Nullable GoogleDriveProviderException failure) {
         void record(Work work, String fileId, JdbcGoogleDriveAclRepository acls) {
-            if (failure == null) acls.recordSuccess(work, fileId, java.util.Objects.requireNonNull(permissions));
+            if (failure == null) acls.recordSuccess(work, fileId, Objects.requireNonNull(permissions));
             else acls.recordFailure(work, fileId, "SOURCE_GOOGLE_" + failure.failure().name(), failure.getMessage());
         }
     }

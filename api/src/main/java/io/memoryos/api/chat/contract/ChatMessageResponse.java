@@ -1,5 +1,8 @@
 package io.memoryos.api.chat.contract;
 
+import io.memoryos.chat.ChatActivity;
+import io.memoryos.chat.ChatArtifact;
+import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.ChatMessage;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
@@ -19,14 +22,17 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "date-time") @Nullable Instant finishedAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatSourceResponse> sources,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatFileDescriptor> files,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatArtifact> artifacts,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatFileDescriptor> files,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatArtifact> artifacts,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatActivity activity,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GeneratedFileRef> generatedFiles,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Research research,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
-                description = "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise") @Nullable String failureCode) {
+                description = "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise") @Nullable String failureCode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
+                description = "Why a COMPLETED reply declined instead of answering: no_evidence, uncited or blocked_topic (answers from documents only, sensitive topics); null otherwise")
+        @Nullable String refusalReason) {
 
     /** A file run_python produced; bytes are served at /api/chat/file-artifacts/{id}/content. */
     public record GeneratedFileRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -53,7 +59,7 @@ public record ChatMessageResponse(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String report,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Citation> citations,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity) {}
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatActivity activity) {}
 
     @Schema(name = "ChatMessageResearchCitation")
     public record Citation(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int marker,
@@ -81,6 +87,7 @@ public record ChatMessageResponse(
                         .map(agent -> new Agent(agent.toolCallId(), agent.cycle(), agent.tabIndex(), agent.task(), agent.status().name(),
                                 agent.durationMs(), agent.report(), agent.citations().stream()
                                 .map(citation -> new Citation(citation.marker(), citation.citationId())).toList(), agent.activity())).toList()),
-                message.status() == ChatMessage.Status.FAILED ? message.failureCode() : null);
+                message.status() == ChatMessage.Status.FAILED ? message.failureCode() : null,
+                message.status() == ChatMessage.Status.COMPLETED ? message.refusalReason() : null);
     }
 }

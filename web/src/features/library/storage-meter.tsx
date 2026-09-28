@@ -5,7 +5,8 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
 import { fileSize } from "@/lib/file-size";
-import { type loadLibraryUsage, type LibraryCategory } from "./library";
+import type { ChatLibraryUsage } from "@/lib/hey-api/types.gen";
+import type { LibraryCategory } from "./library";
 import { categoryLabels } from "./library-labels";
 import { CATEGORY_ICONS } from "./library-icons";
 
@@ -25,7 +26,7 @@ const CATEGORY_COLOURS: Record<LibraryCategory, string> = {
   OTHER: "var(--chart-neutral)",
 };
 
-export type LibraryUsage = Awaited<ReturnType<typeof loadLibraryUsage>>;
+export type LibraryUsage = ChatLibraryUsage;
 
 /**
  * What this person has stored and what they may store (ChatGPT "Bộ nhớ lưu trữ"): the meter, then one row per
@@ -66,7 +67,7 @@ export function StorageMeter({
         aria-label={ui("Dung lượng đã dùng")}
         className="flex flex-col gap-2 rounded-xl border border-border-subtle p-4"
       >
-        <p className="font-main-ui-action tabular-nums text-content-primary">
+        <p className="font-main-ui-action text-content-primary tabular-nums">
           {limit === null
             ? ui("Đã dùng {{used}}", { used: fileSize(usage.usedBytes, i18n.language) })
             : ui("Đã dùng {{used}} / {{limit}}", {
@@ -131,7 +132,7 @@ export function StorageMeter({
                     aria-hidden="true"
                   />
                   <span className="min-w-0 flex-1 truncate">{labels[category]}</span>
-                  <span className="shrink-0 tabular-nums text-content-muted">
+                  <span className="shrink-0 text-content-muted tabular-nums">
                     {fileSize(entry.usedBytes, i18n.language)}
                   </span>
                   <ChevronRight className="size-4 shrink-0 text-content-muted" aria-hidden="true" />

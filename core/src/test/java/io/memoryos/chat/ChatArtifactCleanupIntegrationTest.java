@@ -7,12 +7,14 @@ import static org.mockito.Mockito.*;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.chat.image.ImageArtifactService;
+import io.memoryos.chat.image.ImageProviderClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.files.persistence.JdbcChatArtifactCleanupRepository;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.iam.IamAuthorization;
+import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -30,9 +32,23 @@ import io.memoryos.objectstorage.application.DefaultStoredObjectRegistry;
 import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +59,7 @@ import io.memoryos.library.ImageThumbnails;
 import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.LibraryTrashProperties;
 import io.memoryos.library.LibraryFile;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Deleting a Chat artifact must release its bytes: the objects are adopted writes, which the generic reapers
@@ -65,7 +82,7 @@ class ChatArtifactCleanupIntegrationTest {
     private TenantId tenant;
     private ActorId owner;
     private UUID messageId;
-    private final java.util.Map<String, byte[]> stored = new java.util.HashMap<>();
+    private final Map<String, byte[]> stored = new HashMap<>();
 
     @BeforeEach
     void setup() throws Exception {
@@ -74,7 +91,7 @@ class ChatArtifactCleanupIntegrationTest {
         jpa = TestDatabase.jpa(database);
         storage = mock(ObjectStorage.class);
         // A staged write is verified by reading it back, so the double remembers what it was given.
-        var written = new java.util.HashMap<String, ObjectMetadata>();
+        var written = new HashMap<String, ObjectMetadata>();
         doAnswer(call -> {
             byte[] bytes = call.getArgument(1);
             written.put(call.<ObjectKey>getArgument(0).value(),
@@ -88,10 +105,10 @@ class ChatArtifactCleanupIntegrationTest {
             String key = call.<ObjectKey>getArgument(0).value();
             byte[] bytes = stored.get(key);
             if (bytes == null) throw new ObjectStorageException(ObjectStorageFailureCode.NOT_FOUND, false, null);
-            return new io.memoryos.objectstorage.ObjectContent() {
-                private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
+            return new ObjectContent() {
+                private final InputStream input = new ByteArrayInputStream(bytes);
                 @Override public ObjectMetadata metadata() { return written.get(key); }
-                @Override public java.io.InputStream inputStream() { return input; }
+                @Override public InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
         });
@@ -109,10 +126,10 @@ class ChatArtifactCleanupIntegrationTest {
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 // This suite covers the release itself, so deletion releases at once.
-                new LibraryTrashProperties(java.time.Duration.ZERO),
-                jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
+                new LibraryTrashProperties(Duration.ZERO),
+                jpa.transactionManager(), TestDatabase.noAudit());
         images = new ImageArtifactService(writes, storage, pictures, tenants, quotas,
-                new LibraryTrashProperties(java.time.Duration.ZERO),
+                new LibraryTrashProperties(Duration.ZERO),
                 jpa.transactionManager());
         cleanup = new ChatArtifactCleanupService(new JdbcChatArtifactCleanupRepository(jdbc),
                 new DefaultStoredObjectRegistry(objects), writes, storage, jpa.transactionManager());
@@ -153,7 +170,7 @@ class ChatArtifactCleanupIntegrationTest {
 
     @Test
     void aFailedDeletionKeepsTheClaimRetryableAndNeverLosesTheRow() {
-        var image = images.store(tenant, messageId, new io.memoryos.chat.image.ImageProviderClient.Result(
+        var image = images.store(tenant, messageId, new ImageProviderClient.Result(
                 new byte[] {7, 7, 7}, "image/png", null));
         images.delete(owner, image);
         doThrow(new ObjectStorageException(ObjectStorageFailureCode.UNAVAILABLE, true, null))
@@ -196,7 +213,7 @@ class ChatArtifactCleanupIntegrationTest {
     void oneSweepClaimsBothTablesAndOnlyDeletedArtifacts() {
         var kept = interpreter.store(tenant, messageId, "kept.csv", "text/csv", new byte[] {1});
         var file = interpreter.store(tenant, messageId, "gone.csv", "text/csv", new byte[] {2});
-        var image = images.store(tenant, messageId, new io.memoryos.chat.image.ImageProviderClient.Result(
+        var image = images.store(tenant, messageId, new ImageProviderClient.Result(
                 new byte[] {3}, "image/png", "a red shirt"));
         interpreter.delete(owner, file);
         images.delete(owner, image);
@@ -211,13 +228,13 @@ class ChatArtifactCleanupIntegrationTest {
     @Test
     void theFirstThumbnailRequestWritesOneRenderingThatLaterReadsReuse() throws Exception {
         byte[] png = noisePng(1024, 768);
-        var image = images.store(tenant, messageId, new io.memoryos.chat.image.ImageProviderClient.Result(
+        var image = images.store(tenant, messageId, new ImageProviderClient.Result(
                 png, "image/png", null));
         assertEquals(1, count("stored_objects"));
 
         byte[] thumbnail = read(image, ImageArtifactService.Variant.THUMBNAIL, "image/jpeg");
         assertTrue(thumbnail.length < png.length / 4, "thumbnail " + thumbnail.length + " of " + png.length);
-        assertEquals(512, javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(thumbnail)).getWidth());
+        assertEquals(512, ImageIO.read(new ByteArrayInputStream(thumbnail)).getWidth());
         assertEquals(2, count("stored_objects"));
 
         // A second read serves the rendering that was kept rather than making another one.
@@ -237,7 +254,7 @@ class ChatArtifactCleanupIntegrationTest {
     @Test
     void anImageWithNoThumbnailToMakeIsServedWhole() {
         byte[] notAnImage = new byte[ImageThumbnails.MIN_SOURCE_BYTES + 1];
-        var image = images.store(tenant, messageId, new io.memoryos.chat.image.ImageProviderClient.Result(
+        var image = images.store(tenant, messageId, new ImageProviderClient.Result(
                 notAnImage, "image/webp", null));
 
         assertArrayEquals(notAnImage, read(image, ImageArtifactService.Variant.THUMBNAIL, "image/webp"));
@@ -249,7 +266,7 @@ class ChatArtifactCleanupIntegrationTest {
 
     @Test
     void aPurgedArtifactKeepsItsCardOnTheAnswerAndLeavesTheLibrary() {
-        var image = images.store(tenant, messageId, new io.memoryos.chat.image.ImageProviderClient.Result(
+        var image = images.store(tenant, messageId, new ImageProviderClient.Result(
                 new byte[] {9, 9}, "image/png", "a blue car"));
         images.delete(owner, image);
         assertEquals(1, cleanup.cleanup());
@@ -265,8 +282,8 @@ class ChatArtifactCleanupIntegrationTest {
 
         // The trash no longer offers it, and nothing can bring it back: the bytes are gone.
         var trash = new JdbcLibraryRepository(jdbc).page(tenant, owner,
-                new JdbcLibraryRepository.Filter("", java.util.Set.of(),
-                        java.util.Set.of(), null, false, false, true, null),
+                new JdbcLibraryRepository.Filter("", Set.of(),
+                        Set.of(), null, false, false, true, null),
                 LibraryFile.Sort.DELETED, 0, 50);
         assertEquals(List.of(), trash.items());
         assertFalse(pictures.restore(tenant, owner, image));
@@ -278,24 +295,24 @@ class ChatArtifactCleanupIntegrationTest {
             byte[] bytes = served.inputStream().readAllBytes();
             assertEquals(bytes.length, served.sizeBytes());
             return bytes;
-        } catch (java.io.IOException failed) {
-            throw new java.io.UncheckedIOException(failed);
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
         }
     }
 
     /** Noise, so the PNG weighs what a generated image does. */
-    private static byte[] noisePng(int width, int height) throws java.io.IOException {
-        var image = new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_RGB);
-        var random = new java.util.Random(20260921);
+    private static byte[] noisePng(int width, int height) throws IOException {
+        var image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        var random = new Random(20260921);
         for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) image.setRGB(x, y, random.nextInt(0xFFFFFF));
-        var out = new java.io.ByteArrayOutputStream();
-        javax.imageio.ImageIO.write(image, "png", out);
+        var out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
         return out.toByteArray();
     }
 
-    private static ContentSha256 sha256(byte[] bytes) throws java.security.NoSuchAlgorithmException {
-        return new ContentSha256(java.util.HexFormat.of()
-                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));
+    private static ContentSha256 sha256(byte[] bytes) throws NoSuchAlgorithmException {
+        return new ContentSha256(HexFormat.of()
+                .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
     }
 
     /** Rows of a table, or of a table with a predicate: both read as "SELECT count(*) FROM <this>". */
@@ -305,7 +322,7 @@ class ChatArtifactCleanupIntegrationTest {
 
     /** A conversation with one answer: artifacts take their owner and session from it. */
     private void seedConversation() {
-        var tx = new org.springframework.transaction.support.TransactionTemplate(jpa.transactionManager());
+        var tx = new TransactionTemplate(jpa.transactionManager());
         tenant = new TenantId(UUID.randomUUID());
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,:slug,'Artifacts','ACTIVE','test')")
                 .param("id", tenant.value()).param("slug", tenant.value().toString()).update();

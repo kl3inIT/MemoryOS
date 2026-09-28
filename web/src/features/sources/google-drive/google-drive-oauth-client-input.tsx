@@ -2,10 +2,16 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { ChevronDown, Paperclip, X } from "lucide-react";
-import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 
 const MAX_OAUTH_CLIENT_BYTES = 16 * 1024;
 
@@ -142,16 +148,19 @@ export function GoogleDriveOAuthClientInput({
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-4">
       <legend className="sr-only">{ui("Your Google OAuth app")}</legend>
       <p className="font-main-ui-action text-content-primary">{ui("OAuth app")}</p>
-      <Collapsible className="group font-secondary-body text-content-muted">
-        <CollapsibleTrigger className="flex w-fit cursor-pointer items-center gap-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
-          {ui("Setup instructions")}
-          <ChevronDown
-            aria-hidden="true"
-            className="size-4 group-data-[state=open]:rotate-180 motion-safe:transition-transform"
-          />
+      <Collapsible className="group">
+        <CollapsibleTrigger asChild>
+          <Button size="sm" prominence="tertiary" className="w-fit px-0">
+            {ui("Setup instructions")}
+            <ChevronDown
+              data-icon="inline-end"
+              aria-hidden="true"
+              className="group-data-[state=open]:rotate-180 motion-safe:transition-transform"
+            />
+          </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="mt-3 flex flex-col gap-3">
+          <div className="mt-3 flex flex-col gap-3 font-secondary-body text-content-muted">
             <p>
               {ui(
                 "Enable the Drive, Sheets and Docs APIs, configure the consent screen, and create a Web application OAuth client in your Google Cloud project.",
@@ -167,19 +176,14 @@ export function GoogleDriveOAuthClientInput({
               .
             </p>
             <p id={`${id}-callback`}>{ui("Authorized redirect URI for this MemoryOS instance:")}</p>
-            <Input
-              aria-labelledby={`${id}-callback`}
-              readOnly
-              value={callback}
-              className="font-mono text-xs"
-            />
+            <Input aria-labelledby={`${id}-callback`} readOnly value={callback} />
           </div>
         </CollapsibleContent>
       </Collapsible>
-      <div className="flex flex-col gap-1">
-        <label htmlFor={`${id}-json`} className="sr-only">
+      <Field data-invalid={error ? true : undefined}>
+        <FieldLabel htmlFor={`${id}-json`} className="sr-only">
           {ui("Upload or paste OAuth app JSON")}
-        </label>
+        </FieldLabel>
         <input
           ref={upload}
           type="file"
@@ -190,14 +194,8 @@ export function GoogleDriveOAuthClientInput({
           disabled={disabled}
           onChange={(event) => void readFile(event.target.files?.[0])}
         />
-        <div
-          className={cn(
-            "flex w-full items-center justify-between gap-1 rounded-lg border border-border-subtle bg-surface-raised p-1.5 transition-colors hover:border-border-default focus-within:border-focus-ring",
-            disabled && "border-transparent bg-surface-sunken",
-            error && "border-status-danger-content",
-          )}
-        >
-          <Input
+        <InputGroup>
+          <InputGroupInput
             ref={input}
             id={`${id}-json`}
             type="text"
@@ -210,7 +208,6 @@ export function GoogleDriveOAuthClientInput({
             spellCheck={false}
             aria-describedby={error ? `${id}-error` : undefined}
             aria-invalid={Boolean(error)}
-            className="h-6 rounded-none border-0 bg-transparent p-0.5 focus-visible:shadow-none"
             onChange={(event) => {
               if (fileName !== null) return;
               updateText(event.target.value);
@@ -225,42 +222,42 @@ export function GoogleDriveOAuthClientInput({
               event.currentTarget.value = text.replace(/\r\n?|\n/g, " ");
             }}
           />
-          {fileName !== null || hasDraft || reading ? (
-            <IconButton
-              size="sm"
-              prominence="tertiary"
-              aria-label={ui("Clear client JSON")}
-              disabled={disabled}
-              onClick={() => {
-                clear();
-                input.current?.focus();
-              }}
-            >
-              <X />
-            </IconButton>
-          ) : null}
-          {fileName === null ? (
-            <IconButton
-              size="sm"
-              prominence="tertiary"
-              aria-label={ui("Attach file")}
-              disabled={disabled}
-              onClick={() => upload.current?.click()}
-            >
-              <Paperclip />
-            </IconButton>
-          ) : null}
-        </div>
-      </div>
+          <InputGroupAddon align="inline-end">
+            {fileName !== null || hasDraft || reading ? (
+              <InputGroupButton
+                size="icon-xs"
+                aria-label={ui("Clear client JSON")}
+                disabled={disabled}
+                onClick={() => {
+                  clear();
+                  input.current?.focus();
+                }}
+              >
+                <X aria-hidden="true" />
+              </InputGroupButton>
+            ) : null}
+            {fileName === null ? (
+              <InputGroupButton
+                size="icon-xs"
+                aria-label={ui("Attach file")}
+                disabled={disabled}
+                onClick={() => upload.current?.click()}
+              >
+                <Paperclip aria-hidden="true" />
+              </InputGroupButton>
+            ) : null}
+          </InputGroupAddon>
+        </InputGroup>
+      </Field>
       {reading ? (
         <p role="status" className="text-sm text-content-secondary">
           {ui("Reading client JSON…")}
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="text-sm text-status-danger-content">
+        <FieldError id={`${id}-error`} role="alert">
           {ui(error)}
-        </p>
+        </FieldError>
       ) : null}
     </fieldset>
   );

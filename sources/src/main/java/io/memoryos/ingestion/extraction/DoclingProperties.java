@@ -9,6 +9,8 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import org.jspecify.annotations.NonNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
@@ -48,7 +50,7 @@ public record DoclingProperties(URI endpoint, String engineRevision, Duration ti
             }
         }
         ocrLanguages = List.copyOf(ocrLanguages);
-        if (!java.util.Set.of("http", "https").contains(endpoint.getScheme())
+        if (!Set.of("http", "https").contains(endpoint.getScheme())
                 || endpoint.getHost() == null || endpoint.getUserInfo() != null
                 || endpoint.getQuery() != null || endpoint.getFragment() != null
                 || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofHours(1)) > 0
@@ -83,5 +85,5 @@ public record DoclingProperties(URI endpoint, String engineRevision, Duration ti
                 + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2";
     }
 
-    @Override public String toString() { return "DoclingProperties[redacted]"; }
+    @Override public @NonNull String toString() { return "DoclingProperties[redacted]"; }
 }

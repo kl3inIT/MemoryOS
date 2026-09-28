@@ -19,13 +19,18 @@ import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -124,15 +129,15 @@ class SearchAuthorizationCostMeasurementTest {
     /** Same bytes as PostgreSQL {@code md5('doc'||n)::uuid}, without UUID version bits. */
     private static UUID document(int index) {
         try {
-            var hash = java.nio.ByteBuffer.wrap(java.security.MessageDigest.getInstance("MD5")
-                    .digest(("doc" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            var hash = ByteBuffer.wrap(MessageDigest.getInstance("MD5")
+                    .digest(("doc" + index).getBytes(StandardCharsets.UTF_8)));
             return new UUID(hash.getLong(), hash.getLong());
-        } catch (java.security.NoSuchAlgorithmException impossible) {
+        } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);
         }
     }
 
-    private static String measure(String name, java.util.function.Supplier<?> operation) {
+    private static String measure(String name, Supplier<?> operation) {
         for (int i = 0; i < WARMUP; i++) operation.get();
         long[] samples = new long[ITERATIONS];
         for (int i = 0; i < ITERATIONS; i++) {

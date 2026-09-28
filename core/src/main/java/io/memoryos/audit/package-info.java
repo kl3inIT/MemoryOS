@@ -7,7 +7,8 @@
  * the published API; SQL and row mapping stay in {@code persistence}.
  */
 @ApplicationModule(displayName = "Audit", type = ApplicationModule.Type.CLOSED, allowedDependencies = {"shared"})
-@org.jspecify.annotations.NullMarked
+@NullMarked
 package io.memoryos.audit;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.modulith.ApplicationModule;

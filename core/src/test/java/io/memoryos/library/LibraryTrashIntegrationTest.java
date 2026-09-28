@@ -42,6 +42,7 @@ import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +55,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import io.memoryos.chat.files.ChatLibraryArtifacts;
 import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Deleting a library file moves it to the trash: it leaves every listing at once, and its bytes are released
@@ -112,7 +114,7 @@ class LibraryTrashIntegrationTest {
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 new LibraryTrashProperties(WINDOW), jpa.transactionManager(),
-                io.memoryos.TestDatabase.noAudit());
+                TestDatabase.noAudit());
         cleanup = new ChatArtifactCleanupService(new JdbcChatArtifactCleanupRepository(jdbc),
                 new DefaultStoredObjectRegistry(objects), writes, storage, jpa.transactionManager());
         trash = new LibraryTrashService(tenants, files,
@@ -230,7 +232,7 @@ class LibraryTrashIntegrationTest {
                 new ContentSha256("a".repeat(64)), ObjectUploadPurpose.CHAT_FILE);
         new JdbcStoredObjectRepository(jdbc).create(tenant, objectId,
                 new ObjectKey("raw/" + tenant.value() + "/" + objectId.value()), spec,
-                java.time.Instant.now().plusSeconds(600));
+                Instant.now().plusSeconds(600));
         new JdbcObjectUploadRepository(jdbc).create(tenant, uploadId, objectId, spec.purpose());
         var id = files.create(tenant, owner, UUID.randomUUID(), uploadId, spec);
         jdbc.sql("UPDATE chat_user_file SET status='READY', plaintext='Test', stored_object_id=:object WHERE id=:id")
@@ -240,7 +242,7 @@ class LibraryTrashIntegrationTest {
 
     /** A conversation with one answer: artifacts take their owner and session from it. */
     private void seedConversation() {
-        var tx = new org.springframework.transaction.support.TransactionTemplate(jpa.transactionManager());
+        var tx = new TransactionTemplate(jpa.transactionManager());
         tenant = new TenantId(UUID.randomUUID());
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,:slug,'Trash','ACTIVE','test')")
                 .param("id", tenant.value()).param("slug", tenant.value().toString()).update();

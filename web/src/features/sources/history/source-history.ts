@@ -1,4 +1,6 @@
 import type { SourceRun } from "@/lib/hey-api/types.gen";
+import type { AppTranslate } from "@/i18n/use-app-translation";
+import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { uiLocale } from "@/i18n/format";
 
 export function historyDuration(start: string | null, end: string | null) {
@@ -64,4 +66,13 @@ export function runIsActive(run: SourceRun) {
       run.status,
     ) || ["PENDING", "RETRY_SCHEDULED", "RECOVERY_PENDING"].includes(run.indexingStatus)
   );
+}
+
+/** The safe message of a retained run error. */
+export function runErrorMessage(ui: AppTranslate, code: string) {
+  return code === "SOURCE_EXTRACTION_TIMEOUT"
+    ? ui(
+        "Extraction timed out during this run. The retained error does not identify the underlying cause.",
+      )
+    : ui(sourceStatusMessage(code));
 }

@@ -1,4 +1,5 @@
 import { useRef, useState, type ComponentType } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { ArrowUp, FileText, Mic, Paperclip, Plus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -39,8 +40,6 @@ export function ChatFileAskComposer({
 }) {
   const ui = useAppTranslation();
   const [question, setQuestion] = useState("");
-  const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
   const [menu, setMenu] = useState(false);
   const [picking, setPicking] = useState(false);
   const [library, setLibrary] = useState<readonly LibraryFile[]>([]);
@@ -56,13 +55,14 @@ export function ChatFileAskComposer({
   // The file being read is attached too, so it takes one of the twenty places.
   const room = MAX_FILES - 1 - library.length - uploads.length;
 
+  const ask = useMutation({
+    mutationFn: () => onAsk(question.trim(), { library, uploads }),
+  });
+  const pending = ask.isPending;
+  const failed = ask.isError;
   const submit = () => {
     if (pending || dictation.listening) return;
-    setPending(true);
-    setFailed(false);
-    void onAsk(question.trim(), { library, uploads })
-      .catch(() => setFailed(true))
-      .finally(() => setPending(false));
+    ask.mutate();
   };
 
   return (
@@ -109,12 +109,12 @@ export function ChatFileAskComposer({
           className="max-h-40 min-h-11 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
         />
         {dictation.failure && (
-          <p role="alert" className="px-2 font-secondary-body text-content-danger">
+          <p role="alert" className="px-2 font-secondary-body text-status-danger-content">
             {ui(dictation.failure)}
           </p>
         )}
         {failed && (
-          <p role="alert" className="px-2 font-secondary-body text-content-danger">
+          <p role="alert" className="px-2 font-secondary-body text-status-danger-content">
             {ui("Không mở được hội thoại.")}
           </p>
         )}
@@ -226,7 +226,7 @@ export function ChatFileAskComposer({
 function AttachedChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   const ui = useAppTranslation();
   return (
-    <li className="flex max-w-56 items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-sunken py-1 pl-2 pr-1 font-secondary-body">
+    <li className="flex max-w-56 items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-sunken py-1 pr-1 pl-2 font-secondary-body">
       <Paperclip className="size-3.5 shrink-0 text-content-muted" aria-hidden="true" />
       <span className="min-w-0 truncate" title={label}>
         {label}

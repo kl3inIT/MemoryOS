@@ -7,7 +7,6 @@ import io.memoryos.connector.SharePointSourceService.RootPage;
 import io.memoryos.connector.SharePointSourceService.RootView;
 import io.memoryos.connector.SharePointSourceService.Scope;
 import io.memoryos.connector.SharePointSourceService.ScopeMode;
-import io.memoryos.connector.sharepoint.SharePointUrl;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -254,11 +253,7 @@ public class JdbcSharePointSourceRepository {
 
     /** A root with the Graph identifiers verification resolved for it. */
     public record ResolvedRoot(RootKind kind, String url, @Nullable String siteId, @Nullable String driveId,
-                               @Nullable String itemId, @Nullable String displayName) {
-        public static ResolvedRoot unresolved(SharePointUrl url) {
-            return new ResolvedRoot(RootKind.valueOf(url.kind().name()), url.canonical(), null, null, null, null);
-        }
-    }
+                               @Nullable String itemId, @Nullable String displayName) {}
 
     public record ConfigurationRow(ScopeMode scopeMode, long rootCount, boolean includeDocuments, boolean includePages,
                                    int syncIntervalMinutes, int pruneIntervalHours, long scopeRevision,

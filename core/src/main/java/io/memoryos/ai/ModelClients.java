@@ -93,7 +93,10 @@ public final class ModelClients implements AutoCloseable {
     private static void dispose(Entry entry) {
         if (entry.client.isCompletedExceptionally()) return;
         try { entry.client.join().close(); }
-        catch (RuntimeException failure) { LOG.warn("Chat client cleanup failed ({})", failure.getClass().getSimpleName()); }
+        catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "ai.client.cleanup_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat client cleanup failed");
+        }
     }
 
     private void release(Entry entry) {

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Base64;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 class McpSecretsTest {
     private static final String KEY = Base64.getEncoder().encodeToString(new byte[32]);
@@ -65,7 +66,7 @@ class McpSecretsTest {
         assertThrows(IllegalArgumentException.class, () -> secrets.seal(tenant, record, McpSecrets.Purpose.CREDENTIAL, ""));
     }
 
-    private static void assertUnreadable(org.junit.jupiter.api.function.Executable open) {
+    private static void assertUnreadable(Executable open) {
         assertEquals("MCP_CREDENTIAL_UNREADABLE", assertThrows(McpException.class, open).code());
     }
 }

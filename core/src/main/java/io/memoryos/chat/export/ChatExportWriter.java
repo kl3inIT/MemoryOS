@@ -2,8 +2,10 @@ package io.memoryos.chat.export;
 
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSession;
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -48,7 +50,7 @@ public final class ChatExportWriter {
                 sources.addObject().put("citationId", source.citationId()).put("title", source.title());
             }
         }
-        return root.toPrettyString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return root.toPrettyString().getBytes(StandardCharsets.UTF_8);
     }
 
     /** The conversation as a page: a question, an answer, what each answer cited and what it carried. */
@@ -74,7 +76,7 @@ public final class ChatExportWriter {
             if (!message.files().isEmpty()) {
                 page.append("<p class=\"files\">Files: ");
                 page.append(message.files().stream().map(file -> escape(file.filename()))
-                        .collect(java.util.stream.Collectors.joining(", ")));
+                        .collect(Collectors.joining(", ")));
                 page.append("</p>\n");
             }
             if (!message.sources().isEmpty()) {
@@ -87,7 +89,7 @@ public final class ChatExportWriter {
             page.append("</section>\n");
         }
         page.append("</main></body></html>\n");
-        return page.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return page.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     /** The export's own front page, so a ZIP of files is navigable rather than a heap. */
@@ -105,7 +107,7 @@ public final class ChatExportWriter {
             page.append("</ul>\n");
         }
         page.append("</main></body></html>\n");
-        return page.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return page.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     public record Entry(String title, String href) {}

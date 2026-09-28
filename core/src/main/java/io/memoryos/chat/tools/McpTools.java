@@ -13,7 +13,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
+import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -23,7 +27,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 public final class McpTools {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(McpTools.class);
+    private static final Logger LOG = LoggerFactory.getLogger(McpTools.class);
     /** A single result may take at most this share of the remaining context, leaving room for the answer. */
     private static final int MAX_RESULT_TOKENS = 6000;
 
@@ -79,8 +83,8 @@ public final class McpTools {
 
     /** The server's own JSON Schema, snapshotted at refresh; Embabel's factories build schemas from classes. */
     private record SnapshotSchema(String json) implements Tool.InputSchema {
-        @Override public String toJsonSchema() { return json; }
-        @Override public List<Tool.Parameter> getParameters() { return List.of(); }
+        @Override public @NonNull String toJsonSchema() { return json; }
+        @Override public @NonNull List<Tool.Parameter> getParameters() { return List.of(); }
     }
 
     private Tool.Result call(McpTurnTools.Binding binding, String argumentJson) {
@@ -101,7 +105,7 @@ public final class McpTools {
             Map<String, Object> arguments;
             try {
                 arguments = argumentJson == null || argumentJson.isBlank() ? Map.of()
-                        : JSON.readValue(argumentJson, new tools.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                        : JSON.readValue(argumentJson, new TypeReference<Map<String, Object>>() {});
             } catch (RuntimeException invalid) {
                 activity.fail();
                 return refused(binding, "invalid_arguments",
@@ -135,7 +139,9 @@ public final class McpTools {
                     case UNAVAILABLE -> "unavailable";
                 };
                 // The reason is a code from the MCP capability, not matched text, and carries no upstream body.
-                LOG.warn("MCP tool {} failed on server {}: {}", binding.modelName(), binding.serverId(), rejected.reason());
+                LOG.atWarn().addKeyValue("event", "chat.mcp_tool.failed").addKeyValue("tool", binding.modelName())
+                        .addKeyValue("mcp_server_id", binding.serverId()).addKeyValue("error_code", rejected.reason().name())
+                        .log("MCP tool call failed");
                 return Tool.Result.error(message(binding, rejected.reason()));
             } finally {
                 measure(binding, outcome, System.nanoTime() - upstream);

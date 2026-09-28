@@ -1,66 +1,32 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearch } from "@tanstack/react-router";
-import { Download, FolderOpen, Trash2, X } from "lucide-react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { useState } from "react";
+import { FolderOpen } from "lucide-react";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { useActionNotifications } from "@/components/ui/action-notifications";
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Input } from "@/components/ui/input";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { PageSizeSelect } from "@/components/ui/page-size-select";
-import { TablePagination } from "@/components/ui/table-pagination";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { cn } from "@/lib/utils";
-import { actionErrorText } from "@/lib/action-errors";
-import { FormDialog } from "@/components/composites/form-dialog";
-import { LibraryContentMatches } from "./library-content";
-import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
-import { LibraryRail, type LibraryView } from "./library-rail";
+import { ChatFilePreviewModal } from "./file-preview-modal";
+import { libraryPreviewTarget, type LibraryFile } from "./library";
+import type { LibraryChat } from "./library-chat";
+import { DeleteFilesDialog, PurgeFilesDialog, RenameDialog } from "./library-dialogs";
+import { isEntryView, recordEntryOpened } from "./library-entries";
+import { LibraryEntryViews } from "./library-entry-views";
+import { LibraryNotices, TrashBanner } from "./library-notices";
+import { LibraryRail } from "./library-rail";
+import { ContentResults, LibraryFiles } from "./library-results";
+import type { RowActions } from "./library-rows";
 import { LibrarySettingsButton } from "./library-settings";
-import { FileActions, LibraryEmpty, LibraryList, LibraryListSkeleton } from "./library-rows";
 import {
   LibraryFilterPills,
   LibrarySelectionBar,
   LibraryToolbar,
   type LibraryLayout,
-  type LibrarySearchMode,
+  type LibraryToolbarHandlers,
 } from "./library-toolbar";
-import { archiveContentUrl, useLibraryArchive, type LibraryArchive } from "./use-library-archive";
+import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
+import { useLibraryActions } from "./use-library-actions";
+import { useLibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
-import { ChatFilePreviewModal } from "./file-preview-modal";
-import { type AskExtras } from "./file-ask-composer";
-import type { LibraryChat } from "./library-chat";
-import { LibraryEntryViews } from "./library-entry-views";
-import { isEntryView, recordEntryOpened } from "./library-entries";
-import { type PreviewTarget } from "./file-preview";
-import {
-  askLibraryQuestion,
-  changeLibraryFile,
-  chatLibraryKey,
-  deleteLibraryFile,
-  libraryUpload,
-  emptyLibraryTrash,
-  loadLibraryUsage,
-  loadTrashWindow,
-  purgeLibraryFile,
-  restoreLibraryFile,
-  libraryPreviewTarget,
-  loadLibrary,
-  refusedBy,
-  searchLibraryContent,
-  LIBRARY_PAGE_SIZE,
-  LIBRARY_PAGE_SIZES,
-  type ContentMatch,
-  type LibraryCategory,
-  type LibraryFile,
-  type LibrarySort,
-  type LibrarySource,
-} from "./library";
+import { useLibraryView } from "./use-library-view";
 
 /**
  * The library: everything the person can see or use, on one page. Their own files — uploads, files run_python
@@ -70,283 +36,64 @@ import {
  */
 export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const [search, setSearch] = useState("");
-  const query = useDeferredValue(search.trim());
-  const [sources, setSources] = useState<LibrarySource[]>([]);
-  // A link from the storage page names one category; the filters then behave like any other filter. The
-  // search is read without binding to the route, so the page also renders where that route is not mounted.
-  const linked = useSearch({ strict: false }).category as LibraryCategory | undefined;
-  const [categories, setCategories] = useState<LibraryCategory[]>(linked ? [linked] : []);
-  const [sort, setSort] = useState<LibrarySort>("NEWEST");
-  /** Only the starred files of Tệp của tôi, where the selection commands still apply to them. */
-  const [starredOnly, setStarredOnly] = useState(false);
-  /** Name search reads the listing; content search asks the file search what a file contains. */
-  const [mode, setMode] = useState<LibrarySearchMode>("name");
-  /** Which slice of the library is on screen; the person's own files come first, as they always have. */
-  const [view, setView] = useState<LibraryView>("ready");
-  const [renaming, setRenaming] = useState<LibraryFile>();
-  const [layout, setLayout] = useState<LibraryLayout>("list");
-  const [offset, setOffset] = useState(0);
-  const [size, setSize] = useState<number>(LIBRARY_PAGE_SIZE);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [preview, setPreview] = useState<LibraryFile>();
-  const [confirming, setConfirming] = useState<LibraryFile[]>();
-  const [refusals, setRefusals] = useState<string[]>([]);
-  const [projectFiles, setProjectFiles] = useState<LibraryFile[]>();
   const notify = useActionNotifications();
-  const [purging, setPurging] = useState<LibraryFile[]>();
-
-  /** A selection belongs to the page it was made on, so leaving that page drops it. */
-  const showPage = (next: number) => {
-    setOffset(next);
-    setSelected([]);
-  };
-  const showFirstPage = () => showPage(0);
-  /** Every filter change starts the list again: page 3 of the previous filter means nothing. */
-  const fromTheFirstPage =
-    <T,>(set: (next: T) => void) =>
-    (value: T) => {
-      set(value);
-      showFirstPage();
-    };
-
+  const library = useLibraryView();
+  const { view, files, selected, setSelected, trashWindow } = library;
+  const actions = useLibraryActions({
+    chat,
+    trashDays: trashWindow.data,
+    onListChanged: library.showFirstPage,
+  });
   const uploads = useLibraryUploads();
   const archive = useLibraryArchive();
-  const filter = useMemo(
-    () => ({
-      query: mode === "content" ? "" : query,
-      sources,
-      categories,
-      // The trash reads by when a file was deleted, not by when it was made.
-      sort: view === "trash" ? ("DELETED" as const) : sort,
-      favorite: (view === "ready" && starredOnly) || undefined,
-      status:
-        view === "pending"
-          ? ("PENDING" as const)
-          : view === "trash"
-            ? ("TRASH" as const)
-            : undefined,
-    }),
-    [mode, query, sources, categories, sort, view, starredOnly],
-  );
-  const owned = !isEntryView(view);
-  const page = useQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, filter, offset, size],
-    queryFn: ({ signal }) => loadLibrary(filter, offset, signal, size),
-    // The other views read their own routes.
-    enabled: owned,
-    // Paging keeps the page being read on screen until the next one arrives, instead of emptying the list.
-    placeholderData: keepPreviousData,
-    // An upload being processed becomes usable on its own; the view follows without a manual refresh.
-    refetchInterval: (current) =>
-      current.state.data?.items.some((file) => file.status === "PROCESSING") ? 3000 : false,
-  });
-  // The next page is fetched while this one is read, so *Tiếp* shows it without a wait.
-  useEffect(() => {
-    if (!owned || !page.data?.hasMore || page.isPlaceholderData) return;
-    void cache.prefetchQuery({
-      queryKey: [...chatLibraryKey, actorId, authorizationVersion, filter, offset + size, size],
-      queryFn: ({ signal }) => loadLibrary(filter, offset + size, signal, size),
-      staleTime: 30_000,
-    });
-  }, [
-    owned,
-    cache,
-    actorId,
-    authorizationVersion,
-    filter,
-    offset,
-    size,
-    page.data?.hasMore,
-    page.isPlaceholderData,
-  ]);
-  const usage = useQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "usage"],
-    queryFn: ({ signal }) => loadLibraryUsage(signal),
-  });
-  const trashWindow = useQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "trash-window"],
-    queryFn: ({ signal }) => loadTrashWindow(signal),
-    staleTime: 5 * 60_000,
-  });
-  const matches = useQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "content", query],
-    queryFn: ({ signal }) => searchLibraryContent(query, signal),
-    enabled: mode === "content" && query.length > 0,
-  });
-  const files = page.data?.items ?? [];
+  const [layout, setLayout] = useState<LibraryLayout>("list");
+  const [preview, setPreview] = useState<LibraryFile>();
+  const [renaming, setRenaming] = useState<LibraryFile>();
+  const [deleting, setDeleting] = useState<LibraryFile[]>();
+  const [purging, setPurging] = useState<LibraryFile[]>();
+  const [projectFiles, setProjectFiles] = useState<LibraryFile[]>();
   const chosen = files.filter((file) => selected.includes(file.id));
-  const filtered =
-    query.length > 0 ||
-    sources.length > 0 ||
-    categories.length > 0 ||
-    (view === "ready" && starredOnly);
-  const searchingContent = mode === "content";
 
-  /**
-   * One request per file: a selection is normally part refused, and one refusal must not decide the rest. The
-   * refusals are shown on the page rather than raised, because the dialog translates what it is handed and a
-   * per-file message is runtime text, not a UI key.
-   */
-  const removeAll = async (targets: LibraryFile[]) => {
-    const next: string[] = [];
-    let deleted = 0;
-    try {
-      for (const file of targets) {
-        try {
-          await deleteLibraryFile(file, AbortSignal.timeout(30000));
-          deleted += 1;
-        } catch (failure) {
-          const holders = refusedBy(failure);
-          next.push(
-            `${file.filename}: ${holders.length > 0 ? ui("Đang dùng trong {{name}}", { name: holders.join(", ") }) : actionErrorText(failure)}`,
-          );
-        }
-      }
-    } finally {
-      setRefusals(next);
-      if (deleted > 0)
-        notify({
-          title:
-            trashWindow.data === 0
-              ? ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: deleted })
-              : ui("Đã chuyển {{count}} tệp vào thùng rác.", { count: deleted }),
-          tone: "success",
-        });
-      // Deleting can empty the current page, so the list restarts where the remaining files are.
-      showFirstPage();
-      await cache.invalidateQueries({ queryKey: chatLibraryKey });
-    }
-  };
-
-  /**
-   * The same command over a selection: a trash command is refused per file like a delete, so one failure is
-   * reported rather than deciding the rest.
-   */
-  const eachChosen = async (
-    targets: LibraryFile[],
-    run: (file: LibraryFile) => Promise<void>,
-    done: (count: number) => string,
-  ) => {
-    const failures: string[] = [];
-    let succeeded = 0;
-    for (const file of targets) {
-      try {
-        await run(file);
-        succeeded += 1;
-      } catch (failure) {
-        failures.push(`${file.filename}: ${actionErrorText(failure)}`);
-      }
-    }
-    setRefusals(failures);
-    if (succeeded > 0) notify({ title: done(succeeded), tone: "success" });
-    setSelected([]);
-    showFirstPage();
-    await cache.invalidateQueries({ queryKey: chatLibraryKey });
-  };
-
-  /** One trash command: what it says when it worked, or the failure it names. */
-  const act = async (run: () => Promise<string | void>, done: string) => {
-    setRefusals([]);
-    try {
-      const said = await run();
-      notify({ title: typeof said === "string" ? said : done, tone: "success" });
-    } catch (failure) {
-      setRefusals([actionErrorText(failure)]);
-    } finally {
-      await cache.invalidateQueries({ queryKey: chatLibraryKey });
-    }
-  };
-
-  const change = async (file: LibraryFile, next: { filename?: string; favorite?: boolean }) => {
-    await changeLibraryFile(file, next, AbortSignal.timeout(30000));
-    await cache.invalidateQueries({ queryKey: chatLibraryKey });
-  };
-
-  const favorite = async (file: LibraryFile) => {
-    try {
-      await change(file, { favorite: !file.favorite });
-    } catch (failure) {
-      notify({ title: actionErrorText(failure), tone: "error" });
-    }
-  };
-
-  /** A question asked where the file is read; the file becomes an upload and Chat opens a conversation about it. */
-  const askAboutFile = async (
-    target: PreviewTarget,
-    question: string,
-    extras: AskExtras & { edited?: File },
-  ) => {
-    if (!chat) return;
-    const file =
-      files.find((item) => item.id === target.id) ??
-      (preview?.id === target.id ? preview : undefined);
-    if (file) recordEntryOpened(file.source, file.id);
-    await askLibraryQuestion(
-      chat,
-      async (signal) => file && (await libraryUpload(file, signal)),
-      question,
-      extras,
-      () => cache.invalidateQueries({ queryKey: chatLibraryKey }),
-    );
-  };
-
-  const rowActions = {
-    onPreview: (file: LibraryFile) => {
+  const rowActions: RowActions = {
+    ...actions.rowCommands,
+    onPreview: (file) => {
       // Gần đây lists what the person opened, their own files included.
       recordEntryOpened(file.source, file.id);
       setPreview(file);
     },
-    onDelete: (file: LibraryFile) => setConfirming([file]),
-    onAddToProject: chat && ((file: LibraryFile) => setProjectFiles([file])),
-    onRename: (file: LibraryFile) => setRenaming(file),
-    onFavorite: (file: LibraryFile) => void favorite(file),
-    onRestore: (file: LibraryFile) =>
-      act(
-        () => restoreLibraryFile(file, AbortSignal.timeout(30000)),
-        ui("Đã khôi phục {{name}}.", { name: file.filename }),
-      ),
-    onPurge: (file: LibraryFile) =>
-      act(
-        () => purgeLibraryFile(file, AbortSignal.timeout(30000)),
-        ui("Đã xoá vĩnh viễn {{name}}.", { name: file.filename }),
-      ),
-    onRetried: () => cache.invalidateQueries({ queryKey: chatLibraryKey }),
-    onRemoveFromProject:
-      chat &&
-      (async (file: LibraryFile, project: { id: string; name: string }) => {
-        await chat.removeFromProject(project.id, file.id, AbortSignal.timeout(30000));
-        notify({
-          title: ui("Đã gỡ khỏi dự án {{name}}.", { name: project.name }),
-          tone: "success",
-        });
-        await cache.invalidateQueries({ queryKey: chatLibraryKey });
-      }),
+    onDelete: (file) => setDeleting([file]),
+    onAddToProject: chat && ((file) => setProjectFiles([file])),
+    onRename: setRenaming,
   };
-  const clearFilters = () => {
-    fromTheFirstPage(setSources)([]);
-    setCategories([]);
-    setStarredOnly(false);
-    setSearch("");
+  const toolbarState = {
+    search: library.search,
+    mode: library.mode,
+    sources: library.sources,
+    categories: library.categories,
+    sort: library.sort,
+    layout,
+    starredOnly: library.starred,
   };
-  const toolbarState = { search, mode, sources, categories, sort, layout, starredOnly };
-  const toolbarHandlers = {
-    onSearch: fromTheFirstPage(setSearch),
-    onMode: fromTheFirstPage(setMode),
-    onSources: fromTheFirstPage(setSources),
-    onCategories: fromTheFirstPage(setCategories),
-    onSort: fromTheFirstPage(setSort),
+  const toolbarHandlers: LibraryToolbarHandlers = {
+    onSearch: library.setSearch,
+    onMode: (next) => library.filterBy({ mode: next }),
+    onSources: (next) => library.filterBy({ source: next }),
+    onCategories: (next) => library.filterBy({ category: next }),
+    onSort: (next) => library.filterBy({ sort: next }),
     onLayout: setLayout,
-    onStarredOnly: fromTheFirstPage(setStarredOnly),
+    onStarredOnly: (next) => library.filterBy({ starred: next }),
   };
   const notices = (
-    <LibraryNotices archive={archive} refusals={refusals} onDismiss={() => setRefusals([])} />
+    <LibraryNotices
+      archive={archive}
+      refusals={actions.refusals}
+      onDismiss={actions.dismissRefusals}
+    />
   );
 
   return (
-    <AppShell pageTitle={ui("Thư viện")}>
+    <>
+      <AppShellHeader title={ui("Thư viện")} />
       <SettingsLayout wide>
         <LibraryDropZone onFiles={uploads.start}>
           <PageHeader
@@ -357,40 +104,36 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
               <>
                 <LibraryUploadButton onFiles={uploads.start} />
                 <LibrarySettingsButton
-                  usage={usage.data}
-                  usageFailed={usage.isError}
+                  usage={library.usage.data}
+                  usageFailed={library.usage.isError}
                   trashDays={trashWindow.data}
-                  onCategory={(category) => {
-                    setView("ready");
-                    fromTheFirstPage(setCategories)([category]);
-                  }}
+                  onCategory={(category) => library.showView("ready", { category: [category] })}
                   retention={chat && <chat.RetentionSection />}
                 />
               </>
             }
           />
 
-          <div className="mt-6 flex flex-col gap-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
-            <LibraryRail
-              view={view}
-              counts={owned ? { [view]: page.data?.totalCount } : {}}
-              usage={usage.data}
-              onView={(next) => {
-                fromTheFirstPage(setView)(next);
-                setRefusals([]);
-              }}
-              onShowLargest={() => {
-                fromTheFirstPage(setView)("ready");
-                setSort("LARGEST");
-              }}
-            />
+          <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:gap-8">
+            <div className="lg:w-52 lg:shrink-0">
+              <LibraryRail
+                view={view}
+                counts={library.owned ? { [view]: library.page.data?.totalCount } : {}}
+                usage={library.usage.data}
+                onView={(next) => {
+                  library.showView(next);
+                  actions.dismissRefusals();
+                }}
+                onShowLargest={() => library.showView("ready", { sort: "LARGEST" })}
+              />
+            </div>
 
             {isEntryView(view) ? (
-              <div className="flex min-w-0 flex-col gap-4">
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
                 {notices}
                 <LibraryEntryViews
-                  key={view}
                   view={view}
+                  library={library}
                   layout={layout}
                   onLayout={setLayout}
                   chat={chat}
@@ -398,7 +141,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
                 />
               </div>
             ) : (
-              <div className="flex min-w-0 flex-col gap-4">
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
                 <LibraryToolbar
                   sortable={view === "ready"}
                   starrable={view === "ready"}
@@ -418,14 +161,8 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
                   trash={view === "trash"}
                   onDownload={() => void archive.start(chosen)}
                   onAddToProject={chat && (() => setProjectFiles(chosen))}
-                  onDelete={() => setConfirming(chosen)}
-                  onRestore={() =>
-                    void eachChosen(
-                      chosen,
-                      (file) => restoreLibraryFile(file, AbortSignal.timeout(30000)),
-                      (count) => ui("Đã khôi phục {{count}} tệp.", { count }),
-                    )
-                  }
+                  onDelete={() => setDeleting(chosen)}
+                  onRestore={() => void actions.restoreFiles(chosen)}
                   onPurge={() => setPurging(chosen)}
                   onClear={() => setSelected([])}
                 />
@@ -433,138 +170,24 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
                 {notices}
 
                 {view === "trash" && (
-                  <TrashBanner
-                    days={trashWindow.data}
-                    onEmpty={() =>
-                      act(async () => {
-                        const purged = await emptyLibraryTrash(AbortSignal.timeout(30000));
-                        return ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: purged });
-                      }, ui("Đã dọn sạch thùng rác."))
-                    }
-                  />
+                  <TrashBanner days={trashWindow.data} onEmpty={actions.emptyTheTrash} />
                 )}
 
-                {searchingContent ? (
+                {library.mode === "content" ? (
                   <ContentResults
-                    query={query}
-                    matches={matches}
+                    query={library.query}
+                    matches={library.matches}
                     onOpen={rowActions.onPreview}
                     actions={rowActions}
                   />
                 ) : (
-                  <>
-                    {page.isPending && <LibraryListSkeleton />}
-                    {page.isError && (
-                      <Alert variant="destructive">
-                        <AlertTitle>{ui("Không tải được thư viện.")}</AlertTitle>
-                        <AlertDescription>
-                          <Button
-                            prominence="internal"
-                            size="sm"
-                            onClick={() => void page.refetch()}
-                          >
-                            {ui("Thử lại")}
-                          </Button>
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    {page.isSuccess && files.length === 0 && (
-                      <LibraryEmpty
-                        view={view}
-                        filtered={filtered}
-                        action={<LibraryUploadButton onFiles={uploads.start} />}
-                        onClearFilters={clearFilters}
-                      />
-                    )}
-                    {files.length > 0 && (
-                      // While the next page is on its way the one being read stays, dimmed rather than gone.
-                      <div
-                        aria-busy={page.isPlaceholderData}
-                        className={cn(
-                          "flex flex-col gap-4 transition-opacity",
-                          page.isPlaceholderData && "opacity-60",
-                        )}
-                      >
-                        {/* A list header, aligned to the rows' own checkbox column so the three checkbox
-                            gutters (page, day, file) read as one line down the page. */}
-                        <div className="flex items-center border-b border-border-subtle px-[13px] pb-2">
-                          <label className="flex cursor-pointer items-center gap-2 font-secondary-body text-content-muted">
-                            <Checkbox
-                              aria-label={ui("Chọn tất cả trên trang này")}
-                              checked={
-                                selected.length === 0
-                                  ? false
-                                  : selected.length === files.length
-                                    ? true
-                                    : "indeterminate"
-                              }
-                              onCheckedChange={(checked) =>
-                                setSelected(checked === true ? files.map((file) => file.id) : [])
-                              }
-                            />
-                            {/* The scope is on the label, because a selection never leaves its page. */}
-                            {ui("Chọn tất cả trên trang này")}
-                          </label>
-                        </div>
-                        <LibraryList
-                          files={files}
-                          view={view}
-                          layout={layout}
-                          selected={selected}
-                          grouped={sort === "NEWEST" && view !== "trash"}
-                          actions={rowActions}
-                          onSelect={(file) =>
-                            setSelected(
-                              selected.includes(file.id)
-                                ? selected.filter((id) => id !== file.id)
-                                : [...selected, file.id],
-                            )
-                          }
-                          onSelectDay={(day, pick) => {
-                            const ids = day.map((file) => file.id);
-                            setSelected(
-                              pick
-                                ? [...selected, ...ids.filter((id) => !selected.includes(id))]
-                                : selected.filter((id) => !ids.includes(id)),
-                            );
-                          }}
-                        />
-                      </div>
-                    )}
-                    {/* The bar stays while there are files, because it also carries the page size. */}
-                    {page.data && page.data.totalCount > 0 && (
-                      <TablePagination
-                        label={ui("Phân trang thư viện")}
-                        className="px-0"
-                        page={Math.floor(offset / size)}
-                        totalPages={Math.ceil(page.data.totalCount / size)}
-                        summary={ui("Hiển thị {{first}}–{{last}} trên {{total}} tệp", {
-                          first: offset + 1,
-                          last: Math.min(offset + size, page.data.totalCount),
-                          total: page.data.totalCount,
-                        })}
-                        previousDisabled={offset === 0}
-                        nextDisabled={!page.data.hasMore}
-                        previousLabel={ui("Trang trước")}
-                        nextLabel={ui("Trang sau")}
-                        onPrevious={() => showPage(Math.max(0, offset - size))}
-                        onNext={() => showPage(offset + size)}
-                      >
-                        <PageSizeSelect
-                          label={ui("Số tệp mỗi trang")}
-                          rowsLabel={ui("Số tệp")}
-                          value={size}
-                          sizes={LIBRARY_PAGE_SIZES}
-                          disabled={page.isPlaceholderData}
-                          // A page size change re-cuts the list, so it restarts at its first page.
-                          onSizeChange={(next) => {
-                            setSize(next);
-                            showFirstPage();
-                          }}
-                        />
-                      </TablePagination>
-                    )}
-                  </>
+                  <LibraryFiles
+                    library={library}
+                    view={view}
+                    layout={layout}
+                    actions={rowActions}
+                    emptyAction={<LibraryUploadButton onFiles={uploads.start} />}
+                  />
                 )}
               </div>
             )}
@@ -578,7 +201,18 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
           siblings={files.map(libraryPreviewTarget)}
           onClose={() => setPreview(undefined)}
           onSaveImage={(file) => uploads.start([file])}
-          ask={chat && { onAsk: askAboutFile, ModelPicker: chat.ModelPicker }}
+          ask={
+            chat && {
+              onAsk: (target, question, extras) =>
+                actions.askAbout(
+                  files.find((item) => item.id === target.id) ??
+                    (preview.id === target.id ? preview : undefined),
+                  question,
+                  extras,
+                ),
+              ModelPicker: chat.ModelPicker,
+            }
+          }
         />
       )}
       <LibraryUploadTray
@@ -590,10 +224,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
         <RenameDialog
           file={renaming}
           onOpenChange={(open) => !open && setRenaming(undefined)}
-          onRename={async (filename) => {
-            await change(renaming, { filename });
-            setRenaming(undefined);
-          }}
+          onRename={(filename) => actions.rename(renaming, filename)}
         />
       )}
       {chat && (
@@ -606,241 +237,20 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
           }}
         />
       )}
-      <ConfirmDialog
-        open={confirming !== undefined}
-        onOpenChange={(open) => !open && setConfirming(undefined)}
-        title={ui("Xoá tệp?")}
-        description={
-          trashWindow.data === 0
-            ? ui(
-                "Tệp sẽ bị xoá khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
-                { count: confirming?.length ?? 0 },
-              )
-            : ui(
-                "Tệp sẽ rời khỏi mọi cuộc hội thoại và nằm trong thùng rác {{days}} ngày, khôi phục được trong thời gian đó. Đã chọn {{count}} tệp.",
-                { days: trashWindow.data ?? 30, count: confirming?.length ?? 0 },
-              )
-        }
-        confirmLabel={ui("Xoá")}
-        pendingLabel={ui("Đang xoá…")}
-        confirmTone="danger"
-        onConfirm={() => removeAll(confirming ?? [])}
+      <DeleteFilesDialog
+        files={deleting}
+        trashDays={trashWindow.data}
+        onOpenChange={(open) => !open && setDeleting(undefined)}
+        onConfirm={() => actions.deleteFiles(deleting ?? [])}
       />
-      <ConfirmDialog
-        open={purging !== undefined}
+      <PurgeFilesDialog
+        files={purging}
         onOpenChange={(open) => !open && setPurging(undefined)}
-        title={ui("Xoá vĩnh viễn?")}
-        description={ui("Tệp sẽ bị xoá vĩnh viễn và không thể khôi phục. Đã chọn {{count}} tệp.", {
-          count: purging?.length ?? 0,
-        })}
-        confirmLabel={ui("Xoá vĩnh viễn")}
-        pendingLabel={ui("Đang xoá…")}
-        confirmTone="danger"
         onConfirm={async () => {
-          await eachChosen(
-            purging ?? [],
-            (file) => purgeLibraryFile(file, AbortSignal.timeout(30000)),
-            (count) => ui("Đã xoá vĩnh viễn {{count}} tệp.", { count }),
-          );
+          await actions.purgeFiles(purging ?? []);
           setPurging(undefined);
         }}
       />
-    </AppShell>
-  );
-}
-
-/**
- * What the page itself must keep on screen: the ZIP a selection is waiting for, and the files a command
- * refused one by one. What simply succeeded is said by the application's own notifications instead, as every
- * other page says it.
- */
-function LibraryNotices({
-  archive,
-  refusals,
-  onDismiss,
-}: {
-  archive: LibraryArchive;
-  refusals: string[];
-  onDismiss: () => void;
-}) {
-  const ui = useAppTranslation();
-  return (
-    <>
-      {archive.state.phase === "packing" && (
-        <Alert>
-          <Download />
-          <AlertTitle>
-            {ui("Đang đóng gói {{count}} tệp thành ZIP…", { count: archive.state.fileCount })}
-          </AlertTitle>
-        </Alert>
-      )}
-      {archive.state.phase === "ready" && (
-        <Alert variant="success">
-          <Download />
-          <AlertTitle>{ui("ZIP đã sẵn sàng và đang được tải về.")}</AlertTitle>
-          <AlertDescription>
-            {archive.state.archive.skipped.length > 0 &&
-              ui("Bỏ qua {{count}} tệp không còn khả dụng: {{names}}", {
-                count: archive.state.archive.skipped.length,
-                names: archive.state.archive.skipped.join(", "),
-              })}
-            <Button size="sm" prominence="internal" asChild>
-              <a
-                href={archiveContentUrl(archive.state.archive.id)}
-                download
-                onClick={() => archive.reset()}
-              >
-                {ui("Tải lại ZIP")}
-              </a>
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {archive.state.phase === "failed" && (
-        <Alert variant="destructive">
-          <AlertTitle>
-            {archive.state.message ||
-              ui("Không đóng gói được ZIP. Hãy chọn ít tệp hơn rồi thử lại.")}
-          </AlertTitle>
-        </Alert>
-      )}
-      {refusals.length > 0 && (
-        <Alert variant="destructive">
-          <AlertTitle>{ui("Một số tệp không xoá được")}</AlertTitle>
-          <AlertAction>
-            <IconButton size="sm" prominence="internal" aria-label={ui("Đóng")} onClick={onDismiss}>
-              <X />
-            </IconButton>
-          </AlertAction>
-          <AlertDescription>
-            <ul className="flex flex-col gap-1">
-              {refusals.map((refusal) => (
-                <li key={refusal}>{refusal}</li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      )}
     </>
-  );
-}
-
-/** How long the trash keeps a file, and the one command that applies to all of it. */
-function TrashBanner({ days, onEmpty }: { days?: number; onEmpty: () => Promise<void> }) {
-  const ui = useAppTranslation();
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-subtle px-3 py-2">
-      <p className="font-secondary-body text-content-secondary">
-        {days === 0
-          ? ui("Máy chủ này xoá tệp ngay, không giữ trong thùng rác.")
-          : ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", { days: days ?? 30 })}
-      </p>
-      <ConfirmDialog
-        trigger={
-          <Button size="sm" tone="danger" prominence="secondary">
-            <Trash2 className="size-4" aria-hidden="true" />
-            {ui("Dọn sạch thùng rác")}
-          </Button>
-        }
-        title={ui("Dọn sạch thùng rác?")}
-        description={ui("Mọi tệp trong thùng rác sẽ bị xoá vĩnh viễn và không thể khôi phục.")}
-        confirmLabel={ui("Dọn sạch")}
-        pendingLabel={ui("Đang dọn…")}
-        confirmTone="danger"
-        onConfirm={onEmpty}
-      />
-    </div>
-  );
-}
-
-/** What a phrase inside a file found, which is a different list from the library's own. */
-function ContentResults({
-  query,
-  matches,
-  onOpen,
-  actions,
-}: {
-  query: string;
-  matches: {
-    data?: ContentMatch[];
-    isFetching: boolean;
-    isError: boolean;
-    isSuccess: boolean;
-    refetch: () => unknown;
-  };
-  onOpen: (file: LibraryFile) => void;
-  actions: Parameters<typeof FileActions>[0]["actions"];
-}) {
-  const ui = useAppTranslation();
-  return (
-    <div className="flex flex-col gap-3">
-      {query.length === 0 && (
-        <p role="status" className="text-content-muted">
-          {ui("Nhập điều bạn nhớ về nội dung tệp.")}
-        </p>
-      )}
-      {matches.isFetching && <LibraryListSkeleton />}
-      {matches.isError && (
-        <Alert variant="destructive">
-          <AlertTitle>{ui("Không tìm được trong nội dung tệp.")}</AlertTitle>
-          <AlertDescription>
-            <Button prominence="internal" size="sm" onClick={() => void matches.refetch()}>
-              {ui("Thử lại")}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {matches.isSuccess &&
-        !matches.isFetching &&
-        matches.data?.length === 0 &&
-        query.length > 0 && (
-          <p role="status" className="text-content-muted">
-            {ui("Không có tệp nào khớp nội dung này.")}
-          </p>
-        )}
-      {matches.data && matches.data.length > 0 && (
-        <LibraryContentMatches
-          matches={matches.data}
-          query={query}
-          onOpen={(match) => onOpen(match.file)}
-          actions={(match) => <FileActions file={match.file} actions={actions} />}
-        />
-      )}
-    </div>
-  );
-}
-
-/** Renaming keeps the extension, so the dialog explains the file's new name before it is saved. */
-function RenameDialog({
-  file,
-  onOpenChange,
-  onRename,
-}: {
-  file: LibraryFile;
-  onOpenChange: (open: boolean) => void;
-  onRename: (filename: string) => Promise<void>;
-}) {
-  const ui = useAppTranslation();
-  const [name, setName] = useState(file.filename);
-  return (
-    <FormDialog
-      open
-      onOpenChange={onOpenChange}
-      title={ui("Đổi tên tệp")}
-      description={ui("Tên mới hiển thị ở mọi nơi và khi tải về. Phần đuôi tệp được giữ nguyên.")}
-      submitLabel={ui("Đổi tên")}
-      submitDisabled={name.trim().length === 0}
-      onSubmit={() => onRename(name)}
-    >
-      <label className="block space-y-1">
-        <span>{ui("Tên tệp")}</span>
-        <Input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={200}
-          autoFocus
-        />
-      </label>
-    </FormDialog>
   );
 }

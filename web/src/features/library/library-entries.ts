@@ -1,4 +1,4 @@
-import { documentOriginalReader } from "@/features/search/document-original-reader";
+import { documentOriginalReader } from "@/features/documents/document-original-reader";
 import { appText, type AppText } from "@/i18n/app-text";
 import { i18n } from "@/i18n/index";
 import { slug } from "@/lib/meeting-file-name";
@@ -6,23 +6,16 @@ import {
   exportMeetingMinutes,
   exportMeetingTranscript,
   getMeetingMinutesHeading,
-  listChatLibraryDocuments,
-  listChatLibraryDocumentSources,
-  listChatLibraryMeetings,
-  listChatLibraryRecent,
-  listChatLibraryShared,
-  listChatLibraryStarred,
   publishMeetingMinutes,
   recordChatLibraryEntryOpened,
-  starChatLibraryEntry,
-  unstarChatLibraryEntry,
 } from "@/lib/hey-api/sdk.gen";
-import type {
-  ChatLibraryDocumentPage,
-  ChatLibraryEntry,
-  ChatLibraryEntryPage,
-  ChatLibrarySourceOption,
-} from "@/lib/hey-api/types.gen";
+import {
+  listChatLibraryDocumentsInfiniteOptions,
+  listChatLibraryMeetingsOptions,
+  listChatLibrarySharedOptions,
+  listChatLibraryStarredOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { ChatLibraryEntry, ChatLibrarySourceOption } from "@/lib/hey-api/types.gen";
 import { imageArtifactUrl } from "./content-urls";
 import { downloadUrl, type PreviewTarget } from "./file-preview";
 import type { ChatFile } from "./files";
@@ -38,7 +31,6 @@ export type LibraryEntry = ChatLibraryEntry;
 export type LibraryEntryKind = ChatLibraryEntry["kind"];
 export type EntrySort = "NEWEST" | "OLDEST" | "NAME";
 export type MeetingOwner = "ALL" | "MINE" | "SHARED";
-export type DocumentSource = ChatLibrarySourceOption;
 
 const ENTRY_VIEWS: Record<LibraryEntryView, true> = {
   recent: true,
@@ -65,70 +57,34 @@ export type EntryFilter = {
 /** The server keeps the viewer's last opens and returns at most this many. */
 export const RECENT_LIMIT = 100;
 
-/** A page of one of the offset-paged views. */
-export async function loadEntryPage(
+/** One page of one of the offset-paged views, as its generated query reads it. */
+export function entryPageOptions(
   view: "shared" | "meetings" | "starred",
   filter: EntryFilter,
   offset: number,
   limit: number,
-  signal: AbortSignal,
-): Promise<ChatLibraryEntryPage> {
+) {
   const { query, kinds, categories, sort, owner } = filter;
   if (view === "shared")
-    return (
-      await listChatLibraryShared({
-        query: { query, kinds, categories, sort, offset, limit },
-        signal,
-      })
-    ).data;
+    return listChatLibrarySharedOptions({
+      query: { query, kinds, categories, sort, offset, limit },
+    });
   if (view === "meetings")
-    return (await listChatLibraryMeetings({ query: { query, owner, sort, offset, limit }, signal }))
-      .data;
-  return (await listChatLibraryStarred({ query: { query, kinds, offset, limit }, signal })).data;
+    return listChatLibraryMeetingsOptions({ query: { query, owner, sort, offset, limit } });
+  return listChatLibraryStarredOptions({ query: { query, kinds, offset, limit } });
 }
 
-/** What the viewer opened last, newest first. */
-export async function loadRecentEntries(signal: AbortSignal): Promise<LibraryEntry[]> {
-  const { data } = await listChatLibraryRecent({ query: { limit: RECENT_LIMIT }, signal });
-  return data;
-}
-
-/** One keyset page of the Source documents the viewer may read; `cursor` continues the previous page. */
-export async function loadDocumentPage(
-  filter: EntryFilter,
-  cursor: string | undefined,
-  limit: number,
-  signal: AbortSignal,
-): Promise<ChatLibraryDocumentPage> {
-  const { data } = await listChatLibraryDocuments({
+/** The keyset pages of the Source documents the viewer may read; each page continues the previous one. */
+export function documentPagesOptions(filter: EntryFilter, limit: number) {
+  return listChatLibraryDocumentsInfiniteOptions({
     query: {
       query: filter.query,
       sourceIds: filter.sourceIds,
       categories: filter.categories,
       sort: filter.sort === "NAME" ? "NAME" : "NEWEST",
-      cursor,
       limit,
     },
-    signal,
   });
-  return data;
-}
-
-/** The Sources the documents view can be narrowed to, as Search offers them to the viewer. */
-export async function loadDocumentSources(signal: AbortSignal): Promise<DocumentSource[]> {
-  const { data } = await listChatLibraryDocumentSources({ signal });
-  return data;
-}
-
-/** Stars or unstars any kind; an owned file keeps its star as the file's favourite. */
-export async function setEntryStarred(
-  entry: LibraryEntry,
-  starred: boolean,
-  signal: AbortSignal,
-): Promise<void> {
-  const options = { path: { kind: entry.kind, id: entry.id }, signal };
-  if (starred) await starChatLibraryEntry(options);
-  else await unstarChatLibraryEntry(options);
 }
 
 /**
@@ -170,7 +126,7 @@ export function entryReason(entry: LibraryEntry): AppText | undefined {
 }
 
 /** The provider whose own sharing grants a synced document; an uploaded Source has none. */
-const PROVIDERS: Partial<Record<DocumentSource["type"], string>> = {
+const PROVIDERS: Partial<Record<ChatLibrarySourceOption["type"], string>> = {
   GOOGLE_DRIVE: "Google Drive",
   SHAREPOINT: "SharePoint",
 };

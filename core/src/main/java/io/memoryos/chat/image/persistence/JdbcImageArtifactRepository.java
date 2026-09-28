@@ -4,6 +4,7 @@ import io.memoryos.chat.image.GeneratedImage;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -78,7 +79,7 @@ public class JdbcImageArtifactRepository {
                 ORDER BY created_at, id
                 """).param("tenant", tenant.value()).param("messages", messageIds).param("includeDeleted", includeDeleted)
                 .query((row, ignored) -> {
-                    result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new ArrayList<>())
+                    result.computeIfAbsent(row.getObject("message_id", UUID.class), _ -> new ArrayList<>())
                             .add(new GeneratedImage(row.getObject("id", UUID.class), row.getString("media_type"),
                                     row.getString("revised_prompt"), row.getBoolean("deleted")));
                     return true;
@@ -90,7 +91,7 @@ public class JdbcImageArtifactRepository {
      * Hides the image from the library and every serving route; a worker sweep releases its bytes. Deleting an
      * image the sweep has already removed still succeeds: an absent row is the outcome the caller asked for.
      */
-    public boolean markDeleted(TenantId tenant, ActorId actor, UUID id, java.time.Duration trashFor) {
+    public boolean markDeleted(TenantId tenant, ActorId actor, UUID id, Duration trashFor) {
         boolean hidden = jdbc.sql("""
                 UPDATE chat_image_artifact SET deleted_at = COALESCE(deleted_at, CURRENT_TIMESTAMP),
                     purge_after = COALESCE(purge_after, CURRENT_TIMESTAMP + make_interval(secs => :trash))
@@ -128,16 +129,6 @@ public class JdbcImageArtifactRepository {
                     WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NOT NULL AND purged_at IS NULL
                     ORDER BY deleted_at LIMIT :limit)
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit).update();
-    }
-
-    public List<GeneratedImage> byMessage(TenantId tenant, UUID messageId) {
-        return jdbc.sql("""
-                SELECT id, media_type, revised_prompt FROM chat_image_artifact
-                WHERE tenant_id = :tenant AND message_id = :message AND deleted_at IS NULL ORDER BY created_at, id
-                """).param("tenant", tenant.value()).param("message", messageId)
-                .query((row, ignored) -> new GeneratedImage(row.getObject("id", UUID.class), row.getString("media_type"),
-                        row.getString("revised_prompt"), false))
-                .list();
     }
 
     /** Serving lookup: the actor must own the chat that produced the artifact. */

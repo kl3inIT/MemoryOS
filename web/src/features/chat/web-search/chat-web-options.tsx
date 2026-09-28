@@ -3,9 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Check, ChevronRight, Globe, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { getChatWebAvailability } from "@/lib/hey-api/sdk.gen";
+import { getChatWebAvailabilityOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
 import { menuRow } from "@/components/composites/menu-row";
 import type { WebSearchMode } from "./chat-web-preference";
@@ -22,9 +23,7 @@ type WebOptionsProps = {
 function useWebSupport(sessionId?: string, modelId?: string) {
   const session = useApplicationSession();
   const available = useQuery({
-    queryKey: ["chat-web", session.actorId, session.authorizationVersion, sessionId],
-    queryFn: async ({ signal }) =>
-      (await getChatWebAvailability({ query: { sessionId }, signal })).data,
+    ...getChatWebAvailabilityOptions({ query: { sessionId } }),
     retry: false,
   });
   const selectedModel = modelId ?? available.data?.inheritedModelId;
@@ -133,28 +132,33 @@ export function ChatWebModes({
         className="self-start"
         onClick={onBack}
       >
-        <ArrowLeft className="size-4" aria-hidden="true" />
+        <ArrowLeft data-icon="inline-start" aria-hidden="true" />
         {heading}
       </Button>
-      <div role="radiogroup" aria-label={heading} className="flex flex-col">
+      <ToggleGroup
+        type="single"
+        orientation="vertical"
+        aria-label={heading}
+        value={value}
+        className="w-full"
+        onValueChange={(mode) => {
+          // Choosing the current mode again only closes the menu.
+          if (mode) onChange(mode as WebSearchMode);
+          onDone();
+        }}
+      >
         {(["off", "auto"] as const).map((mode) => (
-          <button
+          <ToggleGroupItem
             key={mode}
-            type="button"
-            role="radio"
-            aria-checked={mode === value}
+            value={mode}
             disabled={!support.supported(mode)}
-            className={menuRow}
-            onClick={() => {
-              onChange(mode);
-              onDone();
-            }}
+            className="justify-between"
           >
-            <span className="flex-1">{labels[mode]}</span>
-            {mode === value && <Check aria-hidden="true" />}
-          </button>
+            {labels[mode]}
+            {mode === value && <Check data-icon="inline-end" aria-hidden="true" />}
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
       <WebAvailabilityNote support={support} />
       {support.canManage && (
         <Link to="/admin/web-search" className={menuRow} onClick={onDone}>

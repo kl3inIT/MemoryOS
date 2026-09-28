@@ -53,7 +53,8 @@ public class ChatRetentionService {
     public Preview preview(ActorId actor, @Nullable Integer days) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
         if (days == null) return new Preview(null, 0);
-        return new Preview(days, sessions.affectedByRetention(tenant, actor.value(), validated(days)));
+        validated(days);
+        return new Preview(days, sessions.affectedByRetention(tenant, actor.value(), days));
     }
 
     private static @Nullable Integer validated(@Nullable Integer days) {

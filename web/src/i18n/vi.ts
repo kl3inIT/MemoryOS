@@ -1,6 +1,6 @@
-import { appVi } from "./app-translations";
+import { englishUi } from "./app-translations.vi";
 export const vi = {
-  app: appVi,
+  app: englishUi,
   renderers: {
     artifact: "Bản trình bày",
     openArtifact: "Mở bản trình bày: {{title}}",

@@ -28,9 +28,9 @@ $env:SERVER_PORT = "18080"
 infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :api:bootRun --no-daemon
 ```
 
-Infisical `staging` is the only server environment. It owns the managed application keys and `MEMORYOS_SESSION_COOKIE_SECURE=true`; Compose and service-specific mounted files own the deployment settings described below. Keep `SPRING_PROFILES_ACTIVE` out of shared staging secrets: Compose selects API `staging` and worker `production,staging`, and a shared Infisical value would overwrite that service-specific selection. The staging Spring profile keeps root and Spring Security logging at INFO, enables DEBUG for MemoryOS, Spring Web, JDBC statements, and transactions, and leaves parameter-value TRACE logging disabled. Keycloak keeps root INFO while enabling DEBUG for event and service categories. There is no production server and the Infisical `prod` environment remains empty.
+Servers (staging and production) do not use Infisical. Their non-secret application keys, including `MEMORYOS_SESSION_COOKIE_SECURE=true`, are in the server's mode-`0600` `/apps/memoryos/.env.<environment>` file, and every secret is a file under `/apps/memoryos/secrets` that Compose mounts into the service that consumes it ([CI/CD runbook](ci-cd.md#provisioning-a-server)). Keep `SPRING_PROFILES_ACTIVE` out of that file: Compose selects API `staging` and worker `production,staging` on staging, and `production` for both on production. The staging Spring profile keeps root and Spring Security logging at INFO, enables DEBUG for MemoryOS, Spring Web, JDBC statements, and transactions, and leaves parameter-value TRACE logging disabled. Keycloak keeps root INFO while enabling DEBUG for event and service categories.
 
-The server bootstrap file is outside Git with mode `0600` and contains only `INFISICAL_DOMAIN`, `INFISICAL_PROJECT_ID`, `INFISICAL_ENVIRONMENT=staging`, `INFISICAL_CLIENT_ID`, and `INFISICAL_CLIENT_SECRET`. The API entrypoint exchanges those Universal Auth credentials for a 15-minute access token, unsets the client credentials, injects the selected environment, and drops permanently to UID/GID 1654 before Java starts. The staging identity has project `viewer` access only. The current self-hosted Infisical plan rejects trusted-IP restrictions, so compensate with the narrow role, a 90-day client-secret TTL, lockout, owner-only server storage, and scheduled rotation.
+The image entrypoint fetches nothing over the network: its launcher turns every readable `MEMORYOS_<NAME>_FILE` into `MEMORYOS_<NAME>` and starts Java as UID/GID 1654.
 
 ### Runtime application key audit
 
@@ -38,7 +38,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | --- | --- | --- |
 | `MEMORYOS_DATABASE_URL` | No | JDBC target shared by API and worker. API owns Flyway; worker starts only after API health proves the schema current. |
 | `MEMORYOS_DATABASE_USERNAME` | No | Login role shared by API and worker for the MemoryOS database. It must remain `memoryos_app`, never the PostgreSQL platform administrator. |
-| `MEMORYOS_DATABASE_PASSWORD` | Yes | Password for `memoryos_app`, consumed by API and worker. Staging cutover updates both Infisical staging and the target role atomically. |
+| `MEMORYOS_DATABASE_PASSWORD` | Yes | Password for `memoryos_app`, consumed by API and worker. A server rotation updates the mounted `database/app-password.txt` file and the target role together. |
 | `MEMORYOS_IDENTITY_ISSUER` | No | Required JWT/OIDC issuer and exact `(issuer, subject)` identity-binding namespace. Changing it breaks existing bindings. |
 | `MEMORYOS_IDENTITY_JWK_SET_URI` | No | Explicit signing-key endpoint for resource-server JWT verification; issuer validation still uses `MEMORYOS_IDENTITY_ISSUER`. |
 | `MEMORYOS_IDENTITY_AUDIENCE` | No | Required API audience claim; rejects a valid Keycloak token minted for another client/resource. |
@@ -70,7 +70,7 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_REDIS_HOST` | No | Staging uses Compose alias `redis`; development uses the loopback Redis service from `compose.development.yaml`. |
 | `MEMORYOS_REDIS_PORT` | No | Staging Redis TLS port `6379`; development host port `56379`. |
 | `MEMORYOS_REDIS_USERNAME` | No | Staging worker ACL username `memoryos-worker`. |
-| `MEMORYOS_REDIS_PASSWORD` | Yes | Worker ACL password. Staging overrides any Infisical value from the mode-`0600` `MEMORYOS_REDIS_WORKER_PASSWORD_FILE` mounted into the worker; other production deployments supply it through their managed secret source. |
+| `MEMORYOS_REDIS_PASSWORD` | Yes | Worker ACL password. Servers supply it from the mode-`0600` file `MEMORYOS_REDIS_WORKER_PASSWORD_FILE` names, mounted into the worker. |
 | `MEMORYOS_REDIS_SSL_ENABLED` | No | `true` in staging. `application-staging.yaml` trusts only the mounted Redis CA through the `memoryos-redis` SSL bundle. |
 | `MEMORYOS_REDIS_CONNECT_TIMEOUT` | No | Bounded Redis connection timeout; staging default `2s`. |
 | `MEMORYOS_REDIS_COMMAND_TIMEOUT` | No | Bounded Redis command timeout for the api; default `2s`. |
@@ -109,9 +109,7 @@ stores the uploaded PKCS#12 or its password. Keep all of this outside the reposi
 
 Development stores its six `MEMORYOS_OBJECT_STORAGE_*` endpoint, bucket, readiness-key, access-key, and secret-key values at the environment root. They belong to the isolated development MinIO identity, not the staging bucket or either staging service identity.
 
-Staging stores the common service endpoint, upload endpoint, bucket, and readiness key at the root. `/minio/api` and `/minio/worker` each retain that service's existing `MEMORYOS_OBJECT_STORAGE_ACCESS_KEY` and `MEMORYOS_OBJECT_STORAGE_SECRET_KEY`. Never place one credential pair at the shared staging root or recursively combine both folders into a runtime export.
-
-These folders are a protected credential inventory; the current entrypoint still consumes the separate mounted credential files, and Compose still selects each service's access key. No automatic folder-to-file synchronization exists. Editing an Infisical value alone does not rotate the MinIO identity, update a mounted file, or restart a process; an authorized rotation must keep those copies consistent without crossing service boundaries. MinIO root credentials remain outside the application export.
+Servers keep no MinIO values in Infisical. Each service's secret key is its own file under `/apps/memoryos/secrets/minio/` (`api-secret-key.txt`, `worker-secret-key.txt`, beside `root-password.txt`), and Compose selects each service's access key. A rotation must update the MinIO identity and the mounted file together without crossing service boundaries.
 
 ## OMP code intelligence and debugging
 
@@ -333,7 +331,7 @@ Open pgweb at `http://127.0.0.1:18026` and Redis Insight at `http://127.0.0.1:18
 
 ## Run the hardened staging stack
 
-MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, their OAuth2 Proxies, and native MinIO Console OIDC. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns release images, stable identifiers, exact public origins and secret-file paths; Compose owns every other default, so add a tuning value there only to override it; Infisical continues to own database, identity, and browser secrets. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, preserving per-service boundaries; the [Infisical MinIO inventory](#infisical-minio-layout) does not replace those mounts. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
+MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, TLS Redis, Docling, the code interpreter, API, worker, and web; the staging overlay adds Mailpit, read-only inspector bootstrap jobs, pgweb, Redis Insight, their OAuth2 Proxies, and native MinIO Console OIDC. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns release images, stable identifiers, exact public origins and secret-file paths; Compose owns every other default, so add a tuning value there only to override it; database, identity and browser secrets are files under `/apps/memoryos/secrets`. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, preserving per-service boundaries. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
 
 ### Provision staging object storage
 

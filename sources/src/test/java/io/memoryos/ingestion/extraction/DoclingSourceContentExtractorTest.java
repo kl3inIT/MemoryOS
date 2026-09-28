@@ -6,11 +6,23 @@ import static org.mockito.Mockito.*;
 import ai.docling.serve.api.convert.response.ResponseType;
 import ai.docling.serve.client.DoclingServeClientException;
 import io.memoryos.connector.SourceInputDescriptor;
+import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.net.ConnectException;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.stream.Stream;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -243,13 +255,13 @@ class DoclingSourceContentExtractorTest {
         }
     }
 
-    private static java.util.stream.Stream<Arguments> transportFailures() {
-        return java.util.stream.Stream.of(
-                Arguments.of(new java.net.http.HttpConnectTimeoutException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
-                Arguments.of(new java.net.ConnectException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
-                Arguments.of(new java.net.UnknownHostException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
-                Arguments.of(new java.net.http.HttpTimeoutException("private-endpoint"), ExtractionFailure.TIMEOUT),
-                Arguments.of(new java.net.SocketException("private-endpoint"), ExtractionFailure.INTERNAL));
+    private static Stream<Arguments> transportFailures() {
+        return Stream.of(
+                Arguments.of(new HttpConnectTimeoutException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
+                Arguments.of(new ConnectException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
+                Arguments.of(new UnknownHostException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
+                Arguments.of(new HttpTimeoutException("private-endpoint"), ExtractionFailure.TIMEOUT),
+                Arguments.of(new SocketException("private-endpoint"), ExtractionFailure.INTERNAL));
     }
 
 
@@ -278,10 +290,10 @@ class DoclingSourceContentExtractorTest {
     @Test
     void encryptedAndMalformedPdfAreRejectedBeforeSendingToService() throws Exception {
         byte[] bytes;
-        try (var pdf = new org.apache.pdfbox.pdmodel.PDDocument(); var out = new java.io.ByteArrayOutputStream()) {
-            pdf.addPage(new org.apache.pdfbox.pdmodel.PDPage());
-            pdf.protect(new org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy("owner", "reader",
-                    new org.apache.pdfbox.pdmodel.encryption.AccessPermission()));
+        try (var pdf = new PDDocument(); var out = new ByteArrayOutputStream()) {
+            pdf.addPage(new PDPage());
+            pdf.protect(new StandardProtectionPolicy("owner", "reader",
+                    new AccessPermission()));
             pdf.save(out);
             bytes = out.toByteArray();
         }
@@ -295,10 +307,10 @@ class DoclingSourceContentExtractorTest {
         }
     }
 
-    private io.memoryos.document.DocumentContent pdf(DoclingSourceContentExtractor extractor) throws Exception {
+    private DocumentContent pdf(DoclingSourceContentExtractor extractor) throws Exception {
         byte[] bytes;
-        try (var pdf = new org.apache.pdfbox.pdmodel.PDDocument(); var out = new java.io.ByteArrayOutputStream()) {
-            pdf.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+        try (var pdf = new PDDocument(); var out = new ByteArrayOutputStream()) {
+            pdf.addPage(new PDPage());
             pdf.save(out);
             bytes = out.toByteArray();
         }

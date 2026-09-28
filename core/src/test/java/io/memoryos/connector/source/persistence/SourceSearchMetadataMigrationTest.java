@@ -4,16 +4,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import io.memoryos.TestDatabase;
+import io.memoryos.connector.DocumentSourceMetadata;
+import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
+import io.memoryos.connector.source.DefaultSourceDocumentAccessResolver;
 import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -48,7 +55,7 @@ class SourceSearchMetadataMigrationTest {
             when(tenants.findActiveTenant(any())).thenReturn(Optional.of(tenant));
             var service = new SourceSearchService(tenants, repository);
             var scope = service.scope(actor);
-            assertEquals(java.util.Map.of(file, SourceType.FILE), scope.sources());
+            assertEquals(Map.of(file, SourceType.FILE), scope.sources());
             var visible = service.readableMetadata(scope, List.of(document)).get(document);
             assertEquals(1, visible.size());
             var origin = visible.getFirst();
@@ -57,8 +64,8 @@ class SourceSearchMetadataMigrationTest {
             assertEquals(Instant.parse("2001-01-01T00:00:00Z"), origin.updatedAt());
             assertEquals(List.of("Alice"), origin.authors());
             var indexed = service.indexMetadata(tenant, new DocumentId(document), generation);
-            assertEquals(java.util.Set.of(file, drive, inactive), indexed.stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId)
-                    .collect(java.util.stream.Collectors.toSet()));
+            assertEquals(Set.of(file, drive, inactive), indexed.stream().map(DocumentSourceMetadata::sourceId)
+                    .collect(Collectors.toSet()));
             assertEquals(SourceType.GOOGLE_DRIVE, indexed.stream().filter(m -> m.sourceId().equals(drive)).findFirst().orElseThrow().type());
             assertTrue(service.indexMetadata(tenant, new DocumentId(document), UUID.randomUUID()).isEmpty());
 
@@ -80,7 +87,7 @@ class SourceSearchMetadataMigrationTest {
             jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'metadata','Metadata','ACTIVE','TEST')")
                     .param("id", tenant.value()).update();
             var actor = member(jdbc, tenant);
-            var documents = new java.util.ArrayList<UUID>();
+            var documents = new ArrayList<UUID>();
             var credential = UUID.randomUUID();
             for (String metadata : List.of("{broken", "null", "", "{\"dc:creator\":\"Alice\"}")) {
                 var document = UUID.randomUUID();
@@ -149,38 +156,38 @@ class SourceSearchMetadataMigrationTest {
             var tenants = mock(TenantAccessResolver.class);
             when(tenants.findActiveTenant(any())).thenReturn(Optional.of(tenant));
             var search = new SourceSearchService(tenants, repository);
-            var access = new io.memoryos.connector.source.DefaultSourceDocumentAccessResolver(tenants, repository);
+            var access = new DefaultSourceDocumentAccessResolver(tenants, repository);
             var ids = List.of(mixed, privateDoc, driveDoc, orphanDoc);
-            assertEquals(java.util.Set.of(mixed, privateDoc, driveDoc), access.readableDocuments(member, ids));
+            assertEquals(Set.of(mixed, privateDoc, driveDoc), access.readableDocuments(member, ids));
             for (var actor : List.of(outsider, manager)) {
-                assertEquals(java.util.Set.of(mixed), access.readableDocuments(actor, ids));
+                assertEquals(Set.of(mixed), access.readableDocuments(actor, ids));
                 assertFalse(access.canRead(actor, new DocumentId(privateDoc)));
                 assertFalse(access.canRead(actor, new DocumentId(orphanDoc)));
                 assertFalse(access.canRead(actor, new DocumentId(driveDoc)));
-                assertEquals(java.util.Set.of(publicFile), search.scope(actor).sources().keySet());
+                assertEquals(Set.of(publicFile), search.scope(actor).sources().keySet());
                 assertEquals(List.of(publicFile), search.options(actor, 0, 100).stream().map(SourceSearchService.SourceOption::id).toList());
                 assertEquals(List.of(publicFile), search.readableMetadata(search.scope(actor), ids).get(mixed).stream()
-                        .map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
+                        .map(DocumentSourceMetadata::sourceId).toList());
             }
             var scope = search.scope(member);
-            assertEquals(java.util.Set.of(publicFile, mixedPrivate, privateFile, drive, mixedDrive), scope.sources().keySet());
+            assertEquals(Set.of(publicFile, mixedPrivate, privateFile, drive, mixedDrive), scope.sources().keySet());
             assertEquals(SourceType.GOOGLE_DRIVE, scope.sources().get(drive));
             assertEquals(scope.sources().keySet(), search.options(member, 0, 100).stream()
-                    .map(SourceSearchService.SourceOption::id).collect(java.util.stream.Collectors.toSet()));
-            var driveScope = new io.memoryos.connector.SourceSearchScope(tenant, member, java.util.Map.of(drive, SourceType.GOOGLE_DRIVE));
-            assertEquals(java.util.Set.of(driveDoc), search.readableMetadata(driveScope, ids).keySet());
-            var narrowed = new io.memoryos.connector.SourceSearchScope(scope.tenant(), scope.actor(), java.util.Map.of(mixedPrivate, SourceType.FILE));
+                    .map(SourceSearchService.SourceOption::id).collect(Collectors.toSet()));
+            var driveScope = new SourceSearchScope(tenant, member, Map.of(drive, SourceType.GOOGLE_DRIVE));
+            assertEquals(Set.of(driveDoc), search.readableMetadata(driveScope, ids).keySet());
+            var narrowed = new SourceSearchScope(scope.tenant(), scope.actor(), Map.of(mixedPrivate, SourceType.FILE));
             assertEquals(List.of(mixedPrivate), search.readableMetadata(narrowed, ids).get(mixed).stream()
-                    .map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
-            assertEquals(java.util.Set.of(mixed), search.readableMetadata(narrowed, ids).keySet());
-            assertEquals(java.util.Set.of(publicFile, mixedPrivate, mixedDrive), search.indexMetadata(tenant, new DocumentId(mixed), generation)
-                    .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).collect(java.util.stream.Collectors.toSet()));
+                    .map(DocumentSourceMetadata::sourceId).toList());
+            assertEquals(Set.of(mixed), search.readableMetadata(narrowed, ids).keySet());
+            assertEquals(Set.of(publicFile, mixedPrivate, mixedDrive), search.indexMetadata(tenant, new DocumentId(mixed), generation)
+                    .stream().map(DocumentSourceMetadata::sourceId).collect(Collectors.toSet()));
             assertEquals(List.of(privateFile), search.indexMetadata(tenant, new DocumentId(privateDoc), generation)
-                    .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
+                    .stream().map(DocumentSourceMetadata::sourceId).toList());
             assertEquals(List.of(drive), search.indexMetadata(tenant, new DocumentId(driveDoc), generation)
-                    .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
+                    .stream().map(DocumentSourceMetadata::sourceId).toList());
             // The page read gives each document what the single read gives it for its own generation.
-            var page = search.indexMetadata(tenant, java.util.Map.of(new DocumentId(mixed), generation,
+            var page = search.indexMetadata(tenant, Map.of(new DocumentId(mixed), generation,
                     new DocumentId(privateDoc), generation, new DocumentId(driveDoc), UUID.randomUUID()));
             assertEquals(search.indexMetadata(tenant, new DocumentId(mixed), generation), page.get(new DocumentId(mixed)));
             assertEquals(search.indexMetadata(tenant, new DocumentId(privateDoc), generation), page.get(new DocumentId(privateDoc)));
@@ -190,14 +197,14 @@ class SourceSearchMetadataMigrationTest {
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='PUBLIC' WHERE id=:id").param("id", drive).update();
             assertTrue(access.canRead(outsider, new DocumentId(driveDoc)), "A public Drive source admits every member");
             assertTrue(search.scope(outsider).sources().containsKey(drive));
-            assertEquals(java.util.Set.of(driveDoc), search.readableMetadata(driveScope, ids).keySet());
+            assertEquals(Set.of(driveDoc), search.readableMetadata(driveScope, ids).keySet());
             assertEquals(List.of(drive), search.indexMetadata(tenant, new DocumentId(driveDoc), generation)
-                    .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
+                    .stream().map(DocumentSourceMetadata::sourceId).toList());
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE',status='INDEXING' WHERE id=:id")
                     .param("id", drive).update();
             assertTrue(access.canRead(member, new DocumentId(driveDoc)), "Other items indexing must not hide eligible documents");
             assertTrue(search.scope(member).sources().containsKey(drive));
-            assertEquals(java.util.Set.of(driveDoc), search.readableMetadata(driveScope, ids).keySet());
+            assertEquals(Set.of(driveDoc), search.readableMetadata(driveScope, ids).keySet());
             jdbc.sql("UPDATE connector_credential_pairs SET status='DELETING' WHERE id=:id").param("id", drive).update();
             assertFalse(access.canRead(member, new DocumentId(driveDoc)));
             assertFalse(search.scope(member).sources().containsKey(drive));
@@ -212,10 +219,10 @@ class SourceSearchMetadataMigrationTest {
             assertTrue(access.canRead(member, new DocumentId(driveDoc)));
             jdbc.sql("DELETE FROM iam_group_memberships WHERE tenant_id=:tenant AND group_id=:group")
                     .param("tenant", tenant.value()).param("group", group).update();
-            assertEquals(java.util.Set.of(mixed), access.readableDocuments(member, ids));
+            assertEquals(Set.of(mixed), access.readableDocuments(member, ids));
             var revoked = search.readableMetadata(scope, ids);
-            assertEquals(java.util.Set.of(mixed), revoked.keySet());
-            assertEquals(List.of(publicFile), revoked.get(mixed).stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
+            assertEquals(Set.of(mixed), revoked.keySet());
+            assertEquals(List.of(publicFile), revoked.get(mixed).stream().map(DocumentSourceMetadata::sourceId).toList());
             assertTrue(search.readableMetadata(narrowed, ids).isEmpty(), "A narrowed private scope must not fall back to another public origin");
             assertTrue(search.readableMetadata(driveScope, ids).isEmpty());
             jdbc.sql("UPDATE tenant_memberships SET status='INACTIVE' WHERE tenant_id=:tenant AND actor_id=:actor")

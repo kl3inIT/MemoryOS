@@ -10,6 +10,9 @@ dependencies {
     implementation(libs.jackson.databind)
     implementation(libs.micrometer.core)
     implementation(libs.msal4j)
+    // The Google Drive account consent: token exchange over RestClient and ID-token validation.
+    implementation(libs.spring.web)
+    implementation(libs.spring.security.oauth2.jose)
     implementation(libs.tika.core)
     implementation(libs.imageio.webp)
     implementation(libs.tika.parser.pdf)

@@ -94,6 +94,12 @@ No backend or ingest port is published. Grafana alone joins the existing proxy n
 - Restart backend containers without deleting volumes and verify stored data and
   provisioned dashboards. Check disk growth, memory pressure and seven-day
   log/trace versus fifteen-day metric retention on the staging host.
+- Dashboard, alert and Tempo changes reach a running stack by pulling the reviewed
+  commit into the checkout the stack runs from and recreating the changed services
+  (`up -d prometheus tempo grafana`). Grafana reloads provisioned dashboards from
+  disk; Prometheus reloads rules on restart. Tempo's metrics-generator writes span
+  metrics through Prometheus's remote-write receiver on the private backend network;
+  `traces_spanmetrics_*` appears a few minutes after the first new traces.
 - Prometheus evaluates repository alert rules; view firing alerts in Grafana's
   Prometheus datasource/Prometheus API. No external notification destination has
   been configured; do not treat these rules as on-call paging.

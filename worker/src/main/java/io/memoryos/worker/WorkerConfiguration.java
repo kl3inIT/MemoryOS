@@ -1,5 +1,7 @@
 package io.memoryos.worker;
 
+import io.memoryos.connector.SharePointSelectionProcessor;
+import io.memoryos.ingestion.ChatFileExtractor;
 import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
@@ -49,8 +51,8 @@ class WorkerConfiguration {
             GoogleDriveSelectionProcessor selections,
             SearchProjectionMaintenance searchProjection,
             UserFileWorkPort userFiles,
-            io.memoryos.ingestion.ChatFileExtractor chatFileExtractor,
-            io.memoryos.connector.SharePointSelectionProcessor sharePointSelections
+            ChatFileExtractor chatFileExtractor,
+            SharePointSelectionProcessor sharePointSelections
     ) {
         var ingestion = new DefaultIngestionCoordinator(
                 indexingPort,

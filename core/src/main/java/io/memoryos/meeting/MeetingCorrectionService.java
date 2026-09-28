@@ -5,6 +5,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -306,7 +307,7 @@ public class MeetingCorrectionService {
         }
         kept.add(new Meeting.Span(correction.start(), correction.start() + correction.before().length(),
                 correction.confidence()));
-        kept.sort(java.util.Comparator.comparingInt(Meeting.Span::start));
+        kept.sort(Comparator.comparingInt(Meeting.Span::start));
         return List.copyOf(kept);
     }
 }

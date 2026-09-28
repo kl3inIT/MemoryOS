@@ -1,5 +1,8 @@
 package io.memoryos.connector.sync.persistence;
 
+import io.memoryos.FailureEvidence;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -34,14 +37,20 @@ public final class WorkLeases {
     private WorkLeases() {
     }
 
-    /** How an attempt table counts the attempts its retry budget spends. */
-    public record AttemptCount(String expression, @Nullable String incrementedColumn) {
+    /**
+     * How an attempt table counts the attempts its retry budget spends. The expression is spliced into SQL, so it is
+     * built only by these factories from validated column names.
+     */
+    public static final class AttemptCount {
         /** Every claim spends one attempt. */
         public static final AttemptCount PROCESSING = new AttemptCount("processing_attempts", null);
 
-        public AttemptCount {
-            Objects.requireNonNull(expression, "expression");
-            if (incrementedColumn != null) identifier(incrementedColumn);
+        private final String expression;
+        private final @Nullable String incrementedColumn;
+
+        private AttemptCount(String expression, @Nullable String incrementedColumn) {
+            this.expression = expression;
+            this.incrementedColumn = incrementedColumn;
         }
 
         /** Claims minus those handed back without spending budget, for example a reconciliation deferral. */
@@ -55,6 +64,14 @@ public final class WorkLeases {
          */
         public static AttemptCount failures(String column) {
             return new AttemptCount(identifier(column) + " + 1", column);
+        }
+
+        String expression() {
+            return expression;
+        }
+
+        @Nullable String incrementedColumn() {
+            return incrementedColumn;
         }
     }
 
@@ -98,7 +115,7 @@ public final class WorkLeases {
         return updated == 1 ? Optional.of(load.apply(operationId, token)) : Optional.empty();
     }
 
-    public static @Nullable Duration initialQueueWait(java.sql.ResultSet row) throws java.sql.SQLException {
+    public static @Nullable Duration initialQueueWait(ResultSet row) throws SQLException {
         return row.getInt("processing_attempts") == 1
                 ? Duration.between(row.getTimestamp("created_at").toInstant(), row.getTimestamp("started_at").toInstant())
                 : null;
@@ -185,8 +202,8 @@ public final class WorkLeases {
         if (attempts == null) {
             return RetryOutcome.STALE;
         }
-        String increment = count.incrementedColumn() == null ? ""
-                : count.incrementedColumn() + " = " + count.incrementedColumn() + " + 1, ";
+        String incremented = count.incrementedColumn();
+        String increment = incremented == null ? "" : incremented + " = " + incremented + " + 1, ";
         String safeCode = safeErrorCode(errorCode);
         String safeMessage = safeErrorMessage(errorMessage);
         String safeDetail = safeErrorDetail(errorDetail);
@@ -242,11 +259,11 @@ public final class WorkLeases {
     }
 
     public static @Nullable String safeErrorMessage(@Nullable String value) {
-        return io.memoryos.FailureEvidence.safeErrorMessage(value);
+        return FailureEvidence.safeErrorMessage(value);
     }
 
     public static @Nullable String safeErrorDetail(@Nullable String value) {
-        return io.memoryos.FailureEvidence.safeErrorDetail(value);
+        return FailureEvidence.safeErrorDetail(value);
     }
 
     public static OffsetDateTime sqlTime(Instant instant) {

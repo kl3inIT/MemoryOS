@@ -18,6 +18,9 @@ import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.ProviderAuthorityService;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
+import io.memoryos.iam.group.DefaultGroupScopeService;
+import io.memoryos.iam.group.persistence.GroupInvariantRepository;
+import io.memoryos.iam.group.persistence.GroupProjectionRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.DefaultIamAuthorization;
@@ -29,10 +32,12 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -92,6 +97,19 @@ public class GoogleDriveSelectionOperationTest {
         assertEquals(SourceOperationStatus.SUCCEEDED,fixture.finish(second).status());
         assertEquals(List.of(links.getLast()),fixture.service.selectionDraft(fixture.owner,created.sourceId()).links());
         assertEquals(2,fixture.service.configuration(fixture.owner,created.sourceId()).revision());
+    }
+
+    @Test
+    void replacingRootsCannotChangeTheScopeModeChosenAtCreation() throws Exception {
+        var fixture=fixture();
+        var created=fixture.create(UUID.randomUUID(),fixture.mixedRoots(2,1));
+        fixture.finish(created);
+        var draft=fixture.service.selectionDraft(fixture.owner,created.sourceId());
+        var refused=assertThrows(SourceException.class,() -> fixture.service.replaceRoots(fixture.owner,UUID.randomUUID(),
+                created.sourceId(),draft.revision(),draft.discoveryRevision(),draft.credentialRevision(),ScopeMode.GENERAL,
+                List.of(),List.of()));
+        assertEquals("Google Drive scope mode is chosen when the Source is created and cannot be changed.",refused.safeMessage());
+        assertEquals(1,fixture.service.configuration(fixture.owner,created.sourceId()).revision());
     }
 
     @Test
@@ -334,12 +352,12 @@ public class GoogleDriveSelectionOperationTest {
             connections=TestDatabase.transactionalProxy(new GoogleDriveConnectionService(credentials,provider,manager),GoogleDriveConnectionService.class,manager);
             selections=new JdbcGoogleDriveSelectionRepository(jdbc);
             var indexing=new JdbcIndexAttemptRepository(jdbc,sources,documents,
-                    new ProviderAuthorityService(connections, org.mockito.Mockito.mock(SharePointConnectionService.class)));
-            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
+                    new ProviderAuthorityService(connections, Mockito.mock(SharePointConnectionService.class)));
+            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
             try (var grant=new GoogleDriveAuthorizationService.Grant("subject","fixture@example.com",GoogleDriveAuthorizationService.REQUIRED_SCOPES,
                     "refresh".getBytes(StandardCharsets.UTF_8));
                  var client=new GoogleDriveOAuthClient("fixture.apps.googleusercontent.com","secret".getBytes(StandardCharsets.UTF_8))) {
-                credential=java.util.Objects.requireNonNull(transactions.execute(_ -> credentials.create(tenant,owner,"Fixture",grant,client)));
+                credential=Objects.requireNonNull(transactions.execute(_ -> credentials.create(tenant,owner,"Fixture",grant,client)));
             }
             restartProcessor();
         }

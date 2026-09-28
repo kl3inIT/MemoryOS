@@ -5,12 +5,20 @@ import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
+import io.memoryos.chat.ChatArtifactCleanupService;
+import io.memoryos.chat.ChatExportService;
+import io.memoryos.chat.ChatSessionPurgeService;
+import io.memoryos.connector.ConnectorSyncPort;
+import io.memoryos.connector.SourceRunHistoryMaintenance;
 import io.memoryos.library.UserFileMaintenance;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.application.SearchProjectionMaintenance;
 import io.memoryos.objectstorage.ObjectUploadCleanupPort;
+import io.memoryos.objectstorage.ObjectWriteService;
+import io.memoryos.retrieval.settings.SearchSettingsService;
+import io.memoryos.usage.report.UsageReportService;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -105,7 +113,7 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
-    RecurringTask<Void> dueSourceSyncTask(io.memoryos.connector.ConnectorSyncPort sync) {
+    RecurringTask<Void> dueSourceSyncTask(ConnectorSyncPort sync) {
         return Tasks.recurring("memoryos-due-source-sync-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> sync.enqueueDue(16));
     }
@@ -117,19 +125,19 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
-    RecurringTask<Void> sourceRunHistoryRetentionTask(io.memoryos.connector.SourceRunHistoryMaintenance history) {
+    RecurringTask<Void> sourceRunHistoryRetentionTask(SourceRunHistoryMaintenance history) {
         return Tasks.recurring("memoryos-source-run-history-retention-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> history.pruneHistory(100));
     }
 
     @Bean
-    RecurringTask<Void> abandonedObjectWriteCleanupTask(io.memoryos.objectstorage.ObjectWriteService writes) {
+    RecurringTask<Void> abandonedObjectWriteCleanupTask(ObjectWriteService writes) {
         return Tasks.recurring("memoryos-abandoned-object-write-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> writes.cleanup(16));
     }
 
     @Bean
-    RecurringTask<Void> chatSessionPurgeTask(io.memoryos.chat.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatSessionPurgeTask(ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-session-purge-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> sessions.purge());
     }
@@ -139,7 +147,7 @@ class ControlPlaneConfiguration {
      * above then removes their rows and hands their uploads to the file work.
      */
     @Bean
-    RecurringTask<Void> chatTemporarySessionTask(io.memoryos.chat.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatTemporarySessionTask(ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-temporary-session-v1", FixedDelay.of(Duration.ofMinutes(5)))
                 .execute((_, _) -> sessions.expireTemporary());
     }
@@ -149,7 +157,7 @@ class ControlPlaneConfiguration {
      * works; an export reads a whole account, so one at a time is deliberate.
      */
     @Bean
-    RecurringTask<Void> chatExportTask(io.memoryos.chat.ChatExportService exports) {
+    RecurringTask<Void> chatExportTask(ChatExportService exports) {
         return Tasks.recurring("memoryos-chat-export-v1", FixedDelay.of(Duration.ofSeconds(10)))
                 .execute((_, _) -> {
                     exports.buildNext();
@@ -159,13 +167,13 @@ class ControlPlaneConfiguration {
 
     /** Each Tenant's retention policy, applied in batches; an hour is far finer than a policy in days. */
     @Bean
-    RecurringTask<Void> chatRetentionPolicyTask(io.memoryos.chat.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatRetentionPolicyTask(ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-retention-policy-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> sessions.applyRetentionPolicies());
     }
 
     @Bean
-    RecurringTask<Void> chatArtifactCleanupTask(io.memoryos.chat.ChatArtifactCleanupService artifacts) {
+    RecurringTask<Void> chatArtifactCleanupTask(ChatArtifactCleanupService artifacts) {
         return Tasks.recurring("memoryos-chat-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> artifacts.cleanup());
     }
@@ -201,7 +209,7 @@ class ControlPlaneConfiguration {
 
     /** Builds requested usage reports; a few per run, so a queue drains without holding the scheduler thread. */
     @Bean
-    RecurringTask<Void> usageReportTask(io.memoryos.usage.report.UsageReportService reports) {
+    RecurringTask<Void> usageReportTask(UsageReportService reports) {
         return Tasks.recurring("memoryos-ai-usage-report-v1", FixedDelay.of(Duration.ofSeconds(5)))
                 .execute((_, _) -> {
                     for (int built = 0; built < 4 && reports.buildNext(); built++) {
@@ -245,7 +253,7 @@ class ControlPlaneConfiguration {
      */
     @Bean
     RecurringTask<Void> searchRebuildTask(SearchProjectionMaintenance maintenance,
-            io.memoryos.retrieval.settings.SearchSettingsService settings) {
+            SearchSettingsService settings) {
         return Tasks.recurring("memoryos-search-rebuild-v1", FixedDelay.of(Duration.ofSeconds(5)))
                 .execute((_, _) -> {
                     maintenance.rebuild();
@@ -255,7 +263,7 @@ class ControlPlaneConfiguration {
 
     /** MEM-135: deletes the index of a PAST search generation once its retention ended, with a recount. */
     @Bean
-    RecurringTask<Void> searchGenerationCleanupTask(io.memoryos.retrieval.settings.SearchSettingsService settings) {
+    RecurringTask<Void> searchGenerationCleanupTask(SearchSettingsService settings) {
         return Tasks.recurring("memoryos-search-generation-cleanup-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> settings.cleanupExpired());
     }

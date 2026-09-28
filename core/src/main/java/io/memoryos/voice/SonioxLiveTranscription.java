@@ -16,6 +16,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -27,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
  * stream's times so the recording clock stays continuous. Audio and text are never logged.
  */
 final class SonioxLiveTranscription implements LiveTranscription {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SonioxLiveTranscription.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SonioxLiveTranscription.class);
     static final Duration REPLAY = Duration.ofSeconds(5);
     static final List<Duration> BACKOFF = List.of(Duration.ofSeconds(2), Duration.ofSeconds(5), Duration.ofSeconds(10),
             Duration.ofSeconds(20), Duration.ofSeconds(30));
@@ -139,10 +141,11 @@ final class SonioxLiveTranscription implements LiveTranscription {
         byte[] frame = pcm.clone();
         retained.addLast(frame);
         retainedBytes += frame.length;
-        while (retainedBytes - retained.peekFirst().length >= REPLAY_BYTES) retainedBytes -= retained.removeFirst().length;
+        while (retainedBytes - retained.getFirst().length >= REPLAY_BYTES) retainedBytes -= retained.removeFirst().length;
         sentBytes += frame.length;
         // While reconnecting, only the retained tail survives; it is replayed into the new stream.
-        if (socket != null) send(frame);
+        var live = socket;
+        if (live != null) send(live, frame);
     }
 
     @Override
@@ -162,7 +165,7 @@ final class SonioxLiveTranscription implements LiveTranscription {
                     .thenCompose(ignored -> live.sendBinary(ByteBuffer.allocate(0), true));
         }
         return finished.orTimeout(FINISH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
-                .exceptionally(timeout -> {
+                .exceptionally(_ -> {
                     synchronized (this) {
                         flush();
                     }
@@ -201,9 +204,8 @@ final class SonioxLiveTranscription implements LiveTranscription {
         return opened;
     }
 
-    /** Caller holds the monitor. */
-    private void send(byte[] frame) {
-        var live = socket;
+    /** Caller holds the monitor; {@code live} is the current socket. */
+    private void send(WebSocket live, byte[] frame) {
         int sentGeneration = generation;
         lastSendNanos = System.nanoTime();
         sends = sends.thenCompose(ignored -> live.sendBinary(ByteBuffer.wrap(frame), true));
@@ -239,10 +241,12 @@ final class SonioxLiveTranscription implements LiveTranscription {
             if (finishing) {
                 finished.complete(null);
             } else if (attempt >= backoff.size()) {
-                LOG.warn("Soniox stream gave up after {} attempts ({})", attempt, reason);
+                LOG.atWarn().addKeyValue("event", "voice.soniox.stream_abandoned").addKeyValue("attempts", attempt)
+                        .addKeyValue("reason", reason).log("Soniox stream gave up");
                 listener.failed();
             } else {
-                LOG.warn("Soniox stream failed ({}); reconnecting, attempt {}", reason, attempt + 1);
+                LOG.atWarn().addKeyValue("event", "voice.soniox.stream_reconnecting").addKeyValue("attempt", attempt + 1)
+                        .addKeyValue("reason", reason).log("Soniox stream failed; reconnecting");
                 int reconnectGeneration = generation;
                 TIMERS.schedule(() -> reconnect(reconnectGeneration), backoff.get(attempt++).toMillis(),
                         TimeUnit.MILLISECONDS);
@@ -279,7 +283,7 @@ final class SonioxLiveTranscription implements LiveTranscription {
             socket = opened;
             sends = CompletableFuture.completedFuture(null);
             streamBaseMs = offsetMs + toMillis(sentBytes - retainedBytes);
-            for (byte[] frame : retained) send(frame);
+            for (byte[] frame : retained) send(opened, frame);
         }
     }
 

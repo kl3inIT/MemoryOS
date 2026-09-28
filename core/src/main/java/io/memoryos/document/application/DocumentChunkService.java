@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -60,7 +61,7 @@ public class DocumentChunkService implements DocumentChunkPort {
     }
 
     @Override
-    public List<DocumentIndexState> scan(String identity, DocumentIndexState.@org.jspecify.annotations.Nullable Cursor after, int limit) {
+    public List<DocumentIndexState> scan(String identity, DocumentIndexState.@Nullable Cursor after, int limit) {
         return repository.scan(identity, after, limit);
     }
 

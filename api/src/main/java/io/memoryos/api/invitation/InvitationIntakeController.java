@@ -30,7 +30,7 @@ final class InvitationIntakeController {
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        noSecretCaching(response);
+        noSecretReferrer(response);
         InvitationSessionState.markActivation(request);
         redirect(response, OAUTH_PATH);
     }
@@ -41,7 +41,7 @@ final class InvitationIntakeController {
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        noSecretCaching(response);
+        noSecretReferrer(response);
         try {
             var continuation = invitations.intake(secret);
             new InvitationSessionState(continuation.invitationId(), continuation.tenantId().value())
@@ -58,7 +58,7 @@ final class InvitationIntakeController {
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        noSecretCaching(response);
+        noSecretReferrer(response);
         var state = InvitationSessionState.read(request);
         if (state == null) {
             redirect(response, NOT_AVAILABLE_PATH);
@@ -73,8 +73,7 @@ final class InvitationIntakeController {
         }
     }
 
-    private static void noSecretCaching(HttpServletResponse response) {
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+    private static void noSecretReferrer(HttpServletResponse response) {
         response.setHeader(REFERRER_POLICY, "no-referrer");
     }
 

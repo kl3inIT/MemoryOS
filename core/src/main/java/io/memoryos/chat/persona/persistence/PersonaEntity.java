@@ -9,6 +9,9 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
+import java.util.Objects;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,7 +38,7 @@ public class PersonaEntity {
     @ElementCollection @CollectionTable(name = "persona_source", joinColumns = @JoinColumn(name = "persona_id"))
     @Column(name = "source_id", nullable = false)
     private List<UUID> sourceIds = new ArrayList<>();
-    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "file_ids", nullable = false, columnDefinition = "jsonb")
     private List<UUID> fileIds = new ArrayList<>();
     @Column(name = "is_public", nullable = false) private boolean isPublic;
@@ -47,7 +50,8 @@ public class PersonaEntity {
     @Column(name = "avatar_file_id") private @Nullable UUID avatarFileId;
     @Column(name = "task_prompt", nullable = false, columnDefinition = "text") private String taskPrompt = "";
     @Column(name = "replace_base_system_prompt", nullable = false) private boolean replaceBaseSystemPrompt;
-    @Column(name = "datetime_aware", nullable = false) private boolean datetimeAware = true;
+    /** MEM-195: this agent answers from the organization's documents only, even when the Tenant setting is off. */
+    @Column(name = "grounded", nullable = false) private boolean grounded;
     @Column(name = "knowledge_cutoff") private @Nullable Instant knowledgeCutoff;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt = Instant.now();
     @Column(name = "context_token_limit") private @Nullable Integer contextTokenLimit;
@@ -56,23 +60,23 @@ public class PersonaEntity {
     @Version private @Nullable Long revision;
 
     protected PersonaEntity() {}
-    public PersonaEntity(UUID id, UUID tenantId, UUID ownerId, String model) {
+    public PersonaEntity(UUID id, UUID tenantId, @Nullable UUID ownerId, String model) {
         this.id = id; this.tenantId = tenantId; this.ownerId = ownerId; this.model = model;
     }
     public record Settings(String name, String description, String instructions, String taskPrompt, List<String> starters,
                            List<UUID> sources, @Nullable UUID modelId, @Nullable Integer contextLimit, @Nullable Integer outputLimit,
-                           @Nullable String iconName, @Nullable UUID avatarFileId, boolean replaceBaseSystemPrompt,
-                           boolean datetimeAware, @Nullable Instant knowledgeCutoff) {}
+                           @Nullable String iconName, @Nullable UUID avatarFileId, boolean replaceBaseSystemPrompt, boolean grounded,
+                           @Nullable Instant knowledgeCutoff) {}
     public void update(Settings settings) {
         this.name = settings.name(); this.description = settings.description(); this.instructions = settings.instructions();
         this.taskPrompt = settings.taskPrompt();
         this.starterPrompts.clear(); this.starterPrompts.addAll(settings.starters());
         this.sourceIds.clear(); this.sourceIds.addAll(settings.sources());
-        if (!java.util.Objects.equals(this.modelConfigurationId, settings.modelId())) modelRevision++;
+        if (!Objects.equals(this.modelConfigurationId, settings.modelId())) modelRevision++;
         this.modelConfigurationId = settings.modelId();
         this.contextTokenLimit = settings.contextLimit(); this.outputTokenLimit = settings.outputLimit();
         this.iconName = settings.iconName(); this.avatarFileId = settings.avatarFileId();
-        this.replaceBaseSystemPrompt = settings.replaceBaseSystemPrompt(); this.datetimeAware = settings.datetimeAware();
+        this.replaceBaseSystemPrompt = settings.replaceBaseSystemPrompt(); this.grounded = settings.grounded();
         this.knowledgeCutoff = settings.knowledgeCutoff();
     }
     public void publish(boolean isPublic, String permission) { this.isPublic = isPublic; this.publicPermission = permission; }
@@ -103,7 +107,7 @@ public class PersonaEntity {
     public @Nullable UUID avatarFileId() { return avatarFileId; }
     public String taskPrompt() { return taskPrompt; }
     public boolean replaceBaseSystemPrompt() { return replaceBaseSystemPrompt; }
-    public boolean datetimeAware() { return datetimeAware; }
+    public boolean grounded() { return grounded; }
     public @Nullable Instant knowledgeCutoff() { return knowledgeCutoff; }
     public @Nullable Instant deletedAt() { return deletedAt; }
     public @Nullable UUID modelConfigurationId() { return modelConfigurationId; }

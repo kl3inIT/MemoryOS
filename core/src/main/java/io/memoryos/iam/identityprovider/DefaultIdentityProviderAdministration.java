@@ -19,6 +19,7 @@ import io.memoryos.iam.DiscoveredOidcProvider;
 import io.memoryos.iam.keycloak.OidcDiscoveryClient;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -128,23 +129,22 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
             gateway.create(existing);
             gateway.delete(alias);
         }
-        String effectiveAlias = targetAlias;
         transactions.executeWithoutResult(_ -> {
             authorization.lockAndRequireAdministration(actorId);
-            if (!effectiveAlias.equals(alias)) {
+            if (!targetAlias.equals(alias)) {
                 allowlist.disallow(alias);
             }
             if (update.jitAllowed()) {
-                allowlist.allow(effectiveAlias, actorId);
+                allowlist.allow(targetAlias, actorId);
             } else {
-                allowlist.disallow(effectiveAlias);
+                allowlist.disallow(targetAlias);
             }
         });
-        var updated = toView(gateway.find(effectiveAlias).orElseThrow(
+        var updated = toView(gateway.find(targetAlias).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), update.jitAllowed());
         audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_UPDATE, tenant).actor(actorId)
-                .resource("IDENTITY_PROVIDER", effectiveAlias, existing.getDisplayName())
-                .detail("before", before).detail("after", facts(effectiveAlias, targetIssuer, update.jitAllowed())).build());
+                .resource("IDENTITY_PROVIDER", targetAlias, existing.getDisplayName())
+                .detail("before", before).detail("after", facts(targetAlias, targetIssuer, update.jitAllowed())).build());
         return updated;
     }
 
@@ -162,7 +162,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
 
     /** What decides who can sign in through a provider; its client secret is never recorded. */
     private static Map<String, Object> facts(String alias, String issuer, boolean jitAllowed) {
-        var facts = new java.util.LinkedHashMap<String, Object>();
+        var facts = new LinkedHashMap<String, Object>();
         facts.put("alias", alias);
         facts.put("issuer", issuer);
         facts.put("jitAllowed", jitAllowed);

@@ -93,7 +93,7 @@ The reason is a projection of the predicate that admitted the row:
 
 ### Per-viewer marks (stars on reachable rows, Recent)
 
-V131 adds `library_mark(tenant_id, actor_id, kind, item_id, starred_at, opened_at)`, owned by `library`.
+V133 adds `library_mark(tenant_id, actor_id, kind, item_id, starred_at, opened_at)`, owned by `library`.
 
 - **Stars:** an owned kind keeps its existing `favorite_at` column, so starring it through the entry route delegates
   to the existing update. Stars on reachable kinds live in `starred_at`, at most 500 per viewer.

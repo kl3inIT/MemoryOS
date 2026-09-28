@@ -4,7 +4,7 @@ Status: Accepted, implementation started 2026-09-21. Supersedes the Google Group
 
 ## Context
 
-Auto Sync Sources enforce the Google Drive permissions of each file ([MEM-105](../increments/completed/mem-105-source-access-modes/design.md)). ADR 0011 matches `user` and `domain` permissions against the reader's verified login email and leaves `group` permissions matching nothing, because MemoryOS could not read Workspace group membership. Companies on Google Workspace share most files with groups, so their Auto Sync Sources hid most of their content. [MEM-90](../increments/active/google-drive-service-account/design.md) adds a domain-wide-delegated service-account credential that acts as a primary Workspace administrator and can read the Admin SDK Directory, as Onyx's `group_sync.py` does.
+Auto Sync Sources enforce the Google Drive permissions of each file ([MEM-105](../increments/completed/mem-105-source-access-modes/design.md)). ADR 0011 matches `user` and `domain` permissions against the reader's verified login email and leaves `group` permissions matching nothing, because MemoryOS could not read Workspace group membership. Companies on Google Workspace share most files with groups, so their Auto Sync Sources hid most of their content. [MEM-90](../increments/completed/google-drive-service-account/design.md) adds a domain-wide-delegated service-account credential that acts as a primary Workspace administrator and can read the Admin SDK Directory, as Onyx's `group_sync.py` does.
 
 ## Decision
 

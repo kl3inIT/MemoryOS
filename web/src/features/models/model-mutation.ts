@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { isCatalogConflict, sanitizeModelActionError } from "./model-catalog";
 
 /** Every catalog write, validation and reconciliation on the Models page shares this key. */
-export const modelCatalogMutationKey = ["models", "catalog-action"] as const;
+const modelCatalogMutationKey = ["models", "catalog-action"] as const;
 
 const discarded = "The operation was discarded.";
 
@@ -25,6 +25,9 @@ function rejectOnAbort(signal: AbortSignal) {
  * because a mutation function receives none. The mutation settles with a sanitized error and is collected as soon as
  * nothing observes it. Cancelling or unmounting aborts the operation and settles it at once as discarded, so a late
  * response is never applied and never holds the page busy. `describe` gives a failure the page's own static copy.
+ *
+ * The generated `…Mutation()` factories are not used for catalog writes on purpose: their variables are the whole
+ * request, and a provider or embedding request can carry a typed API key, which the mutation cache would retain.
  */
 export function useModelMutation(
   task: (signal: AbortSignal) => Promise<void>,

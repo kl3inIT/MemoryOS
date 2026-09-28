@@ -13,21 +13,44 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import { MicrophoneUnavailableError } from "@/features/voice/capture/audio-capture";
 import type * as VoiceDictationModule from "@/features/voice/voice-dictation";
+import { AppShell } from "@/components/app-shell/app-shell";
 import { SearchPage } from "./search-page";
+import { searchPageSearchSchema } from "./search-params";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
+import { HttpResponse } from "msw";
+import {
+  handleGetChatVoiceAvailability,
+  handleListChatPersonaPins,
+  handleListChatProjects,
+  handleListChatSessions,
+  handleListDocumentSets,
+  handleSearchDocuments,
+} from "@/lib/hey-api/msw.gen";
+import type { View } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 
 const searchDocumentsMock = vi.hoisted(() => vi.fn());
 const voiceAvailabilityMock = vi.hoisted(() => vi.fn());
 const startVoiceDictationMock = vi.hoisted(() => vi.fn());
-const loadDocumentSetsMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
-  ...(await importOriginal<typeof ChatSdk>()),
-  searchDocuments: searchDocumentsMock,
-  listChatSessions: vi.fn().mockResolvedValue({ data: [] }),
-  getChatVoiceAvailability: voiceAvailabilityMock,
-}));
+/** Answers the search with what `searchDocumentsMock` returns for the request body it was sent. */
+function searchBackend() {
+  server.use(
+    handleSearchDocuments(async ({ request }) => {
+      const { data } = await searchDocumentsMock({ body: await request.json() });
+      return HttpResponse.json(data);
+    }),
+    handleGetChatVoiceAvailability(async () =>
+      HttpResponse.json((await voiceAvailabilityMock()).data),
+    ),
+    // The application shell around the page reads the sidebar's conversations, pins and projects.
+    handleListChatSessions({ body: [] }),
+    handleListChatPersonaPins({ body: [] }),
+    handleListChatProjects({ body: [] }),
+  );
+}
+
+const documentSets = (body: View[]) => server.use(handleListDocumentSets({ body }));
 
 vi.mock("@/features/voice/voice-dictation", async (importOriginal) => ({
   ...(await importOriginal<typeof VoiceDictationModule>()),
@@ -61,29 +84,36 @@ const OWNER_SESSION: ApplicationSession = {
   scopedCapabilities: [],
 };
 
+let renderedRouter: { state: { location: { href: string } } } | undefined;
+
 function speechToTextAvailable(sttAvailable: boolean) {
   voiceAvailabilityMock.mockResolvedValue({ data: { sttAvailable, ttsAvailable: false } });
 }
 
-async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
+async function renderNewSession(session: ApplicationSession = OWNER_SESSION, path = "/search") {
   vi.stubGlobal("scrollTo", vi.fn());
   const rootRoute = createRootRoute();
+  const authenticatedRoute = createRoute({ getParentRoute: () => rootRoute, id: "_authenticated" });
   const indexRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/search",
+    getParentRoute: () => authenticatedRoute,
+    path: "search",
+    validateSearch: searchPageSearchSchema,
     component: () => (
       <ApplicationSessionProvider session={session}>
         <ThemeProvider>
-          <SearchPage loadDocumentSets={loadDocumentSetsMock} />
+          <AppShell>
+            <SearchPage />
+          </AppShell>
         </ThemeProvider>
       </ApplicationSessionProvider>
     ),
   });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([indexRoute]),
-    history: createMemoryHistory({ initialEntries: ["/search"] }),
+    routeTree: rootRoute.addChildren([authenticatedRoute.addChildren([indexRoute])]),
+    history: createMemoryHistory({ initialEntries: [path] }),
   });
   await router.load();
+  renderedRouter = router;
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <RouterProvider router={router} />
@@ -93,13 +123,13 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
 
 beforeEach(() => {
   speechToTextAvailable(false);
-  loadDocumentSetsMock.mockResolvedValue([]);
+  searchBackend();
+  documentSets([]);
 });
 
 afterEach(() => {
   startVoiceDictationMock.mockReset();
   searchDocumentsMock.mockReset();
-  loadDocumentSetsMock.mockReset();
   window.localStorage.clear();
   document.documentElement.classList.remove("dark");
   document.documentElement.style.removeProperty("color-scheme");
@@ -107,10 +137,44 @@ afterEach(() => {
 });
 
 describe("SearchPage", () => {
+  it("searches what the address names and keeps a changed filter in it, leaving defaults out", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        results: [],
+        page: 0,
+        hasMore: false,
+        totalResults: 0,
+        candidateLimit: 200,
+        sourceFacets: { total: 0, types: [] },
+      },
+    });
+    await renderNewSession(OWNER_SESSION, "/search?q=budget&source=FILE&page=0");
+
+    await waitFor(() =>
+      expect(searchDocumentsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({ query: "budget", sourceTypes: ["FILE"], page: 0 }),
+        }),
+      ),
+    );
+    expect(screen.getByRole("textbox", { name: "Search documents" })).toHaveValue("budget");
+
+    await user.click(await screen.findByRole("button", { name: "Updated: All time" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
+
+    await waitFor(() =>
+      expect(renderedRouter?.state.location.href).toBe("/search?q=budget&source=FILE&time=30d"),
+    );
+  });
+
   it("renders Search inside the authenticated application shell", async () => {
     await renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
+    // The page's title reaches the shell header, beside the navigation button.
+    const banner = screen.getByRole("button", { name: "Open navigation" }).closest("header")!;
+    expect(within(banner).getByText("Search documents")).toBeInTheDocument();
     // Document Search is its own sidebar entry; the header has no Chat/Search mode menu.
     expect(screen.getByRole("link", { name: "Search documents" })).toHaveAttribute(
       "href",
@@ -224,7 +288,7 @@ describe("SearchPage", () => {
         ],
       },
     });
-    loadDocumentSetsMock.mockResolvedValue([
+    documentSets([
       {
         id: "d384ef32-9da5-4f80-84f6-b3d01f31aa3e",
         revision: 0,
@@ -297,6 +361,35 @@ describe("SearchPage", () => {
     expect(screen.getByRole("button", { name: "File type: All file types" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Updated: All time" })).toBeInTheDocument();
   }, 10_000);
+
+  it("offers every Document Set in the filter, beyond the first page of the listing", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: { page: 0, hasMore: false, totalResults: 0, candidateLimit: 500, results: [] },
+    });
+    server.use(
+      handleListDocumentSets(({ request }) => {
+        const offset = Number(new URL(request.url).searchParams.get("offset"));
+        return HttpResponse.json(
+          Array.from({ length: offset === 0 ? 100 : 1 }, (_, index) => ({
+            id: `00000000-0000-4000-8000-${String(offset + index).padStart(12, "0")}`,
+            revision: 0,
+            name: `Set ${offset + index}`,
+          })),
+        );
+      }),
+    );
+    await renderNewSession();
+
+    await user.type(screen.getByRole("textbox", { name: "Search documents" }), "nghỉ phép");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Document Sets: All Document Sets" }),
+    );
+
+    expect(await screen.findByRole("menuitemradio", { name: "Set 100" })).toBeInTheDocument();
+    expect(screen.getAllByRole("menuitemradio")).toHaveLength(102);
+  });
 
   it("narrows results to one connector from the Source rail and clears it with the filters", async () => {
     const user = userEvent.setup();
@@ -472,11 +565,11 @@ describe("SearchPage", () => {
 
     const recent = screen.getByRole("region", { name: "Recent searches" });
     expect(within(recent).queryByText("private")).not.toBeInTheDocument();
-    const pdf = within(screen.getByRole("group", { name: "File type" })).getByRole("button", {
+    const pdf = within(screen.getByRole("radiogroup", { name: "File type" })).getByRole("radio", {
       name: /PDF/,
     });
     await user.click(pdf);
-    expect(pdf).toHaveAttribute("aria-pressed", "true");
+    expect(pdf).toBeChecked();
     // A chip only preselects the filter; searching still needs a query.
     expect(searchDocumentsMock).not.toHaveBeenCalled();
 
@@ -638,18 +731,6 @@ describe("SearchPage", () => {
     expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
   });
 
-  it("persists a real dark theme preference", async () => {
-    const user = userEvent.setup();
-    await renderNewSession();
-
-    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
-    await user.click(screen.getByRole("button", { name: "Use dark theme" }));
-
-    expect(document.documentElement).toHaveClass("dark");
-    expect(window.localStorage.getItem("memoryos-theme")).toBe("dark");
-    expect(screen.getByRole("button", { name: "Use light theme" })).toBeInTheDocument();
-  });
-
   it("sends a guarded same-origin sign-out request", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));
@@ -657,14 +738,17 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Tenant owner" }));
-    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(fetchMock).toHaveBeenCalledWith("/logout", {
       method: "POST",
       credentials: "same-origin",
       headers: { "X-MemoryOS-CSRF": "1" },
     });
-    expect(screen.getByRole("button", { name: "Signing out…" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Signing out…" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
   it("keeps the account menu actionable when sign-out fails", async () => {
@@ -673,9 +757,9 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Tenant owner" }));
-    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(await screen.findByRole("alert")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).not.toHaveAttribute("aria-disabled");
   });
 });

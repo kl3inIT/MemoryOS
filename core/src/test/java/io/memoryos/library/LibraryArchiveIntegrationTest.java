@@ -20,6 +20,8 @@ import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
+import io.memoryos.objectstorage.ObjectStorageException;
+import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -36,6 +38,7 @@ import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -50,6 +53,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A ZIP of a library selection is packed by the Worker, offered to its owner only, and released when it expires.
@@ -88,13 +92,13 @@ class LibraryArchiveIntegrationTest {
         when(storage.open(any())).thenAnswer(call -> {
             var key = call.<ObjectKey>getArgument(0);
             byte[] bytes = stored.get(key.value());
-            if (bytes == null) throw new io.memoryos.objectstorage.ObjectStorageException(
-                    io.memoryos.objectstorage.ObjectStorageFailureCode.NOT_FOUND, false, null);
+            if (bytes == null) throw new ObjectStorageException(
+                    ObjectStorageFailureCode.NOT_FOUND, false, null);
             var described = metadata(key);
             return new ObjectContent() {
                 private final ByteArrayInputStream input = new ByteArrayInputStream(bytes);
                 @Override public ObjectMetadata metadata() { return described; }
-                @Override public java.io.InputStream inputStream() { return input; }
+                @Override public InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
         });
@@ -110,8 +114,8 @@ class LibraryArchiveIntegrationTest {
                 mock(IamAuthorization.class), tenants, writes, storage,
                 new StorageQuotaService(tenants,
                 new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc)),
-                new LibraryTrashProperties(java.time.Duration.ZERO),
-                jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
+                new LibraryTrashProperties(Duration.ZERO),
+                jpa.transactionManager(), TestDatabase.noAudit());
         // The service is used directly: its @Transactional boundaries are Spring's, and each call here is one
         // statement group against real PostgreSQL, which auto-commits without them.
         archives = new LibraryArchiveService(tenants, repository,
@@ -248,7 +252,7 @@ class LibraryArchiveIntegrationTest {
 
     /** A conversation with one answer: artifacts take their owner and session from it. */
     private void seedConversation() {
-        var tx = new org.springframework.transaction.support.TransactionTemplate(jpa.transactionManager());
+        var tx = new TransactionTemplate(jpa.transactionManager());
         tenant = new TenantId(UUID.randomUUID());
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,:slug,'Archives','ACTIVE','test')")
                 .param("id", tenant.value()).param("slug", tenant.value().toString()).update();

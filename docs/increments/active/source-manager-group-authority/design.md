@@ -4,7 +4,7 @@ Owner report 2026-09-15: on Group detail a Group manager removed a Source chip, 
 
 Owner decision 2026-09-16, after reviewing the alternatives: attachment authority follows the Source's manager, not the set of Groups it happens to carry.
 
-Owner decision 2026-09-21: on a Group with two managers, the one who did not create a Source could detach it and then could not attach it again. Detaching now follows the Source's manager too, and another manager of the Group has no authority over that Source ([ADR 0013](../../decisions/0013-only-the-source-manager-detaches-sources.md)).
+Owner decision 2026-09-21: on a Group with two managers, the one who did not create a Source could detach it and then could not attach it again. Detaching now follows the Source's manager too, and another manager of the Group has no authority over that Source ([ADR 0013](../../../decisions/0013-only-the-source-manager-detaches-sources.md)).
 
 Owner report 2026-09-21: an Actor with scoped `SOURCES_READ` from managing one ordinary Group opened another Group and the browser still mounted its Source-association section. `GET /api/groups/{groupId}/sources` correctly rejected the out-of-scope Group, but the UI rendered a misleading “could not load” error.
 
@@ -14,7 +14,7 @@ Scoped Source authority required a non-public Source whose associated ordinary G
 
 ## Accepted model
 
-One Source records a **manager**: the group manager who created it, or the one an administrator appoints. See [ADR 0011](../../decisions/0011-source-manager-group-attachment-authority.md).
+One Source records a **manager**: the group manager who created it, or the one an administrator appoints. See [ADR 0011](../../../decisions/0011-source-manager-group-attachment-authority.md).
 
 | Operation | Recorded manager (still an active Group manager) | Manager of an associated Group | Global `SOURCES_MANAGE` |
 | --- | --- | --- | --- |

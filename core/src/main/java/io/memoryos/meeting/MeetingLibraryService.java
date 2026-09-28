@@ -53,7 +53,8 @@ public class MeetingLibraryService {
             try {
                 files.delete(actor, file.id());
             } catch (UserFileInUseException inUse) {
-                LOG.info("Published meeting minutes kept because something still uses them");
+                LOG.atInfo().addKeyValue("event", "meeting.minutes.publication_kept")
+                        .log("Published meeting minutes kept because something still uses them");
             }
         });
         return meeting;

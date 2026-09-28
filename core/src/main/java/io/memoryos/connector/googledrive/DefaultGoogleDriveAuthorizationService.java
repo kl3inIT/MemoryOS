@@ -18,6 +18,7 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.iam.Authority;
 import io.memoryos.iam.IamAccess;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -138,7 +139,7 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
                             if (!sourceAccess.canManage(actorId, source)) { editable = false; break; }
                         }
                     }
-                    var actions = new java.util.ArrayList<String>();
+                    var actions = new ArrayList<String>();
                     if (editable) {
                         if (SERVICE_ACCOUNT.equals(view.authMethod())) {
                             actions.add("replace_key");

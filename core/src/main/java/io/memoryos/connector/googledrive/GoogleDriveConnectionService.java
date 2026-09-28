@@ -39,7 +39,7 @@ public class GoogleDriveConnectionService {
     public Connection open(TenantId tenantId, SourceId sourceId) {
         var connection = openCredential(tenantId, credentials.credentialId(tenantId, sourceId));
         try {
-            if (!Boolean.TRUE.equals(transactions.execute(_ -> current(tenantId, sourceId, connection.credentialRevision())))) {
+            if (!Boolean.TRUE.equals(transactions.execute(_ -> sourceCurrent(tenantId, sourceId, connection.credentialRevision())))) {
                 throw SourceException.conflict("Google connection lost Source authority");
             }
             return connection;
@@ -71,7 +71,7 @@ public class GoogleDriveConnectionService {
                         stored.revision(), stored.payloadRevision(), replacement)))) {
                     throw SourceException.conflict("Google refresh lost credential authority");
                 }
-            } else if (!Boolean.TRUE.equals(transactions.execute(_ -> currentCredential(tenantId, credentialId, stored.revision())))) {
+            } else if (!Boolean.TRUE.equals(transactions.execute(_ -> credentialCurrent(tenantId, credentialId, stored.revision())))) {
                 throw SourceException.conflict("Google connection lost credential authority");
             }
             return new Connection(session, stored.revision());
@@ -104,12 +104,21 @@ public class GoogleDriveConnectionService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean current(TenantId tenantId, SourceId sourceId, long credentialRevision) {
-        return credentials.lockSource(tenantId, sourceId)
-                .filter(row -> row.usable() && row.revision() == credentialRevision).isPresent();
+        return sourceCurrent(tenantId, sourceId, credentialRevision);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean currentCredential(TenantId tenantId, CredentialId credentialId, long credentialRevision) {
+        return credentialCurrent(tenantId, credentialId, credentialRevision);
+    }
+
+    /** Locks the Source's credential row; the caller holds a transaction, its own template's or the proxy's. */
+    private boolean sourceCurrent(TenantId tenantId, SourceId sourceId, long credentialRevision) {
+        return credentials.lockSource(tenantId, sourceId)
+                .filter(row -> row.usable() && row.revision() == credentialRevision).isPresent();
+    }
+
+    private boolean credentialCurrent(TenantId tenantId, CredentialId credentialId, long credentialRevision) {
         return credentials.lock(tenantId, credentialId)
                 .filter(row -> row.usable() && row.revision() == credentialRevision).isPresent();
     }

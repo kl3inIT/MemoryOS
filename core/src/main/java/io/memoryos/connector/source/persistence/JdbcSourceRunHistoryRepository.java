@@ -15,6 +15,7 @@ import io.memoryos.connector.sync.persistence.WorkLeases;
 import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -69,12 +70,6 @@ public class JdbcSourceRunHistoryRepository {
     private final JdbcClient jdbc;
 
     public JdbcSourceRunHistoryRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
-
-    public void requireSource(TenantId tenant, SourceId source) {
-        if (!jdbc.sql("SELECT EXISTS (SELECT 1 FROM connector_credential_pairs WHERE tenant_id = :tenant AND id = :source)")
-                .param("tenant", tenant.value()).param("source", source.value()).query(Boolean.class).single())
-            throw SourceException.notFound();
-    }
 
     public SourceRunHistoryService.Page list(TenantId tenant, SourceId source, SourceRunHistoryService.Query query) {
         List<String> statuses = query.statuses().stream().map(SourceRunStatus::name).sorted().toList();
@@ -213,7 +208,7 @@ public class JdbcSourceRunHistoryRepository {
             String[] fields = position.split("\\|", -1);
             if (fields.length != 2) throw new IllegalArgumentException();
             return new Cursor(Instant.parse(fields[0]), UUID.fromString(fields[1]));
-        } catch (IllegalArgumentException | java.time.DateTimeException exception) {
+        } catch (IllegalArgumentException | DateTimeException exception) {
             throw SourceHistoryCursor.invalid();
         }
     }

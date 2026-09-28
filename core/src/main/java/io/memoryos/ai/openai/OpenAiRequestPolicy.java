@@ -1,5 +1,6 @@
 package io.memoryos.ai.openai;
 
+import io.memoryos.ai.TurnFailure;
 import io.memoryos.ai.ModelSampling;
 import io.memoryos.ai.AiException;
 import io.memoryos.ai.ModelSettings;
@@ -26,7 +27,7 @@ final class OpenAiRequestPolicy {
                 prompt -> hostedCount(prompt, tokens),
                 prompt -> {
                     if (!(prompt.getOptions() instanceof OpenAiChatOptions options))
-                        throw new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS");
+                        throw TurnFailure.UNSUPPORTED_OPTIONS.exception();
                     for (var message : prompt.getInstructions()) checkMessage(message, capabilities.toolCalling(), capabilities.vision());
                     boolean completionTokens = Boolean.TRUE.equals(settings.options().get("maxCompletionTokens"));
                     Integer requested = completionTokens ? options.getMaxCompletionTokens() : options.getMaxTokens();
@@ -67,7 +68,7 @@ final class OpenAiRequestPolicy {
 
     static Prompt withoutTools(Prompt prompt) {
         if (!(prompt.getOptions() instanceof OpenAiChatOptions options))
-            throw new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS");
+            throw TurnFailure.UNSUPPORTED_OPTIONS.exception();
         return new Prompt(prompt.getInstructions(), options.mutate().toolCallbacks(List.of()).toolContext(null)
                 .toolChoice(null).parallelToolCalls(null).strict(null).build());
     }
@@ -75,7 +76,7 @@ final class OpenAiRequestPolicy {
     /** Onyx sets {@code tool_choice=REQUIRED} on research cycles; a request without tools is left unchanged. */
     static Prompt requireTools(Prompt prompt) {
         if (!(prompt.getOptions() instanceof OpenAiChatOptions options))
-            throw new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS");
+            throw TurnFailure.UNSUPPORTED_OPTIONS.exception();
         if (options.getToolCallbacks() == null || options.getToolCallbacks().isEmpty()) return prompt;
         return new Prompt(prompt.getInstructions(), options.mutate().toolChoice("required").build());
     }

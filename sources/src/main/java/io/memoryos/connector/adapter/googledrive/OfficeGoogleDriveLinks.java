@@ -5,18 +5,22 @@ import static io.memoryos.connector.adapter.googledrive.OfflineGoogleDriveLinkRe
 
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.document.StructuredContent;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.commons.compress.utils.SeekableInMemoryByteChannel;
@@ -27,13 +31,14 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 import org.xml.sax.helpers.DefaultHandler;
 
 /** Reads package XML and relation strings only; no Office objects can dereference external relations. */
 final class OfficeGoogleDriveLinks {
     private final ZipFile zip;
     private final OfflineGoogleDriveLinkReader.Links links;
-    private static final java.util.regex.Pattern CELL = java.util.regex.Pattern.compile("[A-Z]{1,3}[1-9][0-9]{0,6}");
+    private static final Pattern CELL = Pattern.compile("[A-Z]{1,3}[1-9][0-9]{0,6}");
 
     private OfficeGoogleDriveLinks(ZipFile zip, OfflineGoogleDriveLinkReader.Links links) {
         this.zip = zip;
@@ -214,7 +219,7 @@ final class OfficeGoogleDriveLinks {
     private String internal(String part, Relation relation) {
         if (relation == null || relation.external) throw failure(MALFORMED);
         try {
-            var target = java.net.URI.create("/" + part).resolve(relation.target).normalize();
+            var target = URI.create("/" + part).resolve(relation.target).normalize();
             String path = target.getPath();
             if (target.isAbsolute() || target.getAuthority() != null || target.getQuery() != null
                     || target.getFragment() != null || path == null || !path.startsWith("/") || path.contains("/../")) throw failure(MALFORMED);
@@ -239,11 +244,11 @@ final class OfficeGoogleDriveLinks {
             factory.setExpandEntityReferences(false);
             var builder = factory.newDocumentBuilder();
             builder.setErrorHandler(new DefaultHandler() {
-                @Override public void error(org.xml.sax.SAXParseException exception) throws SAXException { throw exception; }
-                @Override public void fatalError(org.xml.sax.SAXParseException exception) throws SAXException { throw exception; }
+                @Override public void error(SAXParseException exception) throws SAXException { throw exception; }
+                @Override public void fatalError(SAXParseException exception) throws SAXException { throw exception; }
             });
             return builder.parse(input);
-        } catch (javax.xml.parsers.ParserConfigurationException | SAXException exception) { throw failure(MALFORMED); }
+        } catch (ParserConfigurationException | SAXException exception) { throw failure(MALFORMED); }
     }
 
     private static List<Element> elements(Node node, String name) {
@@ -307,7 +312,7 @@ final class OfficeGoogleDriveLinks {
                         || admission.expanded > entry.getCompressedSize() * 100)) throw failure(LIMIT_EXCEEDED);
             }
             if (!names.contains("[Content_Types].xml")) throw failure(MALFORMED);
-        } catch (javax.xml.parsers.ParserConfigurationException | SAXException exception) {
+        } catch (ParserConfigurationException | SAXException exception) {
             for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
                 if (cause instanceof GoogleDriveProviderException provider) throw provider;
             }
@@ -329,7 +334,7 @@ final class OfficeGoogleDriveLinks {
         Admission(OfflineGoogleDriveLinkReader.Links links) { this.links = links; }
 
         InputStream wrap(InputStream input) {
-            return new java.io.FilterInputStream(input) {
+            return new FilterInputStream(input) {
                 @Override public int read() throws IOException {
                     int value = in.read();
                     count(value < 0 ? 0 : 1);
@@ -361,7 +366,7 @@ final class OfficeGoogleDriveLinks {
         @Override public void characters(char[] chars, int start, int length) throws SAXException {
             if ((text += length) > NativeSnapshot.MAX_RAW_TEXT) throw new SAXException(failure(LIMIT_EXCEEDED));
         }
-        @Override public void error(org.xml.sax.SAXParseException exception) throws SAXException { throw exception; }
-        @Override public void fatalError(org.xml.sax.SAXParseException exception) throws SAXException { throw exception; }
+        @Override public void error(SAXParseException exception) throws SAXException { throw exception; }
+        @Override public void fatalError(SAXParseException exception) throws SAXException { throw exception; }
     }
 }

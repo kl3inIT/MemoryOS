@@ -1,6 +1,5 @@
 package io.memoryos.mcp;
 
-import io.memoryos.shared.ActorId;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -17,8 +16,10 @@ import org.jspecify.annotations.Nullable;
  * {@link #call}. Sessions are opened lazily on the first call and closed together when the turn ends.
  */
 public final class McpTurnTools implements AutoCloseable {
-    /** A tool offered to the model for this turn. */
-    /** {@code slug} is the bounded metric label; {@code serverName} is administrator text for people to read. */
+    /**
+     * A tool offered to the model for this turn. {@code slug} is the bounded metric label; {@code serverName} is
+     * administrator text for people to read.
+     */
     public record Binding(UUID serverId, String slug, String serverName, String toolName, String modelName,
                           String description, String inputSchema, boolean readOnly) {}
 

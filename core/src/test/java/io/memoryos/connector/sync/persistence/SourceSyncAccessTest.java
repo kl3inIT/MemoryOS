@@ -15,6 +15,7 @@ import io.memoryos.connector.GoogleDriveProvider.Permission;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.source.DefaultSourceDocumentAccessResolver;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
+import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
@@ -126,7 +128,7 @@ class SourceSyncAccessTest {
             for (var reader : readers) {
                 boolean filtered = indexed.everyone() || indexed.tokens().stream()
                         .anyMatch(repository.actorAccessTokens(tenant, reader)::contains);
-                assertEquals(filtered, access.canRead(reader, new io.memoryos.document.DocumentId(entry.getValue().document())),
+                assertEquals(filtered, access.canRead(reader, new DocumentId(entry.getValue().document())),
                         "index and recheck agree for " + entry.getKey() + " and " + name(reader));
             }
         }
@@ -154,7 +156,7 @@ class SourceSyncAccessTest {
     @Test
     void lastSuccessfulGrantsHoldWhileTheFileStaysInTheSourceAndModesSwitchEnforcement() {
         var document = document("kept", List.of(user("owner@example.test", null, null)));
-        var id = new io.memoryos.document.DocumentId(document);
+        var id = new DocumentId(document);
         failedAttempt("kept");
         jdbc.sql("UPDATE google_drive_sources SET revision=revision+1,generation=generation+1 WHERE source_id=:source")
                 .param("source", drive).update();
@@ -187,8 +189,8 @@ class SourceSyncAccessTest {
 
     @Test
     void googleGroupGrantsAdmitMembersOfTheActiveGenerationOfAnActiveServiceAccount() {
-        var team = new io.memoryos.document.DocumentId(document("team", List.of(group("team@example.test"))));
-        var everyone = new io.memoryos.document.DocumentId(document("all", List.of(group("all@example.test"))));
+        var team = new DocumentId(document("team", List.of(group("team@example.test"))));
+        var everyone = new DocumentId(document("all", List.of(group("all@example.test"))));
         assertEquals(Set.of(), readersOf(team), "No membership has been read yet");
 
         UUID credential = serviceAccount("admin@example.test");
@@ -229,7 +231,7 @@ class SourceSyncAccessTest {
                 VALUES(:tenant,:credential,:generation,:status,TRUE,CASE WHEN :status='RUNNING' THEN NULL ELSE CURRENT_TIMESTAMP END)
                 """).param("tenant", tenant.value()).param("credential", credential).param("generation", generation)
                 .param("status", status).update();
-        var groups = new java.util.TreeSet<>(members.keySet());
+        var groups = new TreeSet<>(members.keySet());
         groups.addAll(wholeDomain);
         for (String group : groups) {
             jdbc.sql("""
@@ -252,7 +254,7 @@ class SourceSyncAccessTest {
                 .param("generation", generation).param("id", credential).update();
     }
 
-    private Set<ActorId> readersOf(io.memoryos.document.DocumentId document) {
+    private Set<ActorId> readersOf(DocumentId document) {
         return readers.stream().filter(reader -> access.canRead(reader, document)).collect(Collectors.toSet());
     }
 

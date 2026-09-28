@@ -25,14 +25,18 @@ import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import io.memoryos.shared.TenantId;
 
 import java.net.URI;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -230,7 +234,7 @@ class ObjectUploadLifecycleIntegrationTest {
 
             assertEquals(1, uploads.cleanupAbandoned());
             storage.releaseInspection();
-            var failure = assertThrows(java.util.concurrent.ExecutionException.class, verification::get);
+            var failure = assertThrows(ExecutionException.class, verification::get);
             var conflict = assertInstanceOf(ObjectUploadException.class, failure.getCause());
             assertEquals("OBJECT_UPLOAD_CONFLICT", conflict.code());
         }
@@ -284,9 +288,9 @@ class ObjectUploadLifecycleIntegrationTest {
         public void write(ObjectKey key, byte[] content, String mediaType) {
             lastKey = key;
             try {
-                objects.put(key, new ObjectMetadata(content.length, mediaType, new ContentSha256(java.util.HexFormat.of()
-                        .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(content)))));
-            } catch (java.security.NoSuchAlgorithmException impossible) {
+                objects.put(key, new ObjectMetadata(content.length, mediaType, new ContentSha256(HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(content)))));
+            } catch (NoSuchAlgorithmException impossible) {
                 throw new IllegalStateException(impossible);
             }
         }

@@ -46,7 +46,7 @@ public class DefaultSharePointSelectionProcessor extends SelectionBatchProcessor
         var intent = selections.intent(work);
         try {
             transactions.executeWithoutResult(_ -> sources.requireIntent(work, intent));
-            String tenantHost = null;
+            String tenantHost;
             try (var connection = connections.openCredential(work.tenantId(),
                     new CredentialId(Objects.requireNonNull(intent.credentialId())))) {
                 if (connection.credentialRevision() != intent.credentialRevision()) throw staleCredential();

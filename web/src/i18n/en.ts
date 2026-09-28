@@ -1,6 +1,6 @@
-import { appEn } from "./app-translations";
+import { vietnameseUi } from "./app-translations.en";
 export const en = {
-  app: appEn,
+  app: vietnameseUi,
   renderers: {
     artifact: "Presentation",
     openArtifact: "Open presentation: {{title}}",

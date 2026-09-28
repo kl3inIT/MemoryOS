@@ -11,6 +11,7 @@ import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceItemPage;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceOperationPage;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceStatus;
@@ -18,6 +19,8 @@ import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.SourceUploadReceipt;
 import io.memoryos.connector.googledrive.GoogleDriveConnectionService;
+import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
+import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
@@ -26,6 +29,7 @@ import io.memoryos.connector.source.persistence.JdbcSourceOperationQueryReposito
 import io.memoryos.connector.source.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceUploadRepository;
+import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.Authority;
 import io.memoryos.iam.GroupId;
@@ -48,6 +52,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import java.util.function.UnaryOperator;
 import org.jspecify.annotations.Nullable;
 
 import org.springframework.stereotype.Service;
@@ -72,11 +77,11 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final GroupScopeService groupScopes;
     private final SourceAccessPolicy sourceAccess;
     private final TransactionTemplate transactions;
-    private final io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository sync;
-    private final io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository googleSync;
-    private final io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository selections;
+    private final JdbcSourceSyncRepository sync;
+    private final JdbcGoogleDriveSyncRepository googleSync;
+    private final JdbcGoogleDriveSelectionRepository selections;
     private final AuditTrail audit;
-    private final io.memoryos.connector.googledrive.GoogleDriveConnectionService connections;
+    private final GoogleDriveConnectionService connections;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
@@ -91,10 +96,10 @@ public class DefaultSourceManagementService implements SourceManagementService {
             IamAuthorization authorization,
             GroupScopeService groupScopes,
             PlatformTransactionManager transactionManager,
-            io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository sync,
-            io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository googleSync,
-            io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository selections,
-            io.memoryos.connector.googledrive.GoogleDriveConnectionService connections,
+            JdbcSourceSyncRepository sync,
+            JdbcGoogleDriveSyncRepository googleSync,
+            JdbcGoogleDriveSelectionRepository selections,
+            GoogleDriveConnectionService connections,
             SourceAccessPolicy sourceAccess
     ,
             AuditTrail audit) {
@@ -377,7 +382,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional(readOnly = true)
-    public io.memoryos.connector.SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @Nullable String cursor, int limit) {
+    public SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @Nullable String cursor, int limit) {
         ActorId requiredActorId = requireActorId(actorId);
         SourceId requiredSourceId = requireSourceId(sourceId);
         SourceReadAuthority permissions = readPermissions(requiredActorId);
@@ -572,7 +577,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         if (pair.status() == SourceStatus.PAUSED) {
             sources.clearPaused(access.tenantId(), requiredSourceId);
             attempts.requeuePaused(access.tenantId(), pair);
-            if (getSource(requiredActorId, requiredSourceId).type() == io.memoryos.connector.SourceType.GOOGLE_DRIVE) {
+            if (getSource(requiredActorId, requiredSourceId).type() == SourceType.GOOGLE_DRIVE) {
                 try {
                     var state = connections.state(access.tenantId(), requiredSourceId);
                     if (connections.current(access.tenantId(), requiredSourceId, state.credentialRevision())) {
@@ -730,7 +735,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         IamAccess access = sourceAccess.manage(actorId, sourceId);
         boolean global = access.authority() == Authority.GLOBAL;
         var source = queries.summary(access.tenantId(), actorId, sourceId, global, global, false);
-        if (source.type() != io.memoryos.connector.SourceType.FILE)
+        if (source.type() != SourceType.FILE)
             throw SourceException.conflict("browser uploads require a FILE source");
         if (source.status() == SourceStatus.PAUSED || source.status() == SourceStatus.PAUSING)
             throw SourceException.conflict("source is paused");
@@ -826,7 +831,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
 
     private void record(TenantId tenant, ActorId actor, AuditAction action, SourceId sourceId,
-                        java.util.function.UnaryOperator<AuditRecord.Builder> details) {
+                        UnaryOperator<AuditRecord.Builder> details) {
         String name = sources.auditView(tenant, sourceId).map(JdbcSourceRepository.AuditView::name).orElse(null);
         audit.record(details.apply(AuditRecord.of(action, tenant).actor(actor)
                 .resource("SOURCE", sourceId.value(), name)).build());

@@ -103,7 +103,7 @@ class DefaultIdentityProviderAdministrationTest {
                 new StubDiscovery(),
                 allowlist,
                 jpa.transactionManager()
-        , io.memoryos.TestDatabase.noAudit());
+        , TestDatabase.noAudit());
     }
 
     @AfterEach

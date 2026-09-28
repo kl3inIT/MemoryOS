@@ -61,8 +61,8 @@ class RestSharePointProviderTest {
 
     @Test
     void throttledAndUnavailableResponsesCarryTheWaitMicrosoftAskedFor() throws Exception {
-        Map<Integer, java.time.Duration> expected = Map.of(429, java.time.Duration.ofSeconds(120),
-                503, java.time.Duration.ofSeconds(7));
+        Map<Integer, Duration> expected = Map.of(429, Duration.ofSeconds(120),
+                503, Duration.ofSeconds(7));
         for (var entry : expected.entrySet()) {
             try (var fixture = new Fixture(exchange -> {
                 exchange.getResponseHeaders().add("Retry-After", Long.toString(entry.getValue().toSeconds()));

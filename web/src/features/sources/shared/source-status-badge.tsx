@@ -5,9 +5,9 @@ import {
   defaultStatusPresentation,
   sourceAccessPresentation,
   sourceStatusPresentation,
-  statusPill,
 } from "./source-status-presentation";
 import { SourceHint } from "./source-hint";
+import { Spinner } from "@/components/ui/spinner";
 
 export function SourceStatusBadge({ status }: { status?: string }) {
   const ui = useAppTranslation();
@@ -17,11 +17,12 @@ export function SourceStatusBadge({ status }: { status?: string }) {
   const StatusIcon = presentation.icon;
 
   return (
-    <StatusBadge tone={presentation.tone} className={statusPill(presentation.tone)}>
-      <StatusIcon
-        className={`size-3 ${status === "INDEXING" ? "animate-spin motion-reduce:animate-none" : ""}`}
-        aria-hidden="true"
-      />
+    <StatusBadge tone={presentation.tone} variant="pill">
+      {status === "INDEXING" ? (
+        <Spinner aria-hidden="true" className="size-3" />
+      ) : (
+        <StatusIcon aria-hidden="true" />
+      )}
       {ui(presentation.label)}
     </StatusBadge>
   );
@@ -35,8 +36,8 @@ export function SourceAccessBadge({ access }: { access: SourceSummary["access"] 
   return (
     <SourceHint hint={ui(presentation.title)}>
       <span className="inline-flex">
-        <StatusBadge tone={presentation.tone} className={statusPill(presentation.tone)}>
-          <AccessIcon className="size-3 shrink-0" aria-hidden="true" />
+        <StatusBadge tone={presentation.tone} variant="pill">
+          <AccessIcon aria-hidden="true" />
           {ui(presentation.label)}
         </StatusBadge>
       </span>

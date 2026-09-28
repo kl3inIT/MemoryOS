@@ -1,5 +1,6 @@
 package io.memoryos.api.users;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.users.contract.UserPageResponse;
 import io.memoryos.api.users.contract.ReplaceUserGroupsRequest;
 import io.memoryos.shared.ActorId;
@@ -30,7 +31,6 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,8 +44,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/users")
 @Tag(name = "Users")
 final class UsersController {
-
-    private static final String API_PROBLEM_SCHEMA = "#/components/schemas/ApiProblem";
 
     private final UserQueryService users;
     private final TenantMemberManagement memberManagement;
@@ -79,24 +77,16 @@ final class UsersController {
     )
     @ApiResponse(
             responseCode = "400",
-            description = "Invalid user directory query",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "Invalid user directory query"
     )
     @ApiResponse(responseCode = "401", description = "No accepted authentication is present", content = @Content)
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks USERS_MANAGE authority",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The actor lacks USERS_MANAGE authority"
     )
     @GetMapping
     UserPageResponse listUsers(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Size(max = UserQuery.MAX_SEARCH_LENGTH)
             @RequestParam(required = false) String search,
             @RequestParam(required = false) UserStatus status,
@@ -146,24 +136,16 @@ final class UsersController {
     @ApiResponse(
             responseCode = "403",
             description = "The actor lacks USERS_MANAGE authority, the target is protected, "
-                    + "or the same-origin header is missing",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+                    + "or the same-origin header is missing"
     )
     @ApiResponse(
             responseCode = "404",
-            description = "The member does not exist in the current Tenant",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The member does not exist in the current Tenant"
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{actorId}/activate")
     void activateUser(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID actorId
     ) {
         memberManagement.activate(identityContext.actorId(), new ActorId(actorId));
@@ -182,24 +164,16 @@ final class UsersController {
     @ApiResponse(
             responseCode = "403",
             description = "The actor lacks USERS_MANAGE authority, the target is protected, "
-                    + "or the same-origin header is missing",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+                    + "or the same-origin header is missing"
     )
     @ApiResponse(
             responseCode = "404",
-            description = "The member does not exist in the current Tenant",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The member does not exist in the current Tenant"
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{actorId}/deactivate")
     void deactivateUser(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID actorId
     ) {
         memberManagement.deactivate(identityContext.actorId(), new ActorId(actorId));
@@ -217,24 +191,16 @@ final class UsersController {
     @ApiResponse(responseCode = "401", description = "No accepted authentication is present", content = @Content)
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks SYSTEM_ADMIN authority or the same-origin header is missing",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The actor lacks SYSTEM_ADMIN authority or the same-origin header is missing"
     )
     @ApiResponse(
             responseCode = "404",
-            description = "The user or a requested Group does not exist in the current Tenant",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The user or a requested Group does not exist in the current Tenant"
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{actorId}/groups")
     void replaceUserGroups(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID actorId,
             @Valid @RequestBody ReplaceUserGroupsRequest request
     ) {

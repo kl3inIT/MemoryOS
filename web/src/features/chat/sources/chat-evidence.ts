@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Root, RootContent } from "mdast";
-import { documentSourceTypesSchema } from "@/features/search/document-source-presentation";
+import { documentSourceTypesSchema } from "@/features/documents/document-source-presentation";
 
 // Presentation-only metadata recorded when the evidence was cited; older answers omit both.
 const mediaTypeSchema = z.string().min(1).max(160).nullish();

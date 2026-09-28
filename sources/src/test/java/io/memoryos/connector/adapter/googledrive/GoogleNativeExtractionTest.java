@@ -8,6 +8,7 @@ import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.memoryos.document.application.StructuredDocumentChunker;
 import java.io.ByteArrayInputStream;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,7 @@ class GoogleNativeExtractionTest {
         assertEquals(mapper.readTree("[{\"sheetIndex\":1}]"), canonical.path("blocks").get(1).path("locations"));
         assertEquals(1, canonical.path("blocks").get(1).path("table").path("rowCount").asInt());
         assertEquals("Revenue\nA1: 0\nB1: false\nB2: 42.00\nNotes", result.normalizedText());
-        var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());
+        var chunks = new StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());
         assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().contains("[B2] 42.00")));
         assertTrue(chunks.stream().noneMatch(chunk -> chunk.content().contains("IMPORTXML")));
     }
@@ -83,7 +84,7 @@ class GoogleNativeExtractionTest {
         assertEquals("footnotes/note1", blocks.get(3).path("locations").get(0).path("section").asString());
         assertEquals("child", blocks.get(4).path("locations").get(0).path("tabId").asString());
         assertEquals("Heading\nEntry\nLeft\nRight\nFootnote\nNested", result.normalizedText());
-        var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());
+        var chunks = new StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());
         assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().contains("[B1] Right")));
         assertTrue(chunks.stream().filter(chunk -> chunk.content().contains("[B1] Right"))
                 .allMatch(chunk -> chunk.provenanceJson().contains("first")));

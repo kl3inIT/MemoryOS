@@ -1,13 +1,12 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { GitBranch } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { branchChatSession } from "@/lib/hey-api/sdk.gen";
+import { branchChatSessionMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { actionErrorText } from "@/lib/action-errors";
-import { chatSessionsKey } from "@/features/chat/chat-api";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 /**
  * "Branch into a new chat" on one message, after Gemini's answer menu: the conversation so far is copied into a
@@ -26,10 +25,15 @@ export function ChatBranchAction({
   disabled?: boolean;
 }) {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const branch = useMutation({
+    ...branchChatSessionMutation(),
+    onSuccess: async (created) => {
+      await refreshSessions();
+      await navigate({ to: "/chat/$sessionId", params: { sessionId: created.id } });
+    },
+  });
   return (
     <>
       <IconButton
@@ -37,31 +41,23 @@ export function ChatBranchAction({
         prominence="internal"
         aria-label={ui("Tách sang hội thoại mới")}
         title={ui("Tách sang hội thoại mới")}
-        pending={busy}
-        disabled={disabled || busy}
-        onClick={() => {
-          setBusy(true);
-          setError(undefined);
-          void branchChatSession({
+        pending={branch.isPending}
+        disabled={disabled || branch.isPending}
+        onClick={() =>
+          branch.mutate({
             path: { sessionId, messageId },
             body: originTitle
               ? { title: ui("Nhánh của {{title}}", { title: originTitle }).slice(0, 200) }
               : {},
             signal: AbortSignal.timeout(120_000),
           })
-            .then(async ({ data }) => {
-              await cache.invalidateQueries({ queryKey: chatSessionsKey });
-              await navigate({ to: "/chat/$sessionId", params: { sessionId: data.id } });
-            })
-            .catch((cause: unknown) => setError(actionErrorText(cause)))
-            .finally(() => setBusy(false));
-        }}
+        }
       >
         <GitBranch />
       </IconButton>
-      {error && (
+      {branch.isError && (
         <p role="alert" className="text-xs text-status-danger-content">
-          {ui(error)}
+          {ui(actionErrorText(branch.error))}
         </p>
       )}
     </>

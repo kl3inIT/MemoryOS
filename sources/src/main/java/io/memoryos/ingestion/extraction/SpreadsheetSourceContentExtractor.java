@@ -11,9 +11,13 @@ import io.memoryos.document.ExtractionFailure;
 import io.memoryos.document.StructuredContent;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import java.io.ByteArrayInputStream;
+import java.io.FilterInputStream;
+import java.io.FilterReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PushbackReader;
+import java.io.Reader;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,6 +29,9 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParserFactory;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.commons.compress.utils.SeekableInMemoryByteChannel;
 import org.apache.commons.csv.CSVFormat;
@@ -38,6 +45,11 @@ import org.apache.poi.ss.usermodel.FormulaError;
 import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.jspecify.annotations.NonNull;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.helpers.DefaultHandler;
 import tools.jackson.databind.ObjectMapper;
 
 public final class SpreadsheetSourceContentExtractor {
@@ -89,7 +101,7 @@ public final class SpreadsheetSourceContentExtractor {
         } catch (IOException exception) { throw StructuredContent.failure(ExtractionFailure.MALFORMED); }
     }
 
-    private DocumentContent delimited(java.io.Reader input, String filename, StructuredContent output, String mediaType) throws ExtractionException {
+    private DocumentContent delimited(Reader input, String filename, StructuredContent output, String mediaType) throws ExtractionException {
         int index = output.nextIndex();
         var cells = new ArrayList<Cell>();
         int rows = 0;
@@ -202,15 +214,15 @@ public final class SpreadsheetSourceContentExtractor {
         boolean workbook = false;
         XmlAdmission admission = new XmlAdmission(output, maxExpandedBytes);
         try {
-            var factory = javax.xml.parsers.SAXParserFactory.newInstance();
+            var factory = SAXParserFactory.newInstance();
             factory.setNamespaceAware(true);
-            factory.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
             factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
             var parser = factory.newSAXParser();
-            parser.setProperty(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "");
-            parser.setProperty(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            parser.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            parser.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
             byte[] buffer = new byte[16_384];
             CRC32 checksum = new CRC32();
             var members = zip.getEntries();
@@ -237,7 +249,7 @@ public final class SpreadsheetSourceContentExtractor {
                         || admission.expanded > entry.getCompressedSize() * 100)) limit();
             }
             if (!contentTypes || !workbook) throw StructuredContent.failure(ExtractionFailure.MALFORMED);
-        } catch (IOException | org.xml.sax.SAXException | javax.xml.parsers.ParserConfigurationException exception) {
+        } catch (IOException | SAXException | ParserConfigurationException exception) {
             for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
                 if (cause instanceof ExtractionException extraction) throw extraction;
             }
@@ -245,7 +257,7 @@ public final class SpreadsheetSourceContentExtractor {
         }
     }
 
-    private static final class XmlAdmission extends org.xml.sax.helpers.DefaultHandler {
+    private static final class XmlAdmission extends DefaultHandler {
         private final StructuredContent output;
         private final long maxExpandedBytes;
         private long total;
@@ -260,13 +272,13 @@ public final class SpreadsheetSourceContentExtractor {
         XmlAdmission(StructuredContent output, long maxExpandedBytes) { this.output = output; this.maxExpandedBytes = maxExpandedBytes; }
 
         InputStream wrap(InputStream input) {
-            return new java.io.FilterInputStream(input) {
+            return new FilterInputStream(input) {
                 @Override public int read() throws IOException {
                     int value = in.read();
                     count(value < 0 ? 0 : 1);
                     return value;
                 }
-                @Override public int read(byte @org.jspecify.annotations.NonNull [] buffer, int offset, int length) throws IOException {
+                @Override public int read(byte @NonNull [] buffer, int offset, int length) throws IOException {
                     int value = in.read(buffer, offset, length);
                     count(Math.max(0, value));
                     return value;
@@ -284,35 +296,35 @@ public final class SpreadsheetSourceContentExtractor {
             } catch (ExtractionException exception) { throw new IOException(exception); }
         }
 
-        @Override public void startElement(String uri, String local, String name, org.xml.sax.Attributes attributes)
-                throws org.xml.sax.SAXException {
+        @Override public void startElement(String uri, String local, String name, Attributes attributes)
+                throws SAXException {
             if (++nodes > 2_000_000 || ++depth > 100
                     || "c".equals(local) && ++cells > StructuredContent.MAX_CELLS
                     || "si".equals(local) && ++strings > StructuredContent.MAX_CELLS
                     || "row".equals(local) && ++rows > StructuredContent.MAX_CELLS) {
-                throw new org.xml.sax.SAXException(StructuredContent.failure(ExtractionFailure.WRITE_LIMIT));
+                throw new SAXException(StructuredContent.failure(ExtractionFailure.WRITE_LIMIT));
             }
         }
 
         @Override public void endElement(String uri, String local, String name) { depth--; }
 
-        @Override public void characters(char[] characters, int start, int length) throws org.xml.sax.SAXException {
+        @Override public void characters(char[] characters, int start, int length) throws SAXException {
             if ((text += length) > 8_000_000) {
-                throw new org.xml.sax.SAXException(StructuredContent.failure(ExtractionFailure.WRITE_LIMIT));
+                throw new SAXException(StructuredContent.failure(ExtractionFailure.WRITE_LIMIT));
             }
         }
 
-        @Override public void error(org.xml.sax.SAXParseException exception) throws org.xml.sax.SAXException { throw exception; }
+        @Override public void error(SAXParseException exception) throws SAXException { throw exception; }
     }
 
     /** Stops pathological records before Commons CSV allocates an unbounded field or column list. */
-    private static final class RecordBoundedReader extends java.io.FilterReader {
+    private static final class RecordBoundedReader extends FilterReader {
         private final StructuredContent output;
         private int consumed;
-        RecordBoundedReader(java.io.Reader reader, StructuredContent output) throws IOException {
-            super(new java.io.PushbackReader(reader, 1)); this.output = output;
+        RecordBoundedReader(Reader reader, StructuredContent output) throws IOException {
+            super(new PushbackReader(reader, 1)); this.output = output;
             int first = in.read();
-            if (first >= 0 && first != '\uFEFF') ((java.io.PushbackReader) in).unread(first);
+            if (first >= 0 && first != '\uFEFF') ((PushbackReader) in).unread(first);
         }
         void nextRecord() { consumed = 0; }
         private void check(int count) throws IOException {
@@ -323,7 +335,7 @@ public final class SpreadsheetSourceContentExtractor {
             } catch (ExtractionException failure) { throw new IOException(failure); }
         }
         @Override public int read() throws IOException { int value = super.read(); check(value < 0 ? 0 : 1); return value; }
-        @Override public int read(char @org.jspecify.annotations.NonNull [] buffer, int offset, int length) throws IOException {
+        @Override public int read(char @NonNull [] buffer, int offset, int length) throws IOException {
             int read = super.read(buffer, offset, Math.min(length, 8192)); check(read); return read;
         }
     }

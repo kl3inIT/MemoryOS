@@ -2,6 +2,8 @@ package io.memoryos.chat;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
@@ -65,10 +67,10 @@ public final class ChatEvidence {
      * published under the agent call. Returns each merged agent citation number with its turn citation number; a
      * source beyond the storage bound is left out.
      */
-    public java.util.Map<Integer, Integer> merge(ChatEvidence agent, java.util.Set<Integer> cited, ChatToolEvent.Call call) {
+    public Map<Integer, Integer> merge(ChatEvidence agent, Set<Integer> cited, ChatToolEvent.Call call) {
         LinkedHashMap<String, ChatSource> entries;
         synchronized (agent) { entries = new LinkedHashMap<>(agent.sources); }
-        var mapping = new java.util.LinkedHashMap<Integer, Integer>();
+        var mapping = new LinkedHashMap<Integer, Integer>();
         synchronized (this) {
             for (var entry : entries.entrySet()) {
                 var source = entry.getValue();

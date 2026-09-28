@@ -1,5 +1,6 @@
 package io.memoryos.api.source;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.source.contract.AssignSourceManagerRequest;
 import io.memoryos.api.source.contract.CreateFileSourceRequest;
 import io.memoryos.api.source.contract.RenameSourceRequest;
@@ -19,7 +20,6 @@ import io.memoryos.iam.IdentityContext;
 import io.memoryos.objectstorage.ObjectUploadId;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,9 +28,9 @@ import jakarta.validation.constraints.Min;
 import java.util.List;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -60,7 +60,7 @@ final class SourceController {
     @PostMapping(value = "/file", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     SourceSummaryResponse createFileSource(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Valid @RequestBody CreateFileSourceRequest request
     ) {
         return SourceSummaryResponse.from(sources.createFileSource(
@@ -74,7 +74,7 @@ final class SourceController {
     @Operation(operationId = "renameSource", summary = "Rename one source")
     @PostMapping(value = "/{sourceId}/rename", consumes = MediaType.APPLICATION_JSON_VALUE)
     SourceSummaryResponse renameSource(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
             @Valid @RequestBody RenameSourceRequest request
     ) {
@@ -84,7 +84,7 @@ final class SourceController {
     @Operation(operationId = "updateSourceAccess", summary = "Update Source access; SYNC requires a Google Drive source")
     @PostMapping(value = "/{sourceId}/access", consumes = MediaType.APPLICATION_JSON_VALUE)
     SourceSummaryResponse updateSourceAccess(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
             @Valid @RequestBody UpdateSourceAccessRequest request
     ) {
@@ -99,7 +99,7 @@ final class SourceController {
     )
     @PostMapping(value = "/{sourceId}/manager", consumes = MediaType.APPLICATION_JSON_VALUE)
     SourceSummaryResponse assignSourceManager(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
             @Valid @RequestBody AssignSourceManagerRequest request
     ) {
@@ -113,7 +113,7 @@ final class SourceController {
     @Operation(operationId = "listSources", summary = "List Tenant sources")
     @GetMapping
     List<SourceSummaryResponse> listSources(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext
+            @CurrentActor IdentityContext identityContext
     ) {
         return sources.listSources(identityContext.actorId()).stream()
                 .map(SourceSummaryResponse::from)
@@ -123,7 +123,7 @@ final class SourceController {
     @Operation(operationId = "getSource", summary = "Get one source summary")
     @GetMapping("/{sourceId}")
     SourceSummaryResponse getSource(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId
     ) {
         return SourceSummaryResponse.from(sources.getSource(identityContext.actorId(), new SourceId(sourceId)));
@@ -132,9 +132,9 @@ final class SourceController {
     @Operation(operationId = "listSourceItems", summary = "List a page of current source items")
     @GetMapping("/{sourceId}/items")
     SourceItemPageResponse listItems(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
-            @RequestParam(required = false) @org.jspecify.annotations.Nullable String cursor,
+            @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size
     ) {
         return SourceItemPageResponse.from(sources.listItems(
@@ -144,9 +144,9 @@ final class SourceController {
     @Operation(operationId = "listSourceIndexAttempts", summary = "List source indexing attempts")
     @GetMapping("/{sourceId}/index-attempts")
     SourceOperationPageResponse listIndexAttempts(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
-            @RequestParam(required = false) @org.jspecify.annotations.Nullable String cursor,
+            @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size
     ) {
         return SourceOperationPageResponse.from(sources.listIndexAttempts(identityContext.actorId(), new SourceId(sourceId), cursor, size));
@@ -156,7 +156,7 @@ final class SourceController {
     @PostMapping(value = "/{sourceId}/uploads", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     SourceUploadAuthorizationResponse initiateUpload(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
             @Valid @RequestBody InitiateSourceUploadRequest request
     ) {
@@ -171,7 +171,7 @@ final class SourceController {
     @PostMapping("/{sourceId}/uploads/{uploadId}/finalize")
     @ResponseStatus(HttpStatus.ACCEPTED)
     SourceUploadReceiptResponse finalizeUpload(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
             @PathVariable UUID uploadId
     ) {
@@ -186,7 +186,7 @@ final class SourceController {
     @PostMapping("/{sourceId}/items/{itemId}/index-attempts")
     @ResponseStatus(HttpStatus.ACCEPTED)
     SourceOperationResponse reindex(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
             @PathVariable UUID itemId
     ) {
@@ -201,7 +201,7 @@ final class SourceController {
     @PostMapping("/{sourceId}/pause")
     @ResponseStatus(HttpStatus.OK)
     SourceSummaryResponse pauseSource(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId
     ) {
         return SourceSummaryResponse.from(sources.pauseSource(identityContext.actorId(), new SourceId(sourceId)));
@@ -211,7 +211,7 @@ final class SourceController {
     @PostMapping("/{sourceId}/resume")
     @ResponseStatus(HttpStatus.OK)
     SourceSummaryResponse resumeSource(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId
     ) {
         return SourceSummaryResponse.from(sources.resumeSource(identityContext.actorId(), new SourceId(sourceId)));
@@ -221,7 +221,7 @@ final class SourceController {
     @PostMapping("/{sourceId}/items/{itemId}/remove")
     @ResponseStatus(HttpStatus.ACCEPTED)
     SourceOperationResponse removeItem(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
             @PathVariable UUID itemId
     ) {
@@ -236,7 +236,7 @@ final class SourceController {
     @PostMapping("/{sourceId}/delete")
     @ResponseStatus(HttpStatus.ACCEPTED)
     SourceOperationResponse deleteSource(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId
     ) {
         return SourceOperationResponse.from(sources.deleteSource(identityContext.actorId(), new SourceId(sourceId)));

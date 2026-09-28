@@ -5,6 +5,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
@@ -64,7 +65,7 @@ public class LibraryTrashService {
 
     /** Ends the window for everything the owner has in the trash; answers how many files that was. */
     public int empty(ActorId actor) {
-        return java.util.Objects.requireNonNull(tx.execute(ignored -> {
+        return Objects.requireNonNull(tx.execute(ignored -> {
             var tenant = write(actor);
             int purged = 0;
             for (var upload : files.trashed(tenant, actor, EMPTY_LIMIT)) {

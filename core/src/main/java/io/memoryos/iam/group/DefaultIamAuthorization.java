@@ -15,6 +15,7 @@ import io.memoryos.iam.group.persistence.IamLockRepository;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -138,7 +139,7 @@ public class DefaultIamAuthorization implements IamAuthorization {
         throw denied(null, requiredCapability);
     }
 
-    private java.util.Optional<AuthorizationSnapshot> snapshot(ActorId actorId) {
+    private Optional<AuthorizationSnapshot> snapshot(ActorId actorId) {
         return authorityRepository.find(Objects.requireNonNull(actorId, "actorId must not be null"));
     }
 

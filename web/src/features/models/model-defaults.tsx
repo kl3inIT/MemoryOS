@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   getChatModelDefaultOptions,
@@ -120,7 +121,7 @@ function SelectionEditor({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h3 className="font-main-ui-action">{row.title}</h3>
@@ -185,21 +186,35 @@ function SelectionEditor({
         </p>
       )}
       {conflicted && (
-        <div role="alert" className="space-y-2">
-          <p>
-            {ui(
-              "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.",
-            )}
-          </p>
-          <Button prominence="secondary" disabled={busy} onClick={() => void reconcile()}>
-            {ui("Reconcile saved selection")}
-          </Button>
-        </div>
+        <Alert variant="warning" role="alert">
+          <AlertDescription>
+            <div className="flex flex-col items-start gap-2">
+              <p>
+                {ui(
+                  "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.",
+                )}
+              </p>
+              <Button
+                prominence="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => void reconcile()}
+              >
+                {ui("Reconcile saved selection")}
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       )}
-      {actionError && <p role="alert">{ui(actionError)}</p>}
+      {actionError && (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{ui(actionError)}</AlertDescription>
+        </Alert>
+      )}
       {saved && <p role="status">{row.savedMessage}</p>}
       {chosen !== (baseline.modelConfigurationId ?? "") && (
         <Button
+          className="self-start"
           pending={saving.pending}
           disabled={conflicted || !candidateChosen || busy}
           onClick={() => void save()}
@@ -211,6 +226,29 @@ function SelectionEditor({
   );
 }
 
+function LoadFailure({
+  message,
+  retry,
+  onRetry,
+}: {
+  message: string;
+  retry: string;
+  onRetry: () => void;
+}) {
+  return (
+    <Alert variant="destructive" role="alert">
+      <AlertDescription>
+        <div className="flex flex-col items-start gap-2">
+          <p>{message}</p>
+          <Button prominence="secondary" size="sm" onClick={onRetry}>
+            {retry}
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 /** The Tenant Chat default; a per-Persona override belongs with the Persona, not the catalog. */
 export function TenantDefault(catalog: Catalog) {
   const ui = useAppTranslation();
@@ -218,12 +256,11 @@ export function TenantDefault(catalog: Catalog) {
   if (tenant.isPending) return <p role="status">{ui("Loading Tenant default…")}</p>;
   if (tenant.isError)
     return (
-      <div role="alert" className="space-y-2">
-        <p>{ui("Tenant default could not be loaded.")}</p>
-        <Button prominence="secondary" onClick={() => void tenant.refetch()}>
-          {ui("Retry Tenant default")}
-        </Button>
-      </div>
+      <LoadFailure
+        message={ui("Tenant default could not be loaded.")}
+        retry={ui("Retry Tenant default")}
+        onRetry={() => void tenant.refetch()}
+      />
     );
   return (
     <SelectionEditor
@@ -270,12 +307,11 @@ export function TaskModels(catalog: Catalog) {
   if (flows.isPending) return <p role="status">{ui("Loading task models…")}</p>;
   if (flows.isError)
     return (
-      <div role="alert" className="space-y-2">
-        <p>{ui("Task models could not be loaded.")}</p>
-        <Button prominence="secondary" onClick={() => void flows.refetch()}>
-          {ui("Retry task models")}
-        </Button>
-      </div>
+      <LoadFailure
+        message={ui("Task models could not be loaded.")}
+        retry={ui("Retry task models")}
+        onRetry={() => void flows.refetch()}
+      />
     );
   const copy: Record<ModelFlow["flow"], Pick<Row, "title" | "description" | "ariaLabel">> = {
     CHAT_NAMING: {

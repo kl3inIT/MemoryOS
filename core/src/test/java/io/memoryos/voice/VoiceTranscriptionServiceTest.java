@@ -10,15 +10,22 @@ import static org.mockito.Mockito.mock;
 
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.iam.IamAuthorization;
+import io.memoryos.usage.AiUsage;
+import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageRecorder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 class VoiceTranscriptionServiceTest {
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
@@ -56,23 +63,23 @@ class VoiceTranscriptionServiceTest {
     @Test
     void aClosedSessionAddsItsRecordedSecondsToAiUsageOnce() {
         var connections = mock(VoiceConnectionService.class);
-        var recorder = mock(io.memoryos.usage.AiUsageRecorder.class);
-        var factory = new org.springframework.beans.factory.support.StaticListableBeanFactory(java.util.Map.of("usage", recorder));
+        var recorder = mock(AiUsageRecorder.class);
+        var factory = new StaticListableBeanFactory(Map.of("usage", recorder));
         var metered = new VoiceTranscriptionService(connections, mock(IamAuthorization.class), meters,
-                factory.getBeanProvider(io.memoryos.usage.AiUsageRecorder.class));
+                factory.getBeanProvider(AiUsageRecorder.class));
         var actor = new ActorId(UUID.randomUUID());
         var connection = connection();
-        org.mockito.Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(connection, null));
-        org.mockito.Mockito.when(connections.key(connection)).thenReturn("voice-secret");
+        Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(connection, null));
+        Mockito.when(connections.key(connection)).thenReturn("voice-secret");
         var session = metered.open(actor, "vi", ignored -> {});
         session.append(new byte[48_000]);
         session.append(new byte[24_000]);
         session.close();
         session.close();
-        var captured = org.mockito.ArgumentCaptor.forClass(io.memoryos.usage.AiUsage.class);
-        org.mockito.Mockito.verify(recorder).record(captured.capture());
+        var captured = ArgumentCaptor.forClass(AiUsage.class);
+        Mockito.verify(recorder).record(captured.capture());
         assertEquals(1.5, captured.getValue().audioSeconds(), 1e-9);
-        assertEquals(io.memoryos.usage.AiUsageFlow.SPEECH_TO_TEXT, captured.getValue().flow());
+        assertEquals(AiUsageFlow.SPEECH_TO_TEXT, captured.getValue().flow());
         assertEquals("whisper-1", captured.getValue().modelName());
         assertEquals(actor.value(), captured.getValue().actor());
     }

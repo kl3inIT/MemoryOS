@@ -14,6 +14,7 @@ import io.memoryos.retrieval.settings.persistence.JdbcSearchSettingsRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -119,7 +120,7 @@ public class SearchSettingsService {
         var rows = settings.generations(tenant);
         Instant now = clock.instant();
         GenerationView present = null, future = null;
-        var past = new java.util.ArrayList<GenerationView>();
+        var past = new ArrayList<GenerationView>();
         for (var row : rows) {
             var view = new GenerationView(row.generation(), row.providerName(), row.dataBoundary(), row.documentCount(),
                     row.cleanupBlocked());

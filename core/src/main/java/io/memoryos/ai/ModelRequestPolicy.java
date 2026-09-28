@@ -5,11 +5,15 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 import java.util.function.UnaryOperator;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.content.MediaContent;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /** Immutable binding policy shared by admission, history selection and every native request. */
@@ -31,14 +35,14 @@ public record ModelRequestPolicy(TokenCountEstimator tokens, ToIntFunction<Promp
             int count = 0;
             for (var message : prompt.getInstructions()) {
                 count = Math.addExact(count, tokens.estimate(message.getText()) + 32);
-                if (message instanceof org.springframework.ai.content.MediaContent media)
+                if (message instanceof MediaContent media)
                     count = Math.addExact(count, Math.multiplyExact(media.getMedia().size(), IMAGE_INPUT_TOKENS));
-                if (message instanceof org.springframework.ai.chat.messages.ToolResponseMessage tool)
+                if (message instanceof ToolResponseMessage tool)
                     for (var result : tool.getResponses()) count = Math.addExact(count, tokens.estimate(result.responseData()) + 32);
-                if (message instanceof org.springframework.ai.chat.messages.AssistantMessage assistant)
+                if (message instanceof AssistantMessage assistant)
                     for (var call : assistant.getToolCalls()) count = Math.addExact(count, tokens.estimate(call.name()) + tokens.estimate(call.arguments()) + 32);
             }
-            if (prompt.getOptions() instanceof org.springframework.ai.model.tool.ToolCallingChatOptions toolOptions
+            if (prompt.getOptions() instanceof ToolCallingChatOptions toolOptions
                     && toolOptions.getToolCallbacks() != null)
                 for (var callback : toolOptions.getToolCallbacks()) {
                     var tool = callback.getToolDefinition();
@@ -61,7 +65,7 @@ public record ModelRequestPolicy(TokenCountEstimator tokens, ToIntFunction<Promp
     public int inputTokens(Prompt prompt, int inputBudget) {
         int count = framing.applyAsInt(prompt);
         if (count > inputBudget)
-            throw new IllegalStateException("CHAT_CONTEXT_LIMIT");
+            throw TurnFailure.CONTEXT_LIMIT.exception();
         return count;
     }
 

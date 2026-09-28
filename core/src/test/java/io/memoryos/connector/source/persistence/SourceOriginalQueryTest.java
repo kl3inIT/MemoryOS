@@ -4,9 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.TestDatabase;
+import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -72,9 +75,9 @@ class SourceOriginalQueryTest {
         }
     }
 
-    private static java.util.Optional<io.memoryos.objectstorage.StoredObjectReference> original(
+    private static Optional<StoredObjectReference> original(
             JdbcSourceDocumentRepository repository, TenantId tenant, ActorId actor, UUID document) {
-        return java.util.Optional.ofNullable(repository.originals(tenant, actor, java.util.Set.of(document)).get(document));
+        return Optional.ofNullable(repository.originals(tenant, actor, Set.of(document)).get(document));
     }
 
     private static ActorId member(JdbcClient jdbc, TenantId tenant) {

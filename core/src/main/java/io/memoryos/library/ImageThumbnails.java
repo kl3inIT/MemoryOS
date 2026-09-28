@@ -136,7 +136,7 @@ public final class ImageThumbnails {
         graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
     }
 
-    private static byte[] jpeg(java.awt.image.BufferedImage image) throws IOException {
+    private static byte[] jpeg(BufferedImage image) throws IOException {
         var writers = ImageIO.getImageWritersByFormatName("jpeg");
         if (!writers.hasNext()) throw new IOException("No JPEG writer");
         var writer = writers.next();

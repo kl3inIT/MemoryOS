@@ -4,7 +4,9 @@ import io.micrometer.context.ContextSnapshotFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -242,7 +244,7 @@ public final class SearchTasks {
     }
 
     private static final class NativeWork {
-        private final java.util.Set<Thread> running = new java.util.HashSet<>();
+        private final Set<Thread> running = new HashSet<>();
         private volatile boolean closed;
 
         private <T> T call(Callable<T> action) throws Exception {

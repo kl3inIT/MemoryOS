@@ -38,6 +38,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -51,6 +52,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -296,7 +298,7 @@ class SessionSecurityIntegrationTest {
     void authenticatesAndSignsOutTheInitialOwnerWithoutProviderState() throws Exception {
         AUTHENTICATING_SUBJECT.set("initial-owner");
         TestProviderSessionConfiguration.reset(true);
-        var since = java.sql.Timestamp.from(java.time.Instant.now());
+        var since = Timestamp.from(Instant.now());
         UUID ownerActorId = jdbcClient.sql("""
                         SELECT actor_id FROM external_identity_bindings
                         WHERE issuer = :issuer AND subject = 'initial-owner'
@@ -551,7 +553,7 @@ class SessionSecurityIntegrationTest {
             );
 
             assertEquals(200, firstPage.statusCode());
-            var firstPageJson = io.swagger.v3.core.util.Json.mapper().readTree(firstPage.body());
+            var firstPageJson = Json.mapper().readTree(firstPage.body());
             assertEquals(0, firstPageJson.path("page").asInt());
             assertEquals(1, firstPageJson.path("size").asInt());
             assertEquals(2L, firstPageJson.path("totalItems").asLong());
@@ -563,7 +565,7 @@ class SessionSecurityIntegrationTest {
             );
 
             assertEquals(200, secondPage.statusCode());
-            var secondPageJson = io.swagger.v3.core.util.Json.mapper().readTree(secondPage.body());
+            var secondPageJson = Json.mapper().readTree(secondPage.body());
             assertEquals(1, secondPageJson.path("page").asInt());
             assertEquals(1, secondPageJson.path("size").asInt());
             assertEquals(1, secondPageJson.path("items").size());
@@ -706,7 +708,7 @@ class SessionSecurityIntegrationTest {
             var intake = memberClient.send(request(invitationUrl), HttpResponse.BodyHandlers.ofString());
             assertEquals(303, intake.statusCode());
             assertEquals("/invitation", intake.headers().firstValue("location").orElseThrow());
-            assertEquals("no-store", intake.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-cache, no-store, max-age=0, must-revalidate", intake.headers().firstValue("cache-control").orElseThrow());
             assertEquals("no-referrer", intake.headers().firstValue("referrer-policy").orElseThrow());
 
             var current = memberClient.send(
@@ -714,7 +716,7 @@ class SessionSecurityIntegrationTest {
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(200, current.statusCode());
-            assertEquals("no-store", current.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-cache, no-store, max-age=0, must-revalidate", current.headers().firstValue("cache-control").orElseThrow());
 
             var invalidIntake = memberClient.send(
                     request("/invite/not-a-valid-secret"),
@@ -847,7 +849,7 @@ class SessionSecurityIntegrationTest {
                     "/oauth2/authorization/memoryos",
                     activation.headers().firstValue("location").orElseThrow()
             );
-            assertEquals("no-store", activation.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-cache, no-store, max-age=0, must-revalidate", activation.headers().firstValue("cache-control").orElseThrow());
             assertEquals("no-referrer", activation.headers().firstValue("referrer-policy").orElseThrow());
 
             AUTHENTICATING_SUBJECT.set(memberSubject);
@@ -1293,8 +1295,8 @@ class SessionSecurityIntegrationTest {
     }
 
     private static String jsonString(String body, String field) {
-        var matcher = java.util.regex.Pattern
-                .compile("\"" + java.util.regex.Pattern.quote(field) + "\"\\s*:\\s*\"([^\"]+)\"")
+        var matcher = Pattern
+                .compile("\"" + Pattern.quote(field) + "\"\\s*:\\s*\"([^\"]+)\"")
                 .matcher(body);
         if (!matcher.find()) {
             throw new IllegalArgumentException("missing JSON field " + field + " in " + body);

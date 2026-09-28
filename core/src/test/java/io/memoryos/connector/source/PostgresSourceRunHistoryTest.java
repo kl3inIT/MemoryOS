@@ -12,6 +12,8 @@ import static org.mockito.Mockito.when;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.*;
+import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.googledrive.GoogleDriveConnectionService;
 import io.memoryos.connector.googledrive.GoogleDriveSyncTraversal;
 import io.memoryos.connector.googledrive.GoogleGroupSynchronizer;
@@ -53,9 +55,12 @@ import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -64,6 +69,7 @@ import javax.net.ssl.SSLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -122,7 +128,7 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
                 .param("tenant", tenant.value()).param("actor", owner.value()).update();
         sources = new JdbcSourceRepository(jdbc, event -> { });
-        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", io.memoryos.connector.SourceAccess.PRIVATE, owner)));
+        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", SourceAccess.PRIVATE, owner)));
         source = pair.sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();
         jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id").param("id", source.value()).update();
@@ -167,7 +173,7 @@ class PostgresSourceRunHistoryTest {
         when(connections.current(any(), any(), anyLong())).thenReturn(true);
         when(connections.open(any(), any())).thenReturn(new GoogleDriveConnectionService.Connection(session, 1));
         when(connections.state(any(), any())).thenReturn(new GoogleDriveConnectionService.State(
-                new io.memoryos.connector.CredentialId(UUID.randomUUID()), "owner@example.test", "ACTIVE", 1, true, "OAUTH"));
+                new CredentialId(UUID.randomUUID()), "owner@example.test", "ACTIVE", 1, true, "OAUTH"));
         items = new JdbcSourceItemRepository(jdbc);
         mappings = new JdbcSourceDocumentRepository(jdbc);
         sync = new JdbcSourceSyncRepository(jdbc);
@@ -187,16 +193,16 @@ class PostgresSourceRunHistoryTest {
             var stream = new ByteArrayInputStream(bytes.get(key));
             return new ObjectContent() {
                 public ObjectMetadata metadata() { return metadata.get(key); }
-                public java.io.InputStream inputStream() { return stream; }
+                public InputStream inputStream() { return stream; }
                 public void close() {}
             };
         });
         var writes = new DefaultObjectWriteService(new JdbcStoredObjectRepository(jdbc), new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5), Duration.ofMinutes(1), 16), manager);
         service = new SourceSyncEngine(sync, sources, items, attempts, mappings, writes,
-                java.util.List.of(new GoogleDriveSyncTraversal(new JdbcGoogleDriveSyncRepository(jdbc, sync),
+                List.of(new GoogleDriveSyncTraversal(new JdbcGoogleDriveSyncRepository(jdbc, sync),
                         new JdbcGoogleDriveSourceRepository(jdbc), new JdbcGoogleDriveAclRepository(jdbc, event -> {}),
-                        connections, org.mockito.Mockito.mock(GoogleGroupSynchronizer.class))), manager);
+                        connections, Mockito.mock(GoogleGroupSynchronizer.class))), manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         queries = new JdbcSourceRunHistoryRepository(jdbc);
         history = new DefaultSourceRunHistoryService(queries, new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), new JdbcSourceQueryRepository(jdbc));
@@ -315,8 +321,8 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("INSERT INTO actors(id) VALUES (:id) ON CONFLICT DO NOTHING").param("id", foreignOwner.value()).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES (:tenant,:actor,'MEMBER','ACTIVE')")
                 .param("tenant", foreignTenant.value()).param("actor", foreignOwner.value()).update();
-        var otherSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.PRIVATE, owner)));
-        var foreignSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(foreignTenant, foreignOwner, "Foreign", io.memoryos.connector.SourceAccess.PRIVATE, foreignOwner)));
+        var otherSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", SourceAccess.PRIVATE, owner)));
+        var foreignSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(foreignTenant, foreignOwner, "Foreign", SourceAccess.PRIVATE, foreignOwner)));
         for (var pair : List.of(otherSource, foreignSource)) {
             var errorTenant = pair.sourceId().equals(otherSource.sourceId()) ? tenant : foreignTenant;
             jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id")
@@ -355,7 +361,7 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("UPDATE source_run_errors SET resolved_at = TIMESTAMPTZ '2026-09-25 08:00:00+00' WHERE run_id = :run")
                 .param("run", indexedRun.id()).update();
         assertThat(history.errors(owner, source, indexedRun.id(), null, 1).items()).singleElement()
-                .satisfies(error -> assertThat(error.resolvedAt()).isEqualTo(java.time.Instant.parse("2026-09-25T08:00:00Z")));
+                .satisfies(error -> assertThat(error.resolvedAt()).isEqualTo(Instant.parse("2026-09-25T08:00:00Z")));
     }
 
     @Test
@@ -422,7 +428,7 @@ class PostgresSourceRunHistoryTest {
         assertThat(history.list(owner, source, query(null, 2)).lastSuccessful().id()).isEqualTo(later.id());
         assertThatThrownBy(() -> history.list(owner, source, new SourceRunHistoryService.Query(page.nextCursor(), 2,
                 Set.of(SourceRunStatus.FAILED), null, null, null))).isInstanceOf(SourceException.class);
-        var foreign = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.PUBLIC, null))).sourceId();
+        var foreign = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", SourceAccess.PUBLIC, null))).sourceId();
         assertThatThrownBy(() -> history.list(owner, foreign, query(page.nextCursor(), 2))).isInstanceOf(SourceException.class);
         assertThat(history.list(owner, foreign, query(null, 2)).totalItems()).isZero();
         assertThat(queries.list(new TenantId(UUID.randomUUID()), source, query(null, 2)).totalItems()).isZero();
@@ -457,7 +463,7 @@ class PostgresSourceRunHistoryTest {
         var runs = List.of(before, oldest, newest, scheduled, indexing, after);
         for (int index = 0; index < runs.size(); index++) {
             jdbc.sql("UPDATE source_sync_attempts SET created_at = :created WHERE id = :id")
-                    .param("created", java.sql.Timestamp.from(start.plusSeconds(index)))
+                    .param("created", Timestamp.from(start.plusSeconds(index)))
                     .param("id", runs.get(index).id()).update();
         }
         jdbc.sql("UPDATE source_sync_attempts SET trigger_kind = 'SCHEDULED' WHERE id = :id")
@@ -621,7 +627,7 @@ class PostgresSourceRunHistoryTest {
             return new DocumentContent("text/plain", name, "Extracted content", Map.of());
         };
         var indexing = TestDatabase.transactionalProxy(attempts, ConnectorIndexingPort.class, manager);
-        var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        var registry = new SimpleMeterRegistry();
         try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
             var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
                     new JdbcDocumentRepository(jdbc, mapper, _ -> { }), extractor, storage, mock(StoredObjectRegistry.class), tx,

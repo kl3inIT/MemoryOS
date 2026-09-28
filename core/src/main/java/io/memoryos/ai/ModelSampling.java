@@ -14,10 +14,6 @@ public record ModelSampling(@Nullable Double temperature, @Nullable ReasoningEff
                            boolean pinnedReasoning) {
     public static final ModelSampling NONE = new ModelSampling(null, null, false);
 
-    public ModelSampling(@Nullable Double temperature, @Nullable ReasoningEffort reasoningEffort) {
-        this(temperature, reasoningEffort, false);
-    }
-
     public ModelSampling {
         if (temperature != null && (!Double.isFinite(temperature) || temperature < 0 || temperature > 2))
             throw AiException.invalid("Creativity must be between 0 and 2.");

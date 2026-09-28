@@ -98,7 +98,7 @@ public final class EditImageTool {
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.COMPLETED, id, result.mediaType(), result.revisedPrompt()));
             return "Edited image shown to the user (image_id=" + id + ")."
                     + (result.revisedPrompt() == null ? "" : " The instruction was refined to: " + result.revisedPrompt());
-        } catch (io.memoryos.chat.ChatException refused) {
+        } catch (ChatException refused) {
             active.run();
             if (!"CHAT_STORAGE_FULL".equals(refused.code())) throw refused;
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.FAILED, null, null, null));

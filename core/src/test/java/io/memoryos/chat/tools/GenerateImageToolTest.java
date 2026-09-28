@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 
 class GenerateImageToolTest {
     private final ImageProviderClient client = mock(ImageProviderClient.class);
@@ -89,9 +90,9 @@ class GenerateImageToolTest {
     void onlyADeliveredImageIsAddedToAiUsage() throws Exception {
         when(client.generate(any(), any(), any())).thenReturn(new ImageProviderClient.Result(new byte[]{1}, "image/png", null));
         tool(4).generateImage("a lighthouse", null);
-        verify(client).recordImage(any(), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(false));
+        verify(client).recordImage(any(), ArgumentMatchers.isNull(), ArgumentMatchers.eq(false));
         when(client.generate(any(), any(), any())).thenThrow(new IOException("unavailable"));
         tool(4).generateImage("a lighthouse", null);
-        verify(client, times(1)).recordImage(any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(client, times(1)).recordImage(any(), any(), ArgumentMatchers.anyBoolean());
     }
 }

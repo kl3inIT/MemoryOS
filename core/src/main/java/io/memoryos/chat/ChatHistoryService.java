@@ -11,7 +11,10 @@ import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -148,18 +151,18 @@ public class ChatHistoryService {
     }
 
     private static String encode(Entry last) {
-        return java.util.Base64.getUrlEncoder().withoutPadding()
-                .encodeToString((last.updatedAt().toString() + "|" + last.id()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString((last.updatedAt().toString() + "|" + last.id()).getBytes(StandardCharsets.UTF_8));
     }
 
     private static @Nullable Cursor decode(@Nullable String cursor) {
         if (cursor == null || cursor.isBlank()) return null;
         try {
-            var parts = new String(java.util.Base64.getUrlDecoder().decode(cursor),
-                    java.nio.charset.StandardCharsets.UTF_8).split("\\|");
+            var parts = new String(Base64.getUrlDecoder().decode(cursor),
+                    StandardCharsets.UTF_8).split("\\|");
             if (parts.length != 2) throw ChatException.invalid("Invalid history cursor.");
             return new Cursor(Instant.parse(parts[0]), UUID.fromString(parts[1]));
-        } catch (IllegalArgumentException | java.time.format.DateTimeParseException malformed) {
+        } catch (IllegalArgumentException | DateTimeParseException malformed) {
             throw ChatException.invalid("Invalid history cursor.");
         }
     }

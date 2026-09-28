@@ -5,20 +5,22 @@ import {
   useAuiState,
   useRemoteThreadListRuntime,
 } from "@assistant-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMatch, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useChatDictationAdapter } from "@/features/voice/use-chat-dictation-adapter";
 import { useChatSpeechAdapter } from "@/features/voice/use-chat-speech-adapter";
-import { chatSessionsKey, type ChatUiMessage } from "@/features/chat/chat-api";
+import type { ChatUiMessage } from "@/features/chat/chat-api";
 import { createChatAttachmentAdapter } from "@/features/library/files";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import { chatHistoryAdapter, createChatThreadListAdapter } from "./chat-thread-list-adapter";
 import { ChatThreadsContext } from "./chat-threads-context";
 
-const isChatRoute = (pathname: string) =>
-  pathname === "/" || /^\/chat\/[^/]+$/.test(pathname) || /^\/projects\/[^/]+$/.test(pathname);
+/** Whether the Chat layout (a new conversation, a conversation, a project's conversation) is on screen. */
+function useOnChatRoute() {
+  return useMatch({ from: "/_authenticated/_chat", shouldThrow: false }) !== undefined;
+}
 
 /**
  * One assistant-ui remote thread list for the authenticated application, so the sidebar and the
@@ -29,9 +31,11 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
   const queries = useQueryClient();
   const { actorId, authorizationVersion } = useApplicationSession();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  // The layout route above the chat routes does not receive their params.
-  const sessionId = /^\/chat\/([^/]+)$/.exec(pathname)?.[1];
+  const onChatRoute = useOnChatRoute();
+  const sessionId = useMatch({
+    from: "/_authenticated/_chat/chat/$sessionId",
+    shouldThrow: false,
+  })?.params.sessionId;
   const [registry] = useState(() => new ChatThreadRegistry(queries, actorId));
   const [adapter] = useState(() => createChatThreadListAdapter(registry, queries));
   const [runtimeHook] = useState(
@@ -40,65 +44,58 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
         return useChatThreadRuntime(registry);
       },
   );
-  const path = useRef(pathname);
+  const route = useRef({ onChatRoute, sessionId });
   useEffect(() => {
-    path.current = pathname;
-  }, [pathname]);
+    route.current = { onChatRoute, sessionId };
+  }, [onChatRoute, sessionId]);
   const runtime = useRemoteThreadListRuntime({
     adapter,
     runtimeHook,
     onThreadIdChange: (id) => {
-      const current = path.current;
-      if (id && isChatRoute(current) && current !== `/chat/${id}`)
+      const current = route.current;
+      if (id && current.onChatRoute && current.sessionId !== id)
         void navigate({ to: "/chat/$sessionId", params: { sessionId: id }, replace: true });
       // Deleting the open conversation moves the list to a new thread.
-      else if (!id && current.startsWith("/chat/")) void navigate({ to: "/" });
+      else if (!id && current.sessionId) void navigate({ to: "/" });
     },
   });
 
   const [failure, setFailure] = useState<{ sessionId: string; attempt: number }>();
   const [attempt, setAttempt] = useState(0);
+  // Moving between a new conversation and a project's page also starts a new thread when one is open.
+  const projectId = useMatch({
+    from: "/_authenticated/_chat/projects/$projectId",
+    shouldThrow: false,
+  })?.params.projectId;
   useEffect(() => {
-    if (!isChatRoute(pathname)) return;
+    if (!onChatRoute) return;
     const threads = runtime.threads;
     if (sessionId)
       threads.switchToThread(sessionId).catch(() => setFailure({ sessionId, attempt }));
     else if (threads.mainItem.getState().status !== "new") void threads.switchToNewThread();
-  }, [pathname, sessionId, runtime, attempt]);
+  }, [onChatRoute, sessionId, projectId, runtime, attempt]);
   // A retry or another route clears the failure without resetting state inside the effect.
   const routeError =
     failure && failure.sessionId === sessionId && failure.attempt === attempt
       ? failure.sessionId
       : undefined;
 
-  // Existing mutations invalidate this key; observing it turns those invalidations into list reloads.
-  useQuery({
-    queryKey: chatSessionsKey,
-    queryFn: async () => {
-      await runtime.threads.reload();
-      return Date.now();
-    },
-    initialData: 0,
-    staleTime: Infinity,
-    gcTime: Infinity,
-    refetchOnWindowFocus: false,
-    retry: false,
-  });
+  // A changed authorization can hide or reveal conversations; the thread list reads them again.
   const authorization = useRef(authorizationVersion);
   useEffect(() => {
     if (authorization.current === authorizationVersion) return;
     authorization.current = authorizationVersion;
-    void queries.invalidateQueries({ queryKey: chatSessionsKey });
-  }, [authorizationVersion, queries]);
+    void runtime.threads.reload();
+  }, [authorizationVersion, runtime]);
 
   const value = useMemo(
     () => ({ runtime, registry, routeError, retryRoute: () => setAttempt((n) => n + 1) }),
     [runtime, registry, routeError],
   );
   return (
-    <ChatThreadsContext.Provider value={value}>
+    <ChatThreadsContext value={value}>
       <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
-    </ChatThreadsContext.Provider>
+    </ChatThreadsContext>
   );
 }
 
@@ -126,7 +123,7 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
   });
   useEffect(() => {
     controller.connect(chat, () => runtime.thread.cancelRun());
-  });
+  }, [controller, chat, runtime]);
   useEffect(() => {
     const release = registry.retain(controller);
     const unlisten = controller.listen();
@@ -140,7 +137,7 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
   // Sidebar links to non-chat pages (Search documents, Assistants, the Projects list) do not switch
   // the main thread; the reader must close there too, while the server run continues. A project
   // conversation page (/projects/$projectId) is a chat route that switches to its own thread.
-  const onChatRoute = useRouterState({ select: (state) => isChatRoute(state.location.pathname) });
+  const onChatRoute = useOnChatRoute();
   useEffect(() => controller.setVisible(isMain && onChatRoute), [controller, isMain, onChatRoute]);
   const loading = useSyncExternalStore(
     runtime.thread.subscribe,

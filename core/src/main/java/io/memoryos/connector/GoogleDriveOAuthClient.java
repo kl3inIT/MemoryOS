@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.NonNull;
 
 public record GoogleDriveOAuthClient(String clientId, byte[] clientSecret) implements AutoCloseable {
     private static final Pattern CLIENT_ID = Pattern.compile("[A-Za-z0-9_-]{1,255}\\.apps\\.googleusercontent\\.com");
@@ -39,5 +40,5 @@ public record GoogleDriveOAuthClient(String clientId, byte[] clientSecret) imple
 
     @Override public byte[] clientSecret() { return clientSecret.clone(); }
     @Override public void close() { Arrays.fill(clientSecret, (byte) 0); }
-    @Override public String toString() { return "GoogleDriveOAuthClient[redacted]"; }
+    @Override public @NonNull String toString() { return "GoogleDriveOAuthClient[redacted]"; }
 }

@@ -128,7 +128,7 @@ public class AiUsageLimitRepository {
                         """)
                 .param("tenant", tenant).param("from", from)
                 .query((r, ignored) -> new DaySpend(from, r.getLong("tokens"), r.getBigDecimal("cost")))
-                .optional().orElse(new DaySpend(from, 0, java.math.BigDecimal.ZERO));
+                .optional().orElse(new DaySpend(from, 0, BigDecimal.ZERO));
     }
 
     private static AiUsageLimit limit(ResultSet r, int ignored) throws SQLException {

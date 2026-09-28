@@ -19,6 +19,7 @@ import io.memoryos.iam.GroupId;
 import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -276,7 +277,7 @@ public class JdbcSourceQueryRepository {
             // Only finite PostgreSQL timestamp values can be positions emitted by this endpoint.
             if (createdAt.getYear() < -4712 || createdAt.getYear() > 294276) throw new IllegalArgumentException();
             return new ItemCursor(createdAt, UUID.fromString(fields[1]));
-        } catch (SourceException | IllegalArgumentException | java.time.DateTimeException exception) {
+        } catch (SourceException | IllegalArgumentException | DateTimeException exception) {
             throw SourceException.invalid("The Files cursor is invalid. Reload the list.", "invalid or mismatched source item cursor");
         }
     }

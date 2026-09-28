@@ -15,10 +15,6 @@ public record TranscriptSummary(String summary, String kind, List<Decision> deci
         topics = topics == null ? List.of() : List.copyOf(topics);
     }
 
-    public TranscriptSummary(String summary, String kind, List<Decision> decisions, List<Action> actions) {
-        this(summary, kind, decisions, actions, List.of());
-    }
-
     /** Where the meeting moved on to something else: a few words for it, and the line it began on. */
     public record Topic(String title, int line) {}
 

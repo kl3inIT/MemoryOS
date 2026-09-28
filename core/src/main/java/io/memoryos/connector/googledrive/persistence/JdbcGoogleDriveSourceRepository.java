@@ -50,7 +50,7 @@ public class JdbcGoogleDriveSourceRepository {
                     AND NOT EXISTS (SELECT 1 FROM google_drive_roots r
                       WHERE r.tenant_id=a.tenant_id AND r.source_id=a.source_id AND r.file_id=a.file_id)) AS approved
                 """).param("tenant",tenant.value()).param("source",source.value())
-                .param("specific",scopeMode(tenant,source)==ScopeMode.SPECIFIC).query((r,n) -> new SelectionCounts(
+                .param("specific",scopeMode(tenant,source)==ScopeMode.SPECIFIC).query((r,_) -> new SelectionCounts(
                         r.getLong("folders"),r.getLong("files"),r.getLong("linked"),r.getLong("approved"))).single();
     }
 
@@ -113,7 +113,7 @@ public class JdbcGoogleDriveSourceRepository {
                 """).param("tenant",tenant.value()).param("source",source.value())
                 .param("specific",config.scopeMode()==ScopeMode.SPECIFIC).param("kind",kind==null?-1:kind.ordinal())
                 .param("search",query).param("afterKind",afterKind).param("afterName",afterName).param("afterId",afterId)
-                .param("limit",size+1).query((r,n) -> new SelectionItem(r.getString("file_id"),r.getString("name"),r.getString("mime_type"),
+                .param("limit",size+1).query((r,_) -> new SelectionItem(r.getString("file_id"),r.getString("name"),r.getString("mime_type"),
                         SelectionKind.values()[r.getInt("sort_kind")],r.getBoolean("selected"),r.getBoolean("covered_by_roots"),
                         LinkedDocumentStatus.valueOf(r.getString("status")),List.of())).list();
         boolean more=page.size()>size;
@@ -123,7 +123,7 @@ public class JdbcGoogleDriveSourceRepository {
         if (!ids.isEmpty()) jdbc.sql("""
                 SELECT * FROM google_drive_link_origins WHERE tenant_id=:tenant AND source_id=:source AND file_id IN (:ids)
                 ORDER BY file_id,root_id,parent_id,location
-                """).param("tenant",tenant.value()).param("source",source.value()).param("ids",ids).query((r,n) -> {
+                """).param("tenant",tenant.value()).param("source",source.value()).param("ids",ids).query((r,_) -> {
                     origins.computeIfAbsent(r.getString("file_id"),_ -> new ArrayList<>()).add(new LinkOrigin(
                             r.getString("root_id"),r.getString("parent_id"),r.getString("parent_name"),r.getString("location")));
                     return true;
@@ -152,7 +152,7 @@ public class JdbcGoogleDriveSourceRepository {
                   EXISTS (SELECT 1 FROM google_drive_link_approvals
                   WHERE tenant_id=:tenant AND source_id=:source AND file_id=:id) AS approved
                 """).param("tenant",tenant.value()).param("source",source.value()).param("id",id)
-                .query((r,n) -> new TreeAuthority(r.getBoolean("root"),r.getBoolean("approved"))).single();
+                .query((r,_) -> new TreeAuthority(r.getBoolean("root"),r.getBoolean("approved"))).single();
     }
 
     public List<TreeEntry> treeEntries(TenantId tenant, SourceId source, @Nullable String parent,
@@ -196,7 +196,7 @@ public class JdbcGoogleDriveSourceRepository {
                 """).param("tenant",tenant.value()).param("source",source.value()).param("parent",parent==null?"":parent)
                 .param("top",parent==null).param("current",currentDiscovery)
                 .param("afterKind",afterKind).param("afterName",afterName).param("afterId",afterId)
-                .param("limit",size+1).query((r,n) -> new TreeEntry(
+                .param("limit",size+1).query((r,_) -> new TreeEntry(
                         new SelectionItem(r.getString("file_id"),r.getString("name"),r.getString("mime_type"),
                                 SelectionKind.values()[r.getInt("sort_kind")],r.getBoolean("selected"),
                                 r.getBoolean("covered_by_roots"),LinkedDocumentStatus.valueOf(r.getString("status")),List.of()),
@@ -209,7 +209,7 @@ public class JdbcGoogleDriveSourceRepository {
                 WHERE tenant_id=:tenant AND source_id=:source AND file_id IN (:ids) AND (:top OR parent_id=:parent)
                 ORDER BY file_id,root_id,parent_id,location
                 """).param("tenant",tenant.value()).param("source",source.value()).param("ids",ids)
-                .param("top",parent==null).param("parent",parent==null?"":parent).query((r,n) -> {
+                .param("top",parent==null).param("parent",parent==null?"":parent).query((r,_) -> {
                     origins.computeIfAbsent(r.getString("file_id"),_ -> new ArrayList<>()).add(
                             new LinkOrigin(r.getString("root_id"),r.getString("parent_id"),r.getString("parent_name"),r.getString("location")));
                     return true;
@@ -543,11 +543,6 @@ public class JdbcGoogleDriveSourceRepository {
                 """).param("tenant", tenant.value()).param("source", source.value())
                 .param("revision", expectedRevision).param("paused", paused).update() != 1)
             throw SourceException.staleConfiguration();
-    }
-
-    public boolean automaticSyncEnabled(TenantId tenant, SourceId source) {
-        return jdbc.sql("SELECT NOT sync_paused FROM google_drive_sources WHERE tenant_id=:tenant AND source_id=:source")
-                .param("tenant", tenant.value()).param("source", source.value()).query(Boolean.class).optional().orElse(false);
     }
 
     private void insertRoots(TenantId tenant, SourceId source, List<Root> roots) {

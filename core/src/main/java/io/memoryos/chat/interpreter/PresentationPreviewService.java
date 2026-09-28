@@ -1,14 +1,15 @@
 package io.memoryos.chat.interpreter;
 
+import java.nio.charset.StandardCharsets;
 import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.ChatException;
 import io.memoryos.shared.ActorId;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.stereotype.Service;
 
 /**
@@ -61,17 +62,21 @@ public class PresentationPreviewService {
                 if (PDF.equals(file.path()) && file.fileId() != null) output = file.fileId();
                 else if ("file".equals(file.kind()) && file.fileId() != null && !file.fileId().equals(deck)) delete(file.fileId());
             if (execution.timedOut() || execution.exitCode() == null || execution.exitCode() != 0 || output == null) {
-                LOG.warn("Presentation preview conversion failed: {}", execution.stdout().strip());
+                LoggingEventBuilder log = LOG.atWarn().addKeyValue("event", "chat.presentation_preview.conversion_failed")
+                        .addKeyValue("timed_out", execution.timedOut());
+                if (execution.exitCode() != null) log = log.addKeyValue("exit_code", execution.exitCode());
+                log.log("Presentation preview conversion failed");
                 throw ChatException.invalid("The presentation could not be previewed");
             }
             byte[] pdf = client.download(output);
-            if (pdf.length < 5 || !new String(pdf, 0, 5, java.nio.charset.StandardCharsets.US_ASCII).equals("%PDF-"))
+            if (pdf.length < 5 || !new String(pdf, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-"))
                 throw ChatException.invalid("The presentation could not be previewed");
             return pdf;
         } catch (InterpreterClient.BusyException busy) {
             throw ChatException.busy();
         } catch (IOException failure) {
-            LOG.warn("Presentation preview conversion failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "chat.presentation_preview.conversion_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Presentation preview conversion failed");
             throw ChatException.providerUnavailable();
         } finally {
             if (deck != null) delete(deck);
@@ -82,7 +87,8 @@ public class PresentationPreviewService {
     private void delete(String fileId) {
         try { client.delete(fileId); }
         catch (IOException | RuntimeException failure) {
-            LOG.warn("Code Interpreter could not delete a preview file ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "chat.presentation_preview.delete_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Code Interpreter could not delete a preview file");
         }
     }
 }

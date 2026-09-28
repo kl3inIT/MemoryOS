@@ -28,6 +28,7 @@ import io.memoryos.iam.tenant.persistence.JpaTenantMembershipProvisioner;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -37,6 +38,8 @@ import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -123,7 +126,7 @@ class DefaultTrustedIdentityAdmissionTest {
         assertEquals(2L, count("actors"));
         assertEquals(0L, count("tenant_invitations"));
         // One admission, recorded once: the replay and the owner's sign-in change no authority.
-        assertEquals(java.util.List.of("auth.jit_admit"), jdbc.sql("SELECT action FROM audit_event").query(String.class).list());
+        assertEquals(List.of("auth.jit_admit"), jdbc.sql("SELECT action FROM audit_event").query(String.class).list());
     }
 
     @Test
@@ -214,16 +217,16 @@ class DefaultTrustedIdentityAdmissionTest {
     }
 
     private GroupProvisioner wrappingGroups(Runnable afterWrite) {
-        GroupProvisioner wrapping = org.mockito.Mockito.mock(GroupProvisioner.class);
-        org.mockito.Mockito.doAnswer(call -> {
+        GroupProvisioner wrapping = Mockito.mock(GroupProvisioner.class);
+        Mockito.doAnswer(call -> {
             groups.bootstrap(call.getArgument(0), call.getArgument(1));
             return null;
-        }).when(wrapping).bootstrap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-        org.mockito.Mockito.doAnswer(call -> {
+        }).when(wrapping).bootstrap(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.doAnswer(call -> {
             groups.addToBasicGroup(call.getArgument(0), call.getArgument(1));
             afterWrite.run();
             return null;
-        }).when(wrapping).addToBasicGroup(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        }).when(wrapping).addToBasicGroup(ArgumentMatchers.any(), ArgumentMatchers.any());
         return wrapping;
     }
 

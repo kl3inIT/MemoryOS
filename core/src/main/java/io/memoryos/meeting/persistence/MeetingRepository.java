@@ -9,11 +9,13 @@ import java.time.Duration;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -163,7 +165,7 @@ public class MeetingRepository {
 
     /** Everyone this meeting is shared with, by name, for the owner's "shared with" list. */
     public List<Meeting.Reader> readers(UUID tenant, UUID meeting) {
-        var readers = new java.util.ArrayList<Meeting.Reader>();
+        var readers = new ArrayList<Meeting.Reader>();
         readers.addAll(jdbc.sql("""
                 SELECT s.actor_id AS id, COALESCE(NULLIF(p.display_name, ''), p.email, '') AS name
                 FROM meeting_user_share s
@@ -456,7 +458,6 @@ public class MeetingRepository {
                 .query(MeetingRepository::item).optional();
     }
 
-    /** Writes what an item now says. The event beside it is the only history of what it said before. */
     /** An item the owner wrote in, after the others of its kind. */
     public void addItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
         jdbc.sql("""
@@ -490,6 +491,7 @@ public class MeetingRepository {
                 .map(json -> JSON.readValue(json, MeetingMinutesDocument.Heading.class));
     }
 
+    /** Writes what an item now says. The event beside it is the only history of what it said before. */
     public void rewriteItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
         jdbc.sql("""
                 UPDATE meeting_minutes_item SET text = :text, owner = :owner, due = :due, edited = TRUE
@@ -698,9 +700,9 @@ public class MeetingRepository {
 
     /** Whether anybody said anything in this meeting, without reading the transcript. */
     public boolean hasUtterances(UUID tenant, UUID meeting) {
-        return Boolean.TRUE.equals(jdbc.sql("""
+        return jdbc.sql("""
                 SELECT EXISTS (SELECT 1 FROM meeting_utterance WHERE tenant_id = :tenant AND meeting_id = :meeting)
-                """).param("tenant", tenant).param("meeting", meeting).query(Boolean.class).single());
+                """).param("tenant", tenant).param("meeting", meeting).query(Boolean.class).single();
     }
 
     /** Whether this line belongs to this meeting, which is what makes starring it meaningful. */
@@ -948,7 +950,7 @@ public class MeetingRepository {
      * One column of a batch as a text array, which PostgreSQL casts to the column's own array type; an absent value
      * stays null. Chat's bulk copies pass their columns the same way.
      */
-    private static <T> String[] texts(List<T> rows, java.util.function.Function<T, @Nullable String> column) {
+    private static <T> String[] texts(List<T> rows, Function<T, @Nullable String> column) {
         var values = new String[rows.size()];
         for (int i = 0; i < values.length; i++) values[i] = column.apply(rows.get(i));
         return values;

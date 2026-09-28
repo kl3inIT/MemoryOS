@@ -1,11 +1,23 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.security.CurrentActor;
+import io.memoryos.api.chat.contract.CodeEvent;
+import io.memoryos.api.chat.contract.ImageEvent;
+import io.memoryos.api.chat.contract.IntermediateReportCitationsEvent;
+import io.memoryos.api.chat.contract.IntermediateReportEvent;
+import io.memoryos.api.chat.contract.OutcomeEvent;
+import io.memoryos.api.chat.contract.ReasoningEvent;
+import io.memoryos.api.chat.contract.ResearchAgentStartEvent;
+import io.memoryos.api.chat.contract.ResearchPlanEvent;
+import io.memoryos.api.chat.contract.ResetEvent;
+import io.memoryos.api.chat.contract.TextDeltaEvent;
+import io.memoryos.api.chat.contract.ToolEvent;
+import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,7 +29,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -30,14 +41,10 @@ import reactor.core.scheduler.Scheduler;
 @RestController
 @RequestMapping("/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events")
 @Tag(name = "Chat")
-@ApiResponse(responseCode = "400", description = "Invalid request or cursor",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "404", description = "Conversation or message not accessible",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "503", description = "Chat capacity exhausted or provider unavailable",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid request or cursor")
+@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met")
+@ApiResponse(responseCode = "404", description = "Conversation or message not accessible")
+@ApiResponse(responseCode = "503", description = "Chat capacity exhausted or provider unavailable")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
@@ -60,18 +67,20 @@ class ChatStreamController {
                     + "Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.")
     @ApiResponse(responseCode = "200", description = "SSE frames; the schema describes each data payload",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
-                    schema = @Schema(oneOf = {ChatEventStream.TextDeltaEvent.class, ChatEventStream.OutcomeEvent.class,
-                            ChatEventStream.ResetEvent.class, ChatEventStream.ToolEvent.class, ChatEventStream.ReasoningEvent.class,
-                            ChatEventStream.ImageEvent.class, ChatEventStream.CodeEvent.class,
-                            ChatEventStream.ResearchPlanEvent.class,
-                            ChatEventStream.TopLevelBranchingEvent.class, ChatEventStream.ResearchAgentStartEvent.class,
-                            ChatEventStream.IntermediateReportEvent.class, ChatEventStream.IntermediateReportCitationsEvent.class})))
-    ResponseEntity<Flux<ServerSentEvent<Object>>> events(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                    schema = @Schema(oneOf = {TextDeltaEvent.class, OutcomeEvent.class,
+                            ResetEvent.class, ToolEvent.class, ReasoningEvent.class,
+                            ImageEvent.class, CodeEvent.class,
+                            ResearchPlanEvent.class,
+                            TopLevelBranchingEvent.class, ResearchAgentStartEvent.class,
+                            IntermediateReportEvent.class, IntermediateReportCitationsEvent.class})))
+    ResponseEntity<Flux<ServerSentEvent<Object>>> events(@CurrentActor IdentityContext identity,
             @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
             @RequestHeader(value = "Last-Event-ID", required = false) @Nullable String lastEvent,
             @RequestParam(required = false) @Nullable String after) {
         long sequence = cursor(assistantMessageId, lastEvent, after);
         var readerFactory = turns.subscribe(identity.actorId(), sessionId, assistantMessageId, sequence);
+        // Deliberate override of the security default: no-transform keeps proxies from compressing or
+        // buffering the event stream.
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-store, no-transform")
                 .header("X-Accel-Buffering", "no")

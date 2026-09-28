@@ -13,6 +13,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
@@ -30,6 +31,7 @@ import tools.jackson.databind.JsonNode;
  * server sends MP3 binary frames, {@code audio_done} and coded {@code error} messages. Text is never logged.
  */
 @Component
+@NullMarked
 class SynthesizeWebSocketHandler extends AbstractWebSocketHandler implements DisposableBean {
     static final String PATH = "/api/chat/voice/synthesize/stream";
     /** An answer can pause while tools run, so the idle bound is longer than for dictation. */
@@ -130,9 +132,10 @@ class SynthesizeWebSocketHandler extends AbstractWebSocketHandler implements Dis
             invalid(live);
             return;
         }
-        if (live.synthesizer == null && !open(live, DEFAULT_SPEED)) return;
+        var synthesizer = live.synthesizer != null ? live.synthesizer : open(live, DEFAULT_SPEED);
+        if (synthesizer == null) return;
         try {
-            live.synthesizer.append(text.asString());
+            synthesizer.append(text.asString());
         } catch (BusinessException tooLong) {
             VoiceSockets.fail(live.socket, "VOICE_TEXT_TOO_LONG", CloseStatus.POLICY_VIOLATION);
         } catch (IllegalStateException closed) {
@@ -154,13 +157,15 @@ class SynthesizeWebSocketHandler extends AbstractWebSocketHandler implements Dis
         });
     }
 
-    private boolean open(Live live, double speed) {
+    /** The opened synthesizer, or {@code null} once the refusal has been sent. */
+    private @Nullable StreamingSynthesizer open(Live live, double speed) {
         try {
-            live.synthesizer = synthesis.openStreaming(live.actor, speed, audio -> sendAudio(live.socket, audio));
-            return true;
+            var synthesizer = synthesis.openStreaming(live.actor, speed, audio -> sendAudio(live.socket, audio));
+            live.synthesizer = synthesizer;
+            return synthesizer;
         } catch (BusinessException refused) {
             VoiceSockets.refuse(live.socket, refused);
-            return false;
+            return null;
         }
     }
 

@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
 import { ClampedList } from "./clamped-list";
 
 const perRow = 3;
@@ -53,7 +53,8 @@ describe("ClampedList", () => {
     await user.hover(trigger);
     // The card repeats the label, so both lists are present once the overflow opens.
     await waitFor(() => expect(screen.getAllByRole("list", { name: "Nguồn" })).toHaveLength(2));
-    const card = screen.getAllByRole("list", { name: "Nguồn" })[1];
+    const [, card] = screen.getAllByRole("list", { name: "Nguồn" });
+    assert.isDefined(card);
     expect(within(card).getByText("Nguồn 8")).toBeVisible();
   });
 

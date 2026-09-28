@@ -14,6 +14,8 @@ export const router = createRouter({
   defaultNotFoundComponent: RouteNotFound,
   notFoundMode: "root",
   scrollRestoration: true,
+  // The shell stays mounted, so its scrolling main region starts each new page at the top like the window does.
+  scrollToTopSelectors: ["#main-content"],
 });
 
 declare module "@tanstack/react-router" {

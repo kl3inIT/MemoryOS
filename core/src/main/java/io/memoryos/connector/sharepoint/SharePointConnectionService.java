@@ -9,6 +9,7 @@ import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepo
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository;
 import io.memoryos.shared.TenantId;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -19,9 +20,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class SharePointConnectionService {
     public record State(CredentialId credentialId, String name, String status, long credentialRevision,
-                 @org.jspecify.annotations.Nullable String tenantHost) {}
+                 @Nullable String tenantHost) {}
     public record Connection(SharePointProvider.Session session, long credentialRevision,
-                      @org.jspecify.annotations.Nullable String tenantHost) implements AutoCloseable {
+                      @Nullable String tenantHost) implements AutoCloseable {
         @Override public void close() { session.close(); }
     }
 

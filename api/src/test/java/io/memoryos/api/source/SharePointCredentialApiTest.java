@@ -14,6 +14,7 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
@@ -208,7 +209,7 @@ class SharePointCredentialApiTest {
         when(credentials.list(any())).thenReturn(List.of(view(id, "Entra app")));
         mockMvc.perform(get("/api/credentials/sharepoint").with(authentication(owner)))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$[0].id").value(id.value().toString()))
                 .andExpect(jsonPath("$[0].name").value("Entra app"))
                 .andExpect(jsonPath("$[0].clientSecret").doesNotExist())
@@ -236,7 +237,7 @@ class SharePointCredentialApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(secretBody("Entra app")))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.id").value(id.value().toString()));
     }
 
@@ -263,7 +264,7 @@ class SharePointCredentialApiTest {
     @Test
     void rejectedCredentialReturnsValidationProblem() throws Exception {
         when(credentials.create(any(), any())).thenThrow(SharePointException.rejected(
-                io.memoryos.connector.SharePointProviderException.Reason.INVALID_CLIENT_SECRET));
+                SharePointProviderException.Reason.INVALID_CLIENT_SECRET));
         mockMvc.perform(post("/api/credentials/sharepoint")
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")

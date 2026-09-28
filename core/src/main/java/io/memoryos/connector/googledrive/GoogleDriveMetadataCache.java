@@ -35,7 +35,8 @@ public class GoogleDriveMetadataCache {
     @Autowired
     public GoogleDriveMetadataCache(ObjectProvider<StringRedisTemplate> redis) {
         this(redis.getIfAvailable());
-        if (this.redis == null) LOG.info("Google Drive metadata is not cached: no Redis template is available");
+        if (this.redis == null) LOG.atInfo().addKeyValue("event", "google_drive.metadata_cache.disabled")
+                .log("Google Drive metadata is not cached: no Redis template is available");
     }
 
     GoogleDriveMetadataCache(@Nullable StringRedisTemplate redis) {
@@ -53,7 +54,8 @@ public class GoogleDriveMetadataCache {
             String stored = redis.opsForValue().get(key(scope, id));
             return stored == null ? Optional.empty() : Optional.of(JSON.readValue(stored, Entry.class).toMetadata());
         } catch (RuntimeException exception) {
-            LOG.debug("Drive metadata cache read failed", exception);
+            LOG.atDebug().addKeyValue("event", "google_drive.metadata_cache.read_failed")
+                    .addKeyValue("error_type", exception.getClass().getName()).log("Drive metadata cache read failed");
             return Optional.empty();
         }
     }
@@ -70,7 +72,8 @@ public class GoogleDriveMetadataCache {
                 redis.opsForValue().set(key(scope, file.id()), JSON.writeValueAsString(Entry.of(file)), TTL);
             }
         } catch (RuntimeException exception) {
-            LOG.debug("Drive metadata cache write failed", exception);
+            LOG.atDebug().addKeyValue("event", "google_drive.metadata_cache.write_failed")
+                    .addKeyValue("error_type", exception.getClass().getName()).log("Drive metadata cache write failed");
         }
     }
 

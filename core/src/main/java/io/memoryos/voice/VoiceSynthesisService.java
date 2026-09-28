@@ -5,32 +5,40 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
+import io.memoryos.usage.AiUsage;
+import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageRecorder;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 /** Text-to-speech for reading answers aloud. Audio is streamed to the caller as the provider produces it and never stored. */
 @Service
 public class VoiceSynthesisService {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(VoiceSynthesisService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(VoiceSynthesisService.class);
     /** Longest text one request or streaming speech reads aloud; Onyx has no limit. */
     public static final int MAX_TEXT_LENGTH = 32_000;
     public static final double MIN_SPEED = 0.5;
@@ -41,6 +49,8 @@ public class VoiceSynthesisService {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     /** Shared by request streams and streaming speeches. */
     private static final int MAX_STREAMS = 8;
+    /** Above the 10-minute async request and read-aloud socket bounds, so every live path releases its slot first. */
+    static final Duration DEFAULT_MAX_STREAM_DURATION = Duration.ofMinutes(15);
     /**
      * One client for every REST speech request, without redirects so a credential never follows one elsewhere. A
      * speech that is stopped cancels its own request; nothing closes the client.
@@ -50,21 +60,31 @@ public class VoiceSynthesisService {
     private final VoiceConnectionService connections;
     private final IamAuthorization authorization;
     private final MeterRegistry meters;
-    private final Semaphore streams = new Semaphore(MAX_STREAMS);
+    private final SynthesisSlots slots;
+    private final @Nullable AiUsageRecorder usage;
 
-    private io.memoryos.usage.@Nullable AiUsageRecorder usage;
-
-    @org.springframework.beans.factory.annotation.Autowired
+    /**
+     * {@code maxStreamDuration} is the longest a read-aloud may hold a provider slot; a slot held longer was lost and is
+     * reclaimed. It must exceed {@code spring.mvc.async.request-timeout} and the read-aloud socket's session bound.
+     */
+    @Autowired
     public VoiceSynthesisService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters,
-                                 org.springframework.beans.factory.ObjectProvider<io.memoryos.usage.AiUsageRecorder> usage) {
-        this(connections, authorization, meters);
-        this.usage = usage.getIfAvailable();
+                                 ObjectProvider<AiUsageRecorder> usage,
+                                 @Value("${memoryos.voice.synthesis.max-stream-duration:15m}") Duration maxStreamDuration) {
+        this(connections, authorization, meters, usage.getIfAvailable(), maxStreamDuration);
     }
 
     public VoiceSynthesisService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters) {
+        this(connections, authorization, meters, (AiUsageRecorder) null, DEFAULT_MAX_STREAM_DURATION);
+    }
+
+    private VoiceSynthesisService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters,
+                                  @Nullable AiUsageRecorder usage, Duration maxStreamDuration) {
         this.connections = connections;
         this.authorization = authorization;
         this.meters = meters;
+        this.usage = usage;
+        this.slots = new SynthesisSlots(MAX_STREAMS, maxStreamDuration, System::nanoTime);
     }
 
     /** Reading answers aloud serves Chat readers. */
@@ -81,15 +101,16 @@ public class VoiceSynthesisService {
         String input = text.strip();
         if (input.isEmpty() || text.length() > MAX_TEXT_LENGTH)
             throw VoiceException.invalid("Text to read aloud must contain 1 to 32000 characters.");
-        var connection = acquire(actor, speed);
-        Runnable release = releaseOnce();
+        var connection = connection(actor, speed);
+        var lease = slots.acquire();
         try {
-            var opened = stream(connection, connections.key(connection), segments(input, MAX_SEGMENT_LENGTH), speed, release);
+            var opened = stream(connection, connections.key(connection), segments(input, MAX_SEGMENT_LENGTH), speed, lease::release);
+            lease.onReclaim(opened::close);
             record(connection, actor);
             return opened;
         } catch (RuntimeException failed) {
             // A key that cannot be decrypted or a provider that cannot be built must not keep the slot.
-            release.run();
+            lease.release();
             throw failed;
         }
     }
@@ -97,14 +118,16 @@ public class VoiceSynthesisService {
     /** Starts reading an answer aloud while it is generated (Auto-Playback); parts are appended as they are ready. */
     public StreamingSynthesizer openStreaming(ActorId actor, double speed, Consumer<byte[]> audio) {
         requireAccess(actor);
-        var connection = acquire(actor, speed);
-        Runnable release = releaseOnce();
+        var connection = connection(actor, speed);
+        var lease = slots.acquire();
         try {
-            var counted = new java.util.concurrent.atomic.AtomicBoolean();
-            return streaming(connection, connections.key(connection), speed, audio, release,
+            var counted = new AtomicBoolean();
+            var opened = streaming(connection, connections.key(connection), speed, audio, lease::release,
                     () -> { if (counted.compareAndSet(false, true)) record(connection, actor); });
+            lease.onReclaim(opened::close);
+            return opened;
         } catch (RuntimeException failed) {
-            release.run();
+            lease.release();
             throw failed;
         }
     }
@@ -113,27 +136,20 @@ public class VoiceSynthesisService {
     private void record(VoiceConnectionService.Connection connection, ActorId actor) {
         if (usage == null) return;
         try {
-            usage.record(new io.memoryos.usage.AiUsage(connection.tenantId(), actor.value(), io.memoryos.usage.AiUsageFlow.TEXT_TO_SPEECH,
+            usage.record(new AiUsage(connection.tenantId(), actor.value(), AiUsageFlow.TEXT_TO_SPEECH,
                     connection.provider().name(), connection.ttsModel(), connection.id(), null, null, 1, 0, 0, 0, 0, 0, null,
-                    java.time.Instant.now()));
+                    Instant.now()));
         } catch (RuntimeException failure) {
-            LOG.warn("Voice usage not recorded ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "voice.synthesis.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Voice usage not recorded");
         }
     }
 
-    /** Returns the stream slot at most once, whichever of the failure path and the stream's own close runs first. */
-    private Runnable releaseOnce() {
-        var released = new java.util.concurrent.atomic.AtomicBoolean();
-        return () -> {
-            if (released.compareAndSet(false, true)) streams.release();
-        };
-    }
-
-    private VoiceConnectionService.Connection acquire(ActorId actor, double speed) {
+    /** The speed checked and the Tenant's default text-to-speech connection resolved, before a slot is taken. */
+    private VoiceConnectionService.Connection connection(ActorId actor, double speed) {
         if (!(speed >= MIN_SPEED && speed <= MAX_SPEED)) throw VoiceException.invalid("Playback speed must be between 0.5 and 2.0.");
         var connection = connections.resolve(actor).tts();
         if (connection == null) throw VoiceException.providerUnavailable();
-        if (!streams.tryAcquire()) throw VoiceException.busy();
         return connection;
     }
 
@@ -149,13 +165,8 @@ public class VoiceSynthesisService {
         }
     }
 
-    StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
-            Consumer<byte[]> audio, Runnable release) {
-        return streaming(connection, key, speed, audio, release, () -> {});
-    }
-
     /** {@code called} runs before each provider request, so usage is counted only once text reaches the provider. */
-    StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
+    private StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
             Consumer<byte[]> audio, Runnable release, Runnable called) {
         var provider = provider(connection, key, speed);
         long started = System.nanoTime();

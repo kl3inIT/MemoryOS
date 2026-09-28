@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingOptions;
 import org.springframework.ai.embedding.EmbeddingRequest;
@@ -157,7 +158,7 @@ public final class ValidatedEmbeddingService {
         return new SearchUnavailableException();
     }
 
-    private void record(@Nullable Caller caller, org.springframework.ai.chat.metadata.@Nullable Usage reported) {
+    private void record(@Nullable Caller caller, @Nullable Usage reported) {
         if (usage == null || caller == null) return;
         Integer tokens = reported == null ? null : reported.getPromptTokens();
         var at = Instant.now();

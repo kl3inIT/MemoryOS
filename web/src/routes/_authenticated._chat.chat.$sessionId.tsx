@@ -11,12 +11,13 @@ export const Route = createFileRoute("/_authenticated/_chat/chat/$sessionId")({
    * in the library; `attach` names the uploads that question is about, attached before it is sent. A question
    * asked in the file preview may carry more than the file it was asked from.
    */
-  validateSearch: (search: Record<string, unknown>): { ask?: string; attach?: string[] } => {
-    const attached = uploads.safeParse(search.attach);
-    return {
-      ask: typeof search.ask === "string" && search.ask.trim() ? search.ask : undefined,
-      attach: attached.success ? attached.data : undefined,
-    };
-  },
+  validateSearch: z.object({
+    ask: z
+      .string()
+      .refine((question) => question.trim() !== "")
+      .optional()
+      .catch(undefined),
+    attach: uploads.optional().catch(undefined),
+  }),
   component: () => null,
 });

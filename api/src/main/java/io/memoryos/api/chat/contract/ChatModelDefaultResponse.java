@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 
 @Schema(name = "Default")
 public record ChatModelDefaultResponse(
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable UUID modelConfigurationId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid") @Nullable UUID modelConfigurationId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision
 ) {
     public static ChatModelDefaultResponse from(ModelDefault value) {

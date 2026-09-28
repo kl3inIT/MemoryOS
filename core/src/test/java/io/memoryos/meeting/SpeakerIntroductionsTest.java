@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 class SpeakerIntroductionsTest {
@@ -59,7 +60,7 @@ class SpeakerIntroductionsTest {
                 ASKING).isEmpty());
     }
 
-    private static @org.jspecify.annotations.Nullable String name(String text) {
+    private static @Nullable String name(String text) {
         var found = SpeakerIntroductions.suggest(List.of(said("1", text)), List.of(), ASKING);
         var suggestion = found.get(SpeakerNames.key(Meeting.Track.MIC, "1"));
         return suggestion == null ? null : suggestion.name();

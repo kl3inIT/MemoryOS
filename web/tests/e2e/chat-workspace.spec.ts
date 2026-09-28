@@ -642,7 +642,7 @@ test("keeps feedback drafts on failure, reloads the saved reaction and removes i
   await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
   await page.screenshot({ path: "../.tmp/mem11-ui-new-chat-desktop.png", fullPage: true });
   await page.getByRole("button", { name: "Thành viên", exact: true }).click();
-  await page.getByRole("button", { name: "Dùng giao diện tối" }).click();
+  await page.getByRole("menuitem", { name: "Dùng giao diện tối" }).click();
   await page.keyboard.press("Escape");
   const session = await (
     await page.request.post("/api/chat/test-fixture", { data: { title: "Review the policy" } })

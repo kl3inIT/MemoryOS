@@ -1,6 +1,8 @@
 package io.memoryos.meeting;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -145,8 +147,8 @@ public final class Meeting {
          * twice ("Trựcực"). Stored marks stay as the provider gave them; everyone reads whole words.
          */
         static List<Span> words(String text, List<Span> spans) {
-            var widened = new java.util.ArrayList<Span>(spans.size());
-            for (var span : spans.stream().sorted(java.util.Comparator.comparingInt(Span::start)).toList()) {
+            var widened = new ArrayList<Span>(spans.size());
+            for (var span : spans.stream().sorted(Comparator.comparingInt(Span::start)).toList()) {
                 int start = wordStart(text, span.start()), end = wordEnd(text, span.end());
                 var last = widened.isEmpty() ? null : widened.getLast();
                 if (last != null && start < last.end())

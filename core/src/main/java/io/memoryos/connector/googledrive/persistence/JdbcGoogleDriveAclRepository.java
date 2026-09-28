@@ -141,7 +141,7 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
                 .param("operation", work.operationId().value()).param("credential", work.credentialRevision())
                 .param("scope", work.scopeRevision()).param("generation", work.generation())
                 .param("error", errorCode).param("errorMessage", errorMessage)
-                .query((r, n) -> new Object[] {
+                .query((r, _) -> new Object[] {
                         r.getLong("observation_revision"), r.getString("status"), r.getString("error_code"),
                         r.getString("permissions_json"), r.getString("prior_permissions"),
                         r.getString("prior_status") }).optional();
@@ -156,7 +156,7 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
                     WHERE mapping.tenant_id = :tenant AND mapping.connector_credential_pair_id = :source
                         AND i.provider_file_id = :file
                     """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
-                    .param("file", fileId).query((r, n) -> new DocumentId(r.getObject(1, UUID.class))).list();
+                    .param("file", fileId).query((r, _) -> new DocumentId(r.getObject(1, UUID.class))).list();
             events.publishEvent(new GoogleDriveAclChanged(work.tenantId(), work.sourceId(), fileId,
                     documentIds, (Long) result[0], Status.valueOf((String) result[1]), (String) result[2]));
         }
@@ -224,7 +224,7 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
             return ContextStatus.INVALID;
         }
         if (success.generation() != current.generation() || current.membershipGeneration() == null
-                || current.membershipGeneration().longValue() != current.generation()) return ContextStatus.STALE;
+                || current.membershipGeneration() != current.generation()) return ContextStatus.STALE;
         return ContextStatus.CURRENT;
     }
 }

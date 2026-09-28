@@ -206,30 +206,25 @@ public final class ChatPrompts {
         return false;
     }
 
+    /**
+     * The only source of the date in the system prompt, always present: the placeholder is filled, and instructions
+     * without one get Onyx's {@code ADDITIONAL_INFO} date line. There is no per-agent switch to leave it out.
+     */
     public static String resolve(String instructions, boolean searchEnabled, Instant now) {
-        return resolve(instructions, searchEnabled, now, true);
-    }
-
-    /** Onyx {@code datetime_aware}: fill the date placeholder when aware; otherwise drop the date sentence. */
-    static String resolve(String instructions, boolean searchEnabled, Instant now, boolean datetimeAware) {
-        String dated = datetimeAware ? instructions.replace("{{CURRENT_DATETIME}}", now.toString())
-                : instructions.replace("The current date is {{CURRENT_DATETIME}}.\n", "").replace("{{CURRENT_DATETIME}}", "");
+        String dated = instructions.contains("{{CURRENT_DATETIME}}") ? instructions.replace("{{CURRENT_DATETIME}}", now.toString())
+                : instructions + "\n\nAdditional Information:\n\t- The current date is " + now + ".";
         return dated + (searchEnabled ? "\n" + SEARCH_GUIDANCE : "");
     }
 
     /** Account hint, not a translated system prompt. Custom Persona instructions keep their precedence. */
     public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage) {
-        return resolve(instructions, searchEnabled, now, uiLanguage, true);
-    }
-
-    public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage, boolean datetimeAware) {
         String language = "vi".equals(uiLanguage)
                 ? "Prefer replying in Vietnamese. If the user explicitly requests another language, use that language."
                 : "Reply in the language the user writes in, unless they explicitly request another language.";
         String base = instructions.startsWith(DEFAULT_SYSTEM)
                 ? instructions.replace("Reply in the language the user writes in, unless they explicitly request another language.", language)
                 : "# Account language preference\n" + language + "\n\n" + instructions;
-        return resolve(base, searchEnabled, now, datetimeAware);
+        return resolve(base, searchEnabled, now);
     }
 
     /**
@@ -268,11 +263,31 @@ public final class ChatPrompts {
         return forInference(original, hasEvidence, lastCycle, siteFilter, "");
     }
 
-    /** The agent task prompt leads the final reminder of every inference (Onyx {@code llm_loop.py} reminder). */
+    /**
+     * MEM-195: the instruction a grounded turn adds to every inference. It asks for what the server then checks: an
+     * answer is released only once it cites evidence registered in this turn, so an answer from general knowledge is
+     * replaced by a refusal whatever this text achieves.
+     */
+    static final String GROUNDED_GUIDANCE = """
+            # Answer only from the organization's documents
+            This organization answers only from its own documents. Use only the evidence the tools returned in this \
+            conversation, never your own knowledge, even for well-known facts, dates, laws or definitions.
+            Cite every statement with its inline citation. If the evidence does not answer the question, say that the \
+            organization's documents do not cover it, and do not answer it from general knowledge. If the evidence \
+            answers only part of it, answer that part with citations and name the part the documents do not cover.
+            """;
+
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt) {
+        return forInference(original, hasEvidence, lastCycle, siteFilter, taskPrompt, false);
+    }
+
+    /** The agent task prompt leads the final reminder of every inference (Onyx {@code llm_loop.py} reminder). */
+    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt,
+                                      boolean grounded) {
         boolean task = taskPrompt != null && !taskPrompt.isBlank();
         var tools = lastCycle ? Set.<String>of() : availableTools(original);
         String guidance = toolGuidance(tools, siteFilter);
+        if (grounded) guidance = guidance.isEmpty() ? GROUNDED_GUIDANCE : guidance + "\n" + GROUNDED_GUIDANCE;
         boolean openPages = !lastCycle && tools.contains("open_url") && justSearchedWeb(original);
         if (!hasEvidence && !lastCycle && !openPages && !task && guidance.isEmpty()) return original;
         var messages = new ArrayList<>(original.getInstructions());

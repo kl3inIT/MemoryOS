@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -42,7 +43,7 @@ class LocalModelMetadataTest {
     }
 
     private static List<ReportedModel> names(String... ids) {
-        return java.util.Arrays.stream(ids).map(ReportedModel::named).toList();
+        return Arrays.stream(ids).map(ReportedModel::named).toList();
     }
 
     @Test

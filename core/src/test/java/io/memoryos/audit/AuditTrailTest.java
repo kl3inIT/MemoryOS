@@ -8,6 +8,7 @@ import io.memoryos.audit.persistence.JdbcAuditEventRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -146,7 +147,7 @@ class AuditTrailTest {
                 INSERT INTO actor_profiles(actor_id, issuer, subject, display_name, email, email_verified, observed_at)
                 VALUES (:id, 'https://id.test', :subject, :name, :email, true, :at)""")
                 .param("id", id).param("subject", id.toString()).param("name", name).param("email", "ha@tasco.vn")
-                .param("at", java.sql.Timestamp.from(Instant.now())).update();
+                .param("at", Timestamp.from(Instant.now())).update();
         return new ActorId(id);
     }
 

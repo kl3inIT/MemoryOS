@@ -29,7 +29,7 @@ class ChatLanguagePromptTest {
     void customPersonaInstructionsRemainIntactAfterAccountPreference() {
         String custom = "Always answer in Japanese. Preserve code examples exactly.";
         String prompt = ChatPrompts.resolve(custom, false, NOW, "vi");
-        assertTrue(prompt.endsWith(custom));
+        assertTrue(prompt.contains("\n\n" + custom + "\n\nAdditional Information:"));
         assertFalse(prompt.contains(ChatPrompts.DEFAULT_SYSTEM));
     }
 

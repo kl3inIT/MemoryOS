@@ -71,8 +71,6 @@ class DocumentOriginalResponsesTest {
         assertTrue(response.getHeader("Content-Disposition").startsWith("inline;"));
         assertTrue(response.getHeader("Content-Disposition").contains("Sổ tay.pdf")
                 || response.getHeader("Content-Disposition").contains("UTF-8''"));
-        assertEquals("no-store", response.getHeader("Cache-Control"));
-        assertEquals("nosniff", response.getHeader("X-Content-Type-Options"));
         assertEquals("no", response.getHeader("X-Accel-Buffering"));
         assertArrayEquals(PDF, response.getContentAsByteArray());
         assertTrue(closed.get());
@@ -95,7 +93,6 @@ class DocumentOriginalResponsesTest {
         assertEquals("bytes 5-" + (PDF.length - 1) + "/" + PDF.length, response.getHeader("Content-Range"));
         assertEquals(PDF.length - 5, response.getContentLengthLong());
         assertEquals("bytes", response.getHeader("Accept-Ranges"));
-        assertEquals("no-store", response.getHeader("Cache-Control"));
         assertArrayEquals(Arrays.copyOfRange(PDF, 5, PDF.length), response.getContentAsByteArray());
         assertTrue(closed.get());
     }
@@ -107,7 +104,6 @@ class DocumentOriginalResponsesTest {
 
         assertEquals(DOCX_TYPE, response.getContentType());
         assertTrue(response.getHeader("Content-Disposition").startsWith("inline;"));
-        assertEquals("nosniff", response.getHeader("X-Content-Type-Options"));
     }
 
     @Test
@@ -118,7 +114,6 @@ class DocumentOriginalResponsesTest {
             DocumentOriginalResponses.write(null, response, range -> original(DOCX, scriptable, "trang.html"));
 
             assertTrue(response.getHeader("Content-Disposition").startsWith("attachment;"), scriptable);
-            assertEquals("nosniff", response.getHeader("X-Content-Type-Options"), scriptable);
         }
     }
 
@@ -140,7 +135,6 @@ class DocumentOriginalResponsesTest {
 
         assertEquals(416, response.getStatus());
         assertEquals("bytes */" + PDF.length, response.getHeader("Content-Range"));
-        assertEquals("no-store", response.getHeader("Cache-Control"));
         assertNull(response.getHeader("Content-Disposition"));
         assertEquals(0, response.getContentAsByteArray().length);
     }

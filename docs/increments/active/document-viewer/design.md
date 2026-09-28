@@ -18,7 +18,7 @@ Three further problems sit behind that one, and a viewer that only serves bytes 
   `web/src/features/library/file-preview-modal.tsx` (787 lines) and `file-preview.ts` render images,
   PDF, CSV, XLSX, DOCX, code, text and Markdown for owner-private chat files, with an Onyx-derived kind
   classifier, an RFC 4180 CSV reader and `sanitizeDocxHtml`. Writing a second set of viewers for Documents
-  would violate [component and library reuse](../../conventions.md#component-and-library-reuse) and leave two
+  would violate [component and library reuse](../../../conventions.md#component-and-library-reuse) and leave two
   implementations to drift apart.
 - **The dialog is not built for reading.** It is fixed at 56rem × 48rem whatever the file, has no download
   action, no toolbar outside the PDF view, one loading line instead of a skeleton, one red card for every
@@ -78,6 +78,7 @@ net:
 | `docx-view.tsx`, `sheet-view.tsx`, `csv-view.tsx`, `text-view.tsx`, `image-view.tsx`, `download-view.tsx` | `library/file-preview-modal.tsx` | the existing per-kind renderers |
 | `preview-surface.tsx` | new | the canvas: sunken backdrop, white sheet, elevation |
 | `preview-toolbar.tsx` | new | the floating toolbar shared by every kind |
+| `file-preview.tsx`, `lazy-pdf-view.tsx` | phase 5 (2026-09-26) | the one component Library, Search and Chat render a file through: view chosen by kind, citation highlight and previous/next, pdf.js loaded lazily; `OriginalView` is its loader for Search and Chat. `chat-file-reader` stays separate: it pages extracted text by character offset |
 | `preview-highlight.ts` | new | locating a cited passage inside a rendered view |
 
 `ChatFilePreviewModal` keeps its own shell — it owns sibling navigation and the three Onyx window sizes —

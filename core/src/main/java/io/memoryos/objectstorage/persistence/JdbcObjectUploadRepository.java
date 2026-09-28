@@ -6,6 +6,8 @@ import io.memoryos.objectstorage.ObjectVerificationToken;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.shared.TenantId;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -242,16 +244,16 @@ public class JdbcObjectUploadRepository {
 
 
     private static Instant optionalInstant(
-            java.sql.ResultSet resultSet,
+            ResultSet resultSet,
             String column
-    ) throws java.sql.SQLException {
+    ) throws SQLException {
         Timestamp value = resultSet.getTimestamp(column);
         return value == null ? null : value.toInstant();
     }
 
     private static StoredObjectId optionalStoredObjectId(
-            java.sql.ResultSet resultSet
-    ) throws java.sql.SQLException {
+            ResultSet resultSet
+    ) throws SQLException {
         UUID value = resultSet.getObject("stored_object_id", UUID.class);
         return value == null ? null : new StoredObjectId(value);
     }

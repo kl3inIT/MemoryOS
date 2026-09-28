@@ -1,5 +1,6 @@
 package io.memoryos.connector.source;
 
+import io.memoryos.BusinessException;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditOutcome;
 import io.memoryos.audit.AuditRecord;
@@ -63,7 +64,7 @@ public class SourceAccessPolicy {
             IamAccess access = authorization.require(actorId, IamCapability.SOURCES_MANAGE, true);
             sources.requireAuthorized(access.tenantId(), actorId, sourceId, access.authority() == Authority.GLOBAL, true);
             return true;
-        } catch (io.memoryos.BusinessException denied) {
+        } catch (BusinessException denied) {
             return false;
         }
     }

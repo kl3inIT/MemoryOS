@@ -1,5 +1,12 @@
 package io.memoryos.worker;
 
+import com.sun.net.httpserver.HttpServer;
+import io.memoryos.connector.SourceUploadReceipt;
+import io.memoryos.document.ExtractionArtifactPort;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.ingestion.OperationWorkload;
+import io.memoryos.objectstorage.ObjectUploadCleanupPort;
+import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.shared.TenantId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,6 +19,20 @@ import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.shared.ActorId;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.trace.ReadWriteSpan;
+import io.opentelemetry.sdk.trace.ReadableSpan;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.SpanProcessor;
+import io.opentelemetry.sdk.trace.data.SpanData;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -21,16 +42,31 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import java.util.Map;
 
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import javax.imageio.ImageIO;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.data.Offset;
+import org.jspecify.annotations.NonNull;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.containers.GenericContainer;
@@ -44,6 +80,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import org.springframework.data.redis.connection.stream.Consumer;
@@ -99,43 +136,43 @@ import io.memoryos.library.LibraryTrashProperties;
                 "memoryos.redis.selection-validation.group=memoryos-test-cutover-selection-validation"
         }
 )
-@org.springframework.context.annotation.Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)
+@Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked", "resource", "HttpUrlsUsage"})
 class WorkerFileProcessingIntegrationTest {
-    @org.springframework.beans.factory.annotation.Autowired
-    private io.memoryos.document.ExtractionArtifactPort extractionArtifacts;
+    @Autowired
+    private ExtractionArtifactPort extractionArtifacts;
 
-    private static final java.util.List<io.opentelemetry.sdk.trace.data.SpanData> SPANS = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<SpanData> SPANS = new CopyOnWriteArrayList<>();
 
-    @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     static class TelemetryConfiguration {
-        @org.springframework.context.annotation.Bean
-        io.opentelemetry.api.OpenTelemetry operationTestTelemetry() {
-            var processor = new io.opentelemetry.sdk.trace.SpanProcessor() {
-                public void onStart(io.opentelemetry.context.@org.jspecify.annotations.NonNull Context parent,
-                                    io.opentelemetry.sdk.trace.@org.jspecify.annotations.NonNull ReadWriteSpan span) {}
+        @Bean
+        OpenTelemetry operationTestTelemetry() {
+            var processor = new SpanProcessor() {
+                public void onStart(@NonNull Context parent,
+                                    @NonNull ReadWriteSpan span) {}
                 public boolean isStartRequired() { return false; }
-                public void onEnd(io.opentelemetry.sdk.trace.ReadableSpan span) { SPANS.add(span.toSpanData()); }
+                public void onEnd(ReadableSpan span) { SPANS.add(span.toSpanData()); }
                 public boolean isEndRequired() { return true; }
             };
-            return io.opentelemetry.sdk.OpenTelemetrySdk.builder().setTracerProvider(
-                    io.opentelemetry.sdk.trace.SdkTracerProvider.builder().addSpanProcessor(processor).build()).build();
+            return OpenTelemetrySdk.builder().setTracerProvider(
+                    SdkTracerProvider.builder().addSpanProcessor(processor).build()).build();
         }
     }
 
-    private static final java.util.List<String> METRIC_EXPORTS = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final com.sun.net.httpserver.HttpServer METRICS_RECEIVER = metricsReceiver();
+    private static final List<String> METRIC_EXPORTS = new CopyOnWriteArrayList<>();
+    private static final HttpServer METRICS_RECEIVER = metricsReceiver();
 
-    private static com.sun.net.httpserver.HttpServer metricsReceiver() {
+    private static HttpServer metricsReceiver() {
         try {
-            var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/v1/metrics", exchange -> {
                 byte[] body = exchange.getRequestBody().readAllBytes();
                 METRIC_EXPORTS.add(new String(body, StandardCharsets.ISO_8859_1));
                 String forward = System.getenv("MEMORYOS_TEST_OTLP_FORWARD");
                 if (forward != null) {
-                    var connection = (java.net.HttpURLConnection) URI.create(forward + "/v1/metrics").toURL().openConnection();
+                    var connection = (HttpURLConnection) URI.create(forward + "/v1/metrics").toURL().openConnection();
                     try {
                         connection.setConnectTimeout(2000);
                         connection.setReadTimeout(2000);
@@ -143,7 +180,7 @@ class WorkerFileProcessingIntegrationTest {
                         connection.setDoOutput(true);
                         connection.setRequestProperty("Content-Type", "application/x-protobuf");
                         try (var output = connection.getOutputStream()) { output.write(body); }
-                        if (connection.getResponseCode() != 200) throw new java.io.IOException("Collector rejected metrics");
+                        if (connection.getResponseCode() != 200) throw new IOException("Collector rejected metrics");
                     } finally {
                         connection.disconnect();
                     }
@@ -153,12 +190,12 @@ class WorkerFileProcessingIntegrationTest {
             });
             server.start();
             return server;
-        } catch (java.io.IOException exception) {
+        } catch (IOException exception) {
             throw new IllegalStateException("Could not start metrics receiver", exception);
         }
     }
 
-    @org.junit.jupiter.api.AfterAll
+    @AfterAll
     static void stopMetricsReceiver() { METRICS_RECEIVER.stop(0); }
 
     private static final String INGESTION_STREAM = "memoryos:test:cutover:ingestion";
@@ -209,7 +246,7 @@ class WorkerFileProcessingIntegrationTest {
 
 
     @Autowired
-    private io.micrometer.core.instrument.MeterRegistry registry;
+    private MeterRegistry registry;
 
     @Autowired
     private JdbcClient jdbcClient;
@@ -226,10 +263,10 @@ class WorkerFileProcessingIntegrationTest {
     @Autowired
     private RedisExecutionTopology topology;
 
-    @Autowired private io.memoryos.iam.TenantAccessResolver tenants;
-    @Autowired private io.memoryos.objectstorage.ObjectUploadService objectUploads;
-    @Autowired private io.memoryos.objectstorage.ObjectUploadCleanupPort objectCleanup;
-    @Autowired private org.springframework.transaction.PlatformTransactionManager transactions;
+    @Autowired private TenantAccessResolver tenants;
+    @Autowired private ObjectUploadService objectUploads;
+    @Autowired private ObjectUploadCleanupPort objectCleanup;
+    @Autowired private PlatformTransactionManager transactions;
     @Autowired private RedisExecutionProperties redisProperties;
 
     @DynamicPropertySource
@@ -340,10 +377,10 @@ class WorkerFileProcessingIntegrationTest {
             );
         }
         assertEquals(200, uploadResponse.statusCode());
-        io.memoryos.connector.SourceUploadReceipt upload;
+        SourceUploadReceipt upload;
         String originTrace = "1234567890abcdef1234567890abcdef";
-        try (var _ = org.slf4j.MDC.putCloseable("traceId", originTrace);
-             var _ = org.slf4j.MDC.putCloseable("spanId", "1234567890abcdef")) {
+        try (var _ = MDC.putCloseable("traceId", originTrace);
+             var _ = MDC.putCloseable("spanId", "1234567890abcdef")) {
             upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
         }
         assertEquals(originTrace, jdbcClient.sql("SELECT origin_trace_id FROM index_attempts WHERE id = :id")
@@ -385,11 +422,11 @@ class WorkerFileProcessingIntegrationTest {
         assertEquals(1, initialWait.count());
         double databaseWaitSeconds = jdbcClient.sql("SELECT EXTRACT(EPOCH FROM started_at - created_at) FROM index_attempts WHERE id = :id")
                 .param("id", upload.operation().id().value()).query(Double.class).single();
-        org.assertj.core.api.Assertions.assertThat(initialWait.totalTime(java.util.concurrent.TimeUnit.SECONDS))
-                .isCloseTo(databaseWaitSeconds, org.assertj.core.data.Offset.offset(0.000001));
+        Assertions.assertThat(initialWait.totalTime(TimeUnit.SECONDS))
+                .isCloseTo(databaseWaitSeconds, Offset.offset(0.000001));
         await(() -> SPANS.stream().anyMatch(span -> span.getName().equals("memoryos.operation.process")
                 && span.getLinks().stream().anyMatch(link -> link.getSpanContext().getTraceId().equals(originTrace))));
-        org.assertj.core.api.Assertions.assertThat(SPANS.stream().filter(span -> span.getName().equals("memoryos.operation.process")))
+        Assertions.assertThat(SPANS.stream().filter(span -> span.getName().equals("memoryos.operation.process")))
                 .allMatch(span -> !span.getParentSpanContext().isValid());
         String artifactKey = jdbcClient.sql("""
                 SELECT a.object_key FROM document_extraction_artifacts a
@@ -397,7 +434,7 @@ class WorkerFileProcessingIntegrationTest {
                 WHERE a.state='ACTIVE' AND a.write_complete=TRUE
                 """).query(String.class).single();
         try (S3Client client = s3Client()) {
-            String artifact = client.getObjectAsBytes(software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
+            String artifact = client.getObjectAsBytes(GetObjectRequest.builder()
                     .bucket(OBJECT_BUCKET).key(artifactKey).build()).asUtf8String();
             assertTrue(artifact.contains("MemoryOS worker extraction"));
         }
@@ -502,11 +539,11 @@ class WorkerFileProcessingIntegrationTest {
                 new StorageQuotaService(tenants,
                 new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbcClient)),
                 // This suite drives the worker's own release path, so deletion releases at once.
-                new LibraryTrashProperties(java.time.Duration.ZERO), transactions);
+                new LibraryTrashProperties(Duration.ZERO), transactions);
         byte[] content;
-        try (var output = new java.io.ByteArrayOutputStream()) {
-            var image = new java.awt.image.BufferedImage(3000, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
-            assertTrue(javax.imageio.ImageIO.write(image, "png", output));
+        try (var output = new ByteArrayOutputStream()) {
+            var image = new BufferedImage(3000, 2, BufferedImage.TYPE_INT_RGB);
+            assertTrue(ImageIO.write(image, "png", output));
             image.flush();
             content = output.toByteArray();
         }
@@ -515,7 +552,7 @@ class WorkerFileProcessingIntegrationTest {
                 HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
         var receipt = files.initiate(OWNER, request);
         assertEquals(receipt.file().id(), files.initiate(OWNER, request).file().id());
-        var authorization = java.util.Objects.requireNonNull(receipt.upload());
+        var authorization = Objects.requireNonNull(receipt.upload());
         var upload = HttpRequest.newBuilder(authorization.uri());
         authorization.requiredHeaders().forEach(upload::header);
         try (var http = HttpClient.newHttpClient()) {
@@ -524,7 +561,7 @@ class WorkerFileProcessingIntegrationTest {
         var id = receipt.file().id();
         files.finalizeUpload(OWNER, id);
         files.finalizeUpload(OWNER, id);
-        var stream = redisProperties.workload(io.memoryos.ingestion.OperationWorkload.USER_FILE).stream();
+        var stream = redisProperties.workload(OperationWorkload.USER_FILE).stream();
         await(() -> redis.opsForStream().size(stream) > 0);
         // This container is test-owned. Lose the delivery and recreate topology, then let durable rediscovery recover it.
         redis.delete(stream);
@@ -542,7 +579,7 @@ class WorkerFileProcessingIntegrationTest {
         String artifactKey = jdbcClient.sql("SELECT a.object_key FROM document_extraction_artifacts a JOIN documents d ON d.extraction_artifact_id=a.id JOIN chat_user_file f ON f.document_id=d.id WHERE f.id=:id")
                 .param("id", id).query(String.class).single();
         try (var storage = s3Client()) {
-            String artifact = storage.getObjectAsBytes(software.amazon.awssdk.services.s3.model.GetObjectRequest.builder().bucket(OBJECT_BUCKET).key(artifactKey).build()).asUtf8String();
+            String artifact = storage.getObjectAsBytes(GetObjectRequest.builder().bucket(OBJECT_BUCKET).key(artifactKey).build()).asUtf8String();
             assertTrue(artifact.contains("3000x2"));
         }
         files.delete(OWNER, id);
@@ -586,7 +623,7 @@ class WorkerFileProcessingIntegrationTest {
     }
 
     private static byte[] docxFixture() throws Exception {
-        try (var output = new java.io.ByteArrayOutputStream(); var zip = new java.util.zip.ZipOutputStream(output)) {
+        try (var output = new ByteArrayOutputStream(); var zip = new ZipOutputStream(output)) {
             var entries = Map.of(
                     "[Content_Types].xml", """
                     <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -605,7 +642,7 @@ class WorkerFileProcessingIntegrationTest {
                     <w:p><w:r><w:t>MemoryOS worker extraction</w:t></w:r></w:p></w:body></w:document>
                     """);
             for (var entry : entries.entrySet()) {
-                zip.putNextEntry(new java.util.zip.ZipEntry(entry.getKey()));
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
                 zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
             }

@@ -9,20 +9,28 @@ import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.Budget;
 import com.embabel.common.ai.model.LlmMetadata;
 import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.TurnFailureException;
 import io.memoryos.chat.execution.ChatModelGuard;
+import io.memoryos.chat.execution.ChatTurnSetup;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 
 class OpenAiRequestPolicyTest {
@@ -69,17 +77,17 @@ class OpenAiRequestPolicyTest {
         var tokens = TokenizerProfiles.hostedTokens();
         var vision = OpenAiRequestPolicy.create(new ModelSettings(8192, 128,
                 new ModelSettings.Capabilities(true, false, true, false), Map.of(), null, TokenizerProfiles.HOSTED), tokens);
-        var media = new org.springframework.ai.content.Media(org.springframework.util.MimeTypeUtils.IMAGE_PNG,
-                new org.springframework.core.io.ByteArrayResource(new byte[]{1, 2, 3}));
-        var message = org.springframework.ai.chat.messages.UserMessage.builder().text("Inspect").media(List.of(media)).build();
+        var media = new Media(MimeTypeUtils.IMAGE_PNG,
+                new ByteArrayResource(new byte[]{1, 2, 3}));
+        var message = UserMessage.builder().text("Inspect").media(List.of(media)).build();
         var options = OpenAiChatOptions.builder().model("vision").maxTokens(64).build();
         var prompt = new Prompt(List.of(message), options);
         int textBudget = vision.framing().applyAsInt(new Prompt("Inspect", options));
         assertThrows(IllegalStateException.class, () -> vision.request(prompt, textBudget));
-        int imageBudget = textBudget + io.memoryos.chat.execution.ChatTurnSetup.IMAGE_INPUT_TOKENS;
+        int imageBudget = textBudget + ChatTurnSetup.IMAGE_INPUT_TOKENS;
         assertThrows(IllegalStateException.class, () -> vision.request(prompt, imageBudget - 1));
         var accepted = vision.request(prompt, imageBudget);
-        assertEquals(List.of(media), assertInstanceOf(org.springframework.ai.chat.messages.UserMessage.class,
+        assertEquals(List.of(media), assertInstanceOf(UserMessage.class,
                 accepted.getInstructions().getFirst()).getMedia());
         var textOnly = OpenAiRequestPolicy.create(new ModelSettings(8192, 128,
                 new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, TokenizerProfiles.HOSTED), tokens);
@@ -108,14 +116,15 @@ class OpenAiRequestPolicyTest {
         var withTools = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini")
                 .toolCallbacks(List.of(mock(ToolCallback.class))).toolChoice("auto").build());
         assertEquals("required", assertInstanceOf(OpenAiChatOptions.class, OpenAiRequestPolicy.requireTools(withTools).getOptions()).getToolChoice());
-        assertThrows(IllegalArgumentException.class, () -> OpenAiRequestPolicy.requireTools(new Prompt("Question")));
+        assertEquals("CHAT_UNSUPPORTED_OPTIONS", assertThrows(TurnFailureException.class,
+                () -> OpenAiRequestPolicy.requireTools(new Prompt("Question"))).code());
     }
 
     @Test
     void profileValidationRejectsUnknownProfilesLocally() {
-        var meters = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        var meters = new SimpleMeterRegistry();
         try {
-            var adapter = new OpenAiProviderAdapter(io.micrometer.observation.ObservationRegistry.NOOP, meters);
+            var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
             assertThrows(AiException.class, () -> adapter.validate("http://private/v1", "model",
                     new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, "unknown")));
         } finally { meters.close(); }

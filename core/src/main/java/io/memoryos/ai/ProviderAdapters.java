@@ -1,5 +1,6 @@
 package io.memoryos.ai;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -20,7 +21,7 @@ public final class ProviderAdapters {
     public List<Descriptor> available() {
         return adapters.values().stream()
                 .map(a -> new Descriptor(a.type(), a.credentialRequirement(), a.tokenizerProfiles(), a.nativeWebSearch(), a.knownModels()))
-                .sorted(java.util.Comparator.comparing(Descriptor::type)).toList();
+                .sorted(Comparator.comparing(Descriptor::type)).toList();
     }
     public record Descriptor(String type, ProviderAdapter.CredentialRequirement credentialRequirement,
                              List<ProviderAdapter.TokenizerProfile> tokenizerProfiles, boolean nativeWebSearch,

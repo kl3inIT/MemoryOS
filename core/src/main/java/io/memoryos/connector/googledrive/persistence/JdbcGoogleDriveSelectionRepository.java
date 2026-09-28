@@ -8,10 +8,12 @@ import io.memoryos.connector.sync.persistence.SelectionOperations;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.GroupId;
+import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -110,14 +112,14 @@ public class JdbcGoogleDriveSelectionRepository {
                 VALUES(:id,:tenant,:source,:actor,:request,:hash,:credential,:credentialRevision,:scope,:discovery,
                     :mode,:name,:requests,:metadata,:roots,:bytes,:trace,:span,CAST(:groups AS jsonb),:access)
                 """).param("id",id).param("tenant",tenant.value()).param("source",source.value()).param("actor",actor.value())
-                .param("access", access == null ? null : access.name(), java.sql.Types.VARCHAR)
+                .param("access", access == null ? null : access.name(), Types.VARCHAR)
                 .param("request",request).param("hash",hash).param("credential",credential.value())
                 .param("credentialRevision",credentialRevision).param("scope",scopeRevision).param("discovery",discoveryRevision)
                 .param("mode",mode.name()).param("name",name).param("requests",Math.min(100000,policy.maxExplicitRootsPerSource()*64+4096))
                 .param("metadata",Math.min(50000,policy.maxExplicitRootsPerSource()*32+4096))
                 .param("roots",policy.maxExplicitRootsPerSource()).param("bytes",policy.maxRequestBytes())
                 .param("groups", groupIds.stream().map(idValue -> "\"" + idValue.value() + "\"")
-                        .collect(java.util.stream.Collectors.joining(",", "[", "]")))
+                        .collect(Collectors.joining(",", "[", "]")))
                 .param("trace",trace == null ? null : trace.traceId()).param("span",trace == null ? null : trace.spanId()).update();
         for (String root : mode == ScopeMode.GENERAL ? List.of("root") : roots)
             entry(tenant,id,root,"ROOT",false,null,null);
@@ -152,7 +154,7 @@ public class JdbcGoogleDriveSelectionRepository {
 
     public Intent intent(Work work) {
         return jdbc.sql("SELECT * FROM google_drive_selection_operations WHERE tenant_id=:tenant AND id=:id")
-                .param("tenant",work.tenantId().value()).param("id",work.operationId().value()).query((r,n) -> new Intent(
+                .param("tenant",work.tenantId().value()).param("id",work.operationId().value()).query((r,_) -> new Intent(
                         new ActorId(r.getObject("actor_id",UUID.class)),r.getObject("credential_id",UUID.class),
                         r.getLong("credential_revision"),r.getLong("scope_revision"),r.getLong("discovery_revision"),
                         ScopeMode.valueOf(r.getString("scope_mode")),r.getString("source_name"),
@@ -175,7 +177,7 @@ public class JdbcGoogleDriveSelectionRepository {
 
     public List<Entry> entries(Work work) {
         return jdbc.sql("SELECT * FROM google_drive_selection_entries WHERE tenant_id=:tenant AND operation_id=:id ORDER BY kind DESC,file_id")
-                .param("tenant",work.tenantId().value()).param("id",work.operationId().value()).query((r,n) -> new Entry(
+                .param("tenant",work.tenantId().value()).param("id",work.operationId().value()).query((r,_) -> new Entry(
                         r.getString("file_id"),r.getString("kind"),r.getBoolean("was_selected"),r.getBoolean("verified"),
                         r.getBoolean("covered"),r.getString("status"),r.getString("name"),r.getString("mime_type"))).list();
     }
@@ -183,7 +185,7 @@ public class JdbcGoogleDriveSelectionRepository {
     public Optional<GoogleDriveProvider.FileMetadata> metadata(Work work,String id) {
         return jdbc.sql("SELECT * FROM google_drive_selection_metadata WHERE tenant_id=:tenant AND operation_id=:operation AND lookup_id=:id")
                 .param("tenant",work.tenantId().value()).param("operation",work.operationId().value()).param("id",id)
-                .query((r,n) -> new GoogleDriveProvider.FileMetadata(r.getString("file_id"),r.getString("name"),r.getString("mime_type"),
+                .query((r,_) -> new GoogleDriveProvider.FileMetadata(r.getString("file_id"),r.getString("name"),r.getString("mime_type"),
                         r.getString("version"),null,null,r.getBoolean("trashed"),Arrays.asList((String[])r.getArray("parents").getArray()),
                         r.getString("drive_id"),r.getString("shortcut_target_id"))).optional();
     }
@@ -224,10 +226,6 @@ public class JdbcGoogleDriveSelectionRepository {
 
     public void finish(Work work,String status,@Nullable String code) {
         operations.finish(work, status, code);
-    }
-
-    public void continueLater(Work work,long elapsed,@Nullable String error) {
-        operations.continueLater(work, elapsed, error);
     }
 
     public record Intent(ActorId actorId,@Nullable UUID credentialId,long credentialRevision,long scopeRevision,

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
+import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.application.StructuredDocumentChunker;
 import java.io.ByteArrayInputStream;
@@ -84,7 +85,7 @@ class SharePointPageExtractionTest {
     }
 
     /** The reader is told the exact size of the snapshot, as object storage reports it. */
-    private io.memoryos.document.DocumentContent extract(String json, SourceInputDescriptor descriptor)
+    private DocumentContent extract(String json, SourceInputDescriptor descriptor)
             throws ExtractionException {
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         return extractor.extract(new ByteArrayInputStream(bytes), bytes.length, "page.json", descriptor);

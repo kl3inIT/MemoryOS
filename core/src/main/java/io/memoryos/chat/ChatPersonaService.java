@@ -79,7 +79,8 @@ public class ChatPersonaService {
                                @Nullable Set<String> tools, @Nullable List<UUID> mcpServerIds, @Nullable UUID modelConfigurationId,
                                @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, @Nullable List<UUID> fileIds,
                                @Nullable String iconName, @Nullable UUID avatarFileId, @Nullable List<UUID> labelIds,
-                               @Nullable Boolean replaceBaseSystemPrompt, @Nullable Boolean datetimeAware, @Nullable Instant knowledgeCutoff) {
+                               @Nullable Boolean replaceBaseSystemPrompt, @Nullable Instant knowledgeCutoff,
+                               @Nullable Boolean grounded) {
     }
 
     public record AgentSourceRef(UUID id, String name) {}
@@ -92,7 +93,7 @@ public class ChatPersonaService {
                               @Nullable String iconName, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
                               boolean vacant, List<AgentUserShare> userShares, List<AgentGroupShare> groupShares, boolean isPublic,
                               AgentPermission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
-                              boolean replaceBaseSystemPrompt, boolean datetimeAware, @Nullable Instant knowledgeCutoff,
+                              boolean replaceBaseSystemPrompt, boolean grounded, @Nullable Instant knowledgeCutoff,
                               boolean pinned, @Nullable Instant deletedAt) {}
 
     public record UserShareInput(UUID actorId, AgentPermission permission) {}
@@ -365,16 +366,6 @@ public class ChatPersonaService {
         return views(tenant, actor, manage, kept);
     }
 
-    @Transactional(readOnly = true)
-    public AgentShareOptions shareOptions(ActorId actor, @Nullable String query, int limit) {
-        var tenant = tenant(actor);
-        authorization.require(actor, IamCapability.CHAT_WRITE, false);
-        if (limit < 1 || limit > 50) throw ChatException.invalid("Invalid page.");
-        String normalized = query == null || query.isBlank() ? null : query.strip();
-        if (normalized != null && normalized.length() > 200) throw ChatException.invalid("Search text is too long.");
-        return agents.shareOptions(tenant.value(), normalized, limit);
-    }
-
     public record Avatar(ObjectContent content, String mediaType) {}
 
     @Transactional(readOnly = true)
@@ -425,15 +416,14 @@ public class ChatPersonaService {
                 input.starterPrompts(), input.sourceIds(), input.modelConfigurationId(), input.contextTokenLimit(), input.outputTokenLimit(),
                 iconName, avatar,
                 input.replaceBaseSystemPrompt() == null ? entity.replaceBaseSystemPrompt() : input.replaceBaseSystemPrompt(),
-                input.datetimeAware() == null ? entity.datetimeAware() : input.datetimeAware(),
+                input.grounded() == null ? entity.grounded() : input.grounded(),
                 input.knowledgeCutoff()));
     }
 
     private void relations(TenantId tenant, ActorId actor, PersonaEntity entity, PersonaInput input, boolean creating) {
         if (input.documentSetIds() != null || creating) {
-            List<UUID> documentSetIds = input.documentSetIds() == null
-                    ? (creating ? List.of() : documentSetRows.personaSets(tenant.value(), List.of(entity.id())).getOrDefault(entity.id(), List.of()))
-                    : input.documentSetIds();
+            // Only a new agent reaches here without a selection.
+            List<UUID> documentSetIds = input.documentSetIds() == null ? List.of() : input.documentSetIds();
             documentSets.admitAttachments(actor, tenant, documentSetIds);
             documentSetRows.replacePersonaSets(tenant.value(), entity.id(), documentSetIds);
         }
@@ -501,8 +491,8 @@ public class ChatPersonaService {
                     entity.iconName(), entity.avatarFileId() != null, details.labels().getOrDefault(id, List.of()),
                     details.owners().getOrDefault(id, new AgentOwner(null, null)), granted.vacant(), userShares,
                     details.groupShares().getOrDefault(id, List.of()), entity.isPublic(), AgentPermission.valueOf(entity.publicPermission()),
-                    entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(),
-                    entity.datetimeAware(), entity.knowledgeCutoff(), details.pinned().contains(id), entity.deletedAt()));
+                    entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(), entity.grounded(),
+                    entity.knowledgeCutoff(), details.pinned().contains(id), entity.deletedAt()));
         }
         return result;
     }

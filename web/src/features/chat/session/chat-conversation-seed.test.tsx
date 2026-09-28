@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
+import { handleListChatPersonas } from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { ChatStarterPrompts } from "./chat-session-settings";
 
 const composer = vi.hoisted(() => ({
@@ -22,12 +24,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
   useNavigate: () => navigate,
   useParams: () => ({ sessionId: sessionId.value }),
-  useSearch: () => search.value,
-}));
-
-vi.mock("@/features/chat/chat-personas-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/chat/chat-personas-api")>()),
-  loadPersonas: vi.fn(async () => []),
+  useMatch: () => ({ search: search.value }),
 }));
 
 vi.mock("@/features/library/files", async (importOriginal) => ({
@@ -63,6 +60,7 @@ beforeEach(async () => {
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
   waitForChatFile.mockResolvedValue(attachment);
+  server.use(handleListChatPersonas({ body: [] }));
 });
 afterEach(cleanup);
 

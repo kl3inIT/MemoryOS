@@ -1,5 +1,10 @@
 package io.memoryos.chat.image;
 
+import io.memoryos.objectstorage.ObjectKey;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
@@ -27,7 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 @NamedInterface("image")
 public class ImageArtifactService {
-    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ImageArtifactService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ImageArtifactService.class);
     /** Same ceiling as vision input; an edit source is read fully into memory. */
     private static final int EDIT_SOURCE_LIMIT = 20 * 1024 * 1024;
     /** A thumbnail source is read fully into memory as well; past this the original is served unshrunk. */
@@ -66,8 +71,8 @@ public class ImageArtifactService {
             return new Served(rendered.mediaType(), rendered.bytes().length, null, rendered.bytes());
         }
 
-        public java.io.InputStream inputStream() {
-            return content != null ? content.inputStream() : new java.io.ByteArrayInputStream(requireBytes());
+        public InputStream inputStream() {
+            return content != null ? content.inputStream() : new ByteArrayInputStream(requireBytes());
         }
 
         private byte[] requireBytes() {
@@ -106,7 +111,7 @@ public class ImageArtifactService {
     }
 
     /** Opens a stored object and re-checks the read after opening, so a revoked membership cannot be served. */
-    private Served stored(ActorId actor, TenantId tenant, UUID id, io.memoryos.objectstorage.ObjectKey key, String mediaType) {
+    private Served stored(ActorId actor, TenantId tenant, UUID id, ObjectKey key, String mediaType) {
         var content = storage.open(key);
         try {
             if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()

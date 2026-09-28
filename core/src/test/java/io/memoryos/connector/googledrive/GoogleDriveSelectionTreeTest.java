@@ -14,6 +14,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -165,7 +166,7 @@ class GoogleDriveSelectionTreeTest {
         assertEquals(files.stream().map(GoogleDriveProvider.FileMetadata::id).toList(), all);
         var first = tree(f, source, "root0", null, 25);
         var changed = new ArrayList<>(files.subList(0, 100));
-        java.util.Collections.swap(changed, 0, 1);
+        Collections.swap(changed, 0, 1);
         f.pages.put("root0|", new GoogleDriveProvider.FilePage(changed, "next-provider-page"));
         assertThrows(SourceException.class, () -> tree(f, source, "root0", first.nextCursor(), 25));
     }

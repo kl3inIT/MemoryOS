@@ -1,5 +1,7 @@
 package io.memoryos.audit;
 
+import java.util.Locale;
+
 /**
  * The OCSF class an action belongs to, as Onyx routes its events, so a SIEM can subscribe to "who signed in" or
  * "who changed authority" without knowing every action MemoryOS will add.
@@ -18,5 +20,5 @@ public enum AuditEventClass {
     public int ocsfClassId() { return ocsfClassId; }
 
     /** The logger an event is re-emitted on, so one prefix captures the whole stream. */
-    public String loggerName() { return "memoryos.audit." + name().toLowerCase(java.util.Locale.ROOT); }
+    public String loggerName() { return "memoryos.audit." + name().toLowerCase(Locale.ROOT); }
 }

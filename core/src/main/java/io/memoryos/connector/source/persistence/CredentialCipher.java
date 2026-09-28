@@ -11,6 +11,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import io.memoryos.shared.TenantId;
+import org.jspecify.annotations.NonNull;
 
 /**
  * AES-GCM envelope shared by connector credential kinds. The credential kind belongs to the additional
@@ -117,6 +118,6 @@ public final class CredentialCipher {
             return nonce.clone();
         }
 
-        @Override public String toString() { return "EncryptedCredential[redacted]"; }
+        @Override public @NonNull String toString() { return "EncryptedCredential[redacted]"; }
     }
 }

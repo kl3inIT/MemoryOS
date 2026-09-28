@@ -1,7 +1,7 @@
 import type { UIMessage, UIMessageChunk } from "ai";
 import { z } from "zod";
 import { sourceSchema } from "@/features/chat/sources/chat-evidence";
-import { documentSourceTypesSchema } from "@/features/search/document-source-presentation";
+import { documentSourceTypesSchema } from "@/features/documents/document-source-presentation";
 
 const toolNameSchema = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/);
 const intervalSchema = z.object({
@@ -113,7 +113,7 @@ export const toolProgressSchema = z.object({
   failure: failureSchema.nullable().catch(null),
 });
 /** Non-sensitive marker; the UI shows its own localized failure copy. */
-export const TOOL_FAILED = "TOOL_FAILED";
+const TOOL_FAILED = "TOOL_FAILED";
 
 const emptyProgress = (): ToolProgress => ({
   stage: "STARTED",
@@ -170,15 +170,15 @@ export class ActivityChunks {
     if (event.stage === "SOURCE") {
       if (!tool || !event.source) return [];
       const cited = this.citations[event.toolCallId] ?? [];
-      if (!cited.includes(event.source.citationId))
-        this.citations = {
-          ...this.citations,
-          [event.toolCallId]: [...cited, event.source.citationId],
-        };
+      const citations = cited.includes(event.source.citationId)
+        ? cited
+        : [...cited, event.source.citationId];
+      if (citations !== cited)
+        this.citations = { ...this.citations, [event.toolCallId]: citations };
       // Hosted search cites after its step completes; a finished part keeps its output and the
       // citations travel in message metadata instead.
       if (tool.done) return [];
-      tool.progress = { ...tool.progress, citations: this.citations[event.toolCallId]! };
+      tool.progress = { ...tool.progress, citations };
       return [this.input(event.toolCallId, tool)];
     }
     const chunks: UIMessageChunk[] = [];

@@ -1,0 +1,145 @@
+import { useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import {
+  getChatLibraryTrashWindowOptions,
+  getChatLibraryUsageOptions,
+  searchChatLibraryContentOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { libraryOptions, type LibraryFilter } from "./library";
+import { isEntryView } from "./library-entries";
+import { librarySearchDefaults, viewFilterDefaults, type LibrarySearch } from "./library-search";
+
+/** A deleted file stays restorable for days, so the window is read again only after minutes. */
+const trashWindowStaleTime = 5 * 60_000;
+
+/**
+ * What the library shows and the reads behind it. The view, filters, order and page live in the address, so a
+ * reload, Back or a link opens the same list; outside the library route (a test mounting the page alone) the
+ * defaults apply. The search box holds what is typed and the address follows it once typing settles. The owned
+ * listing is read only on the views of the person's own files; the other views read their own routes.
+ */
+export function useLibraryView() {
+  const cache = useQueryClient();
+  const shown: LibrarySearch =
+    useSearch({ from: "/_authenticated/library", shouldThrow: false }) ?? librarySearchDefaults;
+  const navigate = useNavigate({ from: "/library" });
+  const { mode, category: categories, source: sources, sort, view, size, starred } = shown;
+  const owned = !isEntryView(view);
+  const [search, setSearch] = useState(shown.q);
+  const [shownSearch, setShownSearch] = useState(shown.q);
+  if (shownSearch !== shown.q) {
+    // Back or a cleared filter changes the address; the box follows it.
+    setShownSearch(shown.q);
+    if (search !== shown.q) setSearch(shown.q);
+  }
+  const offset = shown.page * size;
+  const query = useDebouncedValue(search.trim(), 250);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  /** A selection belongs to the page it was made on, so leaving that page drops it. */
+  const show = (next: Partial<LibrarySearch>, replace = false) => {
+    setSelected([]);
+    void navigate({ search: (current) => ({ ...current, ...next }), replace, resetScroll: false });
+  };
+  /** Every filter change starts the list again: page 3 of the previous filter means nothing. */
+  const filterBy = (next: Partial<LibrarySearch>, replace = false) =>
+    show({ ...next, page: 0 }, replace);
+
+  useEffect(() => {
+    // Only the settled search is written to the address, replacing the entry: an address changed by Back sets
+    // the box instead, and the other filters navigate themselves.
+    if (query !== shown.q) filterBy({ q: query }, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const filter = useMemo<LibraryFilter>(
+    () => ({
+      query: mode === "content" ? "" : query,
+      sources,
+      categories,
+      // The trash reads by when a file was deleted, not by when it was made.
+      sort: view === "trash" ? "DELETED" : sort,
+      favorite: (view === "ready" && starred) || undefined,
+      status: view === "pending" ? "PENDING" : view === "trash" ? "TRASH" : undefined,
+    }),
+    [mode, query, sources, categories, sort, view, starred],
+  );
+  const page = useQuery({
+    ...libraryOptions(filter, offset, size),
+    enabled: owned,
+    // Paging keeps the page being read on screen until the next one arrives, instead of emptying the list.
+    placeholderData: keepPreviousData,
+    // An upload being processed becomes usable on its own; the view follows without a manual refresh.
+    refetchInterval: (current) =>
+      current.state.data?.items.some((file) => file.status === "PROCESSING") ? 3000 : false,
+  });
+  const hasMore = owned && page.data?.hasMore === true && !page.isPlaceholderData;
+  useEffect(() => {
+    // The next page is fetched while this one is read, so the next-page button shows it without a wait.
+    if (hasMore) void cache.prefetchQuery({ ...libraryOptions(filter, offset + size, size) });
+  }, [cache, filter, offset, size, hasMore]);
+  const usage = useQuery(getChatLibraryUsageOptions());
+  const trashWindow = useQuery({
+    ...getChatLibraryTrashWindowOptions(),
+    select: (window) => window.days,
+    staleTime: trashWindowStaleTime,
+  });
+  const matches = useQuery({
+    ...searchChatLibraryContentOptions({ query: { query } }),
+    enabled: mode === "content" && query.length > 0,
+  });
+
+  return {
+    search,
+    setSearch,
+    query,
+    mode,
+    sources,
+    categories,
+    sort,
+    view,
+    owned,
+    starred,
+    kind: shown.kind,
+    owner: shown.owner,
+    sourceId: shown.sourceId,
+    size,
+    offset,
+    selected,
+    setSelected,
+    filtered: owned
+      ? query.length > 0 ||
+        sources.length > 0 ||
+        categories.length > 0 ||
+        (view === "ready" && starred)
+      : query.length > 0 ||
+        categories.length > 0 ||
+        shown.kind !== undefined ||
+        shown.owner !== "ALL" ||
+        shown.sourceId !== undefined,
+    files: page.data?.items ?? [],
+    page,
+    usage,
+    trashWindow,
+    matches,
+    filterBy,
+    /**
+     * Moves to another view. A view of what reaches the person keeps no filter of another view and gives none
+     * back; `and` narrows the view being opened.
+     */
+    showView: (next: LibrarySearch["view"], and: Partial<LibrarySearch> = {}) =>
+      filterBy({
+        view: next,
+        ...(isEntryView(next) || isEntryView(view) ? viewFilterDefaults : {}),
+        ...and,
+      }),
+    showPage: (nextOffset: number) => show({ page: Math.floor(nextOffset / size) }),
+    /** After a change to the files the list restarts in place, without an entry to return to. */
+    showFirstPage: () => show({ page: 0 }, true),
+    clearFilters: () => filterBy({ ...viewFilterDefaults, mode, sort, q: "" }),
+  };
+}
+
+export type LibraryViewState = ReturnType<typeof useLibraryView>;

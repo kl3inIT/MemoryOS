@@ -4,6 +4,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -62,23 +63,27 @@ export function SourceFileActions({
           }}
         >
           {onReindex ? (
-            <DropdownMenuItem onSelect={onReindex}>
-              <RefreshCw aria-hidden="true" />
-              {ui("Reindex")}
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem onSelect={onReindex}>
+                <RefreshCw aria-hidden="true" />
+                {ui("Reindex")}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           ) : null}
           {onReindex && onRemove ? <DropdownMenuSeparator /> : null}
           {onRemove ? (
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => {
-                openingDialog.current = true;
-                setConfirmingRemoval(true);
-              }}
-            >
-              <Trash2 aria-hidden="true" />
-              {ui("Remove")}
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  openingDialog.current = true;
+                  setConfirmingRemoval(true);
+                }}
+              >
+                <Trash2 aria-hidden="true" />
+                {ui("Remove")}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>

@@ -1,6 +1,6 @@
 /** Client for one meeting track's recording WebSocket (`/api/meeting-stream`). */
 
-export const MEETING_STREAM_PATH = "/api/meeting-stream";
+const MEETING_STREAM_PATH = "/api/meeting-stream";
 const OPEN_TIMEOUT_MS = 8_000;
 /** The server stores the last utterances after an end; a slow provider may take a few seconds. */
 const FINISH_TIMEOUT_MS = 20_000;
@@ -61,7 +61,7 @@ export type MeetingSocketOptions = {
   createSocket?: (url: string) => WebSocket;
 };
 
-export function meetingStreamUrl(
+function meetingStreamUrl(
   options: Pick<MeetingSocketOptions, "meetingId" | "track" | "offsetMs" | "ticket">,
   location: Pick<Location, "origin" | "protocol"> = window.location,
 ) {

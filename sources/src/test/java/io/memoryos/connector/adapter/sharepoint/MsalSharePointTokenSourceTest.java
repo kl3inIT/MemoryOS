@@ -10,22 +10,26 @@ import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SharePointProviderException.Failure;
 import io.memoryos.connector.SharePointProviderException.Reason;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
@@ -81,10 +85,10 @@ class MsalSharePointTokenSourceTest {
             String sha256 = header.path("x5t#S256").asString("");
             assertFalse(sha1.isBlank() && sha256.isBlank(), header.toString());
             if (!sha1.isBlank()) {
-                assertEquals(material.thumbprint(), java.util.HexFormat.of().withUpperCase().formatHex(decode(sha1)));
+                assertEquals(material.thumbprint(), HexFormat.of().withUpperCase().formatHex(decode(sha1)));
             }
             if (!sha256.isBlank()) {
-                assertArrayEquals(java.security.MessageDigest.getInstance("SHA-256").digest(material.certificate()),
+                assertArrayEquals(MessageDigest.getInstance("SHA-256").digest(material.certificate()),
                         decode(sha256));
             }
             assertEquals(CLIENT, payload.path("iss").asString(""));
@@ -184,7 +188,7 @@ class MsalSharePointTokenSourceTest {
         private static SSLContext localhostTls() {
             try {
                 var store = KeyStore.getInstance("PKCS12");
-                store.load(new java.io.ByteArrayInputStream(fixture("localhost.p12")), PASSWORD.clone());
+                store.load(new ByteArrayInputStream(fixture("localhost.p12")), PASSWORD.clone());
                 var keys = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
                 keys.init(store, PASSWORD.clone());
                 var trust = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -192,7 +196,7 @@ class MsalSharePointTokenSourceTest {
                 var context = SSLContext.getInstance("TLS");
                 context.init(keys.getKeyManagers(), trust.getTrustManagers(), null);
                 SSLContext.setDefault(context);
-                javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(context.getSocketFactory());
+                HttpsURLConnection.setDefaultSSLSocketFactory(context.getSocketFactory());
                 return context;
             } catch (Exception exception) {
                 throw new IllegalStateException("could not start the local token endpoint over TLS", exception);

@@ -8,12 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -190,13 +194,13 @@ class DefaultInvitationServiceTest {
         var replacement = invitations.issue(ownerActorId, "expired@example.com");
         assertNotEquals(expiring.invitation().id(), replacement.invitation().id());
         assertEquals("EXPIRED", invitationStatus(expiring.invitation().id()));
-        assertEquals(java.util.List.of("user.invite", "user.invite", "user.invite_rotate", "user.invite_revoke",
+        assertEquals(List.of("user.invite", "user.invite", "user.invite_rotate", "user.invite_revoke",
                 "user.invite", "user.invite"), auditActions());
-        org.junit.jupiter.api.Assertions.assertFalse(jdbcClient.sql("SELECT string_agg(details::text, ' ') FROM audit_event").query(String.class).single()
+        Assertions.assertFalse(jdbcClient.sql("SELECT string_agg(details::text, ' ') FROM audit_event").query(String.class).single()
                 .contains(rotated.plaintextSecret()), "an invitation secret is never recorded");
     }
 
-    private java.util.List<String> auditActions() {
+    private List<String> auditActions() {
         return jdbcClient.sql("SELECT action FROM audit_event ORDER BY occurred_at, id").query(String.class).list();
     }
 
@@ -322,10 +326,10 @@ class DefaultInvitationServiceTest {
     void rollsBackActorBindingMembershipAndGroupEdgeWhenBasicProvisioningFails() {
         var issued = invitations.issue(ownerActorId, "member@example.com");
         var continuation = invitations.intake(issued.plaintextSecret());
-        GroupProvisioner failingGroups = org.mockito.Mockito.mock(GroupProvisioner.class);
-        org.mockito.Mockito.doThrow(new UnsupportedOperationException()).when(failingGroups).bootstrap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-        org.mockito.Mockito.doThrow(new IllegalStateException("Basic group write failed"))
-                .when(failingGroups).addToBasicGroup(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        GroupProvisioner failingGroups = Mockito.mock(GroupProvisioner.class);
+        Mockito.doThrow(new UnsupportedOperationException()).when(failingGroups).bootstrap(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.doThrow(new IllegalStateException("Basic group write failed"))
+                .when(failingGroups).addToBasicGroup(ArgumentMatchers.any(), ArgumentMatchers.any());
         InvitationService failingService = invitationService(failingGroups);
 
         assertThrows(IllegalStateException.class, () -> failingService.accept(new InvitationAcceptance(
@@ -340,22 +344,22 @@ class DefaultInvitationServiceTest {
         assertEquals(1L, count("tenant_memberships"));
         assertEquals(2L, count("iam_group_memberships"));
         assertEquals("PENDING", invitationStatus(issued.invitation().id()));
-        assertEquals(java.util.List.of("user.invite"), auditActions(), "a join that rolled back left no event");
+        assertEquals(List.of("user.invite"), auditActions(), "a join that rolled back left no event");
     }
 
     @Test
     void expiryDuringAcceptanceReturnsNotAvailableAndRollsBackNewAuthority() {
         var issued = invitations.issue(ownerActorId, "expiring@example.com");
-        GroupProvisioner expiringGroups = org.mockito.Mockito.mock(GroupProvisioner.class);
-        org.mockito.Mockito.doAnswer(call -> {
+        GroupProvisioner expiringGroups = Mockito.mock(GroupProvisioner.class);
+        Mockito.doAnswer(call -> {
             groups.bootstrap(call.getArgument(0), call.getArgument(1));
             return null;
-        }).when(expiringGroups).bootstrap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-        org.mockito.Mockito.doAnswer(call -> {
+        }).when(expiringGroups).bootstrap(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.doAnswer(call -> {
             groups.addToBasicGroup(call.getArgument(0), call.getArgument(1));
             clock.advance(Duration.between(clock.instant(), issued.invitation().expiresAt()));
             return null;
-        }).when(expiringGroups).addToBasicGroup(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        }).when(expiringGroups).addToBasicGroup(ArgumentMatchers.any(), ArgumentMatchers.any());
         InvitationService expiringService = invitationService(expiringGroups);
 
         InvitationException failure = assertThrows(

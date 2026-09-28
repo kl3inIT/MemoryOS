@@ -6,11 +6,13 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.*;
 
 import ai.docling.serve.api.convert.request.ConvertDocumentRequest;
+import ai.docling.serve.api.convert.response.ResponseType;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.InetSocketAddress;
@@ -19,9 +21,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -33,6 +40,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -283,7 +294,7 @@ class PaddleOcrVlRoutingTest {
         serve(200, fixture("financial-statement-page.json"));
         try (var extractor = withPaddle()) {
             // 12001 x 12000 is just over the 144 million pixel bound; one bit a pixel keeps it cheap to build.
-            var large = new java.awt.image.BufferedImage(12_001, 12_000, java.awt.image.BufferedImage.TYPE_BYTE_BINARY);
+            var large = new BufferedImage(12_001, 12_000, BufferedImage.TYPE_BYTE_BINARY);
             byte[] tiff = tiff(frame(40, 30), large);
             assertTrue(tiff.length < 20_971_520, "refused for its pixels, not its bytes");
             var error = assertThrows(ExtractionException.class,
@@ -298,8 +309,8 @@ class PaddleOcrVlRoutingTest {
         serve(200, fixture("financial-statement-page.json"));
         try (var extractor = withPaddle(2)) {
             for (int frames = 1; frames <= 2; frames++) {
-                var images = new java.awt.image.BufferedImage[frames];
-                java.util.Arrays.fill(images, frame(40, 30));
+                var images = new BufferedImage[frames];
+                Arrays.fill(images, frame(40, 30));
                 byte[] tiff = tiff(images);
                 var result = extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary());
                 assertEquals("paddleocr-vl", result.metadata().get("parser"));
@@ -310,24 +321,24 @@ class PaddleOcrVlRoutingTest {
 
     @Test
     void anEmptyEndpointLeavesTheProviderAbsent() {
-        var source = new org.springframework.boot.context.properties.source.MapConfigurationPropertySource(java.util.Map.of(
+        var source = new MapConfigurationPropertySource(Map.of(
                 "memoryos.extraction.paddleocr-vl.endpoint", "",
                 "memoryos.extraction.paddleocr-vl.revision", ""));
-        var bound = new org.springframework.boot.context.properties.bind.Binder(source)
+        var bound = new Binder(source)
                 .bindOrCreate("memoryos.extraction.paddleocr-vl",
-                        org.springframework.boot.context.properties.bind.Bindable.of(PaddleOcrVlProperties.class));
+                        Bindable.of(PaddleOcrVlProperties.class));
         assertFalse(bound.configured());
         assertEquals(PaddleOcrVlProperties.DEFAULT_REVISION, bound.revision());
         assertEquals(Duration.ofMinutes(30), bound.timeout());
         assertEquals(2, bound.maxConcurrentRequests());
 
-        var configured = new org.springframework.boot.context.properties.bind.Binder(
-                new org.springframework.boot.context.properties.source.MapConfigurationPropertySource(java.util.Map.of(
+        var configured = new Binder(
+                new MapConfigurationPropertySource(Map.of(
                         "memoryos.extraction.paddleocr-vl.endpoint", "http://172.24.244.79:8080",
                         "memoryos.extraction.paddleocr-vl.timeout", "15m",
                         "memoryos.extraction.paddleocr-vl.max-concurrent-requests", "3")))
                 .bind("memoryos.extraction.paddleocr-vl",
-                        org.springframework.boot.context.properties.bind.Bindable.of(PaddleOcrVlProperties.class)).get();
+                        Bindable.of(PaddleOcrVlProperties.class)).get();
         assertTrue(configured.configured());
         assertEquals(Duration.ofMinutes(15), configured.timeout());
         assertEquals(3, configured.maxConcurrentRequests());
@@ -372,13 +383,13 @@ class PaddleOcrVlRoutingTest {
                  "texts":[{"label":"text","text":"Doanh thu","prov":[]}],"pages":{}}
                 """);
         return new BoundedDoclingClient.CanonicalResponse(mapper.createObjectNode().set("json_content", document),
-                List.of(), "success", ai.docling.serve.api.convert.response.ResponseType.IN_BODY);
+                List.of(), "success", ResponseType.IN_BODY);
     }
 
-    private tools.jackson.databind.JsonNode submittedOptions() {
+    private JsonNode submittedOptions() {
         var request = ArgumentCaptor.forClass(ConvertDocumentRequest.class);
         verify(docling, atLeastOnce()).convertDocument(request.capture());
-        return mapper.<tools.jackson.databind.JsonNode>valueToTree(request.getValue()).path("options");
+        return mapper.<JsonNode>valueToTree(request.getValue()).path("options");
     }
 
     private void serve(int status, String answer) throws Exception {
@@ -450,20 +461,20 @@ class PaddleOcrVlRoutingTest {
         }
     }
 
-    private static java.awt.image.BufferedImage frame(int width, int height) {
-        return new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_RGB);
+    private static BufferedImage frame(int width, int height) {
+        return new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
     }
 
-    private static byte[] tiff(java.awt.image.BufferedImage... frames) throws Exception {
-        var writer = javax.imageio.ImageIO.getImageWritersByFormatName("tiff").next();
+    private static byte[] tiff(BufferedImage... frames) throws Exception {
+        var writer = ImageIO.getImageWritersByFormatName("tiff").next();
         var out = new ByteArrayOutputStream();
-        try (var stream = javax.imageio.ImageIO.createImageOutputStream(out)) {
+        try (var stream = ImageIO.createImageOutputStream(out)) {
             writer.setOutput(stream);
             var parameters = writer.getDefaultWriteParam();
-            parameters.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+            parameters.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
             parameters.setCompressionType("Deflate");
             writer.prepareWriteSequence(null);
-            for (var frame : frames) writer.writeToSequence(new javax.imageio.IIOImage(frame, null, null), parameters);
+            for (var frame : frames) writer.writeToSequence(new IIOImage(frame, null, null), parameters);
             writer.endWriteSequence();
         } finally {
             writer.dispose();
@@ -472,9 +483,9 @@ class PaddleOcrVlRoutingTest {
     }
 
     private static byte[] png() throws Exception {
-        var image = new java.awt.image.BufferedImage(40, 30, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var image = new BufferedImage(40, 30, BufferedImage.TYPE_INT_RGB);
         var out = new ByteArrayOutputStream();
-        javax.imageio.ImageIO.write(image, "png", out);
+        ImageIO.write(image, "png", out);
         return out.toByteArray();
     }
 }

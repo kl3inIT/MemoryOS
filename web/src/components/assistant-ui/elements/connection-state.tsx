@@ -17,7 +17,7 @@ export function ConnectionState({ label, className }: { label: string; className
         aria-hidden="true"
         className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
       />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
+      <span className="min-w-0 wrap-anywhere">{label}</span>
     </div>
   );
 }

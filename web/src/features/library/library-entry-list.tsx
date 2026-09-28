@@ -109,32 +109,39 @@ function EntryRow({
   const ui = useAppTranslation();
   const reason = entryReason(entry);
   return (
-    <Item
-      variant="outline"
-      className={cn(
-        "transition-colors hover:border-border-default hover:bg-surface-subtle",
-        // An open menu takes the pointer off the row, so the row keeps saying which entry the menu acts on.
-        "has-[[data-state=open]]:border-border-default has-[[data-state=open]]:bg-surface-subtle",
-      )}
-    >
-      <ItemMedia variant="image" className="bg-surface-sunken">
-        <LibraryPicture
-          source={entryThumbnailUrl(entry)}
-          fallback={entryIcon(entry)}
-          className="size-full object-cover"
-        />
-      </ItemMedia>
-      <ItemContent className="min-w-0">
-        <EntryName entry={entry} actions={actions} />
-        <ItemDescription className="flex flex-wrap items-center gap-x-1.5">
-          <EntryMeta entry={entry} view={view} />
-        </ItemDescription>
-        {reason && <ItemDescription className="truncate">{ui(reason)}</ItemDescription>}
-      </ItemContent>
-      <ItemActions className={rowActionsReveal}>
-        <EntryActionButtons entry={entry} actions={actions} />
-      </ItemActions>
-    </Item>
+    // The row's state is drawn around the Item, which owns its own border: a pointer over the row, and an open
+    // menu, which takes the pointer off the row but still acts on its entry.
+    <div className="rounded-lg transition-colors hover:bg-surface-subtle has-[[data-state=open]]:bg-surface-subtle">
+      <Item variant="outline">
+        <ItemMedia variant="image">
+          <span className="flex size-full items-center justify-center bg-surface-sunken">
+            <LibraryPicture
+              source={entryThumbnailUrl(entry)}
+              fallback={entryIcon(entry)}
+              className="size-full object-cover"
+            />
+          </span>
+        </ItemMedia>
+        <ItemContent className="min-w-0">
+          <EntryName entry={entry} actions={actions} />
+          <ItemDescription>
+            <span className="flex flex-wrap items-center gap-x-1.5">
+              <EntryMeta entry={entry} view={view} />
+            </span>
+          </ItemDescription>
+          {reason && (
+            <ItemDescription>
+              <span className="block truncate">{ui(reason)}</span>
+            </ItemDescription>
+          )}
+        </ItemContent>
+        <ItemActions>
+          <div className={rowActionsReveal}>
+            <EntryActionButtons entry={entry} actions={actions} />
+          </div>
+        </ItemActions>
+      </Item>
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 import type { useAppTranslation } from "@/i18n/use-app-translation";
-import { documentSourceLabels } from "@/features/search/document-source-presentation";
+import { documentSourceLabels } from "@/features/documents/document-source-presentation";
 import { formatPages } from "@/features/preview/pdf-pages";
-import { readSourceLocation } from "@/features/search/source-provenance";
+import { readSourceLocation } from "@/features/documents/source-provenance";
 import type { ChatSource } from "./chat-evidence";
 
 type Translate = ReturnType<typeof useAppTranslation>;
@@ -26,14 +26,6 @@ export function sourceMeta(source: ChatSource, ui: Translate): string[] {
     ...labels.providers.map((provider) => ui(provider)),
     ...sourceLocationLabels(source, ui),
   ];
-}
-
-/** Cited pages and regions when the citation is an indexed PDF whose provenance records pages. */
-export function citedPdfLocation(source: ChatSource) {
-  if (!source.documentId || !source.generation || source.mediaType !== "application/pdf")
-    return undefined;
-  const location = readSourceLocation(source.provenance.map((item) => item.provenanceJson));
-  return location.pages.length ? location : undefined;
 }
 
 /** Host and path without protocol or `www.`, the way search results print a URL. */

@@ -4,10 +4,11 @@ import { CornerDownRight } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import type { Result as SearchResult, Section as SearchSection } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
-import { DocumentSourceIcon } from "./document-source-icon";
-import { documentSourceLabels } from "./document-source-presentation";
-import { ProviderLink } from "./provider-link";
-import { createSearchSnippet, friendlyMediaType } from "./search-presentation";
+import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
+import { documentSourceLabels } from "@/features/documents/document-source-presentation";
+import { ProviderLink } from "@/features/documents/provider-link";
+import { friendlyMediaType } from "@/features/documents/document-source-presentation";
+import { createSearchSnippet } from "./search-presentation";
 
 type SearchResultCardProps = {
   item: SearchResult;
@@ -97,7 +98,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
         <h3 className="font-heading-h3 text-content-primary">
           <button
             type="button"
-            className="max-w-full cursor-pointer rounded-sm text-left underline-offset-4 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+            className="max-w-full cursor-pointer rounded-sm text-left underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring/30 focus-visible:outline-hidden"
             onClick={(event) => open(best, event)}
           >
             <span className="line-clamp-2 break-words">{title}</span>
@@ -107,11 +108,11 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
         <p className="mt-0.5 overflow-hidden py-0.5 font-secondary-body text-content-muted">
           <span className="-ml-4 flex flex-wrap items-center gap-y-0.5">
             {meta.map((entry) => (
-              <span
-                key={entry.key}
-                className="relative inline-flex min-w-0 items-center pl-4 before:absolute before:left-1.5 before:content-['·']"
-              >
-                {entry.node}
+              <span key={entry.key} className="relative inline-flex min-w-0 items-center pl-4">
+                <span aria-hidden="true" className="absolute left-1.5">
+                  ·
+                </span>
+                <span className="min-w-0">{entry.node}</span>
               </span>
             ))}
           </span>
@@ -132,7 +133,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
           </button>
         ) : null}
         {related.length ? (
-          <ul className="space-y-0.5">
+          <ul className="flex flex-col gap-0.5">
             {related.map((section, index) => (
               <li key={`${section.startOrdinal}:${section.endOrdinal}`}>
                 <button
@@ -178,13 +179,13 @@ function Snippet({
   const ui = useAppTranslation();
   const snippet = createSearchSnippet(content, title, query, length);
   return (
-    <span className={cn("block min-w-0 whitespace-pre-wrap break-words", className)}>
+    <span className={cn("block min-w-0 break-words whitespace-pre-wrap", className)}>
       {snippet.parts.length === 0 ? ui("No preview text available.") : null}
       {snippet.parts.map((part, partIndex) =>
         part.highlighted ? (
           <mark
             key={`${partIndex}:${part.text}`}
-            className="rounded-[3px] bg-evidence-highlight-surface font-medium text-content-primary [box-decoration-break:clone]"
+            className="rounded-sm bg-evidence-highlight-surface box-decoration-clone font-medium text-content-primary"
           >
             {part.text}
           </mark>

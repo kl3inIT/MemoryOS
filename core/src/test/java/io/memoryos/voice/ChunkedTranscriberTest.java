@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 class ChunkedTranscriberTest {
@@ -19,7 +20,7 @@ class ChunkedTranscriberTest {
     private final LinkedBlockingQueue<Transcript> transcripts = new LinkedBlockingQueue<>();
     private final AtomicInteger released = new AtomicInteger();
 
-    private ChunkedTranscriber transcriber(java.util.function.Function<byte[], String> provider) {
+    private ChunkedTranscriber transcriber(Function<byte[], String> provider) {
         return new ChunkedTranscriber(wav -> {
             uploads.add(wav.length - 44);
             return provider.apply(wav);

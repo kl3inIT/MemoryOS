@@ -3,9 +3,10 @@ package io.memoryos.api.chat.contract;
 import io.memoryos.library.UserFile;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record ChatFileResponse(UUID id, String filename, String mediaType, long sizeBytes, UserFile.Status status,
-        Instant createdAt, Instant updatedAt, @org.jspecify.annotations.Nullable String errorCode, boolean searchReady) {
+        Instant createdAt, Instant updatedAt, @Nullable String errorCode, boolean searchReady) {
     public static ChatFileResponse from(UserFile file) {
         return from(file, false);
     }

@@ -1,13 +1,7 @@
-import { useState, type ReactNode } from "react";
-import {
-  AudioLines,
-  AudioWaveform,
-  CheckCircle2,
-  Cloud,
-  Server,
-  Settings2,
-  Unplug,
-} from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { AudioLines, AudioWaveform, Cloud, Server, Settings2, Unplug } from "lucide-react";
+import { ConnectionStatusBadge } from "@/components/composites/connection-form";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -15,12 +9,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { deleteChatVoiceConnection } from "@/lib/hey-api/sdk.gen";
+import { deleteChatVoiceConnectionMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { VoiceConnectionResponse, VoiceProviderResponse } from "@/lib/hey-api/types.gen";
 import { VoiceProviderDialog } from "./voice-provider-dialog";
 import {
   connectionServes,
   endpointHost,
+  invalidateVoice,
   isDefault,
   voiceProblem,
   type VoiceFunction,
@@ -62,16 +57,6 @@ function providerSummary(provider: VoiceProviderId, fn: VoiceFunction, ui: Trans
   }
 }
 
-/** Status badge shared with the Web search and image generation catalogs. */
-function InUseBadge({ children }: { children: ReactNode }) {
-  return (
-    <StatusBadge tone="success" className="gap-1">
-      <CheckCircle2 className="size-3.5" aria-hidden="true" />
-      {children}
-    </StatusBadge>
-  );
-}
-
 /** Only OpenAI has a brand mark in the application; other providers use a neutral icon. */
 function ProviderIcon({ provider }: { provider: VoiceProviderId }) {
   if (provider === "OPENAI") return <ProviderLogo mark="OPENAI" className="size-5" />;
@@ -93,7 +78,6 @@ export function VoiceProviderCard({
   autoSelect,
   disabled,
   onSelect,
-  onChanged,
 }: {
   fn: VoiceFunction;
   provider: VoiceProviderResponse;
@@ -101,11 +85,15 @@ export function VoiceProviderCard({
   /** No default exists for this function yet, so a successful connection becomes the default. */
   autoSelect: boolean;
   disabled: boolean;
-  onSelect: (provider: VoiceProviderId) => Promise<void>;
-  onChanged: () => Promise<void>;
+  onSelect: (provider: VoiceProviderId) => void;
 }) {
   const ui = useAppTranslation();
+  const cache = useQueryClient();
   const [open, setOpen] = useState(false);
+  const disconnect = useMutation({
+    ...deleteChatVoiceConnectionMutation(),
+    onSuccess: () => invalidateVoice(cache),
+  });
   const name = providerName(provider.provider, ui);
   const active = isDefault(connection, fn);
   const ready = connectionServes(provider, fn, connection);
@@ -126,11 +114,11 @@ export function VoiceProviderCard({
         <>
           <span>{name}</span>
           {active ? (
-            <InUseBadge>{ui("Đang dùng")}</InUseBadge>
+            <ConnectionStatusBadge>{ui("Đang dùng")}</ConnectionStatusBadge>
           ) : connection && !ready ? (
             <StatusBadge tone="warning">{ui("Cần cấu hình thêm")}</StatusBadge>
           ) : connection ? (
-            <InUseBadge>{ui("Đã kết nối")}</InUseBadge>
+            <ConnectionStatusBadge>{ui("Đã kết nối")}</ConnectionStatusBadge>
           ) : null}
         </>
       }
@@ -143,7 +131,7 @@ export function VoiceProviderCard({
               size="sm"
               prominence="secondary"
               disabled={disabled}
-              onClick={() => void onSelect(provider.provider)}
+              onClick={() => onSelect(provider.provider)}
             >
               {ui("Đặt làm mặc định")}
             </Button>
@@ -155,7 +143,8 @@ export function VoiceProviderCard({
               disabled={disabled}
               onClick={() => setOpen(true)}
             >
-              <Settings2 aria-hidden="true" /> {ui("Cấu hình")}
+              <Settings2 data-icon="inline-start" aria-hidden="true" />
+              {ui("Cấu hình")}
             </Button>
           ) : (
             <Button
@@ -189,27 +178,26 @@ export function VoiceProviderCard({
               pendingLabel={ui("Đang ngắt kết nối…")}
               errorMessage={voiceProblem}
               onConfirm={async () => {
-                await deleteChatVoiceConnection({
+                await disconnect.mutateAsync({
                   path: { provider: provider.provider },
                   query: { revision: connection.revision ?? 0 },
                 });
-                await onChanged();
               }}
             />
           )}
         </>
       }
     >
-      <VoiceProviderDialog
-        open={open}
-        onOpenChange={setOpen}
-        fn={fn}
-        name={name}
-        provider={provider}
-        connection={connection}
-        autoSelect={autoSelect}
-        onSaved={onChanged}
-      />
+      {open && (
+        <VoiceProviderDialog
+          fn={fn}
+          name={name}
+          provider={provider}
+          connection={connection}
+          autoSelect={autoSelect}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </ProviderCard>
   );
 }

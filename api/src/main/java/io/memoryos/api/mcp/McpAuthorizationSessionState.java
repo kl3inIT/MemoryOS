@@ -66,7 +66,7 @@ public record McpAuthorizationSessionState(UUID actorId, McpOAuthService.Pending
         var session = request.getSession(false);
         if (session == null || !(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) instanceof SecurityContext context)
                 || context.getAuthentication() == null || !context.getAuthentication().isAuthenticated()) return false;
-        return context.getAuthentication().getPrincipal() instanceof IdentityContext identity && identity.actorId().value().equals(actorId);
+        return context.getAuthentication().getPrincipal() instanceof IdentityContext(var actor) && actor.value().equals(actorId);
     }
 
     @Override public @NonNull String toString() { return "McpAuthorizationSessionState[redacted]"; }

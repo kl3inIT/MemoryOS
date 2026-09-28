@@ -24,7 +24,6 @@ final class McpOAuthCallbackController {
 
     @GetMapping(McpOAuthProperties.CALLBACK_PATH)
     void callback(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setHeader("Cache-Control", "no-store");
         response.setHeader("Referrer-Policy", "no-referrer");
         var pending = McpAuthorizationSessionState.consume(request, single(request, "state"));
         String outcome = "authorization-failed";

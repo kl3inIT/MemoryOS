@@ -1,13 +1,12 @@
 import { QueryClient } from "@tanstack/react-query";
 import { AssistantMessageStream } from "assistant-stream";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import {
   chatHistoryAdapter,
   createChatThreadListAdapter,
   sessionFromThread,
-  threadMetadata,
 } from "./chat-thread-list-adapter";
 
 const session: ChatSession = {
@@ -43,6 +42,7 @@ const message = (id: string, role: ChatMessage["role"], status: ChatMessage["sta
     generatedFiles: [],
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
+    refusalReason: null,
   }) satisfies ChatMessage;
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
@@ -81,7 +81,9 @@ describe("assistant-ui thread list adapter over the session API", () => {
 
     expect(requests).toEqual(["GET /api/chat/sessions?offset=0&limit=30&archived=false"]);
     expect(first.nextCursor).toBe("30");
-    expect(sessionFromThread(threadMetadata(page[1]!))).toEqual(page[1]);
+    const second = first.threads[1];
+    assert.isDefined(second);
+    expect(sessionFromThread(second)).toEqual(page[1]);
     await adapter.list({ after: "30" });
     expect(requests.at(-1)).toBe("GET /api/chat/sessions?offset=30&limit=30&archived=false");
   });
@@ -97,9 +99,12 @@ describe("assistant-ui thread list adapter over the session API", () => {
     expect(requests.at(-1)).toBe(`POST /api/chat/sessions/${session.id}/unarchive`);
 
     // The thread list keeps an archived conversation as archived rather than dropping it.
-    expect(threadMetadata(archived).status).toBe("archived");
-    expect(threadMetadata(session).status).toBe("regular");
-    expect(sessionFromThread(threadMetadata(archived))).toEqual(archived);
+    stubFetch(() => json(archived));
+    const held = await adapter.fetch(session.id);
+    expect(held.status).toBe("archived");
+    expect(sessionFromThread(held)).toEqual(archived);
+    stubFetch(() => json(session));
+    expect((await adapter.fetch(session.id)).status).toBe("regular");
   });
 
   it("initializes from the transport's session and allows retry after a failed first send", async () => {
@@ -183,8 +188,8 @@ describe("assistant-ui thread list adapter over the session API", () => {
     const loaded = await chatHistoryAdapter(controller).withFormat!({} as never).load();
     expect(loaded.messages.map((item) => item.parentId)).toEqual([
       null,
-      saved[0]!.id,
-      saved[1]!.id,
+      saved[0]?.id,
+      saved[1]?.id,
     ]);
     expect(controller.getState()).toMatchObject({
       resume: true,

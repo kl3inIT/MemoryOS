@@ -10,9 +10,21 @@ import com.embabel.chat.ToolCall;
 import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.StoredObjectId;
+import io.memoryos.objectstorage.StoredObjectReference;
+import io.memoryos.retrieval.DocumentOriginalService;
+import io.memoryos.retrieval.SearchDocumentUnavailableException;
+import io.memoryos.retrieval.SearchQuery;
+import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchSection;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
+import java.time.ZonedDateTime;
 import java.util.Map;
 import com.embabel.chat.UserMessage;
 import com.embabel.chat.AssistantMessage;
@@ -27,28 +39,39 @@ import io.memoryos.retrieval.SearchUnavailableException;
 import java.time.Instant;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import reactor.core.publisher.Mono;
 
 class SearchToolTest {
-    @org.junit.jupiter.api.Test
+    @Test
     void knowledgeCutoffIsALowerBoundThatRequestsCannotWiden() {
-        var cutoff = java.time.Instant.parse("2026-01-01T00:00:00Z");
-        var floor = new io.memoryos.retrieval.SearchFilters.Interval(cutoff, null);
-        org.junit.jupiter.api.Assertions.assertEquals(floor, SearchTool.floor(null, floor));
-        var earlier = new io.memoryos.retrieval.SearchFilters.Interval(java.time.Instant.parse("2025-01-01T00:00:00Z"), null);
-        org.junit.jupiter.api.Assertions.assertEquals(cutoff, SearchTool.floor(earlier, floor).from());
-        var before = new io.memoryos.retrieval.SearchFilters.Interval(null, java.time.Instant.parse("2025-06-01T00:00:00Z"));
+        var cutoff = Instant.parse("2026-01-01T00:00:00Z");
+        var floor = new SearchFilters.Interval(cutoff, null);
+        Assertions.assertEquals(floor, SearchTool.floor(null, floor));
+        var earlier = new SearchFilters.Interval(Instant.parse("2025-01-01T00:00:00Z"), null);
+        Assertions.assertEquals(cutoff, SearchTool.floor(earlier, floor).from());
+        var before = new SearchFilters.Interval(null, Instant.parse("2025-06-01T00:00:00Z"));
         var empty = SearchTool.floor(before, floor);
-        org.junit.jupiter.api.Assertions.assertEquals(empty.from(), empty.to());
-        org.junit.jupiter.api.Assertions.assertTrue(SearchTool.beforeFloor(before, floor));
-        org.junit.jupiter.api.Assertions.assertFalse(SearchTool.beforeFloor(earlier, floor));
-        org.junit.jupiter.api.Assertions.assertNull(SearchTool.floor(null, null));
+        Assertions.assertEquals(empty.from(), empty.to());
+        Assertions.assertTrue(SearchTool.beforeFloor(before, floor));
+        Assertions.assertFalse(SearchTool.beforeFloor(earlier, floor));
+        Assertions.assertNull(SearchTool.floor(null, null));
     }
 
     private final DocumentSearchService search = mock(DocumentSearchService.class);
@@ -82,11 +105,11 @@ class SearchToolTest {
     }
 
     /** A null allowlist is an agent that restricts nothing; an empty one restricts the turn to no Source at all. */
-    private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters, @org.jspecify.annotations.Nullable List<UUID> sourceIds) {
+    private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters, @Nullable List<UUID> sourceIds) {
         var tool = new SearchTool(search, scope.actor(), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
-                }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
+                }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP), sourceIds);
         tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "search_knowledge", "{}")));
         return tool;
     }
@@ -130,12 +153,12 @@ class SearchToolTest {
     void aHitWithAStoredOriginalIsStagedAndItsEvidenceSaysSoLikeOnyx() {
         candidates();
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
-        var originals = mock(io.memoryos.retrieval.DocumentOriginalService.class);
-        var stored = new io.memoryos.objectstorage.StoredObjectId(UUID.randomUUID());
+        var originals = mock(DocumentOriginalService.class);
+        var stored = new StoredObjectId(UUID.randomUUID());
         when(originals.citationOriginals(eq(scope.actor()), any())).thenReturn(Map.of(document,
-                new io.memoryos.objectstorage.StoredObjectReference(stored, new io.memoryos.objectstorage.ObjectKey("raw/policy"),
-                        "policy.xlsx", new io.memoryos.objectstorage.ObjectMetadata(42, "application/vnd.ms-excel",
-                        new io.memoryos.objectstorage.ContentSha256("a".repeat(64))))));
+                new StoredObjectReference(stored, new ObjectKey("raw/policy"),
+                        "policy.xlsx", new ObjectMetadata(42, "application/vnd.ms-excel",
+                        new ContentSha256("a".repeat(64))))));
         var sandbox = new SandboxDocuments(originals, scope.actor());
         try (var tool = tool(8000).withSandbox(sandbox)) {
             var response = tool.searchKnowledge(List.of("policy"), null);
@@ -194,7 +217,7 @@ class SearchToolTest {
                 new SearchTool.Selection(List.of(1)));
         when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenReturn(
                 new SearchTool.ContextSelection(SearchTool.Expansion.INCLUDE_ADJACENT_SECTIONS));
-        when(search.window(any(), eq(section), eq(2))).thenReturn(java.util.stream.IntStream.range(0, 5).mapToObj(i -> new SearchPage.Passage(i,
+        when(search.window(any(), eq(section), eq(2))).thenReturn(IntStream.range(0, 5).mapToObj(i -> new SearchPage.Passage(i,
                         i == 2 ? "MATCHING PASSAGE" : "Distant context ".repeat(400), "[]")).toList());
         try (var tool = tool(90)) {
             String answer = tool.searchKnowledge(List.of("policy"), null);
@@ -259,7 +282,7 @@ class SearchToolTest {
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
         when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenReturn(
                 new SearchTool.ContextSelection(SearchTool.Expansion.FULL_DOCUMENT));
-        when(search.window(any(), eq(section), eq(5))).thenReturn(java.util.stream.IntStream.range(0, 8).mapToObj(i -> new SearchPage.Passage(i, "Context " + i, "[]")).toList());
+        when(search.window(any(), eq(section), eq(5))).thenReturn(IntStream.range(0, 8).mapToObj(i -> new SearchPage.Passage(i, "Context " + i, "[]")).toList());
         try (var tool = tool(8000)) {
             String answer = tool.searchKnowledge(List.of("policy"), null);
             assertTrue(answer.contains("Context 7"));
@@ -272,7 +295,7 @@ class SearchToolTest {
     void documentRemovedDuringWindowReadYieldsNoEvidenceInsteadOfFailingTheTurn() {
         candidates();
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
-        when(search.window(any(), eq(section), eq(2))).thenThrow(new io.memoryos.retrieval.SearchDocumentUnavailableException());
+        when(search.window(any(), eq(section), eq(2))).thenThrow(new SearchDocumentUnavailableException());
         try (var tool = tool(8000)) {
             assertTrue(tool.searchKnowledge(List.of("policy"), null).startsWith("No relevant evidence"));
             assertTrue(events.stream().noneMatch(event -> event.source() != null));
@@ -295,10 +318,10 @@ class SearchToolTest {
     void followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight() {
         var result = mock(SearchResults.class);
         when(result.hits()).thenReturn(List.of());
-        var searches = new java.util.concurrent.atomic.AtomicInteger();
+        var searches = new AtomicInteger();
         when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(call -> {
             boolean firstSearch = searches.getAndIncrement() == 0;
-            List<io.memoryos.retrieval.SearchQuery> queries = call.getArgument(1);
+            List<SearchQuery> queries = call.getArgument(1);
             assertEquals(firstSearch, queries.stream().anyMatch(q -> q.text().equals("AX-7 onboarding") && q.weight() == 1.3 && !q.keyword()));
             assertEquals(firstSearch, queries.stream().anyMatch(q -> q.text().equals("AX-7") && q.weight() == 1.0 && q.keyword()));
             assertTrue(queries.stream().anyMatch(q -> q.text().equals("How do I set it up?") && q.weight() == .5));
@@ -313,7 +336,7 @@ class SearchToolTest {
         try (var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, Duration.ofSeconds(5), false, Duration.ofSeconds(1)), () -> {}, () -> 8000, events::add, Mono.never(),
                 List.of(new UserMessage("Tell me about AX-7"), new AssistantMessage("AX-7 is our internal system."),
-                        new UserMessage("How do I set it up?")), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP))) {
+                        new UserMessage("How do I set it up?")), new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP))) {
             tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "search_knowledge", "{}")));
             tool.searchKnowledge(List.of("setup instructions"), null);
             tool.searchKnowledge(List.of("setup instructions"), null);
@@ -382,7 +405,7 @@ class SearchToolTest {
         var empty = mock(SearchResults.class);
         when(empty.hits()).thenReturn(List.of());
         when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenReturn(empty);
-        var september = new SearchFilters(java.util.Set.of(), null, new SearchFilters.Interval(
+        var september = new SearchFilters(Set.of(), null, new SearchFilters.Interval(
                 Instant.parse("2025-09-01T00:00:00Z"), Instant.parse("2025-09-30T23:59:59Z")));
 
         String evidence;
@@ -408,7 +431,7 @@ class SearchToolTest {
             observed.add(call.getArgument(2));
             return empty;
         });
-        var september = new SearchFilters(java.util.Set.of(), null,
+        var september = new SearchFilters(Set.of(), null,
                 new SearchFilters.Interval(Instant.parse("2025-09-01T00:00:00Z"), Instant.parse("2025-09-30T23:59:59Z")));
 
         String evidence;
@@ -493,7 +516,7 @@ class SearchToolTest {
     @Test
     void duplicateWeightsSumBeforeRetrievalAndCachedExpansionIsOmittedFromLaterSearch() {
         var result = candidates();
-        var batches = new ArrayList<List<io.memoryos.retrieval.SearchQuery>>();
+        var batches = new ArrayList<List<SearchQuery>>();
         when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(call -> {
             batches.add(List.copyOf(call.getArgument(1))); return result;
         });
@@ -502,16 +525,16 @@ class SearchToolTest {
         try (var tool = tool(8000)) {
             tool.searchKnowledge(List.of("policy"), null);
             tool.searchKnowledge(List.of("policy"), null);
-            assertEquals(List.of(new io.memoryos.retrieval.SearchQuery("policy", false, 2.5),
-                    new io.memoryos.retrieval.SearchQuery("policy", true, 3)), batches.getFirst());
-            assertEquals(List.of(new io.memoryos.retrieval.SearchQuery("policy", false, 1.2)), batches.get(1));
+            assertEquals(List.of(new SearchQuery("policy", false, 2.5),
+                    new SearchQuery("policy", true, 3)), batches.getFirst());
+            assertEquals(List.of(new SearchQuery("policy", false, 1.2)), batches.get(1));
         }
     }
 
     @Test
     void rewritesOverlapAndEachReceivesIndependentNonReasoningOptions() {
         candidates();
-        var entered = new java.util.concurrent.CountDownLatch(2);
+        var entered = new CountDownLatch(2);
         when(runner.withLlm(any())).thenAnswer(call -> {
             LlmOptions options = call.getArgument(0);
             assertNotNull(options.getThinking()); assertFalse(options.getThinking().getEnabled());
@@ -520,11 +543,11 @@ class SearchToolTest {
             return runner;
         });
         when(runner.createObject(anyList(), eq(SearchTool.SemanticQuery.class))).thenAnswer(_ -> {
-            entered.countDown(); assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            entered.countDown(); assertTrue(entered.await(3, TimeUnit.SECONDS));
             return new SearchTool.SemanticQuery("policy");
         });
         when(runner.createObject(anyList(), eq(SearchTool.KeywordQueries.class))).thenAnswer(_ -> {
-            entered.countDown(); assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            entered.countDown(); assertTrue(entered.await(3, TimeUnit.SECONDS));
             return new SearchTool.KeywordQueries(List.of("policy"));
         });
         try (var tool = tool(8000)) { assertTrue(tool.searchKnowledge(List.of("policy"), null).contains("[1] Policy")); }
@@ -535,7 +558,7 @@ class SearchToolTest {
         candidates();
         var interrupted = new AtomicBoolean();
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenAnswer(_ -> {
-            try { new java.util.concurrent.CountDownLatch(1).await(); }
+            try { new CountDownLatch(1).await(); }
             catch (InterruptedException expected) {
                 interrupted.set(true); Thread.currentThread().interrupt(); throw new IllegalStateException("interrupted");
             }
@@ -550,21 +573,21 @@ class SearchToolTest {
     @Test
     void closeInterruptsAndDrainsRunningRetrievalBeforeReturning() throws Exception {
         candidates();
-        var entered = new java.util.concurrent.CountDownLatch(1);
+        var entered = new CountDownLatch(1);
         var drained = new AtomicBoolean();
         when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(_ -> {
             entered.countDown();
-            try { new java.util.concurrent.CountDownLatch(1).await(); }
+            try { new CountDownLatch(1).await(); }
             finally { drained.set(true); }
             throw new AssertionError("Retrieval must be interrupted");
         });
-        var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        var failure = new AtomicReference<Throwable>();
         try (var tool = tool(8000)) {
             var invocation = Thread.ofVirtual().start(() -> {
                 try { tool.searchKnowledge(List.of("policy"), null); }
                 catch (Throwable expected) { failure.set(expected); }
             });
-            assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            assertTrue(entered.await(3, TimeUnit.SECONDS));
             tool.close();
             assertTrue(drained.get());
             assertTrue(invocation.join(Duration.ofSeconds(3)));
@@ -585,7 +608,7 @@ class SearchToolTest {
             assertTrue(tool.searchKnowledge(List.of("policy"), null).contains(title));
             var reading = events.stream().flatMap(e -> e.documents().stream()).findFirst().orElseThrow();
             assertEquals("T".repeat(254), reading.title());
-            var source = events.stream().map(ChatToolEvent::source).filter(java.util.Objects::nonNull).findFirst().orElseThrow();
+            var source = events.stream().map(ChatToolEvent::source).filter(Objects::nonNull).findFirst().orElseThrow();
             assertEquals(title, source.title());
         }
     }
@@ -593,8 +616,8 @@ class SearchToolTest {
     @Test
     void closeBoundsUncooperativeRetrievalAndRejectsItsLateEvidence() throws Exception {
         var result = candidates();
-        var entered = new java.util.concurrent.CountDownLatch(1);
-        var release = new java.util.concurrent.CountDownLatch(1);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
         when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(_ -> {
             entered.countDown();
             boolean done = false;
@@ -604,18 +627,18 @@ class SearchToolTest {
             }
             return result;
         });
-        try (var tasks = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor(); var tool = tool(8000)) {
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var tool = tool(8000)) {
             var invocation = tasks.submit(() -> tool.searchKnowledge(List.of("policy"), null));
             try {
-                assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
-                tasks.submit(tool::close).get(2, java.util.concurrent.TimeUnit.SECONDS);
+                assertTrue(entered.await(3, TimeUnit.SECONDS));
+                tasks.submit(tool::close).get(2, TimeUnit.SECONDS);
                 assertFalse(tool.whenDrained().isDone());
                 assertThrows(CancellationException.class, () -> tool.searchKnowledge(List.of("policy"), null));
             } finally { release.countDown(); }
-            var failure = assertThrows(java.util.concurrent.ExecutionException.class,
-                    () -> invocation.get(3, java.util.concurrent.TimeUnit.SECONDS));
+            var failure = assertThrows(ExecutionException.class,
+                    () -> invocation.get(3, TimeUnit.SECONDS));
             assertInstanceOf(CancellationException.class, failure.getCause());
-            tool.whenDrained().get(3, java.util.concurrent.TimeUnit.SECONDS);
+            tool.whenDrained().get(3, TimeUnit.SECONDS);
             assertTrue(events.stream().noneMatch(e -> e.source() != null || !e.documents().isEmpty()));
         }
     }
@@ -623,7 +646,7 @@ class SearchToolTest {
     @Test
     void longSectionUsesThreeChunksAroundAnchorForSelectionAndRetainsFullEvidence() {
         var result = candidates();
-        var chunks = java.util.stream.IntStream.range(0, 20).mapToObj(this::hit).toList();
+        var chunks = IntStream.range(0, 20).mapToObj(this::hit).toList();
         var longSection = new SearchSection(chunks.get(10), chunks);
         when(result.hits()).thenReturn(chunks);
         when(result.sections()).thenReturn(List.of(longSection));
@@ -647,7 +670,7 @@ class SearchToolTest {
         when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(new SearchTool.TimeChoice(null, null, null));
         try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
             for (int i = 0; i < 3; i++) tool.searchKnowledge(List.of("new query"), null);
-            var plans = events.stream().map(ChatToolEvent::search).filter(java.util.Objects::nonNull).toList();
+            var plans = events.stream().map(ChatToolEvent::search).filter(Objects::nonNull).toList();
             assertEquals(List.of("policy", "new query"), plans.get(0).queries());
             assertEquals(List.of("policy", "new query"), plans.get(1).queries());
             assertEquals(List.of("new query", "policy"), plans.get(2).queries());
@@ -659,13 +682,13 @@ class SearchToolTest {
     @Test
     void filtersPreserveExplicitIntervalWhenInferenceConflictsAndSkipSingleSourceClassification() {
         candidates();
-        var explicit = new io.memoryos.retrieval.SearchFilters(java.util.Set.of(SourceType.FILE), null,
-                new io.memoryos.retrieval.SearchFilters.Interval(Instant.parse("2026-09-01T00:00:00Z"), null));
+        var explicit = new SearchFilters(Set.of(SourceType.FILE), null,
+                new SearchFilters.Interval(Instant.parse("2026-09-01T00:00:00Z"), null));
         when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(
                 new SearchTool.TimeChoice("updated", null, "2026-08-01"));
         try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
             tool.searchKnowledge(List.of("policy"), explicit);
-            assertEquals(explicit, events.stream().map(ChatToolEvent::search).filter(java.util.Objects::nonNull).findFirst().orElseThrow().filters());
+            assertEquals(explicit, events.stream().map(ChatToolEvent::search).filter(Objects::nonNull).findFirst().orElseThrow().filters());
             verify(runner, never()).createObject(anyString(), eq(SearchTool.SourceChoice.class));
         }
     }
@@ -677,13 +700,13 @@ class SearchToolTest {
         when(result.hits()).thenReturn(List.of(first, second, hit(8)));
         when(result.sections()).thenReturn(List.of(section, later));
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(2, 1)));
-        var entered = new java.util.concurrent.CountDownLatch(2);
-        var earlierFinished = new java.util.concurrent.CountDownLatch(1);
+        var entered = new CountDownLatch(2);
+        var earlierFinished = new CountDownLatch(1);
         when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenAnswer(call -> {
             var reading = events.stream().filter(e -> e.stage() == ChatToolEvent.Stage.EXPANDING).findFirst().orElseThrow();
             assertEquals(2, reading.documents().size());
-            entered.countDown(); assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
-            if (call.<String>getArgument(0).contains("Section 8")) assertTrue(earlierFinished.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            entered.countDown(); assertTrue(entered.await(3, TimeUnit.SECONDS));
+            if (call.<String>getArgument(0).contains("Section 8")) assertTrue(earlierFinished.await(3, TimeUnit.SECONDS));
             else earlierFinished.countDown();
             return new SearchTool.ContextSelection(SearchTool.Expansion.MAIN_SECTION_ONLY);
         });
@@ -696,16 +719,16 @@ class SearchToolTest {
 
     @Test
     void timeDecisionResolvesRelativeOffsetsDropsFutureBoundsAndDefaultsToUpdated() {
-        var now = java.time.ZonedDateTime.parse("2026-09-14T10:00:00Z");
-        assertEquals(new io.memoryos.retrieval.SearchFilters(java.util.Set.of(), null,
-                        new io.memoryos.retrieval.SearchFilters.Interval(Instant.parse("2026-08-31T10:00:00Z"), null)),
+        var now = ZonedDateTime.parse("2026-09-14T10:00:00Z");
+        assertEquals(new SearchFilters(Set.of(), null,
+                        new SearchFilters.Interval(Instant.parse("2026-08-31T10:00:00Z"), null)),
                 SearchTool.timeFilter(new SearchTool.TimeChoice(null, "-P2W", "None"), now));
-        assertEquals(new io.memoryos.retrieval.SearchFilters(java.util.Set.of(), new io.memoryos.retrieval.SearchFilters.Interval(
+        assertEquals(new SearchFilters(Set.of(), new SearchFilters.Interval(
                         Instant.parse("2022-01-01T00:00:00Z"), Instant.parse("2022-12-31T23:59:59.999999999Z")), null),
                 SearchTool.timeFilter(new SearchTool.TimeChoice("created", "2022-01-01", "2022-12-31"), now));
-        assertEquals(io.memoryos.retrieval.SearchFilters.NONE,
+        assertEquals(SearchFilters.NONE,
                 SearchTool.timeFilter(new SearchTool.TimeChoice("updated", "2026-10-01", "2026-09-20"), now));
-        assertEquals(io.memoryos.retrieval.SearchFilters.NONE,
+        assertEquals(SearchFilters.NONE,
                 SearchTool.timeFilter(new SearchTool.TimeChoice("updated", "2026-9", "later"), now));
     }
 

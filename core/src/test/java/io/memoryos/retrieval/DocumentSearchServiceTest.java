@@ -33,13 +33,18 @@ import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class DocumentSearchServiceTest {
     private final TenantAccessResolver tenants = mock(TenantAccessResolver.class);
@@ -51,7 +56,7 @@ class DocumentSearchServiceTest {
     private final DocumentSetService documentSets = mock(DocumentSetService.class);
     private final DocumentSearchService service = new DocumentSearchService(tenants, authorization, access, documents, index,
             new SimpleMeterRegistry(), sourceSearch, documentSets,
-            new SearchTimings(new SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
+            new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP));
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final UUID generation = UUID.randomUUID();
 
@@ -287,7 +292,7 @@ class DocumentSearchServiceTest {
         var result = service.ranked(scope, List.of(new SearchQuery("leave", false, .7), new SearchQuery("HR", true, 1)), SearchFilters.NONE, () -> {});
         assertEquals(List.of(second, first), result.hits().stream().map(SearchHit::documentId).toList());
         assertEquals(.7 / 52 + 1.0 / 51, result.hits().getFirst().score(), .000001);
-        org.mockito.Mockito.clearInvocations(access);
+        Mockito.clearInvocations(access);
         when(documents.isCurrent(tenant, new DocumentId(second), generation, "space")).thenReturn(true);
         when(index.document(tenant, second, generation, 0, 1)).thenReturn(new SearchDocument(second, generation, "Title",
                 List.of(new SearchPage.Passage(0, "Passage 0", "[]")), 0, 4, true));
@@ -346,19 +351,19 @@ class DocumentSearchServiceTest {
         var origin = new DocumentSourceMetadata(scope.sources().keySet().iterator().next(), UUID.randomUUID(),
                 SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
         var document = UUID.randomUUID();
-        var hits = new java.util.ArrayList<>(java.util.stream.IntStream.range(0, 40)
+        var hits = new ArrayList<>(IntStream.range(0, 40)
                 .mapToObj(i -> hit(document, generation, i, 1)).toList());
-        java.util.stream.IntStream.range(0, 1001).forEach(_ -> hits.add(hit(UUID.randomUUID(), generation, 0, .5)));
+        IntStream.range(0, 1001).forEach(_ -> hits.add(hit(UUID.randomUUID(), generation, 0, .5)));
         when(index.identity()).thenReturn("space");
         when(index.batch(any(), any(), any(), any())).thenReturn(List.of(hits, hits));
-        var batches = new java.util.ArrayList<List<UUID>>();
+        var batches = new ArrayList<List<UUID>>();
         when(documents.currentGenerations(any(), any(), any())).thenAnswer(call -> {
             List<UUID> ids = call.getArgument(1); batches.add(List.copyOf(ids));
             assertTrue(ids.size() <= 1000);
-            return ids.stream().collect(java.util.stream.Collectors.toMap(id -> id, _ -> generation));
+            return ids.stream().collect(Collectors.toMap(id -> id, _ -> generation));
         });
         when(sourceSearch.readableMetadata(any(), any())).thenAnswer(call -> call.<List<UUID>>getArgument(1)
-                .stream().collect(java.util.stream.Collectors.toMap(id -> id, _ -> List.of(origin))));
+                .stream().collect(Collectors.toMap(id -> id, _ -> List.of(origin))));
         var result = service.ranked(scope, List.of(new SearchQuery("leave", false, 1), new SearchQuery("HR", true, 1)), SearchFilters.NONE, () -> {});
         assertEquals(List.of(1000, 2), batches.stream().map(List::size).toList());
         verify(sourceSearch, times(2)).readableMetadata(any(), any());
@@ -483,7 +488,7 @@ class DocumentSearchServiceTest {
     @Test
     void windowReadsNeighborsWithoutDatabaseRechecksAndTheFinalRecheckDropsRevocationDuringTheRead() {
         var fixture = expansionFixture();
-        org.mockito.Mockito.clearInvocations(documents, tenants);
+        Mockito.clearInvocations(documents, tenants);
         when(index.document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 1, 1)).thenAnswer(_ -> {
             when(sourceSearch.readableMetadata(fixture.scope(), List.of(fixture.hit().documentId()))).thenReturn(Map.of());
             return new SearchDocument(fixture.hit().documentId(), generation, "Private",
@@ -505,7 +510,7 @@ class DocumentSearchServiceTest {
         var results = new SearchResults(fixture.scope(), List.of(fixture.hit(), other));
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(fixture.hit().documentId(), generation, other.documentId(), generation));
         when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(fixture.hit().documentId(), fixture.hit().origins()));
-        org.mockito.Mockito.clearInvocations(documents, sourceSearch);
+        Mockito.clearInvocations(documents, sourceSearch);
         var kept = service.authorizedSections(results, results.sections());
         assertEquals(List.of(fixture.hit().documentId()), kept.stream().map(section -> section.anchor().documentId()).toList());
         verify(documents, times(1)).currentGenerations(any(), any(), any());

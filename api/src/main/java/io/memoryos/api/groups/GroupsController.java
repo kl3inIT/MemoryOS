@@ -1,5 +1,6 @@
 package io.memoryos.api.groups;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.groups.contract.AddGroupMembersRequest;
 import io.memoryos.api.groups.contract.CreateGroupRequest;
 import io.memoryos.api.groups.contract.GroupCapabilitiesResponse;
@@ -15,7 +16,6 @@ import io.memoryos.iam.GroupService;
 import io.memoryos.iam.IdentityContext;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -31,7 +31,6 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,7 +46,6 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
 final class GroupsController {
-    private static final String API_PROBLEM_SCHEMA = "#/components/schemas/ApiProblem";
 
     private final GroupService groups;
 
@@ -67,15 +65,11 @@ final class GroupsController {
     @ApiResponse(responseCode = "401", description = "No accepted authentication is present", content = @Content)
     @ApiResponse(
             responseCode = "403",
-            description = "The actor has no global or managed-Group read authority",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The actor has no global or managed-Group read authority"
     )
     @GetMapping
     GroupSummaryPageResponse listGroups(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Size(max = GroupQuery.MAX_SEARCH_LENGTH)
             @RequestParam(required = false) String search,
             @Min(0) @RequestParam(defaultValue = "0") int page,
@@ -98,7 +92,7 @@ final class GroupsController {
     )
     @GetMapping("/capabilities")
     GroupCapabilitiesResponse listGroupCapabilities(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext
+            @CurrentActor IdentityContext identityContext
     ) {
         return GroupCapabilitiesResponse.from(groups.capabilities(identityContext.actorId()));
     }
@@ -115,7 +109,7 @@ final class GroupsController {
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     GroupSummaryResponse createGroup(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Valid @RequestBody CreateGroupRequest request
     ) {
         return GroupSummaryResponse.from(groups.create(identityContext.actorId(), request.name()));
@@ -132,7 +126,7 @@ final class GroupsController {
     )
     @GetMapping("/{groupId}")
     GroupSummaryResponse getGroup(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId
     ) {
         return GroupSummaryResponse.from(groups.get(identityContext.actorId(), new GroupId(groupId)));
@@ -149,7 +143,7 @@ final class GroupsController {
     )
     @PostMapping("/{groupId}/rename")
     GroupSummaryResponse renameGroup(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @Valid @RequestBody RenameGroupRequest request
     ) {
@@ -164,16 +158,12 @@ final class GroupsController {
     @ApiResponse(responseCode = "204", description = "Group links and grants deleted", content = @Content)
     @ApiResponse(
             responseCode = "409",
-            description = "IAM_LAST_GROUP_PROTECTED: a standard member would lose their last Group",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "IAM_LAST_GROUP_PROTECTED: a standard member would lose their last Group"
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/delete")
     void deleteGroup(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId
     ) {
         groups.delete(identityContext.actorId(), new GroupId(groupId));
@@ -190,7 +180,7 @@ final class GroupsController {
     )
     @GetMapping("/{groupId}/members")
     GroupMemberPageResponse listGroupMembers(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @Size(max = GroupQuery.MAX_SEARCH_LENGTH)
             @RequestParam(required = false) String search,
@@ -215,7 +205,7 @@ final class GroupsController {
     )
     @GetMapping("/{groupId}/candidates")
     GroupMemberPageResponse listGroupCandidates(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @Size(max = GroupQuery.MAX_SEARCH_LENGTH)
             @RequestParam(required = false) String search,
@@ -234,7 +224,7 @@ final class GroupsController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/members")
     void addGroupMembers(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @Valid @RequestBody AddGroupMembersRequest request
     ) {
@@ -245,16 +235,12 @@ final class GroupsController {
     @ApiResponse(responseCode = "204", description = "Member removed", content = @Content)
     @ApiResponse(
             responseCode = "409",
-            description = "The final active administrator or a standard member's last Group is protected",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The final active administrator or a standard member's last Group is protected"
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/members/{actorId}/remove")
     void removeGroupMember(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @PathVariable UUID actorId
     ) {
@@ -270,7 +256,7 @@ final class GroupsController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/members/{actorId}/assign-manager")
     void assignGroupManager(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @PathVariable UUID actorId
     ) {
@@ -286,7 +272,7 @@ final class GroupsController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/members/{actorId}/remove-manager")
     void removeGroupManager(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @PathVariable UUID actorId
     ) {
@@ -302,7 +288,7 @@ final class GroupsController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/capabilities")
     void replaceGroupCapabilities(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @Valid @RequestBody ReplaceGroupCapabilitiesRequest request
     ) {

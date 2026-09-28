@@ -54,7 +54,8 @@ final class LocalModelMetadata {
             Thread.currentThread().interrupt();
             return models;
         } catch (Exception failure) {
-            LOG.warn("{} model details could not be read ({})", server, failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "ai.local_model.details_unavailable").addKeyValue("server", server)
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Local model details could not be read");
             return models;
         }
     }

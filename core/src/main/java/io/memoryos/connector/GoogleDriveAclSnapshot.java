@@ -4,6 +4,7 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.shared.TenantId;
 import java.time.Instant;
 import java.util.List;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -33,7 +34,7 @@ public record GoogleDriveAclSnapshot(
         documentIds = List.copyOf(documentIds);
     }
 
-    @Override public String toString() { return "GoogleDriveAclSnapshot[redacted]"; }
+    @Override public @NonNull String toString() { return "GoogleDriveAclSnapshot[redacted]"; }
 
     public enum Status { SUCCEEDED, FAILED }
 

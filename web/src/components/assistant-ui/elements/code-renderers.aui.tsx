@@ -2,14 +2,14 @@
 import { lazy, Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useAuiState } from "@assistant-ui/react";
-import type { SyntaxHighlighterProps } from "@assistant-ui/react-markdown";
+import type { SyntaxHighlighterProps } from "@assistant-ui/react-streamdown";
 
 const Shiki = lazy(() => import("./shiki-highlighter"));
 const Mermaid = lazy(() => import("./mermaid-diagram"));
 
 function PlainCode({ code }: { code: string }) {
   return (
-    <pre className="overflow-x-auto rounded-b-xl border border-t-0 border-border/50 bg-muted/30 p-3.5 text-[13px] leading-relaxed">
+    <pre className="overflow-x-auto rounded-b-xl border border-t-0 border-border/50 bg-muted/30 p-3.5 text-code leading-relaxed">
       <code>{code}</code>
     </pre>
   );

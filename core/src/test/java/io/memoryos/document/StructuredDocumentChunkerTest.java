@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.document.application.StructuredDocumentChunker;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -191,7 +192,7 @@ class StructuredDocumentChunkerTest {
 
     @Test
     void mergesAdjacentParagraphsIntoOneChunk() {
-        var blocks = new java.util.ArrayList<Map<String, Object>>();
+        var blocks = new ArrayList<Map<String, Object>>();
         for (int i = 0; i < 40; i++) {
             blocks.add(Map.of("kind", "PARAGRAPH", "index", i, "text", "Dòng số " + i + " của báo cáo.",
                     "locations", List.of(Map.of("page_no", i + 1))));
@@ -235,7 +236,7 @@ class StructuredDocumentChunkerTest {
     @Test
     void stillRejectsDocumentsBeyondTheChunkLimit() {
         // Tables flush the merge, so alternating blocks keep one chunk per paragraph.
-        var blocks = new java.util.ArrayList<Map<String, Object>>();
+        var blocks = new ArrayList<Map<String, Object>>();
         for (int i = 0; i < 10_001; i++) {
             blocks.add(Map.of("kind", "PARAGRAPH", "index", i * 2, "text", "Đoạn " + i));
             blocks.add(Map.of("kind", "TABLE", "index", i * 2 + 1, "text", "",

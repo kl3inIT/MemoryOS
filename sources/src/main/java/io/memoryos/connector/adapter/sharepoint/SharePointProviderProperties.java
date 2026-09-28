@@ -4,6 +4,7 @@ import io.memoryos.connector.SharePointProviderException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
+import org.jspecify.annotations.NonNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("memoryos.sharepoint")
@@ -49,5 +50,5 @@ public record SharePointProviderProperties(
                 && ("https".equals(value.getScheme()) || Set.of("localhost", "127.0.0.1", "[::1]").contains(value.getHost()));
     }
 
-    @Override public String toString() { return "SharePointProviderProperties[redacted]"; }
+    @Override public @NonNull String toString() { return "SharePointProviderProperties[redacted]"; }
 }

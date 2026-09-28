@@ -8,10 +8,7 @@ import java.sql.Types;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -30,7 +27,7 @@ public class JdbcSearchSettingsRepository {
     /** Serializes changes to one Tenant's generations, seeding included, for the rest of the transaction. */
     public void lock(UUID tenant) {
         jdbc.sql("SELECT pg_advisory_xact_lock(hashtextextended('memoryos.search-settings:' || :tenant, 0))")
-                .param("tenant", tenant.toString()).query((rs, _) -> 1).single();
+                .param("tenant", tenant.toString()).query((_, _) -> 1).single();
     }
 
     public Optional<SearchGeneration> present(UUID tenant) { return withStatus(tenant, SearchGeneration.Status.PRESENT); }
@@ -226,19 +223,6 @@ public class JdbcSearchSettingsRepository {
                 """).param("future", future).param("present", present)
                 .query((rs, _) -> new Progress(rs.getLong("ready"), rs.getLong("total"), rs.getLong("failed"),
                         rs.getLong("uncovered"))).single();
-    }
-
-    /** Documents ready per index identity, for the identities given. */
-    public Map<String, Long> documentCounts(Collection<String> identities) {
-        if (identities.isEmpty()) return Map.of();
-        var counts = new HashMap<String, Long>();
-        jdbc.sql("""
-                SELECT r.index_identity, COUNT(*) AS documents FROM document_search_projection r JOIN documents d
-                    ON d.tenant_id=r.tenant_id AND d.id=r.document_id AND d.status='ELIGIBLE'
-                WHERE r.index_identity IN (:identities) GROUP BY r.index_identity
-                """).param("identities", List.copyOf(identities))
-                .query((rs, _) -> counts.put(rs.getString("index_identity"), rs.getLong("documents"))).list();
-        return Map.copyOf(counts);
     }
 
     public record GenerationRow(SearchGeneration generation, String providerName, EmbeddingProvider.DataBoundary dataBoundary,

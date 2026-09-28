@@ -1,5 +1,6 @@
 package io.memoryos.meeting;
 
+import io.memoryos.BusinessException;
 import io.memoryos.ai.TranscriptSummarizer;
 import io.memoryos.ai.TranscriptSummary;
 import io.memoryos.shared.ActorId;
@@ -12,7 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -22,7 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class MeetingMinutesService {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(MeetingMinutesService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MeetingMinutesService.class);
     /** A meeting that keeps failing stops being retried, as the usage report does. */
     static final int MAX_ATTEMPTS = 3;
     /** Longer than the model call, so a replica that dies mid-run does not block the meeting for long. */
@@ -34,7 +39,7 @@ public class MeetingMinutesService {
     private final TransactionTemplate tx;
 
     public MeetingMinutesService(MeetingRepository meetings, TranscriptSummarizer summarizer,
-                                 org.springframework.transaction.PlatformTransactionManager transactions) {
+                                 PlatformTransactionManager transactions) {
         this.meetings = meetings;
         this.summarizer = summarizer;
         this.tx = new TransactionTemplate(transactions);
@@ -71,7 +76,7 @@ public class MeetingMinutesService {
         boolean stored = Boolean.TRUE.equals(tx.execute(ignored -> meetings.writeMinutes(claim.tenant(), claim.id(),
                 claim.attempts(), summary.summary(), summary.kind(), items)));
         // Another replica took the meeting over after this lease lapsed; it owns the outcome.
-        if (!stored) LOG.warn("Meeting minutes lease lapsed before they were stored");
+        if (!stored) LOG.atWarn().addKeyValue("event", "meeting.minutes.lease_lost").log("Meeting minutes lease lapsed before they were stored");
     }
 
     /** Turns the model's line numbers back into utterance ids, so every item can be traced to what was said. */
@@ -90,17 +95,17 @@ public class MeetingMinutesService {
         return items;
     }
 
-    private static @org.jspecify.annotations.Nullable UUID source(int line, List<Meeting.Utterance> utterances) {
+    private static @Nullable UUID source(int line, List<Meeting.Utterance> utterances) {
         return line >= 1 && line <= utterances.size() ? utterances.get(line - 1).id() : null;
     }
 
-    private static String bounded(@org.jspecify.annotations.Nullable String value) {
+    private static String bounded(@Nullable String value) {
         if (value == null) return "";
         String text = value.strip();
         return text.length() > 2000 ? text.substring(0, 2000) : text;
     }
 
-    private static @org.jspecify.annotations.Nullable String shortText(@org.jspecify.annotations.Nullable String value) {
+    private static @Nullable String shortText(@Nullable String value) {
         if (value == null || value.isBlank()) return null;
         String text = value.strip();
         return text.length() > 100 ? text.substring(0, 100) : text;
@@ -108,7 +113,7 @@ public class MeetingMinutesService {
 
     /** A safe code for the owner; provider text never reaches the meeting row. */
     private static String reason(RuntimeException failure) {
-        if (failure instanceof io.memoryos.BusinessException business) return business.code();
+        if (failure instanceof BusinessException business) return business.code();
         return "MEETING_MINUTES_FAILED";
     }
 }

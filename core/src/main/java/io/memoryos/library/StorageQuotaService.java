@@ -52,15 +52,4 @@ public class StorageQuotaService {
         long used = library.usage(tenant, actor).totalBytes();
         if (used + additionalBytes > limit.get()) throw LibraryException.storageFull(used, limit.get());
     }
-
-    /** Whether there is room, for a write that must not fail the turn it belongs to. */
-    @Transactional(readOnly = true)
-    public boolean hasRoom(TenantId tenant, ActorId actor, long additionalBytes) {
-        try {
-            requireRoom(tenant, actor, additionalBytes);
-            return true;
-        } catch (LibraryException full) {
-            return false;
-        }
-    }
 }

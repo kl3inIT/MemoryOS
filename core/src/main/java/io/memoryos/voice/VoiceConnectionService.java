@@ -10,6 +10,7 @@ import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.NonNull;
@@ -156,7 +157,7 @@ public class VoiceConnectionService {
         var all = connections.findByTenantIdOrderByProvider(tenant);
         var selected = active(all, VoiceFunction.STT);
         return all.stream().filter(c -> serves(c, VoiceFunction.STT)).map(this::snapshot)
-                .sorted(java.util.Comparator.comparing(c -> selected != null && c.id().equals(selected.id()) ? 0 : 1))
+                .sorted(Comparator.comparing(c -> selected != null && c.id().equals(selected.id()) ? 0 : 1))
                 .toList();
     }
 

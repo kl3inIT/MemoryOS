@@ -1,8 +1,14 @@
 package io.memoryos.chat.research;
 
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Deep research prompts ported verbatim from Onyx {@code 160f9b143}: {@code backend/onyx/prompts/deep_research/
@@ -208,6 +214,7 @@ public final class ResearchPrompts {
             {research_plan}
             """.strip();
 
+    // Kept verbatim from Onyx 160f9b143 orchestration_layer.py for the reasoning-orchestrator variant, not used yet.
     public static final String USER_ORCHESTRATOR_PROMPT_REASONING = """
             Remember to refer to the system prompt and follow how to use the tools. \
             You are encouraged to call the {RESEARCH_AGENT_TOOL_NAME} in parallel when the research tasks are not dependent on each other, but never call more than 3 {RESEARCH_AGENT_TOOL_NAME} calls in parallel.
@@ -215,6 +222,7 @@ public final class ResearchPrompts {
             Don't mention this reminder or underlying details about the system.
             """.strip();
 
+    // Kept verbatim from Onyx 160f9b143 for the reasoning-orchestrator variant, not used yet.
     public static final int FIRST_CYCLE_REMINDER_TOKENS = 100;
     public static final String FIRST_CYCLE_REMINDER = """
             Make sure all parts of the user question and the plan have been thoroughly explored before calling generate_report. If new interesting angles have been revealed from the research, you may deviate from the plan to research new directions.
@@ -365,14 +373,14 @@ public final class ResearchPrompts {
     public static final String USER_LANGUAGE_PROMPT = "## Language\nThe user's interface language is {language}. Reply in {language}. If the user explicitly asks for another language, use that one.\n";
     public static final String QUERY_LANGUAGE_PROMPT = "## Language\nReply in the language the user writes in.\n";
 
-    private static final java.time.format.DateTimeFormatter DAY = java.time.format.DateTimeFormatter.ofPattern("EEEE MMMM dd, yyyy", java.util.Locale.ENGLISH);
+    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("EEEE MMMM dd, yyyy", Locale.ENGLISH);
     private static final Map<String, String> LANGUAGE_NAMES = Map.of("vi", "Vietnamese");
 
     /**
      * Onyx {@code build_language_section}: an account language other than English names the reply language. MemoryOS
      * offers English and Vietnamese; Onyx has no Vietnamese, so its name is the only addition.
      */
-    public static String languageSection(@org.jspecify.annotations.Nullable String uiLanguage) {
+    public static String languageSection(@Nullable String uiLanguage) {
         String name = uiLanguage == null ? null : LANGUAGE_NAMES.get(uiLanguage);
         return name == null ? QUERY_LANGUAGE_PROMPT : USER_LANGUAGE_PROMPT.replace("{language}", name);
     }
@@ -383,12 +391,12 @@ public final class ResearchPrompts {
     }
 
     /** Onyx {@code get_current_llm_day_time(full_sentence=False)}: server-local day, as {@code datetime.now()}. */
-    public static String currentDatetime(java.time.ZonedDateTime now) {
+    public static String currentDatetime(ZonedDateTime now) {
         return DAY.format(now);
     }
 
     /** Onyx {@code generate_tools_description}. */
-    public static String toolList(java.util.List<String> names) {
+    public static String toolList(List<String> names) {
         if (names.isEmpty()) return "";
         if (names.size() == 1) return names.getFirst();
         if (names.size() == 2) return names.get(0) + " and " + names.get(1);
@@ -412,7 +420,7 @@ public final class ResearchPrompts {
             String value = all.get(matcher.group(1));
             if (value == null) throw new IllegalArgumentException("Missing research prompt value " + matcher.group(1));
             // Values are inserted literally; an inserted plan or task is never re-read as a template.
-            matcher.appendReplacement(output, java.util.regex.Matcher.quoteReplacement(value));
+            matcher.appendReplacement(output, Matcher.quoteReplacement(value));
         }
         matcher.appendTail(output);
         return text(output.toString());

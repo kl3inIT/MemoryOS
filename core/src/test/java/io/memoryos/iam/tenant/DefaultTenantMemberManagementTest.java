@@ -27,6 +27,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -147,7 +148,7 @@ class DefaultTenantMemberManagementTest {
         assertEquals(createdAt, membershipCreatedAt());
         // A transition that changed nothing is not evidence of anything: one event each way.
         // Two events written in the same instant can tie on occurred_at, so the count is what matters here.
-        assertEquals(java.util.List.of("user.deactivate", "user.reactivate"), jdbcClient.sql("""
+        assertEquals(List.of("user.deactivate", "user.reactivate"), jdbcClient.sql("""
                         SELECT action FROM audit_event WHERE tenant_id = :tenantId AND resource_id = :actorId ORDER BY action
                         """).param("tenantId", TENANT_ID.value()).param("actorId", MEMBER.value().toString())
                 .query(String.class).list());

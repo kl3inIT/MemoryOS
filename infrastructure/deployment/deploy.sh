@@ -4,13 +4,14 @@
 # The environment names the configuration this host runs: it selects the environment file and the
 # Compose overlays. One host runs one environment; the deployment state directory is shared.
 set -Eeuo pipefail
+trap 'echo "deploy.sh: failed at line $LINENO: $BASH_COMMAND" >&2' ERR
 umask 077
 mode=${1:?deploy, rollback or finish}
 release=${2:?verified SHA-workflowRun-workflowAttempt}
 environment=${3:?staging or production}
-[[ "$release" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
-[[ "$environment" =~ ^(staging|production)$ ]]
-[[ $EUID == 0 ]]
+[[ "$release" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]] || { echo "Release must be SHA-workflowRun-workflowAttempt: $release" >&2; exit 1; }
+[[ "$environment" =~ ^(staging|production)$ ]] || { echo "Unknown environment: $environment" >&2; exit 1; }
+[[ $EUID == 0 ]] || { echo 'deploy.sh must run as root' >&2; exit 1; }
 root=/apps/memoryos
 environment_file=$root/.env.$environment
 state=$root/deployments
@@ -110,9 +111,9 @@ if [[ "$mode" == rollback && ! -f "$state/pending" ]]; then
 fi
 if [[ "$mode" == deploy ]]; then
   [[ ! -e "$state/pending" ]] || { echo 'Previous deployment requires recovery; see the CI/CD runbook' >&2; exit 1; }
-  [[ ! -e "$tx" ]]
-  [[ -f "$environment_file" && ! -L "$environment_file" ]]
-  [[ "$(stat -c '%a' "$environment_file")" == 600 ]]
+  [[ ! -e "$tx" ]] || { echo "Transaction directory already exists: $tx" >&2; exit 1; }
+  [[ -f "$environment_file" && ! -L "$environment_file" ]] || { echo "Environment file missing or a symbolic link: $environment_file" >&2; exit 1; }
+  [[ "$(stat -c '%a' "$environment_file")" == 600 ]] || { echo "Environment file must have mode 600: $environment_file" >&2; exit 1; }
   mkdir "$tx"
   cp "$environment_file" "$tx/candidate.base.env"
   cp "$root/incoming/$release/"{manifest.json,configuration.tar,images.env,SHA256SUMS} "$tx/"
@@ -120,12 +121,13 @@ if [[ "$mode" == deploy ]]; then
   jq --exit-status --arg sha "${release:0:40}" '
     .repository == "kl3inIT/MemoryOS" and .sha == $sha
   ' "$tx/manifest.json" > /dev/null
-  [[ $(wc -l < "$tx/images.env") == 7 ]]
+  # One line per image plus MEMORYOS_RELEASE.
+  [[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]] || { echo "images.env must list ${#images[@]} images and the release" >&2; exit 1; }
   for component in "${images[@]}"; do
     reference=$(image_reference "$component" "$tx/images.env")
-    [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
+    [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]] || { echo "Unexpected $component image reference in images.env" >&2; exit 1; }
   done
-  [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$tx/images.env")" == "${release:0:40}" ]]
+  [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$tx/images.env")" == "${release:0:40}" ]] || { echo 'images.env names another release' >&2; exit 1; }
   cp "$tx/images.env" "$tx/candidate.env"
   # The environment file names a Keycloak image where an operator runs Keycloak: staging shares one
   # with OrgMemory, whose realm needs a theme only the OrgMemory image carries. The release then
@@ -180,25 +182,25 @@ if [[ "$mode" == deploy ]]; then
       then map({name: .Name, image: .Image, labels: .Config.Labels}) else error("Unhealthy or mixed runtime") end
     ')
     previous_sha=$(jq --raw-output '.[0].labels["org.opencontainers.image.revision"]' <<< "$previous")
-    [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]]
+    [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Running revision is not a commit SHA: $previous_sha" >&2; exit 1; }
     for component in "${previous_components[@]}"; do
       image=$(jq --raw-output --arg name "/memoryos-$component" '.[] | select(.name == $name) | .image' <<< "$previous")
-      [[ "$image" =~ ^sha256:[0-9a-f]{64}$ ]]
+      [[ "$image" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Running $component image is not a digest: $image" >&2; exit 1; }
       printf '%s=%s\n' "$(image_key "$component")" "$image" >> "$tx/previous.env"
     done
     if has_interpreter "$tx/previous.env"; then
       # Executors are not containers between runs; the accepted record holds their image.
       reference=$(image_reference interpreter-executor "$state/current.env")
-      [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-interpreter-executor@sha256:[0-9a-f]{64}$ ]]
+      [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-interpreter-executor@sha256:[0-9a-f]{64}$ ]] || { echo 'Unexpected interpreter-executor reference in the accepted record' >&2; exit 1; }
       printf '%s=%s\n' "$(image_key interpreter-executor)" "$reference" >> "$tx/previous.env"
     fi
     printf 'MEMORYOS_RELEASE=%s\n' "$previous_sha" >> "$tx/previous.env"
     jq --raw-output '.[0].labels["com.docker.compose.project.config_files"] | split(",")[]' <<< "$previous" > "$tx/previous.compose"
     while IFS= read -r file; do
-      [[ -f "$file" && "$(realpath "$file")" == "$root/"* ]]
+      [[ -f "$file" && "$(realpath "$file")" == "$root/"* ]] || { echo "Running Compose file is missing or outside $root: $file" >&2; exit 1; }
     done < "$tx/previous.compose"
     if [[ -f "$state/current.env" ]]; then
-      [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$state/current.env")" == "$previous_sha" ]]
+      [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$state/current.env")" == "$previous_sha" ]] || { echo 'The accepted record names another release than the running one' >&2; exit 1; }
       cmp --silent "$state/current.compose" "$tx/previous.compose"
       cp "$state/current.base.env" "$tx/previous.base.env"
     else
@@ -214,7 +216,7 @@ if [[ "$mode" == deploy ]]; then
   done
   if has_schema_history; then schema > "$tx/schema.before"; else : > "$tx/schema.before"; fi
   while IFS='|' read -r version _checksum success; do
-    [[ "$success" == t && "$version" =~ ^[0-9]+$ ]]
+    [[ "$success" == t && "$version" =~ ^[0-9]+$ ]] || { echo "Applied migration is failed or malformed: $version" >&2; exit 1; }
     compgen -G "$tx/source/core/src/main/resources/db/migration/V${version}__*.sql" > /dev/null || {
       echo 'Candidate predates an applied migration; operator compatibility review is required' >&2; exit 1;
     }
@@ -236,9 +238,9 @@ if [[ "$mode" == deploy ]]; then
   done
   database_size=$(docker exec memoryos-postgres sh -c \
     'exec psql -U "$POSTGRES_USER" -d memoryos -At -c "SELECT pg_database_size(current_database())"')
-  [[ "$database_size" =~ ^[0-9]+$ ]]
+  [[ "$database_size" =~ ^[0-9]+$ ]] || { echo "Database size is not a number: $database_size" >&2; exit 1; }
   available=$(df --output=avail --block-size=1 "$root" | tail -n 1)
-  (( available > 2 * database_size + 2000000000 ))
+  (( available > 2 * database_size + 2000000000 )) || { echo "Not enough free space under $root for the backup" >&2; exit 1; }
 
   # Keep this reservation until health/revision verification and finalization.
   printf '%s\n' "$release" > "$state/pending"
@@ -249,14 +251,14 @@ if [[ "$mode" == deploy ]]; then
   timeout 300 docker exec memoryos-postgres sh -c \
     'exec pg_dump -U "$POSTGRES_USER" -d memoryos -Fc' > "$tx/database.dump"
   docker exec -i memoryos-postgres pg_restore --list < "$tx/database.dump" > "$tx/backup.catalogue"
-  [[ -s "$tx/backup.catalogue" ]]
+  [[ -s "$tx/backup.catalogue" ]] || { echo 'Database backup catalogue is empty' >&2; exit 1; }
   sha256sum "$tx/database.dump" > "$tx/backup.sha256"
   if has_keycloak "$tx/candidate.env"; then
     # A newer Keycloak migrates its database as it starts, and no older image can read it after.
     # shellcheck disable=SC2016
     timeout 300 docker exec memoryos-postgres sh -c       'exec pg_dump -U "$POSTGRES_USER" -d keycloak -Fc' > "$tx/keycloak.dump"
     docker exec -i memoryos-postgres pg_restore --list < "$tx/keycloak.dump" > "$tx/keycloak.catalogue"
-    [[ -s "$tx/keycloak.catalogue" ]]
+    [[ -s "$tx/keycloak.catalogue" ]] || { echo 'Keycloak backup catalogue is empty' >&2; exit 1; }
     sha256sum "$tx/keycloak.dump" >> "$tx/backup.sha256"
   fi
   target=candidate; rollout; verify_runtime
@@ -264,7 +266,7 @@ if [[ "$mode" == deploy ]]; then
 elif [[ "$mode" == rollback ]]; then
   # Whether a reservation exists at all is answered before the modes divide; what reaches here has
   # one, and only has to be the one this invocation names.
-  [[ "$(cat "$state/pending")" == "$release" ]]
+  [[ "$(cat "$state/pending")" == "$release" ]] || { echo "The reservation belongs to another release than $release" >&2; exit 1; }
   if [[ ! -f "$tx/writers-changing" ]]; then
     rm -- "$state/pending"
     echo 'No writers changed; prior admission restored'; exit 2
@@ -294,7 +296,7 @@ elif [[ "$mode" == rollback ]]; then
   touch "$tx/rolled-back"
   echo 'Previous images restored and healthy; finish records recovery'
 elif [[ "$mode" == finish ]]; then
-  [[ -f "$state/pending" && "$(cat "$state/pending")" == "$release" ]]
+  [[ -f "$state/pending" && "$(cat "$state/pending")" == "$release" ]] || { echo "No reservation for release $release" >&2; exit 1; }
   target=candidate
   if [[ -f "$tx/rolled-back" ]]; then target=previous; fi
   verify_runtime

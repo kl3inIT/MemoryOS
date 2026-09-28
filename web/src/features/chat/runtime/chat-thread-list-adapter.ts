@@ -11,13 +11,14 @@ import {
   unarchiveChatSession,
 } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
+import { invalidateChatSessions } from "@/features/chat/chat-api";
 import type { ChatThreadController, ChatThreadRegistry } from "./chat-thread-controller";
 
 const PAGE = 30;
 
 type RemoteThreadMetadata = Awaited<ReturnType<RemoteThreadListAdapter["fetch"]>>;
 
-export type ChatThreadCustom = Pick<
+type ChatThreadCustom = Pick<
   ChatSession,
   | "personaId"
   | "rootMessageId"
@@ -31,7 +32,7 @@ export type ChatThreadCustom = Pick<
   | "temporary"
 >;
 
-export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
+function threadMetadata(session: ChatSession): RemoteThreadMetadata {
   const custom: ChatThreadCustom = {
     personaId: session.personaId,
     rootMessageId: session.rootMessageId,
@@ -73,11 +74,8 @@ export function createChatThreadListAdapter(
   registry: ChatThreadRegistry,
   queries: QueryClient,
 ): RemoteThreadListAdapter {
-  const refreshLists = (sessionId: string) =>
-    Promise.all([
-      queries.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
-      queries.invalidateQueries({ queryKey: ["chat-session", sessionId] }),
-    ]);
+  // assistant-ui updates its own list after these calls; the cached conversation queries follow here.
+  const refreshLists = (sessionId: string) => invalidateChatSessions(queries, sessionId);
   return {
     async list(params) {
       const offset = params?.after ? Number(params.after) : 0;
@@ -171,7 +169,7 @@ export function chatHistoryAdapter(controller: ChatThreadController): ThreadHist
         const messages = await controller.loadHistory();
         return {
           messages: messages.map((message, index) => ({
-            parentId: index === 0 ? null : messages[index - 1]!.id,
+            parentId: messages[index - 1]?.id ?? null,
             message: message as unknown as TMessage,
           })),
         };

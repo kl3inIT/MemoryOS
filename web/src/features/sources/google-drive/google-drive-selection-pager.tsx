@@ -45,7 +45,7 @@ export function SelectionPager({
   return (
     <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
       {count ? (
-        <p className="text-xs tabular-nums text-content-muted">
+        <p className="text-xs text-content-muted tabular-nums">
           {ui("Items {{v1}}–{{v2}}", {
             v1: paging.start.toLocaleString(locale),
             v2: (paging.start + count - 1).toLocaleString(locale),

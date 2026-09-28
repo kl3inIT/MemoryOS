@@ -12,7 +12,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.catalina.startup.Tomcat;
 import org.jspecify.annotations.Nullable;
 
@@ -25,9 +30,9 @@ public final class McpFixtureServer implements AutoCloseable {
     private static final String METADATA_PATH = "/.well-known/oauth-protected-resource/mcp";
 
     /** Tool calls the fixture served, so a turn can assert what actually reached the server. */
-    private static final java.util.List<String> CALLS = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
-    private static final java.util.concurrent.atomic.AtomicBoolean TOOL_ERROR = new java.util.concurrent.atomic.AtomicBoolean();
-    private static final java.util.concurrent.atomic.AtomicReference<Runnable> BEHAVIOUR = new java.util.concurrent.atomic.AtomicReference<>();
+    private static final List<String> CALLS = Collections.synchronizedList(new ArrayList<>());
+    private static final AtomicBoolean TOOL_ERROR = new AtomicBoolean();
+    private static final AtomicReference<Runnable> BEHAVIOUR = new AtomicReference<>();
 
     private final Tomcat tomcat;
     private final McpSyncServer server;
@@ -38,8 +43,8 @@ public final class McpFixtureServer implements AutoCloseable {
     }
 
     /** Snapshot of the calls served since {@link #resetCalls()}, as {@code name(arguments)}. */
-    public static java.util.List<String> calls() {
-        synchronized (CALLS) { return java.util.List.copyOf(CALLS); }
+    public static List<String> calls() {
+        synchronized (CALLS) { return List.copyOf(CALLS); }
     }
 
     public static void resetCalls() {
@@ -103,7 +108,7 @@ public final class McpFixtureServer implements AutoCloseable {
     }
 
     private static McpServerFeatures.SyncToolSpecification tool(String name, String title, Map<String, Object> schema, boolean readOnly) {
-        var tool = McpSchema.Tool.builder().name(name).title(title).description(name + " fixture").inputSchema(schema)
+        var tool = McpSchema.Tool.builder(name, schema).title(title).description(name + " fixture")
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(readOnly).destructiveHint(!readOnly).build()).build();
         return McpServerFeatures.SyncToolSpecification.builder().tool(tool)
                 .callHandler((exchange, request) -> {

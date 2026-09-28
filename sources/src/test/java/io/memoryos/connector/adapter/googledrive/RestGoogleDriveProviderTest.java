@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import io.memoryos.connector.GoogleDriveLinkReader;
 import io.memoryos.connector.GoogleDriveProvider;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveServiceAccountKey;
@@ -20,10 +21,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
 import java.security.Signature;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -87,7 +90,7 @@ class RestGoogleDriveProviderTest {
                          {"permissionType":"file","role":"commenter","inherited":false}]}]}
                     """);
         }); var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             var permissions = session.permissions("shared-file");
             assertEquals(List.of(
@@ -154,10 +157,10 @@ class RestGoogleDriveProviderTest {
     @Test
     void throttledResponsesCarryTheWaitGoogleAskedFor() throws Exception {
         String rateLimit = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"userRateLimitExceeded\"}]}}";
-        record Case(int status, String body, java.time.Duration delay, Failure failure) {}
-        for (var value : List.of(new Case(429, "{}", java.time.Duration.ofSeconds(30), Failure.QUOTA),
-                new Case(403, rateLimit, java.time.Duration.ofSeconds(45), Failure.QUOTA),
-                new Case(503, "{}", java.time.Duration.ofSeconds(5), Failure.UNAVAILABLE))) {
+        record Case(int status, String body, Duration delay, Failure failure) {}
+        for (var value : List.of(new Case(429, "{}", Duration.ofSeconds(30), Failure.QUOTA),
+                new Case(403, rateLimit, Duration.ofSeconds(45), Failure.QUOTA),
+                new Case(503, "{}", Duration.ofSeconds(5), Failure.UNAVAILABLE))) {
             try (var fixture = new Fixture(exchange -> {
                 exchange.getResponseHeaders().add("Retry-After", Long.toString(value.delay().toSeconds()));
                 return new Response(value.status(), bytes(value.body()));
@@ -258,7 +261,7 @@ class RestGoogleDriveProviderTest {
         String second = "{\"permissions\":[{\"id\":\"second\",\"type\":\"user\",\"role\":\"reader\"}]}";
         try (var fixture = new Fixture(exchange -> ok(decodedQuery(exchange).contains("pageToken=next") ? second : first));
              var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length), mapper);
+                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.permissions("file1")).failure());
@@ -282,7 +285,7 @@ class RestGoogleDriveProviderTest {
         }
         try (var fixture = new Fixture(exchange -> ok("{\"permissions\":[" + entry + "]}"));
              var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32), mapper);
+                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.permissions("file1")).failure());
@@ -339,7 +342,7 @@ class RestGoogleDriveProviderTest {
             var result = new GoogleSheetsSourceContentExtractor(mapper).extract(new ByteArrayInputStream(acquired.bytes()),
                     acquired.bytes().length, acquired.filename(), acquired.descriptor());
             assertEquals("O'Brien\nA1: 0\nA501: 7", result.normalizedText());
-            assertEquals(List.of(new io.memoryos.connector.GoogleDriveLinkReader.Link(
+            assertEquals(List.of(new GoogleDriveLinkReader.Link(
                     "https://docs.google.com/document/d/linked1/edit", "O'Brien!A1")),
                     new OfflineGoogleDriveLinkReader(mapper).read(acquired));
         }
@@ -511,7 +514,7 @@ class RestGoogleDriveProviderTest {
                 assertNull(session.rotatedRefreshToken());
                 assertTrue(session.listFiles("parent", null).files().isEmpty());
             }
-            var form = new java.util.HashMap<String, String>();
+            var form = new HashMap<String, String>();
             for (String pairText : fixture.tokenForms.getFirst().split("&")) {
                 String[] parts = pairText.split("=", 2);
                 form.put(parts[0], URLDecoder.decode(parts[1], StandardCharsets.UTF_8));
@@ -601,7 +604,7 @@ class RestGoogleDriveProviderTest {
 
     private RestGoogleDriveProvider provider(Fixture fixture, int binaryLimit, int requests) {
         return new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0, null, null, null, null, null), mapper);
     }
 
     private static GoogleDriveProvider.Credential credential() {

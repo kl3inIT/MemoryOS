@@ -5,6 +5,8 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.GroupId;
 import io.memoryos.iam.GroupIdentity;
 import io.memoryos.iam.GroupSystemKey;
+import io.memoryos.iam.PrincipalPerson;
+import io.memoryos.shared.LikePattern;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.TenantMembershipRole;
 import io.memoryos.iam.UserCounts;
@@ -16,6 +18,7 @@ import io.memoryos.iam.UserStatus;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -110,6 +113,32 @@ public class UserQueryRepository {
 
     public UserQueryRepository(JdbcClient jdbcClient) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
+    }
+
+    /** Active members whose display name or e-mail contains the search text, case-insensitively, by name. */
+    public List<PrincipalPerson> searchActiveMembers(TenantId tenantId, @Nullable String search, int size) {
+        Objects.requireNonNull(tenantId, "tenantId must not be null");
+        return jdbcClient.sql("""
+                        SELECT membership.actor_id, profile.display_name, profile.email
+                        FROM tenant_memberships membership
+                        LEFT JOIN actor_profiles profile
+                          ON profile.actor_id = membership.actor_id
+                        WHERE membership.tenant_id = :tenantId
+                          AND membership.status = 'ACTIVE'
+                          AND (CAST(:pattern AS TEXT) IS NULL
+                               OR profile.display_name ILIKE :pattern
+                               OR profile.email ILIKE :pattern)
+                        ORDER BY LOWER(COALESCE(profile.display_name, profile.email, '')), membership.actor_id
+                        FETCH FIRST :size ROWS ONLY
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("pattern", search == null ? null : LikePattern.containing(search), Types.VARCHAR)
+                .param("size", size)
+                .query((row, ignored) -> new PrincipalPerson(
+                        new ActorId(row.getObject("actor_id", UUID.class)),
+                        row.getString("display_name"),
+                        row.getString("email")))
+                .list();
     }
 
     public UserPage findPage(TenantId tenantId, UserQuery query, Instant now) {

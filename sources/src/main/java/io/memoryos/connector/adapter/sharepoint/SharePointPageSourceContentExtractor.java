@@ -10,7 +10,6 @@ import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import io.memoryos.document.StructuredContent;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -134,10 +133,5 @@ public final class SharePointPageSourceContentExtractor {
         output.add(kind, text.strip());
         output.append(text.strip());
         output.append("\n");
-    }
-
-    /** The bytes a snapshot is stored as; the reader only accepts this media type. */
-    public static byte[] snapshotOf(String json) {
-        return json.getBytes(StandardCharsets.UTF_8);
     }
 }

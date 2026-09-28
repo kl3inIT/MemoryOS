@@ -4,6 +4,7 @@ import io.memoryos.connector.SharePointException;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Exclusion pattern for a site address or an item path. The wildcards follow Onyx, which uses shell-style
@@ -52,5 +53,5 @@ public record SharePointGlob(String pattern, Pattern compiled) {
         return patterns.stream().anyMatch(glob -> glob.matches(value));
     }
 
-    @Override public String toString() { return pattern; }
+    @Override public @NonNull String toString() { return pattern; }
 }

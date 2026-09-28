@@ -46,9 +46,9 @@ export function pdfBoxRect(box: PdfHighlight, page: PdfPageView, renderedWidth: 
 
 /** Compact page label such as "4", "4–5" or "2, 7". */
 export function formatPages(pages: readonly number[]): string | undefined {
-  if (!pages.length) return undefined;
-  const first = pages[0]!;
-  const last = pages.at(-1)!;
+  const first = pages.at(0);
+  const last = pages.at(-1);
+  if (first === undefined || last === undefined) return undefined;
   if (pages.length === last - first + 1) return first === last ? `${first}` : `${first}–${last}`;
   return pages.slice(0, 3).join(", ") + (pages.length > 3 ? "…" : "");
 }

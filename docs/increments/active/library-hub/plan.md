@@ -17,7 +17,7 @@ Owner decisions (2026-09-25):
    - The `MeetingShelf` port, implemented by `meeting`.
    - `FileAttachments.agentFiles`, implemented by `chat`.
    - `LibraryShelfService` with the shared, meetings, documents, recent and starred views, stars and opens.
-   - V131 `library_mark`.
+   - V133 `library_mark`.
    - Agent file download and xlsx preview through the Agent grant.
    - Nine routes under `/api/chat/library`, and the regenerated `openapi.yml`.
 3. **Web.**
@@ -37,7 +37,7 @@ Owner decisions (2026-09-25):
 | `ChatSessionApiIntegrationTest` including the Agent-reader download case, and `OpenApiContractTest` after regeneration | Pass |
 | Web `typecheck`, `lint`, `format:check`, `check:i18n`; vitest for library, chat library, search and meetings | Pass (22 files, 144 tests) |
 | Playwright `library-hub.spec.ts` (mocked API) | See the delivery report |
-| Local runtime | V131 applied by the API on the development database; API, Worker and web healthy |
+| Local runtime | The API applied the library mark migration to the development database; API, Worker and web healthy |
 
 ## Open
 

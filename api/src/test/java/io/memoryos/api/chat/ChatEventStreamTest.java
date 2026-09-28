@@ -1,5 +1,14 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.IntermediateReportCitationsEvent;
+import io.memoryos.api.chat.contract.IntermediateReportEvent;
+import io.memoryos.api.chat.contract.ReasoningEvent;
+import io.memoryos.api.chat.contract.ResearchAgentStartEvent;
+import io.memoryos.api.chat.contract.ResearchCitation;
+import io.memoryos.api.chat.contract.ResearchPlanEvent;
+import io.memoryos.api.chat.contract.TextDeltaEvent;
+import io.memoryos.api.chat.contract.ToolEvent;
+import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -45,7 +54,7 @@ class ChatEventStreamTest {
                 .collectList().block(Duration.ofSeconds(2));
         assertNotNull(events);
         assertEquals(List.of("tool", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
-        var payload = assertInstanceOf(ChatEventStream.ToolEvent.class, events.getFirst().data());
+        var payload = assertInstanceOf(ToolEvent.class, events.getFirst().data());
         assertEquals("tool-1", payload.toolCallId());
         assertEquals("search_knowledge", payload.toolName());
         assertNotNull(payload.source());
@@ -69,8 +78,8 @@ class ChatEventStreamTest {
         assertNotNull(events);
         assertEquals(List.of("reasoning", "reasoning", "tool", "tool", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
         assertEquals("Checking sources", events.subList(0, 2).stream()
-                .map(event -> assertInstanceOf(ChatEventStream.ReasoningEvent.class, event.data()).text()).reduce("", String::concat));
-        var done = assertInstanceOf(ChatEventStream.ToolEvent.class, events.get(3).data());
+                .map(event -> assertInstanceOf(ReasoningEvent.class, event.data()).text()).reduce("", String::concat));
+        var done = assertInstanceOf(ToolEvent.class, events.get(3).data());
         assertEquals(ChatToolEvent.Stage.COMPLETED, done.stage());
         assertEquals("web_search", done.toolName());
         assertEquals(42L, done.durationMs());
@@ -95,23 +104,23 @@ class ChatEventStreamTest {
         assertNotNull(events);
         assertEquals(List.of("research-plan", "top-level-branching", "tool", "research-agent-start", "tool", "reasoning",
                 "intermediate-report", "intermediate-report-citations", "outcome"), events.stream().map(ServerSentEvent::event).toList());
-        assertEquals("1. Revenue", assertInstanceOf(ChatEventStream.ResearchPlanEvent.class, events.get(0).data()).text());
-        assertEquals(2, assertInstanceOf(ChatEventStream.TopLevelBranchingEvent.class, events.get(1).data()).branches());
-        var agentStep = assertInstanceOf(ChatEventStream.ToolEvent.class, events.get(2).data());
+        assertEquals("1. Revenue", assertInstanceOf(ResearchPlanEvent.class, events.get(0).data()).text());
+        assertEquals(2, assertInstanceOf(TopLevelBranchingEvent.class, events.get(1).data()).branches());
+        var agentStep = assertInstanceOf(ToolEvent.class, events.get(2).data());
         assertEquals(1, agentStep.tabIndex());
         assertNull(agentStep.parentToolCallId());
-        var start = assertInstanceOf(ChatEventStream.ResearchAgentStartEvent.class, events.get(3).data());
+        var start = assertInstanceOf(ResearchAgentStartEvent.class, events.get(3).data());
         assertEquals("Revenue in 2025", start.task());
         assertEquals(1, start.tabIndex());
-        var nested = assertInstanceOf(ChatEventStream.ToolEvent.class, events.get(4).data());
+        var nested = assertInstanceOf(ToolEvent.class, events.get(4).data());
         assertEquals("call_agent", nested.parentToolCallId());
         assertNull(nested.tabIndex());
-        assertEquals("call_agent", assertInstanceOf(ChatEventStream.ReasoningEvent.class, events.get(5).data()).parentToolCallId());
-        var report = assertInstanceOf(ChatEventStream.IntermediateReportEvent.class, events.get(6).data());
+        assertEquals("call_agent", assertInstanceOf(ReasoningEvent.class, events.get(5).data()).parentToolCallId());
+        var report = assertInstanceOf(IntermediateReportEvent.class, events.get(6).data());
         assertEquals("call_agent", report.toolCallId());
         assertEquals("Revenue grew [1].", report.text());
-        assertEquals(List.of(new ChatEventStream.ResearchCitation(1, 2)),
-                assertInstanceOf(ChatEventStream.IntermediateReportCitationsEvent.class, events.get(7).data()).citations());
+        assertEquals(List.of(new ResearchCitation(1, 2)),
+                assertInstanceOf(IntermediateReportCitationsEvent.class, events.get(7).data()).citations());
         assertEquals(assistant + ":7", events.get(6).id());
     }
 
@@ -173,7 +182,7 @@ class ChatEventStreamTest {
             var replay = ChatEventStream.encode(() -> streams.subscribe(assistant, 1, () -> false), assistant, scheduler,
                     Duration.ofSeconds(5)).collectList().block(Duration.ofSeconds(5));
             assertNotNull(replay);
-            assertEquals(" continues", assertInstanceOf(ChatEventStream.TextDeltaEvent.class, replay.getFirst().data()).text());
+            assertEquals(" continues", assertInstanceOf(TextDeltaEvent.class, replay.getFirst().data()).text());
             assertEquals("outcome", replay.getLast().event());
             assertEquals(0, streams.readerCount());
             scheduler.dispose();
@@ -206,7 +215,7 @@ class ChatEventStreamTest {
             // Replay lives in Redis, so a reader without demand costs the writer nothing and later reads the rest.
             assertEquals("outcome", frames.getLast().event());
             assertEquals("x".repeat(16000), frames.stream().filter(frame -> "text-delta".equals(frame.event())).skip(1)
-                    .map(frame -> assertInstanceOf(ChatEventStream.TextDeltaEvent.class, frame.data()).text()).reduce("", String::concat));
+                    .map(frame -> assertInstanceOf(TextDeltaEvent.class, frame.data()).text()).reduce("", String::concat));
             assertEquals(0, streams.readerCount());
             scheduler.dispose();
         }

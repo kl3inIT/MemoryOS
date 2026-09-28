@@ -7,11 +7,14 @@ import io.memoryos.usage.AiUsageRecorder;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +33,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class TranscriptCorrector {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(TranscriptCorrector.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TranscriptCorrector.class);
     /** Long enough for a batch, short enough that the owner is still watching when it answers. */
     static final Duration TIMEOUT = Duration.ofMinutes(2);
     static final int MAX_OUTPUT_TOKENS = 4096;
@@ -232,7 +235,7 @@ public class TranscriptCorrector {
         var wanted = new LinkedHashMap<String, Stretch>();
         for (var stretch : batch) wanted.put(stretch.id(), stretch);
         var kept = new ArrayList<TranscriptCorrections.Proposal>(batch.size());
-        var seen = new java.util.HashSet<String>();
+        var seen = new HashSet<String>();
         for (var proposal : answered.proposals()) {
             var stretch = wanted.get(proposal.id());
             if (stretch == null || !seen.add(proposal.id())) continue;
@@ -269,7 +272,8 @@ public class TranscriptCorrector {
                     accounting.cost(), Instant.now()));
         } catch (RuntimeException failure) {
             // The correction is the owner's answer; a ledger that refuses it must not take the answer with it.
-            LOG.warn("Recording meeting correction usage failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "meeting.correction.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Meeting correction usage not recorded");
         }
     }
 }

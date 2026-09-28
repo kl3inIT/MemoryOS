@@ -3,6 +3,7 @@ package io.memoryos.connector;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -12,8 +13,8 @@ import java.util.UUID;
  */
 public record SourceSearchScope(TenantId tenant, ActorId actor, Map<UUID, SourceType> sources, Set<String> accessTokens) {
     public SourceSearchScope {
-        java.util.Objects.requireNonNull(tenant, "tenant");
-        java.util.Objects.requireNonNull(actor, "actor");
+        Objects.requireNonNull(tenant, "tenant");
+        Objects.requireNonNull(actor, "actor");
         sources = Map.copyOf(sources);
         accessTokens = Set.copyOf(accessTokens);
     }

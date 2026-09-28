@@ -77,7 +77,7 @@ public class JdbcChatArtifactRepository {
                 ORDER BY a.created_at, a.id
                 """).param("tenant", tenant.value()).param("messages", messageIds)
                 .query((row, ignored) -> byMessage.computeIfAbsent(row.getObject("message_id", UUID.class),
-                        key -> new ArrayList<>()).add(new MessageArtifact(LibraryFile.Source.GENERATED,
+                        _ -> new ArrayList<>()).add(new MessageArtifact(LibraryFile.Source.GENERATED,
                         row.getObject("id", UUID.class), new ObjectKey(row.getString("object_key")),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
                         row.getString("chart"), null)))
@@ -89,7 +89,7 @@ public class JdbcChatArtifactRepository {
                 ORDER BY a.created_at, a.id
                 """).param("tenant", tenant.value()).param("messages", messageIds)
                 .query((row, ignored) -> byMessage.computeIfAbsent(row.getObject("message_id", UUID.class),
-                        key -> new ArrayList<>()).add(new MessageArtifact(LibraryFile.Source.IMAGE,
+                        _ -> new ArrayList<>()).add(new MessageArtifact(LibraryFile.Source.IMAGE,
                         row.getObject("id", UUID.class), new ObjectKey(row.getString("object_key")),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
                         null, row.getString("revised_prompt"))))

@@ -6,6 +6,7 @@ import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectRegistry;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +41,7 @@ public class ChatArtifactCleanupService {
     /** Returns how many artifacts were fully released. */
     public int cleanup() {
         int released = 0;
-        var claimed = java.util.Objects.requireNonNull(tx.execute(ignored -> claims.claim(BATCH)));
+        var claimed = Objects.requireNonNull(tx.execute(ignored -> claims.claim(BATCH)));
         for (Claim claim : claimed) {
             try {
                 tx.executeWithoutResult(ignored -> {

@@ -121,7 +121,7 @@ public class OidcDiscoveryClient {
 
     private static String textOrNull(JsonNode document, String field) {
         JsonNode node = document.path(field);
-        return node.isTextual() ? node.asText() : null;
+        return node.isString() ? node.stringValue() : null;
     }
 
     private static IdentityProviderException invalidDiscovery(String diagnosticMessage) {

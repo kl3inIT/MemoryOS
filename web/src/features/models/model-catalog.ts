@@ -2,6 +2,16 @@ import type { ChatReportedModel } from "@/lib/hey-api/types.gen";
 import type { QueryClient } from "@tanstack/react-query";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { ApiError, problemCode } from "@/lib/api";
+import { invalidateAgents } from "@/features/chat/chat-personas-api";
+import {
+  getChatModelDefaultQueryKey,
+  getPersonaModelQueryKey,
+  listAvailableChatModelsQueryKey,
+  listChatModelFlowsQueryKey,
+  listChatPersonaModelsQueryKey,
+  listChatProvidersQueryKey,
+  listConfiguredChatModelsQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type {
   CreateChatModelData,
   CreateChatProviderData,
@@ -68,29 +78,31 @@ export function isCatalogConflict(error: unknown) {
   return error instanceof ApiError && error.status === 409;
 }
 
-const affectedOperations = [
-  "listChatProviders",
-  "listConfiguredChatModels",
-  "listAvailableChatModels",
-  "getChatModelDefault",
-  "listChatModelFlows",
-  "getPersonaModel",
-];
+/** Matches every cached call of a generated operation, whatever its path, query or base URL. */
+function everyCall([{ _id }]: readonly [{ _id: string }]) {
+  return [{ _id }];
+}
 
+/**
+ * Refreshes every read a catalog change can alter: the management catalog, the Tenant and task defaults, every
+ * Persona's model selection and the workspace catalogs Chat and the agent editor read. Transcripts are kept.
+ */
 export async function refreshModelCatalog(client: QueryClient) {
-  // The partial generated key also matches inactive Persona selections and every provider.
+  const refresh = (queryKey: readonly unknown[]) =>
+    client.invalidateQueries({ queryKey }, { throwOnError: true });
   await Promise.all([
-    ...affectedOperations.map((id) =>
-      client.invalidateQueries({ queryKey: [{ _id: id }] }, { throwOnError: true }),
-    ),
-    // Workspace catalogs use authority-scoped handwritten keys rather than SDK keys.
-    ...["chat-models", "chat-persona-models", "chat-personas"].map((key) =>
-      client.invalidateQueries({ queryKey: [key] }, { throwOnError: true }),
-    ),
+    refresh(listChatProvidersQueryKey()),
+    refresh(everyCall(listConfiguredChatModelsQueryKey({ path: { providerId: "" } }))),
+    refresh(listAvailableChatModelsQueryKey()),
+    refresh(getChatModelDefaultQueryKey()),
+    refresh(listChatModelFlowsQueryKey()),
+    refresh(everyCall(getPersonaModelQueryKey({ path: { personaId: "" } }))),
+    refresh(everyCall(listChatPersonaModelsQueryKey({ path: { personaId: "" } }))),
+    invalidateAgents(client),
   ]);
 }
 
-export function providerUsable(provider: ManagedProvider, adapters: InstalledAdapter[]) {
+function providerUsable(provider: ManagedProvider, adapters: InstalledAdapter[]) {
   const adapter = adapters.find((entry) => entry.type === provider.adapterType);
   return Boolean(
     adapter &&

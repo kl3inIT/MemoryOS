@@ -2,6 +2,9 @@ package io.memoryos.ingestion.extraction;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -9,6 +12,10 @@ import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import tools.jackson.databind.ObjectMapper;
@@ -63,20 +70,20 @@ class DoclingServeIntegrationTest {
 
     @Test
     void realServiceExtractsScannedPdfWithOcrAndPageProvenance() throws Exception {
-        var image = new java.awt.image.BufferedImage(1200, 600, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var image = new BufferedImage(1200, 600, BufferedImage.TYPE_INT_RGB);
         var graphics = image.createGraphics();
-        graphics.setColor(java.awt.Color.WHITE);
+        graphics.setColor(Color.WHITE);
         graphics.fillRect(0, 0, 1200, 600);
-        graphics.setColor(java.awt.Color.BLACK);
-        graphics.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 56));
+        graphics.setColor(Color.BLACK);
+        graphics.setFont(new Font("SansSerif", Font.PLAIN, 56));
         graphics.drawString("MemoryOS OCR verification 127", 70, 200);
         graphics.dispose();
         byte[] input;
-        try (var pdf = new org.apache.pdfbox.pdmodel.PDDocument(); var output = new ByteArrayOutputStream()) {
-            var page = new org.apache.pdfbox.pdmodel.PDPage();
+        try (var pdf = new PDDocument(); var output = new ByteArrayOutputStream()) {
+            var page = new PDPage();
             pdf.addPage(page);
-            try (var stream = new org.apache.pdfbox.pdmodel.PDPageContentStream(pdf, page)) {
-                stream.drawImage(org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory.createFromImage(pdf, image),
+            try (var stream = new PDPageContentStream(pdf, page)) {
+                stream.drawImage(LosslessFactory.createFromImage(pdf, image),
                         0, 400, 600, 300);
             }
             pdf.save(output);

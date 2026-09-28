@@ -2,7 +2,7 @@ import { VoiceStreamError } from "./transcribe-socket";
 
 /** Client for the streaming read-aloud WebSocket (Onyx /voice/synthesize/stream parity). */
 
-export const SYNTHESIZE_STREAM_PATH = "/api/chat/voice/synthesize/stream";
+const SYNTHESIZE_STREAM_PATH = "/api/chat/voice/synthesize/stream";
 const OPEN_TIMEOUT_MS = 5_000;
 
 export type SpeechSocket = {
@@ -22,7 +22,7 @@ export type SpeechSocketOptions = {
   createSocket?: (url: string) => WebSocket;
 };
 
-export function speechSocketUrl(
+function speechSocketUrl(
   ticket: string,
   location: Pick<Location, "origin" | "protocol"> = window.location,
 ) {

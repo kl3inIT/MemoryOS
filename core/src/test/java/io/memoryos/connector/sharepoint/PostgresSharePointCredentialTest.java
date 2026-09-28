@@ -11,7 +11,9 @@ import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SourceException;
+import io.memoryos.connector.SourceId;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepository;
+import io.memoryos.connector.source.persistence.CredentialCipher;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sharepoint.persistence.SharePointCredentialConfiguration;
 import io.memoryos.iam.IamException;
@@ -73,7 +75,7 @@ class PostgresSharePointCredentialTest {
         credentials = new JdbcSharePointCredentialRepository(jdbc, sources, sharePointEncryption());
         provider = mock(SharePointProvider.class);
         service = TestDatabase.transactionalProxy(
-                new DefaultSharePointCredentialService(credentials, provider, authorization, manager, io.memoryos.TestDatabase.noAudit()),
+                new DefaultSharePointCredentialService(credentials, provider, authorization, manager, TestDatabase.noAudit()),
                 SharePointCredentialService.class, manager);
     }
 
@@ -111,17 +113,17 @@ class PostgresSharePointCredentialTest {
         }
         // The ciphertext is bound to tenant, credential and purpose: none of them may be swapped.
         var otherTenant = new TenantId(UUID.randomUUID());
-        assertThrows(Exception.class, () -> new io.memoryos.connector.source.persistence.CredentialCipher(
+        assertThrows(Exception.class, () -> new CredentialCipher(
                 new byte[32], "sp-test-v1", "SHAREPOINT_APP").decrypt(otherTenant, id.value(), "client-secret",
-                new io.memoryos.connector.source.persistence.CredentialCipher.EncryptedCredential(
+                new CredentialCipher.EncryptedCredential(
                         stored.secretCiphertext(), stored.secretNonce(), stored.secretKeyVersion())));
-        assertThrows(Exception.class, () -> new io.memoryos.connector.source.persistence.CredentialCipher(
+        assertThrows(Exception.class, () -> new CredentialCipher(
                 new byte[32], "sp-test-v1", "SHAREPOINT_APP").decrypt(tenant, UUID.randomUUID(), "client-secret",
-                new io.memoryos.connector.source.persistence.CredentialCipher.EncryptedCredential(
+                new CredentialCipher.EncryptedCredential(
                         stored.secretCiphertext(), stored.secretNonce(), stored.secretKeyVersion())));
-        assertThrows(Exception.class, () -> new io.memoryos.connector.source.persistence.CredentialCipher(
+        assertThrows(Exception.class, () -> new CredentialCipher(
                 new byte[32], "sp-test-v1", "SHAREPOINT_APP").decrypt(tenant, id.value(), "private-key",
-                new io.memoryos.connector.source.persistence.CredentialCipher.EncryptedCredential(
+                new CredentialCipher.EncryptedCredential(
                         stored.secretCiphertext(), stored.secretNonce(), stored.secretKeyVersion())));
     }
 
@@ -182,7 +184,7 @@ class PostgresSharePointCredentialTest {
         jdbc.sql("INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status) VALUES (:id, :t, :id, :credential, 'PUBLIC', 'NOT_STARTED')")
                 .param("id", sourceId).param("t", tenant.value()).param("credential", id.value()).update();
         assertThrows(SourceException.class, () -> service.delete(owner, id, 1));
-        assertEquals(List.of(new io.memoryos.connector.SourceId(sourceId)), credentials.attachedSources(tenant, id));
+        assertEquals(List.of(new SourceId(sourceId)), credentials.attachedSources(tenant, id));
     }
 
     @Test
@@ -244,7 +246,7 @@ class PostgresSharePointCredentialTest {
                 new JdbcSourceRepository(jdbc, event -> { }),
                 new SharePointCredentialConfiguration("", ""));
         var failing = TestDatabase.transactionalProxy(
-                new DefaultSharePointCredentialService(unconfigured, provider, authorization, manager, io.memoryos.TestDatabase.noAudit()),
+                new DefaultSharePointCredentialService(unconfigured, provider, authorization, manager, TestDatabase.noAudit()),
                 SharePointCredentialService.class, manager);
         try (var draft = secretDraft("No key")) {
             var failure = assertThrows(SharePointException.class, () -> failing.create(owner, draft));

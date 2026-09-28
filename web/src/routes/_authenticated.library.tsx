@@ -1,15 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { ChatLibraryPage } from "@/features/chat/library/chat-library";
-import { LIBRARY_CATEGORIES, type LibraryCategory } from "@/features/library/library";
+import { librarySearchDefaults, librarySearchSchema } from "@/features/library/library-search";
 
-/** `?category=IMAGE` opens the library already narrowed to that kind, as the storage page links to it. */
+/** The library keeps its view, filters, order and page in the address; `?category=IMAGE` opens it narrowed. */
 export const Route = createFileRoute("/_authenticated/library")({
+  validateSearch: librarySearchSchema,
+  search: { middlewares: [stripSearchParams(librarySearchDefaults)] },
   component: ChatLibraryPage,
-  validateSearch: (search: Record<string, unknown>): { category?: LibraryCategory } => {
-    const category = search.category;
-    return typeof category === "string" &&
-      (LIBRARY_CATEGORIES as readonly string[]).includes(category)
-      ? { category: category as LibraryCategory }
-      : {};
-  },
 });
