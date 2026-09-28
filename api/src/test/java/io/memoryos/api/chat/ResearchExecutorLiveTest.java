@@ -17,17 +17,20 @@ import io.memoryos.chat.ChatReasoningDelta;
 import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatToolEvent;
-import io.memoryos.chat.catalog.ChatProviderAdapter;
-import io.memoryos.chat.catalog.ModelSettings;
+import io.memoryos.ai.ProviderAdapter;
+import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.openai.TokenizerProfiles;
+import io.memoryos.ai.openai.OpenAiProviderAdapter;
 import io.memoryos.chat.execution.ChatModelGuard;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.research.ResearchExecutor;
 import io.memoryos.chat.research.ResearchProperties;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchTasks;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import reactor.core.publisher.Mono;
@@ -58,14 +62,14 @@ class ResearchExecutorLiveTest {
         String model = System.getenv().getOrDefault("MEMORYOS_DR_LIVE_MODEL", "gpt-5-mini");
         var meters = new SimpleMeterRegistry();
         var settings = new ModelSettings(128000, 16000, new ModelSettings.Capabilities(true, true, false, true),
-                Map.of("maxCompletionTokens", true, "reasoningEffort", "low", "helperReasoningEffort", "minimal"), null, ChatTokenizerProfiles.HOSTED);
+                Map.of("maxCompletionTokens", true, "reasoningEffort", "low", "helperReasoningEffort", "minimal"), null, TokenizerProfiles.HOSTED);
         var process = mock(AgentProcess.class);
         var budget = mock(Budget.class, RETURNS_DEEP_STUBS);
         when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null);
         when(budget.getTokens()).thenReturn(2_000_000);
         when(budget.getCost()).thenReturn(100.0);
-        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
-        try (var client = adapter.create(new ChatProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, Duration.ofSeconds(60));
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var client = adapter.create(new ProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, Duration.ofSeconds(60));
              var work = new SearchTasks.Scope(Duration.ofSeconds(5))) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()),
                     model, List.of(new SystemMessage("Persona instructions are not used by research."),
@@ -104,7 +108,7 @@ class ResearchExecutorLiveTest {
             assertTrue(searches.get() > 0, "Agents call their tools");
             assertFalse(output.isEmpty(), "The final report is the answer");
             assertEquals(sources.stream().map(s -> s.source().citationId()).toList(),
-                    java.util.stream.IntStream.rangeClosed(1, sources.size()).boxed().toList(), "Merged sources keep one turn sequence");
+                    IntStream.rangeClosed(1, sources.size()).boxed().toList(), "Merged sources keep one turn sequence");
             assertTrue(guards.stream().allMatch(ChatModelGuard::usageKnown), "Every research inference reports usage");
         } finally { meters.close(); }
     }
@@ -125,6 +129,6 @@ class ResearchExecutorLiveTest {
     }
 
     private static UUID uuid(String name) {
-        return UUID.nameUUIDFromBytes(name.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8));
     }
 }

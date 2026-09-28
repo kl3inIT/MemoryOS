@@ -1,7 +1,7 @@
 package io.memoryos.connector;
 
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.List;
 
 /**

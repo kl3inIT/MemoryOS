@@ -45,7 +45,7 @@ function Slider({
           key={index}
           // Radix names the slider on its thumb, which is the element with role="slider".
           aria-label={ariaLabel}
-          className="relative block size-4 shrink-0 rounded-full border border-border-strong bg-surface-raised shadow-sm transition-[color,box-shadow] outline-none select-none after:absolute after:-inset-2 hover:ring-3 hover:ring-focus-ring/20 focus-visible:ring-3 focus-visible:ring-focus-ring/30 active:ring-3 active:ring-focus-ring/30 group-data-disabled/slider:pointer-events-none group-data-disabled/slider:border-border-subtle group-data-disabled/slider:bg-surface-sunken"
+          className="relative block size-4 shrink-0 rounded-full border border-border-strong bg-surface-raised shadow-sm transition-[color,box-shadow] outline-none select-none group-data-disabled/slider:pointer-events-none group-data-disabled/slider:border-border-subtle group-data-disabled/slider:bg-surface-sunken after:absolute after:-inset-2 hover:ring-3 hover:ring-focus-ring/20 focus-visible:ring-3 focus-visible:ring-focus-ring/30 active:ring-3 active:ring-focus-ring/30"
         />
       ))}
     </SliderPrimitive.Root>

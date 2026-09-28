@@ -1,8 +1,10 @@
 @ApplicationModule(
         displayName = "Document",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"iam :: *", "objectstorage"}
+        allowedDependencies = {"shared", "objectstorage"}
 )
+@NullMarked
 package io.memoryos.document;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.modulith.ApplicationModule;

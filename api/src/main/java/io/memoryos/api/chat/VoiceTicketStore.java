@@ -2,7 +2,7 @@ package io.memoryos.api.chat;
 
 import io.memoryos.api.chat.contract.VoiceTicketPurpose;
 import io.memoryos.chat.ChatException;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;

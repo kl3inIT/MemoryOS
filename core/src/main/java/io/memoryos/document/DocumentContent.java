@@ -1,7 +1,9 @@
 package io.memoryos.document;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record DocumentContent(
         String mediaType,
@@ -9,10 +11,10 @@ public record DocumentContent(
         String normalizedText,
         Map<String, String> metadata,
         String structuredJson,
-        @org.jspecify.annotations.Nullable UUID extractionArtifactId
+        @Nullable UUID extractionArtifactId
 ) {
     public DocumentContent {
-        java.util.Objects.requireNonNull(structuredJson, "structuredJson");
+        Objects.requireNonNull(structuredJson, "structuredJson");
         metadata = Map.copyOf(metadata);
     }
 
@@ -20,7 +22,7 @@ public record DocumentContent(
         this(mediaType, title, normalizedText, metadata, "", null);
     }
 
-    public DocumentContent withArtifact(java.util.UUID artifactId) {
+    public DocumentContent withArtifact(UUID artifactId) {
         return new DocumentContent(mediaType, title, normalizedText, metadata,
                 structuredJson, artifactId);
     }

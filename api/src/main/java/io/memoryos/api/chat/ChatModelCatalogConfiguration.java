@@ -1,21 +1,14 @@
 package io.memoryos.api.chat;
 
-import io.memoryos.chat.catalog.ChatModelClients;
-import io.memoryos.chat.catalog.ChatModelResolver;
-import io.memoryos.chat.catalog.ChatProviderAdapter;
-import io.memoryos.chat.catalog.ChatProviderAdapters;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.ModelSettings;
-import io.memoryos.chat.catalog.ProviderCredentials;
-import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.chat.execution.ChatExecutionProperties;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.ModelCatalogRepository;
-import io.memoryos.iam.group.GroupScopeService;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.observation.ObservationRegistry;
+import io.memoryos.chat.PersonaProperties;
+import io.memoryos.ai.ModelClients;
+import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.ProviderAdapter;
+import io.memoryos.ai.ProviderAdapters;
+import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.ProviderCredentials;
+import io.memoryos.chat.ChatExecutionProperties;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -26,15 +19,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 class ChatModelCatalogConfiguration {
     @Bean
-    OpenAiChatProviderAdapter openAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
-        return new OpenAiChatProviderAdapter(observations, meters);
-    }
-    @Bean
-    ChatProviderAdapters chatProviderAdapters(List<ChatProviderAdapter> adapters) { return new ChatProviderAdapters(adapters); }
+    ProviderAdapters chatProviderAdapters(List<ProviderAdapter> adapters) { return new ProviderAdapters(adapters); }
     @Bean(destroyMethod = "close")
-    ChatModelClients chatModelClients(@Value("${memoryos.chat.catalog.max-clients:32}") int capacity) { return new ChatModelClients(capacity); }
+    ModelClients chatModelClients(@Value("${memoryos.chat.catalog.max-clients:32}") int capacity) { return new ModelClients(capacity); }
     @Bean
-    ModelCatalogService.Deployment chatDeploymentModel(PersonaProperties persona, ChatExecutionProperties limits,
+    ModelCatalogService.Deployment chatDeploymentModel(PersonaProperties persona, ChatExecutionProperties limits, ProviderAdapters adapters,
             @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
             @Value("${memoryos.chat.provider.input-price-per-million:-1}") double input,
             @Value("${memoryos.chat.provider.output-price-per-million:-1}") double output,
@@ -47,34 +36,29 @@ class ChatModelCatalogConfiguration {
         var pricing = input < 0 ? null : new ModelSettings.Pricing(input, output);
         // Compatibility import for the existing deployment. The installed catalog supplies the model's own limits,
         // capabilities and prices (MEM-130): the execution limits are runtime bounds, never the model's context window.
-        boolean gpt5 = persona.getModel().startsWith("gpt-5");
-        var known = io.memoryos.chat.catalog.ChatModelResolver.findKnown(persona.getModel(), ChatKnownModels.models());
+        var known = ModelResolver.findKnown(persona.getModel(), adapters.require("openai").knownModels());
+        // A reasoning model takes max_completion_tokens and no sampling temperature. The catalog says which models
+        // reason; the gpt-5 name is the fallback only for a model it does not know.
+        boolean reasoningFamily = known != null ? known.capabilities().reasoning() : persona.getModel().startsWith("gpt-5");
         // A model the catalog does not know takes Onyx's defaults, as a discovered one does: a 32,000-token window
         // and no output cap.
-        int contextWindow = known != null ? known.contextWindow() : io.memoryos.chat.catalog.ChatModelResolver.FALLBACK_CONTEXT_WINDOW;
-        Integer maxOutput = known != null ? Integer.valueOf(known.maxOutputTokens()) : null;
-        boolean defaultCapability = known == null && gpt5;
+        int contextWindow = known != null ? known.contextWindow() : ModelResolver.FALLBACK_CONTEXT_WINDOW;
+        Integer maxOutput = known != null ? known.maxOutputTokens() : null;
+        boolean defaultCapability = known == null && reasoningFamily;
         var settings = new ModelSettings(contextWindow, maxOutput,
                 new ModelSettings.Capabilities(true,
                         toolCalling != null ? toolCalling : known != null ? known.capabilities().toolCalling() : defaultCapability,
                         vision != null ? vision : known != null ? known.capabilities().vision() : defaultCapability,
                         reasoning != null ? reasoning : known != null ? known.capabilities().reasoning() : defaultCapability),
-                Map.of("maxCompletionTokens", maxCompletionTokens == null ? gpt5 : maxCompletionTokens),
+                Map.of("maxCompletionTokens", maxCompletionTokens == null ? reasoningFamily : maxCompletionTokens),
                 pricing != null ? pricing : known != null ? known.pricing() : null, "openai-o200k-v1");
         if (settings.pricing() == null && limits.costCapped())
             throw new IllegalArgumentException("A Chat cost budget requires configured deployment model pricing");
         return new ModelCatalogService.Deployment(baseUrl, persona.getModel(), settings);
     }
     @Bean
-    ModelCatalogService modelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
-            IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            GroupScopeService groups, PersonaProperties persona, ModelCatalogService.Deployment deployment,
-            io.memoryos.iam.audit.AuditTrail audit) {
-        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, groups, persona, deployment, audit);
-    }
-    @Bean
-    ChatModelResolver chatModelResolver(ModelCatalogService catalog, ChatProviderAdapters adapters, ProviderCredentials credentials,
-                                       ChatModelClients clients, ChatExecutionProperties limits) {
-        return new ChatModelResolver(catalog, adapters, credentials, clients, limits);
+    ModelResolver chatModelResolver(ModelCatalogService catalog, ProviderAdapters adapters, ProviderCredentials credentials,
+                                       ModelClients clients, ChatExecutionProperties limits) {
+        return new ModelResolver(catalog, adapters, credentials, clients, limits.providerReadTimeout(), limits.costCapped());
     }
 }

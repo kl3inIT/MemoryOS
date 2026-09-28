@@ -31,3 +31,4 @@ replay_pid*.log
 *.docx
 !docs/academic/sep490/templates/*.docx
 /.skills/*/node_modules/
+.playwright-mcp/

@@ -1,7 +1,7 @@
 package io.memoryos.api.chat.contract;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.memoryos.chat.catalog.ModelCatalogService;
+import io.memoryos.ai.ModelCatalogService;
 
 @Schema(name = "ModelInput")
 public record ChatModelRequest(

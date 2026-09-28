@@ -14,6 +14,8 @@ import static org.mockito.Mockito.when;
 import com.embabel.agent.api.tool.Tool;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
@@ -22,8 +24,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 
 /**
@@ -104,7 +109,7 @@ class McpToolsTest {
         assertInstanceOf(Tool.Result.Text.class, tool.call("{}"));
         var refused = tool.call("{}");
         assertTrue(assertInstanceOf(Tool.Result.Error.class, refused).getMessage().contains("limit"));
-        verify(turn, org.mockito.Mockito.times(2)).call(any(), any(), any());
+        verify(turn, Mockito.times(2)).call(any(), any(), any());
     }
 
     @Test
@@ -143,8 +148,8 @@ class McpToolsTest {
         tools.tools().getFirst().call("not json");
 
         var outcomes = meters.find("memoryos.chat.mcp.call").timers().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        timer -> timer.getId().getTag("outcome"), io.micrometer.core.instrument.Timer::count));
+                .collect(Collectors.toMap(
+                        timer -> timer.getId().getTag("outcome"), Timer::count));
         assertEquals(Map.of("succeeded", 1L, "call_limit", 1L), outcomes);
 
         // Within the limit, unparseable arguments are their own outcome and never reach the server.
@@ -158,9 +163,9 @@ class McpToolsTest {
         // The slug and the snapshotted tool name are bounded; the free-form server name is never a label.
         assertEquals("drive", sample.getTag("server"));
         assertEquals("search_files", sample.getTag("tool"));
-        assertEquals(java.util.Set.of("server", "tool", "outcome"),
-                sample.getTags().stream().map(io.micrometer.core.instrument.Tag::getKey)
-                        .collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of("server", "tool", "outcome"),
+                sample.getTags().stream().map(Tag::getKey)
+                        .collect(Collectors.toSet()));
     }
 
     @Test

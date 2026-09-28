@@ -10,9 +10,12 @@ const alertVariants = cva(
         default: "bg-card text-card-foreground",
         destructive:
           "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
-        // MemoryOS: a completed check (connection tests), in the status success tokens.
+        // MemoryOS: status callouts in the status tokens; the description keeps the status colour.
         success:
-          "border-status-success-emphasis-border bg-status-success-surface text-status-success-content",
+          "border-status-success-emphasis-border bg-status-success-surface text-status-success-content *:data-[slot=alert-description]:text-status-success-content",
+        warning:
+          "border-status-warning-emphasis-border bg-status-warning-surface text-status-warning-content *:data-[slot=alert-description]:text-status-warning-content",
+        info: "border-status-info-emphasis-border bg-status-info-surface text-status-info-content *:data-[slot=alert-description]:text-status-info-content",
       },
     },
     defaultVariants: {

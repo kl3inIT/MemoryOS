@@ -1,15 +1,9 @@
 package io.memoryos.objectstorage;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 public interface ObjectUploadService {
     ObjectUploadAuthorization initiate(TenantId tenantId, ObjectUploadSpecification specification);
-
-    /**
-     * Writes bytes the server already holds as a verified upload, for the caller to adopt in its own transaction.
-     * It follows the browser path's lifecycle, so an upload never adopted is reclaimed by the same cleanup.
-     */
-    VerifiedObject write(TenantId tenantId, ObjectUploadSpecification specification, byte[] content);
 
     VerifiedObject verify(TenantId tenantId, ObjectUploadId uploadId);
 

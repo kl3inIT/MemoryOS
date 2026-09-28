@@ -28,7 +28,7 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 
 ## Pricing
 
-Model prices are USD per million tokens on the catalog model (`ModelSettings.Pricing`): input, output and an optional cache-read rate. Prompt tokens include cached ones, as in Onyx, LiteLLM and 9router, so a call costs `(input − cached) × input rate + cached × cache-read rate + output × output rate`; without a cache-read rate cached input costs the input rate. Embabel prices every input token at the input rate; `ChatModelPricing.cacheDiscount` subtracts the difference once the turn's cached tokens are known. The installed catalog (`known-models.json`) carries LiteLLM's `cache_read_input_token_cost` as `cachedInputPerMillion`. Local models (vLLM, Ollama) have no price until a manager sets one; 0/0 declares them free.
+Model prices are USD per million tokens on the catalog model (`ModelSettings.Pricing`): input, output and an optional cache-read rate. Prompt tokens include cached ones, as in Onyx, LiteLLM and 9router, so a call costs `(input − cached) × input rate + cached × cache-read rate + output × output rate`; without a cache-read rate cached input costs the input rate. Embabel prices every input token at the input rate; `ModelPricing.cacheDiscount` subtracts the difference once the turn's cached tokens are known. The installed catalog (`known-models.json`) carries LiteLLM's `cache_read_input_token_cost` as `cachedInputPerMillion`. Local models (vLLM, Ollama) have no price until a manager sets one; 0/0 declares them free.
 
 All costs are estimates from provider-reported usage and catalog prices, not provider invoices.
 
@@ -66,8 +66,8 @@ window of `period_days` whole UTC days, and can be kept but switched off.
 - **Groups.** A Group limit binds every member of that Group, and a person in two capped Groups is bound by the
   tighter one. Onyx instead lets any Group under budget unblock the person.
 - **A refused turn.** `429` with `Retry-After`, and a body naming the scope, the Group where there is one, and
-  `resetsAt`: the instant the trailing window drops under the budget. Refusals are counted in
-  `memoryos.usage.limit.refusals`, not written to the audit stream; at chat volume they would drown it.
+  `resetsAt`: the instant the trailing window drops under the budget. Refusals are not written to the audit
+  stream; at chat volume they would drown it.
 - **Changes are evidence.** Creating, changing and removing a limit is recorded through
   [audit](audit.md) as `ai_limit.create`, `ai_limit.update` and `ai_limit.delete`.
 

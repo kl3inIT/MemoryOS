@@ -7,17 +7,24 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
 from .config import Config
 
+# Coverage, not resemblance: the reply must carry what the gold answer carries and contradict
+# none of it. The first rubric also failed any reply that said more, which marked correct,
+# better-cited answers wrong — 19 of 24 failures in the first staging run were that rule alone.
 SYSTEM = (
     "Bạn chấm câu trả lời của một trợ lý nội bộ. So sánh câu trả lời với đáp án chuẩn. "
     'Trả về JSON {"correct": true|false, "reason": "..."}. '
-    "Đúng nghĩa là nêu đúng thông tin của đáp án chuẩn; khác cách diễn đạt vẫn tính đúng. "
-    "Thiếu thông tin chính, sai số liệu, hoặc thêm thông tin không có trong đáp án chuẩn "
-    "thì tính sai."
+    "ĐÚNG khi câu trả lời nêu đủ mọi ý và số liệu của đáp án chuẩn, không mâu thuẫn với đáp án "
+    "chuẩn; khác cách diễn đạt vẫn tính đúng. "
+    "Chi tiết đúng nằm ngoài đáp án chuẩn (số hiệu văn bản, ngày, mã số chỉ tiêu, quy đổi đơn vị, "
+    "trích dẫn nguồn) KHÔNG bị trừ điểm. "
+    "SAI khi thiếu một ý chính của đáp án chuẩn, sai số liệu, hoặc khẳng định điều mâu thuẫn với "
+    "đáp án chuẩn."
 )
 # The actor may read only part of the evidence; the gold answer names what it may answer. Requiring
 # the reply to announce the absence of the rest marked correct answers wrong, so it is not
@@ -83,9 +90,8 @@ class Judge:
         )
 
     def _once(self, question: str, gold_answer: str, reply: str, partial: bool) -> Verdict:
-        body = {
+        body: dict[str, Any] = {
             "model": self._config.judge_model,
-            "temperature": 0,
             "messages": [
                 {"role": "system", "content": SYSTEM + (PARTIAL if partial else "")},
                 {
@@ -98,6 +104,8 @@ class Judge:
                 },
             ],
         }
+        if self._config.judge_temperature is not None:
+            body["temperature"] = self._config.judge_temperature
         response = httpx.post(
             f"{self._config.judge_base_url}/chat/completions",
             headers={"Authorization": f"Bearer {self._config.judge_api_key}"},

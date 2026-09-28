@@ -8,6 +8,7 @@ RUN corepack enable \
     && corepack install --global pnpm@11.22.0
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./web/
+COPY web/patches ./web/patches
 WORKDIR /workspace/web
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 

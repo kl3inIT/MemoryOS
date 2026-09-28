@@ -16,6 +16,24 @@
   --shadow-md: var(--elevation-2);
   --shadow-hover: var(--elevation-hover);
 
+  /* A comfortable line length for reading a document (Markdown and text previews). */
+  --container-reading: 78ch;
+  /* The tallest a sheet preview grows inside a panel before it scrolls (`max-h-viewer`), and the least a
+     document viewer opened as a bottom sheet on a phone covers (`min-h-viewer-sheet`). */
+  --spacing-viewer: 70vh;
+  --spacing-viewer-sheet: 72dvh;
+  /* The tallest an image grows in a full-screen lightbox (`max-h-lightbox`). */
+  --spacing-lightbox: 85dvh;
+
+  /* Code blocks and inline code in answers, and the smallest glyph (a favicon's fallback letter). */
+  --text-code: 0.8125rem;
+  --text-code-inline: 0.85em;
+  --text-2xs: 0.625rem;
+  /* The light frosting behind scrims and over media, below Tailwind's `blur-xs` (4px). */
+  --blur-2xs: 2px;
+  /* The settle curve of the assistant surfaces (panels and fades). */
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -48,25 +66,14 @@
   --color-content-muted: var(--content-muted);
   --color-content-disabled: var(--content-disabled);
   --color-content-faint: var(--content-faint);
-  --color-content-inverse: var(--content-inverse);
   --color-border-subtle: var(--border-subtle);
   --color-border-default: var(--border-default);
   --color-border-strong: var(--border-strong);
 
   --color-action-primary: var(--action-primary);
-  --color-action-primary-hover: var(--action-primary-hover);
-  --color-action-primary-active: var(--action-primary-active);
   --color-action-primary-foreground: var(--action-primary-foreground);
-  --color-action-secondary: var(--action-secondary);
-  --color-action-secondary-hover: var(--action-secondary-hover);
-  --color-action-secondary-active: var(--action-secondary-active);
-  --color-action-secondary-foreground: var(--action-secondary-foreground);
-  --color-action-ghost-hover: var(--action-ghost-hover);
-  --color-action-ghost-active: var(--action-ghost-active);
   --color-focus-ring: var(--focus-ring);
   --color-action-selection: var(--action-selection);
-  --color-action-selection-hover: var(--action-selection-hover);
-  --color-action-selection-surface: var(--action-selection-surface);
 
   --color-status-danger-surface: var(--status-danger-surface);
   --color-status-danger-content: var(--status-danger-content);
@@ -98,13 +105,8 @@
   --color-status-info-strong: var(--status-info-strong);
   --color-status-info-border: var(--status-info-border);
   --color-status-info-faint: var(--status-info-faint);
-  --color-status-error-strong: var(--status-error-strong);
-  --color-status-error-surface: var(--status-error-surface);
-  --color-status-error-content: var(--status-error-content);
-  --color-status-error-border: var(--status-error-border);
   --color-highlight-match: var(--highlight-match);
   --color-highlight-active: var(--highlight-active);
-  --color-highlight-selection: var(--highlight-selection);
   --color-evidence-highlight-surface: var(--evidence-highlight-surface);
   --color-evidence-highlight-border: var(--evidence-highlight-border);
   --color-pdf-highlight: var(--pdf-highlight);
@@ -127,7 +129,6 @@
   --color-surface-on-media-hover: var(--surface-on-media-hover);
   --color-border-on-media: var(--border-on-media);
   --color-scrim-media-hover: var(--scrim-media-hover);
-  --color-action-selection: var(--action-selection);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -202,6 +203,20 @@
   font-size: 0.625rem;
   font-weight: 600;
   line-height: 0.75rem;
+}
+
+/* A top-down wipe that reveals a generated image: closed clips it to nothing, open shows all of it. */
+@utility clip-reveal-closed {
+  clip-path: inset(0 0 100% 0);
+}
+
+@utility clip-reveal-open {
+  clip-path: inset(0% 0 0 0);
+}
+
+/* Reserve the scrollbar's width so content does not shift when a scroller starts to scroll. */
+@utility scrollbar-stable {
+  scrollbar-gutter: stable;
 }
 
 @utility surface-card {

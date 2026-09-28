@@ -1,18 +1,11 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState, type ReactNode } from "react";
-import {
-  Check,
-  ChevronRight,
-  Ellipsis,
-  ImagePlus,
-  Library,
-  Pencil,
-  Plus,
-  Tag,
-  X,
-} from "lucide-react";
-import { SettingRow, SettingRows } from "@/components/composites/setting-row";
+import { Check, ImagePlus, Lock, Pencil, Plus, Tag, X } from "lucide-react";
+import { SectionHeader } from "@/components/composites/section-header";
+import { useFieldValidity } from "@/components/form/form-context";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { HelpPopover } from "@/components/ui/help-popover";
 import {
   Command,
   CommandEmpty,
@@ -21,16 +14,16 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Field, FieldDescription, FieldError, FieldLabel, FieldTitle } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { formField } from "@/lib/action-errors";
 import { cn } from "@/lib/utils";
-import { ChatFilePicker } from "@/features/chat/chat-file-picker";
-import type { AgentRef } from "@/features/chat/chat-workspace-api";
-import { findSourceProvider } from "@/features/sources/source-provider-catalog";
-import { SectionHeader } from "@/components/composites/section-header";
+import { ChatFilePicker } from "@/features/library/file-picker";
+import type { NamedRef } from "@/features/identity/principals";
 import { AgentAvatar } from "./agent-avatar";
+import { formatTokens, maxStarterPrompts } from "./agent-form";
 import { agentIconTones, agentIcons } from "./agent-icons";
 
 const avatarTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -59,33 +52,102 @@ export function EditorSection({
   );
 }
 
-export function Field({
+/**
+ * A labelled editor control with an optional counter beside the label and a hint under it. A control that is not
+ * one labelable element (a picker, a list) has a title instead of a label.
+ */
+export function EditorField({
   label,
   htmlFor,
   hint,
   counter,
+  invalid = false,
+  errors,
   children,
 }: {
   label: string;
   htmlFor?: string;
   hint?: ReactNode;
   counter?: ReactNode;
+  invalid?: boolean;
+  errors?: ({ message?: string } | undefined)[];
   children: ReactNode;
 }) {
-  const Label = htmlFor ? "label" : "span";
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <Field data-invalid={invalid || undefined} className="min-w-0">
       <div className="flex items-baseline justify-between gap-3">
-        <Label htmlFor={htmlFor} className="font-main-ui-action text-content-primary">
-          {label}
-        </Label>
+        {htmlFor ? (
+          <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
+        ) : (
+          <FieldTitle>{label}</FieldTitle>
+        )}
         {counter !== undefined && (
           <span className="font-secondary-body text-content-muted tabular-nums">{counter}</span>
         )}
       </div>
       {children}
-      {hint && <p className="font-secondary-body text-content-muted">{hint}</p>}
-    </div>
+      {hint && <FieldDescription>{hint}</FieldDescription>}
+      {invalid && <FieldError errors={errors} />}
+    </Field>
+  );
+}
+
+/** A multi-line text control bound to the `form.AppField` around it. */
+export function TextareaField({
+  label,
+  hint,
+  counter,
+  maxLength,
+  rows,
+  placeholder,
+  className,
+}: {
+  label: string;
+  hint?: ReactNode;
+  counter?: (value: string) => ReactNode;
+  maxLength: number;
+  rows: number;
+  placeholder?: string;
+  className?: string;
+}) {
+  const { field, invalid, errors } = useFieldValidity<string>();
+  return (
+    <EditorField
+      label={label}
+      htmlFor={field.name}
+      hint={hint}
+      counter={counter?.(field.state.value)}
+      invalid={invalid}
+      errors={errors}
+    >
+      <textarea
+        id={field.name}
+        name={field.name}
+        className={cn(formField, className)}
+        maxLength={maxLength}
+        rows={rows}
+        value={field.state.value}
+        placeholder={placeholder}
+        aria-invalid={invalid || undefined}
+        onBlur={field.handleBlur}
+        onChange={(event) => field.handleChange(event.target.value)}
+      />
+    </EditorField>
+  );
+}
+
+/** A failed read of the editor's choices, with a retry. */
+export function LoadFailure({ children, onRetry }: { children: ReactNode; onRetry: () => void }) {
+  const ui = useAppTranslation();
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>{children}</AlertDescription>
+      <AlertAction>
+        <Button type="button" size="sm" prominence="tertiary" onClick={onRetry}>
+          {ui("Tải lại")}
+        </Button>
+      </AlertAction>
+    </Alert>
   );
 }
 
@@ -156,7 +218,7 @@ export function AgentIconPicker({
             )}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[19.5rem] p-3">
+        <PopoverContent align="start" className="w-80 p-3">
           <p className="mb-2 font-secondary-action text-content-muted">{ui("Biểu tượng")}</p>
           <div role="radiogroup" aria-label={ui("Biểu tượng")} className="grid grid-cols-7 gap-1.5">
             {Object.entries(agentIcons).map(([key, Icon]) => {
@@ -170,7 +232,7 @@ export function AgentIconPicker({
                   aria-label={iconNames[key] ?? ui("Biểu tượng")}
                   onClick={() => onIcon(key)}
                   className={cn(
-                    "grid size-9 place-items-center rounded-lg outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-focus-ring/40",
+                    "grid size-9 place-items-center rounded-lg transition-shadow outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
                     agentIconTones[key],
                     checked
                       ? "ring-2 ring-content-primary ring-offset-2 ring-offset-surface-overlay"
@@ -198,7 +260,7 @@ export function AgentIconPicker({
                 }}
                 trigger={
                   <Button type="button" size="sm" prominence="secondary">
-                    <ImagePlus aria-hidden="true" />
+                    <ImagePlus data-icon="inline-start" aria-hidden="true" />
                     {ui("Dùng ảnh")}
                   </Button>
                 }
@@ -212,23 +274,22 @@ export function AgentIconPicker({
           )}
         </PopoverContent>
       </Popover>
-      {error && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {error}
-        </p>
-      )}
+      {error && <FieldError>{error}</FieldError>}
     </div>
   );
 }
 
-/** Selected labels as removable chips plus a searchable add/create menu (Langdock). */
+/**
+ * Selected labels as removable chips plus a searchable menu of the Tenant's labels (Langdock). Labels are created
+ * on the agent administration page, so the editor only assigns them.
+ */
 export function AgentLabelPicker({
   labels,
   value,
   disabled,
   onChange,
 }: {
-  labels: AgentRef[];
+  labels: NamedRef[];
   value: string[];
   disabled: boolean;
   onChange: (ids: string[]) => void;
@@ -305,8 +366,6 @@ export function AgentLabelPicker({
   );
 }
 
-export const maxStarterPrompts = 8;
-
 /** One input per conversation starter (StackAI, Zapier). */
 export function StarterPromptsField({
   value,
@@ -320,7 +379,7 @@ export function StarterPromptsField({
   const ui = useAppTranslation();
   const rows = value.length === 0 ? [""] : value;
   return (
-    <Field
+    <EditorField
       label={ui("Câu hỏi gợi ý")}
       counter={`${value.filter((prompt) => prompt.trim()).length}/${maxStarterPrompts}`}
       hint={ui("Hiện dưới ô chat để người dùng bấm hỏi ngay.")}
@@ -361,197 +420,79 @@ export function StarterPromptsField({
           disabled={rows.length >= maxStarterPrompts}
           onClick={() => onChange([...rows, ""])}
         >
-          <Plus aria-hidden="true" />
+          <Plus data-icon="inline-start" aria-hidden="true" />
           {ui("Thêm câu gợi ý")}
         </Button>
       )}
-    </Field>
+    </EditorField>
   );
 }
 
-type SourceOption = { id: string; name: string; type?: string };
-
-/** Chosen entries kept in view before the rest move behind "+N". */
-const visibleRows = 4;
-
-/** Chosen sources as rows with provider icons, added from a searchable menu (Chatbase, Lemni). */
-export function AgentSourcePicker({
-  options,
-  kind = "source",
-  known,
-  value,
-  pending,
-  failed,
-  disabled,
-  onRetry,
-  onChange,
+/**
+ * A token limit bound to the `form.AppField` around it. Following the model it shows the model's own limit, read
+ * only; a custom value is typed and checked against `cap`, the highest the server accepts.
+ */
+export function TokenLimitField({
+  id,
+  label,
+  help,
+  custom,
+  min,
+  cap,
+  modelValue,
 }: {
-  options: SourceOption[];
-  known: SourceOption[];
-  value: string[];
-  pending: boolean;
-  failed: boolean;
-  disabled: boolean;
-  onRetry: () => void;
-  onChange: (ids: string[]) => void;
-  kind?: "source" | "document-set";
+  id: string;
+  label: string;
+  help: string;
+  custom: boolean;
+  min: number;
+  cap: number | undefined;
+  modelValue: string;
 }) {
   const ui = useAppTranslation();
-  const isDocumentSet = kind === "document-set";
-  const addLabel = isDocumentSet ? ui("Thêm bộ tài liệu") : ui("Thêm nguồn");
-  const searchPlaceholder = isDocumentSet ? ui("Tìm bộ tài liệu…") : ui("Tìm nguồn…");
-  const emptyLabel = isDocumentSet
-    ? ui("Không tìm thấy bộ tài liệu.")
-    : ui("Không tìm thấy nguồn.");
-  const chosen = value.map(
-    (id) =>
-      options.find((source) => source.id === id) ??
-      known.find((source) => source.id === id) ?? { id, name: "", type: "" },
-  );
-  const row = (source: SourceOption) => {
-    const provider = findSourceProvider(source.type);
-    const Icon = provider?.icon ?? Library;
-    return (
-      <SettingRow
-        key={source.id}
-        icon={<Icon />}
-        title={
-          source.name ||
-          ui(
-            isDocumentSet
-              ? "Bộ tài liệu không còn khả dụng (đang giữ lựa chọn)"
-              : "Nguồn không còn khả dụng (đang giữ lựa chọn)",
-          )
-        }
-        description={isDocumentSet ? undefined : provider?.name}
-        control={
-          !disabled && (
-            <IconButton
-              type="button"
-              size="sm"
-              prominence="tertiary"
-              aria-label={ui(isDocumentSet ? "Bỏ bộ tài liệu {{v1}}" : "Bỏ nguồn {{v1}}", {
-                v1: source.name,
-              })}
-              onClick={() => onChange(value.filter((id) => id !== source.id))}
-            >
-              <X />
-            </IconButton>
-          )
-        }
-      />
-    );
-  };
-  const add = !disabled && (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" size="sm" prominence="secondary" disabled={pending || failed}>
-          <Plus aria-hidden="true" />
-          {addLabel}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-0">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
-            <CommandEmpty>{emptyLabel}</CommandEmpty>
-            <CommandGroup>
-              {options.map((source) => {
-                const Icon = findSourceProvider(source.type)?.icon ?? Library;
-                const checked = value.includes(source.id);
-                return (
-                  <CommandItem
-                    key={source.id}
-                    value={`${source.name} ${source.id}`}
-                    onSelect={() =>
-                      onChange(
-                        checked ? value.filter((id) => id !== source.id) : [...value, source.id],
-                      )
-                    }
-                  >
-                    <Icon aria-hidden="true" className="size-4" />
-                    <span className="flex-1 truncate">{source.name}</span>
-                    {checked && <Check aria-hidden="true" />}
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
+  const { field, invalid, errors } = useFieldValidity<string>();
+  const shown = custom && invalid;
   return (
-    <div className="flex flex-col gap-3">
-      {failed && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {isDocumentSet ? ui("Không tải được bộ tài liệu.") : ui("Không tải được nguồn.")}{" "}
-          <Button type="button" size="sm" prominence="tertiary" onClick={onRetry}>
-            {ui("Tải lại")}
-          </Button>
-        </p>
-      )}
-      {chosen.length === 0 ? (
-        <div className="flex items-center gap-3 rounded-xl border border-dashed border-border-default px-4 py-3">
-          <span
-            aria-hidden="true"
-            className="grid size-9 shrink-0 place-items-center text-content-muted"
-          >
-            <Library className="size-4.5" />
+    <Field data-invalid={shown || undefined} className="min-w-0">
+      <div className="flex items-center gap-1">
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <HelpPopover label={label}>
+          <p className="font-secondary-body text-content-secondary">{help}</p>
+        </HelpPopover>
+      </div>
+      <div className="relative">
+        <Input
+          id={id}
+          type={custom ? "number" : "text"}
+          inputMode="numeric"
+          min={custom ? min : undefined}
+          max={custom ? cap : undefined}
+          readOnly={!custom}
+          aria-invalid={shown || undefined}
+          className={cn(!custom && "cursor-default pr-28")}
+          value={custom ? field.state.value : modelValue}
+          placeholder={custom && cap !== undefined ? formatTokens(cap) : undefined}
+          onBlur={field.handleBlur}
+          onChange={(event) => field.handleChange(event.target.value)}
+        />
+        {!custom && (
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center gap-1.5 font-secondary-body text-content-muted">
+            <Lock aria-hidden="true" className="size-3.5" />
+            {ui("Theo model")}
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-main-ui-action text-content-primary">
-              {isDocumentSet
-                ? ui("Không có bộ tài liệu nào được chọn")
-                : ui("Tìm trong mọi nguồn người dùng được phép đọc")}
-            </p>
-            <p className="font-secondary-body text-content-muted">
-              {isDocumentSet
-                ? ui("Chọn bộ tài liệu để trợ lý chỉ trả lời từ các nguồn trong đó.")
-                : ui("Chọn nguồn để trợ lý chỉ trả lời từ những tài liệu đó.")}
-            </p>
-          </div>
-          {add}
-        </div>
+        )}
+      </div>
+      {shown ? (
+        <FieldError errors={errors} />
       ) : (
-        <>
-          <SettingRows>
-            {chosen.slice(0, visibleRows).map(row)}
-            {chosen.length > visibleRows && (
-              <HoverCard>
-                <HoverCardTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-surface-subtle/50 focus-visible:ring-3 focus-visible:ring-focus-ring/40"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-sunken text-content-secondary"
-                    >
-                      <Ellipsis className="size-4.5" />
-                    </span>
-                    <span className="min-w-0 flex-1 font-main-ui-action text-content-secondary">
-                      {isDocumentSet
-                        ? ui("Xem thêm {{n}} bộ tài liệu", { n: chosen.length - visibleRows })
-                        : ui("Xem thêm {{n}} nguồn", { n: chosen.length - visibleRows })}
-                    </span>
-                    <ChevronRight
-                      aria-hidden="true"
-                      className="size-4 shrink-0 text-content-muted"
-                    />
-                  </button>
-                </HoverCardTrigger>
-                <HoverCardContent className="max-h-80 w-96 overflow-y-auto p-0">
-                  <SettingRows className="border-0">
-                    {chosen.slice(visibleRows).map(row)}
-                  </SettingRows>
-                </HoverCardContent>
-              </HoverCard>
-            )}
-          </SettingRows>
-          <div>{add}</div>
-        </>
+        <FieldDescription>
+          {!custom
+            ? ui("Giới hạn tối đa của model hiện tại.")
+            : cap !== undefined
+              ? ui("Tối đa {{v1}} token.", { v1: formatTokens(cap) })
+              : ui("Không giới hạn")}
+        </FieldDescription>
       )}
-    </div>
+    </Field>
   );
 }

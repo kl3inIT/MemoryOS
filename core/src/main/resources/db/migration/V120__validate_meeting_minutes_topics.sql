@@ -1,0 +1,1 @@
+ALTER TABLE meeting_minutes_item VALIDATE CONSTRAINT meeting_minutes_item_kind_check;

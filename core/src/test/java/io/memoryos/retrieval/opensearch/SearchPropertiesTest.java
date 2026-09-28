@@ -10,15 +10,19 @@ import org.junit.jupiter.api.Test;
 
 class SearchPropertiesTest {
     @Test
-    void rejectsEmbeddingCredentialsOverHttpAndMalformedEndpoints() {
-        for (String endpoint : List.of("http://127.0.0.1:8080/v1", "http://provider.example/v1",
-                "https://user:password@provider.example/v1", "file:///tmp/provider", "/v1")) {
+    void rejectsEmbeddingEndpointsCarryingCredentialsQueriesFragmentsOrNoHttpHost() {
+        for (String endpoint : List.of("https://user:password@provider.example/v1", "https://provider.example/v1?key=secret",
+                "https://provider.example/v1#fragment", "file:///tmp/provider", "/v1", "ftp://provider.example/v1")) {
             assertThrows(IllegalArgumentException.class, () -> properties(endpoint, "test-only-credential"));
         }
     }
 
     @Test
-    void acceptsHttpsCredentialsAndEmptyKeyLocalConfiguration() {
+    void acceptsAKeyOverInternalHttpAsTheChatProviderPolicyDoes() {
+        // docs/specs/chat-models.md#credentials-and-provider-extension: the serving node's TEI is plain HTTP on the
+        // private network, with a key.
+        assertDoesNotThrow(() -> properties("http://172.24.244.79:18090/v1", "test-only-credential"));
+        assertDoesNotThrow(() -> properties("http://127.0.0.1:8080/v1", "test-only-credential"));
         assertDoesNotThrow(() -> properties("https://api.openai.com/v1", "test-only-credential"));
         assertDoesNotThrow(() -> properties("http://127.0.0.1:8080/v1", ""));
     }
@@ -59,6 +63,6 @@ class SearchPropertiesTest {
                                                Duration embeddingTimeout, int embeddingRetries) {
         return new SearchProperties(URI.create("http://127.0.0.1:9200"), "", "", "", embeddingEndpoint, apiKey,
                 "text-embedding-3-large", 3072, 32, 2, embeddingTimeout, embeddingRetries, 500, .5, minimumSemanticScore,
-                Duration.ofSeconds(3), "memoryos-test", 0);
+                Duration.ofSeconds(3), "memoryos-test", 0, "", "");
     }
 }

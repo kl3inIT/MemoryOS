@@ -1,31 +1,28 @@
-import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
 import { Info, Trash2, Users, WifiOff } from "lucide-react";
 import { BrandLoader } from "@/components/brand-loader";
 import { DangerZone } from "@/components/composites/danger-zone";
 import { DetailHeader } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
-import { SettingsLayout } from "@/components/ui/settings-layout";
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { SettingsLayout } from "@/components/composites/settings-layout";
+import { useRef, type RefObject } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
-  deleteGroupMutation,
   getGroupOptions,
   listGroupCapabilitiesOptions,
-  renameGroupMutation,
-  replaceGroupCapabilitiesMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupCapability, GroupSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
 import { GroupMembersSection } from "./group-members-section";
 import { GroupPermissionsSection } from "./group-permissions-section";
 import { GroupSourcesSection } from "./group-sources-section";
-import { type GroupDraftSectionHandle, type GroupDraftStateChange } from "./group-draft-section";
+import { useGroupDetail } from "./use-group-detail";
 import { can } from "@/lib/resource-permissions";
 
 export function GroupDetailPage() {
@@ -116,165 +113,34 @@ function GroupDetail({
 }: GroupDetailProps) {
   const ui = useAppTranslation();
 
-  const navigate = useNavigate({ from: "/admin/groups/$groupId" });
-  const queryClient = useQueryClient();
-  const renameGroup = useMutation(renameGroupMutation());
-  const replaceCapabilities = useMutation(replaceGroupCapabilitiesMutation());
-  const deleteGroup = useMutation(deleteGroupMutation());
-  const membersRef = useRef<GroupDraftSectionHandle>(null);
-  const sourcesRef = useRef<GroupDraftSectionHandle>(null);
-  const [membersDirty, setMembersDirty] = useState(false);
-  const [membersPending, setMembersPending] = useState(false);
-  const [sourcesDirty, setSourcesDirty] = useState(false);
-  const [sourcesPending, setSourcesPending] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [baselineName, setBaselineName] = useState(group.name);
-  const [name, setName] = useState(group.name);
-  const [baselineCapabilities, setBaselineCapabilities] = useState(
-    () => new Set<GroupSummary["capabilities"][number]>(group.capabilities),
-  );
-  const [selectedCapabilities, setSelectedCapabilities] = useState(
-    () => new Set<GroupSummary["capabilities"][number]>(group.capabilities),
-  );
-  const [error, setError] = useState<AppCopy | null>(null);
-  const systemGroup = group.systemKey === "ADMIN" || group.systemKey === "BASIC";
-  const canRename = !systemGroup && can(group, "manage");
-  const canManageGrants = !systemGroup && can(group, "editPermissions");
-  const canDelete = !systemGroup && can(group, "delete");
-  const nameDirty = canRename && name.trim() !== baselineName;
-  const baselineCapabilityKey = [...baselineCapabilities].sort().join("\u0000");
-  const selectedCapabilityKey = [...selectedCapabilities].sort().join("\u0000");
-  const capabilitiesDirty = canManageGrants && baselineCapabilityKey !== selectedCapabilityKey;
-  const settingsDirty = nameDirty || capabilitiesDirty;
-  const dirty = settingsDirty || membersDirty || sourcesDirty;
-  const canSave = dirty;
-  const busy =
-    saving ||
-    membersPending ||
-    sourcesPending ||
-    renameGroup.isPending ||
-    replaceCapabilities.isPending ||
-    deleteGroup.isPending;
-  const incomingCapabilityKey = [...group.capabilities].sort().join("\u0000");
-  const incomingSettingsKey = `${group.name}\u0000${incomingCapabilityKey}`;
-  const seededIncomingKeyRef = useRef(incomingSettingsKey);
-  const [previousSettingsState, setPreviousSettingsState] = useState(() => ({
+  const {
+    members,
+    sources,
+    systemGroup,
     canRename,
     canManageGrants,
-    incomingSettingsKey,
-  }));
-
-  if (
-    previousSettingsState.canRename !== canRename ||
-    previousSettingsState.canManageGrants !== canManageGrants ||
-    previousSettingsState.incomingSettingsKey !== incomingSettingsKey
-  ) {
-    setPreviousSettingsState({ canRename, canManageGrants, incomingSettingsKey });
-    if (!canRename) {
-      setName(group.name);
-      setBaselineName(group.name);
-    }
-    if (!canManageGrants) {
-      setSelectedCapabilities(new Set(group.capabilities));
-      setBaselineCapabilities(new Set(group.capabilities));
-    }
-    if (
-      (previousSettingsState.canRename && !canRename) ||
-      (previousSettingsState.canManageGrants && !canManageGrants)
-    ) {
-      setError(null);
-    }
-  }
-
-  useEffect(() => {
-    if (dirty || seededIncomingKeyRef.current === incomingSettingsKey) return;
-    seededIncomingKeyRef.current = incomingSettingsKey;
-    setBaselineName(group.name);
-    setName(group.name);
-    const incoming = new Set<GroupSummary["capabilities"][number]>(group.capabilities);
-    setBaselineCapabilities(incoming);
-    setSelectedCapabilities(new Set(incoming));
-  }, [dirty, group.capabilities, group.name, incomingSettingsKey]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [dirty]);
-
-  const onMembersDraftChange = useCallback<GroupDraftStateChange>((nextDirty, pending) => {
-    setMembersDirty(nextDirty);
-    setMembersPending(pending);
-  }, []);
-  const onSourcesDraftChange = useCallback<GroupDraftStateChange>((nextDirty, pending) => {
-    setSourcesDirty(nextDirty);
-    setSourcesPending(pending);
-  }, []);
-
-  async function saveSettings() {
-    const nextName = name.trim();
-    if (!canSave || !nextName || busy) return;
-    setError(null);
-    setSaving(true);
-    try {
-      const sourcesSaved = (await sourcesRef.current?.save()) ?? true;
-      if (!sourcesSaved) return;
-      const membersSaved = (await membersRef.current?.save()) ?? true;
-      if (!membersSaved) return;
-      if (canRename && nameDirty) {
-        await renameGroup.mutateAsync({
-          path: { groupId: group.id },
-          headers: sameOriginMutationHeaders,
-          body: { name: nextName },
-        });
-        setBaselineName(nextName);
-        setName(nextName);
-      }
-      if (canManageGrants && capabilitiesDirty) {
-        await replaceCapabilities.mutateAsync({
-          path: { groupId: group.id },
-          headers: sameOriginMutationHeaders,
-          body: { capabilities: [...selectedCapabilities] },
-        });
-        setBaselineCapabilities(new Set(selectedCapabilities));
-      }
-      await onAuthorityChanged();
-      await navigate({ to: "/admin/groups", search: { page: 0, size: 20 } });
-    } catch (cause) {
-      setError(groupMutationError(cause, capabilitiesDirty ? "capabilities" : "rename"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function cancelSettings() {
-    membersRef.current?.reset();
-    sourcesRef.current?.reset();
-    if (!dirty) {
-      void navigate({ to: "/admin/groups", search: { page: 0, size: 20 } });
-      return;
-    }
-    setName(baselineName);
-    setSelectedCapabilities(new Set(baselineCapabilities));
-    setError(null);
-  }
-
-  async function deleteSelectedGroup() {
-    await deleteGroup.mutateAsync({
-      path: { groupId: group.id },
-      headers: sameOriginMutationHeaders,
-    });
-    await navigate({ to: "/admin/groups", search: { page: 0, size: 20 }, replace: true });
-    await queryClient.invalidateQueries();
-  }
+    canDelete,
+    name,
+    setNameDraft,
+    selectedCapabilities,
+    setCapabilityDraft,
+    capabilitiesDirty,
+    canSave,
+    busy,
+    deleting,
+    error,
+    blocker,
+    saveSettings,
+    cancelSettings,
+    deleteSelectedGroup,
+  } = useGroupDetail(group, onAuthorityChanged);
 
   return (
     <>
       <DetailHeader
         parent={{ label: ui("Groups"), to: "/admin/groups", search: { page: 0, size: 20 } }}
         icon={<Users />}
-        title={baselineName}
+        title={group.name}
         description={ui("Membership, permissions and the Sources this group may read.")}
         actions={
           <>
@@ -282,43 +148,36 @@ function GroupDetail({
               {ui("Cancel")}
             </Button>
             <Button
-              pending={busy && !deleteGroup.isPending}
+              pending={busy && !deleting}
               disabled={!canSave || busy || !name.trim() || (capabilitiesDirty && registryError)}
               onClick={() => void saveSettings()}
             >
-              {busy && !deleteGroup.isPending ? ui("Saving…") : ui("Save Changes")}
+              {busy && !deleting ? ui("Saving…") : ui("Save Changes")}
             </Button>
           </>
         }
       />
 
       {systemGroup ? (
-        <div className="flex items-start gap-3 rounded-xl border border-border-subtle bg-surface-subtle px-4 py-3">
-          <Info className="mt-0.5 size-4 shrink-0 text-status-info-strong" aria-hidden="true" />
-          <div>
-            <p className="font-main-ui-action text-content-primary">{ui("System group")}</p>
-            <p className="mt-0.5 font-secondary-body text-content-secondary">
-              {ui(
-                "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.",
-              )}
-            </p>
-          </div>
-        </div>
+        <Alert variant="info" role="note">
+          <Info aria-hidden="true" />
+          <AlertTitle>{ui("System group")}</AlertTitle>
+          <AlertDescription>
+            {ui(
+              "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.",
+            )}
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {error ? (
-        <p
-          role="alert"
-          className="rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
-        >
-          {ui(error)}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{ui(error)}</AlertDescription>
+        </Alert>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="group-name" className="font-heading-h3 text-content-primary">
-          {ui("Group Name")}
-        </label>
+      <Field>
+        <FieldLabel htmlFor="group-name">{ui("Group Name")}</FieldLabel>
         <Input
           id="group-name"
           value={name}
@@ -326,11 +185,11 @@ function GroupDetail({
           readOnly={!canRename}
           aria-readonly={!canRename}
           className="max-w-md"
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => setNameDraft(event.target.value)}
         />
-      </div>
+      </Field>
 
-      <GroupMembersSection ref={membersRef} group={group} onDraftChange={onMembersDraftChange} />
+      <GroupMembersSection group={group} draft={members} />
       {systemGroup || canManageGrants ? (
         <GroupPermissionsSection
           registry={registry}
@@ -340,12 +199,10 @@ function GroupDetail({
           loading={registryLoading}
           error={registryError}
           onRetry={onRetryRegistry}
-          onChange={setSelectedCapabilities}
+          onChange={setCapabilityDraft}
         />
       ) : null}
-      {!systemGroup ? (
-        <GroupSourcesSection ref={sourcesRef} group={group} onDraftChange={onSourcesDraftChange} />
-      ) : null}
+      {!systemGroup ? <GroupSourcesSection draft={sources} /> : null}
 
       {canDelete ? (
         <DangerZone
@@ -361,7 +218,7 @@ function GroupDetail({
                   {ui("Delete group")}
                 </Button>
               }
-              title={ui("Delete {{v1}}?", { v1: baselineName })}
+              title={ui("Delete {{v1}}?", { v1: group.name })}
               description={ui(
                 "This ordinary group and its access edges will be permanently removed. Users, Sources, and documents are not deleted.",
               )}
@@ -373,6 +230,18 @@ function GroupDetail({
           }
         />
       ) : null}
+
+      <ConfirmDialog
+        open={blocker.status === "blocked"}
+        onOpenChange={(open) => {
+          if (!open && blocker.status === "blocked") blocker.reset();
+        }}
+        title={ui("Bỏ thay đổi chưa lưu?")}
+        description={ui("Unsaved changes to this group will be lost.")}
+        confirmLabel={ui("Rời trang")}
+        pendingLabel={ui("Đang rời trang…")}
+        onConfirm={async () => blocker.proceed?.()}
+      />
     </>
   );
 }

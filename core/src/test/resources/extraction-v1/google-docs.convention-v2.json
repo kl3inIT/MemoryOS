@@ -1,0 +1,64 @@
+[ {
+  "ordinal" : 0,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Quy chế\nQuy chế",
+  "headings" : [ "Quy chế" ],
+  "blockIndex" : 0,
+  "part" : 0,
+  "provenanceJson" : "{\"tabId\":\"t.0\",\"section\":\"body\",\"startIndex\":1,\"endIndex\":10}",
+  "contentSha256" : "3a7d32e9a5b97f3ad400033c88e36de7b3761f72364d92dac2e37daa686e74f5",
+  "tokenCount" : 21
+}, {
+  "ordinal" : 1,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Quy chế\nÁp dụng cho toàn bộ nhân viên.\n\nNghỉ phép 12 ngày",
+  "headings" : [ "Quy chế" ],
+  "blockIndex" : 1,
+  "part" : 0,
+  "provenanceJson" : "[{\"tabId\":\"t.0\",\"section\":\"body\",\"startIndex\":10,\"endIndex\":40},{\"tabId\":\"t.0\",\"section\":\"body\",\"startIndex\":41,\"endIndex\":60}]",
+  "contentSha256" : "5f3be3b0e62061577e8d157a7ee77a319b46feb7442b41186fd0fa04b6165f58",
+  "tokenCount" : 41
+}, {
+  "ordinal" : 2,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Quy chế\n[A1] Chức danh\n\n[B1] Mức phụ cấp",
+  "headings" : [ "Quy chế" ],
+  "blockIndex" : 4,
+  "part" : 0,
+  "provenanceJson" : "{\"source\":{\"tabId\":\"t.0\",\"section\":\"body\",\"startIndex\":60,\"endIndex\":200},\"tableRow\":0}",
+  "contentSha256" : "8d16fff7310d6dc5c8eb374ac8d12298de825971564eca5e78afbc4457179ed9",
+  "tokenCount" : 34
+}, {
+  "ordinal" : 3,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Quy chế\n[A1] Hà Nội\n\n[B1] 2.000.000 đồng",
+  "headings" : [ "Quy chế" ],
+  "blockIndex" : 4,
+  "part" : 0,
+  "provenanceJson" : "{\"source\":{\"tabId\":\"t.0\",\"section\":\"body/table/1/1\",\"startIndex\":110,\"endIndex\":198},\"tableRow\":0}",
+  "contentSha256" : "bfdf73bf5abce712c9de893e5b3dcd2e15cb33204f9a30d4873a37765323561e",
+  "tokenCount" : 38
+}, {
+  "ordinal" : 4,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Quy chế\n[A2] Trưởng phòng\n\nPhó phòng\n\n[B2] Xem bảng dưới",
+  "headings" : [ "Quy chế" ],
+  "blockIndex" : 4,
+  "part" : 1,
+  "provenanceJson" : "{\"source\":{\"tabId\":\"t.0\",\"section\":\"body\",\"startIndex\":60,\"endIndex\":200},\"tableRow\":1}",
+  "contentSha256" : "2d630805ab8b88ef71387a924f600fb0e7812be22985d28dfe9a1c37e0aec651",
+  "tokenCount" : 43
+}, {
+  "ordinal" : 5,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Đầu trang\nĐầu trang",
+  "headings" : [ "Đầu trang" ],
+  "blockIndex" : 6,
+  "part" : 0,
+  "provenanceJson" : "{\"tabId\":\"t.0\",\"section\":\"headers/kix.h1\",\"startIndex\":0,\"endIndex\":8}",
+  "contentSha256" : "42a6a018bda38e2ca8f42cb7eb0af9cc46dbe78079c5586781a8f5d6b2ae8785",
+  "tokenCount" : 21
+}, {
+  "ordinal" : 6,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Đầu trang\nChú thích cuối trang.",
+  "headings" : [ "Đầu trang" ],
+  "blockIndex" : 7,
+  "part" : 0,
+  "provenanceJson" : "{\"tabId\":\"t.0\",\"section\":\"footnotes/kix.f1\",\"startIndex\":0,\"endIndex\":20}",
+  "contentSha256" : "3c28fa67eeebd69ae82b6cc0a416703b507b99651ed1214839f2a68c6e832695",
+  "tokenCount" : 27
+} ]

@@ -1,14 +1,24 @@
 package io.memoryos.worker;
 
+import io.memoryos.audit.AuditRetention;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
+import io.memoryos.chat.ChatArtifactCleanupService;
+import io.memoryos.chat.ChatExportService;
+import io.memoryos.chat.ChatSessionPurgeService;
+import io.memoryos.connector.ConnectorSyncPort;
+import io.memoryos.connector.SourceRunHistoryMaintenance;
+import io.memoryos.library.UserFileMaintenance;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.application.SearchProjectionMaintenance;
 import io.memoryos.objectstorage.ObjectUploadCleanupPort;
+import io.memoryos.objectstorage.ObjectWriteService;
+import io.memoryos.retrieval.settings.SearchSettingsService;
+import io.memoryos.usage.report.UsageReportService;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -17,6 +27,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import io.memoryos.library.LibraryArchiveService;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "db-scheduler.enabled", havingValue = "true", matchIfMissing = true)
@@ -102,31 +113,31 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
-    RecurringTask<Void> dueSourceSyncTask(io.memoryos.connector.ConnectorSyncPort sync) {
+    RecurringTask<Void> dueSourceSyncTask(ConnectorSyncPort sync) {
         return Tasks.recurring("memoryos-due-source-sync-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> sync.enqueueDue(16));
     }
 
     @Bean
-    RecurringTask<Void> expiredChatUploadTask(io.memoryos.chat.persistence.JdbcUserFileWorkRepository files) {
+    RecurringTask<Void> expiredChatUploadTask(UserFileMaintenance files) {
         return Tasks.recurring("memoryos-expired-chat-upload-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> files.expireUploads(100));
     }
 
     @Bean
-    RecurringTask<Void> sourceRunHistoryRetentionTask(io.memoryos.connector.SourceRunHistoryMaintenance history) {
+    RecurringTask<Void> sourceRunHistoryRetentionTask(SourceRunHistoryMaintenance history) {
         return Tasks.recurring("memoryos-source-run-history-retention-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> history.pruneHistory(100));
     }
 
     @Bean
-    RecurringTask<Void> abandonedObjectWriteCleanupTask(io.memoryos.objectstorage.ObjectWriteService writes) {
+    RecurringTask<Void> abandonedObjectWriteCleanupTask(ObjectWriteService writes) {
         return Tasks.recurring("memoryos-abandoned-object-write-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> writes.cleanup(16));
     }
 
     @Bean
-    RecurringTask<Void> chatSessionPurgeTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatSessionPurgeTask(ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-session-purge-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> sessions.purge());
     }
@@ -136,7 +147,7 @@ class ControlPlaneConfiguration {
      * above then removes their rows and hands their uploads to the file work.
      */
     @Bean
-    RecurringTask<Void> chatTemporarySessionTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatTemporarySessionTask(ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-temporary-session-v1", FixedDelay.of(Duration.ofMinutes(5)))
                 .execute((_, _) -> sessions.expireTemporary());
     }
@@ -146,7 +157,7 @@ class ControlPlaneConfiguration {
      * works; an export reads a whole account, so one at a time is deliberate.
      */
     @Bean
-    RecurringTask<Void> chatExportTask(io.memoryos.chat.application.ChatExportService exports) {
+    RecurringTask<Void> chatExportTask(ChatExportService exports) {
         return Tasks.recurring("memoryos-chat-export-v1", FixedDelay.of(Duration.ofSeconds(10)))
                 .execute((_, _) -> {
                     exports.buildNext();
@@ -156,13 +167,13 @@ class ControlPlaneConfiguration {
 
     /** Each Tenant's retention policy, applied in batches; an hour is far finer than a policy in days. */
     @Bean
-    RecurringTask<Void> chatRetentionPolicyTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatRetentionPolicyTask(ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-retention-policy-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> sessions.applyRetentionPolicies());
     }
 
     @Bean
-    RecurringTask<Void> chatArtifactCleanupTask(io.memoryos.chat.application.ChatArtifactCleanupService artifacts) {
+    RecurringTask<Void> chatArtifactCleanupTask(ChatArtifactCleanupService artifacts) {
         return Tasks.recurring("memoryos-chat-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> artifacts.cleanup());
     }
@@ -187,10 +198,10 @@ class ControlPlaneConfiguration {
 
     /** Deletes audit events past their retention (ADR 0013), a batch at a time until none remain. */
     @Bean
-    RecurringTask<Void> auditRetentionTask(io.memoryos.iam.audit.AuditRetention retention) {
+    RecurringTask<Void> auditRetentionTask(AuditRetention retention) {
         return Tasks.recurring("memoryos-audit-retention-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> {
-                    for (int batch = 0; batch < 20 && retention.sweep() == io.memoryos.iam.audit.AuditRetention.BATCH; batch++) {
+                    for (int batch = 0; batch < 20 && retention.sweep() == AuditRetention.BATCH; batch++) {
                         // A full batch means more may be waiting.
                     }
                 });
@@ -198,7 +209,7 @@ class ControlPlaneConfiguration {
 
     /** Builds requested usage reports; a few per run, so a queue drains without holding the scheduler thread. */
     @Bean
-    RecurringTask<Void> usageReportTask(io.memoryos.usage.report.UsageReportService reports) {
+    RecurringTask<Void> usageReportTask(UsageReportService reports) {
         return Tasks.recurring("memoryos-ai-usage-report-v1", FixedDelay.of(Duration.ofSeconds(5)))
                 .execute((_, _) -> {
                     for (int built = 0; built < 4 && reports.buildNext(); built++) {
@@ -212,14 +223,14 @@ class ControlPlaneConfiguration {
      * DELETE work then owns the release itself.
      */
     @Bean
-    RecurringTask<Void> chatLibraryTrashTask(io.memoryos.chat.persistence.JdbcUserFileRepository files) {
+    RecurringTask<Void> chatLibraryTrashTask(UserFileMaintenance files) {
         return Tasks.recurring("memoryos-chat-library-trash-v1", FixedDelay.of(Duration.ofMinutes(5)))
-                .execute((_, _) -> files.enqueueDuePurges(100));
+                .execute((_, _) -> files.queueTrashPurges(100));
     }
 
     /** Packs requested library archives and releases the ones that expired (MEM-152). */
     @Bean
-    RecurringTask<Void> chatLibraryArchiveTask(io.memoryos.chat.application.ChatLibraryArchiveService archives) {
+    RecurringTask<Void> chatLibraryArchiveTask(LibraryArchiveService archives) {
         return Tasks.recurring("memoryos-chat-library-archive-v1", FixedDelay.of(Duration.ofSeconds(5)))
                 .execute((_, _) -> {
                     for (int packed = 0; packed < 4 && archives.buildNext(); packed++) {
@@ -233,6 +244,28 @@ class ControlPlaneConfiguration {
     RecurringTask<Void> searchProjectionTask(SearchProjectionMaintenance maintenance) {
         return Tasks.recurring("memoryos-search-projection-reconcile-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> maintenance.reconcile());
+    }
+
+    /**
+     * MEM-135: feeds the FUTURE index being rebuilt a bounded window at a time from stored chunks, and switches an
+     * automatic rebuild (a new chunk convention) once it holds every document. All state is in PostgreSQL, so a
+     * restarted worker resumes.
+     */
+    @Bean
+    RecurringTask<Void> searchRebuildTask(SearchProjectionMaintenance maintenance,
+            SearchSettingsService settings) {
+        return Tasks.recurring("memoryos-search-rebuild-v1", FixedDelay.of(Duration.ofSeconds(5)))
+                .execute((_, _) -> {
+                    maintenance.rebuild();
+                    settings.switchAutomaticWhenComplete();
+                });
+    }
+
+    /** MEM-135: deletes the index of a PAST search generation once its retention ended, with a recount. */
+    @Bean
+    RecurringTask<Void> searchGenerationCleanupTask(SearchSettingsService settings) {
+        return Tasks.recurring("memoryos-search-generation-cleanup-v1", FixedDelay.of(Duration.ofHours(1)))
+                .execute((_, _) -> settings.cleanupExpired());
     }
 
     @Bean

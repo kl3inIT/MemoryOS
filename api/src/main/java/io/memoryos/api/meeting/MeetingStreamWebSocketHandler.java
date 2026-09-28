@@ -1,7 +1,7 @@
 package io.memoryos.api.meeting;
 
 import io.memoryos.BusinessException;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.meeting.Meeting;
 import io.memoryos.meeting.MeetingService;
 import java.io.IOException;
@@ -15,11 +15,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.PingMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
@@ -33,12 +35,16 @@ import tools.jackson.databind.ObjectMapper;
  * Audio and transcript text are never logged.
  */
 @Component
+@NullMarked
 class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements DisposableBean {
     static final String PATH = "/api/meeting-stream";
     static final int MAX_BINARY_FRAME = 64 * 1024;
     static final int MAX_TEXT_FRAME = 16 * 1024;
     /** A paused recording closes its socket; a live one sends audio continuously, silence included. */
     static final Duration IDLE = Duration.ofSeconds(60);
+    private static final Duration WATCHDOG = Duration.ofSeconds(5);
+    /** Comfortably inside the shortest proxy read timeout in front of the API. */
+    private static final Duration PING = Duration.ofSeconds(20);
     private static final int SEND_TIME_LIMIT_MILLIS = 10_000;
     private static final int SEND_BUFFER_BYTES = 256 * 1024;
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -56,14 +62,16 @@ class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements 
         return "MEETING:" + meeting + ":" + track.name();
     }
 
-    private static final class Live {
+    static final class Live {
         private final WebSocketSession socket;
         private final MeetingService.TrackSession track;
         private final AtomicBoolean ending = new AtomicBoolean();
-        private volatile long lastAudioNanos = System.nanoTime();
+        volatile long lastAudioNanos = System.nanoTime();
+        /** Counted only on the single watchdog thread. */
+        private long silentChecks;
         private @Nullable ScheduledFuture<?> check;
 
-        private Live(WebSocketSession socket, MeetingService.TrackSession track) {
+        Live(WebSocketSession socket, MeetingService.TrackSession track) {
             this.socket = socket;
             this.track = track;
         }
@@ -102,6 +110,13 @@ class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements 
                     value.put("endMs", utterance.endMs());
                     value.put("text", utterance.text());
                     value.put("confidence", utterance.confidence());
+                    value.put("spans", utterance.spans().stream().map(span -> {
+                        var marked = new LinkedHashMap<String, Object>();
+                        marked.put("start", span.start());
+                        marked.put("end", span.end());
+                        marked.put("confidence", span.confidence());
+                        return marked;
+                    }).toList());
                     body.put("utterance", value);
                     write(socket, body);
                 }
@@ -120,7 +135,8 @@ class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements 
         var live = new Live(socket, recording);
         sessions.put(session.getId(), live);
         write(socket, message("ready"));
-        live.check = watchdog.scheduleWithFixedDelay(() -> expire(live), 5, 5, TimeUnit.SECONDS);
+        live.check = watchdog.scheduleWithFixedDelay(() -> expire(live), WATCHDOG.toSeconds(),
+                WATCHDOG.toSeconds(), TimeUnit.SECONDS);
     }
 
     @Override
@@ -160,7 +176,7 @@ class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements 
             return;
         }
         if (!live.ending.compareAndSet(false, true)) return;
-        live.track.finish().whenComplete((ignored, failure) -> {
+        live.track.finish().whenComplete((_, _) -> {
             write(live.socket, message("finished"));
             close(live.socket, CloseStatus.NORMAL);
         });
@@ -185,9 +201,26 @@ class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements 
         sessions.values().forEach(live -> close(live.socket, CloseStatus.GOING_AWAY));
     }
 
-    private void expire(Live live) {
-        if (!live.ending.get() && System.nanoTime() - live.lastAudioNanos > IDLE.toNanos())
+    void expire(Live live) {
+        if (live.ending.get()) return;
+        if (System.nanoTime() - live.lastAudioNanos > IDLE.toNanos()) {
             fail(live.socket, "MEETING_IDLE", CloseStatus.POLICY_VIOLATION);
+            return;
+        }
+        // Nobody speaking means the server writes nothing for minutes while the browser keeps sending audio. A
+        // reverse proxy reads that as an idle upstream and cuts the connection — 300s at the staging edge — so the
+        // recording stalls in a quiet room. A ping every PING keeps every hop in between awake; the browser answers
+        // it without the page being told.
+        if (++live.silentChecks % (PING.toSeconds() / WATCHDOG.toSeconds()) == 0) ping(live.socket);
+    }
+
+    private static void ping(WebSocketSession socket) {
+        if (!socket.isOpen()) return;
+        try {
+            socket.sendMessage(new PingMessage());
+        } catch (IOException | RuntimeException failed) {
+            close(socket, CloseStatus.SERVER_ERROR);
+        }
     }
 
     private static LinkedHashMap<String, Object> message(String type) {

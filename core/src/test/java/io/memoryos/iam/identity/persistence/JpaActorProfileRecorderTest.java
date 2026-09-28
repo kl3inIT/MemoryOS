@@ -10,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.ExternalIdentity;
 import jakarta.persistence.LockModeType;
 
 import java.sql.SQLException;
@@ -22,17 +22,11 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import io.memoryos.iam.identity.persistence.ActorEntity;
-import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
-import io.memoryos.iam.identity.persistence.ExternalIdentityBindingEntity;
-import io.memoryos.iam.identity.persistence.ExternalIdentityBindingId;
-import io.memoryos.iam.identity.persistence.JpaActorProfileRecorder;
-import io.memoryos.iam.identity.persistence.JpaActorRepository;
-import io.memoryos.iam.identity.persistence.JpaExternalIdentityRegistry;
 
 // SQL is exercised against the isolated, migrated Testcontainers database.
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -84,7 +78,7 @@ class JpaActorProfileRecorderTest {
         var actors = actorRepository();
         assertEquals("vi", transaction.execute(_ -> actors.findById(actorId.value()).orElseThrow().getUiLanguage()));
         transaction.executeWithoutResult(_ -> actors.refreshForUpdate(actorId.value()).setUiLanguage("en"));
-        assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () ->
+        assertThrows(DataIntegrityViolationException.class, () ->
                 jdbcClient.sql("UPDATE actors SET ui_language = 'fr' WHERE id = :id").param("id", actorId.value()).update());
         transaction.executeWithoutResult(_ -> {
             ActorEntity actor = jpa.entityManager().find(ActorEntity.class, actorId.value());

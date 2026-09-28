@@ -48,11 +48,11 @@ export function ClampedList({
     show(entries.length);
     if (more) more.style.display = "none";
     const rows = [...new Set(entries.map((entry) => entry.offsetTop))].sort((a, b) => a - b);
-    if (rows.length <= maxRows) {
+    const lastRowTop = rows[maxRows - 1];
+    if (rows.length <= maxRows || lastRowTop === undefined) {
       setVisible(entries.length);
       return;
     }
-    const lastRowTop = rows[maxRows - 1];
     let shown = entries.filter((entry) => entry.offsetTop <= lastRowTop).length;
     if (more) {
       // The "+N" trigger takes room on the last row, so give way until it fits beside the entries.
@@ -96,7 +96,7 @@ export function ClampedList({
       )}
     >
       {items.map((item) => (
-        <li key={item.key} data-clamped-item className="flex min-w-0 max-w-full">
+        <li key={item.key} data-clamped-item className="flex max-w-full min-w-0">
           {item}
         </li>
       ))}
@@ -114,7 +114,7 @@ export function ClampedList({
           <HoverCardContent className="max-h-80 w-auto max-w-sm overflow-y-auto">
             <ul aria-label={label} className="flex flex-col gap-1.5">
               {items.slice(visible).map((item) => (
-                <li key={item.key} className="flex min-w-0 max-w-full">
+                <li key={item.key} className="flex max-w-full min-w-0">
                   {item}
                 </li>
               ))}

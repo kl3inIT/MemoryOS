@@ -229,6 +229,399 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/search/embedding-providers/{providerId}:
+    put:
+      tags:
+      - Search settings
+      summary: Replace an embedding provider at the expected revision
+      operationId: updateEmbeddingProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingProviderRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Search settings
+      summary: Delete an embedding provider that no search generation uses
+      operationId: deleteEmbeddingProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: A search generation still uses the provider
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}:
+    get:
+      tags:
+      - Meetings
+      summary: Read one of the current member's meetings with its transcript
+      operationId: getMeeting
+      parameters:
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Meetings
+      summary: Rename the meeting and say who was in it
+      operationId: updateMeeting
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: "The name and the people as stored, and the new revision"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingParticulars"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Meetings
+      summary: Delete a meeting and its transcript
+      operationId: deleteMeeting
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/utterances/{utteranceId}/star:
+    put:
+      tags:
+      - Meetings
+      summary: Mark one line as one the caller cares about
+      operationId: starMeetingUtterance
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: utteranceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Every line the caller starred in this meeting
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+        "404":
+          description: Meeting or line not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Meetings
+      summary: Take the caller's mark off a line
+      operationId: unstarMeetingUtterance
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: utteranceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Every line the caller still has starred in this meeting
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+        "404":
+          description: Meeting or line not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/speakers/{track}/{label}:
     put:
       tags:
@@ -271,11 +664,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting
+          description: The speaker as now named
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingSpeaker"
         "404":
           description: Meeting or speaker not available
           content:
@@ -328,11 +721,13 @@ paths:
         required: true
       responses:
         "200":
-          description: "The meeting, with its readers"
+          description: Everyone the meeting is now shared with
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingReader"
         "404":
           description: Meeting not available
           content:
@@ -385,11 +780,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting
+          description: The notes as stored and the new revision
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingNotes"
         "404":
           description: Meeting not available
           content:
@@ -454,13 +849,284 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting
+          description: The item as it now reads
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingMinutesItem"
         "404":
           description: Meeting or item not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes/summary:
+    put:
+      tags:
+      - Meetings
+      summary: Rewrite the summary in the owner's own words
+      operationId: editMeetingMinutesSummary
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingMinutesSummaryRequest"
+        required: true
+      responses:
+        "200":
+          description: The summary as it now reads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingMinutesSummary"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes/items/{itemId}:
+    put:
+      tags:
+      - Meetings
+      summary: "Rewrite one decision or one piece of work, its owner and its deadline"
+      operationId: editMeetingMinutesItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingMinutesItemRequest"
+        required: true
+      responses:
+        "200":
+          description: The item as it now reads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingMinutesItem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Meeting or item not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Meetings
+      summary: Take a decision or a piece of work out of the minutes
+      operationId: removeMeetingMinutesItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Removed; the minutes now count as the owner's words
+        "404":
+          description: Meeting or item not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes/heading:
+    get:
+      tags:
+      - Meetings
+      summary: The biên bản heading as the owner last saved it
+      operationId: getMeetingMinutesHeading
+      parameters:
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The heading
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingHeading"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Meetings
+      summary: Keep the biên bản heading the owner typed
+      operationId: saveMeetingMinutesHeading
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingHeadingRequest"
+        required: true
+      responses:
+        "200":
+          description: The heading as stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingHeading"
+        "404":
+          description: Meeting not available
           content:
             application/problem+json:
               schema:
@@ -1889,6 +2555,161 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/ChatHistoryVisibilityRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/settings/guardrails:
+    get:
+      tags:
+      - Chat Settings
+      summary: Read the sensitive topics and blocked phrases; requires model management
+      operationId: getChatGuardrails
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Sensitive-topic guardrails
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatGuardrailsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Settings
+      summary: Change the sensitive topics and blocked phrases; requires model management
+      operationId: saveChatGuardrails
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatGuardrailsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved sensitive-topic guardrails
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatGuardrailsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/settings/grounded:
+    put:
+      tags:
+      - Chat Settings
+      summary: Answer from the organization's documents only; requires model management
+      operationId: saveChatGrounded
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatGroundedRequest"
         required: true
       responses:
         "400":
@@ -4369,6 +5190,7 @@ paths:
           enum:
           - CHAT_NAMING
           - MEETING_MINUTES
+          - MEETING_CORRECTION
       - name: modelConfigurationId
         in: query
         required: false
@@ -6005,6 +6827,426 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/search/settings/past/{generationId}/restore:
+    post:
+      tags:
+      - Search settings
+      summary: Make a retained past generation present again
+      operationId: restoreSearchPastGeneration
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: generationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/settings/future:
+    post:
+      tags:
+      - Search settings
+      summary: Start rebuilding the index for a new embedding model as the future
+        generation
+      operationId: createSearchFutureGeneration
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchGenerationRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: A future generation already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchGenerationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Search settings
+      summary: Cancel the rebuild and delete the future generation's index
+      operationId: cancelSearchFutureGeneration
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/settings/future/switch:
+    post:
+      tags:
+      - Search settings
+      summary: Make the fully rebuilt future generation present; the present one becomes
+        past
+      operationId: switchSearchFutureGeneration
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/embedding-providers:
+    get:
+      tags:
+      - Search settings
+      summary: List embedding providers with keys redacted
+      operationId: listEmbeddingProviders
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmbeddingProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Search settings
+      summary: Create an OpenAI-compatible embedding provider
+      operationId: createEmbeddingProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingProviderRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/embedding-providers/test:
+    post:
+      tags:
+      - Search settings
+      summary: Check a saved or unsaved embedding endpoint with one real /v1/embeddings
+        call
+      operationId: testEmbeddingProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingProviderTestRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The outcome of one embedding call
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingProviderTestResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings:
     get:
       tags:
@@ -6078,6 +7320,75 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/utterances/{utteranceId}/corrections:
+    post:
+      tags:
+      - Meetings
+      summary: Write what was said at a stretch the provider was unsure of
+      operationId: correctMeetingWords
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: utteranceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingWordCorrectionRequest"
+        required: true
+      responses:
+        "200":
+          description: The line as it now reads and the correction recorded for it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingCorrectionApplied"
+        "404":
+          description: Meeting or line not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Still recording, or the stretch is no longer marked"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6279,6 +7590,14 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: discardEdits
+        in: query
+        description: "Required once the minutes were corrected by hand, because a\
+          \ rerun writes them again and throws that work away"
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
         "200":
           description: "The meeting, with its minutes queued"
@@ -6286,6 +7605,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingDetail"
+        "409":
+          description: The minutes were corrected by hand; say so to discard that
+            work
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes/items:
+    post:
+      tags:
+      - Meetings
+      summary: Write in a decision or a piece of work the model missed
+      operationId: addMeetingMinutesItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingNewMinutesItemRequest"
+        required: true
+      responses:
+        "200":
+          description: "The item written in, placed after the others of its kind"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingMinutesItem"
         "404":
           description: Meeting not available
           content:
@@ -6313,7 +7696,7 @@ paths:
     post:
       tags:
       - Meetings
-      summary: Download the minutes as a Vietnamese biên bản in Word format
+      summary: "Download the minutes as a Vietnamese biên bản, in Word or as a PDF"
       operationId: exportMeetingMinutes
       parameters:
       - name: X-MemoryOS-CSRF
@@ -6330,6 +7713,15 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          default: DOCX
+          enum:
+          - DOCX
+          - PDF
       requestBody:
         content:
           application/json:
@@ -6341,6 +7733,10 @@ paths:
           description: The biên bản
           content:
             application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
               schema:
                 type: string
                 format: binary
@@ -6447,6 +7843,476 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/corrections:
+    get:
+      tags:
+      - Meetings
+      summary: "Every proposal made for this meeting, decided or not"
+      operationId: listMeetingCorrections
+      parameters:
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The proposals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingCorrection"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Meetings
+      summary: Ask a model what the speech provider probably meant at each uncertain
+        stretch
+      operationId: proposeMeetingCorrections
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: What the pass proposed; the transcript is unchanged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingCorrectionRun"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: A pass is already running
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/corrections/{correctionId}/revert:
+    post:
+      tags:
+      - Meetings
+      summary: Put back what the line said before this proposal
+      operationId: revertMeetingCorrection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: correctionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The line as it now reads and the reverted proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingCorrectionApplied"
+        "404":
+          description: Meeting or proposal not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: The line changed again after this proposal
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/corrections/{correctionId}/keep:
+    post:
+      tags:
+      - Meetings
+      summary: Decline a proposal and keep what the provider heard
+      operationId: keepMeetingWording
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: correctionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The declined proposal; no line changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingCorrection"
+        "404":
+          description: Meeting or proposal not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/corrections/{correctionId}/accept:
+    post:
+      tags:
+      - Meetings
+      summary: "Put the proposed words, or the caller's own, into the transcript"
+      operationId: acceptMeetingCorrection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: correctionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptMeetingCorrection"
+        required: true
+      responses:
+        "200":
+          description: The line as it now reads and the accepted proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingCorrectionApplied"
+        "404":
+          description: Meeting or proposal not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: The line moved since the proposal was made
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/corrections/revert-all:
+    post:
+      tags:
+      - Meetings
+      summary: Take back everything one pass put in
+      operationId: revertAllMeetingCorrections
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingCorrectionRunRef"
+        required: true
+      responses:
+        "200":
+          description: The meeting with every line of that pass restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: A line changed again after the pass
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/corrections/accept-all:
+    post:
+      tags:
+      - Meetings
+      summary: Accept everything a pass proposed and has not decided
+      operationId: acceptAllMeetingCorrections
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingCorrectionRunRef"
+        required: true
+      responses:
+        "200":
+          description: The meeting with every accepted line rewritten
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/bookmarks:
+    post:
+      tags:
+      - Meetings
+      summary: "Mark the moment the caller is at, while the meeting is still running"
+      operationId: bookmarkMeetingMoment
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingBookmarkRequest"
+        required: true
+      responses:
+        "200":
+          description: Every mark the caller left in this meeting
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingBookmark"
         "404":
           description: Meeting not available
           content:
@@ -12265,6 +14131,107 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/search/settings:
+    get:
+      tags:
+      - Search settings
+      summary: "Read the present, future and retained past search generations with\
+        \ rebuild progress"
+      operationId: getSearchSettings
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/embedding-models:
+    get:
+      tags:
+      - Search settings
+      summary: List known embedding models whose dimensions and prefixes are prefilled
+      operationId: listEmbeddingModelPresets
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmbeddingModelPresetResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/search/documents/{documentId}:
     get:
       tags:
@@ -12301,11 +14268,41 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/search/documents/{documentId}/spreadsheet:
+    get:
+      tags:
+      - Search
+      summary: Read the workbook original of a search result as CSV text per sheet
+      operationId: readSearchDocumentSpreadsheet
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Sheets in workbook order
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DocumentSpreadsheet"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/search/documents/{documentId}/original:
     get:
       tags:
       - Search
-      summary: Read the original PDF of a search result to show the matched page
+      summary: "Read the stored original of a search result, of any media type, to\
+        \ show the file as it looks"
       operationId: readSearchDocumentOriginal
       parameters:
       - name: documentId
@@ -12328,30 +14325,30 @@ paths:
           type: string
       responses:
         "200":
-          description: Original PDF bytes
+          description: "Original bytes, under the object's declared media type"
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "206":
-          description: Requested byte range of the original PDF
+          description: Requested byte range of the original
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "416":
-          description: Requested byte range starts beyond the original PDF
+          description: Requested byte range starts beyond the original
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/meetings/{meetingId}:
+  /api/meetings/{meetingId}/transcript:
     get:
       tags:
       - Meetings
-      summary: Read one of the current member's meetings with its transcript
-      operationId: getMeeting
+      summary: "Download what was said, with its times and speakers, as Word or PDF"
+      operationId: exportMeetingTranscript
       parameters:
       - name: meetingId
         in: path
@@ -12359,67 +14356,35 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          default: DOCX
+          enum:
+          - DOCX
+          - PDF
       responses:
         "200":
-          description: The meeting
+          description: The transcript
           content:
-            application/json:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
-        "404":
-          description: Meeting not available
-          content:
-            application/problem+json:
+                type: string
+                format: binary
+            application/pdf:
               schema:
-                $ref: "#/components/schemas/ApiProblem"
+                type: string
+                format: binary
         "400":
           description: Invalid meeting request
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: "Chat access, Tenant membership or CSRF requirement not met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - Meetings
-      summary: Delete a meeting and its transcript
-      operationId: deleteMeeting
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: meetingId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "204":
-          description: Deleted
         "404":
           description: Meeting not available
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "400":
-          description: Invalid meeting request
           content:
             application/problem+json:
               schema:
@@ -12672,6 +14637,57 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
+  /api/identity/principals:
+    get:
+      tags:
+      - Identity
+      summary: Search the active members and ordinary Groups of the caller's Tenant
+        to share something with
+      description: Open to every active member of the Tenant. Returns at most `size`
+        people and `size` Groups whose name (or a person's e-mail) contains the search
+        text; each consumer rechecks what it is given.
+      operationId: searchPrincipals
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 50
+          minimum: 1
+      responses:
+        "200":
+          description: Matching people and Groups
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrincipalOptions"
+        "400":
+          description: Invalid principal search
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: No accepted authentication is present
+        "403":
+          description: The actor is not an active member of the Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
   /api/identity/me:
     get:
       tags:
@@ -13862,61 +15878,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PersonaView"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/persona-share-options:
-    get:
-      tags:
-      - Chat
-      summary: Search active members and ordinary Groups to share an agent with
-      operationId: listChatPersonaShareOptions
-      parameters:
-      - name: q
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 20
-      responses:
-        "400":
-          description: Invalid chat request
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Tenant membership or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Conversation is running or revision has changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Successful chat operation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AgentShareOptions"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -15171,6 +17132,72 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/files/{fileId}/thumbnail:
+    get:
+      tags:
+      - Chat
+      summary: Read the file library's small rendering of an owner-private uploaded
+        image
+      operationId: getChatFileThumbnail
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "Thumbnail bytes, or the original image when no smaller rendering\
+            \ could be made"
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/files/{fileId}/text:
     get:
       tags:
@@ -15827,11 +17854,61 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/documents/{documentId}/spreadsheet:
+    get:
+      tags:
+      - Chat
+      summary: Read the workbook original of a cited document as CSV text per sheet
+      operationId: readChatDocumentSpreadsheet
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid passage window
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Document generation not readable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentSpreadsheet"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/documents/{documentId}/original:
     get:
       tags:
       - Chat
-      summary: Read the original PDF of a cited document to show the cited page
+      summary: "Read the stored original of a cited document, of any media type, to\
+        \ show the file as it looks"
       operationId: readChatDocumentOriginal
       parameters:
       - name: documentId
@@ -15854,21 +17931,21 @@ paths:
           type: string
       responses:
         "200":
-          description: Original PDF bytes
+          description: "Original bytes, under the object's declared media type"
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "206":
-          description: Requested byte range of the original PDF
+          description: Requested byte range of the original
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "416":
-          description: Requested byte range starts beyond the original PDF
+          description: Requested byte range starts beyond the original
         "400":
           description: Invalid passage window
           content:
@@ -16192,6 +18269,7 @@ paths:
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
+          - MEETING_CORRECTION
       responses:
         "400":
           description: Invalid period or filter
@@ -16443,6 +18521,7 @@ paths:
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
+          - MEETING_CORRECTION
       responses:
         "400":
           description: Invalid period or filter
@@ -16530,6 +18609,7 @@ paths:
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
+          - MEETING_CORRECTION
       responses:
         "400":
           description: Invalid period or filter
@@ -16553,6 +18633,129 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AiCostRow"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/speakers/{track}/{label}/suggestion:
+    delete:
+      tags:
+      - Meetings
+      summary: Keep the automatic label for a speaker
+      operationId: dismissMeetingSpeakerSuggestion
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: track
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - MIC
+          - TAB
+      - name: label
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: "The speaker, no longer offered a name"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingSpeaker"
+        "404":
+          description: Meeting or speaker not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/bookmarks/{bookmarkId}:
+    delete:
+      tags:
+      - Meetings
+      summary: Take back one of the caller's own marks
+      operationId: removeMeetingBookmark
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: bookmarkId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Every mark the caller still has in this meeting
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingBookmark"
+        "404":
+          description: Meeting or mark not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
       security:
       - bearerAuth: []
       - browserSession: []
@@ -16966,6 +19169,13 @@ components:
           type: string
         status:
           type: string
+          enum:
+          - NOT_STARTED
+          - IN_PROGRESS
+          - SUCCEEDED
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
         createdAt:
           type: string
           format: date-time
@@ -17285,6 +19495,96 @@ components:
       required:
       - operation
       - sourceId
+    EmbeddingProviderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        endpoint:
+          type: string
+        apiKey:
+          type:
+          - string
+          - "null"
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        revision:
+          type:
+          - integer
+          - "null"
+          format: int64
+      required:
+      - apiKey
+      - dataBoundary
+      - endpoint
+      - name
+      - revision
+    EmbeddingProviderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        endpoint:
+          type: string
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        hasApiKey:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+        inUse:
+          type: boolean
+      required:
+      - dataBoundary
+      - endpoint
+      - hasApiKey
+      - id
+      - inUse
+      - name
+      - revision
+    MeetingUpdateRequest:
+      type: object
+      description: What the owner fills in once the meeting is under way
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        participants:
+          type: array
+          description: "Participant names, at most 50"
+          items:
+            type: string
+      required:
+      - participants
+      - title
+    MeetingParticulars:
+      type: object
+      description: "The meeting's name and the people in it, as stored"
+      properties:
+        title:
+          type: string
+        participants:
+          type: array
+          items:
+            type: string
+        revision:
+          type: integer
+          format: int64
+          description: "The meeting's revision, which the next notes save names"
+      required:
+      - participants
+      - revision
+      - title
     MeetingSpeakerRequest:
       type: object
       description: A blank or absent name restores the automatic label
@@ -17294,174 +19594,110 @@ components:
           - string
           - "null"
           maxLength: 200
-    MeetingAudio:
+    MeetingSpeaker:
       type: object
-      description: An uploaded recording being turned into a transcript
       properties:
-        status:
+        track:
           type: string
           enum:
-          - NONE
-          - WAITING
-          - PENDING
-          - RUNNING
-          - DONE
-          - FAILED
-        failure:
+          - MIC
+          - TAB
+        label:
+          type: string
+        name:
           type:
           - string
           - "null"
-        filename:
-          type:
-          - string
-          - "null"
-        sizeBytes:
-          type: integer
-          format: int64
-        provider:
-          type:
-          - string
-          - "null"
+        suggestion:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerSuggestion"
+          description: "The name this voice gave itself, offered to the owner"
       required:
-      - failure
-      - filename
-      - provider
-      - sizeBytes
-      - status
-    MeetingDetail:
+      - label
+      - name
+      - track
+    MeetingSpeakerSuggestion:
       type: object
       properties:
+        name:
+          type: string
+        utteranceId:
+          type: string
+          format: uuid
+        confidence:
+          type: number
+          format: double
+      required:
+      - confidence
+      - name
+      - utteranceId
+    MeetingShareRequest:
+      type: object
+      description: "Everyone who may read this meeting, replacing the current list"
+      properties:
+        members:
+          type: array
+          items:
+            type: string
+            format: uuid
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - groups
+      - members
+    MeetingReader:
+      type: object
+      description: "One member, or one Group, the meeting is shared with"
+      properties:
+        kind:
+          type: string
+          enum:
+          - MEMBER
+          - GROUP
         id:
           type: string
           format: uuid
-        title:
+        name:
           type: string
-        kind:
-          type: string
-          enum:
-          - ONLINE
-          - IN_PERSON
-        language:
-          type:
-          - string
-          - "null"
-        participants:
-          type: array
-          items:
-            type: string
-        terms:
-          type: array
-          items:
-            type: string
+      required:
+      - id
+      - kind
+      - name
+    MeetingNotesRequest:
+      type: object
+      properties:
         notes:
           type: string
-        status:
-          type: string
-          enum:
-          - RECORDING
-          - TRANSCRIBING
-          - ENDED
-        provider:
-          type:
-          - string
-          - "null"
-        diarized:
-          type: boolean
-          description: Whether speaker labels distinguish people
-        createdAt:
-          type: string
-          format: date-time
-        endedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
+          maxLength: 50000
         revision:
           type: integer
           format: int64
-        speakers:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingSpeaker"
-        utterances:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingUtterance"
-        minutes:
-          $ref: "#/components/schemas/MeetingMinutes"
-        audio:
-          $ref: "#/components/schemas/MeetingAudio"
-        owned:
-          type: boolean
-          description: Whether the reader recorded this meeting; only its owner may
-            edit it
-        readers:
-          type: array
-          description: Who the meeting is shared with; empty for anyone but its owner
-          items:
-            $ref: "#/components/schemas/MeetingReader"
       required:
-      - audio
-      - createdAt
-      - diarized
-      - endedAt
-      - id
-      - kind
-      - language
-      - minutes
       - notes
-      - owned
-      - participants
-      - provider
-      - readers
       - revision
-      - speakers
-      - status
-      - terms
-      - title
-      - utterances
-    MeetingMinutes:
+    MeetingNotes:
       type: object
-      description: What the model made of the meeting once it ended
+      description: The owner's notes as stored
       properties:
-        status:
+        notes:
           type: string
-          enum:
-          - NONE
-          - PENDING
-          - RUNNING
-          - READY
-          - FAILED
-        failure:
-          type:
-          - string
-          - "null"
-        summary:
-          type: string
-        kind:
-          type: string
-          description: What kind of meeting this was
-        generatedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
-        decisions:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingMinutesItem"
-        actions:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingMinutesItem"
+        revision:
+          type: integer
+          format: int64
+          description: "The meeting's revision, which the next save names"
       required:
-      - actions
-      - decisions
-      - failure
-      - generatedAt
-      - kind
-      - status
-      - summary
+      - notes
+      - revision
+    MeetingItemRequest:
+      type: object
+      properties:
+        done:
+          type: boolean
+      required:
+      - done
     MeetingMinutesItem:
       type: object
       description: A decision the meeting reached or work it handed out
@@ -17491,118 +19727,148 @@ components:
           format: uuid
         done:
           type: boolean
+        edited:
+          type: boolean
+          description: Whether these words are the owner's rather than the model's
       required:
       - done
       - due
+      - edited
       - id
       - owner
       - quote
       - sourceUtteranceId
       - text
-    MeetingReader:
+    MeetingMinutesSummaryRequest:
       type: object
-      description: "One member, or one Group, the meeting is shared with"
       properties:
-        kind:
+        summary:
           type: string
-          enum:
-          - MEMBER
-          - GROUP
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
+          maxLength: 20000
+          minLength: 0
       required:
-      - id
-      - kind
-      - name
-    MeetingSpeaker:
+      - summary
+    MeetingMinutesSummary:
+      type: object
+      description: The summary of the minutes as it now reads
+      properties:
+        summary:
+          type: string
+        edited:
+          type: boolean
+          description: Whether the words standing now are the owner's rather than
+            the model's
+      required:
+      - edited
+      - summary
+    MeetingMinutesItemRequest:
       type: object
       properties:
-        track:
+        text:
           type: string
-          enum:
-          - MIC
-          - TAB
-        label:
-          type: string
-        name:
+          maxLength: 2000
+          minLength: 0
+        owner:
           type:
           - string
           - "null"
+          maxLength: 200
+          minLength: 0
+        due:
+          type:
+          - string
+          - "null"
+          maxLength: 100
+          minLength: 0
       required:
-      - label
-      - name
-      - track
-    MeetingUtterance:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        track:
-          type: string
-          enum:
-          - MIC
-          - TAB
-        speaker:
-          type: string
-        startMs:
-          type: integer
-          format: int64
-        endMs:
-          type: integer
-          format: int64
-        text:
-          type: string
-        confidence:
-          type: number
-          format: double
-      required:
-      - confidence
-      - endMs
-      - id
-      - speaker
-      - startMs
       - text
-      - track
-    MeetingShareRequest:
+    MeetingHeadingRequest:
       type: object
-      description: "Everyone who may read this meeting, replacing the current list"
+      description: The parts of a biên bản the transcript cannot supply; a blank field
+        prints as an ellipsis
       properties:
-        members:
-          type: array
-          items:
-            type: string
-            format: uuid
-        groups:
-          type: array
-          items:
-            type: string
-            format: uuid
-      required:
-      - groups
-      - members
-    MeetingNotesRequest:
-      type: object
-      properties:
-        notes:
+        organization:
           type: string
-          maxLength: 50000
-        revision:
-          type: integer
-          format: int64
-      required:
-      - notes
-      - revision
-    MeetingItemRequest:
+        parentOrganization:
+          type: string
+        number:
+          type: string
+        about:
+          type: string
+        place:
+          type: string
+        opened:
+          type: string
+        closed:
+          type: string
+        chair:
+          type: string
+        chairRole:
+          type: string
+        secretary:
+          type: string
+        secretaryRole:
+          type: string
+        attendees:
+          type: array
+          items:
+            type: string
+        font:
+          type: string
+          description: "Times New Roman, Arial, Calibri or Tahoma; anything else is\
+            \ set in Times New Roman, which the decree asks for"
+    MeetingHeading:
       type: object
+      description: The biên bản heading as the owner last saved it
       properties:
-        done:
+        saved:
           type: boolean
+          description: "Whether the owner saved one for this meeting. Otherwise only\
+            \ the organization, its parent and the typeface are filled, carried from\
+            \ the caller's last biên bản"
+        organization:
+          type: string
+        parentOrganization:
+          type: string
+        number:
+          type: string
+        about:
+          type: string
+        place:
+          type: string
+        opened:
+          type: string
+        closed:
+          type: string
+        chair:
+          type: string
+        chairRole:
+          type: string
+        secretary:
+          type: string
+        secretaryRole:
+          type: string
+        attendees:
+          type: array
+          items:
+            type: string
+        font:
+          type: string
       required:
-      - done
+      - about
+      - attendees
+      - chair
+      - chairRole
+      - closed
+      - font
+      - number
+      - opened
+      - organization
+      - parentOrganization
+      - place
+      - saved
+      - secretary
+      - secretaryRole
     McpHeaderTemplateChange:
       type: object
       description: "Header values may contain secrets and are never returned; API-key\
@@ -18521,12 +20787,21 @@ components:
           - NORMAL
           - ANONYMIZED
           - DISABLED
+        groundedAnswers:
+          type: boolean
+          description: Every turn answers from the organization's documents only
+        groundedAllowWeb:
+          type: boolean
+          description: "In that mode, a person may still turn Web search on for a\
+            \ turn"
         revision:
           type: integer
           format: int64
       required:
       - chatHistoryVisibility
       - deepResearchEnabled
+      - groundedAllowWeb
+      - groundedAnswers
       - revision
     ChatHistoryVisibilityRequest:
       type: object
@@ -18543,6 +20818,96 @@ components:
           minimum: 0
       required:
       - visibility
+    ChatGuardrailTopic:
+      type: object
+      properties:
+        topic:
+          type: string
+          enum:
+          - POLITICS
+          - LEADERS
+          - RELIGION
+        enabled:
+          type: boolean
+        message:
+          type: string
+          description: What the person is told when a question matches
+          maxLength: 500
+          minLength: 0
+      required:
+      - enabled
+      - message
+      - topic
+    ChatGuardrailsRequest:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatGuardrailTopic"
+          maxItems: 10
+          minItems: 0
+        blockedPhrases:
+          type: array
+          description: Exact phrases no question or answer may contain; at most 20
+            of at most 100 characters
+          items:
+            type: string
+            maxLength: 100
+            minLength: 0
+          maxItems: 20
+          minItems: 0
+        blockedPhraseMessage:
+          type: string
+          description: What the person is told when a blocked phrase matches
+          maxLength: 500
+          minLength: 0
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - blockedPhrases
+      - topics
+    ChatGuardrailsResponse:
+      type: object
+      properties:
+        topics:
+          type: array
+          description: "Every built-in topic, in a fixed order"
+          items:
+            $ref: "#/components/schemas/ChatGuardrailTopic"
+        blockedPhrases:
+          type: array
+          items:
+            type: string
+        blockedPhraseMessage:
+          type: string
+        revision:
+          type: integer
+          format: int64
+      required:
+      - blockedPhraseMessage
+      - blockedPhrases
+      - revision
+      - topics
+    ChatGroundedRequest:
+      type: object
+      properties:
+        groundedAnswers:
+          type: boolean
+          description: Every turn answers from the organization's documents only
+        groundedAllowWeb:
+          type: boolean
+          description: "In that mode, a person may still turn Web search on for a\
+            \ turn"
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - groundedAllowWeb
+      - groundedAnswers
     Title:
       type: object
       properties:
@@ -18632,10 +20997,10 @@ components:
           type: string
           format: uuid
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
       required:
       - personaId
     ReasoningSelection:
@@ -18652,10 +21017,10 @@ components:
       type: object
       properties:
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
     PersonaSelection:
       type: object
       properties:
@@ -18668,9 +21033,9 @@ components:
       type: object
       properties:
         positive:
-          oneOf:
-          - type: boolean
-          - type: "null"
+          type:
+          - boolean
+          - "null"
         comment:
           type: string
         reason:
@@ -18696,10 +21061,10 @@ components:
           type: string
           format: uuid
         expectedChildId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
       required:
       - messageId
     ChatRetentionInput:
@@ -18734,9 +21099,9 @@ components:
           - REPLACE
           - REMOVE
         value:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - action
     ProviderInput:
@@ -18888,6 +21253,8 @@ components:
           items:
             type: string
             format: uuid
+        iconName:
+          type: string
     ProjectView:
       type: object
       properties:
@@ -18911,6 +21278,8 @@ components:
           items:
             type: string
             format: uuid
+        iconName:
+          type: string
     ChatPreferencesInput:
       type: object
       properties:
@@ -19059,11 +21428,11 @@ components:
             format: uuid
         replaceBaseSystemPrompt:
           type: boolean
-        datetimeAware:
-          type: boolean
         knowledgeCutoff:
           type: string
           format: date-time
+        grounded:
+          type: boolean
     AgentGroupShare:
       type: object
       properties:
@@ -19250,7 +21619,7 @@ components:
           format: int32
         replaceBaseSystemPrompt:
           type: boolean
-        datetimeAware:
+        grounded:
           type: boolean
         knowledgeCutoff:
           type: string
@@ -19307,10 +21676,10 @@ components:
           type: string
           format: uuid
         modelConfigurationId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         revision:
           type: integer
           format: int64
@@ -19529,6 +21898,7 @@ components:
           enum:
           - CHAT_NAMING
           - MEETING_MINUTES
+          - MEETING_CORRECTION
         modelConfigurationId:
           type:
           - string
@@ -19550,10 +21920,10 @@ components:
       type: object
       properties:
         modelConfigurationId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         revision:
           type: integer
           format: int64
@@ -19883,6 +22253,13 @@ components:
           - "null"
         status:
           type: string
+          enum:
+          - NOT_STARTED
+          - IN_PROGRESS
+          - SUCCEEDED
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
         createdAt:
           type: string
           format: date-time
@@ -19944,6 +22321,11 @@ components:
           type:
           - string
           - "null"
+        searchErrorCode:
+          type:
+          - string
+          - "null"
+          description: "Stable code explaining a FAILED search status, e.g. SEARCH_INDEX_CONTENT_LIMIT."
         searchStatus:
           type: string
           enum:
@@ -19957,6 +22339,7 @@ components:
       - id
       - lastIndexedAt
       - latestAttempt
+      - searchErrorCode
       - searchStatus
       - sha256
       - sizeBytes
@@ -20432,6 +22815,212 @@ components:
       required:
       - count
       - type
+    SearchGenerationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PRESENT
+          - FUTURE
+          - PAST
+        providerId:
+          type: string
+          format: uuid
+        providerName:
+          type: string
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        model:
+          type: string
+        dimensions:
+          type: integer
+          format: int32
+        queryPrefix:
+          type: string
+        documentPrefix:
+          type: string
+        minimumSemanticScore:
+          type: number
+          format: double
+        chunkConvention:
+          type: string
+        automatic:
+          type: boolean
+        documentCount:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        retainedUntil:
+          type:
+          - string
+          - "null"
+          format: date-time
+        cleanupBlocked:
+          type: boolean
+      required:
+      - activatedAt
+      - automatic
+      - chunkConvention
+      - cleanupBlocked
+      - createdAt
+      - dataBoundary
+      - dimensions
+      - documentCount
+      - documentPrefix
+      - id
+      - minimumSemanticScore
+      - model
+      - providerId
+      - providerName
+      - queryPrefix
+      - retainedUntil
+      - status
+    SearchRebuildProgressResponse:
+      type: object
+      properties:
+        ready:
+          type: integer
+          format: int64
+        total:
+          type: integer
+          format: int64
+        failed:
+          type: integer
+          format: int64
+        pending:
+          type: integer
+          format: int64
+        estimatedSecondsRemaining:
+          type:
+          - integer
+          - "null"
+          format: int64
+        switchable:
+          type: boolean
+      required:
+      - estimatedSecondsRemaining
+      - failed
+      - pending
+      - ready
+      - switchable
+      - total
+    SearchSettingsResponse:
+      type: object
+      properties:
+        present:
+          $ref: "#/components/schemas/SearchGenerationResponse"
+        future:
+          oneOf:
+          - $ref: "#/components/schemas/SearchGenerationResponse"
+          - type: "null"
+        past:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchGenerationResponse"
+        rebuild:
+          oneOf:
+          - $ref: "#/components/schemas/SearchRebuildProgressResponse"
+          - type: "null"
+      required:
+      - future
+      - past
+      - present
+      - rebuild
+    SearchGenerationRequest:
+      type: object
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        model:
+          type: string
+        dimensions:
+          type: integer
+          format: int32
+        queryPrefix:
+          type: string
+        documentPrefix:
+          type: string
+        minimumSemanticScore:
+          type: number
+          format: double
+      required:
+      - dimensions
+      - documentPrefix
+      - minimumSemanticScore
+      - model
+      - providerId
+      - queryPrefix
+    EmbeddingProviderTestRequest:
+      type: object
+      properties:
+        providerId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        endpoint:
+          type:
+          - string
+          - "null"
+        apiKey:
+          type:
+          - string
+          - "null"
+        model:
+          type: string
+        dimensions:
+          type:
+          - integer
+          - "null"
+          format: int32
+      required:
+      - apiKey
+      - dimensions
+      - endpoint
+      - model
+      - providerId
+    EmbeddingProviderTestResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        model:
+          type:
+          - string
+          - "null"
+        dimensions:
+          type:
+          - integer
+          - "null"
+          format: int32
+        latencyMs:
+          type: integer
+          format: int64
+        error:
+          type:
+          - string
+          - "null"
+      required:
+      - dimensions
+      - error
+      - latencyMs
+      - model
+      - ok
     MeetingCreateRequest:
       type: object
       description: What the owner enters before recording
@@ -20469,6 +23058,370 @@ components:
       required:
       - kind
       - title
+    MeetingAudio:
+      type: object
+      description: An uploaded recording being turned into a transcript
+      properties:
+        status:
+          type: string
+          enum:
+          - NONE
+          - WAITING
+          - PENDING
+          - RUNNING
+          - DONE
+          - FAILED
+        failure:
+          type:
+          - string
+          - "null"
+        filename:
+          type:
+          - string
+          - "null"
+        sizeBytes:
+          type: integer
+          format: int64
+        provider:
+          type:
+          - string
+          - "null"
+      required:
+      - failure
+      - filename
+      - provider
+      - sizeBytes
+      - status
+    MeetingBookmark:
+      type: object
+      description: A moment the caller marked while the meeting was running. Only
+        they see it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        atMs:
+          type: integer
+          format: int64
+        label:
+          type: string
+      required:
+      - atMs
+      - id
+      - label
+    MeetingDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        kind:
+          type: string
+          enum:
+          - ONLINE
+          - IN_PERSON
+        language:
+          type:
+          - string
+          - "null"
+        participants:
+          type: array
+          items:
+            type: string
+        terms:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        status:
+          type: string
+          enum:
+          - RECORDING
+          - TRANSCRIBING
+          - ENDED
+        provider:
+          type:
+          - string
+          - "null"
+        diarized:
+          type: boolean
+          description: Whether speaker labels distinguish people
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+        speakers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingSpeaker"
+        utterances:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingUtterance"
+        minutes:
+          $ref: "#/components/schemas/MeetingMinutes"
+        audio:
+          $ref: "#/components/schemas/MeetingAudio"
+        owned:
+          type: boolean
+          description: Whether the reader recorded this meeting; only its owner may
+            edit it
+        readers:
+          type: array
+          description: Who the meeting is shared with; empty for anyone but its owner
+          items:
+            $ref: "#/components/schemas/MeetingReader"
+        starred:
+          type: array
+          description: Lines the caller starred; another reader's stars are their
+            own
+          items:
+            type: string
+            format: uuid
+        bookmarks:
+          type: array
+          description: Moments the caller marked while the meeting was running
+          items:
+            $ref: "#/components/schemas/MeetingBookmark"
+        correcting:
+          type: boolean
+          description: Whether a correction pass is running on this meeting right
+            now
+      required:
+      - audio
+      - bookmarks
+      - correcting
+      - createdAt
+      - diarized
+      - endedAt
+      - id
+      - kind
+      - language
+      - minutes
+      - notes
+      - owned
+      - participants
+      - provider
+      - readers
+      - revision
+      - speakers
+      - starred
+      - status
+      - terms
+      - title
+      - utterances
+    MeetingMinutes:
+      type: object
+      description: What the model made of the meeting once it ended
+      properties:
+        status:
+          type: string
+          enum:
+          - NONE
+          - PENDING
+          - RUNNING
+          - READY
+          - FAILED
+        failure:
+          type:
+          - string
+          - "null"
+        summary:
+          type: string
+        kind:
+          type: string
+          description: What kind of meeting this was
+        generatedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+        edited:
+          type: boolean
+          description: Whether the words standing now are the owner's rather than
+            the model's
+        topics:
+          type: array
+          description: "The subjects the meeting moved through, each at the line it\
+            \ began"
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+      required:
+      - actions
+      - decisions
+      - edited
+      - failure
+      - generatedAt
+      - kind
+      - status
+      - summary
+      - topics
+    MeetingUtterance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        track:
+          type: string
+          enum:
+          - MIC
+          - TAB
+        speaker:
+          type: string
+        startMs:
+          type: integer
+          format: int64
+        endMs:
+          type: integer
+          format: int64
+        text:
+          type: string
+        confidence:
+          type: number
+          format: double
+        spans:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingUtteranceSpan"
+        editSource:
+          type: string
+          description: Who last changed what this line says; absent while nobody has
+          enum:
+          - MODEL
+          - HUMAN
+      required:
+      - confidence
+      - endMs
+      - id
+      - spans
+      - speaker
+      - startMs
+      - text
+      - track
+    MeetingUtteranceSpan:
+      type: object
+      description: "A stretch of the utterance the provider was unsure of, by character\
+        \ offset, half-open."
+      properties:
+        start:
+          type: integer
+          format: int32
+        end:
+          type: integer
+          format: int32
+        confidence:
+          type: number
+          format: double
+      required:
+      - confidence
+      - end
+      - start
+    MeetingWordCorrectionRequest:
+      type: object
+      description: What was said at one marked stretch of a line
+      properties:
+        start:
+          type: integer
+          format: int32
+        end:
+          type: integer
+          format: int32
+        text:
+          type: string
+          maxLength: 2000
+      required:
+      - end
+      - start
+      - text
+    MeetingCorrection:
+      type: object
+      description: One proposal for one uncertain stretch. Nothing changes until it
+        is accepted.
+      properties:
+        id:
+          type: string
+          format: uuid
+        utteranceId:
+          type: string
+          format: uuid
+        runId:
+          type: string
+          format: uuid
+        start:
+          type: integer
+          format: int32
+        end:
+          type: integer
+          format: int32
+        before:
+          type: string
+        after:
+          type: string
+        reason:
+          type: string
+        confidence:
+          type: number
+          format: double
+        contextFit:
+          type: number
+          format: double
+        meaningSafe:
+          type: number
+          format: double
+        matchedGlossary:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - KEPT
+          - REVERTED
+      required:
+      - after
+      - before
+      - confidence
+      - contextFit
+      - end
+      - id
+      - matchedGlossary
+      - meaningSafe
+      - reason
+      - runId
+      - start
+      - status
+      - utteranceId
+    MeetingCorrectionApplied:
+      type: object
+      description: "What deciding one stretch changed: the one line it rewrote and\
+        \ the proposal as it now stands"
+      properties:
+        utterance:
+          $ref: "#/components/schemas/MeetingUtterance"
+        correction:
+          $ref: "#/components/schemas/MeetingCorrection"
+      required:
+      - correction
+      - utterance
     MeetingTicketRequest:
       type: object
       properties:
@@ -20546,37 +23499,34 @@ components:
       - method
       - requiredHeaders
       - uploadUrl
-    MeetingHeadingRequest:
+    MeetingNewMinutesItemRequest:
       type: object
-      description: The parts of a biên bản the transcript cannot supply; a blank field
-        prints as an ellipsis
+      description: A decision or a piece of work the model missed
       properties:
-        organization:
+        kind:
           type: string
-        parentOrganization:
+          enum:
+          - DECISION
+          - ACTION
+        text:
           type: string
-        number:
-          type: string
-        about:
-          type: string
-        place:
-          type: string
-        opened:
-          type: string
-        closed:
-          type: string
-        chair:
-          type: string
-        chairRole:
-          type: string
-        secretary:
-          type: string
-        secretaryRole:
-          type: string
-        attendees:
-          type: array
-          items:
-            type: string
+          maxLength: 2000
+          minLength: 0
+        owner:
+          type:
+          - string
+          - "null"
+          maxLength: 200
+          minLength: 0
+        due:
+          type:
+          - string
+          - "null"
+          maxLength: 100
+          minLength: 0
+      required:
+      - kind
+      - text
     MeetingLibraryFile:
       type: object
       description: The minutes as a file in the caller's library
@@ -20593,6 +23543,53 @@ components:
       - fileId
       - filename
       - status
+    MeetingCorrectionRun:
+      type: object
+      properties:
+        runId:
+          type: string
+          format: uuid
+        corrections:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingCorrection"
+      required:
+      - corrections
+      - runId
+    AcceptMeetingCorrection:
+      type: object
+      properties:
+        text:
+          type:
+          - string
+          - "null"
+          description: The caller's own wording instead of the model's
+          maxLength: 2000
+          minLength: 0
+    MeetingCorrectionRunRef:
+      type: object
+      properties:
+        runId:
+          type: string
+          format: uuid
+      required:
+      - runId
+    MeetingBookmarkRequest:
+      type: object
+      properties:
+        atMs:
+          type: integer
+          format: int64
+          description: Milliseconds from the start of the recording
+        label:
+          type:
+          - string
+          - "null"
+          description: What to call it; a number is used when this is left out
+          maxLength: 200
+          minLength: 0
+      required:
+      - atMs
     McpToolRefresh:
       type: object
       properties:
@@ -21117,15 +24114,15 @@ components:
           maxLength: 200
           minLength: 0
         personaId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         temporary:
           type: boolean
           description: "Leave no history: listed nowhere, deleted with its uploads\
@@ -21433,9 +24430,9 @@ components:
         reachable:
           type: boolean
         failureCode:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - failureCode
       - reachable
@@ -22358,6 +25355,13 @@ components:
         occurredAt:
           type: string
           format: date-time
+        resolvedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When a later run acquired the same file again; null while the
+            error stands
         errorMessage:
           type:
           - string
@@ -22397,6 +25401,7 @@ components:
       - itemId
       - occurredAt
       - operationId
+      - resolvedAt
       - runId
       - stage
     SourceRunErrorPage:
@@ -22423,9 +25428,9 @@ components:
           items:
             $ref: "#/components/schemas/SourceItem"
         nextCursor:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
         totalItems:
           type: integer
           format: int64
@@ -22731,6 +25736,30 @@ components:
       - maxExplicitRootsPerSource
       - maxLinkedDocuments
       - maxRequestBytes
+    EmbeddingModelPresetResponse:
+      type: object
+      properties:
+        model:
+          type: string
+        label:
+          type: string
+        dimensions:
+          type: integer
+          format: int32
+        queryPrefix:
+          type: string
+        documentPrefix:
+          type: string
+        maxInputTokens:
+          type: integer
+          format: int32
+      required:
+      - dimensions
+      - documentPrefix
+      - label
+      - maxInputTokens
+      - model
+      - queryPrefix
     Passage:
       type: object
       properties:
@@ -22776,6 +25805,28 @@ components:
       - passages
       - title
       - totalChunks
+    DocumentSpreadsheet:
+      type: object
+      properties:
+        sheets:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentSpreadsheetSheet"
+      required:
+      - sheets
+    DocumentSpreadsheetSheet:
+      type: object
+      properties:
+        name:
+          type: string
+        csv:
+          type: string
+        truncated:
+          type: boolean
+      required:
+      - csv
+      - name
+      - truncated
     MeetingSummary:
       type: object
       properties:
@@ -22949,6 +26000,52 @@ components:
       - continueUrl
       - expiresAt
       - tenantDisplayName
+    PrincipalGroup:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    PrincipalOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrincipalPerson"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrincipalGroup"
+      required:
+      - groups
+      - people
+    PrincipalPerson:
+      type: object
+      additionalProperties: false
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        name:
+          type:
+          - string
+          - "null"
+        email:
+          type:
+          - string
+          - "null"
+      required:
+      - actorId
+      - email
+      - name
     CurrentIdentity:
       type: object
       additionalProperties: false
@@ -23491,6 +26588,13 @@ components:
           - "null"
           description: "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT;\
             \ null otherwise"
+        refusalReason:
+          type:
+          - string
+          - "null"
+          description: "Why a COMPLETED reply declined instead of answering: no_evidence,\
+            \ uncited or blocked_topic (answers from documents only, sensitive topics);\
+            \ null otherwise"
       required:
       - activity
       - artifacts
@@ -23504,6 +26608,7 @@ components:
       - images
       - latestChildMessageId
       - parentMessageId
+      - refusalReason
       - research
       - role
       - sessionId
@@ -24303,17 +27408,6 @@ components:
           - FILE
           - GOOGLE_DRIVE
           - SHAREPOINT
-    AgentShareOptions:
-      type: object
-      properties:
-        people:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentPerson"
-        groups:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentRef"
     ChatPersona:
       type: object
       properties:
@@ -24333,9 +27427,9 @@ components:
           items:
             $ref: "#/components/schemas/ChatPersona"
         nextCursor:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - items
       - nextCursor
@@ -25028,6 +28122,49 @@ components:
             - field
             - message
             - params
+        scope:
+          type: string
+          description: "AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent."
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        group:
+          type: string
+          description: "AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent,\
+            \ for a Group budget."
+        resetsAt:
+          type: string
+          format: date-time
+          description: "AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees."
+        retryAfterSeconds:
+          type: integer
+          format: int64
+          description: "AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees;\
+            \ equals the Retry-After header."
+          minimum: 1
+        usedBy:
+          type: array
+          description: "CHAT_FILE_IN_USE only: the Projects and agents that attach\
+            \ the file."
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                enum:
+                - AGENT
+                - PROJECT
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+            required:
+            - id
+            - kind
+            - name
       required:
       - detail
       - instance

@@ -96,6 +96,7 @@ function seedResearch(value: Session) {
     generatedFiles: [],
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
+    refusalReason: null,
   };
   const assistant: ChatMessage = {
     id: assistantId,
@@ -115,6 +116,7 @@ function seedResearch(value: Session) {
     activity: { steps: [], reasoning: [] },
     generatedFiles: [],
     failureCode: null,
+    refusalReason: null,
     research: {
       clarification: false,
       plan: "1. Xác định số ngày phép hằng năm theo thâm niên trong sổ tay nhân sự.\n2. Tìm quy trình duyệt đơn, ai duyệt và thời hạn báo trước.\n3. Đối chiếu với quy chế nội bộ mới nhất và ghi rõ khác biệt.\n4. Kiểm tra cách tính phép chưa dùng khi chuyển sang năm sau.\n5. Xem quy định nghỉ phép nửa ngày và nghỉ gộp nhiều ngày.\n6. Ghi lại các trường hợp ngoại lệ cần trưởng bộ phận phê duyệt.",
@@ -184,6 +186,7 @@ function seedMcp(value: Session) {
     activity: { steps: [], reasoning: [] },
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
+    refusalReason: null,
   };
   const assistant: ChatMessage = {
     id: assistantId,
@@ -227,6 +230,7 @@ function seedMcp(value: Session) {
     },
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
+    refusalReason: null,
   };
   value.messages.push(user, assistant);
   value.allMessages.set(user.id, user);
@@ -612,6 +616,7 @@ export async function handleChatFixture(
         generatedFiles: [],
         research: { clarification: false, plan: null, agents: [] },
         failureCode: null,
+        refusalReason: null,
         sessionId: state.session.id,
         role: "USER",
         content: input.text,
@@ -631,6 +636,7 @@ export async function handleChatFixture(
         generatedFiles: [],
         research: { clarification: false, plan: null, agents: [] },
         failureCode: null,
+        refusalReason: null,
         sessionId: state.session.id,
         role: "ASSISTANT",
         content: "",

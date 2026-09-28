@@ -33,7 +33,7 @@ Actual Tasco data remains unavailable. Recorded-response fixtures and synthetic 
 
 Trạng thái: **MEM-76 đã triển khai và hoàn tất nghiệm thu cục bộ cho selection bất đồng bộ có quota, selection/Files phân trang và run history acquisition → indexing trên pipeline hiện có.** V27/V28/V29 là migrations additive sau V26. Backend gate cuối thực thi lại toàn bộ tests, frontend check và 39 E2E scenarios đã pass. Đã đo root/history và traversal 100.000 known unchanged files riêng biệt; UI thật trên 100.000 item rows chỉ tải/render trang hiện hành, giữ pending receipt qua reload và thao tác upload/reindex/remove qua đổi trang. Desktop/mobile/light/dark chạy qua Keycloak owner login với PostgreSQL/Redis/MinIO/API/worker thật, nhưng Google là controlled fixtures, không phải live Google hay Orca embedded-browser proof. Increment và các issue rộng hơn vẫn active; không push/PR/merge/deploy hay thay Source thật/mạng người dùng. Bằng chứng, cleanup và giới hạn nằm trong [plan](plan.md#mem-76-verification--2026-09-08).
 
-Phạm vi tham chiếu: [MEM-9](https://linear.app/memory-os/issue/MEM-9), [MEM-10](https://linear.app/memory-os/issue/MEM-10), [MEM-60](https://linear.app/memory-os/issue/MEM-60), [MEM-63](https://linear.app/memory-os/issue/MEM-63). **Người dùng đã thu hẹp delivery trong cuộc trao đổi: chỉ acquisition, sync, extraction và current Document; chưa làm phân quyền tài liệu.** Vì vậy đây không phải toàn bộ acceptance của MEM-10/MEM-60 và không được đóng các issue đó như đã hoàn thành. Baseline đọc: `origin/main` tại `09d738ed7e42d077d312e5c3ee184eb4ab5f8b11`. Không phải bằng chứng runtime hoặc deployment của Google Drive.
+Phạm vi tham chiếu: [MEM-9](https://linear.app/memory-os/issue/MEM-9), [MEM-10](https://linear.app/memory-os/issue/MEM-10), [MEM-60](https://linear.app/memory-os/issue/MEM-60), [MEM-63](https://linear.app/memory-os/issue/MEM-63). **Người dùng đã thu hẹp delivery trong cuộc trao đổi: chỉ acquisition, sync, extraction và current Document; chưa làm phân quyền tài liệu.** MEM-9, MEM-10 và MEM-63 đã Done trên Linear ngày 2026-09-22; MEM-60 còn mở cho nghiệm thu live-provider/dữ liệu Tasco. Baseline đọc: `origin/main` tại `09d738ed7e42d077d312e5c3ee184eb4ab5f8b11`. Không phải bằng chứng runtime hoặc deployment của Google Drive.
 
 **Nguồn dữ liệu:** chưa nhận dữ liệu Tasco thực tế. Các Google documents của những lần nghiệm thu trước đều tự tạo/mô phỏng; provider thật không đồng nghĩa dữ liệu Tasco. Trạng thái preservation V26 và các gate/live runs cũ dưới đây là lịch sử. MEM-76 không restore baseline ba roots: folder `1. VETC` và selection người dùng đã sửa phải được giữ nguyên. Không dùng history fixtures để tuyên bố Google capacity hoặc live discovery → approval → synchronization đã đạt.
 
@@ -222,8 +222,8 @@ flowchart TD
 | `core/objectstorage` | Object IO và lifecycle trước adoption của raw input | Không quyết định Source/Document permissions |
 | `core/ingestion/application` | SOURCE_SYNC và INGESTION orchestration qua public contracts; leases và transaction coordination | Không sở hữu SQL hoặc Google SDK |
 | `core/document` | Current Document, canonical artifact tracking/adoption/cleanup | Không thêm document-read endpoint hoặc source permission model |
-| `connector/.../provider/google` | OAuth/Drive/Sheets/Docs protocol, paging và snapshot acquisition | Không tự publish Document hoặc quyết định quyền Actor |
-| `connector/.../provider/file` và adapters đọc bảng thực sự cần thiết | Đọc bounded binary/native snapshot thành canonical blocks | Không remote reread trong INGESTION; không registry/plugin framework |
+| `sources/.../connector/adapter/googledrive` | OAuth/Drive/Sheets/Docs protocol, paging và snapshot acquisition | Không tự publish Document hoặc quyết định quyền Actor |
+| `sources/.../ingestion/extraction` và adapters đọc bảng thực sự cần thiết | Đọc bounded binary/native snapshot thành canonical blocks | Không remote reread trong INGESTION; không registry/plugin framework |
 | `worker` | Composition, recurring scans/relays, Redis consumer groups | Không là authority store |
 
 Các điểm baseline đã được mở rộng trong implementation:
@@ -236,7 +236,7 @@ Các điểm baseline đã được mở rộng trong implementation:
 - `DefaultIngestionCoordinator.processIndex`: mở object, extract, stage artifact; publish Document và complete operation trong một transaction, rollback khi claim cũ.
 - `DefaultSourceDocumentAccessResolver` / `JdbcSourceDocumentRepository`: hiện chỉ grant FILE PUBLIC cho membership đang hoạt động; chưa có Google principal matching.
 
-Giữ bốn Gradle modules. API nhận integration bundle `:connector` theo ADR 0006 nhưng không compose parser; worker compose extractor. Google callback dùng controller/security chain riêng, giữ nguyên Keycloak login và Actor-only session thay vì port toàn bộ Spring OAuth success-handler chain của donor. `document` phụ thuộc public `tenant` và `objectstorage`; architecture/README đã được hợp nhất với current Document/V12.
+Giữ bốn Gradle modules. API nhận integration bundle `:sources` (tên cũ `:connector`, ADR 0016) theo ADR 0006 nhưng không compose parser; worker compose extractor. Google callback dùng controller/security chain riêng, giữ nguyên Keycloak login và Actor-only session thay vì port toàn bộ Spring OAuth success-handler chain của donor. `document` phụ thuộc public `tenant` và `objectstorage`; architecture/README đã được hợp nhất với current Document/V12.
 
 ## 4. Acquisition và transaction boundaries
 
@@ -268,7 +268,7 @@ Binary input giữ giới hạn **10 MiB**, kể cả FILE và Drive. Native sna
 - Scope shrink vô hiệu hóa input/mapping bị loại và ngăn công việc cũ publish. Nếu không chứng minh được một Item vẫn thuộc selected roots thì không tiếp nhận/publish cho tới khi reconcile.
 - Không crawl hoặc reconcile ACL. Khi provider từ chối đọc/mất credential, ghi outcome an toàn và xử lý source/input lifecycle; không tuyên bố đã phát hiện mọi remote permission change. Lỗi từng item không làm mất tiến độ items khác, nhưng enumeration chưa đầy đủ không được prune như complete generation.
 - SOURCE_SYNC là workload mới của dispatcher/consumer hiện có. Thêm stream/group, relay và due-source scan theo conventions; không tạo Google-specific queue service hoặc executor polling song song.
-- Enumeration lỗi một phần chỉ giải phóng input đã adopt và được xác nhận trong generation hiện tại; không prune unseen items, để lần reconcile sau vẫn tìm lại phần lỗi. Index trên đúng input/scope/credential được defer cho đến khi membership xác nhận, không mất attempt hoặc tiêu extraction retry budget.
+- Enumeration lỗi một phần chỉ giải phóng input đã adopt và được xác nhận trong generation hiện tại; không prune unseen items, để lần reconcile sau vẫn tìm lại phần lỗi. Từ phase 3 (25/09/2026), lượt như vậy kết thúc `COMPLETED_WITH_ERRORS` thay vì `FAILED` với `SOURCE_GOOGLE_INCOMPLETE`: node lỗi là lỗi item của lượt, lượt sau đọc lại và đánh dấu lỗi đã giải quyết; `DefaultConnectorSyncService` được thay bằng `GoogleDriveSyncTraversal` trong engine chung `SourceSyncEngine` ([spec](../../../specs/connector.md#synchronization-engine-and-failure-semantics)). 429/503 của Drive làm cả attempt retry theo `Retry-After`, không còn retry từng node. Index trên đúng input/scope/credential được defer cho đến khi membership xác nhận, không mất attempt hoặc tiêu extraction retry budget.
 - Refresh-token rotation bình thường chỉ đổi `payload_revision`; reauthorization/revoke đổi `credential_revision`. CAS thất bại của refresh cũ không được ghi đè grant hoặc vô hiệu hóa rotation đã thắng.
 
 ### Input descriptor
@@ -341,3 +341,9 @@ Không gọi một cơ chế sai chỉ vì nó được viết cho FILE. Phân b
 | Tách nhiều Gradle modules hoặc generic provider registry ngay | Chưa có bằng chứng cần; giữ provider folders và explicit composition theo ADR 0006 | Luồng gọi và owner dễ tìm; không thêm interface/factory chỉ để chuyển tiếp | API chấp nhận dependency cost của bundle có Google; đo image/SDK conflicts trước khi tách |
 
 Các invariant đã được triển khai và kiểm bằng regression coverage: native admission không nới FILE; raw writes giữ late-write tombstones và atomic adoption; Drive không được FILE PUBLIC grant; refresh rotation không làm mất publication authority; reconciliation deferral không tiêu retry budget. Đây không phải benchmark hoặc chứng minh đã chạy toàn bộ corpus Google thật. Identity-linking/ACL vẫn ngoài delivery.
+
+### Selection edits preserve retained indexes — 2026-09-22
+
+Saving a selection changes synchronization authority, not the contents of every retained file. Activation must preserve an already-authorized, successfully indexed file when its existing membership is still covered by a retained selected root or an explicit retained approval under the same credential revision. Carry its current input version to the new scope revision atomically without replacing its Document, search generation or successful indexing timestamp. The next unchanged synchronization must not create another extraction attempt.
+
+Removed, excluded, credential-stale or unproven memberships remain fail-closed. Existing work is still cancelled/fenced by scope revision; unfinished versions are not promoted into successful indexed state. A later provider content change continues through the normal acquisition and indexing path. This replaces blanket invalidation for selection edits only; credential replacement and Source deletion retain their existing invalidation behavior.

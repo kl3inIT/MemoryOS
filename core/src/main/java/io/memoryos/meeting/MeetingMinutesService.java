@@ -1,18 +1,23 @@
 package io.memoryos.meeting;
 
-import io.memoryos.chat.summary.TranscriptSummarizer;
-import io.memoryos.chat.summary.TranscriptSummary;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.BusinessException;
+import io.memoryos.ai.TranscriptSummarizer;
+import io.memoryos.ai.TranscriptSummary;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.LeasedJob;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -22,7 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class MeetingMinutesService {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(MeetingMinutesService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MeetingMinutesService.class);
     /** A meeting that keeps failing stops being retried, as the usage report does. */
     static final int MAX_ATTEMPTS = 3;
     /** Longer than the model call, so a replica that dies mid-run does not block the meeting for long. */
@@ -34,7 +39,7 @@ public class MeetingMinutesService {
     private final TransactionTemplate tx;
 
     public MeetingMinutesService(MeetingRepository meetings, TranscriptSummarizer summarizer,
-                                 org.springframework.transaction.PlatformTransactionManager transactions) {
+                                 PlatformTransactionManager transactions) {
         this.meetings = meetings;
         this.summarizer = summarizer;
         this.tx = new TransactionTemplate(transactions);
@@ -42,34 +47,27 @@ public class MeetingMinutesService {
 
     /** Writes the minutes of the oldest meeting waiting for them. Returns whether one was claimed. */
     public boolean writeNext() {
-        var claimed = tx.execute(ignored -> meetings.claimMinutes(LEASE, MAX_ATTEMPTS).orElse(null));
-        if (claimed == null) return false;
-        try {
-            write(claimed);
-        } catch (RuntimeException failure) {
-            LOG.warn("Meeting minutes failed on attempt {} ({})", claimed.attempts(), failure.getClass().getSimpleName());
-            tx.executeWithoutResult(ignored -> meetings.failMinutes(claimed.tenant(), claimed.id(), claimed.attempts(),
-                    MAX_ATTEMPTS, reason(failure)));
-        }
-        return true;
+        return LeasedJob.runNext(LOG, "meeting.minutes", new LeasedJob.Steps<>(
+                () -> Objects.requireNonNull(tx.execute(ignored -> meetings.failAbandonedMinutes(MAX_ATTEMPTS))),
+                () -> Objects.requireNonNull(tx.execute(ignored -> meetings.claimMinutes(LEASE, MAX_ATTEMPTS))),
+                this::write,
+                (claim, failure) -> tx.executeWithoutResult(ignored -> meetings.failMinutes(claim.tenant(), claim.id(),
+                        claim.attempts(), MAX_ATTEMPTS, reason(failure)))));
     }
 
     private void write(MeetingRepository.MinutesClaim claim) {
         var meeting = meetings.find(claim.tenant(), claim.owner(), claim.id()).orElse(null);
         // The owner deleted the meeting while it waited; there is nothing to write.
         if (meeting == null) return;
-        var speakers = meetings.speakers(claim.tenant(), claim.id());
         var utterances = meetings.utterances(claim.tenant(), claim.id());
         if (utterances.isEmpty()) throw new IllegalStateException("MEETING_EMPTY");
-        var names = new HashMap<String, String>();
-        for (var speaker : speakers)
-            names.put(speaker.track().name() + ':' + speaker.label(), displayName(meeting, speaker));
+        // The names the owner sees in the transcript, so the minutes and the transcript agree.
+        var names = SpeakerNames.of(meetings.speakers(claim.tenant(), claim.id()), meeting.kind(), meeting.language());
         var lines = new ArrayList<TranscriptSummarizer.Line>(utterances.size());
         for (int i = 0; i < utterances.size(); i++) {
             var utterance = utterances.get(i);
-            lines.add(new TranscriptSummarizer.Line(i + 1,
-                    names.getOrDefault(utterance.track().name() + ':' + utterance.speaker(), utterance.speaker()),
-                    clock(utterance.startMs()), utterance.text()));
+            lines.add(new TranscriptSummarizer.Line(i + 1, names.of(utterance), SpeakerNames.clock(utterance.startMs()),
+                    utterance.text()));
         }
         var subject = new TranscriptSummarizer.Subject(meeting.title(), meeting.participants(),
                 WHEN.format(meeting.createdAt()), meeting.notes(), meeting.language());
@@ -78,7 +76,7 @@ public class MeetingMinutesService {
         boolean stored = Boolean.TRUE.equals(tx.execute(ignored -> meetings.writeMinutes(claim.tenant(), claim.id(),
                 claim.attempts(), summary.summary(), summary.kind(), items)));
         // Another replica took the meeting over after this lease lapsed; it owns the outcome.
-        if (!stored) LOG.warn("Meeting minutes lease lapsed before they were stored");
+        if (!stored) LOG.atWarn().addKeyValue("event", "meeting.minutes.lease_lost").log("Meeting minutes lease lapsed before they were stored");
     }
 
     /** Turns the model's line numbers back into utterance ids, so every item can be traced to what was said. */
@@ -91,32 +89,23 @@ public class MeetingMinutesService {
             items.add(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.ACTION, bounded(action.text()),
                     shortText(action.owner()), shortText(action.due()), bounded(action.quote()),
                     source(action.line(), utterances), false));
+        for (var topic : summary.topics())
+            items.add(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.TOPIC, bounded(topic.title()), null,
+                    null, null, source(topic.line(), utterances), false));
         return items;
     }
 
-    private static @org.jspecify.annotations.Nullable UUID source(int line, List<Meeting.Utterance> utterances) {
+    private static @Nullable UUID source(int line, List<Meeting.Utterance> utterances) {
         return line >= 1 && line <= utterances.size() ? utterances.get(line - 1).id() : null;
     }
 
-    /** The name the owner sees in the transcript, so the minutes and the transcript agree. */
-    private static String displayName(MeetingRepository.Row meeting, Meeting.Speaker speaker) {
-        if (speaker.name() != null) return speaker.name();
-        if (meeting.kind() == Meeting.Kind.ONLINE && speaker.track() == Meeting.Track.MIC) return "Owner";
-        return "Speaker " + speaker.label();
-    }
-
-    private static String clock(long ms) {
-        long total = Math.max(0, ms / 1000);
-        return "%02d:%02d:%02d".formatted(total / 3600, total % 3600 / 60, total % 60);
-    }
-
-    private static String bounded(@org.jspecify.annotations.Nullable String value) {
+    private static String bounded(@Nullable String value) {
         if (value == null) return "";
         String text = value.strip();
         return text.length() > 2000 ? text.substring(0, 2000) : text;
     }
 
-    private static @org.jspecify.annotations.Nullable String shortText(@org.jspecify.annotations.Nullable String value) {
+    private static @Nullable String shortText(@Nullable String value) {
         if (value == null || value.isBlank()) return null;
         String text = value.strip();
         return text.length() > 100 ? text.substring(0, 100) : text;
@@ -124,7 +113,7 @@ public class MeetingMinutesService {
 
     /** A safe code for the owner; provider text never reaches the meeting row. */
     private static String reason(RuntimeException failure) {
-        if (failure instanceof io.memoryos.BusinessException business) return business.code();
+        if (failure instanceof BusinessException business) return business.code();
         return "MEETING_MINUTES_FAILED";
     }
 }

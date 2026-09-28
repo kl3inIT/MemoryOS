@@ -1,8 +1,8 @@
-import { ApiError, problemCode } from "./api";
+import { ApiError, problemCode, problemOf } from "./api";
 import type { en } from "@/i18n/en";
 
-export type ErrorKey = keyof typeof en.errors;
-export type ProblemKind =
+type ErrorKey = keyof typeof en.errors;
+type ProblemKind =
   | "unauthenticated"
   | "forbidden"
   | "validation"
@@ -86,15 +86,9 @@ export function presentProblem(
           : "unexpected";
   }
   const fields: Record<string, ErrorMessage> = Object.create(null);
-  const body = error instanceof ApiError ? error.cause : undefined;
-  if (
-    kind === "validation" &&
-    body &&
-    typeof body === "object" &&
-    "errors" in body &&
-    Array.isArray(body.errors)
-  ) {
-    for (const entry of body.errors.slice(0, 100)) {
+  const errors = problemOf(error)?.errors;
+  if (kind === "validation" && Array.isArray(errors)) {
+    for (const entry of errors.slice(0, 100)) {
       if (
         !entry ||
         typeof entry !== "object" ||
@@ -103,9 +97,9 @@ export function presentProblem(
       )
         continue;
       const key =
-        typeof entry.code === "string" && Object.hasOwn(fieldCodes, entry.code)
+        (typeof entry.code === "string" && Object.hasOwn(fieldCodes, entry.code)
           ? fieldCodes[entry.code]
-          : "invalid";
+          : undefined) ?? "invalid";
       const params: Record<string, number> = {};
       for (const name of ["min", "max"] as const) {
         const value = entry.params?.[name];
@@ -124,7 +118,7 @@ export function presentProblem(
   return {
     kind,
     code,
-    message: code && Object.hasOwn(messages, code) ? messages[code] : { key: kind },
+    message: (code && Object.hasOwn(messages, code) ? messages[code] : undefined) ?? { key: kind },
     fields,
     placement:
       kind === "unauthenticated"

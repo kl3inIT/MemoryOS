@@ -8,9 +8,11 @@ import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.junit.jupiter.api.Test;
 
@@ -34,8 +36,10 @@ class MeetingMinutesDocumentTest {
         assertTrue(lines.contains("Số: 12/BB"));
         assertTrue(lines.contains("BIÊN BẢN"));
         assertTrue(lines.contains("Về việc giao ban tuần Khối Tài chính"));
-        assertTrue(lines.contains("Hôm nay, vào lúc 09 giờ 00 ngày 21 tháng 9 năm 2026"));
-        assertTrue(lines.contains("Tại Phòng họp A, Hà Nội"));
+        assertTrue(lines.contains("Thời gian bắt đầu: 09 giờ 00 ngày 21 tháng 9 năm 2026"));
+        assertTrue(lines.contains("Địa điểm: Phòng họp A, Hà Nội"));
+        // The subject is under the title; the opening does not say it a second time.
+        assertTrue(lines.stream().noneMatch(line -> line.startsWith("Diễn ra cuộc họp")));
 
         assertTrue(lines.contains("I. Thành phần tham dự:"));
         assertTrue(lines.contains("1. Chủ trì: Ông/Bà Nguyễn Văn An - Chức vụ: Giám đốc Tài chính"));
@@ -81,7 +85,7 @@ class MeetingMinutesDocumentTest {
     void theDecreeSFontAndSizesAreUsedThroughout() throws Exception {
         try (var document = new XWPFDocument(new ByteArrayInputStream(
                 MeetingMinutesDocument.render(meeting(), HEADING)))) {
-            var runs = new ArrayList<org.apache.poi.xwpf.usermodel.XWPFRun>();
+            var runs = new ArrayList<XWPFRun>();
             document.getParagraphs().forEach(paragraph -> runs.addAll(paragraph.getRuns()));
             assertFalse(runs.isEmpty());
             runs.forEach(run -> {
@@ -91,6 +95,31 @@ class MeetingMinutesDocumentTest {
             });
             assertTrue(document.getTables().stream().noneMatch(MeetingMinutesDocumentTest::bordered),
                     "the letterhead and the signature block are laid out, not drawn");
+        }
+    }
+
+    @Test
+    void theChosenFaceIsNamedOnEveryRunAndAnUnknownOneIsNot() throws Exception {
+        var arial = new MeetingMinutesDocument.Heading("Tasco", "", "", "Giao ban", "", "", "", "", "", "", "",
+                List.of(), "Arial");
+        assertEquals(List.of("Arial"), faces(MeetingMinutesDocument.render(meeting(), arial)),
+                "every run, the letterhead and the signatures included, is set in the face that was picked");
+
+        var unknown = MeetingService.validate(new MeetingMinutesDocument.Heading("Tasco", "", "", "Giao ban", "", "",
+                "", "", "", "", "", List.of(), "Comic Sans MS"));
+        assertEquals(List.of("Times New Roman"), faces(MeetingMinutesDocument.render(meeting(), unknown)),
+                "a face nobody offered falls back to the decree's own");
+    }
+
+    private static List<String> faces(byte[] bytes) throws Exception {
+        try (var document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
+            var faces = new TreeSet<String>();
+            document.getParagraphs().forEach(p -> p.getRuns().forEach(run -> faces.add(run.getFontFamily())));
+            for (var table : document.getTables())
+                for (var row : table.getRows())
+                    for (var cell : row.getTableCells())
+                        cell.getParagraphs().forEach(p -> p.getRuns().forEach(run -> faces.add(run.getFontFamily())));
+            return List.copyOf(faces);
         }
     }
 

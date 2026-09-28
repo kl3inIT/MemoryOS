@@ -1,11 +1,20 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
+import { ApiError, problemCode } from "@/lib/api";
+import {
+  getChatSessionQueryKey,
+  getPersonaModelQueryKey,
+  listAvailableChatModelsQueryKey,
+  listChatPersonaModelsQueryKey,
+  listChatPersonasQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import {
   changeModelDraft,
   modelBody,
   modelDraft,
   modelDraftError,
   refreshModelCatalog,
+  sanitizeModelActionError,
   tenantCandidate,
   type InstalledAdapter,
   type ManagedModel,
@@ -143,13 +152,13 @@ describe("default eligibility and deletion dependencies", () => {
 
   it("retires saved defaults and workspace catalogs after mutation without invalidating transcript", async () => {
     const client = new QueryClient();
-    const first = [{ _id: "getPersonaModel", path: { personaId: "first" } }];
-    const second = [{ _id: "getPersonaModel", path: { personaId: "second" } }];
-    const transcript = ["chat-history", "chat"];
+    const first = getPersonaModelQueryKey({ path: { personaId: "first" } });
+    const second = getPersonaModelQueryKey({ path: { personaId: "second" } });
+    const transcript = getChatSessionQueryKey({ path: { sessionId: "chat" } });
     const workspaceCatalogs = [
-      ["chat-models", "actor", 1, "chat"],
-      ["chat-persona-models", "actor", 1, "first"],
-      ["chat-personas", "actor", 1],
+      listAvailableChatModelsQueryKey({ query: { sessionId: "chat" } }),
+      listChatPersonaModelsQueryKey({ path: { personaId: "first" } }),
+      listChatPersonasQueryKey({ query: { offset: 0, limit: 100 } }),
     ];
     client.setQueryData(first, { modelConfigurationId: model.id, revision: 1 });
     client.setQueryData(second, { modelConfigurationId: model.id, revision: 9 });
@@ -163,5 +172,30 @@ describe("default eligibility and deletion dependencies", () => {
     expect(client.getQueryState(transcript)?.isInvalidated).toBe(false);
     expect(client.getQueryData(transcript)).toEqual({ messages: ["retained"] });
     client.clear();
+  });
+});
+
+describe("sanitized catalog errors", () => {
+  it("keeps the status and problem code of an API failure but not its body", () => {
+    const safe = sanitizeModelActionError(
+      new ApiError(400, {
+        code: "CHAT_PROVIDER_CREDENTIAL_REJECTED",
+        detail: "synthetic-provider-payload",
+        request: { credential: { value: "synthetic-key" } },
+      }),
+    );
+    expect(safe).toBeInstanceOf(ApiError);
+    expect(safe).toMatchObject({ status: 400, message: "The provider rejected the API key" });
+    expect(problemCode(safe as ApiError)).toBe("CHAT_PROVIDER_CREDENTIAL_REJECTED");
+    const retained = JSON.stringify({ message: safe.message, cause: safe.cause });
+    expect(retained).not.toContain("synthetic-provider-payload");
+    expect(retained).not.toContain("synthetic-key");
+  });
+
+  it("turns any other failure into a plain safe message", () => {
+    const safe = sanitizeModelActionError(new TypeError("fetch failed for synthetic-key"));
+    expect(safe).not.toBeInstanceOf(ApiError);
+    expect(safe.message).toMatch(/^The request could not be completed/);
+    expect(safe.cause).toBeUndefined();
   });
 });

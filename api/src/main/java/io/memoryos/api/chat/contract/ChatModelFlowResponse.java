@@ -1,7 +1,7 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.ModelFlow;
+import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.ModelFlow;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

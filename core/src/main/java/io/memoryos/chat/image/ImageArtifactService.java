@@ -1,10 +1,19 @@
 package io.memoryos.chat.image;
 
+import io.memoryos.objectstorage.ObjectKey;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
+import io.memoryos.library.StorageQuotaService;
+import io.memoryos.library.ImageThumbnails;
+import io.memoryos.library.LibraryTrashProperties;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
@@ -21,8 +30,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Server-side storage of a generated image: stage bytes, then adopt and record within one transaction. */
 @Service
+@NamedInterface("image")
 public class ImageArtifactService {
-    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ImageArtifactService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ImageArtifactService.class);
     /** Same ceiling as vision input; an edit source is read fully into memory. */
     private static final int EDIT_SOURCE_LIMIT = 20 * 1024 * 1024;
     /** A thumbnail source is read fully into memory as well; past this the original is served unshrunk. */
@@ -33,15 +43,15 @@ public class ImageArtifactService {
     private final TenantAccessResolver tenants;
     private final TransactionTemplate tx;
 
-    private final io.memoryos.chat.ChatStorageQuotaService quotas;
-    private final io.memoryos.chat.application.ChatRetentionProperties retention;
+    private final StorageQuotaService quotas;
+    private final LibraryTrashProperties trash;
 
     public ImageArtifactService(ObjectWriteService writes, ObjectStorage storage, JdbcImageArtifactRepository artifacts,
-                                TenantAccessResolver tenants, io.memoryos.chat.ChatStorageQuotaService quotas,
-                                io.memoryos.chat.application.ChatRetentionProperties retention,
+                                TenantAccessResolver tenants, StorageQuotaService quotas,
+                                LibraryTrashProperties trash,
                                 PlatformTransactionManager transactionManager) {
         this.writes = writes; this.storage = storage; this.artifacts = artifacts; this.tenants = tenants;
-        this.quotas = quotas; this.retention = retention; this.tx = new TransactionTemplate(transactionManager);
+        this.quotas = quotas; this.trash = trash; this.tx = new TransactionTemplate(transactionManager);
     }
 
     /** Which rendering of an image a caller wants: the artifact itself, or the library's small one. */
@@ -61,8 +71,8 @@ public class ImageArtifactService {
             return new Served(rendered.mediaType(), rendered.bytes().length, null, rendered.bytes());
         }
 
-        public java.io.InputStream inputStream() {
-            return content != null ? content.inputStream() : new java.io.ByteArrayInputStream(requireBytes());
+        public InputStream inputStream() {
+            return content != null ? content.inputStream() : new ByteArrayInputStream(requireBytes());
         }
 
         private byte[] requireBytes() {
@@ -101,7 +111,7 @@ public class ImageArtifactService {
     }
 
     /** Opens a stored object and re-checks the read after opening, so a revoked membership cannot be served. */
-    private Served stored(ActorId actor, TenantId tenant, UUID id, io.memoryos.objectstorage.ObjectKey key, String mediaType) {
+    private Served stored(ActorId actor, TenantId tenant, UUID id, ObjectKey key, String mediaType) {
         var content = storage.open(key);
         try {
             if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()
@@ -156,7 +166,7 @@ public class ImageArtifactService {
      * Images for an already-authorized page of messages, keyed by message id. The caller has resolved these
      * message ids from an ownership-checked history read; results are scoped to the actor's active Tenant.
      */
-    public Map<UUID, List<JdbcImageArtifactRepository.Artifact>> forMessages(ActorId actor, Collection<UUID> messageIds) {
+    public Map<UUID, List<GeneratedImage>> forMessages(ActorId actor, Collection<UUID> messageIds) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         return artifacts.byMessages(tenant, messageIds, true);
     }
@@ -168,7 +178,7 @@ public class ImageArtifactService {
     public void delete(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         tx.executeWithoutResult(ignored -> {
-            if (!artifacts.markDeleted(tenant, actor, id, retention.trashAfter())) throw ChatException.unavailable();
+            if (!artifacts.markDeleted(tenant, actor, id, trash.trashAfter())) throw ChatException.unavailable();
         });
         LOGGER.atInfo().addKeyValue("event", "chat.artifact.deleted").addKeyValue("artifact_kind", "IMAGE")
                 .log("Generated image hidden; the cleanup sweep releases its bytes");
@@ -201,7 +211,7 @@ public class ImageArtifactService {
     public UUID store(TenantId tenant, UUID messageId, ImageProviderClient.Result result,
                       @Nullable UUID sourceArtifactId, @Nullable UUID sourceFileId) {
         // The image belongs to the owner of the conversation, so it is their storage limit that applies.
-        var owner = artifacts.owner(tenant, messageId).map(io.memoryos.iam.identity.ActorId::new)
+        var owner = artifacts.owner(tenant, messageId).map(ActorId::new)
                 .orElseThrow(() -> new IllegalStateException("generated image has no answer in this tenant"));
         quotas.requireRoom(tenant, owner, result.bytes().length);
         UUID id = UUID.randomUUID();

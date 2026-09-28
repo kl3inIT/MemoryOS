@@ -8,8 +8,10 @@ do not upgrade the appender independently of its SDK/API/incubator dependencies.
 
 - Local console output is readable text and retains fluent key/value fields through
   Boot's `logging.pattern.level` (`%5p %kvp`). The correlation pattern includes
-  trace/span and the existing operation, delivery and workload MDC values. Staging
-  uses Boot Logstash JSON plus one asynchronous OTLP log appender. Never also tail
+  trace/span and the existing operation, delivery and workload MDC values. Every
+  deployed environment (the `staging` or `production` profile) uses Boot Logstash
+  JSON plus one asynchronous OTLP log appender, exports metrics and traces to its own
+  stack, and names itself through `MEMORYOS_ENVIRONMENT`. Never also tail
   stdout into Loki.
 - Application logs use SLF4J fluent key/value fields: stable `event`, and relevant
   `operation_id`, `delivery_id`, `workload`, typed `error_code` or `error_type`.
@@ -20,6 +22,13 @@ do not upgrade the appender independently of its SDK/API/incubator dependencies.
   Use INFO for lifecycle transitions, DEBUG for stale/no-op details, WARN for
   handled retries and ERROR for unhandled processing/transport failures. Do not
   append arbitrary provider exception messages or object/request content.
+- Every log call is fluent (`LOG.atWarn().addKeyValue(...).log(...)`); positional
+  `{}` placeholders are not used. `event` is `<capability>.<subject>.<outcome>` in
+  snake case, for example `chat.run.failed` or `ai.provider.connection_check_failed`.
+  `error_type` is the exception's class name; `error_code` is the typed code when one
+  exists (a turn failure code, an MCP rejection reason, a SQLState). A handled failure
+  logs these fields without attaching the stack trace. The audit SIEM line
+  (`memoryos.audit.<class>`) stays one JSON message as the [audit contract](../specs/audit.md) defines it.
 - Use INFO by default. `MEMORYOS_LOG_LEVEL` may enable scoped `io.memoryos` DEBUG
   during staging diagnosis. Do not enable broad Spring Security, HTTP wire, JDBC
   bind-value or provider payload DEBUG. JSON structure and credential protection
@@ -56,6 +65,19 @@ Deployment, SSO, retention, health checks and rollback are described in the
 - Use histogram buckets that cover the operation's useful latency range. Bucket boundaries are measurement resolution, not an accepted service-level objective. Aggregate histograms across instances before computing percentiles; do not average per-instance percentiles. Empty traffic is no data, not zero latency.
 - Export asynchronously with bounded resources; recording/export failures must not change business results or trigger retries. Metrics are best effort and can lose observations during crashes. Verify handled/unhandled errors, duplicate/retry behavior and exporter outage, not just happy-path emission.
 - Verify exported names, units, labels and actual PromQL results after changing instrumentation. A configured exemplar or trace-to-log link is not evidence that matching telemetry exists; demonstrate correlation with a real request.
+
+- A timer published without `percentiles-histogram` has only the `+Inf` bucket, so no percentile of it exists. Every timer a dashboard or alert takes a percentile of is listed in `memoryos-observability.yaml` with its expected minimum and maximum.
+
+### Dashboards
+
+Four provisioned dashboards, linked by the `memoryos` tag: *overview* (the landing page), *service* (RED by route, JVM, pools and error logs, laid out after Grafana dashboard 20352), *Chat & AI* and *traces* (Tempo span metrics and the service graph). Edit the JSON in `infrastructure/observability/grafana/dashboards`, never in the browser; check every query against Prometheus before committing.
+
+### Chat and model metrics
+
+- Spring AI publishes `gen_ai.client.operation` (timer: `gen_ai_operation_name`, `gen_ai_system`, `gen_ai_request_model`, `gen_ai_response_model`, `error`) and `gen_ai.client.token.usage` (counter, plus `gen_ai_token_type`) for every chat and embedding call. The model name is a bounded label: it comes from the Tenant catalog.
+- `memoryos.chat.turn` runs from admission to the terminal outcome, once per turn. Labels: `status` (`completed`, `failed`, `canceled`), `failure` (a typed failure code, or `none`), `refusal` (`none`, `no_evidence`, `uncited`, `blocked_topic`), `grounded` and `research` (as admitted).
+- `memoryos.chat.turn.first.text` runs from admission to the first text the person sees, a refusal included; label `grounded`. A grounded turn holds text until its first valid citation, so its first text is later by design.
+- `memoryos.chat.guardrail.check` times the MEM-195 check before the answer model; label `kind` (`conversational`, `question`, `blocked`, `unavailable`).
 
 ### Extraction lifecycle diagnostics
 

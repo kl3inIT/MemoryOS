@@ -2,7 +2,19 @@
 
 The Tenant's audit stream records who changed sign-in, users, Groups, models, connections and Sources, when, and
 from where. It is decided in [ADR 0013](../decisions/0013-server-authored-audit-evidence.md) and delivered by
-[MEM-25](../increments/completed/mem-25-audit/design.md). The code is `core/src/main/java/io/memoryos/iam/audit`.
+[MEM-25](../increments/completed/mem-25-audit/design.md). The code is the `audit` application module, `core/src/main/java/io/memoryos/audit`.
+
+## Module
+
+- **Published API.** The package root: `AuditTrail`, `AuditRecord`, `AuditAction`, `AuditEventClass`, `AuditOutcome`,
+  `AuditRequestContext`, `AuditLog`, `AuditRetention`, `AuditException` and the `AuditReaders` port.
+- **Persistence.** `audit.persistence` holds the SQL: `JdbcAuditEventRepository` (insert, savepoint, actor profile
+  lookup, retention delete) and `JdbcAuditLogQueryRepository` (the filtered, keyset-paged read).
+- **No dependency on IAM.** IAM records its own changes here, so audit depends on no capability, only on the `shared`
+  kernel. Records carry the Tenant and actor as `TenantId` and `ActorId`, and `AuditLog` asks who may read through
+  `AuditReaders`, which IAM implements
+  (`IamAuditReaders`, `AUDIT_READ`, never scoped). The actor's name and e-mail are still read from `actor_profiles`
+  in the recording transaction.
 
 ## Stream
 
@@ -40,7 +52,7 @@ Rules on the table:
 | Account change | `user.invite`, `user.invite_rotate`, `user.invite_revoke`, `user.join`, `user.deactivate`, `user.reactivate` |
 | User access management | `user.group_change` |
 | Group management | `user_group.create`, `rename`, `delete`, `member_change`, `manager_change`, `permission_change` |
-| API activity | `llm_provider.create`, `update`, `delete`; `model.create`, `update`, `delete`; `model_default.change`; `model_flow.change`; `web_connection.change`; `voice_connection.change`; `image_connection.change`; `interpreter.change`; `chat_settings.change`; `mcp_server.create`, `update`, `delete`; `mcp_tool.change`; `mcp_oauth_client.change`; `mcp_connection.change`; `identity_provider.create`, `update`, `delete`; `source.create`, `update`, `delete`, `access_change`, `manager_change`, `group_change`, `pause`, `resume`, `item_remove`; `credential.create`, `update`, `delete`; `chat_history.read`; `chat_history.export`; `audit.export`; `permission.denied` |
+| API activity | `llm_provider.create`, `update`, `delete`; `model.create`, `update`, `delete`; `model_default.change`; `model_flow.change`; `web_connection.change`; `voice_connection.change`; `image_connection.change`; `interpreter.change`; `chat_settings.change`; `chat_guardrail.block` (MEM-195: a question stopped by a sensitive topic or blocked phrase; the rule kind, topic and session, never the question or phrase); `mcp_server.create`, `update`, `delete`; `mcp_tool.change`; `mcp_oauth_client.change`; `mcp_connection.change`; `identity_provider.create`, `update`, `delete`; `source.create`, `update`, `delete`, `access_change`, `manager_change`, `group_change`, `pause`, `resume`, `item_remove`; `credential.create`, `update`, `delete`; `chat_history.read`; `chat_history.export`; `audit.export`; `permission.denied` |
 
 ## Recording
 
@@ -100,7 +112,8 @@ The Worker task `memoryos-audit-retention-v1` runs hourly and deletes events old
 
 Admin › Monitoring › Audit log (`/admin/audit`) has:
 
-- a row of filters: period, category, outcome and search;
+- a row of filters: period, category, outcome and search, kept in the page address (the default 7-day period and
+  empty filters are left out);
 - the shared table and pager used by Users;
 - a readable sentence for each action;
 - a When / Who / What panel with a field-by-field before-and-after table;

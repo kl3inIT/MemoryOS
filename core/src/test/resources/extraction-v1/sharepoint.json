@@ -1,0 +1,6 @@
+{"schema":"memoryos-extraction-v1","source":{"format":"SHAREPOINT_PAGE"},"blocks":[
+{"index":0,"kind":"heading","level":2,"text":"Quy trình mua sắm"},
+{"index":1,"kind":"paragraph","text":"Mọi đề nghị mua sắm phải được phê duyệt."},
+{"index":2,"kind":"listItem","text":"Lập phiếu đề nghị"},
+{"index":3,"kind":"table","rows":[["Hạn mức","Người duyệt"],["Dưới 50 triệu","Trưởng phòng"]]}
+]}

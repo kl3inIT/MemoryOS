@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly MemoryOS off-host backup (%i)
+
+[Timer]
+# Outside business hours in Vietnam (UTC+7), and before the release-image prune at 03:20.
+OnCalendar=*-*-* 02:10:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

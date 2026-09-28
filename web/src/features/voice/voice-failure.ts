@@ -1,6 +1,5 @@
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { ApiError, problemCode } from "@/lib/api";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { createChatVoiceTicket, synthesizeChatVoice } from "@/lib/hey-api/sdk.gen";
 import { MicrophoneUnavailableError } from "./capture/audio-capture";
 import { VoiceStreamError } from "./transcribe-socket";
@@ -64,8 +63,6 @@ export async function requestVoiceTicket(purpose: "TRANSCRIBE" | "SYNTHESIZE" = 
   try {
     const { data } = await createChatVoiceTicket({
       body: { purpose },
-      headers: sameOriginMutationHeaders,
-      throwOnError: true,
     });
     return data.ticket;
   } catch (error) {
@@ -82,10 +79,8 @@ export async function synthesizeSpeech(text: string, speed: number, signal: Abor
   try {
     const { data } = await synthesizeChatVoice({
       body: { text, speed },
-      headers: sameOriginMutationHeaders,
       parseAs: "stream",
       signal,
-      throwOnError: true,
     });
     const stream = data as unknown;
     if (!(stream instanceof ReadableStream)) throw new Error("No audio stream");

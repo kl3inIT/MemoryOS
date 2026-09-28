@@ -1,17 +1,17 @@
 package io.memoryos.iam.tenant;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.TenantMemberException;
+import io.memoryos.iam.TenantMemberManagement;
+import io.memoryos.iam.TenantMembershipRole;
+import io.memoryos.iam.TenantMembershipStatus;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.GroupAdministrationGuard;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.tenant.TenantMemberException;
-import io.memoryos.iam.tenant.TenantMemberManagement;
-import io.memoryos.iam.tenant.TenantMembershipRole;
-import io.memoryos.iam.tenant.TenantMembershipStatus;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 import io.memoryos.iam.tenant.persistence.TenantMembershipEntity;
 

@@ -1,7 +1,7 @@
 package io.memoryos.iam.tenant.persistence;
 
-import io.memoryos.iam.tenant.TenantMembershipRole;
-import io.memoryos.iam.tenant.TenantMembershipStatus;
+import io.memoryos.iam.TenantMembershipRole;
+import io.memoryos.iam.TenantMembershipStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;

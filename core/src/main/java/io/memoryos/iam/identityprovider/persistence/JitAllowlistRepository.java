@@ -1,6 +1,6 @@
 package io.memoryos.iam.identityprovider.persistence;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 
 import java.util.Objects;
 import java.util.Set;

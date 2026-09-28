@@ -1,6 +1,6 @@
 package io.memoryos.api.identityprovider.contract;
 
-import io.memoryos.iam.identityprovider.IdentityProviderView;
+import io.memoryos.iam.IdentityProviderView;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(name = "IdentityProviderResponse", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)

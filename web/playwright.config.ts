@@ -6,8 +6,9 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   workers: process.env.CI ? 1 : undefined,
-  // CI shards write blob reports; the frontend-report job merges them into one HTML report.
-  reporter: process.env.CI ? [["github"], ["blob"]] : "list",
+  // A failing shard annotates the run and prints its own assertion, which is what anybody reads. Nothing keeps a
+  // blob report: merging them into an HTML nobody opened was most of what filled the artifact store.
+  reporter: process.env.CI ? [["github"], ["line"]] : "list",
   use: {
     baseURL: "http://127.0.0.1:4173",
     screenshot: "only-on-failure",

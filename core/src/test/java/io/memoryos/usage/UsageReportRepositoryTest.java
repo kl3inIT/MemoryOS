@@ -5,7 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.usage.persistence.UsageReportRepository;
-import io.memoryos.usage.persistence.UsageReportRepository.Status;
+import io.memoryos.usage.report.UsageReportStatus;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -54,7 +55,7 @@ class UsageReportRepositoryTest {
             reports.markFailed(tenant, report.id(), claim.attempts(), MAX, "The report could not be generated.");
         }
         var failed = reports.find(tenant, report.id()).orElseThrow();
-        assertEquals(Status.FAILED, failed.status());
+        assertEquals(UsageReportStatus.FAILED, failed.status());
         assertNotNull(failed.failure());
         assertTrue(reports.claim(Duration.ofMinutes(10), MAX).isEmpty());
     }
@@ -68,7 +69,7 @@ class UsageReportRepositoryTest {
         UUID object = storedObject();
         assertFalse(reports.markReady(tenant, report.id(), stale.attempts(), object, "raw/key", 10, true), "the stale Worker lost it");
         assertTrue(reports.markReady(tenant, report.id(), fresh.attempts(), object, "raw/key", 10, true));
-        assertEquals(Status.READY, reports.find(tenant, report.id()).orElseThrow().status());
+        assertEquals(UsageReportStatus.READY, reports.find(tenant, report.id()).orElseThrow().status());
     }
 
     @Test void aLeaseThatLapsesOnTheLastAttemptFailsTheReport() {
@@ -76,7 +77,7 @@ class UsageReportRepositoryTest {
         jdbc.sql("UPDATE ai_usage_report SET status = 'RUNNING', attempts = :max, lease_until = now() - interval '1 minute' WHERE id = :id")
                 .param("max", MAX).param("id", report.id()).update();
         assertEquals(1, reports.failAbandoned(MAX));
-        assertEquals(Status.FAILED, reports.find(tenant, report.id()).orElseThrow().status());
+        assertEquals(UsageReportStatus.FAILED, reports.find(tenant, report.id()).orElseThrow().status());
     }
 
     @Test void reportsStayInsideTheirTenant() {
@@ -94,7 +95,7 @@ class UsageReportRepositoryTest {
                     expires_at)
                 VALUES (:tenant, :id, :key, 'usage.zip', 'application/zip', 10, :sha, 'ACTIVE', :expires)
                 """).param("tenant", tenant).param("id", id).param("key", "raw/" + tenant + "/" + id)
-                .param("sha", "0".repeat(64)).param("expires", java.sql.Timestamp.from(Instant.now().plusSeconds(3600))).update();
+                .param("sha", "0".repeat(64)).param("expires", Timestamp.from(Instant.now().plusSeconds(3600))).update();
         return id;
     }
 
@@ -114,7 +115,7 @@ class UsageReportRepositoryTest {
                 INSERT INTO actor_profiles(actor_id, issuer, subject, display_name, email, email_verified, observed_at)
                 VALUES (:id, 'https://id.test', :subject, :name, :email, true, :at)""")
                 .param("id", id).param("subject", id.toString()).param("name", name).param("email", email)
-                .param("at", java.sql.Timestamp.from(Instant.now())).update();
+                .param("at", Timestamp.from(Instant.now())).update();
         return id;
     }
 }

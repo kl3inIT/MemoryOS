@@ -1,7 +1,7 @@
 package io.memoryos.iam.group.persistence;
 
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.group.GroupSystemKey;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.GroupSystemKey;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 
@@ -13,8 +13,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.stereotype.Repository;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Repository
 public class GroupCapabilityGrantRepository {

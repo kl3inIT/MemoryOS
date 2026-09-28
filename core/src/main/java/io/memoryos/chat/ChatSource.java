@@ -1,6 +1,8 @@
 package io.memoryos.chat;
 
+import io.memoryos.chat.web.WebHttp;
 import io.memoryos.connector.SourceType;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -27,9 +29,9 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
                       int startOrdinal, int endOrdinal, List<Provenance> provenance, @Nullable UUID fileId, @Nullable FileLocation fileLocation) {
         this(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, fileLocation, null);
     }
-    public record WebLocation(String url, String excerpt, java.time.Instant retrievedAt) {
+    public record WebLocation(String url, String excerpt, Instant retrievedAt) {
         public WebLocation {
-            io.memoryos.chat.web.WebHttp.pageUri(url);
+            WebHttp.pageUri(url);
             if (excerpt == null || excerpt.length() > 4000 || retrievedAt == null) throw new IllegalArgumentException("Invalid Web evidence");
         }
     }

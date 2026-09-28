@@ -1,7 +1,6 @@
 package io.memoryos.worker;
 
-import io.memoryos.iam.group.DefaultGroupScopeService;
-import io.memoryos.iam.group.DefaultIamAuthorization;
+import io.memoryos.iam.IamWorkerComponents;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 
@@ -15,7 +14,7 @@ import org.springframework.orm.jpa.SharedEntityManagerCreator;
 @Configuration(proxyBeanMethods = false)
 @EntityScan("io.memoryos.iam")
 @EnableJpaRepositories(basePackages = "io.memoryos.iam")
-@Import({DefaultIamAuthorization.class, DefaultGroupScopeService.class})
+@Import(IamWorkerComponents.class)
 class IamPersistenceConfiguration {
 
     @Bean

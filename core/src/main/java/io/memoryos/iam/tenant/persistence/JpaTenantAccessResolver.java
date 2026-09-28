@@ -1,9 +1,9 @@
 package io.memoryos.iam.tenant.persistence;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.tenant.TenantMembership;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
+import io.memoryos.iam.TenantMembership;
 
 import java.util.List;
 import java.util.Objects;
@@ -40,6 +40,12 @@ public class JpaTenantAccessResolver implements TenantAccessResolver {
     @Transactional(readOnly = true)
     public boolean isActiveTenant(TenantId tenantId) {
         return tenants.findActiveTenant(Objects.requireNonNull(tenantId, "tenantId must not be null")).isPresent();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<TenantId> operatingTenant() {
+        return tenants.findBootstrapTenant();
     }
 
     @Override

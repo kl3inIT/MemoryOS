@@ -7,6 +7,9 @@ describe("localized user problem descriptors", () => {
     expect(invitationError(new ApiError(409, { code: "INVITATION_CONFLICT" }))).toEqual({
       key: "invitationConflict",
     });
+    expect(invitationError(new ApiError(400, { code: "INVITATION_QUERY_INVALID" }))).toEqual({
+      key: "invitationQueryInvalid",
+    });
     expect(
       membershipActionError(new ApiError(403, { code: "IAM_CONFIGURED_OWNER_PROTECTED" })),
     ).toEqual({ key: "ownerProtected" });

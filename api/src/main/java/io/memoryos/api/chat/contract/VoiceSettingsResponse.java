@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.voice.VoiceSettings;
+import io.memoryos.chat.VoiceSettings;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record VoiceSettingsResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean autoSend,

@@ -111,7 +111,7 @@ final class ChatActivityRecorder {
 
     /** Running steps at the terminal outcome were interrupted; they are recorded as failed. */
     synchronized ChatActivity seal() {
-        var sealed = new ArrayList<Step>(steps.values());
+        var sealed = new ArrayList<>(steps.values());
         for (var step : sealed) {
             if (step.status == ChatActivity.StepStatus.RUNNING) {
                 step.status = ChatActivity.StepStatus.FAILED;

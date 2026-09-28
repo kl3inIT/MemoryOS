@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.chat.ChatCodeEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatMessage.Status;
@@ -19,9 +20,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -71,14 +78,14 @@ class StreamBufferWriterTest {
         writer.flush();
         try (var reader = writer.subscribe(id, 1, () -> true)) {
             var started = System.nanoTime();
-            var pending = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            var pending = CompletableFuture.supplyAsync(() -> {
                 try { return reader.read(); }
                 catch (InterruptedException interrupted) { throw new IllegalStateException(interrupted); }
             });
             Thread.sleep(150);
             writer.append(id, "second");
             writer.flush();
-            var batch = pending.get(3, java.util.concurrent.TimeUnit.SECONDS);
+            var batch = pending.get(3, TimeUnit.SECONDS);
             assertEquals("second", batch.events().getFirst().text());
             assertTrue(Duration.ofNanos(System.nanoTime() - started).toMillis() < 2000);
         }
@@ -153,9 +160,9 @@ class StreamBufferWriterTest {
         writer.open(id);
         published.forEach(event -> writer.tool(id, event));
         writer.image(id, image);
-        var code = List.of(io.memoryos.chat.ChatCodeEvent.running("call_p", "print(1)"), io.memoryos.chat.ChatCodeEvent.output("call_p", "stdout", "1\n"),
-                io.memoryos.chat.ChatCodeEvent.output("call_p", "stderr", "warning\n"),
-                io.memoryos.chat.ChatCodeEvent.completed("call_p", List.of(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(UUID.randomUUID(), "a.csv", "text/csv", 3))));
+        var code = List.of(ChatCodeEvent.running("call_p", "print(1)"), ChatCodeEvent.output("call_p", "stdout", "1\n"),
+                ChatCodeEvent.output("call_p", "stderr", "warning\n"),
+                ChatCodeEvent.completed("call_p", List.of(new ChatCodeEvent.GeneratedFile(UUID.randomUUID(), "a.csv", "text/csv", 3))));
         code.forEach(event -> writer.code(id, event));
         writer.finish(id, Status.FAILED, "CHAT_INTERRUPTED", true);
         List<StreamBufferWriter.Event> events;
@@ -176,7 +183,7 @@ class StreamBufferWriterTest {
         writer.open(id);
         writer.append(id, "text");
         writer.flush();
-        assertEquals(List.of(RecordId.of(0, 1)), redis.opsForStream().range(key, org.springframework.data.domain.Range.unbounded())
+        assertEquals(List.of(RecordId.of(0, 1)), redis.opsForStream().range(key, Range.unbounded())
                 .stream().map(record -> record.getId()).toList());
         // Refreshed by every write for a live reply; the outcome switches to the completed retention.
         assertTrue(redis.getExpire(key, TimeUnit.MINUTES) > 55);
@@ -216,7 +223,7 @@ class StreamBufferWriterTest {
     void aRunningReplyWithoutEventsHeartbeatsAndChecksLivenessAtEachHeartbeat() throws Exception {
         var writer = new StreamBufferWriter(redis, limits);
         var id = UUID.randomUUID();
-        var checks = new java.util.concurrent.atomic.AtomicInteger();
+        var checks = new AtomicInteger();
         var running = new AtomicBoolean(true);
         writer.open(id);
         try (var reader = writer.subscribe(id, 0, () -> { checks.incrementAndGet(); return running.get(); })) {
@@ -264,7 +271,7 @@ class StreamBufferWriterTest {
         assertEquals("x".repeat(20), events.getFirst().text());
         assertTrue(events.stream().noneMatch(event -> event.type().equals("outcome")));
         // Appending stopped at the marker: nothing, not even the outcome, follows it.
-        var entries = redis.opsForStream().range(StreamBufferWriter.key(id), org.springframework.data.domain.Range.unbounded());
+        var entries = redis.opsForStream().range(StreamBufferWriter.key(id), Range.unbounded());
         assertEquals(events.size() + 1, entries.size());
         assertEquals("truncated", entries.getLast().getValue().get("type"));
     }
@@ -323,9 +330,9 @@ class StreamBufferWriterTest {
 
     @Test
     void unreachableRedisResetsTheReaderToHistoryInsteadOfFailingTheSubscription() throws Exception {
-        var factory = new org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory(
-                new org.springframework.data.redis.connection.RedisStandaloneConfiguration("127.0.0.1", 1),
-                org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration.builder().commandTimeout(Duration.ofMillis(200)).build());
+        var factory = new LettuceConnectionFactory(
+                new RedisStandaloneConfiguration("127.0.0.1", 1),
+                LettuceClientConfiguration.builder().commandTimeout(Duration.ofMillis(200)).build());
         factory.afterPropertiesSet();
         factory.start();
         try {

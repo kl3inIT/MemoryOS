@@ -1,0 +1,300 @@
+import { ApiError, problemCode } from "@/lib/api";
+import { appText } from "@/i18n/app-text";
+
+type SourceMutation =
+  | "create"
+  | "upload"
+  | "reindex"
+  | "remove-item"
+  | "delete-source"
+  | "google-drive"
+  | "google-drive-discovery"
+  | "google-drive-schedule"
+  | "sharepoint"
+  | "sharepoint-credential"
+  | "sharepoint-schedule"
+  | "metadata"
+  | "associations";
+
+const statusMessages = {
+  OBJECT_UPLOAD_INTEGRITY_MISMATCH:
+    "Object storage did not receive the declared file. Start the upload again.",
+  OBJECT_UPLOAD_STORAGE_UNAVAILABLE: "Object storage is temporarily unavailable. Retry the upload.",
+  SOURCE_TENANT_INACTIVE:
+    "Processing paused because this Tenant is inactive. Contact an administrator.",
+  SOURCE_EXTRACTION_UNSUPPORTED: "This file type could not be extracted.",
+  SOURCE_EXTRACTION_ENCRYPTED: "Password-protected files cannot be indexed.",
+  SOURCE_EXTRACTION_MALFORMED: "The file could not be read. Check the file and upload it again.",
+  SOURCE_EXTRACTION_TIMEOUT: "File extraction took too long. Try indexing the file again.",
+  SOURCE_EXTRACTION_CONNECTION_FAILED:
+    "The extraction service could not be reached. Ask an administrator to check the service address, network access, and service availability before indexing again.",
+  SOURCE_EXTRACTION_WRITE_LIMIT: "The extracted document exceeds the supported text limit.",
+  SOURCE_EXTRACTION_INTERNAL: "File extraction failed unexpectedly. Try indexing the file again.",
+  SOURCE_CLEANUP_INTERNAL: "Cleanup failed unexpectedly. Try the removal again.",
+  SOURCE_GOOGLE_REVISION_CONFLICT:
+    "This configuration changed in another session. Reload the saved selection before trying again.",
+  SOURCE_GOOGLE_ROOTS_OVERLAP:
+    "Some supplied links overlap. Use a folder or its descendants, not both.",
+  SOURCE_GOOGLE_ROOT_UNSUPPORTED:
+    "This selection includes an unsupported item. Shortcuts and trashed items cannot be selected.",
+  SOURCE_GOOGLE_ROOT_LINK_INVALID:
+    "Paste unique HTTPS Google file or folder links within the displayed selection limits. Whole-account links, duplicate files, and invalid URLs cannot be selected.",
+  GOOGLE_DRIVE_NOT_CONFIGURED:
+    "Google Drive is not configured on this server. Contact an administrator.",
+  GOOGLE_DRIVE_OAUTH_CLIENT_REQUIRED:
+    "This connection needs your Google OAuth app. Upload or paste a Web application OAuth client JSON, then reconnect.",
+  GOOGLE_DRIVE_OAUTH_CLIENT_INVALID:
+    "Supply valid Google Web application OAuth client JSON with this MemoryOS callback registered as an authorized redirect URI.",
+  GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY_INVALID:
+    "Upload the JSON key downloaded for a Google Cloud service account, with an RSA key of at least 2048 bits.",
+  GOOGLE_DRIVE_SERVICE_ACCOUNT_DELEGATION_MISSING:
+    "Google refused the service account. In the Admin console, grant its client ID domain-wide delegation with every listed scope, then try again.",
+  GOOGLE_DRIVE_SERVICE_ACCOUNT_ADMIN_REQUIRED:
+    "The primary admin email must belong to an active Google Workspace administrator who can read users and groups.",
+  GOOGLE_DRIVE_AUTHENTICATION:
+    "Google could not authorize this request. Reconnect the Google account.",
+  GOOGLE_DRIVE_SCOPE_INSUFFICIENT:
+    "Google did not grant the Drive access MemoryOS needs. Reconnect the Google account and allow every requested permission.",
+  GOOGLE_DRIVE_NOT_FOUND: "This file is unavailable to the connected Google account.",
+  GOOGLE_DRIVE_MALFORMED: "This file could not be read. Check its format and contents.",
+  GOOGLE_DRIVE_INCONSISTENT: "This file changed while it was being read. Try again.",
+  GOOGLE_DRIVE_UNAVAILABLE: "Google Drive is temporarily unavailable. Try again later.",
+  GOOGLE_DRIVE_QUOTA: "Google Drive is limiting requests. Wait before trying again.",
+  GOOGLE_DRIVE_UNSUPPORTED:
+    "This Google Drive item is not supported. Shortcuts cannot be imported.",
+  GOOGLE_DRIVE_LIMIT_EXCEEDED:
+    "This request exceeds the supported Google Drive acquisition limits.",
+  SOURCE_GOOGLE_AUTHENTICATION: "Synchronization paused. Reconnect the Google account.",
+  SOURCE_GOOGLE_SCOPE_INSUFFICIENT:
+    "Google did not grant the Drive access MemoryOS needs. Reconnect the Google account and allow every requested permission.",
+  SOURCE_GOOGLE_ACCESS_DENIED:
+    "The connected Google account can open this file but is not allowed to read its sharing settings.",
+  SOURCE_GOOGLE_CONNECTION_UNAVAILABLE:
+    "The Google connection is unavailable. Check its status and reconnect if needed.",
+  SOURCE_GOOGLE_NOT_FOUND: "This file is unavailable to the connected Google account.",
+  SOURCE_GOOGLE_QUOTA: "Google Drive is limiting requests. Wait before trying again.",
+  SOURCE_GOOGLE_UNAVAILABLE: "Google Drive is temporarily unavailable. Try again later.",
+  SOURCE_GOOGLE_MALFORMED: "This file could not be read. Check its format and contents.",
+  SOURCE_GOOGLE_UNSUPPORTED: "This Google Drive item is not supported for acquisition.",
+  SOURCE_GOOGLE_LIMIT_EXCEEDED:
+    "This item exceeds the supported acquisition limits and was not imported.",
+  SOURCE_GOOGLE_INCONSISTENT: "This file changed while it was being acquired. Synchronize again.",
+  // Runs before the shared sync engine failed as a whole with this code; kept for their history.
+  SOURCE_GOOGLE_INCOMPLETE:
+    "Some files could not be acquired. Review the file errors and synchronize again.",
+  SOURCE_SYNC_ITEM_FAILURES_EXCEEDED:
+    "Synchronization stopped because too many files failed. Review the file errors in the run details.",
+  SOURCE_GOOGLE_SELECTION_FAILED:
+    "Selection verification failed. The active selection is unchanged. Review your links and Google access before submitting a new proposal.",
+  SOURCE_GOOGLE_CREDENTIAL_CHANGED:
+    "The Google credential changed during verification. The proposal was not activated. Reload the saved selection before submitting again.",
+  SOURCE_NOT_OWNER:
+    "Selection verification stopped because the initiating user no longer has permission or the Tenant is inactive. Ask an authorized administrator to submit a new proposal.",
+  IAM_ACCESS_DENIED:
+    "The operation stopped because your permissions changed. Ask an authorized administrator to review access before trying again.",
+  SOURCE_ACQUISITION_INTERNAL:
+    "Acquisition failed unexpectedly. Review this run and synchronize again.",
+  SOURCE_STORAGE_READ_TLS:
+    "Stored input could not be read because object storage rejected the TLS connection. Ask an administrator to check storage certificates.",
+  SOURCE_STORAGE_WRITE_TLS:
+    "Acquired content could not be stored because object storage rejected the TLS connection. Ask an administrator to check storage certificates; changing Google Drive links will not fix this.",
+  SOURCE_STORAGE_READ_CONNECTIVITY:
+    "Object storage could not be reached to read the input. Ask an administrator to check storage connectivity.",
+  SOURCE_STORAGE_WRITE_CONNECTIVITY:
+    "Object storage could not be reached to save acquired content. Ask an administrator to check storage connectivity, not Google Drive links.",
+  SOURCE_STORAGE_READ_NOT_FOUND:
+    "The stored input no longer exists. Acquire or upload the file again before indexing.",
+  SOURCE_STORAGE_WRITE_NOT_FOUND:
+    "The target object storage location was not found. Ask an administrator to check storage configuration.",
+  SOURCE_STORAGE_READ_ACCESS_DENIED:
+    "Object storage denied access to the input. Ask an administrator to check storage permissions.",
+  SOURCE_STORAGE_WRITE_ACCESS_DENIED:
+    "Object storage denied permission to save content. Ask an administrator to check storage permissions.",
+  SOURCE_STORAGE_READ_PRECONDITION_FAILED:
+    "The stored input changed while being read. Retry after checking the current file.",
+  SOURCE_STORAGE_WRITE_PRECONDITION_FAILED:
+    "The stored content changed before publication. Retry after checking the current file.",
+  SOURCE_STORAGE_READ_THROTTLED: "Object storage is limiting reads. Wait for the scheduled retry.",
+  SOURCE_STORAGE_WRITE_THROTTLED:
+    "Object storage is limiting writes. Wait for the scheduled retry.",
+  SOURCE_STORAGE_READ_UNAVAILABLE:
+    "Object storage is unavailable for reading. Ask an administrator to check the storage service.",
+  SOURCE_STORAGE_WRITE_UNAVAILABLE:
+    "Object storage is unavailable for saving content. Ask an administrator to check the storage service.",
+  SOURCE_STORAGE_READ_MISCONFIGURED:
+    "Input storage is misconfigured. Ask an administrator to correct the storage configuration.",
+  SOURCE_STORAGE_WRITE_MISCONFIGURED:
+    "Output storage is misconfigured. Ask an administrator to correct the storage configuration.",
+  SOURCE_SHAREPOINT_NOT_CONFIGURED:
+    "SharePoint is not configured on this server. Contact an administrator.",
+  SOURCE_SHAREPOINT_DIRECTORY_INVALID:
+    "Supply the Directory (tenant) ID and Application (client) ID as GUIDs.",
+  SOURCE_SHAREPOINT_SECRET_INVALID: "Supply the client secret Value, between 1 and 256 characters.",
+  SOURCE_SHAREPOINT_CERTIFICATE_INVALID:
+    "Upload a PKCS#12 keystore of at most 16 KiB holding exactly one RSA key of at least 2048 bits with an unexpired certificate, and its password.",
+  SOURCE_SHAREPOINT_CREDENTIAL_SECRET_REJECTED:
+    "Microsoft rejected the client secret. Copy the secret Value, not the Secret ID.",
+  SOURCE_SHAREPOINT_CREDENTIAL_SECRET_EXPIRED:
+    "The client secret has expired. Create a new secret in Entra and replace the authentication.",
+  SOURCE_SHAREPOINT_CREDENTIAL_CERTIFICATE_UNKNOWN:
+    "Upload this certificate to the Entra app registration before saving it here.",
+  SOURCE_SHAREPOINT_CREDENTIAL_DIRECTORY_UNKNOWN:
+    "Microsoft does not know this Directory (tenant) ID. Copy it from the app's Overview page.",
+  SOURCE_SHAREPOINT_CREDENTIAL_APPLICATION_UNKNOWN:
+    "Microsoft does not know this Application (client) ID in that directory.",
+  SOURCE_SHAREPOINT_CREDENTIAL_CONSENT_REQUIRED:
+    "Grant admin consent for Sites.Read.All in Entra, then save again.",
+  SOURCE_SHAREPOINT_CREDENTIAL_REJECTED:
+    "Microsoft rejected these credentials. Check the directory, application and authentication in Entra.",
+  SOURCE_SHAREPOINT_CREDENTIAL_CHANGED:
+    "The credential was deleted while the addresses were being verified. The saved scope is unchanged.",
+  SOURCE_SHAREPOINT_NEEDS_UPDATE:
+    "This credential needs updating. Replace its authentication before continuing.",
+  SOURCE_SHAREPOINT_ROOT_URL_INVALID:
+    "Paste SharePoint site, library or folder addresses on your organization's host, containing /sites/, /teams/ or /personal/.",
+  SOURCE_SHAREPOINT_ROOTS_OVERLAP:
+    "Select either a site, library or folder, not one inside another.",
+  SOURCE_SHAREPOINT_ROOTS_MIXED_TENANTS: "Every address must be on the same SharePoint host.",
+  SOURCE_SHAREPOINT_EXCLUSION_INVALID:
+    "Each exclusion must contain 1 to 512 characters, with at most 100 exclusions of each kind.",
+  SOURCE_SHAREPOINT_UNAVAILABLE: "Microsoft did not answer. Try again in a moment.",
+  SOURCE_SHAREPOINT_INTERNAL:
+    "The SharePoint run failed unexpectedly. Review this run and synchronize again.",
+  SOURCE_SHAREPOINT_CONNECTION_UNAVAILABLE:
+    "The SharePoint credential is unavailable. Test it and replace its authentication if needed.",
+  SOURCE_SHAREPOINT_SELECTION_FAILED:
+    "Address verification failed. The active scope is unchanged. Check the addresses and the credential's permissions before submitting again.",
+  SOURCE_SHAREPOINT_AUTHENTICATION:
+    "Synchronization stopped because Microsoft rejected the credential. Test it and replace its authentication.",
+  SOURCE_SHAREPOINT_AUTHORIZATION:
+    "The Entra application is not allowed to read this content. Check its permissions and admin consent.",
+  SOURCE_SHAREPOINT_NOT_FOUND: "This item is no longer available to the Entra application.",
+  SOURCE_SHAREPOINT_RESYNC_REQUIRED:
+    "Microsoft no longer accepts the saved change token; this library is read again in full.",
+  SOURCE_SHAREPOINT_QUOTA: "Microsoft is limiting requests. Wait before trying again.",
+  SOURCE_SHAREPOINT_MALFORMED: "Microsoft returned an answer that could not be read. Try again.",
+  SOURCE_SHAREPOINT_LIMIT_EXCEEDED:
+    "This item exceeds the supported acquisition limits and was not imported.",
+  SOURCE_PUBLICATION_INTERNAL:
+    "Extracted content could not be published. Retry the affected file after checking the Source status.",
+  SEARCH_INDEX_FAILED: "Search indexing failed unexpectedly. Try indexing the file again.",
+  SEARCH_INDEX_ARTIFACT_INVALID:
+    "The extracted document could not be read for indexing. Upload the file again; if it still fails, the file may be corrupt.",
+  SEARCH_INDEX_NO_TEXT: "The file contains no searchable text.",
+  SEARCH_INDEX_CONTENT_LIMIT:
+    "The extracted document exceeds the supported indexing size. Split the file and upload it again.",
+  SOURCE_MANAGER_NOT_ELIGIBLE:
+    "This member cannot manage the Source because they do not manage any group. Assign them as a group manager first.",
+  SOURCE_PAUSED: "Canceled by pause. Resume the Source to continue synchronization and indexing.",
+  SOURCE_DELETING: "Canceled because the Source is being deleted.",
+} satisfies Record<string, string>;
+
+/** The table read by a code the server sent, which may name no entry. */
+const statusMessageByCode: Readonly<Record<string, string | undefined>> = statusMessages;
+
+function sourceStatusMessage(code: string) {
+  const known = statusMessageByCode[code];
+  if (known) return known;
+  if (isSafeCode(code))
+    return appText("Source processing failed. Error reference: {{code}}.", { code });
+  return "Source processing failed. Try the operation again.";
+}
+
+function sourceMutationError(error: unknown, mutation: SourceMutation) {
+  if (error instanceof ApiError) {
+    const code = problemCode(error);
+    if (mutation === "google-drive-schedule") {
+      if (isGoogleDriveRevisionConflict(error) || error.status === 428)
+        return "The automatic interval changed. Reload the saved interval before trying again.";
+      if (error.status === 400 || error.status === 422)
+        return "Enter a whole number of minutes from 1 to 2147483647.";
+    }
+    if (
+      mutation === "google-drive-discovery" &&
+      (isGoogleDriveRevisionConflict(error) || error.status === 428)
+    )
+      return "The saved selection or discovery changed. Refresh status and try discovering again. Your selection draft is unchanged.";
+    const known = code ? statusMessageByCode[code] : undefined;
+    if (known) return known;
+    if (mutation === "google-drive" || mutation === "google-drive-discovery") {
+      if (error.status === 412 || error.status === 428)
+        return statusMessages.SOURCE_GOOGLE_REVISION_CONFLICT;
+      if (error.status === 409)
+        return "This source or credential changed, or the credential is still used by a Source. Refresh its status before trying again.";
+      if (mutation === "google-drive-discovery" && (error.status === 400 || error.status === 422))
+        return "Linked documents could not be discovered for this saved selection. Refresh its status before trying again.";
+      if (error.status === 413)
+        return "The selection exceeds the server request-size limit. Reduce the submitted links or linked approvals.";
+      if (error.status === 400 || error.status === 422)
+        return "Check the credential or Source name, OAuth client JSON, unique non-overlapping HTTPS Google file or folder links within the displayed limits, and your linked-document selection.";
+    }
+    if (mutation.startsWith("sharepoint")) {
+      if (mutation === "sharepoint-schedule") {
+        if (error.status === 412 || error.status === 428)
+          return "The schedule changed in another session. Reload the saved intervals before trying again.";
+        if (error.status === 400 || error.status === 422)
+          return "Enter minutes from 1 to 2147483647 and prune hours from 0 to 8760.";
+      }
+      if (error.status === 412 || error.status === 428)
+        return "This credential or scope changed in another session. Refresh before trying again.";
+      if (error.status === 409)
+        return "This Source or credential changed, or the credential is still used by a Source. Refresh its status before trying again.";
+      if (error.status === 413)
+        return "The request exceeds the server request-size limit. Paste fewer addresses.";
+      if (error.status === 503) return statusMessages.SOURCE_SHAREPOINT_UNAVAILABLE;
+      if (error.status === 404 && mutation === "sharepoint-credential")
+        return "This credential is no longer available. Refresh and select another one.";
+      if (error.status === 400 || error.status === 422)
+        return "Check the credential name, the directory and application GUIDs, the authentication, and the pasted addresses.";
+    }
+    if (error.status === 403) return "You do not have permission to manage this Source.";
+    if (mutation === "google-drive" && error.status === 404)
+      return "This Source or credential is no longer available. Refresh and select another credential.";
+    if (error.status === 404) return unavailableMessage(mutation);
+    if (error.status === 409) return conflictMessage(mutation);
+    if (error.status === 400 && mutation === "associations")
+      return "Select only ordinary groups you manage. Groups managed by someone else stay as they are.";
+    if (error.status === 400 || error.status === 413)
+      return "Check the source name or uploaded file and try again.";
+    if (code && isSafeCode(code))
+      return appText("The source operation could not be completed. Error reference: {{code}}.", {
+        code,
+      });
+  }
+
+  return mutation === "google-drive-schedule"
+    ? "The automatic interval could not be updated. Try again."
+    : mutation === "google-drive-discovery"
+      ? "Linked documents could not be discovered. Your saved discovery and selection draft are unchanged. Try again."
+      : "The source operation could not be completed. Try again.";
+}
+
+function unavailableMessage(mutation: SourceMutation) {
+  if (mutation === "associations") return "This Source is no longer available.";
+  if (mutation === "remove-item") return "This file is no longer available in the source.";
+  if (mutation === "delete-source") return "This source is no longer available.";
+  return "The source or file is no longer available.";
+}
+
+function conflictMessage(mutation: SourceMutation) {
+  if (mutation === "associations")
+    return "Source associations changed while you were editing. Refresh and try again.";
+  if (mutation === "remove-item")
+    return "This file is already changing. Refresh the source and try again.";
+  if (mutation === "delete-source")
+    return "This source is already changing. Refresh the source and try again.";
+  return "The source cannot accept that operation right now.";
+}
+
+function isGoogleDriveRevisionConflict(error: unknown) {
+  return (
+    error instanceof ApiError &&
+    (error.status === 412 || problemCode(error) === "SOURCE_GOOGLE_REVISION_CONFLICT")
+  );
+}
+
+function isSafeCode(code: string) {
+  return /^[A-Z][A-Z0-9_]{2,80}$/.test(code);
+}
+
+export { isGoogleDriveRevisionConflict, sourceMutationError, sourceStatusMessage };

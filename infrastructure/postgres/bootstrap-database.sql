@@ -41,6 +41,12 @@ SELECT format(
 \gexec
 
 SELECT format(
+    'ALTER ROLE %I SET idle_in_transaction_session_timeout = ''60s''',
+    :'database_role'
+)
+\gexec
+
+SELECT format(
     'REVOKE CONNECT ON DATABASE %I FROM PUBLIC',
     :'database_name'
 )

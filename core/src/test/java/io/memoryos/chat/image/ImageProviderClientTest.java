@@ -17,6 +17,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -137,7 +138,7 @@ class ImageProviderClientTest {
 
     private static ImageEditImages.Working working() {
         return new ImageEditImages.Working(new byte[]{7, 7}, 384, 512,
-                new java.awt.image.BufferedImage(384, 512, java.awt.image.BufferedImage.TYPE_INT_RGB));
+                new BufferedImage(384, 512, BufferedImage.TYPE_INT_RGB));
     }
 
     @Test @SuppressWarnings("unchecked") void cloudflareEditPostsKleinMultipartAndStoresTheReturnedType() throws Exception {

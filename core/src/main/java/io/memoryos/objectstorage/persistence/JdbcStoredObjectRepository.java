@@ -6,13 +6,14 @@ import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
+import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -81,7 +82,7 @@ public class JdbcStoredObjectRepository {
                 .param("tenantId", tenantId.value())
                 .param("id", id.value())
                 .query((resultSet, ignored) -> new StoredObjectReference(
-                        new StoredObjectId(resultSet.getObject("id", java.util.UUID.class)),
+                        new StoredObjectId(resultSet.getObject("id", UUID.class)),
                         new ObjectKey(resultSet.getString("object_key")),
                         resultSet.getString("filename"),
                         new ObjectMetadata(

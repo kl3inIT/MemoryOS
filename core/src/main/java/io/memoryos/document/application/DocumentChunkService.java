@@ -5,19 +5,18 @@ import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.document.persistence.JdbcDocumentChunkRepository;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.Sha256;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -43,14 +42,14 @@ public class DocumentChunkService implements DocumentChunkPort {
             try (var object = storage.open(new ObjectKey(reader.objectKey()))) {
                 bytes = object.inputStream().readNBytes(Math.toIntExact(reader.size()) + 1);
             }
-            String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            String hash = Sha256.hex(bytes);
             if (bytes.length != reader.size() || !hash.equals(reader.hash())) throw new IllegalStateException("artifact integrity mismatch");
             var chunks = chunker.chunk(reader.title(), new String(bytes, StandardCharsets.UTF_8));
             return repository.publish(reader, chunks)
                     ? repository.load(tenant, document, generation)
                     : Optional.empty();
-        } catch (IOException | NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("cannot read extraction artifact");
+        } catch (IOException failure) {
+            throw new IllegalStateException("cannot read extraction artifact", failure);
         } finally {
             repository.closeReader(reader.readerId());
         }
@@ -62,7 +61,9 @@ public class DocumentChunkService implements DocumentChunkPort {
     }
 
     @Override
-    public List<DocumentIndexState> scan(String identity, String after, int limit) { return repository.scan(identity, after, limit); }
+    public List<DocumentIndexState> scan(String identity, DocumentIndexState.@Nullable Cursor after, int limit) {
+        return repository.scan(identity, after, limit);
+    }
 
     @Override
     public Map<UUID, UUID> currentGenerations(TenantId tenant, List<UUID> documents, String readyIdentity) {
@@ -85,12 +86,15 @@ public class DocumentChunkService implements DocumentChunkPort {
     }
 
     @Override
-    public void markSearchPending(TenantId tenant, DocumentId document, UUID generation) {
-        repository.searchState(tenant, document, generation, null);
+    public void markSearchPending(TenantId tenant, DocumentId document, UUID generation, String identity) {
+        repository.searchState(tenant, document, generation, null, identity);
     }
 
     @Override
-    public void markSearchFailed(TenantId tenant, DocumentId document, UUID generation) {
-        repository.searchState(tenant, document, generation, "SEARCH_INDEX_FAILED");
+    public void markSearchFailed(TenantId tenant, DocumentId document, UUID generation, String errorCode, String identity) {
+        repository.searchState(tenant, document, generation, errorCode, identity);
     }
+
+    @Override
+    public void serve(String identity) { repository.serve(identity); }
 }

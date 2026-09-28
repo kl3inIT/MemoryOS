@@ -1,6 +1,7 @@
 package io.memoryos.api.mcp;
 
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.shared.Sha256;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,7 +9,6 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
@@ -58,19 +58,15 @@ public record McpAuthorizationSessionState(UUID actorId, McpOAuthService.Pending
     }
 
     public static String challenge(String verifier) {
-        try {
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(
-                    MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 unavailable", unavailable);
-        }
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(Sha256.digest(verifier.getBytes(StandardCharsets.US_ASCII)));
     }
 
     private static boolean actorMatches(HttpServletRequest request, UUID actorId) {
         var session = request.getSession(false);
         if (session == null || !(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) instanceof SecurityContext context)
                 || context.getAuthentication() == null || !context.getAuthentication().isAuthenticated()) return false;
-        return context.getAuthentication().getPrincipal() instanceof IdentityContext identity && identity.actorId().value().equals(actorId);
+        return context.getAuthentication().getPrincipal() instanceof IdentityContext(var actor) && actor.value().equals(actorId);
     }
 
     @Override public @NonNull String toString() { return "McpAuthorizationSessionState[redacted]"; }

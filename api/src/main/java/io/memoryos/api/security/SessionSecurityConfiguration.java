@@ -1,16 +1,13 @@
 package io.memoryos.api.security;
 
-import io.memoryos.iam.identity.ActorProfileRecorder;
-import io.memoryos.iam.identity.ExternalIdentityResolver;
-import io.memoryos.iam.identity.ProviderSessionTerminator;
-import io.memoryos.iam.invitation.InvitationService;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.identity.TrustedIdentityAdmission;
-import io.memoryos.iam.identityprovider.JitAdmissionPolicy;
-
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.JitAllowlistSeeder;
+import io.memoryos.iam.ProviderSessionTerminator;
+import io.memoryos.iam.SignInAdmission;
+import io.memoryos.iam.SignInAttempt;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import java.util.UUID;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -33,15 +30,11 @@ class SessionSecurityConfiguration {
     SecurityFilterChain sessionSecurityFilterChain(
             HttpSecurity http,
             ClientRegistrationRepository clientRegistrationRepository,
-            ExternalIdentityResolver identityResolver,
             TenantAccessResolver tenantAccessResolver,
-            InvitationService invitationService,
-            ActorProfileRecorder profileRecorder,
+            SignInAdmission signInAdmission,
             BrowserLoginProperties browserLoginProperties,
-            TrustedIdentityAdmission trustedIdentityAdmission,
-            JitAdmissionPolicy jitAdmissionPolicy,
             ProviderSessionTerminator providerSessionTerminator,
-            io.memoryos.iam.audit.AuditTrail audit,
+            AuditTrail audit,
             @Value("${memoryos.initial-tenant.id}") UUID tenantId,
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String trustedIssuer
     ) {
@@ -73,15 +66,8 @@ class SessionSecurityConfiguration {
                 .oauth2Login(oauth2 -> oauth2
                         .authorizedClientRepository(new DiscardingOAuth2AuthorizedClientRepository())
                         .successHandler(new ActorSessionLoginSuccessHandler(
-                                identityResolver,
-                                tenantAccessResolver,
-                                invitationService,
-                                profileRecorder,
-                                trustedIdentityAdmission,
-                                jitAdmissionPolicy,
-                                new TenantId(tenantId),
-                                trustedIssuer,
-                                audit
+                                signInAdmission,
+                                new SignInAttempt.JitTrust(trustedIssuer, new TenantId(tenantId))
                         ))
                         .failureHandler(new OAuth2LoginFailureHandler()))
                 .logout(logout -> logout

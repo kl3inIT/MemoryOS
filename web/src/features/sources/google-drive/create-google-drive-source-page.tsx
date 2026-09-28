@@ -1,0 +1,320 @@
+import { appText } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { TriangleAlert } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useActionNotifications } from "@/components/ui/action-notifications";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
+import {
+  useApplicationSession,
+  useCapabilityAuthority,
+} from "@/features/identity/application-session-context";
+import {
+  createGoogleDriveSourceMutation,
+  getGoogleDriveSelectionPolicyOptions,
+  getGoogleDriveSelectionRequestOptions,
+  listGoogleDriveCredentialsOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type {
+  CreateGoogleDriveSourceData,
+  GoogleDriveCredentialResponse,
+} from "@/lib/hey-api/types.gen";
+import { SourceCreationStatus } from "@/features/sources/shared/source-creation-status";
+import { useSourceCreation } from "@/features/sources/shared/use-source-creation";
+import { googleDriveCredentialReady } from "./google-drive-credential";
+import { GoogleDriveCredentialDialog } from "./google-drive-credential-dialog";
+import { GoogleDriveCredentialStep } from "./google-drive-credential-step";
+import { GoogleDriveIcon } from "./google-drive-icon";
+import { googleDriveSelectionError, parseGoogleDriveLinks } from "./google-drive-selection";
+import { useGoogleDriveSourceForm } from "./google-drive-source-draft";
+import { GoogleDriveSourceForm } from "./google-drive-source-form";
+
+export function CreateGoogleDriveSourcePage() {
+  const session = useApplicationSession();
+  return (
+    <GoogleDriveSourceSetup
+      key={`${session.actorId}:${session.authorizationVersion}:${session.capabilities.join(",")}:${session.scopedCapabilities.join(",")}`}
+    />
+  );
+}
+
+type CredentialDialogState = {
+  open: boolean;
+  session: number;
+  reconnecting: GoogleDriveCredentialResponse | null;
+  replacingKey: GoogleDriveCredentialResponse | null;
+};
+
+function GoogleDriveSourceSetup() {
+  const ui = useAppTranslation();
+
+  const { googleDrive, credentialId, step } = useSearch({
+    from: "/_authenticated/admin/sources/new/google-drive",
+  });
+  const navigate = useNavigate({ from: "/admin/sources/new/google-drive" });
+  const authority = useCapabilityAuthority("SOURCES_MANAGE");
+  const globalManage = authority === "global";
+  const canManage = authority !== "none";
+  const credentials = useQuery({
+    ...listGoogleDriveCredentialsOptions(),
+    enabled: canManage,
+    retry: false,
+  });
+  const createSource = useMutation(createGoogleDriveSourceMutation());
+  const policy = useQuery({
+    ...getGoogleDriveSelectionPolicyOptions(),
+    enabled: canManage,
+    retry: false,
+  });
+  const creation = useSourceCreation({
+    provider: "drive",
+    recover: (requestId) => getGoogleDriveSelectionRequestOptions({ path: { requestId } }),
+    create: (body: CreateGoogleDriveSourceData["body"]) => createSource.mutateAsync({ body }),
+    failureCode: "SOURCE_GOOGLE_SELECTION_FAILED",
+    errorKind: "google-drive",
+    refresh: () => credentials.refetch(),
+  });
+  const { tracking, error, setError, frozen } = creation;
+  const selected = credentials.data?.find((credential) => credential.id === credentialId);
+  const connected = googleDriveCredentialReady(selected);
+  const unavailable = !canManage || credentials.isPending || credentials.isError;
+  const [dialog, setDialog] = useState<CredentialDialogState>({
+    open: false,
+    session: 0,
+    reconnecting: null,
+    replacingKey: null,
+  });
+  const [dialogBusy, setDialogBusy] = useState(false);
+  const [credentialsBusy, setCredentialsBusy] = useState(false);
+  const form = useGoogleDriveSourceForm({
+    onEdit: () => creation.edit(() => {}),
+    onSubmit: create,
+  });
+  const draft = useStore(form.store, (state) => state.values);
+  const modalTrigger = useRef<HTMLButtonElement | null>(null);
+  const busy = dialogBusy || credentialsBusy || createSource.isPending;
+  const proposal = {
+    name: draft.sourceName.trim(),
+    credentialId: selected?.id ?? "",
+    scopeMode: draft.scopeMode,
+    links: draft.scopeMode === "GENERAL" ? [] : parseGoogleDriveLinks(draft.linksText),
+    groupIds:
+      draft.access === "PRIVATE" && draft.groupIds.size > 0 ? [...draft.groupIds] : undefined,
+    access: draft.access,
+  };
+  const selectionError = googleDriveSelectionError(proposal, policy.data);
+  const submitDisabled =
+    busy ||
+    creation.pendingValidation ||
+    tracking.recovering ||
+    tracking.recoveryError ||
+    (!creation.createdSourceId &&
+      !tracking.uncertain &&
+      (unavailable || !connected || !proposal.name || Boolean(selectionError)));
+
+  // A reconnect the credential no longer allows closes its dialog.
+  const reconnectingCredential = credentials.data?.find(
+    (entry) => entry.id === dialog.reconnecting?.id,
+  );
+  if (
+    dialog.reconnecting &&
+    (unavailable || !(reconnectingCredential?.actions.includes("reauthorize") ?? false))
+  ) {
+    setDialog({ ...dialog, open: false, reconnecting: null });
+  }
+
+  useAuthorizationCallbackNotice({
+    callback: googleDrive,
+    credentialId,
+    selected,
+    ready: connected && !unavailable && !credentials.isFetching,
+  });
+
+  function openDialog(
+    trigger: HTMLButtonElement | null,
+    target: Pick<CredentialDialogState, "reconnecting" | "replacingKey">,
+  ) {
+    if (busy) return;
+    modalTrigger.current = trigger;
+    setError(null);
+    setDialog((current) => ({ open: true, session: current.session + 1, ...target }));
+  }
+
+  // The dialog has no trigger of its own, so it only ever asks to close.
+  function changeDialog(open: boolean) {
+    if (busy || open) return;
+    setError(null);
+    closeDialog();
+  }
+
+  function closeDialog() {
+    setDialog((current) => ({ ...current, open: false, reconnecting: null, replacingKey: null }));
+  }
+
+  function create() {
+    if (busy) return;
+    void creation.submit(
+      proposal,
+      !unavailable && connected && Boolean(selected) && Boolean(proposal.name) && !selectionError,
+    );
+  }
+
+  return (
+    <SettingsLayout wide>
+      <PageHeader icon={<GoogleDriveIcon />} title={ui("Google Drive")} />
+      {googleDrive === "authorization-failed" ? (
+        <Alert variant="warning">
+          <TriangleAlert aria-hidden="true" />
+          <AlertDescription>
+            {ui("Google authorization was not completed. You can try connecting again.")}
+          </AlertDescription>
+        </Alert>
+      ) : googleDrive === "connected" && connected && !unavailable && step !== "connector" ? (
+        <p role="status" className="text-sm text-content-secondary">
+          {ui("Authorization completed. Select the credential and continue to create a Source.")}
+        </p>
+      ) : null}
+      {!canManage ? (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {ui("You do not have permission to manage credentials and Sources.")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {error && !dialog.open ? (
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <AlertDescription>{ui(error)}</AlertDescription>
+        </Alert>
+      ) : null}
+      <SourceCreationStatus
+        creation={creation}
+        busy={busy}
+        pendingMessage={ui(
+          "Google access and roots are being verified. Your Source is not active yet. Leaving this page does not cancel validation; return here to recover its status.",
+        )}
+      />
+      {policy.isError ? (
+        <div className="flex flex-col items-start gap-2">
+          {!error && !tracking.recoveryError && !tracking.statusUnavailable ? (
+            <p role="alert" className="text-sm text-status-danger-content">
+              {ui("Selection limits could not be loaded. Creation is disabled.")}
+            </p>
+          ) : null}
+          <Button prominence="secondary" onClick={() => void policy.refetch()}>
+            {ui("Retry selection policy")}
+          </Button>
+        </div>
+      ) : null}
+      {step === "connector" ? (
+        <GoogleDriveSourceForm
+          form={form}
+          selected={selected}
+          connected={connected}
+          unavailable={unavailable}
+          busy={busy}
+          creating={createSource.isPending}
+          globalManage={globalManage}
+          policy={policy.data}
+          policyError={policy.isError}
+          selectionError={selectionError}
+          submitDisabled={submitDisabled}
+          creation={creation}
+          onBack={() => void navigate({ search: { credentialId } })}
+        />
+      ) : (
+        <GoogleDriveCredentialStep
+          credentials={credentials}
+          credentialId={credentialId}
+          canManage={canManage}
+          unavailable={unavailable}
+          connected={connected}
+          busy={dialogBusy || createSource.isPending}
+          frozen={frozen}
+          onSelect={(value) => {
+            setError(null);
+            void navigate({ search: { credentialId: value } });
+          }}
+          onCreate={(trigger) => openDialog(trigger, { reconnecting: null, replacingKey: null })}
+          onReconnect={(trigger, credential) => {
+            if (credential.actions.includes("reauthorize"))
+              openDialog(trigger, { reconnecting: credential, replacingKey: null });
+          }}
+          onReplaceKey={(trigger, credential) => {
+            if (credential.actions.includes("replace_key"))
+              openDialog(trigger, { reconnecting: null, replacingKey: credential });
+          }}
+          onContinue={() => void navigate({ search: { credentialId, step: "connector" } })}
+          onBusyChange={setCredentialsBusy}
+        />
+      )}
+      <GoogleDriveCredentialDialog
+        open={dialog.open}
+        session={dialog.session}
+        reconnecting={dialog.reconnecting}
+        replacingKey={dialog.replacingKey}
+        credentials={credentials.data}
+        unavailable={unavailable}
+        canManage={canManage}
+        globalManage={globalManage}
+        busy={busy}
+        triggerRef={modalTrigger}
+        onOpenChange={changeDialog}
+        onBusyChange={setDialogBusy}
+        onSaved={closeDialog}
+        refetchCredentials={() => credentials.refetch()}
+      />
+    </SettingsLayout>
+  );
+}
+
+/**
+ * Reports the outcome of Google's consent screen once per return: a refused authorization at
+ * once, a connected credential once the credentials read after the return show it ready.
+ */
+function useAuthorizationCallbackNotice({
+  callback,
+  credentialId,
+  selected,
+  ready,
+}: {
+  callback: "connected" | "authorization-failed" | undefined;
+  credentialId: string | undefined;
+  selected: GoogleDriveCredentialResponse | undefined;
+  ready: boolean;
+}) {
+  const notify = useActionNotifications();
+  const session = useApplicationSession();
+  const reportedCallback = useRef<string | null>(null);
+  useEffect(() => {
+    if (!callback) {
+      reportedCallback.current = null;
+      return;
+    }
+    const callbackKey = `${session.actorId}:${callback}:${credentialId ?? ""}`;
+    if (reportedCallback.current === callbackKey) return;
+    if (callback === "authorization-failed") {
+      reportedCallback.current = callbackKey;
+      notify({
+        title: "Credential connection failed",
+        description: appText(
+          "Google authorization was not completed. You can try connecting again.",
+        ),
+        tone: "error",
+      });
+    } else if (callback === "connected" && ready && selected) {
+      reportedCallback.current = callbackKey;
+      notify({
+        title: "Credential connected",
+        description: appText("{{v1}} is connected and ready to use with a Source.", {
+          v1: selected.name,
+        }),
+        tone: "success",
+      });
+    }
+  }, [callback, credentialId, session.actorId, ready, selected, notify]);
+}

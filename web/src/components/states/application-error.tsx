@@ -41,10 +41,10 @@ export function ApplicationError({
     >
       <Empty className="max-w-lg">
         <EmptyHeader>
-          <EmptyMedia variant="icon" className="bg-muted text-foreground">
+          <EmptyMedia variant="icon">
             <TriangleAlert />
           </EmptyMedia>
-          <EmptyTitle role="heading" aria-level={1} className="font-heading-h2">
+          <EmptyTitle role="heading" aria-level={1} size="page">
             {title ?? ui("Something went wrong")}
           </EmptyTitle>
           <EmptyDescription>
@@ -52,7 +52,7 @@ export function ApplicationError({
               ui("MemoryOS could not complete this request. Your data was not changed.")}
           </EmptyDescription>
           {details && (
-            <p className="max-w-md break-words font-mono text-xs text-content-muted">{details}</p>
+            <p className="max-w-md font-mono text-xs break-words text-content-muted">{details}</p>
           )}
         </EmptyHeader>
         {onRetry && (

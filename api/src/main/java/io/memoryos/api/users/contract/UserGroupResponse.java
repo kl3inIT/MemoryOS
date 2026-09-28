@@ -1,7 +1,7 @@
 package io.memoryos.api.users.contract;
 
-import io.memoryos.iam.group.GroupIdentity;
-import io.memoryos.iam.group.GroupSystemKey;
+import io.memoryos.iam.GroupIdentity;
+import io.memoryos.iam.GroupSystemKey;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

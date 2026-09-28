@@ -12,28 +12,27 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.StatementCounter;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.ChatBranchService;
-import io.memoryos.chat.application.ChatFileProperties;
-import io.memoryos.chat.application.ChatTurnPersistence;
-import io.memoryos.chat.application.DefaultChatSessionService;
-import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.library.UserFileProperties;
+import io.memoryos.chat.session.ChatTurnPersistence;
+import io.memoryos.chat.session.DefaultChatSessionService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
-import io.memoryos.chat.interpreter.JdbcInterpreterRepository;
-import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcChatSearchRepository;
-import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
-import io.memoryos.chat.persistence.JdbcUserFileRepository;
-import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JdbcChatSearchRepository;
+import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
+import io.memoryos.library.persistence.JdbcUserFileRepository;
+import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.ActorLanguageService;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.ActorLanguageService;
 import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
 import io.memoryos.iam.identity.persistence.JpaActorRepository;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 import io.memoryos.objectstorage.ContentSha256;
@@ -49,6 +48,7 @@ import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -61,9 +61,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.data.repository.core.support.RepositoryComposition;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
+import io.memoryos.library.LibraryStorageProperties;
+import io.memoryos.library.StorageQuotaService;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.library.LibraryTrashProperties;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
+import io.memoryos.library.UserFileService;
 
 /**
  * The conversation lifecycle (MEM-153): archiving takes a conversation off the sidebar without losing it, and
@@ -85,12 +93,14 @@ class ChatLifecycleIntegrationTest {
     private TenantId tenant;
     private ActorId owner;
     private ActorId other;
+    private StatementCounter statements;
 
     @BeforeEach
     void setup() throws Exception {
         database = TestDatabase.freshPostgres();
-        jdbc = JdbcClient.create(database);
-        jpa = TestDatabase.jpa(database);
+        statements = new StatementCounter(database);
+        jdbc = JdbcClient.create(statements);
+        jpa = TestDatabase.jpa(statements);
         var storage = mock(ObjectStorage.class);
         doAnswer(call -> {
             stored.put(call.<ObjectKey>getArgument(0).value(), call.getArgument(1));
@@ -106,7 +116,7 @@ class ChatLifecycleIntegrationTest {
             return new ObjectContent() {
                 private final ByteArrayInputStream input = new ByteArrayInputStream(bytes);
                 @Override public ObjectMetadata metadata() { return described; }
-                @Override public java.io.InputStream inputStream() { return input; }
+                @Override public InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
         });
@@ -116,20 +126,19 @@ class ChatLifecycleIntegrationTest {
         var authorization = mock(IamAuthorization.class);
         repository = new JdbcChatRepository(jdbc);
         sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository,
-                new PersonaProperties(), new JdbcChatSearchRepository(jdbc)), ChatSessionService.class,
+                new JdbcChatSearchRepository(jdbc)), ChatSessionService.class,
                 jpa.transactionManager());
-        var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants,
-                new io.memoryos.chat.application.ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc));
-        var files = new ChatFileService(tenants, repository, new JdbcUserFileRepository(jdbc),
-                mock(ObjectUploadService.class), new ChatFileProperties(104857600, 262144000), quotas,
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)), jpa.transactionManager());
+        var quotas = new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc));
+        var files = new UserFileService(tenants, new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),
+                mock(ObjectUploadService.class), new UserFileProperties(104857600, 262144000), quotas,
+                new LibraryTrashProperties(Duration.ZERO), jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository,
-                new PersonaProperties(), files, new ActorLanguageService(jpa.repository(JpaActorRepository.class,
-                        org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments
+                files, new ActorLanguageService(jpa.repository(JpaActorRepository.class,
+                        RepositoryComposition.RepositoryFragments
                                 .just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
                 new JdbcImageArtifactRepository(jdbc)));
         factory.setProxyTargetClass(true);
@@ -140,11 +149,10 @@ class ChatLifecycleIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
-                authorization, tenants, writes, storage, quotas, new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
-                jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
+                authorization, tenants, writes, storage, quotas, new LibraryTrashProperties(Duration.ZERO),
+                jpa.transactionManager(), TestDatabase.noAudit());
         // Constructed directly: the service owns its own transaction template, which is what the copy relies on.
-        branches = new ChatBranchService(tenants, repository, new JdbcChatLibraryRepository(jdbc), storage, writes,
+        branches = new ChatBranchService(tenants, repository, new JdbcChatArtifactRepository(jdbc), storage, writes,
                 jpa.transactionManager());
         seedTenant();
     }
@@ -231,6 +239,35 @@ class ChatLifecycleIntegrationTest {
         var next = reserve(branch, history.getLast().id(), "Only in the branch");
         turns.finish(branch.id(), next.assistantMessageId(), ChatMessage.Status.COMPLETED, "Branch answer");
         assertEquals(4, sessions.history(owner, branch.id(), null, 100).size());
+    }
+
+    @Test
+    void branchingCopiesEveryMessageInOneStatementAndLooksUpArtifactsOnce() {
+        var origin = sessions.create(owner, "Long conversation");
+        UUID parent = origin.rootMessageId();
+        for (int turn = 0; turn < 6; turn++) {
+            var pair = reserve(origin, parent, "Question " + turn);
+            turns.finish(origin.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer " + turn);
+            if (turn % 2 == 0) interpreter.store(tenant, pair.assistantMessageId(), "turn-" + turn + ".csv", "text/csv",
+                    ("turn " + turn).getBytes());
+            parent = pair.assistantMessageId();
+        }
+
+        statements.reset();
+        var branch = branches.branch(owner, origin.id(), parent);
+
+        // Twelve messages and three generated files: one copy statement and one lookup per artifact table.
+        assertEquals(1, statements.count("original_assistant_message_id, created_at"), statements.statements().toString());
+        assertEquals(1, statements.count("FROM chat_file_artifact a"), statements.statements().toString());
+        assertEquals(1, statements.count("FROM chat_image_artifact a"), statements.statements().toString());
+        var history = sessions.history(owner, branch.id(), null, 100);
+        assertEquals(12, history.size());
+        assertEquals("Question 0", history.getFirst().content());
+        assertEquals("Answer 5", history.getLast().content());
+        assertEquals(List.of("Answer 0:turn-0.csv", "Answer 2:turn-2.csv", "Answer 4:turn-4.csv"), jdbc.sql("""
+                SELECT m.content || ':' || a.filename FROM chat_file_artifact a JOIN chat_message m ON m.id = a.message_id
+                WHERE a.session_id = :session ORDER BY a.filename
+                """).param("session", branch.id()).query(String.class).list());
     }
 
     @Test

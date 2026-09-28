@@ -1,10 +1,16 @@
 package io.memoryos.api.audit;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditEventClass;
-import io.memoryos.iam.audit.AuditLog;
-import io.memoryos.iam.audit.AuditOutcome;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.api.security.CurrentActor;
+import io.memoryos.api.audit.contract.AuditCatalogActionResponse;
+import io.memoryos.api.audit.contract.AuditCatalogResponse;
+import io.memoryos.api.audit.contract.AuditEventPageResponse;
+import io.memoryos.api.audit.contract.AuditEventResponse;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditEventClass;
+import io.memoryos.audit.AuditLog;
+import io.memoryos.audit.AuditOutcome;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.shared.ActorId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,9 +25,9 @@ import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -29,7 +35,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,8 +45,8 @@ import tools.jackson.databind.ObjectMapper;
 @RestController
 @RequestMapping(value = "/api/audit", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Audit")
-@ApiResponse(responseCode = "400", description = "Invalid filter or cursor", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "403", description = "Audit reading or Tenant membership requirement not met", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid filter or cursor")
+@ApiResponse(responseCode = "403", description = "Audit reading or Tenant membership requirement not met")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
@@ -54,48 +59,10 @@ class AuditLogController {
 
     AuditLogController(AuditLog log) { this.log = log; }
 
-    @Schema(name = "AuditEvent", description = "One recorded change: who, what and to which resource, with the declared details of its action")
-    record EventResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant occurredAt,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "An append-only action value such as user.deactivate")
-                         String action,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AuditEventClass eventClass,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AuditOutcome outcome,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable UUID actorId,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String actorLabel,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String actorEmail,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String resourceType,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String resourceId,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String resourceLabel,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-                         Map<String, Object> details,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String traceId,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String endpoint,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String sourceIp) {
-        static EventResponse from(AuditLog.Event event) {
-            return new EventResponse(event.id(), event.occurredAt(), event.action(), event.eventClass(), event.outcome(),
-                    event.actorId(), event.actorLabel(), event.actorEmail(), event.resourceType(), event.resourceId(),
-                    event.resourceLabel(), event.details(), event.traceId(), event.endpoint(), event.sourceIp());
-        }
-    }
-
-    @Schema(name = "AuditEventPage")
-    record PageResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<EventResponse> items,
-                        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
-                                description = "Pass back to read the next, older page; null on the last page")
-                        @Nullable String nextCursor) {}
-
-    @Schema(name = "AuditCatalog", description = "Every action the stream can hold, newest catalog first; values never change meaning")
-    record CatalogResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<CatalogAction> actions) {}
-
-    @Schema(name = "AuditCatalogAction")
-    record CatalogAction(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String action,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AuditEventClass eventClass) {}
-
     @GetMapping("/events")
     @Operation(operationId = "listAuditEvents", summary = "The Tenant's audit events, newest first, one page at a time; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    PageResponse events(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    AuditEventPageResponse events(@CurrentActor IdentityContext identity,
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant from,
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant to,
                         @RequestParam(required = false) @Nullable String q,
@@ -108,32 +75,32 @@ class AuditLogController {
                         @RequestParam(required = false) @Nullable String cursor,
                         @Parameter(schema = @Schema(type = "integer", format = "int32", minimum = "1", maximum = "100", defaultValue = "50"))
                         @RequestParam(defaultValue = "50") int size) {
-        var page = log.page(identity.actorId(), new AuditLog.Query(from, to, q, eventClass, action, outcome, actorId,
+        var page = log.page(identity.actorId(), new AuditLog.Query(from, to, q, eventClass, action, outcome, actor(actorId),
                 resourceType, resourceId), cursor, size);
-        return new PageResponse(page.items().stream().map(EventResponse::from).toList(), page.nextCursor());
+        return new AuditEventPageResponse(page.items().stream().map(AuditEventResponse::from).toList(), page.nextCursor());
     }
 
     @GetMapping("/events/{eventId}")
     @Operation(operationId = "getAuditEvent", summary = "One audit event; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    @ApiResponse(responseCode = "404", description = "No event with this id in the Tenant", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-    EventResponse event(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID eventId) {
-        return EventResponse.from(log.get(identity.actorId(), eventId));
+    @ApiResponse(responseCode = "404", description = "No event with this id in the Tenant")
+    AuditEventResponse event(@CurrentActor IdentityContext identity, @PathVariable UUID eventId) {
+        return AuditEventResponse.from(log.get(identity.actorId(), eventId));
     }
 
     @GetMapping("/catalog")
     @Operation(operationId = "getAuditCatalog", summary = "Every action the audit stream can hold, for the viewer's action filter; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    CatalogResponse catalog(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    AuditCatalogResponse catalog(@CurrentActor IdentityContext identity) {
         log.requireReader(identity.actorId());
-        return new CatalogResponse(Arrays.stream(AuditAction.values())
-                .map(action -> new CatalogAction(action.value(), action.eventClass())).toList());
+        return new AuditCatalogResponse(Arrays.stream(AuditAction.values())
+                .map(action -> new AuditCatalogActionResponse(action.value(), action.eventClass())).toList());
     }
 
     @GetMapping(value = "/export", produces = "text/csv")
     @Operation(operationId = "exportAuditEvents", summary = "The events the filters select as CSV, at most 50,000 rows; the export is itself recorded; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "CSV", content = @Content(mediaType = "text/csv", schema = @Schema(type = "string", format = "binary")))
-    void export(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    void export(@CurrentActor IdentityContext identity,
                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant from,
                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant to,
                 @RequestParam(required = false) @Nullable String q,
@@ -142,12 +109,10 @@ class AuditLogController {
                 @RequestParam(required = false) @Nullable AuditOutcome outcome,
                 @RequestParam(required = false) @Nullable UUID actorId,
                 HttpServletResponse response) throws IOException {
-        var query = new AuditLog.Query(from, to, q, eventClass, action, outcome, actorId, null, null);
+        var query = new AuditLog.Query(from, to, q, eventClass, action, outcome, actor(actorId), null, null);
         response.setContentType("text/csv; charset=UTF-8");
-        response.setHeader("Cache-Control", "no-store");
-        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Content-Disposition", ContentDisposition.attachment()
-                .filename("audit-log_" + java.time.LocalDate.now(java.time.ZoneOffset.UTC) + ".csv", StandardCharsets.UTF_8)
+                .filename("audit-log_" + LocalDate.now(ZoneOffset.UTC) + ".csv", StandardCharsets.UTF_8)
                 .build().toString());
         Writer writer = new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8);
         // A byte-order mark, so a spreadsheet opens Vietnamese names as UTF-8.
@@ -157,7 +122,7 @@ class AuditLogController {
                 "resource_id", "resource", "details", "source_ip", "endpoint", "trace_id");
         log.export(identity.actorId(), query, event -> {
             try {
-                csv.printRecord(event.occurredAt(), event.action(), event.eventClass(), event.outcome(), event.actorId(),
+                csv.printRecord(event.occurredAt(), event.action(), event.eventClass(), event.outcome(), actorUuid(event),
                         guard(event.actorLabel()), guard(event.actorEmail()), event.resourceType(), guard(event.resourceId()),
                         guard(event.resourceLabel()), guard(JSON.writeValueAsString(event.details())), event.sourceIp(),
                         event.endpoint(), event.traceId());
@@ -169,6 +134,14 @@ class AuditLogController {
     }
 
     /** User-controlled text only; the usage report guards the same prefixes. */
+    private static @Nullable UUID actorUuid(AuditLog.Event event) {
+        return event.actorId() == null ? null : event.actorId().value();
+    }
+
+    private static @Nullable ActorId actor(@Nullable UUID actorId) {
+        return actorId == null ? null : new ActorId(actorId);
+    }
+
     private static @Nullable String guard(@Nullable String value) {
         if (value == null || value.isEmpty()) return value;
         return FORMULA_PREFIXES.indexOf(value.charAt(0)) >= 0 ? "'" + value : value;

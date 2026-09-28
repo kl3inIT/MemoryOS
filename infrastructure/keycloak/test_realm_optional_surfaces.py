@@ -54,5 +54,21 @@ class RealmOptionalSurfacesTest(unittest.TestCase):
         self.assertIn("MEMORYOS_KEYCLOAK_SMTP_USERNAME is required when SMTP auth is enabled", SCRIPT)
 
 
+class RealmBootstrapTest(unittest.TestCase):
+    def test_the_script_builds_a_realm_that_is_not_there_yet(self):
+        # It used to assert the realm existed, so the first environment could only be built by
+        # hand and nothing recorded how. A new node now gets its realm from the same run that
+        # reconciles an old one.
+        self.assertIn('"$KCADM" create realms', SCRIPT)
+        self.assertIn('action=created', SCRIPT)
+        self.assertIn('action=reused', SCRIPT)
+
+    def test_the_summary_reports_the_realm_that_was_built(self):
+        # Reporting required verification on a realm that can send no mail sends the next reader
+        # looking for a mail server that was deliberately left out.
+        self.assertIn('email-verification=disabled smtp=none', SCRIPT)
+        self.assertIn('email-verification=required smtp=configured', SCRIPT)
+
+
 if __name__ == "__main__":
     unittest.main()

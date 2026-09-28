@@ -36,6 +36,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
     document.documentElement.style.colorScheme = resolvedTheme;
+    const surface = getComputedStyle(document.documentElement)
+      .getPropertyValue("--surface-base")
+      .trim();
+    if (surface)
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", surface);
   }, [resolvedTheme]);
 
   const value = useMemo<ThemeContextValue>(
@@ -54,5 +59,5 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     [preference, resolvedTheme],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return <ThemeContext value={value}>{children}</ThemeContext>;
 }

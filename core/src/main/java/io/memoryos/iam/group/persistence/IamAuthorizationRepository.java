@@ -1,8 +1,8 @@
 package io.memoryos.iam.group.persistence;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

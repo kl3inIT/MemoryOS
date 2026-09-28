@@ -8,11 +8,11 @@ import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
@@ -278,7 +278,7 @@ public class DocumentSearchService {
             }
         }
         var ranked = representatives.entrySet().stream().sorted(Comparator
-                .<java.util.Map.Entry<String, SearchHit>>comparingDouble(e -> scores.get(e.getKey())).reversed()
+                .<Map.Entry<String, SearchHit>>comparingDouble(e -> scores.get(e.getKey())).reversed()
                 .thenComparingInt(e -> firstRank.get(e.getKey())).thenComparingInt(e -> firstQuery.get(e.getKey())))
                 .map(entry -> {
             var hit = entry.getValue();

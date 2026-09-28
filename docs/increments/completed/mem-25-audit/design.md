@@ -50,7 +50,7 @@ the filters select; and a line under the title stating how long the log is kept 
 
 ## Decision
 
-Recorded in [ADR 0013](../../decisions/0013-server-authored-audit-evidence.md), which supersedes ADR 0003:
+Recorded in [ADR 0013](../../../decisions/0013-server-authored-audit-evidence.md), which supersedes ADR 0003:
 an append-only table per Tenant, written in the operation's transaction, never failing the operation; successes
 always, denials only for a scoped manager outside their scope; `AUDIT_READ`; no secrets; 365-day retention.
 

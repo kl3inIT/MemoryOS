@@ -1,6 +1,6 @@
 package io.memoryos.api.identityprovider.contract;
 
-import io.memoryos.iam.keycloak.DiscoveredOidcProvider;
+import io.memoryos.iam.DiscoveredOidcProvider;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.jspecify.annotations.Nullable;
 

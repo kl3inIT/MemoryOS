@@ -1,13 +1,13 @@
 package io.memoryos.iam.group;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.IamAccess;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository.AuthorizationSnapshot;
 import io.memoryos.iam.group.persistence.IamLockRepository;
@@ -15,13 +15,12 @@ import io.memoryos.iam.group.persistence.IamLockRepository;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Service
 public class DefaultIamAuthorization implements IamAuthorization {
@@ -140,7 +139,7 @@ public class DefaultIamAuthorization implements IamAuthorization {
         throw denied(null, requiredCapability);
     }
 
-    private java.util.Optional<AuthorizationSnapshot> snapshot(ActorId actorId) {
+    private Optional<AuthorizationSnapshot> snapshot(ActorId actorId) {
         return authorityRepository.find(Objects.requireNonNull(actorId, "actorId must not be null"));
     }
 

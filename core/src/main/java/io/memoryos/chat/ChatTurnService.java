@@ -1,24 +1,41 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.application.ChatTurnPersistence;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import com.embabel.common.ai.prompt.PromptContributor;
+import io.memoryos.ai.TurnFailure;
+import io.memoryos.ai.TurnFailureException;
+import io.memoryos.ai.ModelTurns;
+import io.memoryos.ai.ModelAccounting;
+import io.memoryos.chat.image.ImageConnectionService;
+import io.memoryos.chat.research.ResearchProperties;
+import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.chat.catalog.ChatModelResolver;
-import io.memoryos.chat.catalog.ModelFlow;
+import io.memoryos.chat.grounding.ChatGuardrailCheck;
+import io.memoryos.chat.grounding.CitationGate;
+import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.ModelFlow;
+import io.memoryos.chat.web.WebConnectionService;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.mcp.McpTurnService;
 import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageLimitException;
+import io.memoryos.usage.AiUsageLimitService;
+import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.Objects;
 import java.util.UUID;
-import java.util.Set;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -34,18 +51,17 @@ import reactor.core.publisher.Sinks;
 /** Background turn lifetime is independent of HTTP request/reader lifetime. Created only by the API. */
 public final class ChatTurnService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTurnService.class);
-    private static final Set<String> FAILURE_CODES = Set.of("CHAT_OUTPUT_LIMIT", "CHAT_CYCLE_LIMIT", "CHAT_BUDGET_EXCEEDED",
-            "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS",
-            "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT", "CHAT_MODEL_OUTPUT_LIMIT");
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
-    private final ChatModelResolver models;
-    private final io.memoryos.chat.web.@Nullable WebConnectionService web;
-    private final io.memoryos.chat.image.@Nullable ImageConnectionService images;
-    private final io.memoryos.usage.@Nullable AiUsageLimitService spending;
+    private final ChatModelSelector models;
+    private final @Nullable WebConnectionService web;
+    private final @Nullable ImageConnectionService images;
+    private final @Nullable AiUsageLimitService spending;
     private final @Nullable ChatSettingsService settings;
-    private final io.memoryos.chat.research.@Nullable ResearchProperties research;
-    private final io.memoryos.mcp.@Nullable McpTurnService mcp;
+    private final @Nullable ResearchProperties research;
+    private final @Nullable McpTurnService mcp;
+    private final @Nullable ChatGuardrailCheck guardrails;
+    private final @Nullable ChatTurnMetrics metrics;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -55,48 +71,64 @@ public final class ChatTurnService implements AutoCloseable {
     private final AtomicBoolean accepting = new AtomicBoolean(true);
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models) {
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models) {
         this(persistence, model, limits, executor, streams, models, null, null, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images) {
-        this(persistence, model, limits, executor, streams, models, web, images, null);
-    }
-
-    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
-            io.memoryos.chat.research.@Nullable ResearchProperties research) {
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, research, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
-            io.memoryos.chat.research.@Nullable ResearchProperties research,
-            io.memoryos.mcp.@Nullable McpTurnService mcp) {
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
-            io.memoryos.chat.research.@Nullable ResearchProperties research,
-            io.memoryos.mcp.@Nullable McpTurnService mcp,
-            io.memoryos.usage.@Nullable AiUsageLimitService spending) {
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp,
+            @Nullable AiUsageLimitService spending) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, spending, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp,
+            @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, spending, guardrails, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp,
+            @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails,
+            @Nullable ChatTurnMetrics metrics) {
+        this.guardrails = guardrails;
+        this.metrics = metrics;
         this.spending = spending;
         this.research = research;
         this.persistence = persistence;
@@ -125,7 +157,7 @@ public final class ChatTurnService implements AutoCloseable {
             // A spent budget leaves the session's short title rather than failing it, as Onyx does.
             if (spending != null) {
                 try { spending.enforce(actor); }
-                catch (io.memoryos.usage.AiUsageLimitException refused) { return; }
+                catch (AiUsageLimitException refused) { return; }
             }
             try (var selected = models.resolveFlow(actor, session, ModelFlow.CHAT_NAMING)) {
                 // The callback records usage even when naming fails.
@@ -133,17 +165,19 @@ public final class ChatTurnService implements AutoCloseable {
                 persistence.completeTitle(actor, input.orElseThrow(), title);
             } catch (RuntimeException failure) {
                 // Preserve the initial short title. Never log conversation/provider payloads.
-                LOG.warn("Chat naming unavailable for session {} ({})", session, failure.getClass().getSimpleName());
+                LOG.atWarn().addKeyValue("event", "chat.naming.failed").addKeyValue("session_id", session)
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat naming unavailable");
             }
         } finally { permits.release(); }
     }
 
-    private void recordNaming(ActorId actor, ChatModelResolver.Resolved selected, ChatModelExecutor.Accounting accounting) {
+    private void recordNaming(ActorId actor, ModelResolver.Resolved selected, ModelAccounting accounting) {
         try {
             persistence.recordUsage(new ChatTurnPersistence.Usage(null, actor, AiUsageFlow.CHAT_NAMING, selected.modelConfigurationId(),
                     selected.provenance(), selected.binding().service().getName(), accounting));
         } catch (RuntimeException failure) {
-            LOG.warn("Chat naming usage not recorded ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "chat.naming.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat naming usage not recorded");
         }
     }
 
@@ -152,68 +186,110 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {
-        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
-        if (command.image() != ImageMode.off) persistence.require(actor, io.memoryos.iam.group.IamCapability.IMAGE_GENERATE);
+        persistence.require(actor, IamCapability.CHAT_WRITE);
+        if (command.image() != ImageMode.off) persistence.require(actor, IamCapability.IMAGE_GENERATE);
         var lock = commandLock(session);
+        Admission admission;
         lock.lock();
-        try { return sendLocked(actor, session, command); }
+        try { admission = admit(actor, session, command); }
         finally { lock.unlock(); }
+        // The run is registered before the lock is released, so Stop, subscribe and delete see it from here on.
+        var run = admission.run();
+        return run == null ? admission.accepted() : start(actor, command, admission, run);
     }
 
-    private Accepted sendLocked(ActorId actor, UUID session, ChatCommand command) {
+    /** A replayed or newly registered turn; {@code run} is null when nothing remains to start. */
+    private record Admission(Accepted accepted, @Nullable Active run, boolean opensMcp) {}
+
+    /**
+     * Network work runs here, after the session lock: opening MCP tools may refresh OAuth tokens. The registered run
+     * owns the permit, so every failure settles it through the same terminal path as a failed execution.
+     */
+    private Accepted start(ActorId actor, ChatCommand command, Admission admission, Active run) {
+        String failure = "CHAT_SETUP_FAILED";
+        boolean dispatched = false;
+        try {
+            // Credentials and OAuth refresh settle here, so the model never waits on an authorization server.
+            // A Stop that arrives meanwhile cancels the run; execution then settles it without calling the model.
+            if (admission.opensMcp()) run.setup = run.setup.withMcp(Objects.requireNonNull(mcp).open(actor, command.mcpServerIds()));
+            failure = "CHAT_SUBMIT_FAILED";
+            if (!accepting.get()) throw ChatException.busy();
+            executor.execute(() -> execute(run));
+            dispatched = true;
+            return admission.accepted();
+        } finally {
+            if (!dispatched) {
+                run.finish(ChatMessage.Status.FAILED, failure);
+                finalizeRun(run);
+                retireWhenDrained(run);
+            }
+        }
+    }
+
+    private Admission admit(ActorId actor, UUID session, ChatCommand command) {
         var previous = persistence.existing(actor, session, command);
-        if (previous.isPresent()) return accepted(previous.orElseThrow());
+        if (previous.isPresent()) return new Admission(accepted(previous.orElseThrow()), null, false);
         // Departure from Onyx, which only hides its button: a disabled mode must not run through the public API.
         if (command.deepResearch() && (settings == null || !settings.read(actor).deepResearchEnabled()))
             throw ChatException.researchUnavailable();
         // Onyx attaches tools to the agent: a command may only use tools the session agent allows.
         var agent = persistence.agent(actor, session);
-        if (command.webSearch() != WebSearchMode.off && !agent.tools().contains("web_search")) throw ChatException.webUnavailable();
-        if (command.image() != ImageMode.off && !agent.tools().contains("image_generation")) throw ChatException.providerUnavailable();
-        if (agent.mcpServerIds() != null && !agent.mcpServerIds().containsAll(command.mcpServerIds()))
+        var tools = agent.persona();
+        // MEM-195: answers from documents only are refused Deep research and, unless allowed, Web search.
+        var policy = settings == null ? ChatSettingsService.TurnPolicy.NONE : settings.turnPolicy(actor);
+        boolean grounded = tools.options().grounded();
+        if (grounded && command.deepResearch()) throw ChatException.researchUnavailable();
+        if (grounded && command.webSearch() != WebSearchMode.off && !policy.groundedAllowWeb()) throw ChatException.webUnavailable();
+        if (command.webSearch() != WebSearchMode.off && !tools.tools().contains("web_search")) throw ChatException.webUnavailable();
+        if (command.image() != ImageMode.off && !tools.tools().contains("image_generation")) throw ChatException.providerUnavailable();
+        if (tools.mcpServerIds() != null && !tools.mcpServerIds().containsAll(command.mcpServerIds()))
             throw ChatException.providerUnavailable();
         // MEM-123: what the Tenant, the Group and the person may spend, weighed before a provider is chosen.
         if (spending != null) spending.enforce(actor);
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
-        ChatModelResolver.Resolved resolved = null;
-        io.memoryos.mcp.McpTurnTools mcpTools = null;
+        ModelResolver.Resolved resolved = null;
         boolean transferred = false;
         try {
-            resolved = models.resolve(actor, session, command.modelConfigurationId());
+            resolved = models.resolve(actor, session, command.modelConfigurationId(), agent);
             var binding = resolved.binding();
+            if (grounded && !binding.toolCalling()) throw ChatException.groundedModelUnsupported();
             if (command.deepResearch()) {
                 // As Onyx: not in Project chats and at least 50,000 input tokens; research agents need tool calling.
                 int minimum = research == null ? 50_000 : research.minimumContextTokens();
                 // MEM-130: a model that cannot research is not the organization's setting, so it has its own code.
-                if (persistence.inProject(actor, session)) throw ChatException.researchUnavailable();
+                if (agent.inProject()) throw ChatException.researchUnavailable();
                 if (!binding.toolCalling() || binding.contextWindow() < minimum) throw ChatException.researchModelUnsupported();
             }
-            String contribution = java.util.stream.Stream.concat(
-                    java.util.stream.Stream.of(new com.embabel.common.ai.prompt.CurrentDate().contribution()),
-                    binding.service().getPromptContributors().stream().map(com.embabel.common.ai.prompt.PromptContributor::contribution))
-                    .filter(value -> !value.isBlank()).collect(java.util.stream.Collectors.joining("\n----\n"));
-            var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
+            // The date is written once, by ChatPrompts.resolve; Embabel's CurrentDate would repeat it.
+            String contribution = binding.service().getPromptContributors().stream().map(PromptContributor::contribution)
+                    .filter(value -> !value.isBlank()).collect(Collectors.joining("\n----\n"));
+            var webAccess = new WebConnectionService.Access(null, null);
             if (command.webSearch() != WebSearchMode.off) {
                 // Provider-hosted search needs no external connection; external search needs one.
-                boolean nativeSearch = binding.service().getChatModel() instanceof io.memoryos.chat.execution.ChatModelTurns turns && turns.nativeWebSearch();
+                boolean nativeSearch = binding.service().getChatModel() instanceof ModelTurns turns && turns.nativeWebSearch();
                 // Research agents always search through the Web tools, as Onyx does, even when the model hosts search.
                 boolean externalSearch = !nativeSearch || command.deepResearch();
                 if (!binding.toolCalling() || (externalSearch && web == null)) {
-                    LOG.warn("Web search rejected for model {}: toolCalling={} native={} connections={}",
-                            resolved.modelConfigurationId(), binding.toolCalling(), nativeSearch, web != null);
+                    LOG.atWarn().addKeyValue("event", "chat.web_search.rejected")
+                            .addKeyValue("model_configuration_id", resolved.modelConfigurationId())
+                            .addKeyValue("tool_calling", binding.toolCalling()).addKeyValue("native_search", nativeSearch)
+                            .addKeyValue("web_connections", web != null).addKeyValue("error_code", "CHAT_WEB_UNAVAILABLE")
+                            .log("Web search rejected for the model");
                     throw ChatException.webUnavailable();
                 }
                 if (externalSearch) {
                     webAccess = web.resolve(actor);
                     if (webAccess.search() == null) {
-                        LOG.warn("Web search rejected for model {}: no active usable search connection",
-                                resolved.modelConfigurationId());
+                        LOG.atWarn().addKeyValue("event", "chat.web_search.rejected")
+                                .addKeyValue("model_configuration_id", resolved.modelConfigurationId())
+                                .addKeyValue("reason", "no_search_connection").addKeyValue("error_code", "CHAT_WEB_UNAVAILABLE")
+                                .log("Web search rejected: no active usable search connection");
                         throw ChatException.webUnavailable();
                     }
                 }
             }
-            var imageAccess = new io.memoryos.chat.image.ImageConnectionService.Access(null);
+            var imageAccess = new ImageConnectionService.Access(null);
             if (command.image() != ImageMode.off) {
                 if (!binding.toolCalling() || images == null) throw ChatException.providerUnavailable();
                 imageAccess = images.resolve(actor);
@@ -222,34 +298,22 @@ public final class ChatTurnService implements AutoCloseable {
             int contextLimit = Math.min(limits.contextCap(), binding.inputLimit(limits.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.leaseTtl(), contextLimit,
                     new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
-                            resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));
-            if (!reserved.created()) return accepted(reserved);
-            var context = persistence.loadContext(actor, session, reserved);
+                            resolved.fallbackReason(), binding, resolved.contextRevision(), contribution, agent));
+            if (!reserved.created()) return new Admission(accepted(reserved), null, false);
+            var context = reserved.context() != null ? reserved.context() : persistence.loadContext(actor, session, reserved);
             var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
                     .withWeb(command.webSearch(), webAccess).withImage(command.image(), imageAccess);
             // Deep research runs its own agents and tool set, so selected MCP servers apply only to ordinary turns.
-            if (!command.mcpServerIds().isEmpty() && !command.deepResearch()) {
-                if (!binding.toolCalling() || mcp == null) throw ChatException.providerUnavailable();
-                // Credentials and OAuth refresh settle here, so the model never waits on an authorization server.
-                setup = setup.withMcp(mcp.open(actor, command.mcpServerIds()));
-                mcpTools = setup.mcp();
-            }
+            boolean opensMcp = !command.mcpServerIds().isEmpty() && !command.deepResearch();
+            if (opensMcp && (!binding.toolCalling() || mcp == null)) throw ChatException.providerUnavailable();
             if (command.deepResearch()) setup = setup.withResearch(researchState(context, setup));
-            var run = new Active(setup, resolved);
+            // Check 1 fails closed: a turn that needs it is not started without it.
+            if (ChatGuardrailCheck.applies(setup, policy) && guardrails == null) throw ChatException.providerUnavailable();
+            var run = new Active(setup, resolved, policy, question(context), context.uiLanguage());
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
             transferred = true;
-            try {
-                if (!accepting.get()) throw ChatException.busy();
-                executor.execute(() -> execute(run));
-            }
-            catch (RuntimeException failure) {
-                run.finish(ChatMessage.Status.FAILED, "CHAT_SUBMIT_FAILED");
-                finalizeRun(run);
-                retireWhenDrained(run);
-                throw failure;
-            }
-            return accepted(reserved);
+            return new Admission(accepted(reserved), run, opensMcp);
         } catch (RuntimeException failure) {
             if (!transferred) {
                 // Setup errors still own a reserved row; finish it without starting the model.
@@ -259,8 +323,6 @@ public final class ChatTurnService implements AutoCloseable {
             throw failure;
         } finally {
             if (!transferred) {
-                // A setup failure after the tools opened must not leave MCP sessions behind.
-                if (mcpTools != null) mcpTools.close();
                 if (resolved != null) resolved.close();
                 permits.release();
             }
@@ -268,7 +330,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Cancellation cancel(ActorId actor, UUID session, UUID assistant) {
-        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
+        persistence.require(actor, IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -280,7 +342,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Supplier<StreamBufferWriter.Reader> subscribe(ActorId actor, UUID session, UUID assistant, long after) {
-        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_READ);
+        persistence.require(actor, IamCapability.CHAT_READ);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -293,7 +355,7 @@ public final class ChatTurnService implements AutoCloseable {
                     persistence.authorizeReply(actor, session, assistant);
                     // The reader re-authorizes on every liveness check, so a revoked membership ends a long stream.
                     return streams.subscribe(assistant, after, () -> {
-                        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_READ);
+                        persistence.require(actor, IamCapability.CHAT_READ);
                         return persistence.authorizeReply(actor, session, assistant) == ChatMessage.Status.RUNNING;
                     });
                 }
@@ -338,8 +400,8 @@ public final class ChatTurnService implements AutoCloseable {
         // Onyx skips clarification when the previous assistant message was a clarification question.
         boolean skip = context.newestFirst().stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT).findFirst()
                 .map(message -> message.research().clarification()).orElse(false);
-        var files = new java.util.LinkedHashMap<UUID, ChatFileDescriptor>();
-        java.util.stream.Stream.concat(context.workspaceFiles().stream(), context.newestFirst().stream().flatMap(message -> message.files().stream()))
+        var files = new LinkedHashMap<UUID, ChatFileDescriptor>();
+        Stream.concat(context.workspaceFiles().stream(), context.newestFirst().stream().flatMap(message -> message.files().stream()))
                 .filter(file -> setup.fileIds().contains(file.id())).forEach(file -> files.putIfAbsent(file.id(), file));
         return new ChatTurnSetup.Research(true, skip, context.uiLanguage(), List.copyOf(files.values()));
     }
@@ -351,22 +413,22 @@ public final class ChatTurnService implements AutoCloseable {
     private void execute(Active run) {
         try {
             run.check();
+            if (!checkGuardrails(run)) return;
             model.execute(run.setup, run::check, run.cancellation.asMono(),
-                    text -> {
-                        run.append(text, limits.maxAnswerCharacters());
-                        streams.append(run.setup.assistantMessageId(), text);
-                    }, accounting -> run.accounting = accounting, event -> {
+                    text -> show(run, run.gate == null ? text : run.gate.accept(text)),
+                    accounting -> run.accounting = accounting, event -> {
                         run.activity(event);
                         switch (event) {
                             case ChatToolEvent tool -> streams.tool(run.setup.assistantMessageId(), tool);
                             case ChatReasoningDelta reasoning -> streams.reasoning(run.setup.assistantMessageId(), reasoning.text(), reasoning.parentToolCallId());
-                            case ChatResearchEvent research -> streams.research(run.setup.assistantMessageId(), research);
+                            case ChatResearchEvent researchEvent -> streams.research(run.setup.assistantMessageId(), researchEvent);
                         }
                     }, imageEvent -> streams.image(run.setup.assistantMessageId(), imageEvent),
                     codeEvent -> streams.code(run.setup.assistantMessageId(), codeEvent),
                     draining -> run.draining = draining);
             run.check();
-            if (run.content.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (run.gate != null) settle(run);
+            if (run.content.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             run.finish(ChatMessage.Status.COMPLETED, null);
         } catch (RuntimeException failure) {
             boolean userStop = run.stopReason.get() == StopReason.USER;
@@ -374,22 +436,126 @@ public final class ChatTurnService implements AutoCloseable {
             run.finish(userStop ? ChatMessage.Status.CANCELED : ChatMessage.Status.FAILED,
                     userStop ? null : code);
             // Provider exceptions may contain prompts/credentials. Never log their payload or stack here.
-            if (!userStop) LOG.warn("Chat run {} failed: {} ({})", run.setup.assistantMessageId(), code, failure.getClass().getSimpleName());
+            if (!userStop) LOG.atWarn().addKeyValue("event", "chat.run.failed").addKeyValue("message_id", run.setup.assistantMessageId())
+                    .addKeyValue("error_code", code).addKeyValue("error_type", failure.getClass().getName()).log("Chat run failed");
         } finally {
             // Also close the product lifecycle if framework linkage or another Error escapes the task.
             run.finish(ChatMessage.Status.FAILED, "CHAT_EXECUTION_FAILED");
+            measure(run);
             finalizeRun(run);
             retireWhenDrained(run);
         }
     }
 
+    private void show(Active run, String text) {
+        if (text.isEmpty()) return;
+        run.append(text, limits.maxAnswerCharacters());
+        streams.append(run.setup.assistantMessageId(), text);
+        firstText(run);
+    }
+
+    private void firstText(Active run) {
+        if (metrics != null && run.firstTextShown.compareAndSet(false, true))
+            metrics.firstText(run.grounded, System.nanoTime() - run.admitted);
+    }
+
+    private void measure(Active run) {
+        var outcome = run.outcome;
+        if (metrics == null || outcome == null) return;
+        try {
+            metrics.turn(outcome.status(), outcome.failure(), outcome.refusal(), run.grounded, run.setup.research().enabled(),
+                    System.nanoTime() - run.admitted);
+        } catch (RuntimeException failure) {
+            // Telemetry never changes a turn's outcome.
+            LOG.atWarn().addKeyValue("event", "chat.metrics.not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat turn metrics not recorded");
+        }
+    }
+
+    /**
+     * MEM-195 Check 1, before the answer model: a blocked question ends the turn with the Tenant's message; a
+     * conversational message in grounded mode is answered normally. Returns whether the answer model runs.
+     */
+    private boolean checkGuardrails(Active run) {
+        if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
+        ChatGuardrailCheck.Result result;
+        long started = System.nanoTime();
+        try {
+            result = guardrails.check(run.setup, run.question, run.policy, accounting -> recordCheck(run, accounting));
+            if (metrics != null) metrics.guardrail(result.kind().name().toLowerCase(Locale.ROOT), System.nanoTime() - started);
+        } catch (CancellationException stopped) {
+            throw stopped;
+        } catch (RuntimeException failure) {
+            if (metrics != null) metrics.guardrail("unavailable", System.nanoTime() - started);
+            // Fail closed: a turn whose question could not be checked is not answered.
+            LOG.atWarn().addKeyValue("event", "chat.guardrail.unavailable").addKeyValue("message_id", run.setup.assistantMessageId())
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail check unavailable");
+            throw TurnFailure.PROVIDER_UNAVAILABLE.exception();
+        }
+        run.check();
+        if (result.kind() == ChatGuardrailCheck.Kind.BLOCKED) {
+            guardrails.recordBlock(run.setup.tenant(), run.setup.actor(), run.setup.sessionId(), result, null);
+            refuse(run, ChatMessage.BLOCKED_TOPIC, Objects.requireNonNull(result.message()));
+            run.finish(ChatMessage.Status.COMPLETED, null);
+            return false;
+        }
+        var options = run.setup.options();
+        if (result.kind() == ChatGuardrailCheck.Kind.CONVERSATIONAL && options.grounded())
+            run.setup = run.setup.withOptions(options.withGrounded(false));
+        boolean grounded = run.setup.options().grounded();
+        var rules = run.policy.guardrails();
+        if (grounded || !rules.blockedPhrases().isEmpty())
+            run.gate = new CitationGate(grounded, id -> id >= 1 && id <= run.sourceCount(), rules::blockedPhraseIn, rules.longestPhrase());
+        return true;
+    }
+
+    /** The end of a gated answer: release what is held, or replace an uncited or blocked answer with its refusal. */
+    private void settle(Active run) {
+        var ending = Objects.requireNonNull(run.gate).finish();
+        switch (ending.outcome()) {
+            case ANSWERED -> show(run, ending.text());
+            case UNCITED -> refuse(run, run.sourceCount() == 0 ? ChatMessage.NO_EVIDENCE : ChatMessage.UNCITED,
+                    ChatRefusals.notInDocuments(run.uiLanguage));
+            case BLOCKED -> {
+                if (guardrails != null) guardrails.recordBlock(run.setup.tenant(), run.setup.actor(), run.setup.sessionId(),
+                        new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, null, null, ending.phrase()), null);
+                refuse(run, ChatMessage.BLOCKED_TOPIC, run.policy.guardrails().blockedPhraseMessage());
+            }
+        }
+    }
+
+    /** A refusal replaces the stored answer; the stream shows it after anything already released. */
+    private void refuse(Active run, String reason, String text) {
+        boolean shown = run.refuse(reason, text);
+        streams.append(run.setup.assistantMessageId(), shown ? "\n\n" + text : text);
+        firstText(run);
+    }
+
+    private void recordCheck(Active run, ModelAccounting accounting) {
+        try {
+            persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT,
+                    run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), accounting));
+        } catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.guardrail.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail usage not recorded");
+        }
+    }
+
+    /** The text the person wrote in this turn, without attachments: the newest message of the conversation. */
+    private static String question(ChatTurnPersistence.TurnContext context) {
+        return context.newestFirst().stream().filter(message -> message.role() == ChatMessage.Role.USER).findFirst()
+                .map(ChatMessage::content).orElse("");
+    }
+
     private void retireWhenDrained(Active run) {
         run.draining.whenComplete((_, failure) -> {
-            if (failure != null) LOG.warn("Chat native cleanup failed for run {} ({})",
-                    run.setup.assistantMessageId(), failure.getClass().getSimpleName());
+            if (failure != null) LOG.atWarn().addKeyValue("event", "chat.run.native_cleanup_failed")
+                    .addKeyValue("message_id", run.setup.assistantMessageId())
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat native cleanup failed");
             try { run.resolved.close(); }
             finally {
-                if (run.setup.mcp() != null) run.setup.mcp().close();
+                var tools = run.setup.mcp();
+                if (tools != null) tools.close();
                 run.drained = true;
                 // Terminal persistence and resource retirement may finish in either order.
                 releaseIfFinished(run);
@@ -423,11 +589,15 @@ public final class ChatTurnService implements AutoCloseable {
                 }
             } catch (RuntimeException failure) {
                 // Never stop a live run over a failed renewal; the next tick retries well inside the lease.
-                LOG.warn("Chat lease renewal unavailable ({})", failure.getClass().getSimpleName());
+                LOG.atWarn().addKeyValue("event", "chat.lease.renewal_failed")
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat lease renewal unavailable");
             }
         }
         try { persistence.expireRuns(); }
-        catch (RuntimeException failure) { LOG.warn("Chat lease reconciliation unavailable ({})", failure.getClass().getSimpleName()); }
+        catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.lease.reconciliation_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat lease reconciliation unavailable");
+        }
     }
 
     /**
@@ -440,10 +610,12 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             int failed = 0;
             for (int batch; (batch = persistence.failOrphanedRuns()) > 0; ) failed += batch;
-            if (failed > 0) LOG.warn("Chat startup failed {} runs left RUNNING by a previous process", failed);
+            if (failed > 0) LOG.atWarn().addKeyValue("event", "chat.startup.orphaned_runs_failed").addKeyValue("count", failed)
+                    .log("Chat startup failed runs left RUNNING by a previous process");
         } catch (RuntimeException failure) {
-            LOG.warn("Chat startup orphan reconciliation unavailable ({}); lease reconciliation remains responsible",
-                    failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "chat.startup.orphan_reconciliation_failed")
+                    .addKeyValue("error_type", failure.getClass().getName())
+                    .log("Chat startup orphan reconciliation unavailable; lease reconciliation remains responsible");
         }
     }
 
@@ -457,15 +629,19 @@ public final class ChatTurnService implements AutoCloseable {
                 if (!run.persisted) {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.artifacts(), outcome.activity(), outcome.research(),
-                            new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
+                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.activity(), outcome.research(),
+                            outcome.refusal(), new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
                                     run.setup.research().enabled() ? AiUsageFlow.DEEP_RESEARCH : AiUsageFlow.CHAT,
                                     run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), run.accounting));
-                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode(), saved.hasArtifacts());
+                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
                     run.persisted = true;
                 }
                 releaseIfFinished(run);
-            } catch (RuntimeException failure) { LOG.warn("Chat terminal persistence pending for run {}", run.setup.assistantMessageId()); }
+            } catch (RuntimeException failure) {
+                LOG.atWarn().addKeyValue("event", "chat.run.terminal_persistence_pending")
+                        .addKeyValue("message_id", run.setup.assistantMessageId())
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat terminal persistence pending");
+            }
         } finally { run.finalizing.unlock(); }
     }
 
@@ -480,25 +656,30 @@ public final class ChatTurnService implements AutoCloseable {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (ExecutionException | TimeoutException incomplete) {
-            LOG.warn("Chat shutdown drain incomplete; durable lease reconciliation remains responsible");
+            LOG.atWarn().addKeyValue("event", "chat.shutdown.drain_incomplete")
+                    .log("Chat shutdown drain incomplete; durable lease reconciliation remains responsible");
         }
     }
 
     private static String failureCode(Throwable failure) {
-        // Exact allowlist only: arbitrary provider messages can contain private content.
-        for (int depth = 0; failure != null && depth < 8; depth++, failure = failure.getCause()) {
-            if (failure.getMessage() != null && FAILURE_CODES.contains(failure.getMessage())) return failure.getMessage();
-        }
-        return "CHAT_EXECUTION_FAILED";
+        // Only a typed turn failure names the code: arbitrary provider messages can contain private content.
+        return TurnFailureException.reportedIn(failure).map(TurnFailure::code).orElse("CHAT_EXECUTION_FAILED");
     }
 
     private enum StopReason { USER, INTERRUPTED }
-    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources, List<ChatArtifact> artifacts,
-                           ChatActivity activity, ChatResearch research) {}
+    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources,
+                           ChatActivity activity, ChatResearch research, @Nullable String refusal) {}
 
     private static final class Active {
-        final ChatTurnSetup setup;
-        final ChatModelResolver.Resolved resolved;
+        // Replaced once, by the sending thread, when MCP tools open after registration and before dispatch.
+        volatile ChatTurnSetup setup;
+        final ModelResolver.Resolved resolved;
+        final ChatSettingsService.TurnPolicy policy;
+        final String question;
+        final @Nullable String uiLanguage;
+        /** MEM-195: set before the answer model runs, when the turn is grounded or blocks phrases. */
+        volatile @Nullable CitationGate gate;
+        volatile @Nullable String refusal;
         final StringBuilder content = new StringBuilder();
         final List<ChatSource> sources = new ArrayList<>();
         final ChatActivityRecorder recorder = new ChatActivityRecorder();
@@ -516,8 +697,26 @@ public final class ChatTurnService implements AutoCloseable {
         // Serializes persistence retries without holding the state monitor used by Stop/text callbacks.
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
-        volatile ChatModelExecutor.Accounting accounting = ChatModelExecutor.Accounting.NONE;
-        Active(ChatTurnSetup setup, ChatModelResolver.Resolved resolved) { this.setup = setup; this.resolved = resolved; }
+        volatile ModelAccounting accounting = ModelAccounting.NONE;
+        /** For the turn metrics: when the turn was admitted, whether it was grounded then, and whether text has shown. */
+        final long admitted = System.nanoTime();
+        final boolean grounded;
+        final AtomicBoolean firstTextShown = new AtomicBoolean();
+        Active(ChatTurnSetup setup, ModelResolver.Resolved resolved, ChatSettingsService.TurnPolicy policy, String question,
+               @Nullable String uiLanguage) {
+            this.setup = setup; this.resolved = resolved; this.policy = policy; this.question = question; this.uiLanguage = uiLanguage;
+            this.grounded = setup.options().grounded();
+        }
+        synchronized int sourceCount() { return sources.size(); }
+        /** Replaces the answer with a refusal; returns whether answer text had already been released. */
+        synchronized boolean refuse(String reason, String text) {
+            check();
+            boolean shown = !content.isEmpty();
+            content.setLength(0);
+            content.append(text);
+            refusal = reason;
+            return shown;
+        }
         synchronized void cancel(StopReason reason) {
             if (outcome != null) return;
             stopReason.compareAndSet(null, reason);
@@ -525,7 +724,7 @@ public final class ChatTurnService implements AutoCloseable {
         }
         synchronized void append(String text, int limit) {
             check();
-            if (content.length() + text.length() > limit) throw new IllegalStateException("CHAT_OUTPUT_LIMIT");
+            if (content.length() + text.length() > limit) throw TurnFailure.OUTPUT_LIMIT.exception();
             content.append(text);
         }
         synchronized void activity(ChatActivityEvent event) {
@@ -538,21 +737,22 @@ public final class ChatTurnService implements AutoCloseable {
             }
             // The plan is stored with the outcome; beyond its column bound the rest is dropped, never failing the turn.
             if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.CLARIFICATION) clarification = true;
-            if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.PLAN_DELTA && plan.length() < ChatResearch.MAX_PLAN)
-                plan.append(research.text(), 0, Math.min(research.text().length(), ChatResearch.MAX_PLAN - plan.length()));
+            if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.PLAN_DELTA
+                    && research.text() instanceof String text && plan.length() < ChatResearch.MAX_PLAN)
+                plan.append(text, 0, Math.min(text.length(), ChatResearch.MAX_PLAN - plan.length()));
             recorder.accept(event, content.length());
             agents.accept(event);
         }
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
                 // render_gui was removed: no turn creates read-only UI artifacts; stored ones still render from history.
-                List<ChatArtifact> artifacts = List.of();
                 var activity = recorder.seal();
                 var research = new ChatResearch(clarification, plan.isEmpty() ? null : plan.toString(), agents.seal());
-                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts, activity, research);
+                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), activity, research, null);
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
-                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), artifacts, activity, research);
-                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), artifacts, activity, research);
+                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), activity, research, null);
+                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), activity, research,
+                        status == ChatMessage.Status.COMPLETED ? refusal : null);
             }
         }
         void check() {

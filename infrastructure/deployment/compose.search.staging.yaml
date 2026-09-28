@@ -5,6 +5,8 @@ services:
     image: opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509
     container_name: memoryos-opensearch
     environment:
+      # The environment names its own cluster; opensearch.yml is shared by both and names neither.
+      cluster.name: memoryos-search-staging
       DISABLE_INSTALL_DEMO_CONFIG: "true"
       OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
     volumes:
@@ -46,6 +48,9 @@ services:
     image: opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509
     profiles: [ops]
     entrypoint: [/bin/sh, /bootstrap/bootstrap-security.sh]
+    environment:
+      # Must equal the cluster.name above: securityadmin.sh refuses a name the node does not carry.
+      MEMORYOS_SEARCH_CLUSTER_NAME: memoryos-search-staging
     volumes:
       - ../opensearch/bootstrap-security.sh:/bootstrap/bootstrap-security.sh:ro
       - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/security:/bootstrap/security:ro

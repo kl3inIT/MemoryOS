@@ -1,9 +1,9 @@
 package io.memoryos.iam.tenant.persistence;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.tenant.TenantMembershipRole;
-import io.memoryos.iam.tenant.TenantMembershipStatus;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
+import io.memoryos.iam.TenantMembershipRole;
+import io.memoryos.iam.TenantMembershipStatus;
 import io.memoryos.iam.tenant.TenantStatus;
 
 import jakarta.persistence.EntityManager;
@@ -35,6 +35,14 @@ public class JpaTenantRepository {
             throw new IllegalStateException("Tenant bootstrap singleton row is missing");
         }
         return state;
+    }
+
+    /** The published initial Tenant, read without locking the bootstrap state. */
+    public Optional<TenantId> findBootstrapTenant() {
+        TenantBootstrapStateEntity state = entityManager.find(TenantBootstrapStateEntity.class,
+                TenantBootstrapStateEntity.SINGLETON_ID);
+        return state == null || state.getTenant() == null ? Optional.empty()
+                : Optional.of(new TenantId(state.getTenant().getId()));
     }
 
     public long countTenants() {

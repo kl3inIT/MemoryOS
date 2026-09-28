@@ -1,18 +1,18 @@
 package io.memoryos.usage.report;
 
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.LeasedJob;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.usage.AiCostException;
 import io.memoryos.usage.AiCostService;
-import io.memoryos.usage.persistence.UsageReportRepository;
 import io.memoryos.usage.persistence.UsageReportRepository.Claim;
-import io.memoryos.usage.persistence.UsageReportRepository.Report;
+import io.memoryos.usage.persistence.UsageReportRepository;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -58,7 +58,7 @@ public class UsageReportService {
 
     /** Queues a report for a UTC day range, bounded like the AI costs page. */
     @Transactional
-    public Report request(ActorId reader, LocalDate from, LocalDate to) {
+    public UsageReport request(ActorId reader, LocalDate from, LocalDate to) {
         var tenant = manager(reader);
         new AiCostService.Range(from, to, null, false, null, null);
         return reports.insert(tenant, UUID.randomUUID(), reader.value(), from, to);
@@ -66,14 +66,14 @@ public class UsageReportService {
 
     /** The Tenant's reports, newest first, whoever requested them. */
     @Transactional(readOnly = true)
-    public List<Report> list(ActorId reader) {
+    public List<UsageReport> list(ActorId reader) {
         return reports.list(manager(reader), LIST_LIMIT);
     }
 
     @Transactional(readOnly = true)
     public Download open(ActorId reader, UUID id) {
         var report = reports.find(manager(reader), id)
-                .filter(found -> found.status() == UsageReportRepository.Status.READY && found.objectKey() != null)
+                .filter(found -> found.status() == UsageReportStatus.READY && found.objectKey() != null)
                 .orElseThrow(AiCostException::reportNotFound);
         return new Download(storage.open(new ObjectKey(report.objectKey())), filename(report.from(), report.to()));
     }
@@ -83,18 +83,18 @@ public class UsageReportService {
      * claimed, so a caller may drain a queue.
      */
     public boolean buildNext() {
-        int abandoned = reports.failAbandoned(MAX_ATTEMPTS);
-        if (abandoned > 0) LOG.warn("Usage reports failed after {} attempts: {}", MAX_ATTEMPTS, abandoned);
-        var claimed = reports.claim(LEASE, MAX_ATTEMPTS);
-        if (claimed.isEmpty()) return false;
-        var claim = claimed.get();
-        try {
-            build(claim);
-        } catch (RuntimeException e) {
-            LOG.error("Usage report {} failed on attempt {}", claim.id(), claim.attempts(), e);
-            reports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS, "The report could not be generated.");
-        }
-        return true;
+        return LeasedJob.runNext(LOG, "usage.report", new LeasedJob.Steps<>(
+                () -> reports.failAbandoned(MAX_ATTEMPTS),
+                () -> reports.claim(LEASE, MAX_ATTEMPTS),
+                this::build,
+                (claim, failure) -> {
+                    // The report reads only the Tenant's own ledger, so its stack trace is safe to keep for diagnosis.
+                    LOG.atWarn().addKeyValue("event", "usage.report.failed").addKeyValue("report_id", claim.id())
+                            .addKeyValue("attempt", claim.attempts()).addKeyValue("error_type", failure.getClass().getName())
+                            .log("Usage report failed");
+                    reports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
+                            "The report could not be generated.");
+                }));
     }
 
     private void build(Claim claim) {
@@ -112,7 +112,8 @@ public class UsageReportService {
                 throw new LeaseLost();
             }));
         } catch (LeaseLost ignored) {
-            LOG.warn("Usage report {} lease lapsed before it was stored", claim.id());
+            LOG.atWarn().addKeyValue("event", "usage.report.lease_lost").addKeyValue("report_id", claim.id())
+                    .log("Usage report lease lapsed before it was stored");
         } finally {
             if (!adopted) writes.discard(tenant, staged);
         }
@@ -147,7 +148,8 @@ public class UsageReportService {
             try {
                 pdf = UsageReportPdf.render(builder.build(members));
             } catch (RuntimeException e) {
-                LOG.error("Usage report {} PDF could not be rendered; the ZIP ships without it", claim.id(), e);
+                LOG.atError().addKeyValue("event", "usage.report.pdf_failed").addKeyValue("report_id", claim.id())
+                        .addKeyValue("error_type", e.getClass().getName()).log("Usage report PDF could not be rendered; the ZIP ships without it");
             }
             if (pdf != null) {
                 zip.putNextEntry(new ZipEntry("usage_report.pdf"));
@@ -165,7 +167,7 @@ public class UsageReportService {
         return "usage-report_" + from + "_" + to + ".zip";
     }
 
-    private java.util.UUID manager(ActorId reader) {
+    private UUID manager(ActorId reader) {
         return authorization.require(reader, IamCapability.MODELS_MANAGE, false).tenantId().value();
     }
 

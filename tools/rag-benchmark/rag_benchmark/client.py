@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import httpx
@@ -35,7 +35,17 @@ class Reply:
     # answer is diagnosed from the filters, which a bare step count cannot explain.
     timeline: list[dict[str, Any]]
     steps: int
+    # From sending the question to reading the finished reply. History is polled, not streamed, so
+    # the time to the first text is not observable here.
     seconds: float
+    # The citation numbers the reply's sources hold; an inline `[n]` is valid only if n is here.
+    citation_ids: list[int] = field(default_factory=list)
+    # Why the server declined instead of answering (`no_evidence`, `uncited`, `blocked_topic`);
+    # null for an answer, and absent on a server older than grounded mode.
+    refusal_reason: str | None = None
+    # The model configuration that produced this reply, and why the requested one was not used.
+    model: str | None = None
+    fallback: str | None = None
 
 
 class ActorClient:
@@ -179,12 +189,21 @@ class ActorClient:
                 # Request identity: a fresh one per ask, so no two asks are deduplicated into one.
                 "clientRequestId": str(uuid.uuid4()),
                 "text": question,
+                **(
+                    {"modelConfigurationId": self._config.model_configuration_id}
+                    if self._config.model_configuration_id
+                    else {}
+                ),
             },
         )
         if accepted.status_code != 202:
             raise BenchmarkError(f"message rejected ({accepted.status_code})")
         body = accepted.json()
         assistant_id, user_id = body["assistantMessageId"], body["userMessageId"]
+        # What answered, as the API resolved it: a requested model can fall back, and a comparison
+        # that cannot say which model produced a number is not a comparison.
+        answered_by = body.get("modelConfigurationId")
+        fallback = body.get("fallbackReason")
         deadline = started + self._config.reply_timeout_seconds
         while True:
             history = self._request(
@@ -199,7 +218,8 @@ class ActorClient:
                 None,
             )
             if message and message["status"] != "RUNNING":
-                return self._reply(message, time.monotonic() - started)
+                reply = self._reply(message, time.monotonic() - started)
+                return replace(reply, model=answered_by, fallback=fallback)
             if time.monotonic() > deadline:
                 raise BenchmarkError(f"reply {assistant_id} did not finish in time")
             time.sleep(2)
@@ -247,4 +267,12 @@ class ActorClient:
             ],
             steps=len(activity.get("steps", [])),
             seconds=seconds,
+            citation_ids=sorted(
+                {
+                    int(source["citationId"])
+                    for source in sources
+                    if isinstance(source.get("citationId"), int)
+                }
+            ),
+            refusal_reason=message.get("refusalReason"),
         )

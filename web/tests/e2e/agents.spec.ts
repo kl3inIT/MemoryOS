@@ -73,7 +73,6 @@ function agent(overrides: Record<string, unknown>) {
     listed: true,
     featured: false,
     replaceBaseSystemPrompt: false,
-    datetimeAware: true,
     pinned: false,
     ...overrides,
   };
@@ -120,7 +119,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     }
     return route.fulfill({ json: state.agents.filter((item) => item.pinned) });
   });
-  await page.route("**/api/chat/persona-share-options**", (route) =>
+  await page.route("**/api/identity/principals**", (route) =>
     route.fulfill({
       json: {
         people: [
@@ -469,23 +468,23 @@ test("edits an agent on its own page, saving only changes and guarding unsaved e
   await expect(addStarter).toBeDisabled();
   await page.getByLabel("Câu hỏi gợi ý 1", { exact: true }).fill("Chế độ nghỉ phép năm 2026?");
   // Token limits default to the selected model's bounds; a custom value must stay within them.
-  await expect(page.getByLabel("Context window (token)")).toHaveValue("32.000");
-  await expect(page.getByLabel("Max output (token)")).toHaveValue("4.096");
+  await expect(page.getByLabel("Context window (token)", { exact: true })).toHaveValue("32.000");
+  await expect(page.getByLabel("Max output (token)", { exact: true })).toHaveValue("4.096");
   await page.getByRole("radio", { name: "Tùy chỉnh" }).click();
-  const outputInput = page.getByLabel("Max output (token)");
+  const outputInput = page.getByLabel("Max output (token)", { exact: true });
   await outputInput.fill("8192");
-  await expect(save).toBeDisabled();
+  await save.click();
+  await expect(page.getByText("Tối đa 4.096 token.")).toBeVisible();
+  await expect(page).toHaveURL(/\/edit$/);
   await outputInput.fill("2048");
 
   await page.getByRole("link", { name: "Trợ lý", exact: true }).first().click();
-
   const guard = page.getByRole("alertdialog", { name: "Bỏ thay đổi chưa lưu?" });
   await expect(guard).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/edit$/);
 
   await save.click();
-
   await expect(page).toHaveURL(/\/agents$/);
   expect(state.updated).toMatchObject({
     name: "Chính sách nhân sự",
@@ -496,7 +495,6 @@ test("edits an agent on its own page, saving only changes and guarding unsaved e
   });
 
   const card = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
-
   await card.hover();
   await card.getByRole("button", { name: "Thao tác khác cho Chính sách nhân sự" }).click();
   await page.getByRole("menuitem", { name: "Xóa trợ lý" }).click();
@@ -539,7 +537,6 @@ test("manages prompt shortcuts inline and inserts them from /", async ({ page })
   });
 
   await page.goto("/settings/chat");
-
   await expect(page.getByRole("heading", { name: "Lệnh tắt", exact: true })).toBeVisible({
     timeout: 15000,
   });
@@ -560,7 +557,6 @@ test("manages prompt shortcuts inline and inserts them from /", async ({ page })
     });
 
   await page.goto("/");
-
   const composer = page.getByRole("textbox", { name: "Câu hỏi" });
   await composer.click();
   await composer.pressSequentially("/tom tat");
@@ -586,7 +582,6 @@ test("reorders and unpins sidebar agents and features agents from administration
   await expect(pins.getByRole("listitem")).toHaveCount(3);
 
   const handle = pins.getByRole("button", { name: "Kéo để sắp xếp OKR/KPI hằng tháng" });
-
   await handle.focus();
   await page.keyboard.press("Space");
   await page.waitForTimeout(150);
@@ -596,12 +591,10 @@ test("reorders and unpins sidebar agents and features agents from administration
   await expect.poll(() => state.pins).toEqual([finance, kpi, hr]);
 
   await pins.getByRole("listitem").filter({ hasText: "Báo cáo tài chính" }).hover();
-
   await pins.getByRole("button", { name: "Bỏ ghim Báo cáo tài chính" }).click();
   await expect.poll(() => state.pins).toEqual([kpi, hr]);
 
   await page.goto("/admin/agents");
-
   const row = page.getByRole("listitem").filter({ hasText: "Chính sách nhân sự" });
   await row.hover();
   await row.getByRole("button", { name: "Đặt Chính sách nhân sự nổi bật" }).click();

@@ -14,12 +14,12 @@ const BYTES_PER_MS = 48;
 const MAX_QUEUED_BYTES = 30_000 * BYTES_PER_MS;
 const RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 20_000];
 /** Nojoin's quiet hint: a level under 6 on its 0–100 scale (RMS × 180) for 20 seconds. */
-export const QUIET_LEVEL = 6 / 180;
+const QUIET_LEVEL = 6 / 180;
 export const QUIET_AFTER_MS = 20_000;
 
-export type RecorderPhase = "recording" | "paused" | "stopping" | "stopped" | "failed";
+type RecorderPhase = "recording" | "paused" | "stopping" | "stopped" | "failed";
 
-export type TrackSnapshot = {
+type TrackSnapshot = {
   track: MeetingTrack;
   level: number;
   connected: boolean;
@@ -167,10 +167,17 @@ export class MeetingRecorder {
     this.publish();
   }
 
-  /** Stores what was said up to now, then releases the microphone, the tab and the sockets. */
+  /**
+   * Turns the microphone and the tab off at once, then waits while what they already sent is stored and releases the
+   * sockets. Nothing new is captured once the person pressed stop.
+   */
   async stop() {
     if (this.snapshot.phase === "stopping" || this.snapshot.phase === "stopped") return;
     this.update({ phase: "stopping" });
+    for (const pipe of this.pipes) {
+      pipe.capture?.stop();
+      pipe.capture = undefined;
+    }
     await Promise.all(this.pipes.map((pipe) => this.closeSocket(pipe)));
     this.release();
     this.update({ phase: "stopped", previews: {} });

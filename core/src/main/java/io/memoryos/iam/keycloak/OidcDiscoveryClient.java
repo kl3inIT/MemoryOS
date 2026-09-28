@@ -1,7 +1,8 @@
 package io.memoryos.iam.keycloak;
 
-import io.memoryos.iam.identityprovider.IdentityProviderException;
-import io.memoryos.iam.identityprovider.IdentityProviderFailureReason;
+import io.memoryos.iam.DiscoveredOidcProvider;
+import io.memoryos.iam.IdentityProviderException;
+import io.memoryos.iam.IdentityProviderFailureReason;
 
 import java.io.IOException;
 import java.net.URI;
@@ -120,7 +121,7 @@ public class OidcDiscoveryClient {
 
     private static String textOrNull(JsonNode document, String field) {
         JsonNode node = document.path(field);
-        return node.isTextual() ? node.asText() : null;
+        return node.isString() ? node.stringValue() : null;
     }
 
     private static IdentityProviderException invalidDiscovery(String diagnosticMessage) {

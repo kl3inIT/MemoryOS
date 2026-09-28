@@ -11,6 +11,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -32,8 +34,8 @@ import org.springframework.http.HttpStatus;
 @AutoConfigureTestRestTemplate
 class RedisUnavailableReadinessIntegrationTest {
 
-    @org.springframework.test.context.DynamicPropertySource
-    static void databaseProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
+    @DynamicPropertySource
+    static void databaseProperties(DynamicPropertyRegistry registry) {
         WorkerPostgresDatabase.configure(registry);
     }
 

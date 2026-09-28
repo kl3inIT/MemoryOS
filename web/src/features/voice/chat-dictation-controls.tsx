@@ -3,7 +3,6 @@ import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { Link } from "@tanstack/react-router";
 import { Check, Mic, MicOff, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
-import { useFilesBlocked } from "@/features/chat/use-files-blocked";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
@@ -143,7 +142,7 @@ function LevelMeter({ levels, muted }: { levels: readonly number[]; muted: boole
   return (
     <div
       aria-hidden="true"
-      className="flex h-7 min-w-0 flex-1 items-center justify-end gap-[3px] overflow-hidden"
+      className="flex h-7 min-w-0 flex-1 items-center justify-end gap-0.75 overflow-hidden"
     >
       {Array.from({ length: METER_BARS }, (_, index) => {
         const level = muted ? 0 : (levels[levels.length - METER_BARS + index] ?? 0);
@@ -151,7 +150,7 @@ function LevelMeter({ levels, muted }: { levels: readonly number[]; muted: boole
           <span
             key={index}
             className={cn(
-              "w-[3px] shrink-0 rounded-full transition-[height] duration-100 motion-reduce:transition-none",
+              "w-0.75 shrink-0 rounded-full transition-all duration-100 motion-reduce:transition-none",
               muted ? "bg-content-disabled" : "bg-content-secondary",
             )}
             // Speech RMS sits around 0.01–0.1; the square root keeps quiet speech visible.
@@ -181,8 +180,11 @@ export function ChatVoiceFailure() {
   );
 }
 
-/** Auto-Send: once a stopped dictation has written its final text, the draft is sent as if Send were pressed. */
-export function ChatDictationAutoSend() {
+/**
+ * Auto-Send: once a stopped dictation has written its final text, the draft is sent as if Send were pressed. The
+ * composer says whether its attachments still block sending.
+ */
+export function ChatDictationAutoSend({ filesBlocked }: { filesBlocked: boolean }) {
   const aui = useAui();
   const autoSend = useVoiceSettings().data?.autoSend === true;
   const { lastEnd } = useVoiceSession();
@@ -191,7 +193,6 @@ export function ChatDictationAutoSend() {
     (state) =>
       !state.thread.isRunning && !state.thread.isDisabled && state.composer.text.trim() !== "",
   );
-  const filesBlocked = useFilesBlocked();
   const handled = useRef(lastEnd?.sequence ?? 0);
   useEffect(() => {
     if (dictating || !lastEnd || lastEnd.sequence === handled.current) return;

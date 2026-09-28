@@ -27,7 +27,7 @@ Plaintext secrets are absent from list responses, logs, browser sessions, except
 
 Stored states are `PENDING`, `ACCEPTED`, `EXPIRED` and `REVOKED`. Expiry is settled from durable `expires_at` without a background runtime mode. A database constraint permits at most one pending invitation for one normalized email in one Tenant while preserving settled lifecycle evidence.
 
-`InvitationEntity` and `JpaInvitationRepository` own lifecycle writes under `io.memoryos.iam.persistence`. The invitation row records Tenant scope, normalized email, secret digest, creator, expiry, and accepted or revoked facts; JPA relationships retain the Tenant and Actor evidence. Foreign keys keep rows inside one Tenant. `InvitationQueryRepository` remains a concrete SQL read projection for bounded filtering, counts and paging.
+`InvitationEntity` and `JpaInvitationRepository` own lifecycle writes under `io.memoryos.iam.invitation.persistence`. The invitation row records Tenant scope, normalized email, secret digest, creator, expiry, and accepted or revoked facts; JPA relationships retain the Tenant and Actor evidence. Foreign keys keep rows inside one Tenant. `InvitationQueryRepository` remains a concrete SQL read projection for bounded filtering, counts and paging.
 
 Invitation authority mutations use the IAM Tenant row as their serialization anchor. Issue performs provider provisioning outside the database transaction, then reauthorizes with an exclusive lock before creating the row. Rotate and revoke also reauthorize and lock before changing lifecycle state. List uses a shared authorization lock, settles pending expiry and reads count/page state in one transaction. Provider failure before the write transaction leaves no invitation and does not advance the Tenant authorization revision.
 
@@ -91,7 +91,7 @@ Capability-link acceptance uses the redacted continuation. Activation-email acce
 
 ## Failure contract
 
-Invitation exposes expected REST failures through capability-prefixed codes: `INVITATION_NOT_OWNER`, `INVITATION_INVALID_EMAIL`, `INVITATION_CONFLICT`, `INVITATION_NOT_AVAILABLE`, `INVITATION_EMAIL_NOT_VERIFIED`, `INVITATION_EMAIL_MISMATCH` and `INVITATION_IDENTITY_CONFLICT`. `INVITATION_NOT_OWNER` is the legacy wire name for failed `USERS_MANAGE` authorization. Each code otherwise carries one semantic failure category and safe English fallback message. The API renders these as RFC 9457 Problem Details and never exposes the diagnostic `InvitationException` message.
+Invitation exposes expected REST failures through capability-prefixed codes: `INVITATION_NOT_OWNER`, `INVITATION_INVALID_EMAIL`, `INVITATION_QUERY_INVALID`, `INVITATION_CONFLICT`, `INVITATION_NOT_AVAILABLE`, `INVITATION_EMAIL_NOT_VERIFIED`, `INVITATION_EMAIL_MISMATCH` and `INVITATION_IDENTITY_CONFLICT`. `INVITATION_NOT_OWNER` is the legacy wire name for failed `USERS_MANAGE` authorization. Each code otherwise carries one semantic failure category and safe English fallback message. The API renders these as RFC 9457 Problem Details and never exposes the diagnostic `InvitationException` message.
 
 Browser intake and OAuth flows catch `InvitationException` directly and translate selected reasons to redirect recovery states.
 

@@ -1,5 +1,6 @@
 package io.memoryos.chat.web;
 
+import org.springframework.modulith.NamedInterface;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -19,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Small protocol adapters; provider errors and credentials never become model/UI output. */
 @Component
+@NamedInterface("web")
 public final class WebProviderClient {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final WebHttp http;

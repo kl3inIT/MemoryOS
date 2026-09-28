@@ -1,6 +1,6 @@
-import { appEn } from "./app-translations";
+import { vietnameseUi } from "./app-translations.en";
 export const en = {
-  app: appEn,
+  app: vietnameseUi,
   renderers: {
     artifact: "Presentation",
     openArtifact: "Open presentation: {{title}}",
@@ -86,9 +86,11 @@ export const en = {
     preview: "Image preview",
     previewTitle: "Attachment preview",
     fileLabel: "Attachment: {{name}}",
+    list: "Attached files",
     remove: "Remove file",
     uploading: "Uploading…",
     processing: "Processing…",
+    preparing: "Preparing…",
     failed: "Could not attach this file. Remove it and try again.",
   },
   common: {
@@ -152,6 +154,7 @@ export const en = {
     chatUncertain: "The result could not be confirmed. Reload to check before trying again.",
     actionFailed: "The action could not be completed. Try again.",
     invitationConflict: "An open invitation already exists for this email.",
+    invitationQueryInvalid: "Invalid invitation page or filter.",
     identityConflict:
       "This email belongs to an identity account that cannot be reused. Contact an administrator.",
     copyInvitation: "The invitation link could not be copied. Select and copy it from the field.",

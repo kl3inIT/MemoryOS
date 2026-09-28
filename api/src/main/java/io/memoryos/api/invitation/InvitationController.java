@@ -1,5 +1,6 @@
 package io.memoryos.api.invitation;
 
+import io.memoryos.api.security.CurrentActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -13,25 +14,22 @@ import io.memoryos.api.invitation.contract.CurrentInvitationResponse;
 import io.memoryos.api.invitation.contract.InvitationPageResponse;
 import io.memoryos.api.invitation.contract.InvitationResponse;
 import io.memoryos.api.invitation.contract.IssuedInvitationResponse;
-import io.memoryos.iam.identity.IdentityContext;
-import io.memoryos.iam.invitation.InvitationException;
-import io.memoryos.iam.invitation.InvitationFailureReason;
-import io.memoryos.iam.invitation.InvitationPage;
-import io.memoryos.iam.invitation.InvitationQuery;
-import io.memoryos.iam.invitation.InvitationService;
-import io.memoryos.iam.invitation.InvitationSort;
-import io.memoryos.iam.invitation.InvitationStatus;
-import io.memoryos.iam.invitation.InvitationView;
-import io.memoryos.iam.invitation.IssuedInvitation;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationPage;
+import io.memoryos.iam.InvitationQuery;
+import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.InvitationSort;
+import io.memoryos.iam.InvitationStatus;
+import io.memoryos.iam.InvitationView;
+import io.memoryos.iam.IssuedInvitation;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.UUID;
 
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,14 +38,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/invitations")
 @Tag(name = "Invitations")
 final class InvitationController {
-
-    private static final String API_PROBLEM_SCHEMA = "#/components/schemas/ApiProblem";
 
     private final InvitationService invitations;
 
@@ -73,11 +68,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "400",
-            description = "Invalid invitation list query",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "Invalid invitation list query"
     )
     @ApiResponse(
             responseCode = "401",
@@ -86,15 +77,11 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks USERS_MANAGE authority",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The actor lacks USERS_MANAGE authority"
     )
     @GetMapping
     InvitationPageResponse list(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @RequestParam(required = false) InvitationStatus status,
             @RequestParam(required = false) String email,
             @RequestParam(defaultValue = "CREATED_AT_DESC") InvitationSort sort,
@@ -107,7 +94,7 @@ final class InvitationController {
         try {
             query = new InvitationQuery(status, email, sort, page, size);
         } catch (IllegalArgumentException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+            throw new InvitationException(InvitationFailureReason.QUERY_INVALID, exception.getMessage(), exception);
         }
         return page(invitations.list(identityContext.actorId(), query));
     }
@@ -130,11 +117,7 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "400",
-            description = "Invalid email",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "Invalid email"
     )
     @ApiResponse(
             responseCode = "401",
@@ -143,32 +126,20 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing"
     )
     @ApiResponse(
             responseCode = "409",
-            description = "A conflicting pending invitation already exists",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "A conflicting pending invitation already exists"
     )
     @ApiResponse(
             responseCode = "503",
-            description = "Keycloak recipient activation is temporarily unavailable",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "Keycloak recipient activation is temporarily unavailable"
     )
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     IssuedInvitationResponse create(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     content = @Content(
@@ -204,23 +175,15 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing"
     )
     @ApiResponse(
             responseCode = "410",
-            description = "Invitation is no longer pending and available",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "Invitation is no longer pending and available"
     )
     @PostMapping("/{invitationId}/rotate")
     IssuedInvitationResponse rotate(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Parameter(description = "Invitation identifier.", required = true)
             @PathVariable UUID invitationId
     ) {
@@ -243,24 +206,16 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The actor lacks USERS_MANAGE authority or the same-origin header is missing"
     )
     @ApiResponse(
             responseCode = "410",
-            description = "Invitation is no longer pending and available",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "Invitation is no longer pending and available"
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{invitationId}/revoke")
     void revoke(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Parameter(description = "Invitation identifier.", required = true)
             @PathVariable UUID invitationId
     ) {
@@ -281,18 +236,10 @@ final class InvitationController {
     )
     @ApiResponse(
             responseCode = "410",
-            description = "No available invitation continuation exists",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "No available invitation continuation exists"
     )
     @GetMapping("/current")
-    CurrentInvitationResponse current(
-            HttpServletRequest request,
-            HttpServletResponse response
-    ) {
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+    CurrentInvitationResponse current(HttpServletRequest request) {
         var state = InvitationSessionState.read(request);
         if (state == null) {
             throw new InvitationException(

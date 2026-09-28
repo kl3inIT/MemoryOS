@@ -1,5 +1,13 @@
 package io.memoryos.chat.image;
 
+import io.memoryos.usage.AiUsage;
+import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageRecorder;
+import java.time.Instant;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.modulith.NamedInterface;
+import io.memoryos.shared.ActorId;
+
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.net.URI;
@@ -16,6 +24,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Small protocol adapters; provider errors and credentials never become model/UI output. */
 @Component
+@NamedInterface("image")
 public final class ImageProviderClient {
     /**
      * Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109.
@@ -28,13 +37,13 @@ public final class ImageProviderClient {
     private final ImageHttp http;
     private final ImageConnectionService connections;
     private final MeterRegistry meters;
-    private final io.memoryos.usage.@Nullable AiUsageRecorder usage;
+    private final @Nullable AiUsageRecorder usage;
     public ImageProviderClient(ImageHttp http, ImageConnectionService connections, MeterRegistry meters) {
         this(http, connections, meters, null);
     }
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public ImageProviderClient(ImageHttp http, ImageConnectionService connections, MeterRegistry meters,
-                               io.memoryos.usage.@Nullable AiUsageRecorder usage) {
+                               @Nullable AiUsageRecorder usage) {
         this.http = http; this.connections = connections; this.meters = meters; this.usage = usage;
     }
 
@@ -42,13 +51,13 @@ public final class ImageProviderClient {
      * Adds one delivered image to the AI usage ledger. Image connections carry no price, so the cost is unknown;
      * connection probes are not recorded because only Chat tools call this.
      */
-    public void recordImage(ImageConnectionService.Connection connection, io.memoryos.iam.identity.@Nullable ActorId actor, boolean edit) {
+    public void recordImage(ImageConnectionService.Connection connection, @Nullable ActorId actor, boolean edit) {
         if (usage == null) return;
         String model = edit && connection.provider() == ImageProvider.CLOUDFLARE_WORKERS_AI ? CLOUDFLARE_EDIT_MODEL
                 : resolvedModel(connection.provider(), connection.model());
-        usage.record(new io.memoryos.usage.AiUsage(connection.tenantId(), actor == null ? null : actor.value(),
-                edit ? io.memoryos.usage.AiUsageFlow.IMAGE_EDIT : io.memoryos.usage.AiUsageFlow.IMAGE_GENERATION,
-                connection.provider().name(), model, connection.id(), null, null, 1, 0, 0, 0, 1, 0, null, java.time.Instant.now()));
+        usage.record(new AiUsage(connection.tenantId(), actor == null ? null : actor.value(),
+                edit ? AiUsageFlow.IMAGE_EDIT : AiUsageFlow.IMAGE_GENERATION,
+                connection.provider().name(), model, connection.id(), null, null, 1, 0, 0, 0, 1, 0, null, Instant.now()));
     }
     /** The model a request names: the connection's, or the provider default when it names none. */
     static String resolvedModel(ImageProvider provider, String model) {

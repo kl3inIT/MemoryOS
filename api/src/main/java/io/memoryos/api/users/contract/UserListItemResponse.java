@@ -1,9 +1,9 @@
 package io.memoryos.api.users.contract;
 
-import io.memoryos.iam.identity.AccountType;
-import io.memoryos.iam.user.UserListItem;
-import io.memoryos.iam.user.UserStatus;
-import io.memoryos.iam.tenant.TenantMembershipRole;
+import io.memoryos.iam.AccountType;
+import io.memoryos.iam.UserListItem;
+import io.memoryos.iam.UserStatus;
+import io.memoryos.iam.TenantMembershipRole;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

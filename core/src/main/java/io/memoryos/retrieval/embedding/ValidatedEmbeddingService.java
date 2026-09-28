@@ -14,12 +14,17 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingOptions;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 
-/** Both ingestion and query paths use the same model space and response validation. */
+/**
+ * Both ingestion and query paths use one generation's model space and response validation. Instruction-tuned models
+ * such as Qwen3-Embedding expect questions and passages to be embedded differently, so each path adds its own prefix
+ * from the generation: {@link #queries} the query prefix and {@link #documents} the document prefix.
+ */
 public final class ValidatedEmbeddingService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ValidatedEmbeddingService.class);
     private final EmbeddingModel model;
@@ -31,13 +36,15 @@ public final class ValidatedEmbeddingService {
     private final @Nullable AiUsageRecorder usage;
     private final String providerName;
     private final @Nullable Double inputPricePerMillion;
+    private final String queryPrefix;
+    private final String documentPrefix;
 
     /** Who an embedding call is for: a person's search, or system indexing without an actor. */
     public record Caller(UUID tenant, @Nullable UUID actor, AiUsageFlow flow) {}
 
     public ValidatedEmbeddingService(EmbeddingModel model, String modelName, int dimensions,
             int batchSize, int concurrency) {
-        this(model, modelName, dimensions, batchSize, concurrency, null, "unknown", null);
+        this(model, modelName, dimensions, batchSize, concurrency, null, "unknown", null, "", "");
     }
 
     /**
@@ -45,12 +52,26 @@ public final class ValidatedEmbeddingService {
      *                             are recorded with unknown cost
      */
     public ValidatedEmbeddingService(EmbeddingModel model, String modelName, int dimensions, int batchSize, int concurrency,
-            @Nullable AiUsageRecorder usage, String providerName, @Nullable Double inputPricePerMillion) {
+            @Nullable AiUsageRecorder usage, String providerName, @Nullable Double inputPricePerMillion,
+            String queryPrefix, String documentPrefix) {
+        this(model, modelName, dimensions, batchSize, concurrency, usage, providerName, inputPricePerMillion, queryPrefix,
+                documentPrefix, new Semaphore(Math.clamp(concurrency, 1, 16)));
+    }
+
+    /**
+     * As above, with the permits shared by every generation on the same provider, so a rebuild and the index it replaces
+     * together stay within the provider's concurrency.
+     */
+    public ValidatedEmbeddingService(EmbeddingModel model, String modelName, int dimensions, int batchSize, int concurrency,
+            @Nullable AiUsageRecorder usage, String providerName, @Nullable Double inputPricePerMillion,
+            String queryPrefix, String documentPrefix, Semaphore permits) {
         if (inputPricePerMillion != null && (!Double.isFinite(inputPricePerMillion) || inputPricePerMillion < 0))
             throw new IllegalArgumentException("invalid embedding price");
         this.usage = usage;
         this.providerName = providerName;
         this.inputPricePerMillion = inputPricePerMillion;
+        this.queryPrefix = Objects.requireNonNull(queryPrefix);
+        this.documentPrefix = Objects.requireNonNull(documentPrefix);
         this.model = Objects.requireNonNull(model);
         this.modelName = Objects.requireNonNull(modelName);
         if (dimensions < 1 || dimensions > 16000 || batchSize < 1 || batchSize > 64 || concurrency < 1 || concurrency > 16) {
@@ -58,24 +79,29 @@ public final class ValidatedEmbeddingService {
         }
         this.dimensions = dimensions;
         this.batchSize = batchSize;
-        this.permits = new Semaphore(concurrency);
+        this.permits = Objects.requireNonNull(permits);
     }
 
     public int batchSize() { return batchSize; }
 
-    public float[] query(String text) { return batch(List.of(text)).getFirst(); }
+    public float[] query(String text) { return queries(List.of(text), null).getFirst(); }
 
-    public float[] query(String text, @Nullable Caller caller) { return batch(List.of(text), caller).getFirst(); }
+    public float[] query(String text, @Nullable Caller caller) { return queries(List.of(text), caller).getFirst(); }
 
-    public List<float[]> batch(List<String> inputs) { return batch(inputs, null); }
+    /** Embeds search questions with the generation's query prefix. */
+    public List<float[]> queries(List<String> texts, @Nullable Caller caller) { return embed(texts, queryPrefix, caller); }
+
+    /** Embeds indexed passages with the generation's document prefix. */
+    public List<float[]> documents(List<String> texts, @Nullable Caller caller) { return embed(texts, documentPrefix, caller); }
 
     /** Embeds and, for a known caller, adds the provider-reported input tokens to the AI usage ledger. */
-    public List<float[]> batch(List<String> inputs, @Nullable Caller caller) {
-        inputs = List.copyOf(inputs);
-        if (inputs.isEmpty() || inputs.size() > batchSize
-                || inputs.stream().anyMatch(s -> s.isBlank() || tokenizer.estimate(s) > 8191)) {
+    private List<float[]> embed(List<String> texts, String prefix, @Nullable Caller caller) {
+        texts = List.copyOf(texts);
+        if (texts.isEmpty() || texts.size() > batchSize || texts.stream().anyMatch(String::isBlank)) {
             throw new IllegalArgumentException("invalid embedding input");
         }
+        List<String> inputs = texts.stream().map(text -> prefix + text).toList();
+        if (inputs.stream().anyMatch(s -> tokenizer.estimate(s) > 8191)) throw new IllegalArgumentException("invalid embedding input");
         boolean acquired = false;
         try {
             acquired = permits.tryAcquire(5, TimeUnit.SECONDS);
@@ -132,7 +158,7 @@ public final class ValidatedEmbeddingService {
         return new SearchUnavailableException();
     }
 
-    private void record(@Nullable Caller caller, org.springframework.ai.chat.metadata.@Nullable Usage reported) {
+    private void record(@Nullable Caller caller, @Nullable Usage reported) {
         if (usage == null || caller == null) return;
         Integer tokens = reported == null ? null : reported.getPromptTokens();
         var at = Instant.now();

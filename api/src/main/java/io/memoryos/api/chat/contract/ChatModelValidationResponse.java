@@ -6,5 +6,5 @@ import org.jspecify.annotations.Nullable;
 @Schema(name = "ChatModelValidationResult")
 public record ChatModelValidationResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean reachable,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String failureCode
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String failureCode
 ) {}

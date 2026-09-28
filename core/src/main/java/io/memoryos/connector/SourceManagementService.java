@@ -1,9 +1,9 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupIdentity;
-import io.memoryos.iam.group.GroupIdentityPage;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentity;
+import io.memoryos.iam.GroupIdentityPage;
 import io.memoryos.objectstorage.ObjectUploadAuthorization;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
@@ -25,9 +25,9 @@ public interface SourceManagementService {
 
     SourceSummary getSource(ActorId actorId, SourceId sourceId);
 
-    SourceItemPage listItems(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int size);
+    SourceItemPage listItems(ActorId actorId, SourceId sourceId, @Nullable String cursor, int size);
 
-    SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int limit);
+    SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @Nullable String cursor, int limit);
 
     List<GroupIdentity> listSourceGroups(ActorId actorId, SourceId sourceId);
 

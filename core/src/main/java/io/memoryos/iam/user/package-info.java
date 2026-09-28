@@ -1,4 +1,4 @@
-@NamedInterface
+@NullMarked
 package io.memoryos.iam.user;
 
-import org.springframework.modulith.NamedInterface;
+import org.jspecify.annotations.NullMarked;

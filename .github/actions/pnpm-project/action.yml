@@ -1,0 +1,29 @@
+name: pnpm project
+description: pnpm, its Node.js runtime, a warm store and one project's dependencies.
+
+# pnpm's own CI guidance no longer goes through Corepack, and `pnpm doctor` warns when it finds
+# pnpm running under it: Corepack takes over version management and disables `pnpm self-update`.
+# This action installs pnpm directly, at the version the project's package.json already pins in
+# `packageManager`, and brings its own Node.js — so the toolchain has one source of truth.
+
+inputs:
+  directory:
+    description: Directory holding the project's package.json and pnpm-lock.yaml
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm and Node.js
+      uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+      with:
+        runtime: node@24
+        working-directory: ${{ inputs.directory }}
+        cache: true
+        cache-dependency-path: ${{ inputs.directory }}/pnpm-lock.yaml
+        # The install below states --frozen-lockfile rather than relying on a default.
+        install: false
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm --dir "${{ inputs.directory }}" install --frozen-lockfile

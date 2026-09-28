@@ -5,6 +5,7 @@ a borderline answer that scores 1-of-3 or 2-of-3 must not be recorded as a singl
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +99,20 @@ def test_a_broken_call_is_reported_rather_than_outvoted(monkeypatch: pytest.Monk
     assert verdict.reason == "judge call failed (502)"
 
 
+def test_the_rubric_scores_coverage_rather_than_resemblance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent = replies(monkeypatch, Response('{"correct": true, "reason": "đủ ý"}'))
+
+    Judge(config(1)).score("hỏi", "vàng", "đáp")
+
+    system = sent[0]["messages"][0]["content"]
+    # The rule that marked 19 of 24 correct answers wrong on staging must not come back.
+    assert "KHÔNG bị trừ điểm" in system
+    assert "thêm thông tin không có trong đáp án chuẩn" not in system
+    assert "nêu đủ mọi ý và số liệu của đáp án chuẩn" in system
+
+
 def test_the_partial_prompt_does_not_require_announcing_the_missing_part(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -108,3 +123,18 @@ def test_the_partial_prompt_does_not_require_announcing_the_missing_part(
     system = sent[0]["messages"][0]["content"]
     assert "không khẳng định phần còn lại" in system
     assert "Không bắt buộc phải nói ra" in system
+
+
+def test_the_temperature_is_sent_only_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = replies(
+        monkeypatch,
+        Response('{"correct": true, "reason": "đúng"}'),
+        Response('{"correct": true, "reason": "đúng"}'),
+    )
+
+    Judge(config(1)).score("hỏi", "vàng", "đáp")
+    Judge(replace(config(1), judge_temperature=None)).score("hỏi", "vàng", "đáp")
+
+    assert sent[0]["temperature"] == 0.0
+    # A reasoning judge refuses any temperature but its default, so none is sent.
+    assert "temperature" not in sent[1]

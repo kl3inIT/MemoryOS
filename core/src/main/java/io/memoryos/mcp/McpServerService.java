@@ -1,12 +1,15 @@
 package io.memoryos.mcp;
 
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupIdentityPage;
-import io.memoryos.iam.group.GroupScopeService;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentityPage;
+import io.memoryos.iam.GroupScopeService;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.mcp.persistence.JpaMcpCredentialRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerToolRepository;
@@ -15,6 +18,7 @@ import io.memoryos.mcp.persistence.McpServerEntity;
 import io.memoryos.mcp.persistence.McpServerToolEntity;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,9 +27,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +46,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class McpServerService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(McpServerService.class);
     /** Refresh is an explicit administrator action; the configured request timeout still bounds each call. */
     private static final Duration REFRESH_DEADLINE = Duration.ofMinutes(2);
 
@@ -51,12 +59,12 @@ public class McpServerService {
     private final McpClients clients;
     private final McpOAuthService oauth;
     private final TransactionTemplate transactions;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public McpServerService(JpaMcpServerRepository servers, JpaMcpServerToolRepository tools,
                             JpaMcpCredentialRepository credentials, IamAuthorization authorization,
                             GroupScopeService groups, McpSecrets secrets, McpClients clients, McpOAuthService oauth,
-                            PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+                            PlatformTransactionManager transactionManager, AuditTrail audit) {
         this.audit = audit;
         this.servers = servers; this.tools = tools; this.credentials = credentials; this.authorization = authorization;
         this.groups = groups; this.secrets = secrets; this.clients = clients; this.oauth = oauth;
@@ -126,7 +134,7 @@ public class McpServerService {
         if (servers.existsByTenantIdAndSlug(tenant, validSlug)) throw McpException.slugTaken();
         Instant now = Instant.now();
         var created = save(tenant, new McpServerEntity(UUID.randomUUID(), tenant, validSlug, now), input, true, now);
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_SERVER_CREATE, created.id(), created.name(),
+        record(tenant, actor, AuditAction.MCP_SERVER_CREATE, created.id(), created.name(),
                 event -> event.detail("after", facts(created.url(), created.authType(), created.authPerformer(),
                         created.tenantWide(), created.groupIds().size())));
         return created;
@@ -140,7 +148,7 @@ public class McpServerService {
         if (!server.slug().equals(slug)) throw McpException.invalid("The slug of an MCP server cannot change.");
         var before = facts(server.url(), server.authType(), server.authPerformer(), server.tenantWide(), server.groupIds().size());
         var updated = save(tenant, server, input, false, Instant.now());
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_SERVER_UPDATE, updated.id(), updated.name(), event -> event
+        record(tenant, actor, AuditAction.MCP_SERVER_UPDATE, updated.id(), updated.name(), event -> event
                 .detail("before", before)
                 .detail("after", facts(updated.url(), updated.authType(), updated.authPerformer(), updated.tenantWide(),
                         updated.groupIds().size()))
@@ -148,14 +156,19 @@ public class McpServerService {
         return updated;
     }
 
-    @Transactional
+    /** Deletes the server with its OAuth clients, then deletes its dynamically registered clients remotely. */
     public void delete(ActorId actor, UUID serverId, long revision) {
-        UUID tenant = write(actor);
-        var server = server(tenant, serverId);
-        if (server.revision() != revision) throw McpException.conflict();
-        servers.delete(server);
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_SERVER_DELETE, serverId, server.name(),
-                event -> event.detail("url", server.url()));
+        var registered = Objects.requireNonNull(transactions.execute(_ -> {
+            UUID tenant = write(actor);
+            var server = server(tenant, serverId);
+            if (server.revision() != revision) throw McpException.conflict();
+            var deregistrations = oauth.deregistrations(tenant, serverId);
+            servers.delete(server);
+            record(tenant, actor, AuditAction.MCP_SERVER_DELETE, serverId, server.name(),
+                    event -> event.detail("url", server.url()));
+            return deregistrations;
+        }));
+        oauth.deregister(registered);
     }
 
     @Transactional(readOnly = true)
@@ -174,7 +187,7 @@ public class McpServerService {
         boolean changed = tool.enabled() != enabled;
         tool.enabled(enabled);
         var saved = tools.saveAndFlush(tool);
-        if (changed) record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+        if (changed) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
                 event -> event.detail("tools", List.of(tool.name())).detail("enabled", enabled));
         return toolView(server, saved);
     }
@@ -184,7 +197,7 @@ public class McpServerService {
     public List<ToolView> setAllToolsEnabled(ActorId actor, UUID serverId, boolean enabled) {
         UUID tenant = write(actor);
         var server = server(tenant, serverId);
-        var changed = new java.util.ArrayList<String>();
+        var changed = new ArrayList<String>();
         for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
             if ((!enabled || McpServerRules.modelToolName(server.slug(), tool.name()).isPresent()) && tool.enabled() != enabled) {
                 tool.enabled(enabled);
@@ -192,14 +205,14 @@ public class McpServerService {
             }
         }
         tools.flush();
-        if (!changed.isEmpty()) record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+        if (!changed.isEmpty()) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
                 event -> event.detail("tools", changed).detail("enabled", enabled));
         return toolViews(server);
     }
 
     /** Lists the server's tools with the administrator credential and replaces the stored snapshot. */
     public Refresh refreshTools(ActorId actor, UUID serverId) {
-        Target target = Objects.requireNonNull(transactions.execute(status -> {
+        Target target = Objects.requireNonNull(transactions.execute(_ -> {
             UUID tenant = read(actor);
             var server = server(tenant, serverId);
             UUID owner = server.authPerformer() == McpAuthPerformer.PER_USER ? actor.value() : null;
@@ -226,7 +239,7 @@ public class McpServerService {
             throw failure;
         }
         var snapshot = McpServerRules.snapshot(listed);
-        return Objects.requireNonNull(transactions.execute(status -> {
+        return Objects.requireNonNull(transactions.execute(_ -> {
             UUID tenant = write(actor);
             var server = server(tenant, serverId);
             if (server.revision() != target.revision()) throw McpException.conflict();
@@ -372,15 +385,20 @@ public class McpServerService {
 
     private void recordFailure(ActorId actor, UUID serverId, long revision, McpServerStatus status) {
         try {
-            transactions.executeWithoutResult(transaction -> {
+            transactions.executeWithoutResult(_ -> {
                 var server = server(write(actor), serverId);
                 if (server.revision() == revision && server.status() != status) {
                     server.status(status, null, Instant.now());
                     servers.saveAndFlush(server);
                 }
             });
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException exception) {
             // The refresh failure the caller receives matters more than a status that could not be recorded.
+            LOGGER.atWarn().addKeyValue("event", "mcp.server.status.not_recorded")
+                    .addKeyValue("mcp_server_id", serverId)
+                    .addKeyValue("status", status.name())
+                    .addKeyValue("error_type", exception.getClass().getName())
+                    .log("MCP server refresh failure could not be recorded");
         }
     }
 
@@ -424,16 +442,16 @@ public class McpServerService {
         return authorization.lockAndRequireExclusive(actor, IamCapability.MCP_MANAGE).tenantId().value();
     }
 
-    private void record(UUID tenant, ActorId actor, io.memoryos.iam.audit.AuditAction action, UUID serverId, String name,
-                        java.util.function.UnaryOperator<io.memoryos.iam.audit.AuditRecord.Builder> details) {
-        audit.record(details.apply(io.memoryos.iam.audit.AuditRecord.of(action, new io.memoryos.iam.tenant.TenantId(tenant))
+    private void record(UUID tenant, ActorId actor, AuditAction action, UUID serverId, String name,
+                        UnaryOperator<AuditRecord.Builder> details) {
+        audit.record(details.apply(AuditRecord.of(action, new TenantId(tenant))
                 .actor(actor).resource("MCP_SERVER", serverId, name)).build());
     }
 
     /** Where the server is, how it authenticates and who may use it; header values and keys are never recorded. */
     private static Map<String, Object> facts(String url, McpAuthType authType, McpAuthPerformer performer, boolean tenantWide,
                                              int groups) {
-        var facts = new java.util.LinkedHashMap<String, Object>();
+        var facts = new LinkedHashMap<String, Object>();
         facts.put("url", url);
         facts.put("authentication", authType.name());
         facts.put("performer", performer.name());

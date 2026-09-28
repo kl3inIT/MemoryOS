@@ -1,14 +1,16 @@
 package io.memoryos.iam.identity;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
-import io.memoryos.iam.identity.ExternalIdentityRegistrar;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.ExternalIdentity;
+import io.memoryos.iam.TrustedIdentityAdmission;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.GroupProvisioner;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantMembershipProvisioner;
-import io.memoryos.iam.identity.TrustedIdentityAdmission;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
@@ -16,8 +18,6 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Service
 public class DefaultTrustedIdentityAdmission implements TrustedIdentityAdmission {
@@ -27,7 +27,7 @@ public class DefaultTrustedIdentityAdmission implements TrustedIdentityAdmission
     private final ExternalIdentityRegistrar identities;
     private final TenantMembershipProvisioner memberships;
     private final GroupProvisioner groups;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public DefaultTrustedIdentityAdmission(
             JpaTenantRepository tenants,
@@ -35,7 +35,7 @@ public class DefaultTrustedIdentityAdmission implements TrustedIdentityAdmission
             ExternalIdentityRegistrar identities,
             TenantMembershipProvisioner memberships,
             GroupProvisioner groups,
-            io.memoryos.iam.audit.AuditTrail audit
+            AuditTrail audit
     ) {
         this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
@@ -68,7 +68,7 @@ public class DefaultTrustedIdentityAdmission implements TrustedIdentityAdmission
         memberships.grantMember(tenantId, actorId);
         groups.addToBasicGroup(tenantId, actorId);
         // Admitted by a trusted identity provider rather than an invitation (MEM-59): the first sign-in is the join.
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.JIT_ADMIT, tenantId)
+        audit.record(AuditRecord.of(AuditAction.JIT_ADMIT, tenantId)
                 .actor(actorId, identity.subject()).resource("USER", actorId.value(), null)
                 .detail("issuer", identity.issuer()).build());
         return actorId;

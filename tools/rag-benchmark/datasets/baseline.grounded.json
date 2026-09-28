@@ -1,0 +1,22 @@
+{
+  "questions": 0,
+  "answered": 0,
+  "recall": {},
+  "ndcg5": 0.0,
+  "citationRecall": 0.0,
+  "citationPrecision": 0.0,
+  "correctness": 0.0,
+  "partialCorrectness": 0.0,
+  "abstention": 0.0,
+  "leaks": 0,
+  "outsideCorpus": 0,
+  "medianSeconds": 0.0,
+  "p90Seconds": 0.0,
+  "errors": 0,
+  "judgeDisagreement": 0.0,
+  "assertedUncited": 0,
+  "falseRefusal": 0.0,
+  "sensitiveAnswered": 0,
+  "byCategory": {},
+  "byActor": {}
+}

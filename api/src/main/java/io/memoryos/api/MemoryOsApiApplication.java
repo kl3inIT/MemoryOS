@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication(
         scanBasePackages = "io.memoryos",
         excludeName = {
-                "io.memoryos.provider.file.FileProviderAutoConfiguration",
-                "io.memoryos.provider.SourceContentExtractorAutoConfiguration"
+                "io.memoryos.ingestion.extraction.FileProviderAutoConfiguration",
+                "io.memoryos.ingestion.extraction.SourceContentExtractorAutoConfiguration"
         }
 )
 public class MemoryOsApiApplication {

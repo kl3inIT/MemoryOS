@@ -65,6 +65,7 @@ class OpenApiContractTest {
             "/api/chat/files/{fileId}/passages",
             "/api/chat/files/{fileId}/content",
             "/api/chat/files/{fileId}/preview",
+            "/api/chat/files/{fileId}/thumbnail",
             "/api/chat/files/{fileId}/finalize",
             "/api/chat/files/{fileId}/retry",
             "/api/chat/documents/{documentId}",
@@ -73,6 +74,7 @@ class OpenApiContractTest {
             "/api/chat/document-sets/{documentSetId}/sharing",
             "/api/chat/group-options",
             "/api/chat/documents/{documentId}/original",
+            "/api/chat/documents/{documentId}/spreadsheet",
             "/api/chat/images",
             "/api/chat/images/connections",
             "/api/chat/images/connections/{provider}",
@@ -115,11 +117,27 @@ class OpenApiContractTest {
             "/api/meetings/{meetingId}",
             "/api/meetings/{meetingId}/notes",
             "/api/meetings/{meetingId}/speakers/{track}/{label}",
+            "/api/meetings/{meetingId}/speakers/{track}/{label}/suggestion",
+            "/api/meetings/{meetingId}/utterances/{utteranceId}/corrections",
             "/api/meetings/{meetingId}/end",
             "/api/meetings/{meetingId}/tickets",
+            "/api/meetings/{meetingId}/bookmarks",
+            "/api/meetings/{meetingId}/bookmarks/{bookmarkId}",
+            "/api/meetings/{meetingId}/transcript",
+            "/api/meetings/{meetingId}/corrections",
+            "/api/meetings/{meetingId}/corrections/accept-all",
+            "/api/meetings/{meetingId}/corrections/revert-all",
+            "/api/meetings/{meetingId}/corrections/{correctionId}/accept",
+            "/api/meetings/{meetingId}/corrections/{correctionId}/keep",
+            "/api/meetings/{meetingId}/corrections/{correctionId}/revert",
             "/api/meetings/{meetingId}/minutes",
+            "/api/meetings/{meetingId}/minutes/items",
+            "/api/meetings/{meetingId}/minutes/items/{itemId}",
+            "/api/meetings/{meetingId}/minutes/summary",
+            "/api/meetings/{meetingId}/utterances/{utteranceId}/star",
             "/api/meetings/{meetingId}/minutes/{itemId}",
             "/api/meetings/{meetingId}/minutes/export",
+            "/api/meetings/{meetingId}/minutes/heading",
             "/api/meetings/transcribers",
             "/api/meetings/{meetingId}/recording",
             "/api/meetings/{meetingId}/recording/finalize",
@@ -157,7 +175,6 @@ class OpenApiContractTest {
             "/api/chat/personas/{personaId}/owner",
             "/api/chat/personas/{personaId}/listing",
             "/api/chat/personas/{personaId}/avatar",
-            "/api/chat/persona-share-options",
             "/api/chat/persona-labels",
             "/api/chat/persona-labels/{labelId}",
             "/api/chat/persona-pins",
@@ -191,6 +208,8 @@ class OpenApiContractTest {
             "/api/chat/retention/preview",
             "/api/chat/history",
             "/api/chat/settings/history-visibility",
+            "/api/chat/settings/grounded",
+            "/api/chat/settings/guardrails",
             "/api/chat/history/{sessionId}",
             "/api/chat/history/export",
             "/api/chat/exports",
@@ -213,8 +232,18 @@ class OpenApiContractTest {
             "/api/search",
             "/api/search/documents/{documentId}",
             "/api/search/documents/{documentId}/original",
+            "/api/search/documents/{documentId}/spreadsheet",
+            "/api/search/settings",
+            "/api/search/settings/future",
+            "/api/search/settings/future/switch",
+            "/api/search/settings/past/{generationId}/restore",
+            "/api/search/embedding-providers",
+            "/api/search/embedding-providers/{providerId}",
+            "/api/search/embedding-providers/test",
+            "/api/search/embedding-models",
             "/api/identity/me",
             "/api/identity/me/language",
+            "/api/identity/principals",
             "/api/identity-providers",
             "/api/identity-providers/discovery",
             "/api/identity-providers/{alias}",
@@ -435,9 +464,8 @@ class OpenApiContractTest {
                 "Default.modelConfigurationId", "PersonaModel.modelConfigurationId", "ChatModelValidationResult.failureCode",
                 "ChatPersonaPage.nextCursor", "Change.value")) {
             var parts = field.split("\\.");
-            var variants = schemas.path(parts[0]).path("properties").path(parts[1]).path("oneOf");
-            assertEquals(2, variants.size(), field);
-            assertEquals("null", variants.path(1).path("type").asText(), field + " must accept an actual JSON null");
+            assertTrue(acceptsNull(schemas.path(parts[0]).path("properties").path(parts[1])),
+                    field + " must accept an actual JSON null");
         }
         var settingsRequired = new TreeSet<String>();
         schemas.path("ModelSettingsInput").path("required").forEach(value -> settingsRequired.add(value.asText()));
@@ -467,10 +495,16 @@ class OpenApiContractTest {
         assertEquals(4, fieldError.path("required").size());
         assertEquals(6, fieldError.path("properties").path("code").path("enum").size());
         assertFalse(fieldError.path("properties").path("params").path("additionalProperties").asBoolean());
+        // The problem is closed, so every extension member a handler writes must be declared.
+        var problem = actual.path("components").path("schemas").path("ApiProblem");
+        assertFalse(problem.path("additionalProperties").asBoolean());
+        for (String member : Set.of("code", "errors", "scope", "group", "resetsAt", "retryAfterSeconds", "usedBy")) {
+            assertTrue(problem.path("properties").has(member), "ApiProblem must declare " + member);
+        }
         for (String property : Set.of("personaId", "projectId")) {
             JsonNode schema = actual.path("components").path("schemas").path("CreateChatSession").path("properties").path(property);
-            assertEquals("uuid", schema.path("oneOf").path(0).path("format").textValue());
-            assertEquals("null", schema.path("oneOf").path(1).path("type").textValue());
+            assertEquals("uuid", schema.path("format").textValue());
+            assertEquals("[\"string\",\"null\"]", schema.path("type").toString());
         }
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
             Files.writeString(contract, Yaml.pretty(actual));
@@ -485,6 +519,16 @@ class OpenApiContractTest {
                         + "$env:MEMORYOS_OPENAPI_WRITE='true'; "
                         + ".\\gradlew.bat :api:test --tests '*OpenApiContractTest*'"
         );
+    }
+
+    /** A null branch of a oneOf (references, enums) or {@code null} in an inline type array (scalars). */
+    private static boolean acceptsNull(JsonNode property) {
+        var variants = property.path("oneOf");
+        if (variants.size() == 2) return variants.path(1).path("type").asText().equals("null");
+        for (var type : property.path("type")) {
+            if (type.asText().equals("null")) return true;
+        }
+        return false;
     }
 
     private static Path repositoryRoot() {

@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 /**
  * Published inside the transaction that replaces a Source's Group grants or changes its access type, so the

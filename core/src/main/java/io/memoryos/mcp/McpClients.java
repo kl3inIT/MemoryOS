@@ -25,7 +25,7 @@ public final class McpClients {
     private static final Set<String> RESERVED_HEADERS = Set.of(
             "host", "content-length", "content-type", "accept", "connection", "transfer-encoding", "upgrade",
             "expect", "mcp-session-id", "mcp-protocol-version", "last-event-id");
-    private static final McpSchema.Implementation CLIENT_INFO = new McpSchema.Implementation("MemoryOS", "1");
+    private static final McpSchema.Implementation CLIENT_INFO = McpSchema.Implementation.builder("MemoryOS", "1").build();
 
     private final Duration connectTimeout;
     private final Duration requestTimeout;
@@ -78,7 +78,7 @@ public final class McpClients {
                 .connectTimeout(connectTimeout.compareTo(timeout) < 0 ? connectTimeout : timeout)
                 .openConnectionOnStartup(false)
                 .resumableStreams(false)
-                .httpRequestCustomizer((request, method, target, body, context) -> requestHeaders.forEach(request::setHeader))
+                .httpRequestCustomizer((request, _, _, _, _) -> requestHeaders.forEach(request::setHeader))
                 .build();
         var client = McpClient.sync(transport)
                 .clientInfo(CLIENT_INFO)

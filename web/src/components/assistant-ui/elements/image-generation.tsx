@@ -5,7 +5,7 @@
 // top-to-bottom (clip + unblur) the way ChatGPT/Copilot reveal a fresh render.
 // Clicking the image opens a fullscreen viewer. Prop-driven (labels passed in) so the
 // element stays i18n-free and unit-testable.
-import { type ComponentProps, useEffect, useRef, useState } from "react";
+import { type ComponentProps, type CSSProperties, useEffect, useRef, useState } from "react";
 import { DownloadIcon, PencilIcon, XIcon } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { cn } from "@/lib/utils";
@@ -61,13 +61,13 @@ export function ImageGeneration({
         // The frame grows in from a smaller scale (ChatGPT-style) as generation starts;
         // `isolate` keeps the inner z-10 image in its own stacking context so it never
         // paints over the sticky composer while the conversation scrolls.
-        className="relative isolate aspect-square w-full animate-in overflow-hidden rounded-xl border border-border/60 fade-in zoom-in-50 duration-500 ease-out motion-reduce:animate-none"
+        className="relative isolate aspect-square w-full animate-in overflow-hidden rounded-xl border border-border/60 duration-500 ease-out zoom-in-50 fade-in motion-reduce:animate-none"
       >
         {/* Fixed decorative gradient, present in both states; only its blur/opacity changes. */}
         <div
           aria-hidden="true"
           className={cn(
-            "absolute inset-0 bg-gradient-to-br from-chart-1/30 via-chart-7/25 to-chart-4/30 transition-[filter,opacity] duration-500",
+            "absolute inset-0 bg-gradient-to-br from-chart-1/30 via-chart-7/25 to-chart-4/30 transition duration-500",
             showImage ? "opacity-30 blur-2xl" : "opacity-90 blur-xl",
           )}
         />
@@ -86,10 +86,10 @@ export function ImageGeneration({
                   onLoad={() => setRevealed(true)}
                   data-revealed={revealed}
                   className={cn(
-                    "size-full object-contain transition-[clip-path,filter,transform,opacity] duration-[1100ms] ease-out motion-reduce:!transition-none",
+                    "size-full object-contain transition-all duration-1100 ease-out motion-reduce:!transition-none",
                     revealed
-                      ? "scale-100 opacity-100 blur-0 [clip-path:inset(0%_0_0_0)]"
-                      : "scale-[1.03] opacity-0 blur-md [clip-path:inset(0_0_100%_0)]",
+                      ? "scale-100 opacity-100 blur-none clip-reveal-open"
+                      : "scale-103 opacity-0 blur-md clip-reveal-closed",
                   )}
                 />
                 {/* Hover affordance for the "click to view" interaction. */}
@@ -100,16 +100,16 @@ export function ImageGeneration({
               </button>
             </Dialog.Trigger>
             <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 z-50 bg-surface-scrim/90 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
+              <Dialog.Overlay className="fixed inset-0 z-50 bg-surface-scrim/90 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
               <Dialog.Content
                 aria-label={viewLabel ?? description}
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:animate-none sm:p-8"
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 outline-none data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:zoom-in-95 motion-reduce:animate-none sm:p-8"
               >
                 <Dialog.Title className="sr-only">{viewLabel ?? description}</Dialog.Title>
                 <img
                   src={src}
                   alt={description}
-                  className="max-h-[90dvh] max-w-full rounded-lg object-contain shadow-2xl"
+                  className="max-h-lightbox max-w-full rounded-lg object-contain shadow-2xl"
                 />
                 <div className="fixed top-3 right-3 flex items-center gap-2 sm:top-4 sm:right-4">
                   {src && (
@@ -117,14 +117,14 @@ export function ImageGeneration({
                       href={src}
                       download
                       aria-label={downloadLabel}
-                      className="flex size-9 items-center justify-center rounded-full bg-surface-on-media text-content-on-media outline-none backdrop-blur transition-colors hover:bg-surface-on-media-hover focus-visible:ring-2 focus-visible:ring-border-on-media"
+                      className="flex size-9 items-center justify-center rounded-full bg-surface-on-media text-content-on-media backdrop-blur transition-colors outline-none hover:bg-surface-on-media-hover focus-visible:ring-2 focus-visible:ring-border-on-media"
                     >
                       <DownloadIcon className="size-4" aria-hidden="true" />
                     </a>
                   )}
                   <Dialog.Close
                     aria-label={closeLabel}
-                    className="flex size-9 items-center justify-center rounded-full bg-surface-on-media text-content-on-media outline-none backdrop-blur transition-colors hover:bg-surface-on-media-hover focus-visible:ring-2 focus-visible:ring-border-on-media"
+                    className="flex size-9 items-center justify-center rounded-full bg-surface-on-media text-content-on-media backdrop-blur transition-colors outline-none hover:bg-surface-on-media-hover focus-visible:ring-2 focus-visible:ring-border-on-media"
                   >
                     <XIcon className="size-4" aria-hidden="true" />
                   </Dialog.Close>
@@ -143,12 +143,14 @@ export function ImageGeneration({
                 <span
                   key={index}
                   className={cn(
-                    "size-1 rounded-full bg-foreground/40 transition-opacity",
+                    "size-1 rounded-full bg-foreground/40 transition-opacity delay-(--pulse-delay)",
                     generating ? "animate-pulse motion-reduce:animate-none" : "opacity-0",
                   )}
                   style={
                     generating
-                      ? { animationDelay: `${((index % 8) + Math.floor(index / 8)) * 70}ms` }
+                      ? ({
+                          "--pulse-delay": `${((index % 8) + Math.floor(index / 8)) * 70}ms`,
+                        } as CSSProperties)
                       : undefined
                   }
                 />
@@ -176,7 +178,7 @@ export function ImageGeneration({
             type="button"
             onClick={onEdit}
             aria-label={editLabel}
-            className="flex size-6 shrink-0 items-center justify-center rounded-full text-foreground/45 outline-none transition-colors hover:bg-foreground/[0.06] hover:text-foreground/90 focus-visible:ring-1 focus-visible:ring-foreground/20 dark:hover:bg-foreground/[0.09]"
+            className="flex size-6 shrink-0 items-center justify-center rounded-full text-foreground/45 transition-colors outline-none hover:bg-foreground/[0.06] hover:text-foreground/90 focus-visible:ring-1 focus-visible:ring-foreground/20 dark:hover:bg-foreground/[0.09]"
           >
             <PencilIcon className="size-3" aria-hidden="true" />
           </button>
@@ -186,7 +188,7 @@ export function ImageGeneration({
             href={src}
             download
             aria-label={downloadLabel}
-            className="flex size-6 shrink-0 items-center justify-center rounded-full text-foreground/45 outline-none transition-colors hover:bg-foreground/[0.06] hover:text-foreground/90 focus-visible:ring-1 focus-visible:ring-foreground/20 dark:hover:bg-foreground/[0.09]"
+            className="flex size-6 shrink-0 items-center justify-center rounded-full text-foreground/45 transition-colors outline-none hover:bg-foreground/[0.06] hover:text-foreground/90 focus-visible:ring-1 focus-visible:ring-foreground/20 dark:hover:bg-foreground/[0.09]"
           >
             <DownloadIcon className="size-3" aria-hidden="true" />
           </a>

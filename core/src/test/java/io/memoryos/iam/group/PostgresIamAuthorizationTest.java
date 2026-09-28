@@ -6,18 +6,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupQuery;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupQuery;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupProjectionRepository;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -27,17 +28,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.group.DefaultGroupScopeService;
-import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.IamException;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresIamAuthorizationTest {
@@ -147,7 +146,7 @@ class PostgresIamAuthorizationTest {
         grant(GROUP_ONE, IamCapability.MODELS_MANAGE);
         grant(GROUP_TWO, IamCapability.MCP_MANAGE);
 
-        org.junit.jupiter.api.Assertions.assertTrue(authorization.effectiveCapabilities(ACTOR)
+        Assertions.assertTrue(authorization.effectiveCapabilities(ACTOR)
                 .containsAll(Set.of(IamCapability.MODELS_MANAGE, IamCapability.MCP_MANAGE)));
         assertEquals(
                 Authority.GLOBAL,
@@ -237,11 +236,11 @@ class PostgresIamAuthorizationTest {
         assertEquals(
                 Set.of(new GroupId(GROUP_ONE)),
                 page.items().stream().map(GroupProjectionRepository.GroupRecord::id).collect(
-                        java.util.stream.Collectors.toSet()
+                        Collectors.toSet()
                 )
         );
         assertEquals(
-                java.util.Optional.empty(),
+                Optional.empty(),
                 projections.detail(TENANT, ACTOR, new GroupId(GROUP_TWO), false)
         );
     }

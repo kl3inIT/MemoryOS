@@ -1,5 +1,8 @@
 package io.memoryos.api.chat;
 
+import com.sun.net.httpserver.HttpExchange;
+import io.memoryos.ai.ModelFlow;
+import io.memoryos.ai.ModelAccounting;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -29,20 +32,81 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.memoryos.api.chat.contract.ChatProviderRequest;
+import io.memoryos.api.mcp.McpAuthorizationSessionState;
+import io.memoryos.api.mcp.McpFixtureServer;
+import io.memoryos.api.mcp.contract.McpOAuthClientRequest;
+import io.memoryos.api.mcp.contract.McpServerRequest;
+import io.memoryos.connector.DocumentSourceMetadata;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.SourceType;
+import io.memoryos.mcp.McpException;
+import io.memoryos.mcp.McpOAuthService;
+import io.memoryos.mcp.McpSecrets;
+import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.UploadAuthorization;
+import io.memoryos.retrieval.SearchQuery;
+import io.memoryos.retrieval.SearchUnavailableException;
+import io.memoryos.retrieval.opensearch.LiveSearchCorpus;
+import io.memoryos.usage.report.UsageReportService;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.net.ServerSocket;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Objects;
+import java.util.TreeSet;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+import java.util.zip.ZipInputStream;
+import javax.imageio.ImageIO;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import io.memoryos.chat.catalog.ModelSettings;
-import io.memoryos.chat.catalog.ModelCatalogService;
+import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.openai.OpenAiProviderAdapter;
+import io.memoryos.ai.openai.OpenAiProviderConfiguration;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchDocument;
 import io.memoryos.retrieval.SearchPage;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
+import java.util.Locale;
+import java.util.HexFormat;
+import java.util.concurrent.ConcurrentHashMap;
+import java.security.MessageDigest;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.Set;
@@ -58,8 +122,8 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.core.util.Json;
 
 import java.io.IOException;
@@ -84,13 +148,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.PricingModel;
 import com.embabel.chat.UserMessage;
-import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.chat.execution.ChatRequestPolicy;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelRequestPolicy;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import org.springframework.ai.chat.prompt.ChatOptions;
 
 import org.springframework.ai.chat.model.ChatModel;
@@ -102,6 +166,8 @@ import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.ContentDisposition;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import static org.mockito.Mockito.doAnswer;
@@ -115,6 +181,7 @@ import java.nio.ByteOrder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -122,7 +189,7 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
-import io.memoryos.chat.catalog.ChatProviderAdapter;
+import io.memoryos.ai.ProviderAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Mono;
@@ -132,7 +199,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -148,6 +215,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import io.memoryos.library.LibraryArchiveService;
+import reactor.core.scheduler.Schedulers;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "memoryos.chat.provider.api-key=test-only-model-is-mocked",
@@ -184,27 +253,30 @@ class ChatSessionApiIntegrationTest {
     private JdbcClient jdbc;
     @Autowired
     private ChatExecutionProperties limits;
-    @Autowired private io.micrometer.core.instrument.MeterRegistry meters;
+    @Autowired private MeterRegistry meters;
     @Autowired
     private StreamBufferWriter streams;
     @Autowired
-    private org.springframework.data.redis.core.StringRedisTemplate redis;
+    private StringRedisTemplate redis;
     @Autowired
     private ChatModelExecutor executor;
     @Autowired
-    private io.memoryos.usage.report.UsageReportService usageReports;
+    private UsageReportService usageReports;
     @LocalServerPort
     private int port;
+    /** Which stretch the correction pass asked about, so the stubbed model can answer that one. */
+    private static final AtomicReference<String> STRETCH =
+            new AtomicReference<>("");
     @MockitoBean(name = "chatProviderModel")
     private ChatModel model;
     @MockitoSpyBean
-    private OpenAiChatProviderAdapter providerAdapter;
+    private OpenAiProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
-    @Autowired private io.memoryos.chat.application.ChatLibraryArchiveService libraryArchives;
+    @Autowired private LibraryArchiveService libraryArchives;
     @MockitoBean private DocumentChunkPort chunks;
     @MockitoBean private SourceDocumentAccessResolver sourceAccess;
-    @MockitoBean private io.memoryos.connector.SourceSearchService sourceSearch;
-    @MockitoBean private io.memoryos.objectstorage.ObjectStorage fileStorage;
+    @MockitoBean private SourceSearchService sourceSearch;
+    @MockitoBean private ObjectStorage fileStorage;
     private final UUID searchSource = UUID.randomUUID();
     private ActorAuthenticationToken actor;
     private ActorAuthenticationToken other;
@@ -232,10 +304,10 @@ class ChatSessionApiIntegrationTest {
     @SuppressWarnings("resource") // Mockito records a factory call; the runtime cache owns the actual client.
     void actors() {
         // Provider fixtures point at endpoints that do not exist; only the connection-check test lists models.
-        org.mockito.Mockito.doReturn(false).when(providerAdapter).listsModels();
-        when(sourceSearch.scope(any())).thenAnswer(call -> new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
-                Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
-        doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
+        Mockito.doReturn(false).when(providerAdapter).listsModels();
+        when(sourceSearch.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
+                Map.of(searchSource, SourceType.FILE)));
+        doAnswer(call -> new ProviderAdapter.Client(OpenAiProviderAdapter.binding(
                 call.getArgument(1), call.getArgument(2), model, new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)), () -> {}))
                 .when(providerAdapter).create(any(), any(), any(), any());
         actor = actor();
@@ -265,6 +337,141 @@ class ChatSessionApiIntegrationTest {
                 .param("actor", actor.getPrincipal().actorId().value()).update();
         // Existing global membership filter rejects the request before the Chat controller.
         mockMvc.perform(get("/api/chat/sessions/" + id).with(authentication(actor)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void branchingCopiesTheOwnedPathIntoANewConversationAndRefusesAnotherActor() throws Exception {
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 12)));
+        var session = create();
+        String id = session.path("id").asText();
+        var turn = send(session, UUID.randomUUID().toString());
+        String assistant = turn.path("assistantMessageId").asText();
+        awaitOutcome(assistant, "COMPLETED");
+
+        var branch = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + id + "/messages/" + assistant + "/branch")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Nhánh ngân sách\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.title").value("Nhánh ngân sách"))
+                .andReturn().getResponse().getContentAsString());
+        assertNotEquals(id, branch.path("id").asText());
+        var copied = history(branch);
+        assertEquals(2, copied.size(), "the question and the answer it ends on");
+        assertEquals("Question", copied.get(0).path("content").asText());
+        assertEquals("Answer", copied.get(1).path("content").asText());
+        assertNotEquals(assistant, copied.get(1).path("id").asText(), "the branch owns copies, not the originals");
+        assertEquals(2, history(session).size(), "the original conversation is untouched");
+
+        mockMvc.perform(post("/api/chat/sessions/" + id + "/messages/" + assistant + "/branch")
+                        .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CHAT_UNAVAILABLE"));
+    }
+
+    @Test
+    void publishingWrittenMinutesPutsOneFileInTheOwnersLibraryAndRefusesOthersAndUnwrittenMinutes() throws Exception {
+        // Object storage is a mock in this suite: keep what is written, and describe it back truthfully.
+        var stored = new ConcurrentHashMap<String, byte[]>();
+        var types = new ConcurrentHashMap<String, String>();
+        doAnswer(call -> {
+            String key = call.<ObjectKey>getArgument(0).value();
+            stored.put(key, call.getArgument(1));
+            types.put(key, call.getArgument(2));
+            return null;
+        }).when(fileStorage).write(any(), any(), any());
+        when(fileStorage.inspect(any())).thenAnswer(call -> {
+            String key = call.<ObjectKey>getArgument(0).value();
+            byte[] bytes = stored.get(key);
+            return new ObjectMetadata(bytes.length, types.get(key), new ContentSha256(
+                    HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))));
+        });
+        UUID meeting = UUID.randomUUID();
+        UUID unwritten = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status,
+                                        ended_at, minutes_status, minutes_summary, minutes_kind, minutes_generated_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP, 'READY', 'Cuộc họp chốt ngân sách.', 'Giao ban tuần', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Chưa có biên bản', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", unwritten)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+
+            var published = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            String fileId = published.path("fileId").asText();
+            assertTrue(published.path("filename").asText().endsWith(".md"), published.toString());
+            assertEquals("text/markdown", jdbc.sql("SELECT media_type FROM chat_user_file WHERE id = :id")
+                    .param("id", UUID.fromString(fileId)).query(String.class).single());
+            // Asking again returns the file already made rather than a second copy.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.fileId").value(fileId));
+
+            mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + unwritten + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isBadRequest());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void principalSearchFindsActiveMembersAndOrdinaryGroupsOfTheTenantForEveryActiveMember() throws Exception {
+        String marker = "Principal" + UUID.randomUUID().toString().substring(0, 8);
+        UUID person = other.getPrincipal().actorId().value();
+        jdbc.sql("INSERT INTO external_identity_bindings (issuer, subject, actor_id) VALUES ('https://issuer.example.test', :subject, :actor)")
+                .param("subject", "principal-" + person).param("actor", person).update();
+        jdbc.sql("""
+                INSERT INTO actor_profiles (actor_id, issuer, subject, display_name, email, email_verified, observed_at)
+                VALUES (:actor, 'https://issuer.example.test', :subject, :name, :email, TRUE, now())
+                """).param("actor", person).param("subject", "principal-" + person)
+                .param("name", marker + " Lan").param("email", marker.toLowerCase(Locale.ROOT) + "@tasco.vn").update();
+        UUID group = UUID.randomUUID();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")
+                .param("tenant", TENANT).param("id", group).param("name", marker + " board").update();
+        // An inactive member with a matching name stays out of the picker.
+        var inactive = actor();
+        UUID inactiveId = inactive.getPrincipal().actorId().value();
+        jdbc.sql("INSERT INTO external_identity_bindings (issuer, subject, actor_id) VALUES ('https://issuer.example.test', :subject, :actor)")
+                .param("subject", "principal-" + inactiveId).param("actor", inactiveId).update();
+        jdbc.sql("""
+                INSERT INTO actor_profiles (actor_id, issuer, subject, display_name, email, email_verified, observed_at)
+                VALUES (:actor, 'https://issuer.example.test', :subject, :name, NULL, TRUE, now())
+                """).param("actor", inactiveId).param("subject", "principal-" + inactiveId).param("name", marker + " Former").update();
+        jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor").param("actor", inactiveId).update();
+
+        mockMvc.perform(get("/api/identity/principals").param("search", marker.toLowerCase(Locale.ROOT)).param("size", "5")
+                        .with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.people.length()").value(1))
+                .andExpect(jsonPath("$.people[0].actorId").value(person.toString()))
+                .andExpect(jsonPath("$.people[0].name").value(marker + " Lan"))
+                .andExpect(jsonPath("$.groups.length()").value(1))
+                .andExpect(jsonPath("$.groups[0].id").value(group.toString()))
+                .andExpect(jsonPath("$.groups[0].name").value(marker + " board"));
+        // System Groups are never offered.
+        mockMvc.perform(get("/api/identity/principals").param("search", "basic").with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groups[?(@.name == 'Basic')]").isEmpty());
+        mockMvc.perform(get("/api/identity/principals").param("size", "51").with(authentication(actor)))
+                .andExpect(status().isBadRequest());
+        // Membership, not a capability: without the Basic Group (and so without CHAT_WRITE) a member still searches,
+        // because meetings share through the same picker.
+        jdbc.sql("DELETE FROM iam_group_memberships m USING iam_groups g WHERE g.tenant_id=m.tenant_id AND g.id=m.group_id AND g.system_key='BASIC' AND m.actor_id = :actor")
+                .param("actor", actor.getPrincipal().actorId().value()).update();
+        mockMvc.perform(get("/api/identity/principals").param("search", marker).with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.people[0].actorId").value(person.toString()));
+        // A caller whose membership is no longer active is refused; the session boundary answers before IAM does.
+        mockMvc.perform(get("/api/identity/principals").param("search", marker).with(authentication(inactive)))
                 .andExpect(status().isForbidden());
     }
 
@@ -344,10 +551,10 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "tăng trưởng"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2))
                 // Message-only match: the snippet keeps the original case and marks each matched token.
-                .andExpect(jsonPath("$.items[0].snippet").value(org.hamcrest.Matchers.containsString("\uE000tăng\uE001 \uE000trưởng\uE001")));
+                .andExpect(jsonPath("$.items[0].snippet").value(Matchers.containsString("\uE000tăng\uE001 \uE000trưởng\uE001")));
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "Older"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].snippet").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(jsonPath("$.items[0].snippet").value(Matchers.nullValue()));
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "%_*'"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "x".repeat(201)))
@@ -366,7 +573,7 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "zebratail tận cùng"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].session.id").value(ownedIds.get(1)))
-                .andExpect(jsonPath("$.items[0].snippet").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(jsonPath("$.items[0].snippet").value(Matchers.nullValue()));
         assertEquals(2, jdbc.sql("SELECT count(*) FROM pg_indexes WHERE indexname IN ('ix_chat_session_search', 'ix_chat_message_search')")
                 .query(Integer.class).single());
         jdbc.sql("UPDATE tenant_memberships SET status='INACTIVE' WHERE actor_id=:actor")
@@ -377,10 +584,10 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void fileUploadFinalizeAndDeletionRespectOwnerAndCsrf() throws Exception {
-        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization(
                 "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
-        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
-                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(4,"text/plain",
+                new ContentSha256("a".repeat(64))));
         String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ghi-chu.txt",
                 "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
         mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).contentType(MediaType.APPLICATION_JSON).content(request))
@@ -400,33 +607,33 @@ class ChatSessionApiIntegrationTest {
         assertEquals(1,jdbc.sql("SELECT count(*) FROM chat_file_work WHERE file_id=:id").param("id",UUID.fromString(id)).query(Integer.class).single());
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)))
                 .andExpect(status().isNotFound());
-        // Extraction itself is covered through real claims in ChatFileLifecycleIntegrationTest.
+        // Extraction itself is covered through real claims in UserFileLifecycleIntegrationTest.
         jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext=:text,detected_media_type='text/plain' WHERE id=:id")
                 .param("text", "A😀Việt").param("id", UUID.fromString(id)).update();
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)).param("offset","1").param("count","2"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.text").value("😀V"))
                 .andExpect(jsonPath("$.nextOffset").value(3)).andExpect(jsonPath("$.totalCharacters").value(6))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"));
+                .andExpect(MockMvcResultMatchers.header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"));
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)).param("count","16001"))
                 .andExpect(status().isBadRequest());
         for (var suffix : List.of("/text", "/content")) {
             mockMvc.perform(get("/api/chat/files/"+id+suffix)).andExpect(status().isUnauthorized());
             mockMvc.perform(get("/api/chat/files/"+id+suffix).with(authentication(other))).andExpect(status().isNotFound());
         }
-        var original = mock(io.memoryos.objectstorage.ObjectContent.class);
-        when(original.metadata()).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
-                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
-        when(original.inputStream()).thenReturn(new java.io.ByteArrayInputStream("test".getBytes(UTF_8)));
+        var original = mock(ObjectContent.class);
+        when(original.metadata()).thenReturn(new ObjectMetadata(4,"text/plain",
+                new ContentSha256("a".repeat(64))));
+        when(original.inputStream()).thenReturn(new ByteArrayInputStream("test".getBytes(UTF_8)));
         when(fileStorage.open(any())).thenReturn(original);
         var download = mockMvc.perform(get("/api/chat/files/"+id+"/content").with(authentication(actor)))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Content-Type-Options","nosniff"))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_OCTET_STREAM))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string("test")).andReturn();
+                .andExpect(MockMvcResultMatchers.header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(MockMvcResultMatchers.header().string("X-Content-Type-Options","nosniff"))
+                .andExpect(MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_OCTET_STREAM))
+                .andExpect(MockMvcResultMatchers.content().string("test")).andReturn();
         var dispositionHeader = download.getResponse().getHeader("Content-Disposition");
         assertNotNull(dispositionHeader);
-        var disposition = org.springframework.http.ContentDisposition.parse(dispositionHeader);
+        var disposition = ContentDisposition.parse(dispositionHeader);
         assertEquals("attachment", disposition.getType());
         assertEquals("ghi-chu.txt", disposition.getFilename());
         verify(original).close();
@@ -438,10 +645,10 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne() throws Exception {
-        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization(
                 "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
-        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
-                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(4,"text/plain",
+                new ContentSha256("a".repeat(64))));
         String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ke-hoach.txt",
                 "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
         var created = mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
@@ -505,28 +712,28 @@ class ChatSessionApiIntegrationTest {
     @Test
     void aGeneratedImageIsCopiedIntoOneReusableUploadThatOutlivesIt() throws Exception {
         // Object storage is a mock in this suite: keep what is written, and serve it back.
-        var stored = new java.util.concurrent.ConcurrentHashMap<String, byte[]>();
+        var stored = new ConcurrentHashMap<String, byte[]>();
         byte[] png = "not really a png".getBytes(UTF_8);
         String sourceKey = "tenants/" + TENANT + "/generated.png";
         stored.put(sourceKey, png);
         doAnswer(call -> {
-            stored.put(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value(), call.getArgument(1));
+            stored.put(call.<ObjectKey>getArgument(0).value(), call.getArgument(1));
             return null;
         }).when(fileStorage).write(any(), any(), any());
         when(fileStorage.inspect(any())).thenAnswer(call -> {
-            byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
-            return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "image/png", new io.memoryos.objectstorage.ContentSha256(
-                    java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes))));
+            byte[] bytes = stored.get(call.<ObjectKey>getArgument(0).value());
+            return new ObjectMetadata(bytes.length, "image/png", new ContentSha256(
+                    HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))));
         });
         when(fileStorage.open(any())).thenAnswer(call -> {
-            byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
-            return new io.memoryos.objectstorage.ObjectContent() {
-                private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
-                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() {
-                    return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "image/png",
-                            new io.memoryos.objectstorage.ContentSha256("b".repeat(64)));
+            byte[] bytes = stored.get(call.<ObjectKey>getArgument(0).value());
+            return new ObjectContent() {
+                private final InputStream input = new ByteArrayInputStream(bytes);
+                @Override public ObjectMetadata metadata() {
+                    return new ObjectMetadata(bytes.length, "image/png",
+                            new ContentSha256("b".repeat(64)));
                 }
-                @Override public java.io.InputStream inputStream() { return input; }
+                @Override public InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
         });
@@ -544,7 +751,7 @@ class ChatSessionApiIntegrationTest {
                     .param("message", UUID.fromString(session.path("rootMessageId").asText())).param("object", UUID.randomUUID())
                     .param("key", sourceKey).param("actor", actor.getPrincipal().actorId().value())
                     .param("session", UUID.fromString(session.path("id").asText())).param("size", png.length)
-                    .param("deleted", artifact.equals(gone) ? java.sql.Timestamp.from(Instant.now()) : null).update();
+                    .param("deleted", artifact.equals(gone) ? Timestamp.from(Instant.now()) : null).update();
         }
         // Every rendering is cacheable by the owner's own browser and by nothing in between, so a library page
         // revisited costs no transfer. These bytes are not a decodable image, so the thumbnail a library asks
@@ -602,10 +809,10 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void theLibraryRenamesStarsAndShowsUploadsStillBeingProcessed() throws Exception {
-        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization(
                 "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
-        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
-                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(4,"text/plain",
+                new ContentSha256("a".repeat(64))));
         String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ghi-chu.txt",
                 "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
         var created = mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
@@ -664,28 +871,28 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void aSelectionIsPackedIntoOneOwnerPrivateZipAndRefusesWhatItCannotPack() throws Exception {
-        var stored = new java.util.concurrent.ConcurrentHashMap<String, byte[]>();
-        var types = new java.util.concurrent.ConcurrentHashMap<String, String>();
+        var stored = new ConcurrentHashMap<String, byte[]>();
+        var types = new ConcurrentHashMap<String, String>();
         doAnswer(call -> {
-            String key = call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value();
+            String key = call.<ObjectKey>getArgument(0).value();
             stored.put(key, call.getArgument(1));
             types.put(key, call.getArgument(2));
             return null;
         }).when(fileStorage).write(any(), any(), any());
         when(fileStorage.inspect(any())).thenAnswer(call -> {
-            String key = call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value();
+            String key = call.<ObjectKey>getArgument(0).value();
             byte[] bytes = stored.get(key);
-            return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, types.getOrDefault(key, "text/csv"),
-                    new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of()
-                            .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes))));
+            return new ObjectMetadata(bytes.length, types.getOrDefault(key, "text/csv"),
+                    new ContentSha256(HexFormat.of()
+                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))));
         });
         when(fileStorage.open(any())).thenAnswer(call -> {
-            byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
+            byte[] bytes = stored.get(call.<ObjectKey>getArgument(0).value());
             var described = fileStorage.inspect(call.getArgument(0));
-            return new io.memoryos.objectstorage.ObjectContent() {
-                private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
-                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return described; }
-                @Override public java.io.InputStream inputStream() { return input; }
+            return new ObjectContent() {
+                private final InputStream input = new ByteArrayInputStream(bytes);
+                @Override public ObjectMetadata metadata() { return described; }
+                @Override public InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
         });
@@ -736,10 +943,10 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(id));
         byte[] zip = mockMvc.perform(get("/api/chat/library/archives/" + id + "/content").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Type", "application/zip"))
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("memoryos-files-")))
+                .andExpect(header().string("Content-Disposition", Matchers.containsString("memoryos-files-")))
                 .andReturn().getResponse().getContentAsByteArray();
-        var entries = new java.util.LinkedHashMap<String, byte[]>();
-        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+        var entries = new LinkedHashMap<String, byte[]>();
+        try (var in = new ZipInputStream(new ByteArrayInputStream(zip))) {
             for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) entries.put(entry.getName(), in.readAllBytes());
         }
         assertEquals(List.of("bao-cao.csv"), List.copyOf(entries.keySet()));
@@ -756,10 +963,10 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void theDeploymentsStorageLimitIsShownToItsOwnerAndRefusesAnUploadBeforeItIsAuthorized() throws Exception {
-        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization(
                 "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
-        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
-                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(4,"text/plain",
+                new ContentSha256("a".repeat(64))));
 
         // The limit comes from the deployment, so every member reads the same number on their own page.
         mockMvc.perform(get("/api/chat/library/usage").with(authentication(actor)))
@@ -783,7 +990,7 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isOk());
         String tooBig = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","phim.bin",
                 "mediaType","text/plain","sizeBytes",2 * 1024 * 1024,"sha256","b".repeat(64)));
-        org.mockito.Mockito.clearInvocations(fileStorage);
+        Mockito.clearInvocations(fileStorage);
         mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
                         .contentType(MediaType.APPLICATION_JSON).content(tooBig))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CHAT_STORAGE_FULL"));
@@ -794,9 +1001,9 @@ class ChatSessionApiIntegrationTest {
     void retentionIsTheOwnersOwnSettingAndCountsWhatItWouldDeleteFirst() throws Exception {
         // Nothing is deleted on a timer until the person says so.
         mockMvc.perform(get("/api/chat/retention").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(Matchers.nullValue()));
         mockMvc.perform(get("/api/chat/retention/preview").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(Matchers.nullValue()))
                 .andExpect(jsonPath("$.affected").value(0));
 
         // A conversation nobody has touched for a long time is what a short policy would take.
@@ -823,12 +1030,12 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(90));
         // It is mine: nobody else's policy changed with it.
         mockMvc.perform(get("/api/chat/retention").with(authentication(other)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(Matchers.nullValue()));
 
         // Leaving the field out clears it, and the write stays CSRF-guarded.
         mockMvc.perform(put("/api/chat/retention").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(Matchers.nullValue()));
         mockMvc.perform(put("/api/chat/retention").with(authentication(actor))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"days\":30}"))
                 .andExpect(status().isForbidden());
@@ -837,10 +1044,10 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void aDeletedUploadWaitsInTheTrashWhereItsOwnerRestoresOrEndsIt() throws Exception {
-        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization(
                 "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
-        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
-                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(4,"text/plain",
+                new ContentSha256("a".repeat(64))));
         String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ghi-chu.txt",
                 "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
         String id = Json.mapper().readTree(mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor))
@@ -952,11 +1159,11 @@ class ChatSessionApiIntegrationTest {
         var indexedHits = List.of(
                 new SearchHit(hidden, generation, 0, "Secret", "text/plain", "PRIVATE DENIED CONTENT", "[]", Instant.EPOCH, 1),
                 new SearchHit(document, generation, 2, "HR policy", "text/plain", "Annual leave is twelve days.", "[]", Instant.EPOCH, .9));
-        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<io.memoryos.retrieval.SearchQuery>>getArgument(1)
+        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<SearchQuery>>getArgument(1)
                 .stream().map(query -> query.text().equals("leave") ? indexedHits : List.<SearchHit>of()).toList());
         when(chunks.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation, hidden, generation));
-        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(document, List.of(new io.memoryos.connector.DocumentSourceMetadata(
-                searchSource, UUID.randomUUID(), io.memoryos.connector.SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
+        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(document, List.of(new DocumentSourceMetadata(
+                searchSource, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
         when(searchIndex.document(tenant, document, generation, 0, 2)).thenReturn(new SearchDocument(document, generation, "HR policy",
                 List.of(new SearchPage.Passage(0, "Employee handbook", "[]"), new SearchPage.Passage(1, "Annual policy", "[]")), 0, 3, true));
@@ -1012,14 +1219,14 @@ class ChatSessionApiIntegrationTest {
         var document = UUID.randomUUID();
         var generation = UUID.randomUUID();
         when(searchIndex.identity()).thenReturn("space");
-        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<io.memoryos.retrieval.SearchQuery>>getArgument(1)
+        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<SearchQuery>>getArgument(1)
                 .stream().map(query -> query.text().equals("leave") ? List.of(new SearchHit(document, generation, 0, "HR policy", "text/plain",
                         "Annual leave is twelve days.", "[]", Instant.EPOCH, .9)) : List.<SearchHit>of()).toList());
         when(chunks.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation));
-        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(document, List.of(new io.memoryos.connector.DocumentSourceMetadata(
-                searchSource, UUID.randomUUID(), io.memoryos.connector.SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
+        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(document, List.of(new DocumentSourceMetadata(
+                searchSource, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
-        when(searchIndex.document(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+        when(searchIndex.document(any(), any(), any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt()))
                 .thenReturn(new SearchDocument(document, generation, "HR policy", List.of(), 0, 0, false));
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
@@ -1029,9 +1236,9 @@ class ChatSessionApiIntegrationTest {
             if (text.contains("# Main Section:")) return response("{\"classification\":\"MAIN_SECTION_ONLY\"}", "stop", 7);
             return response("{\"sections\":[1]}", "stop", 7);
         });
-        var phases = new java.util.concurrent.ConcurrentHashMap<String, AtomicInteger>();
+        var phases = new ConcurrentHashMap<String, AtomicInteger>();
         var problems = new CopyOnWriteArrayList<String>();
-        var clarified = new java.util.concurrent.atomic.AtomicBoolean();
+        var clarified = new AtomicBoolean();
         when(model.stream(any(Prompt.class))).thenAnswer(call -> {
             try {
                 Prompt prompt = call.getArgument(0);
@@ -1145,7 +1352,7 @@ class ChatSessionApiIntegrationTest {
             entered.countDown();
             try { assertTrue(new CountDownLatch(1).await(20, TimeUnit.SECONDS), "Stop must interrupt the agent's retrieval"); }
             catch (InterruptedException stopped) { interrupted.countDown(); Thread.currentThread().interrupt(); }
-            throw new io.memoryos.retrieval.SearchUnavailableException();
+            throw new SearchUnavailableException();
         });
         var reports = new AtomicInteger();
         when(model.stream(any(Prompt.class))).thenAnswer(call -> {
@@ -1262,7 +1469,7 @@ class ChatSessionApiIntegrationTest {
     @Test
     void aiCostsReportTheLedgerOnlyToModelManagers() throws Exception {
         jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
-        var today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
+        var today = LocalDate.now(ZoneOffset.UTC).toString();
         jdbc.sql("""
                 INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
                     output_tokens, cost_usd, unknown_cost_calls)
@@ -1306,7 +1513,7 @@ class ChatSessionApiIntegrationTest {
     void spendingLimitsAreSetByModelManagersAndRefuseATurnWithTheBudgetSpent() throws Exception {
         jdbc.sql("DELETE FROM ai_usage_limit WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
-        var today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
+        var today = LocalDate.now(ZoneOffset.UTC).toString();
         String body = "{\"scope\":\"PERSON\",\"tokenBudget\":1000,\"periodDays\":7,\"enabled\":true}";
         mockMvc.perform(post("/api/ai-costs/limits").contentType(MediaType.APPLICATION_JSON).content(body)
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isForbidden());
@@ -1363,7 +1570,7 @@ class ChatSessionApiIntegrationTest {
     void usageReportsAreQueuedBuiltAndDownloadedOnlyByModelManagers() throws Exception {
         jdbc.sql("DELETE FROM ai_usage_report WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
-        var today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
+        var today = LocalDate.now(ZoneOffset.UTC).toString();
         jdbc.sql("""
                 INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
                     output_tokens, cost_usd, unknown_cost_calls)
@@ -1388,24 +1595,24 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/ai-costs/reports/" + id + "/content").with(authentication(actor))).andExpect(status().isNotFound());
 
         // Object storage is a mock in this suite: keep what the Worker step writes, and serve it back.
-        var stored = new java.util.concurrent.ConcurrentHashMap<String, byte[]>();
-        org.mockito.Mockito.doAnswer(call -> {
-            stored.put(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value(), call.getArgument(1));
+        var stored = new ConcurrentHashMap<String, byte[]>();
+        Mockito.doAnswer(call -> {
+            stored.put(call.<ObjectKey>getArgument(0).value(), call.getArgument(1));
             return null;
         }).when(fileStorage).write(any(), any(), any());
         when(fileStorage.inspect(any())).thenAnswer(call -> {
-            byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
-            return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "application/zip", new io.memoryos.objectstorage.ContentSha256(
-                    java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes))));
+            byte[] bytes = stored.get(call.<ObjectKey>getArgument(0).value());
+            return new ObjectMetadata(bytes.length, "application/zip", new ContentSha256(
+                    HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))));
         });
         when(fileStorage.open(any())).thenAnswer(call -> {
-            var key = call.<io.memoryos.objectstorage.ObjectKey>getArgument(0);
+            var key = call.<ObjectKey>getArgument(0);
             byte[] bytes = stored.get(key.value());
             var metadata = fileStorage.inspect(key);
-            return new io.memoryos.objectstorage.ObjectContent() {
-                private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
-                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return metadata; }
-                @Override public java.io.InputStream inputStream() { return input; }
+            return new ObjectContent() {
+                private final InputStream input = new ByteArrayInputStream(bytes);
+                @Override public ObjectMetadata metadata() { return metadata; }
+                @Override public InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
         });
@@ -1416,18 +1623,18 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(jsonPath("$[0].hasPdf").value(true));
         byte[] zip = mockMvc.perform(get("/api/ai-costs/reports/" + id + "/content").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Type", "application/zip"))
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("usage-report_" + today)))
+                .andExpect(header().string("Content-Disposition", Matchers.containsString("usage-report_" + today)))
                 .andReturn().getResponse().getContentAsByteArray();
-        var entries = new java.util.LinkedHashMap<String, byte[]>();
-        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+        var entries = new LinkedHashMap<String, byte[]>();
+        try (var in = new ZipInputStream(new ByteArrayInputStream(zip))) {
             for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) entries.put(entry.getName(), in.readAllBytes());
         }
-        assertEquals(java.util.List.of("usage_by_user.csv", "users.csv", "usage_report.pdf"), java.util.List.copyOf(entries.keySet()));
-        String usage = new String(entries.get("usage_by_user.csv"), java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(List.of("usage_by_user.csv", "users.csv", "usage_report.pdf"), List.copyOf(entries.keySet()));
+        String usage = new String(entries.get("usage_by_user.csv"), StandardCharsets.UTF_8);
         assertTrue(usage.contains("'=HYPERLINK"), "a formula in data is neutralized");
         assertTrue(usage.contains("system"), "work without a person is exported");
         assertEquals(3L, usage.strip().lines().count(), "header and two rows");
-        String users = new String(entries.get("users.csv"), java.nio.charset.StandardCharsets.UTF_8);
+        String users = new String(entries.get("users.csv"), StandardCharsets.UTF_8);
         assertTrue(users.contains(actor.getPrincipal().actorId().value() + ",") && users.contains(",true,true"), users);
 
         // Another member without model management reads nothing, even with the id.
@@ -1440,7 +1647,7 @@ class ChatSessionApiIntegrationTest {
     void stopInterruptsBlockingRetrievalOnVirtualThreadAndPreventsFurtherToolsAndInference() throws Exception {
         var entered = new CountDownLatch(1);
         var interrupted = new CountDownLatch(1);
-        var virtual = new java.util.concurrent.atomic.AtomicBoolean();
+        var virtual = new AtomicBoolean();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
             return response(text.contains("provide a standalone query") ? "{\"query\":\"leave\"}"
@@ -1451,7 +1658,7 @@ class ChatSessionApiIntegrationTest {
             entered.countDown();
             try { assertTrue(new CountDownLatch(1).await(20, TimeUnit.SECONDS), "Stop must interrupt the blocked retrieval"); }
             catch (InterruptedException stopped) { interrupted.countDown(); Thread.currentThread().interrupt(); }
-            throw new io.memoryos.retrieval.SearchUnavailableException();
+            throw new SearchUnavailableException();
         });
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
                 AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
@@ -1538,7 +1745,7 @@ class ChatSessionApiIntegrationTest {
                     .param("id", UUID.fromString(id)).query(Long.class).single());
         } finally { release.countDown(); }
         assertTrue(returned.await(3, TimeUnit.SECONDS));
-        org.mockito.Mockito.verify(model, org.mockito.Mockito.after(500).times(3)).call(any(Prompt.class));
+        Mockito.verify(model, Mockito.after(500).times(3)).call(any(Prompt.class));
         verify(model).stream(any(Prompt.class));
         verify(searchIndex, never()).batch(any(), any(), any(), any());
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id=:id AND status='CANCELED' AND input_tokens IS NULL AND output_tokens IS NULL")
@@ -1708,11 +1915,11 @@ class ChatSessionApiIntegrationTest {
         var service = new SpringAiLlmService("fixture-model", "fixture-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 null, List.of(), PricingModel.usdPer1MTokens(1, 2));
-        var binding = new ChatModelBinding(service, prompt -> prompt, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
+        var binding = new ModelBinding(service, prompt -> prompt, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         for (int turn = 0; turn < 2; turn++) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
-            var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
+            var accounting = new AtomicReference<ModelAccounting>();
             var answer = new StringBuilder();
             executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {}, ignored -> {});
             assertEquals("Answer", answer.toString());
@@ -1891,7 +2098,7 @@ class ChatSessionApiIntegrationTest {
         var provider = createProvider("http://model.internal:8000/v1", true);
         assertTrue(provider.path("credentialConfigured").asBoolean());
         var redactedRequest = Json.mapper().readValue(providerBody("http://model.internal:8000/v1", true).toString(),
-                io.memoryos.api.chat.contract.ChatProviderRequest.class);
+                ChatProviderRequest.class);
         assertFalse(redactedRequest.toString().contains("fixture-byok"));
         assertFalse(redactedRequest.credential().toString().contains("fixture-byok"));
         assertFalse(provider.toString().contains("fixture-byok"));
@@ -1923,7 +2130,7 @@ class ChatSessionApiIntegrationTest {
         assertEquals(before, jdbc.sql("SELECT count(*) FROM persona WHERE tenant_id = :tenant")
                 .param("tenant", TENANT).query(Long.class).single());
         grantModelManagement();
-        var seeded = new java.util.ArrayList<UUID>();
+        var seeded = new ArrayList<UUID>();
         try {
             for (int i = 0; i < 27; i++) {
                 UUID id = i == 0 ? UUID.fromString("abcdef00-0000-4000-8000-000000000001") : UUID.randomUUID();
@@ -1938,7 +2145,7 @@ class ChatSessionApiIntegrationTest {
             var expected = jdbc.sql("SELECT id::text FROM persona WHERE tenant_id=:tenant AND deleted_at IS NULL "
                             + "AND (builtin_key IS NOT NULL OR owner_actor_id=:actor) ORDER BY id")
                     .param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).query(String.class).list();
-            var seen = new java.util.ArrayList<String>();
+            var seen = new ArrayList<String>();
             String cursor = null;
             do {
                 var request = get("/api/chat/model-personas").param("limit", "7").with(authentication(actor));
@@ -1960,7 +2167,7 @@ class ChatSessionApiIntegrationTest {
                             .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
             assertEquals(0, last.path("items").size());
             assertTrue(last.path("nextCursor").isNull());
-            for (String invalid : List.of("", "1-1-1-1-1", seeded.getFirst().toString().toUpperCase(java.util.Locale.ROOT),
+            for (String invalid : List.of("", "1-1-1-1-1", seeded.getFirst().toString().toUpperCase(Locale.ROOT),
                     UUID.randomUUID().toString())) {
                 mockMvc.perform(get("/api/chat/model-personas").param("cursor", invalid).with(authentication(actor)))
                         .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
@@ -1997,7 +2204,7 @@ class ChatSessionApiIntegrationTest {
                             .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
             UUID builtin = jdbc.sql("SELECT id FROM persona WHERE tenant_id=:tenant AND builtin_key='default'")
                     .param("tenant", TENANT).query(UUID.class).single();
-            var visible = new java.util.HashSet<UUID>();
+            var visible = new HashSet<UUID>();
             for (var item : page.path("items")) visible.add(UUID.fromString(item.path("id").asText()));
             assertEquals(Set.of(own, builtin), visible);
             for (UUID inaccessible : List.of(foreign, deletedOwn, deletedForeign)) {
@@ -2043,7 +2250,7 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var descriptors = Json.mapper().readTree(mockMvc.perform(get("/api/chat/provider-adapters").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        var profiles = new java.util.HashSet<String>();
+        var profiles = new HashSet<String>();
         for (var descriptor : descriptors) {
             if (!descriptor.path("type").asText().equals("openai")) continue;
             for (var profile : descriptor.path("tokenizerProfiles")) {
@@ -2051,7 +2258,7 @@ class ChatSessionApiIntegrationTest {
                 assertFalse(profile.path("displayName").asText().isBlank());
             }
         }
-        assertEquals(java.util.Set.of("openai-o200k-v1"), profiles);
+        assertEquals(Set.of("openai-o200k-v1"), profiles);
         var provider = createProvider("http://profiles.internal/v1", true);
         String path = "/api/chat/providers/" + provider.path("id").asText() + "/models";
         for (String profile : List.of("", "unknown-profile")) {
@@ -2180,6 +2387,44 @@ class ChatSessionApiIntegrationTest {
     }
 
 
+    /** The catalog asks Chat to let go of a model before deleting it, alone or with its provider (ModelsRemoved). */
+    @Test
+    void deletingTheModelOrProviderAnAgentRunsOnReturnsTheAgentToItsInheritedModel() throws Exception {
+        grantModelManagement();
+        String personaId = create().path("personaId").asText();
+        var byModel = createConfiguredModel(createProvider("http://agent-model.internal/v1", true), "agent-model", 0.4);
+        long revision = agentModel(personaId, byModel.path("id").asText());
+        mockMvc.perform(delete("/api/chat/models/" + byModel.path("id").asText()).param("revision", "1")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertInherited(personaId, revision + 1);
+
+        var provider = createProvider("http://agent-provider.internal/v1", true);
+        var byProvider = createConfiguredModel(provider, "agent-provider-model", 0.4);
+        revision = agentModel(personaId, byProvider.path("id").asText());
+        mockMvc.perform(delete("/api/chat/providers/" + provider.path("id").asText()).param("revision", provider.path("revision").asText())
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertInherited(personaId, revision + 1);
+    }
+
+    private void assertInherited(String personaId, long revision) throws Exception {
+        var model = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + personaId + "/model").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertTrue(model.path("modelConfigurationId").isNull() || model.path("modelConfigurationId").isMissingNode());
+        assertEquals(revision, model.path("revision").asLong());
+    }
+
+    /** Sets the agent's model and answers the agent model revision it now has. */
+    private long agentModel(String personaId, String modelId) throws Exception {
+        var saved = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + personaId + "/model").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        var set = Json.mapper().readTree(mockMvc.perform(put("/api/chat/personas/" + personaId + "/model")
+                        .param("revision", saved.path("revision").asText()).param("modelConfigurationId", modelId)
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(modelId, set.path("modelConfigurationId").asText());
+        return set.path("revision").asLong();
+    }
+
     @Test
     void restrictedProviderUsesGroupAccessAndPersonaAllowlistAlsoAppliesToManagers() throws Exception {
         grantModelManagement();
@@ -2264,11 +2509,18 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var flows = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        assertEquals(2, flows.size(), "every task flow is listed");
+        assertEquals(ModelFlow.values().length, flows.size(), "every task flow is listed");
+        var listed = new TreeSet<String>();
+        flows.forEach(flow -> listed.add(flow.path("flow").asText()));
+        assertEquals(Arrays.stream(ModelFlow.values())
+                .map(Enum::name).collect(Collectors.toCollection(TreeSet::new)), listed);
         var naming = flows.get(0);
         assertEquals("CHAT_NAMING", naming.path("flow").asText());
-        assertEquals("MEETING_MINUTES", flows.get(1).path("flow").asText());
-        assertTrue(naming.path("modelConfigurationId").isNull());
+        String chatModel = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-default")
+                .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                .path("modelConfigurationId").asText();
+        flows.forEach(flow -> assertEquals(chatModel, flow.path("modelConfigurationId").asText(),
+                flow.path("flow").asText() + " names the model that runs it, the Chat model to begin with"));
         assertTrue(naming.path("available").asBoolean());
         mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
         var internal = providerBody("http://flow.internal/v1", true).put("dataBoundary", "INTERNAL");
@@ -2331,8 +2583,8 @@ class ChatSessionApiIntegrationTest {
         awaitOutcome(first.path("assistantMessageId").asText(), "COMPLETED");
     }
 
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @SuppressWarnings("resource") // The spy call installs behavior; the runtime owns clients created during the request.
     void configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome(boolean vision) throws Exception {
         grantModelManagement();
@@ -2366,7 +2618,7 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(put("/api/chat/models/" + configured.path("id").asText()).param("revision", "1")
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                     .contentType(MediaType.APPLICATION_JSON).content(settings.toString())).andExpect(status().isOk());
-            byte[] image = java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jJ1sAAAAASUVORK5CYII=");
+            byte[] image = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jJ1sAAAAASUVORK5CYII=");
             String file = readyImage(image);
             var session = create();
             String token = token(actor);
@@ -2390,7 +2642,7 @@ class ChatSessionApiIntegrationTest {
             var imageUrls = captured.get().path("messages").findValues("image_url");
             assertEquals(vision ? 1 : 0, imageUrls.size(), captured.get().toString());
             if (vision) {
-                assertEquals("data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(image), imageUrls.getFirst().path("url").asText());
+                assertEquals("data:image/png;base64," + Base64.getEncoder().encodeToString(image), imageUrls.getFirst().path("url").asText());
                 assertEquals(file, history(session).get(1).path("sources").get(0).path("fileId").asText());
                 verify(fileStorage).open(any());
             } else {
@@ -2502,7 +2754,7 @@ class ChatSessionApiIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON).content(html.toString()))
                     .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_INCOMPATIBLE"));
             int closed;
-            try (var socket = new java.net.ServerSocket(0, 1, InetAddress.getLoopbackAddress())) { closed = socket.getLocalPort(); }
+            try (var socket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) { closed = socket.getLocalPort(); }
             var unreachable = html.deepCopy().put("baseUrl", "http://127.0.0.1:" + closed + "/v1");
             mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                             .contentType(MediaType.APPLICATION_JSON).content(unreachable.toString()))
@@ -2593,7 +2845,7 @@ class ChatSessionApiIntegrationTest {
         String session = create().path("id").asText();
         // A conversation starts with nothing pinned; the model configuration decides.
         mockMvc.perform(get("/api/chat/sessions/" + session).with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value(Matchers.nullValue()));
         mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(actor)).with(csrf())
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reasoningEffort\":\"HIGH\"}"))
@@ -2611,7 +2863,7 @@ class ChatSessionApiIntegrationTest {
         // Clearing it returns the conversation to the model configuration.
         mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(actor)).with(csrf())
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value(Matchers.nullValue()));
         // The member's own starting values live with the rest of their preferences.
         var body = Json.mapper().createObjectNode().put("workRole", "").put("personalPreferences", "")
                 .put("autoScroll", true).put("temperatureDefault", 1.4).put("reasoningEffortDefault", "LOW");
@@ -2644,10 +2896,10 @@ class ChatSessionApiIntegrationTest {
     }
 
     private String readyImage(byte[] bytes) throws Exception {
-        var checksum = new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of().formatHex(
-                java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));
-        var metadata = new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "image/png", checksum);
-        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+        var checksum = new ContentSha256(HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(bytes)));
+        var metadata = new ObjectMetadata(bytes.length, "image/png", checksum);
+        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new UploadAuthorization(
                 "PUT", URI.create("https://storage.invalid/upload"), Map.of("Content-Type", "image/png"), Instant.now().plusSeconds(300)));
         when(fileStorage.inspect(any())).thenReturn(metadata);
         String request = Json.mapper().writeValueAsString(Map.of("requestId", UUID.randomUUID(), "filename", "pixel.png",
@@ -2661,11 +2913,11 @@ class ChatSessionApiIntegrationTest {
         // Real upload/adoption and native HTTP; extraction has a separate worker-boundary test.
         jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext='',detected_media_type='image/png' WHERE id=:id")
                 .param("id", UUID.fromString(id)).update();
-        when(fileStorage.open(any())).thenAnswer(_ -> new io.memoryos.objectstorage.ObjectContent() {
-            private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
-            @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return metadata; }
-            @Override public java.io.InputStream inputStream() { return input; }
-            @Override public void close() { try { input.close(); } catch (IOException failed) { throw new java.io.UncheckedIOException(failed); } }
+        when(fileStorage.open(any())).thenAnswer(_ -> new ObjectContent() {
+            private final InputStream input = new ByteArrayInputStream(bytes);
+            @Override public ObjectMetadata metadata() { return metadata; }
+            @Override public InputStream inputStream() { return input; }
+            @Override public void close() { try { input.close(); } catch (IOException failed) { throw new UncheckedIOException(failed); } }
         });
         return id;
     }
@@ -2674,8 +2926,8 @@ class ChatSessionApiIntegrationTest {
     @NullMarked
     static class LocalAdapterFixture {
         @Bean
-        ChatProviderAdapter fixtureLocalAdapter() {
-            return new ChatProviderAdapter() {
+        ProviderAdapter fixtureLocalAdapter() {
+            return new ProviderAdapter() {
                 @Override public String type() { return "fixture-local"; }
                 @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.NONE; }
                 @Override public List<TokenizerProfile> tokenizerProfiles() {
@@ -2689,7 +2941,7 @@ class ChatSessionApiIntegrationTest {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
                     };
-                    return new Client(new ChatModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
+                    return new Client(new ModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
                 }
             };
         }
@@ -2966,7 +3218,7 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(request().asyncStarted()).andReturn();
             mockMvc.perform(asyncDispatch(started)).andExpect(status().isOk())
                     .andExpect(header().string("Content-Type", "audio/mpeg"))
-                    .andExpect(header().string("Cache-Control", "no-store"))
+                    .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                     .andExpect(header().string("X-Accel-Buffering", "no"))
                     .andExpect(content().bytes("mp3-audio".getBytes(UTF_8)));
             String providerRequest = requests.poll(10, TimeUnit.SECONDS);
@@ -3142,16 +3394,53 @@ class ChatSessionApiIntegrationTest {
 
             mockMvc.perform(put("/api/meetings/" + id + "/speakers/MIC/1").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Anh Thanh\"}"))
-                    .andExpect(status().isOk()).andExpect(jsonPath("$.speakers[0].name").value("Anh Thanh"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.track").value("MIC"))
+                    .andExpect(jsonPath("$.label").value("1")).andExpect(jsonPath("$.name").value("Anh Thanh"))
+                    .andExpect(jsonPath("$.utterances").doesNotExist());
+            mockMvc.perform(get("/api/meetings/" + id).with(authentication(actor))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.speakers[0].name").value("Anh Thanh"))
                     .andExpect(jsonPath("$.utterances[0].speaker").value("1"))
                     .andExpect(jsonPath("$.provider").value("OPENAI_COMPATIBLE")).andExpect(jsonPath("$.diarized").value(false));
             mockMvc.perform(put("/api/meetings/" + id + "/notes").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"notes\":\"Hỏi hạn mức\",\"revision\":7}")).andExpect(status().isConflict());
+            // A save answers with the notes and the revision the next save names, not with the transcript.
             mockMvc.perform(put("/api/meetings/" + id + "/notes").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"notes\":\"Hỏi hạn mức\",\"revision\":0}")).andExpect(status().isOk())
-                    .andExpect(jsonPath("$.notes").value("Hỏi hạn mức"));
+                    .andExpect(jsonPath("$.notes").value("Hỏi hạn mức")).andExpect(jsonPath("$.revision").value(1))
+                    .andExpect(jsonPath("$.utterances").doesNotExist());
+            // The start form asks only what the recording needs; the name and the people come once it is running.
+            mockMvc.perform(put("/api/meetings/" + id).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\"  Giao ban tuần  \",\"participants\":[\"Anh Thanh\",\" Chị Lan \",\"Anh Thanh\"]}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Giao ban tuần"))
+                    .andExpect(jsonPath("$.participants.length()").value(2))
+                    .andExpect(jsonPath("$.participants[1]").value("Chị Lan"))
+                    .andExpect(jsonPath("$.revision").value(2));
+            mockMvc.perform(put("/api/meetings/" + id + "/notes").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"notes\":\"Hỏi hạn mức quý 4\",\"revision\":2}")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.revision").value(3));
+            mockMvc.perform(put("/api/meetings/" + id).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\" \",\"participants\":[]}")).andExpect(status().isBadRequest());
+            // The biên bản heading opens blank, then where the owner left it.
+            mockMvc.perform(get("/api/meetings/" + id + "/minutes/heading").with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.saved").value(false));
+            mockMvc.perform(put("/api/meetings/" + id + "/minutes/heading").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"organization\":\" CÔNG TY CP TASCO \",\"chair\":\"Anh Thanh\","
+                            + "\"attendees\":[\"Chị Lan\"],\"font\":\"Comic Sans\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.organization").value("CÔNG TY CP TASCO"))
+                    .andExpect(jsonPath("$.font").value(""));
+            mockMvc.perform(get("/api/meetings/" + id + "/minutes/heading").with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.saved").value(true))
+                    .andExpect(jsonPath("$.chair").value("Anh Thanh")).andExpect(jsonPath("$.number").value(""))
+                    .andExpect(jsonPath("$.attendees[0]").value("Chị Lan"));
+            mockMvc.perform(put("/api/meetings/" + id + "/minutes/heading").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isNotFound());
             mockMvc.perform(post("/api/meetings/" + id + "/end").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ENDED"));
             mockMvc.perform(post("/api/meetings/" + id + "/tickets").with(authentication(actor)).with(csrf())
@@ -3173,18 +3462,563 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void starsAndBookmarksBelongToWhoeverLeftThemAndNobodyElseSeesThem() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status,
+                                        ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                                  confidence)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 2000, 'Chốt ngân sách quý 4.', 0.9)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_user_share(tenant_id, meeting_id, actor_id)
+                    VALUES (:tenant, :meeting, :reader)
+                    """).param("tenant", TENANT).param("meeting", meeting)
+                    .param("reader", other.getPrincipal().actorId().value()).update();
+
+            var starred = Json.mapper().readTree(mockMvc.perform(
+                    put("/api/meetings/" + meeting + "/utterances/" + line + "/star").with(authentication(other))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(1, starred.size(), "a star answers with the caller's starred lines only");
+            assertEquals(line.toString(), starred.get(0).asText());
+
+            // The owner reads the same meeting and sees none of the reader's marks.
+            var owners = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse()
+                    .getContentAsString());
+            assertEquals(0, owners.path("starred").size(), "a star belongs to the reader who left it");
+
+            var marked = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/bookmarks")
+                    .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"atMs\":65000,\"label\":null}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(1, marked.size(), "a mark answers with the caller's marks only");
+            assertEquals(65000, marked.get(0).path("atMs").asLong());
+            assertEquals("Đánh dấu 1", marked.get(0).path("label").asText(), "a mark with no name is numbered");
+            String bookmark = marked.get(0).path("id").asText();
+
+            mockMvc.perform(post("/api/meetings/" + meeting + "/bookmarks").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"atMs\":-1,\"label\":null}")).andExpect(status().isBadRequest());
+
+            // A line of another meeting cannot be starred through this one.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/utterances/" + UUID.randomUUID() + "/star")
+                    .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+
+            // One reader cannot take back another's mark.
+            mockMvc.perform(delete("/api/meetings/" + meeting + "/bookmarks/" + bookmark).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+
+            var cleared = Json.mapper().readTree(mockMvc.perform(
+                    delete("/api/meetings/" + meeting + "/bookmarks/" + bookmark).with(authentication(other))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(0, cleared.size());
+
+            var unstarred = Json.mapper().readTree(mockMvc.perform(
+                    delete("/api/meetings/" + meeting + "/utterances/" + line + "/star").with(authentication(other))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(0, unstarred.size());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void theOwnerCorrectsTheMinutesAndARerunAsksBeforeThrowingThatWorkAway() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        UUID decision = UUID.randomUUID();
+        UUID action = UUID.randomUUID();
+        UUID topic = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status,
+                                        ended_at, minutes_status, minutes_summary, minutes_kind, minutes_generated_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP, 'READY', 'Cuộc họp chốt ngân sách.', 'Giao ban tuần', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                                  confidence)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 2000, 'Chốt ngân sách quý 4.', 0.9)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text)
+                    VALUES (:tenant, :id, :meeting, 'DECISION', 0, 'Chốt ngân sách quý 4')
+                    """).param("tenant", TENANT).param("id", decision).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner, due)
+                    VALUES (:tenant, :id, :meeting, 'ACTION', 0, 'Gửi bảng KPI', 'Chị Lan', 'chiều nay')
+                    """).param("tenant", TENANT).param("id", action).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text,
+                                                     source_utterance_id)
+                    VALUES (:tenant, :id, :meeting, 'TOPIC', 0, 'Ngân sách quý 4', :line)
+                    """).param("tenant", TENANT).param("id", topic).param("meeting", meeting).param("line", line)
+                    .update();
+
+            var corrected = Json.mapper().readTree(mockMvc.perform(
+                    put("/api/meetings/" + meeting + "/minutes/summary").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"summary\":\"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.\"}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("Cuộc họp chốt ngân sách quý 4 trước thứ Năm.", corrected.path("summary").asText());
+            assertTrue(corrected.path("edited").asBoolean(), "the words standing now are the owner's");
+            assertTrue(corrected.path("utterances").isMissingNode(), "a summary edit does not send the transcript");
+            assertEquals("Cuộc họp chốt ngân sách.", jdbc.sql("""
+                    SELECT before FROM meeting_minutes_event
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND field = 'SUMMARY' ORDER BY id LIMIT 1
+                    """).param("tenant", TENANT).param("meeting", meeting).query(String.class).single(),
+                    "and what the model wrote is still on the record");
+
+            var reassigned = Json.mapper().readTree(mockMvc.perform(
+                    put("/api/meetings/" + meeting + "/minutes/items/" + action).with(authentication(actor))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"text\":\"Gửi bảng KPI tháng 9\",\"owner\":\"Anh Minh\",\"due\":\"thứ Năm\"}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var item = reassigned;
+            assertEquals(action.toString(), item.path("id").asText());
+            assertEquals("Gửi bảng KPI tháng 9", item.path("text").asText());
+            assertEquals("Anh Minh", item.path("owner").asText());
+            assertEquals("thứ Năm", item.path("due").asText());
+            assertTrue(item.path("edited").asBoolean());
+            assertEquals(3, jdbc.sql("""
+                    SELECT count(*) FROM meeting_minutes_event
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND item_id = CAST(:item AS uuid)
+                    """).param("tenant", TENANT).param("meeting", meeting).param("item", action.toString())
+                    .query(Integer.class).single(), "the words, the owner and the deadline each moved");
+
+            // A decision belongs to the meeting, not to a person.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/items/" + decision).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"Chốt ngân sách quý 4\",\"owner\":\"Anh Minh\",\"due\":null}"))
+                    .andExpect(status().isBadRequest());
+
+            // What the model missed is written in, after the others of its kind, and what should not be there comes
+            // out; both stay on the record as events.
+            var added = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/minutes/items").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"kind\":\"ACTION\",\"text\":\" Đặt phòng họp quý 4 \",\"owner\":\"Chị Hoa\","
+                                    + "\"due\":\"thứ Hai\"}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("Đặt phòng họp quý 4", added.path("text").asText());
+            assertEquals("Chị Hoa", added.path("owner").asText());
+            assertTrue(added.path("edited").asBoolean());
+            var afterAdding = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse()
+                    .getContentAsString());
+            assertEquals(added.path("id").asText(),
+                    afterAdding.path("minutes").path("actions").get(1).path("id").asText(),
+                    "an item written in comes after the others of its kind");
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/items").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"kind\":\"DECISION\",\"text\":\"Tăng ngân sách\",\"owner\":\"Anh Minh\"}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/items").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"kind\":\"TOPIC\",\"text\":\"Ngân sách\"}")).andExpect(status().isBadRequest());
+            // A topic is the model's place in the timeline, not a line the owner answers for: it is not ticked off,
+            // rewritten or taken out, any more than one is written in.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + topic).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"done\":true}")).andExpect(status().isNotFound());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/items/" + topic).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"Ngân sách\"}")).andExpect(status().isNotFound());
+            mockMvc.perform(delete("/api/meetings/" + meeting + "/minutes/items/" + topic)
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+            assertEquals("Ngân sách quý 4", jdbc.sql("""
+                    SELECT text FROM meeting_minutes_item WHERE tenant_id = :tenant AND id = :id AND NOT done
+                    """).param("tenant", TENANT).param("id", topic).query(String.class).single(),
+                    "the topic stands as the model wrote it");
+            mockMvc.perform(delete("/api/meetings/" + meeting + "/minutes/items/" + decision)
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNoContent());
+            var removed = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse()
+                    .getContentAsString());
+            assertEquals(0, removed.path("minutes").path("decisions").size());
+            assertTrue(removed.path("minutes").path("edited").asBoolean());
+            assertEquals("Chốt ngân sách quý 4", jdbc.sql("""
+                    SELECT before FROM meeting_minutes_event
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND item_id = CAST(:item AS uuid)
+                    """).param("tenant", TENANT).param("meeting", meeting).param("item", decision.toString())
+                    .query(String.class).single(), "the words taken out are still on the record");
+            mockMvc.perform(delete("/api/meetings/" + meeting + "/minutes/items/" + decision)
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+
+            // A second meeting's biên bản starts from the organization the owner used last, and nothing else.
+            jdbc.sql("""
+                    UPDATE meeting SET minutes_heading = CAST(:heading AS jsonb) WHERE tenant_id = :tenant AND id = :id
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("heading", "{\"organization\":\"CÔNG TY CP TASCO\",\"parentOrganization\":\"TẬP ĐOÀN TASCO\","
+                            + "\"number\":\"12\",\"about\":\"Giao ban\",\"place\":\"Phòng A\",\"opened\":\"\","
+                            + "\"closed\":\"\",\"chair\":\"Anh Thanh\",\"chairRole\":\"\",\"secretary\":\"\","
+                            + "\"secretaryRole\":\"\",\"attendees\":[],\"font\":\"Arial\"}").update();
+            UUID next = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần sau', 'IN_PERSON', 'vi', '[]'::jsonb)
+                    """).param("tenant", TENANT).param("id", next)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            mockMvc.perform(get("/api/meetings/" + next + "/minutes/heading").with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.saved").value(false))
+                    .andExpect(jsonPath("$.organization").value("CÔNG TY CP TASCO"))
+                    .andExpect(jsonPath("$.parentOrganization").value("TẬP ĐOÀN TASCO"))
+                    .andExpect(jsonPath("$.font").value("Arial"))
+                    .andExpect(jsonPath("$.number").value("")).andExpect(jsonPath("$.chair").value(""));
+
+            // Nobody but the owner corrects them, however the meeting is shared.
+            jdbc.sql("""
+                    INSERT INTO meeting_user_share(tenant_id, meeting_id, actor_id) VALUES (:tenant, :meeting, :reader)
+                    """).param("tenant", TENANT).param("meeting", meeting)
+                    .param("reader", other.getPrincipal().actorId().value()).update();
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/summary").with(authentication(other))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"summary\":\"Của tôi\"}")).andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/items").with(authentication(other))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"kind\":\"ACTION\",\"text\":\"Của tôi\"}")).andExpect(status().isNotFound());
+            mockMvc.perform(delete("/api/meetings/" + meeting + "/minutes/items/" + action)
+                    .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+
+            // Rerunning writes the whole minutes again, so it asks before discarding what was corrected.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
+            var rerun = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/minutes?discardEdits=true").with(authentication(actor))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertFalse(rerun.path("minutes").path("edited").asBoolean(),
+                    "a rerun starts from the model's own words again");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void aProposalIsOnlyAnOfferUntilTheOwnerTakesItAndCanBeTakenBack() throws Exception {
+        var asked = new AtomicReference<String>();
+        when(model.call(any(Prompt.class))).thenAnswer(call -> {
+            asked.set(call.getArgument(0, Prompt.class).getInstructions().stream()
+                    .map(Message::getText)
+                    .collect(Collectors.joining("\n")));
+            return response("""
+                    {"proposals":[
+                      {"id":"%s","replace":true,"text":"Tasco","reason":"Tên công ty nói rõ ở câu sau.",
+                       "confidence":0.93,"contextFit":0.9,"meaningSafe":0.95,"matchedGlossary":true},
+                      {"id":"unknown","replace":true,"text":"gì đó","reason":"","confidence":0.9,
+                       "contextFit":0.9,"meaningSafe":0.9,"matchedGlossary":false}]}
+                    """.formatted(STRETCH.get()), "stop", 40);
+        });
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        String said = "Bên Tát cô đã gửi bảng KPI.";
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, terms,
+                                        status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb,
+                            '["Tasco"]'::jsonb, 'ENDED', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                                  confidence, spans)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 2000, :text, 0.55,
+                            '[{"start":4,"end":6,"confidence":0.4},{"start":7,"end":10,"confidence":0.35}]'::jsonb)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).param("text", said)
+                    .update();
+            // The two marks read as one phrase, so the pass asks about "Tát cô" rather than about each half.
+            STRETCH.set(line + ":4");
+
+            var proposed = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/corrections")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(1, proposed.path("corrections").size(), "a proposal for a stretch nobody asked about is dropped");
+            var proposal = proposed.path("corrections").get(0);
+            assertEquals("Tát cô", proposal.path("before").asText());
+            assertEquals("Tasco", proposal.path("after").asText());
+            assertEquals("PENDING", proposal.path("status").asText());
+            assertTrue(asked.get().contains("untrusted data"), "the prompt defends itself");
+
+            String beforeAnything = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                    .path("utterances").get(0).path("text").asText();
+            assertEquals(said, beforeAnything, "proposing changes nothing");
+
+            assertFalse(Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                    .path("correcting").asBoolean(), "a finished pass lets go of the meeting");
+
+            // A pass still running, from a page that was closed or another tab, is visible and holds the meeting.
+            jdbc.sql("UPDATE meeting SET correction_running_until = now() + interval '5 minutes' WHERE id = :id")
+                    .param("id", meeting).update();
+            assertTrue(Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                    .path("correcting").asBoolean());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
+            jdbc.sql("UPDATE meeting SET correction_running_until = NULL WHERE id = :id").param("id", meeting).update();
+
+            // A reader of a shared meeting never reaches any of this.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections").with(authentication(other))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/meetings/" + meeting + "/corrections").with(authentication(other)))
+                    .andExpect(status().isNotFound());
+
+            String correction = proposal.path("id").asText();
+            var accepted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + correction + "/accept")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertTrue(accepted.path("utterances").isMissingNode(), "one decision does not send the transcript");
+            var rewritten = accepted.path("utterance");
+            assertEquals(line.toString(), rewritten.path("id").asText());
+            assertEquals("Bên Tasco đã gửi bảng KPI.", rewritten.path("text").asText());
+            assertEquals("MODEL", rewritten.path("editSource").asText());
+            assertEquals(correction, accepted.path("correction").path("id").asText());
+            assertEquals("ACCEPTED", accepted.path("correction").path("status").asText());
+            assertEquals("Tát cô", accepted.path("correction").path("before").asText());
+            assertEquals(0, rewritten.path("spans").size(),
+                    "the marks covered the words that were replaced, so they describe nothing now");
+            assertEquals(said, jdbc.sql("""
+                    SELECT before FROM meeting_utterance_event WHERE tenant_id = :tenant AND utterance_id = :line
+                    ORDER BY id LIMIT 1
+                    """).param("tenant", TENANT).param("line", line).query(String.class).single(),
+                    "the words the provider wrote are still on the record");
+
+            // Deciding the same proposal twice is a conflict, not a second rewrite.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections/" + correction + "/keep")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isConflict());
+
+            var reverted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + correction + "/revert")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(said, reverted.path("utterance").path("text").asText());
+            assertTrue(reverted.path("utterance").path("editSource").isNull(),
+                    "back at the provider's own words, so nobody has changed this line after all");
+            assertEquals("REVERTED", reverted.path("correction").path("status").asText());
+            assertEquals("REVERTED", Json.mapper().readTree(mockMvc.perform(
+                    get("/api/meetings/" + meeting + "/corrections").with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                    .get(0).path("status").asText());
+            assertEquals(1, reverted.path("utterance").path("spans").size(),
+                    "and the stretch is uncertain again");
+
+            // Declining changes no line, so it answers the proposal alone.
+            UUID declined = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO meeting_correction(tenant_id, id, meeting_id, utterance_id, run_id, span_start,
+                                                   span_end, before, after, reason, confidence, context_fit,
+                                                   meaning_safe, matched_glossary)
+                    VALUES (:tenant, :id, :meeting, :line, :run, 4, 10, 'Tát cô', 'Tắt cô', '', 0.4, 0.4, 0.4, false)
+                    """).param("tenant", TENANT).param("id", declined).param("meeting", meeting).param("line", line)
+                    .param("run", UUID.randomUUID()).update();
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections/" + declined + "/keep")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(declined.toString()))
+                    .andExpect(jsonPath("$.status").value("KEPT")).andExpect(jsonPath("$.after").value("Tắt cô"))
+                    .andExpect(jsonPath("$.utterance").doesNotExist())
+                    .andExpect(jsonPath("$.utterances").doesNotExist());
+            assertEquals(said, jdbc.sql("SELECT text FROM meeting_utterance WHERE id = :line").param("line", line)
+                    .query(String.class).single(), "and the line is as the provider heard it");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void aMarkOnHalfAWordIsAskedAboutAndReplacedAsTheWholeWord() throws Exception {
+        // Soniox scores pieces of words: on staging "Trực" was marked as "Tr", the model answered "Trực", and
+        // replacing only the mark left "Trựcực tiếp".
+        when(model.call(any(Prompt.class))).thenAnswer(call -> response("""
+                {"proposals":[{"id":"%s","replace":true,"text":"Cộc","reason":"Tiếng gõ cửa.",
+                  "confidence":0.9,"contextFit":0.9,"meaningSafe":0.9,"matchedGlossary":false}]}
+                """.formatted(STRETCH.get()), "stop", 40));
+        UUID meeting = UUID.randomUUID();
+        UUID knock = UUID.randomUUID();
+        UUID direct = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, terms,
+                                        status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban', 'IN_PERSON', 'vi', '[]'::jsonb, '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            for (var line : List.of(Map.entry(knock, "Cốc, cốc, cốc."), Map.entry(direct, "Trực tiếp limit à?")))
+                jdbc.sql("""
+                        INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms,
+                                                      text, confidence, spans)
+                        VALUES (:tenant, :id, :meeting, 'MIC', '1', :at, :at + 1000, :text, 0.5,
+                                '[{"start":1,"end":3,"confidence":0.35}]'::jsonb)
+                        """).param("tenant", TENANT).param("id", line.getKey()).param("meeting", meeting)
+                        .param("at", line.getKey().equals(knock) ? 0 : 2000).param("text", line.getValue()).update();
+
+            var read = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString());
+            var mark = read.path("utterances").get(0).path("spans").get(0);
+            assertEquals(0, mark.path("start").asInt(), "the mark reaches back to where the word begins");
+            assertEquals(3, mark.path("end").asInt());
+
+            // A pass asks about the word, so its answer replaces the word.
+            STRETCH.set(knock + ":0");
+            var proposed = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/corrections")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var proposal = proposed.path("corrections").get(0);
+            assertEquals("Cốc", proposal.path("before").asText());
+            var knocked = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + proposal.path("id").asText() + "/accept")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("Cộc, cốc, cốc.", knocked.path("utterance").path("text").asText());
+
+            // A proposal stored before this fix still points at "Tr"; accepting it replaces the whole word.
+            UUID legacy = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO meeting_correction(tenant_id, id, meeting_id, utterance_id, run_id, span_start,
+                                                   span_end, before, after, reason, confidence, context_fit,
+                                                   meaning_safe, matched_glossary, status)
+                    VALUES (:tenant, :id, :meeting, :line, :run, 0, 2, 'Tr', 'Trực', 'Phần đầu câu.', 0.99, 0.99,
+                            0.99, false, 'PENDING')
+                    """).param("tenant", TENANT).param("id", legacy).param("meeting", meeting).param("line", direct)
+                    .param("run", UUID.randomUUID()).update();
+            var accepted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + legacy + "/accept")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(direct.toString(), accepted.path("utterance").path("id").asText());
+            assertEquals("Trực tiếp limit à?", accepted.path("utterance").path("text").asText(),
+                    "the rest of the word is not put back a second time");
+            assertEquals("Trực", accepted.path("correction").path("before").asText(),
+                    "the proposal records the whole word it replaced");
+            assertEquals("Trực".length(), accepted.path("correction").path("end").asInt());
+
+            var reverted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + legacy + "/revert")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("Trực tiếp limit à?", reverted.path("utterance").path("text").asText(),
+                    "taking it back puts back exactly the word that was replaced");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void theOwnerWritesWhatWasSaidAtAMarkedWordAndCanTakeItBack() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        String said = "Bên Tát cô đã gửi bảng KPI.";
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, terms,
+                                        status)
+                    VALUES (:tenant, :id, :owner, 'Giao ban', 'IN_PERSON', 'vi', '[]'::jsonb, '[]'::jsonb, 'RECORDING')
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                                  confidence, spans)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 2000, :text, 0.55,
+                            '[{"start":4,"end":10,"confidence":0.35}]'::jsonb)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).param("text", said)
+                    .update();
+            String path = "/api/meetings/" + meeting + "/utterances/" + line + "/corrections";
+            String tasco = "{\"start\":4,\"end\":10,\"text\":\"Tasco\"}";
+
+            // Not while the meeting is still being recorded.
+            mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(tasco)).andExpect(status().isConflict());
+            jdbc.sql("UPDATE meeting SET status = 'ENDED', ended_at = CURRENT_TIMESTAMP WHERE id = :id")
+                    .param("id", meeting).update();
+
+            // Only a marked stretch, and only by the owner.
+            mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"start\":0,\"end\":3,\"text\":\"Phía\"}"))
+                    .andExpect(status().isConflict());
+            mockMvc.perform(post(path).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(tasco)).andExpect(status().isNotFound());
+
+            var written = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(tasco))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var rewritten = written.path("utterance");
+            assertEquals("Bên Tasco đã gửi bảng KPI.", rewritten.path("text").asText());
+            assertEquals("HUMAN", rewritten.path("editSource").asText(), "the owner's words lock the line");
+            assertEquals(0, rewritten.path("spans").size(), "the word is no longer marked");
+            assertEquals("ACCEPTED", written.path("correction").path("status").asText());
+            assertEquals("Tasco", written.path("correction").path("after").asText());
+
+            var corrections = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting + "/corrections")
+                    .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse()
+                    .getContentAsString());
+            assertEquals(1, corrections.size(), "it sits with the other corrections");
+            assertEquals("ACCEPTED", corrections.get(0).path("status").asText());
+            assertEquals("Tát cô", corrections.get(0).path("before").asText());
+            assertEquals(written.path("correction").path("id").asText(), corrections.get(0).path("id").asText(),
+                    "the answer names the correction the list holds");
+
+            var reverted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + corrections.get(0).path("id").asText()
+                            + "/revert").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(said, reverted.path("utterance").path("text").asText(), "and is taken back the same way");
+            assertEquals(1, reverted.path("utterance").path("spans").size());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
     void endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn() throws Exception {
-        var prompts = new java.util.concurrent.LinkedBlockingQueue<String>();
+        var prompts = new LinkedBlockingQueue<String>();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.getArgument(0, Prompt.class).getInstructions().stream()
-                    .map(org.springframework.ai.chat.messages.Message::getText).collect(java.util.stream.Collectors.joining("\n"));
+                    .map(Message::getText).collect(Collectors.joining("\n"));
             prompts.add(text);
             return response("""
                     {"summary":"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.","kind":"Giao ban tuần",
                      "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
                      "actions":[{"text":"Gửi bảng KPI tháng 9","owner":"Chị Lan","due":"chiều nay",
                                  "quote":"Em gửi bảng KPI tháng 9 chiều nay.","line":2},
-                                {"text":"","owner":null,"due":null,"quote":null,"line":9}]}
+                                {"text":"","owner":null,"due":null,"quote":null,"line":9}],
+                     "topics":[{"title":"Số liệu KPI","line":2},{"title":"Ngân sách quý 4","line":1},
+                               {"title":"Trùng dòng","line":1},{"title":"Không có dòng này","line":9}]}
                     """, "stop", 40);
         });
         UUID meeting = UUID.randomUUID();
@@ -3211,7 +4045,7 @@ class ChatSessionApiIntegrationTest {
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk())
                     .andExpect(jsonPath("$.minutes.status").value("PENDING"));
 
-            var ready = new java.util.concurrent.atomic.AtomicReference<String>();
+            var ready = new AtomicReference<String>();
             await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
                         var body = mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor)))
                                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -3225,6 +4059,11 @@ class ChatSessionApiIntegrationTest {
             assertEquals(utterances[0].toString(), minutes.path("decisions").get(0).path("sourceUtteranceId").asText(),
                     "a decision points at the line it rests on");
             assertEquals(1, minutes.path("actions").size(), "an item with no text is dropped");
+            var topics = minutes.path("topics");
+            assertEquals(2, topics.size(), "a topic on a line that is not there, or on a line already taken, is dropped");
+            assertEquals("Ngân sách quý 4", topics.get(0).path("text").asText(), "in the order the meeting reached them");
+            assertEquals(utterances[0].toString(), topics.get(0).path("sourceUtteranceId").asText());
+            assertEquals("Số liệu KPI", topics.get(1).path("text").asText());
             var action = minutes.path("actions").get(0);
             assertEquals("Chị Lan", action.path("owner").asText());
             assertEquals("chiều nay", action.path("due").asText());
@@ -3233,15 +4072,17 @@ class ChatSessionApiIntegrationTest {
 
             String prompt = prompts.poll(5, TimeUnit.SECONDS);
             assertNotNull(prompt);
-            assertTrue(prompt.contains("[1] 00:00:00 Speaker 1: Chốt ngân sách quý 4 trước thứ Năm."));
-            assertTrue(prompt.contains("[2] 00:00:05 Chị Lan: Em gửi bảng KPI tháng 9 chiều nay."),
+            assertTrue(prompt.contains("[1] 00:00 Người nói 1: Chốt ngân sách quý 4 trước thứ Năm."),
+                    "the model reads the names and times the transcript shows");
+            assertTrue(prompt.contains("[2] 00:05 Chị Lan: Em gửi bảng KPI tháng 9 chiều nay."),
                     "a named speaker reaches the model under that name");
             assertTrue(prompt.contains("Never invent a decision"));
 
             mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + action.path("id").asText())
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                     .contentType(MediaType.APPLICATION_JSON).content("{\"done\":true}"))
-                    .andExpect(status().isOk()).andExpect(jsonPath("$.minutes.actions[0].done").value(true));
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(action.path("id").asText()))
+                    .andExpect(jsonPath("$.done").value(true)).andExpect(jsonPath("$.minutes").doesNotExist());
             mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + UUID.randomUUID())
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                     .contentType(MediaType.APPLICATION_JSON).content("{\"done\":true}")).andExpect(status().isNotFound());
@@ -3257,17 +4098,24 @@ class ChatSessionApiIntegrationTest {
             var exported = mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export")
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                     .contentType(MediaType.APPLICATION_JSON).content(heading)).andExpect(status().isOk())
-                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(
+                    .andExpect(header().string("Content-Type", Matchers.startsWith(
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document")))
-                    .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
+                    .andExpect(header().string("Content-Disposition", Matchers.containsString("attachment")))
                     .andReturn().getResponse().getContentAsByteArray();
             assertEquals('P', exported[0], "the biên bản is a Word package");
             assertEquals('K', exported[1]);
+            var printed = mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export?format=PDF")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(heading)).andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", Matchers.startsWith("application/pdf")))
+                    .andExpect(header().string("Content-Disposition", Matchers.containsString(".pdf")))
+                    .andReturn().getResponse().getContentAsByteArray();
+            assertEquals("%PDF", new String(printed, 0, 4, UTF_8), "and the same biên bản prints as a PDF");
             // The endpoint answers a Word document, so its failures must still answer a problem document.
             mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export").with(authentication(other)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
                     .andExpect(status().isNotFound())
-                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+                    .andExpect(header().string("Content-Type", Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
             UUID unwritten = UUID.randomUUID();
             jdbc.sql("""
                     INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
@@ -3278,7 +4126,7 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(post("/api/meetings/" + unwritten + "/minutes/export").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
                     .andExpect(status().isBadRequest())
-                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+                    .andExpect(header().string("Content-Type", Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
             assertEquals(1, jdbc.sql("SELECT count(*) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
                     .param("tenant", TENANT).query(Integer.class).single(), "the call is billed to the owner's Tenant");
         } finally {
@@ -3292,24 +4140,24 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         byte[] audio = "fake-mp3-bytes".getBytes(UTF_8);
         String checksum = "a".repeat(64);
-        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new UploadAuthorization(
                 "PUT", URI.create("https://storage.invalid/recording"), Map.of("Content-Type", "audio/mpeg"),
                 Instant.now().plusSeconds(300)));
-        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(audio.length,
-                "audio/mpeg", new io.memoryos.objectstorage.ContentSha256(checksum)));
-        when(fileStorage.open(any())).thenAnswer(call -> new io.memoryos.objectstorage.ObjectContent() {
-            private final java.io.InputStream bytes = new java.io.ByteArrayInputStream(audio);
-            @Override public io.memoryos.objectstorage.ObjectMetadata metadata() {
-                return new io.memoryos.objectstorage.ObjectMetadata(audio.length, "audio/mpeg",
-                        new io.memoryos.objectstorage.ContentSha256(checksum));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(audio.length,
+                "audio/mpeg", new ContentSha256(checksum)));
+        when(fileStorage.open(any())).thenAnswer(call -> new ObjectContent() {
+            private final InputStream bytes = new ByteArrayInputStream(audio);
+            @Override public ObjectMetadata metadata() {
+                return new ObjectMetadata(audio.length, "audio/mpeg",
+                        new ContentSha256(checksum));
             }
-            @Override public java.io.InputStream inputStream() { return bytes; }
+            @Override public InputStream inputStream() { return bytes; }
             @Override public void close() {}
         });
 
         var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/v1/models", exchange -> respond(exchange, "{\"data\":[]}"));
-        var sent = new java.util.concurrent.atomic.AtomicReference<String>();
+        var sent = new AtomicReference<String>();
         server.createContext("/v1/audio/transcriptions", exchange -> {
             sent.set(new String(exchange.getRequestBody().readAllBytes(), UTF_8));
             respond(exchange, """
@@ -3366,7 +4214,7 @@ class ChatSessionApiIntegrationTest {
                     .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk())
                     .andExpect(jsonPath("$.audio.status").value("PENDING"));
 
-            var transcribed = new java.util.concurrent.atomic.AtomicReference<String>();
+            var transcribed = new AtomicReference<String>();
             await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
                         var body = mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor)))
                                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -3386,12 +4234,105 @@ class ChatSessionApiIntegrationTest {
                     "a transcribed recording queues its minutes like a live meeting");
             assertTrue(sent.get().contains("verbose_json"), "the recording asks for timed segments");
             assertTrue(sent.get().contains("giao-ban.mp3"), "and is sent under its own name");
-            assertEquals(0, jdbc.sql("""
+            // The bytes are retired by the recording job's next pass, which sweeps every finished recording that still
+            // holds its upload, so the meeting reads ENDED for a moment while they are still referenced.
+            await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertEquals(0, jdbc.sql("""
                     SELECT count(*) FROM meeting
                     WHERE tenant_id = :tenant AND id = CAST(:id AS uuid)
                       AND (audio_upload_id IS NOT NULL OR audio_key IS NOT NULL)
                     """).param("tenant", TENANT).param("id", meeting).query(Integer.class).single(),
-                    "the recording is forgotten once its transcript is stored");
+                    "the recording is forgotten once its transcript is stored"));
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void aStretchSonioxWasUnsureOfReachesTheTranscriptAtTheRightCharacters() throws Exception {
+        grantModelManagement();
+        byte[] audio = "fake-mp3-bytes".getBytes(UTF_8);
+        String checksum = "d".repeat(64);
+        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new UploadAuthorization(
+                "PUT", URI.create("https://storage.invalid/recording"), Map.of("Content-Type", "audio/mpeg"),
+                Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(audio.length,
+                "audio/mpeg", new ContentSha256(checksum)));
+        when(fileStorage.open(any())).thenAnswer(call -> new ObjectContent() {
+            private final InputStream bytes = new ByteArrayInputStream(audio);
+            @Override public ObjectMetadata metadata() {
+                return new ObjectMetadata(audio.length, "audio/mpeg",
+                        new ContentSha256(checksum));
+            }
+            @Override public InputStream inputStream() { return bytes; }
+            @Override public void close() {}
+        });
+
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/files", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            respond(exchange, "{\"id\":\"file-1\"}");
+        });
+        // One context serves the transcription's whole life: create, poll, read and the deletes that follow.
+        server.createContext("/v1/transcriptions", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            String path = exchange.getRequestURI().getPath();
+            if ("DELETE".equals(exchange.getRequestMethod())) respond(exchange, "{}");
+            // The key check lists transcriptions before anything is stored.
+            else if ("/v1/transcriptions".equals(path) && "GET".equals(exchange.getRequestMethod()))
+                respond(exchange, "{\"transcriptions\":[]}");
+            else if (path.endsWith("/transcript")) respond(exchange, """
+                    {"tokens":[
+                      {"text":"Nó ","speaker":"1","start_ms":0,"end_ms":200,"confidence":0.95},
+                      {"text":"ra ","speaker":"1","start_ms":200,"end_ms":400,"confidence":0.41},
+                      {"text":"tiếng ","speaker":"1","start_ms":400,"end_ms":700,"confidence":0.52},
+                      {"text":"nước ngoài.","speaker":"1","start_ms":700,"end_ms":1200,"confidence":0.99}]}
+                    """);
+            else if ("/v1/transcriptions".equals(path)) respond(exchange, "{\"id\":\"tr-1\"}");
+            else respond(exchange, "{\"status\":\"completed\"}");
+        });
+        server.start();
+        try {
+            var connection = Json.mapper().createObjectNode()
+                    .put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "stt-rt-v5").put("ttsModel", "").put("ttsVoice", "")
+                    .put("credentialAction", "REPLACE").put("credentialValue", "soniox-secret")
+                    .put("activate", "STT").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/SONIOX").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(connection.toString()))
+                    .andExpect(status().isOk());
+
+            String meeting = Json.mapper().readTree(mockMvc.perform(post("/api/meetings").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\"Bản ghi khó nghe\",\"kind\":\"IN_PERSON\",\"language\":\"vi\","
+                            + "\"participants\":[],\"terms\":[]}"))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString())
+                    .path("id").asText();
+            String declared = """
+                    {"filename":"kho-nghe.mp3","mediaType":"audio/mpeg","sizeBytes":%d,"sha256":"%s"}
+                    """.formatted(audio.length, checksum);
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(declared))
+                    .andExpect(status().isOk());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording/finalize").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+
+            var transcribed = new AtomicReference<String>();
+            await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+                        var body = mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor)))
+                                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+                        assertEquals("ENDED", Json.mapper().readTree(body).path("status").asText());
+                        transcribed.set(body);
+                    });
+            var utterance = Json.mapper().readTree(transcribed.get()).path("utterances").get(0);
+            String text = utterance.path("text").asText();
+            assertEquals("Nó ra tiếng nước ngoài.", text);
+            assertEquals(1, utterance.path("spans").size(), "the two uncertain tokens are one stretch");
+            var span = utterance.path("spans").get(0);
+            assertEquals("ra tiếng", text.substring(span.path("start").asInt(), span.path("end").asInt()),
+                    "the offsets index the stored line, through jsonb and back");
+            assertEquals(0.41, span.path("confidence").asDouble(), 0.001);
         } finally {
             server.stop(0);
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
@@ -3437,11 +4378,55 @@ class ChatSessionApiIntegrationTest {
     }
 
     /** One JSON body from a loopback provider. */
-    private static void respond(com.sun.net.httpserver.HttpExchange exchange, String json) throws java.io.IOException {
+    private static void respond(HttpExchange exchange, String json) throws IOException {
         byte[] body = json.getBytes(UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json");
         exchange.sendResponseHeaders(200, body.length);
         try (var output = exchange.getResponseBody()) { output.write(body); }
+    }
+
+    @Test
+    void namingASpeakerAnswersWithThatSpeakerAndAnUnnamedVoiceIsOfferedItsOwnNameAgain() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '["Minh"]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 3000, 'Chào mọi người, mình là Minh.', 0.9)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).update();
+            String path = "/api/meetings/" + meeting + "/speakers/MIC/1";
+
+            mockMvc.perform(put(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Anh Minh\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("Anh Minh"))
+                    .andExpect(jsonPath("$.suggestion").doesNotExist());
+            // Taking the name off puts the voice back to asking, with the name it gave itself.
+            mockMvc.perform(put(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"name\":null}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.name").doesNotExist())
+                    .andExpect(jsonPath("$.suggestion.name").value("Minh"))
+                    .andExpect(jsonPath("$.suggestion.utteranceId").value(line.toString()));
+            mockMvc.perform(delete(path + "/suggestion").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.label").value("1"))
+                    .andExpect(jsonPath("$.suggestion").doesNotExist());
+            mockMvc.perform(put(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.suggestion").doesNotExist());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/speakers/MIC/9").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Ai đó\"}")).andExpect(status().isNotFound());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
     }
 
     @Test
@@ -3471,10 +4456,11 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.owned").value(true))
-                    .andExpect(jsonPath("$.readers.length()").value(1))
-                    .andExpect(jsonPath("$.readers[0].kind").value("MEMBER"))
-                    .andExpect(jsonPath("$.readers[0].id").value(reader.toString()));
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].kind").value("MEMBER"))
+                    .andExpect(jsonPath("$[0].id").value(reader.toString()));
+            mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.owned").value(true)).andExpect(jsonPath("$.readers.length()").value(1));
 
             mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(other))).andExpect(status().isOk())
                     .andExpect(jsonPath("$.title").value("Giao ban tuần"))
@@ -3494,6 +4480,11 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(put("/api/meetings/" + meeting + "/notes").with(authentication(other)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"notes\":\"x\",\"revision\":0}")).andExpect(status().isNotFound());
+            mockMvc.perform(put("/api/meetings/" + meeting).with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\"Đổi tên\",\"participants\":[]}")).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/meetings/" + meeting + "/minutes/heading").with(authentication(other)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.saved").value(false));
             mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(other)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
             mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(other)).with(csrf())
@@ -3517,7 +4508,7 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"members\":[],\"groups\":[]}")).andExpect(status().isOk())
-                    .andExpect(jsonPath("$.readers.length()").value(0));
+                    .andExpect(jsonPath("$.length()").value(0));
             mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(other))).andExpect(status().isNotFound());
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
@@ -3561,7 +4552,7 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void conversationsAreReadOnlyWithHistoryAccessAndEveryTranscriptReadIsRecorded() throws Exception {
-        var since = java.time.Instant.now().minusSeconds(1).toString();
+        var since = Instant.now().minusSeconds(1).toString();
         var created = mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf())
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"=Nghỉ phép\"}"))
@@ -3586,7 +4577,7 @@ class ChatSessionApiIntegrationTest {
 
         String csv = mockMvc.perform(get("/api/chat/history/export").param("q", "=Nghỉ phép").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Type", "text/csv; charset=UTF-8"))
-                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         assertTrue(csv.startsWith("﻿session_id,updated_at"), csv);
         assertTrue(csv.contains("'=Nghỉ phép"), "a formula in a title is neutralized");
         mockMvc.perform(get("/api/audit/events").param("from", since).param("action", "chat_history.export")
@@ -3607,8 +4598,60 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void groundedAnswersAndGuardrailsAreModelManagersSettings() throws Exception {
+        // The Tenant is shared by this class: grounded answers left on would refuse every later turn.
+        jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        try {
+            groundedSettingsRoundTrip();
+        } finally {
+            jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    private void groundedSettingsRoundTrip() throws Exception {
+        // Members read whether answers are grounded; only model managers change it or read the guardrails.
+        mockMvc.perform(get("/api/chat/settings").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.groundedAnswers").value(false)).andExpect(jsonPath("$.groundedAllowWeb").value(false));
+        mockMvc.perform(put("/api/chat/settings/grounded").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"groundedAnswers\":true,\"groundedAllowWeb\":false,\"revision\":0}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/settings/guardrails").with(authentication(actor))).andExpect(status().isForbidden());
+
+        grantModelManagement();
+        mockMvc.perform(put("/api/chat/settings/grounded").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"groundedAnswers\":true,\"groundedAllowWeb\":true,\"revision\":0}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.groundedAnswers").value(true))
+                .andExpect(jsonPath("$.groundedAllowWeb").value(true)).andExpect(jsonPath("$.revision").value(0));
+        // A stale revision is refused.
+        mockMvc.perform(put("/api/chat/settings/grounded").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"groundedAnswers\":false,\"groundedAllowWeb\":false,\"revision\":7}"))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/chat/settings/guardrails").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.topics.length()").value(3)).andExpect(jsonPath("$.topics[1].topic").value("LEADERS"))
+                .andExpect(jsonPath("$.topics[1].enabled").value(false)).andExpect(jsonPath("$.blockedPhrases.length()").value(0));
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"topics":[{"topic":"LEADERS","enabled":true,"message":"Không trả lời câu hỏi về lãnh tụ."}],
+                                 "blockedPhrases":[" Dự án Phoenix ","dự án phoenix"],"blockedPhraseMessage":null,"revision":0}"""))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.topics[1].enabled").value(true))
+                .andExpect(jsonPath("$.topics[1].message").value("Không trả lời câu hỏi về lãnh tụ."))
+                .andExpect(jsonPath("$.blockedPhrases.length()").value(1)).andExpect(jsonPath("$.blockedPhrases[0]").value("Dự án Phoenix"))
+                .andExpect(jsonPath("$.revision").value(1));
+        String tooMany = java.util.stream.IntStream.range(0, 21).mapToObj(i -> "\"phrase " + i + "\"")
+                .collect(java.util.stream.Collectors.joining(","));
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[],\"blockedPhrases\":[" + tooMany + "],\"revision\":1}"))
+                .andExpect(status().isBadRequest());
+        // A null topic or phrase is a bad request, never a server error.
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[null],\"blockedPhrases\":[null],\"revision\":1}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void theAuditLogIsReadAndExportedOnlyWithAuditRead() throws Exception {
-        var since = java.time.Instant.now().minusSeconds(1).toString();
+        var since = Instant.now().minusSeconds(1).toString();
         // A recorded change to read back: a Group created by this member once they may manage Groups.
         grantCapability("GROUPS_MANAGE");
         mockMvc.perform(post("/api/groups").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
@@ -3625,7 +4668,7 @@ class ChatSessionApiIntegrationTest {
         String csv = mockMvc.perform(get("/api/audit/export").param("from", since).param("action", "user_group.create")
                         .with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Type", "text/csv; charset=UTF-8"))
-                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         assertTrue(csv.startsWith("﻿occurred_at,action"), csv);
         assertTrue(csv.contains("'=Kế toán"), "a formula in data is neutralized");
         // The export is itself on the stream.
@@ -3639,9 +4682,9 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/mcp/servers").with(authentication(actor))).andExpect(status().isForbidden());
         UUID group = grantCapability("MCP_MANAGE");
         var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
-        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.start(required)) {
+        try (var fixture = McpFixtureServer.start(required)) {
             var body = mcpServerBody("fixture" + (System.nanoTime() % 100000), fixture.url());
-            assertFalse(Json.mapper().readValue(body.toString(), io.memoryos.api.mcp.contract.McpServerRequest.class)
+            assertFalse(Json.mapper().readValue(body.toString(), McpServerRequest.class)
                     .toString().contains("fixture-mcp-key"));
             var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
@@ -3672,7 +4715,7 @@ class ChatSessionApiIntegrationTest {
             JsonNode tooLong = null;
             for (var tool : refreshed.path("tools")) {
                 if ("search_files".equals(tool.path("name").asText())) search = tool;
-                if (io.memoryos.api.mcp.McpFixtureServer.LONG_TOOL_NAME.equals(tool.path("name").asText())) tooLong = tool;
+                if (McpFixtureServer.LONG_TOOL_NAME.equals(tool.path("name").asText())) tooLong = tool;
             }
             assertTrue(search != null && tooLong != null, refreshed.toString());
             assertTrue(search.path("exposable").asBoolean());
@@ -3723,17 +4766,111 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void deletingARegisteredMcpOAuthClientDeletesItAtItsAuthorizationServerWithoutDependingOnIt() throws Exception {
+        grantCapability("MCP_MANAGE");
+        var deletions = new CopyOnWriteArrayList<String>();
+        var registrations = new AtomicInteger();
+        var deletionStatus = new AtomicInteger(204);
+        var authorizationServer = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        String issuer = "http://127.0.0.1:" + authorizationServer.getAddress().getPort();
+        authorizationServer.createContext("/", exchange -> {
+            String method = exchange.getRequestMethod();
+            String path = exchange.getRequestURI().getPath();
+            exchange.getRequestBody().readAllBytes();
+            int status = 200;
+            Object response = null;
+            if ("GET".equals(method) && path.equals("/.well-known/oauth-authorization-server")) {
+                response = Map.of("issuer", issuer, "authorization_endpoint", issuer + "/authorize",
+                        "token_endpoint", issuer + "/token", "registration_endpoint", issuer + "/register",
+                        "code_challenge_methods_supported", List.of("S256"));
+            } else if ("POST".equals(method) && path.equals("/register")) {
+                status = 201;
+                int number = registrations.incrementAndGet();
+                // The second registration answers without RFC 7592 management access.
+                response = number == 2
+                        ? Map.of("client_id", "dcr-" + number, "client_secret", "dcr-secret",
+                                "token_endpoint_auth_method", "client_secret_basic")
+                        : Map.of("client_id", "dcr-" + number, "client_secret", "dcr-secret",
+                                "token_endpoint_auth_method", "client_secret_basic",
+                                "registration_client_uri", issuer + "/register/dcr-" + number,
+                                "registration_access_token", "management-" + number);
+            } else if ("DELETE".equals(method) && path.startsWith("/register/")) {
+                deletions.add(path + " " + exchange.getRequestHeaders().getFirst("Authorization"));
+                status = deletionStatus.get();
+            } else {
+                status = 404;
+            }
+            byte[] bytes = response == null ? new byte[0] : Json.mapper().writeValueAsBytes(response);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        authorizationServer.start();
+        try (var fixture = McpFixtureServer.startOAuth("Bearer fixture-oauth-access", issuer)) {
+            var body = mcpServerBody("dcr" + (System.nanoTime() % 100000), fixture.url());
+            body.put("authType", "OAUTH").put("oauthProviderMode", "AUTO_DISCOVERY");
+            body.putObject("headers").put("action", "KEEP");
+            body.putObject("sharedApiKey").put("action", "KEEP");
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            String server = "/api/mcp/servers/" + created.path("id").asText();
+            mockMvc.perform(post(server + "/oauth/discovery").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+            var managed = register(server, "Managed", issuer);
+            var unmanaged = register(server, "Unmanaged", issuer);
+            var remaining = register(server, "Remaining", issuer);
+
+            // No management access was issued, so nothing is sent.
+            deleteClient(server, unmanaged);
+            assertEquals(List.of(), deletions);
+
+            // The authorization server refusing the deletion does not undo or fail the local one.
+            deletionStatus.set(500);
+            deleteClient(server, managed);
+            assertEquals(List.of("/register/dcr-1 Bearer management-1"), deletions);
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_oauth_client WHERE id=:id")
+                    .param("id", UUID.fromString(managed.path("id").asText())).query(Long.class).single());
+
+            // Deleting the server deletes the registered clients that go with it.
+            deletionStatus.set(204);
+            String serverRevision = Json.mapper().readTree(mockMvc.perform(get(server).with(authentication(actor)))
+                    .andReturn().getResponse().getContentAsString()).path("revision").asText();
+            mockMvc.perform(delete(server).param("revision", serverRevision).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            assertEquals(List.of("/register/dcr-1 Bearer management-1", "/register/dcr-3 Bearer management-3"), deletions);
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_oauth_client WHERE id=:id")
+                    .param("id", UUID.fromString(remaining.path("id").asText())).query(Long.class).single());
+        } finally {
+            authorizationServer.stop(0);
+        }
+    }
+
+    private JsonNode register(String server, String label, String issuer) throws Exception {
+        var registration = Json.mapper().createObjectNode().put("label", label).put("issuer", issuer).put("source", "REGISTERED");
+        return Json.mapper().readTree(mockMvc.perform(post(server + "/oauth/clients/registrations").with(authentication(actor))
+                .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(registration.toString()))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+    }
+
+    private void deleteClient(String server, JsonNode client) throws Exception {
+        mockMvc.perform(delete(server + "/oauth/clients/" + client.path("id").asText())
+                .param("revision", client.path("revision").asText()).with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+    }
+
+    @Test
     void mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects(
-            @org.springframework.beans.factory.annotation.Autowired io.memoryos.mcp.McpOAuthService mcpOAuth,
-            @org.springframework.beans.factory.annotation.Autowired io.memoryos.mcp.McpSecrets mcpSecrets) throws Exception {
+            @Autowired McpOAuthService mcpOAuth,
+            @Autowired McpSecrets mcpSecrets) throws Exception {
         grantCapability("MCP_MANAGE");
         var refreshes = new AtomicInteger();
         var revocations = new AtomicInteger();
-        var invalidGrant = new java.util.concurrent.atomic.AtomicBoolean();
-        var tokenForms = new java.util.concurrent.CopyOnWriteArrayList<Map<String, String>>();
-        var tokenAuthorizations = new java.util.concurrent.CopyOnWriteArrayList<String>();
+        var invalidGrant = new AtomicBoolean();
+        var tokenForms = new CopyOnWriteArrayList<Map<String, String>>();
+        var tokenAuthorizations = new CopyOnWriteArrayList<String>();
         // Runs inside one refresh request to stand in for a concurrent refresh that wins the race.
-        var beforeRefresh = new java.util.concurrent.atomic.AtomicReference<Runnable>();
+        var beforeRefresh = new AtomicReference<Runnable>();
         var authorizationServer = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         String issuer = "http://127.0.0.1:" + authorizationServer.getAddress().getPort();
         authorizationServer.createContext("/", exchange -> {
@@ -3745,7 +4882,7 @@ class ChatSessionApiIntegrationTest {
                 case "GET /.well-known/oauth-authorization-server" -> response = Map.of("issuer", issuer,
                         "authorization_endpoint", issuer + "/authorize", "token_endpoint", issuer + "/token",
                         "registration_endpoint", issuer + "/register", "revocation_endpoint", issuer + "/revoke",
-                        "code_challenge_methods_supported", java.util.List.of("S256"),
+                        "code_challenge_methods_supported", List.of("S256"),
                         "authorization_response_iss_parameter_supported", true);
                 case "POST /register" -> {
                     status = 201;
@@ -3786,7 +4923,7 @@ class ChatSessionApiIntegrationTest {
             try (var output = exchange.getResponseBody()) { output.write(bytes); }
         });
         authorizationServer.start();
-        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.startOAuth("Bearer fixture-oauth-access", issuer)) {
+        try (var fixture = McpFixtureServer.startOAuth("Bearer fixture-oauth-access", issuer)) {
             var body = mcpServerBody("oauth" + (System.nanoTime() % 100000), fixture.url());
             body.put("authType", "OAUTH").put("oauthProviderMode", "AUTO_DISCOVERY");
             body.putObject("headers").put("action", "KEEP");
@@ -3822,27 +4959,27 @@ class ChatSessionApiIntegrationTest {
             UUID serverId = UUID.fromString(id);
             UUID clientId = UUID.fromString(client.path("id").asText());
             var mismatched = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-1",
-                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-1"));
+                    McpAuthorizationSessionState.challenge("verifier-1"));
             var mismatchedParameters = formParameters(mismatched.authorizationUrl().getRawQuery());
             assertEquals(fixture.url(), mismatchedParameters.get("resource"));
             assertEquals("S256", mismatchedParameters.get("code_challenge_method"));
-            assertEquals("MCP_OAUTH_ISSUER_MISMATCH", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
+            assertEquals("MCP_OAUTH_ISSUER_MISMATCH", Assertions.assertThrows(McpException.class,
                     () -> mcpOAuth.complete(actorId, mismatched.pending(), "stolen-code", "verifier-1",
                             "https://evil.example")).code());
-            assertEquals("MCP_OAUTH_ISSUER_MISMATCH", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
+            assertEquals("MCP_OAUTH_ISSUER_MISMATCH", Assertions.assertThrows(McpException.class,
                     () -> mcpOAuth.complete(actorId, mismatched.pending(), "stolen-code", "verifier-1",
                             null)).code());
 
             var launch = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-2",
-                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-2"));
+                    McpAuthorizationSessionState.challenge("verifier-2"));
             mcpOAuth.complete(actorId, launch.pending(), "good-code", "verifier-2", issuer);
             var exchanged = tokenForms.getLast();
             assertEquals("good-code", exchanged.get("code"));
             assertEquals(fixture.url(), exchanged.get("resource"));
             assertEquals(formParameters(launch.authorizationUrl().getRawQuery()).get("code_challenge"),
-                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge(exchanged.get("code_verifier")));
+                    McpAuthorizationSessionState.challenge(exchanged.get("code_verifier")));
             // Connecting changed the server revision, so the earlier pending authorization can no longer complete.
-            assertEquals("MCP_CONFLICT", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
+            assertEquals("MCP_CONFLICT", Assertions.assertThrows(McpException.class,
                     () -> mcpOAuth.complete(actorId, mismatched.pending(), "late-code", "verifier-1",
                             issuer)).code());
             String payload = jdbc.sql("SELECT payload FROM mcp_credential WHERE server_id=:id AND owner_actor_id IS NULL")
@@ -3884,7 +5021,7 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_INVALID"));
 
             var organizationA = oauthClientBody("Organization A", issuer, "org-a-client", "org-a-secret", "CLIENT_SECRET_POST");
-            assertFalse(Json.mapper().readValue(organizationA.toString(), io.memoryos.api.mcp.contract.McpOAuthClientRequest.class)
+            assertFalse(Json.mapper().readValue(organizationA.toString(), McpOAuthClientRequest.class)
                     .toString().contains("org-a-secret"));
             var clientA = Json.mapper().readTree(mockMvc.perform(post(knownServer + "/oauth/clients").with(authentication(actor))
                     .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(organizationA.toString()))
@@ -3916,7 +5053,7 @@ class ChatSessionApiIntegrationTest {
             invalidGrant.set(false);
             UUID clientBId = UUID.fromString(clientB.path("id").asText());
             var knownLaunch = mcpOAuth.startAdministratorAuthorization(actorId, knownServerId, clientBId, "state-known",
-                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-known"));
+                    McpAuthorizationSessionState.challenge("verifier-known"));
             var knownParameters = formParameters(knownLaunch.authorizationUrl().getRawQuery());
             assertEquals("org-b-client", knownParameters.get("client_id"));
             assertEquals("files:read", knownParameters.get("scope"));
@@ -3951,7 +5088,7 @@ class ChatSessionApiIntegrationTest {
 
             String connections = mockMvc.perform(get("/api/mcp/connections").with(authentication(other)))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-            com.fasterxml.jackson.databind.JsonNode connectionRow = null;
+            JsonNode connectionRow = null;
             for (var entry : Json.mapper().readTree(connections))
                 if (entry.path("id").asText().equals(perUserId.toString())) connectionRow = entry;
             assertNotNull(connectionRow);
@@ -3961,10 +5098,10 @@ class ChatSessionApiIntegrationTest {
             assertFalse(connections.contains(issuer));
 
             var userLaunch = mcpOAuth.startUserAuthorization(otherId, perUserId, userClientId, "state-user",
-                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-user"), "/chat/session-9");
+                    McpAuthorizationSessionState.challenge("verifier-user"), "/chat/session-9");
             assertEquals(otherId.value(), userLaunch.pending().ownerActorId());
             assertEquals("/chat/session-9", userLaunch.pending().returnPath());
-            assertEquals("MCP_CONFLICT", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
+            assertEquals("MCP_CONFLICT", Assertions.assertThrows(McpException.class,
                     () -> mcpOAuth.complete(actorId, userLaunch.pending(), "user-code", "verifier-user", issuer)).code());
             mcpOAuth.complete(otherId, userLaunch.pending(), "user-code", "verifier-user", issuer);
             assertEquals("user-client", tokenForms.getLast().get("client_id"));
@@ -3984,7 +5121,7 @@ class ChatSessionApiIntegrationTest {
                     .param("id", perUserId).param("owner", otherId.value()).query(UUID.class).single();
             beforeRefresh.set(() -> jdbc.sql("UPDATE mcp_credential SET payload=:payload,"
                             + " access_expires_at=now() + interval '1 hour', revision=revision+1 WHERE id=:id")
-                    .param("payload", mcpSecrets.seal(TENANT, userCredential, io.memoryos.mcp.McpSecrets.Purpose.CREDENTIAL,
+                    .param("payload", mcpSecrets.seal(TENANT, userCredential, McpSecrets.Purpose.CREDENTIAL,
                             "{\"access_token\":\"winner-token\",\"refresh_token\":\"winner-refresh\"}"))
                     .param("id", userCredential).update());
             assertEquals("winner-token", mcpOAuth.accessToken(TENANT, perUserId, otherId.value()));
@@ -4005,10 +5142,10 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
             assertEquals(1, restrictedServer.path("groupIds").size());
             var withdrawn = mcpOAuth.startUserAuthorization(otherId, perUserId, userClientId, "state-withdrawn",
-                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-withdrawn"), "/chat/session-9");
+                    McpAuthorizationSessionState.challenge("verifier-withdrawn"), "/chat/session-9");
             jdbc.sql("DELETE FROM iam_group_memberships WHERE tenant_id=:tenant AND group_id=:group AND actor_id=:actor")
                     .param("tenant", TENANT).param("group", restricted).param("actor", otherId.value()).update();
-            assertEquals("MCP_NOT_FOUND", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
+            assertEquals("MCP_NOT_FOUND", Assertions.assertThrows(McpException.class,
                     () -> mcpOAuth.complete(otherId, withdrawn.pending(), "late-code", "verifier-withdrawn", issuer)).code());
             assertFalse(mockMvc.perform(get("/api/mcp/connections").with(authentication(other))).andExpect(status().isOk())
                     .andReturn().getResponse().getContentAsString().contains(perUserId.toString()));
@@ -4029,12 +5166,12 @@ class ChatSessionApiIntegrationTest {
     }
 
     private static Map<String, String> formParameters(String raw) {
-        var parameters = new java.util.LinkedHashMap<String, String>();
+        var parameters = new LinkedHashMap<String, String>();
         if (raw == null || raw.isEmpty()) return parameters;
         for (String pair : raw.split("&")) {
             int separator = pair.indexOf('=');
-            parameters.putIfAbsent(java.net.URLDecoder.decode(pair.substring(0, separator), UTF_8),
-                    java.net.URLDecoder.decode(pair.substring(separator + 1), UTF_8));
+            parameters.putIfAbsent(URLDecoder.decode(pair.substring(0, separator), UTF_8),
+                    URLDecoder.decode(pair.substring(separator + 1), UTF_8));
         }
         return parameters;
     }
@@ -4048,7 +5185,7 @@ class ChatSessionApiIntegrationTest {
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:group,:actor)")
                 .param("tenant", TENANT).param("group", group).param("actor", actor.getPrincipal().actorId().value()).update();
         var required = Map.of("Authorization", "Bearer user-key", "X-Fixture", "static-header-secret");
-        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.start(required)) {
+        try (var fixture = McpFixtureServer.start(required)) {
             var body = mcpServerBody("peruser" + (System.nanoTime() % 100000), fixture.url());
             body.put("authPerformer", "PER_USER").put("tenantWide", false);
             body.putArray("groupIds").add(group.toString());
@@ -4062,7 +5199,7 @@ class ChatSessionApiIntegrationTest {
             // Only Group members see the server; to everyone else it does not exist.
             var mine = Json.mapper().readTree(mockMvc.perform(get("/api/mcp/connections").with(authentication(actor)))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            com.fasterxml.jackson.databind.JsonNode row = null;
+            JsonNode row = null;
             for (var entry : mine) if (entry.path("id").asText().equals(serverId.toString())) row = entry;
             assertNotNull(row);
             assertEquals("NOT_CONNECTED", row.path("connectionState").asText());
@@ -4143,9 +5280,9 @@ class ChatSessionApiIntegrationTest {
     void mcpToolsRunInATurnAndUnusableServersBecomeAConnectAction() throws Exception {
         grantCapability("MCP_MANAGE");
         grantModelManagement();
-        io.memoryos.api.mcp.McpFixtureServer.resetCalls();
+        McpFixtureServer.resetCalls();
         var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
-        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.start(required)) {
+        try (var fixture = McpFixtureServer.start(required)) {
             String slug = "turn" + (System.nanoTime() % 100000);
             var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
@@ -4160,7 +5297,7 @@ class ChatSessionApiIntegrationTest {
 
             String toolName = "mcp_" + slug + "_search_files";
             // Assertions inside the mock would fail the whole turn and hide the cause, so record and check after.
-            var prompts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+            var prompts = new CopyOnWriteArrayList<String>();
             when(model.stream(any(Prompt.class))).thenAnswer(call -> {
                 Prompt prompt = call.getArgument(0);
                 prompts.add(prompt.toString());
@@ -4184,18 +5321,18 @@ class ChatSessionApiIntegrationTest {
             await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> assertEquals("COMPLETED",
                     jdbc.sql("SELECT coalesce(failure_code, status) FROM chat_message WHERE id=:id")
                             .param("id", UUID.fromString(reply.path("assistantMessageId").asText())).query(String.class).single()));
-            assertEquals(List.of("search_files({query=quarterly report})"), io.memoryos.api.mcp.McpFixtureServer.calls());
+            assertEquals(List.of("search_files({query=quarterly report})"), McpFixtureServer.calls());
             assertTrue(prompts.getLast().contains("fixture result for"));
             // Credentials never travel to the model with the result, and an unusable tool name is never offered.
             assertFalse(String.join("", prompts).contains("fixture-mcp-key"));
             assertFalse(String.join("", prompts).contains("static-header-secret"));
-            assertFalse(String.join("", prompts).contains(io.memoryos.api.mcp.McpFixtureServer.LONG_TOOL_NAME));
+            assertFalse(String.join("", prompts).contains(McpFixtureServer.LONG_TOOL_NAME));
             var answer = history(session).get(1);
             assertEquals("The files were searched.", answer.path("content").asText());
             assertTrue(answer.path("activity").toString().contains(toolName));
 
             // A server the actor cannot use is neither offered nor callable, and the turn still answers.
-            io.memoryos.api.mcp.McpFixtureServer.resetCalls();
+            McpFixtureServer.resetCalls();
             UUID restricted = UUID.randomUUID();
             jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")
                     .param("tenant", TENANT).param("id", restricted).param("name", restricted.toString()).update();
@@ -4218,18 +5355,18 @@ class ChatSessionApiIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON).content(lockedBody.toString()))
                     .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
             awaitOutcome(lockedReply.path("assistantMessageId").asText(), "COMPLETED");
-            assertEquals(List.of(), io.memoryos.api.mcp.McpFixtureServer.calls());
+            assertEquals(List.of(), McpFixtureServer.calls());
 
             // Stopping a turn mid-tool ends it and closes the turn's MCP sessions with it.
-            var stopping = new java.util.concurrent.CountDownLatch(1);
-            var released = new java.util.concurrent.CountDownLatch(1);
+            var stopping = new CountDownLatch(1);
+            var released = new CountDownLatch(1);
             when(model.stream(any(Prompt.class))).thenAnswer(call -> {
                 Prompt prompt = call.getArgument(0);
                 if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage))
                     return Flux.just(response("Unreachable.", "stop", 12));
                 return Flux.<ChatResponse>create(sink -> {
                     stopping.countDown();
-                    try { released.await(10, java.util.concurrent.TimeUnit.SECONDS); } catch (InterruptedException interrupted) {
+                    try { released.await(10, TimeUnit.SECONDS); } catch (InterruptedException interrupted) {
                         Thread.currentThread().interrupt();
                     }
                     sink.next(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("")
@@ -4238,7 +5375,7 @@ class ChatSessionApiIntegrationTest {
                             ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                             ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
                     sink.complete();
-                }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+                }).subscribeOn(Schedulers.boundedElastic());
             });
             var stopSession = create();
             var stopBody = Json.mapper().createObjectNode().put("parentMessageId", stopSession.path("rootMessageId").asText())
@@ -4248,13 +5385,13 @@ class ChatSessionApiIntegrationTest {
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                     .contentType(MediaType.APPLICATION_JSON).content(stopBody.toString()))
                     .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
-            assertTrue(stopping.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            assertTrue(stopping.await(10, TimeUnit.SECONDS));
             mockMvc.perform(post("/api/chat/sessions/" + stopSession.path("id").asText() + "/messages/"
                             + stopReply.path("assistantMessageId").asText() + "/cancel")
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isAccepted());
             released.countDown();
             awaitOutcome(stopReply.path("assistantMessageId").asText(), "CANCELED");
-            assertEquals(List.of(), io.memoryos.api.mcp.McpFixtureServer.calls());
+            assertEquals(List.of(), McpFixtureServer.calls());
         }
     }
 
@@ -4262,9 +5399,9 @@ class ChatSessionApiIntegrationTest {
     void mcpToolFailuresReachTheModelAsCategoriesWithoutStoppingTheTurn() throws Exception {
         grantCapability("MCP_MANAGE");
         grantModelManagement();
-        io.memoryos.api.mcp.McpFixtureServer.resetCalls();
+        McpFixtureServer.resetCalls();
         var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
-        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.start(required)) {
+        try (var fixture = McpFixtureServer.start(required)) {
             String slug = "fail" + (System.nanoTime() % 100000);
             var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
@@ -4278,7 +5415,7 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(status().isOk());
             String toolName = "mcp_" + slug + "_search_files";
 
-            var prompts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+            var prompts = new CopyOnWriteArrayList<String>();
             when(model.stream(any(Prompt.class))).thenAnswer(call -> {
                 Prompt prompt = call.getArgument(0);
                 prompts.add(prompt.toString());
@@ -4291,18 +5428,18 @@ class ChatSessionApiIntegrationTest {
             });
 
             // 1. The server answers with its own isError. The turn still completes and the model sees the text.
-            io.memoryos.api.mcp.McpFixtureServer.failTools(true);
+            McpFixtureServer.failTools(true);
             runMcpTurn(serverId, "Tìm tệp.");
             assertTrue(prompts.getLast().contains("the fixture refused"));
 
             // 2. One call outlives the per-call timeout. The turn completes; the model is told, without detail.
-            io.memoryos.api.mcp.McpFixtureServer.failTools(false);
-            io.memoryos.api.mcp.McpFixtureServer.onCall(() -> {
+            McpFixtureServer.failTools(false);
+            McpFixtureServer.onCall(() -> {
                 try { Thread.sleep(2500); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
             });
             prompts.clear();
             runMcpTurn(serverId, "Tìm tệp lần nữa.");
-            io.memoryos.api.mcp.McpFixtureServer.onCall(null);
+            McpFixtureServer.onCall(null);
             String afterTimeout = prompts.getLast();
             assertTrue(afterTimeout.contains("did not answer in time"));
             assertFalse(afterTimeout.contains("fixture-mcp-key"));
@@ -4574,8 +5711,8 @@ class ChatSessionApiIntegrationTest {
      * Every buffered event of a finished reply. One read returns one batch of at most 64 records, so a turn that
      * wrote more than that ends its batch before the outcome; draining is what a browser does too.
      */
-    private List<io.memoryos.chat.streaming.StreamBufferWriter.Event> replay(UUID assistant) throws InterruptedException {
-        var events = new java.util.ArrayList<io.memoryos.chat.streaming.StreamBufferWriter.Event>();
+    private List<StreamBufferWriter.Event> replay(UUID assistant) throws InterruptedException {
+        var events = new ArrayList<StreamBufferWriter.Event>();
         try (var reader = streams.subscribe(assistant, 0, () -> false)) {
             while (true) {
                 var batch = reader.read();
@@ -4601,9 +5738,9 @@ class ChatSessionApiIntegrationTest {
     void realProviderRunsThroughSendNativeRunnerAndPersistedHistory() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required for this explicitly enabled check");
-        var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var configuration = new OpenAiProviderConfiguration();
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
         try {
             var provider = configuration.chatProviderModel(client, sync, key,
@@ -4651,19 +5788,19 @@ class ChatSessionApiIntegrationTest {
         var receipts = new ArrayList<Map<String, Object>>();
         try (var http = HttpClient.newHttpClient()) {
             for (int circles : new int[] {3, 5}) {
-                String code = UUID.randomUUID().toString().substring(0, 8).toUpperCase(java.util.Locale.ROOT);
-                var bitmap = new java.awt.image.BufferedImage(900, 420, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                String code = UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
+                var bitmap = new BufferedImage(900, 420, BufferedImage.TYPE_INT_RGB);
                 var graphics = bitmap.createGraphics();
                 byte[] bytes;
                 try {
-                    graphics.setColor(java.awt.Color.WHITE); graphics.fillRect(0, 0, 900, 420);
-                    graphics.setColor(java.awt.Color.BLACK); graphics.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 80));
+                    graphics.setColor(Color.WHITE); graphics.fillRect(0, 0, 900, 420);
+                    graphics.setColor(Color.BLACK); graphics.setFont(new Font("Monospaced", Font.BOLD, 80));
                     graphics.drawString(code, 60, 120);
-                    graphics.setColor(java.awt.Color.RED);
+                    graphics.setColor(Color.RED);
                     for (int i = 0; i < circles; i++) graphics.fillOval(40 + i * 150, 200, 90, 90);
-                    graphics.setColor(java.awt.Color.BLUE); graphics.fillRect(770, 310, 65, 65);
-                    try (var output = new java.io.ByteArrayOutputStream()) {
-                        assertTrue(javax.imageio.ImageIO.write(bitmap, "png", output)); bytes = output.toByteArray();
+                    graphics.setColor(Color.BLUE); graphics.fillRect(770, 310, 65, 65);
+                    try (var output = new ByteArrayOutputStream()) {
+                        assertTrue(ImageIO.write(bitmap, "png", output)); bytes = output.toByteArray();
                     }
                 } finally { graphics.dispose(); bitmap.flush(); }
                 String file = readyImage(bytes); // Storage and READY are controlled; inference and HTTP are real.
@@ -4697,8 +5834,8 @@ class ChatSessionApiIntegrationTest {
                         "answer", actual, "inputTokens", inputTokens, "elapsedMs", (System.nanoTime() - started) / 1_000_000));
             }
         }
-        java.nio.file.Files.createDirectories(java.nio.file.Path.of("build/reports"));
-        Json.mapper().writeValue(java.nio.file.Path.of("build/reports/mem81-live-vision.json").toFile(), receipts);
+        Files.createDirectories(Path.of("build/reports"));
+        Json.mapper().writeValue(Path.of("build/reports/mem81-live-vision.json").toFile(), receipts);
     }
 
     @Test
@@ -4708,18 +5845,18 @@ class ChatSessionApiIntegrationTest {
         assertTrue(key != null && !key.isBlank());
         String corpusFile = System.getenv("MEMORYOS_CHAT_CORPUS_FILE");
         assertTrue(corpusFile != null && !corpusFile.isBlank(), "MEMORYOS_CHAT_CORPUS_FILE is required for this opt-in check");
-        var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var configuration = new OpenAiProviderConfiguration();
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var receipts = new ArrayList<Map<String, Object>>();
-        var answerChecks = new ArrayList<org.junit.jupiter.api.function.Executable>();
-        try (var corpus = new io.memoryos.retrieval.opensearch.LiveSearchCorpus(
+        var answerChecks = new ArrayList<Executable>();
+        try (var corpus = new LiveSearchCorpus(
                 Path.of(corpusFile), key, new TenantId(TENANT), chunks, sourceSearch, meters);
              var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
             when(searchIndex.identity()).thenReturn(corpus.index.identity());
             when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> corpus.index.batch(
                     call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3)));
-            when(searchIndex.document(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+            when(searchIndex.document(any(), any(), any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt()))
                     .thenAnswer(call -> corpus.index.document(call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3), call.getArgument(4)));
             var provider = configuration.chatProviderModel(client, sync, key, ObservationRegistry.NOOP, meters);
             when(model.call(any(Prompt.class))).thenAnswer(call -> provider.call(call.getArgument(0, Prompt.class)));
@@ -4757,7 +5894,7 @@ class ChatSessionApiIntegrationTest {
                 String content = answer.path("content").asText();
                 var usage = jdbc.sql("SELECT input_tokens,output_tokens FROM chat_message WHERE id=:id")
                         .param("id", UUID.fromString(id)).query((rs, _) -> {
-                            var values = new java.util.LinkedHashMap<String, Object>();
+                            var values = new LinkedHashMap<String, Object>();
                             values.put("input", rs.getObject("input_tokens", Long.class));
                             values.put("output", rs.getObject("output_tokens", Long.class));
                             return values;
@@ -4770,27 +5907,27 @@ class ChatSessionApiIntegrationTest {
                     assertFalse(answer.path("sources").isEmpty());
                     if (question.contains("SP-ORION-042")) assertTrue(content.contains("180"), "Revenue must match the sample document");
                     else if (question.contains("công tác")) {
-                        assertTrue(content.toLowerCase(java.util.Locale.ROOT).matches("(?s).*\\b(?:5|năm)\\b\\s+ngày\\s+làm\\s+việc.*")
+                        assertTrue(content.toLowerCase(Locale.ROOT).matches("(?s).*\\b(?:5|năm)\\b\\s+ngày\\s+làm\\s+việc.*")
                                 && content.contains("70"), "Travel deadline and advance must match the sample document");
                         // The native model may stop after one search when that result already contains both facts.
                         // Deterministic SearchTool contracts verify the later-call query set; this receipt records actual calls.
                     } else {
-                        assertTrue(java.util.stream.StreamSupport.stream(answer.path("sources").spliterator(), false)
+                        assertTrue(StreamSupport.stream(answer.path("sources").spliterator(), false)
                                 .anyMatch(source -> source.path("title").asText().contains("OrgMemory_POC_Guide")));
-                        String lower = content.toLowerCase(java.util.Locale.ROOT);
+                        String lower = content.toLowerCase(Locale.ROOT);
                         assertTrue(lower.contains("nhân viên") && (lower.contains("quản trị") || lower.contains("admin"))
                                 && (lower.contains("phát triển") || lower.contains("developer")), "The POC answer must cover all three roles");
                     }
                 });
             }
-            org.junit.jupiter.api.Assertions.assertAll("Real corpus answer quality", answerChecks);
+            Assertions.assertAll("Real corpus answer quality", answerChecks);
         } finally {
             try (AutoCloseable _ = client::close; AutoCloseable _ = sync::close) {
                 var report = Path.of("build", "reports", "chat-corpus");
                 Files.createDirectories(report);
                 Files.writeString(report.resolve("timings.json"), Json.mapper().writeValueAsString(receipts));
                 var stages = meters.find("memoryos.search.stage.duration").timers().stream().map(timer -> Map.of(
-                        "stage", java.util.Objects.requireNonNull(timer.getId().getTag("stage")), "outcome", java.util.Objects.requireNonNull(timer.getId().getTag("outcome")),
+                        "stage", Objects.requireNonNull(timer.getId().getTag("stage")), "outcome", Objects.requireNonNull(timer.getId().getTag("outcome")),
                         "calls", timer.count(), "totalMs", timer.totalTime(TimeUnit.MILLISECONDS))).toList();
                 Files.writeString(report.resolve("stages.json"), Json.mapper().writeValueAsString(stages));
             }
@@ -4802,9 +5939,9 @@ class ChatSessionApiIntegrationTest {
     void realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "A managed OpenAI key is required for this opt-in check");
-        var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var configuration = new OpenAiProviderConfiguration();
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
         UUID policy = UUID.randomUUID(), contractor = UUID.randomUUID(), injection = UUID.randomUUID(), hidden = UUID.randomUUID();
         var generation = UUID.randomUUID();
@@ -4826,21 +5963,21 @@ class ChatSessionApiIntegrationTest {
         var contextChoices = new CopyOnWriteArrayList<String>();
         var helperReceipts = new CopyOnWriteArrayList<Map<String, Object>>();
         when(searchIndex.identity()).thenReturn("live-grounding-corpus");
-        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<io.memoryos.retrieval.SearchQuery>>getArgument(1)
+        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<SearchQuery>>getArgument(1)
                 .stream().map(ignored -> activeHits.get()).toList());
         when(chunks.currentGenerations(any(), any(), any())).thenReturn(Map.of(policy, generation, contractor, generation, injection, generation, hidden, generation));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
         when(sourceAccess.readableDocuments(any(), any())).thenReturn(Set.of(policy, contractor, injection));
-        var origin = new io.memoryos.connector.DocumentSourceMetadata(searchSource, UUID.randomUUID(),
-                io.memoryos.connector.SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
+        var origin = new DocumentSourceMetadata(searchSource, UUID.randomUUID(),
+                SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
         when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(policy, List.of(origin),
                 contractor, List.of(origin), injection, List.of(origin)));
-        when(searchIndex.document(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt())).thenAnswer(call -> {
+        when(searchIndex.document(any(), any(), any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt())).thenAnswer(call -> {
             UUID id = call.getArgument(1);
             int start = call.getArgument(3), count = call.getArgument(4);
             var content = corpus.get(id);
             int end = Math.min(start + count, content.size());
-            var passages = java.util.stream.IntStream.range(start, end)
+            var passages = IntStream.range(start, end)
                     .mapToObj(i -> new SearchPage.Passage(i, content.get(i), "[{\"page\":" + (i + 1) + "}]")).toList();
             return new SearchDocument(id, generation, titles.get(id), passages, Math.min(start, content.size()), content.size(), end < content.size());
         });
@@ -4888,7 +6025,7 @@ class ChatSessionApiIntegrationTest {
             var missingSession = create();
             var missing = groundedReply(missingSession, missingSession.path("rootMessageId").asText(),
                     "Chỉ dựa trên tài liệu nội bộ: chính sách AV-42 quy định thưởng cuối năm bao nhiêu tháng lương?");
-            String missingAnswer = missing.path("content").asText().toLowerCase(java.util.Locale.ROOT);
+            String missingAnswer = missing.path("content").asText().toLowerCase(Locale.ROOT);
             assertTrue(missingAnswer.contains("không") || missingAnswer.contains("chưa"), missingAnswer);
             assertFalse(missingAnswer.matches("(?s).*\\d+\\s*tháng.*"), missingAnswer);
             assertTrue(missing.path("sources").isEmpty(), missing.toString());
@@ -4920,7 +6057,7 @@ class ChatSessionApiIntegrationTest {
         await().atMost(Duration.ofSeconds(125)).until(() -> !"RUNNING".equals(
                 jdbc.sql("SELECT status FROM chat_message WHERE id = :id").param("id", UUID.fromString(id)).query(String.class).single()));
         var messages = history(session);
-        var result = java.util.stream.StreamSupport.stream(messages.spliterator(), false)
+        var result = StreamSupport.stream(messages.spliterator(), false)
                 .filter(m -> id.equals(m.path("id").asText())).findFirst().orElseThrow();
         // Synthetic corpus only. Global test-report stdout capture stays disabled for privacy.
         var receipts = Path.of("build", "reports", "chat-grounding");
@@ -4934,11 +6071,11 @@ class ChatSessionApiIntegrationTest {
     }
 
     private static void assertGroundedCitation(JsonNode answer, UUID expectedDocument) {
-        var citations = java.util.regex.Pattern.compile("\\[(\\d+)]").matcher(answer.path("content").asText());
+        var citations = Pattern.compile("\\[(\\d+)]").matcher(answer.path("content").asText());
         boolean expectedCited = false;
         while (citations.find()) {
             int number = Integer.parseInt(citations.group(1));
-            var source = java.util.stream.StreamSupport.stream(answer.path("sources").spliterator(), false)
+            var source = StreamSupport.stream(answer.path("sources").spliterator(), false)
                     .filter(s -> s.path("citationId").asInt() == number).findFirst()
                     .orElseThrow(() -> new AssertionError("Unknown citation " + number + " in answer: " + answer));
             expectedCited |= expectedDocument.toString().equals(source.path("documentId").asText());

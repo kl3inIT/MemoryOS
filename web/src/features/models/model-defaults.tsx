@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   getChatModelDefaultOptions,
@@ -7,16 +8,16 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { setChatModelDefault, setChatModelFlow } from "@/lib/hey-api/sdk.gen";
 import type { ModelFlow } from "@/lib/hey-api/types.gen";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
+  modelLabel,
   refreshModelCatalog,
   tenantCandidate,
   type InstalledAdapter,
   type ManagedModel,
   type ManagedProvider,
 } from "./model-catalog";
-import { useModelAction } from "./use-model-action";
+import { useModelCatalogBusy, useModelMutation } from "./model-mutation";
 import { ModelPicker } from "./model-picker";
 
 type Catalog = {
@@ -31,8 +32,8 @@ type Row = {
   ariaLabel: string;
   saveLabel: string;
   savedMessage: string;
-  /** Offered only by clearable rows: the empty selection. */
-  emptyLabel?: string;
+  /** Shown while nothing is saved, naming the model the task falls back to. */
+  unsetMessage?: string;
   unavailableMessage?: string;
   save: (revision: number, modelId: string | null, signal: AbortSignal) => Promise<Selection>;
 };
@@ -51,10 +52,30 @@ function SelectionEditor({
 }) {
   const ui = useAppTranslation();
   const client = useQueryClient();
-  const action = useModelAction();
+  const busy = useModelCatalogBusy();
+  const [conflict, setConflict] = useState(false);
   const [baseline, setBaseline] = useState(selection);
   const [chosen, setChosen] = useState(selection.modelConfigurationId ?? "");
   const [saved, setSaved] = useState(false);
+  const saving = useModelMutation(
+    async (signal) => {
+      const result = await row.save(baseline.revision, chosen || null, signal);
+      signal.throwIfAborted();
+      setBaseline(result);
+      setChosen(result.modelConfigurationId ?? "");
+      await refreshModelCatalog(client);
+      signal.throwIfAborted();
+      setSaved(true);
+    },
+    { onConflict: () => setConflict(true) },
+  );
+  const reconciling = useModelMutation(async (signal) => {
+    const current = await reload();
+    signal.throwIfAborted();
+    setBaseline(current);
+    setConflict(false);
+  });
+  const actionError = saving.error ?? reconciling.error;
   // Deleting a task model clears it, and catalog changes alter availability, without a revision change.
   if (
     selection.revision === baseline.revision &&
@@ -74,51 +95,33 @@ function SelectionEditor({
   const savedHidden =
     baseline.modelConfigurationId &&
     !candidates.some((model) => model.id === baseline.modelConfigurationId);
-  const candidateChosen =
-    candidates.some((model) => model.id === chosen) || (Boolean(row.emptyLabel) && !chosen);
-  const conflicted = action.conflict || selection.revision !== baseline.revision;
+  const candidateChosen = candidates.some((model) => model.id === chosen);
+  const conflicted = conflict || selection.revision !== baseline.revision;
 
   async function save() {
-    if (
-      action.pending ||
-      conflicted ||
-      !candidateChosen ||
-      chosen === (baseline.modelConfigurationId ?? "")
-    )
+    if (busy || conflicted || !candidateChosen || chosen === (baseline.modelConfigurationId ?? ""))
       return;
     setSaved(false);
+    reconciling.cancel();
     try {
-      await action.run(async (signal) => {
-        const result = await row.save(baseline.revision, chosen || null, signal);
-        signal.throwIfAborted();
-        setBaseline(result);
-        setChosen(result.modelConfigurationId ?? "");
-        await refreshModelCatalog(client);
-        signal.throwIfAborted();
-        setSaved(true);
-      });
+      await saving.run();
     } catch {
       /* Action errors are safe strings, never provider payloads. */
     }
   }
 
   async function reconcile() {
-    action.cancel();
+    saving.cancel();
     setSaved(false);
     try {
-      await action.run(async (signal) => {
-        const current = await reload();
-        signal.throwIfAborted();
-        setBaseline(current);
-        action.reconciled();
-      });
+      await reconciling.run();
     } catch {
       /* Keep the selection draft; require manual retry after review. */
     }
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h3 className="font-main-ui-action">{row.title}</h3>
@@ -126,9 +129,8 @@ function SelectionEditor({
         </div>
         <ModelPicker
           ariaLabel={row.ariaLabel}
-          emptyLabel={row.emptyLabel}
           value={chosen}
-          disabled={action.pending}
+          disabled={busy}
           placeholder={ui("Choose an eligible model")}
           onChange={(modelId) => {
             setChosen(modelId);
@@ -173,35 +175,77 @@ function SelectionEditor({
         />
       </div>
       {!candidates.length && <p role="status">{ui("No eligible models are available.")}</p>}
+      {!baseline.modelConfigurationId && row.unsetMessage && (
+        <p role="status" className="font-secondary-body text-status-warning-content">
+          {row.unsetMessage}
+        </p>
+      )}
       {baseline.available === false && row.unavailableMessage && (
         <p role="status" className="font-secondary-body text-status-warning-content">
           {row.unavailableMessage}
         </p>
       )}
       {conflicted && (
-        <div role="alert" className="space-y-2">
-          <p>
-            {ui(
-              "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.",
-            )}
-          </p>
-          <Button prominence="secondary" disabled={action.pending} onClick={() => void reconcile()}>
-            {ui("Reconcile saved selection")}
-          </Button>
-        </div>
+        <Alert variant="warning" role="alert">
+          <AlertDescription>
+            <div className="flex flex-col items-start gap-2">
+              <p>
+                {ui(
+                  "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.",
+                )}
+              </p>
+              <Button
+                prominence="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => void reconcile()}
+              >
+                {ui("Reconcile saved selection")}
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       )}
-      {action.error && <p role="alert">{ui(action.error)}</p>}
+      {actionError && (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{ui(actionError)}</AlertDescription>
+        </Alert>
+      )}
       {saved && <p role="status">{row.savedMessage}</p>}
       {chosen !== (baseline.modelConfigurationId ?? "") && (
         <Button
-          pending={action.pending}
-          disabled={conflicted || !candidateChosen}
+          className="self-start"
+          pending={saving.pending}
+          disabled={conflicted || !candidateChosen || busy}
           onClick={() => void save()}
         >
           {row.saveLabel}
         </Button>
       )}
     </div>
+  );
+}
+
+function LoadFailure({
+  message,
+  retry,
+  onRetry,
+}: {
+  message: string;
+  retry: string;
+  onRetry: () => void;
+}) {
+  return (
+    <Alert variant="destructive" role="alert">
+      <AlertDescription>
+        <div className="flex flex-col items-start gap-2">
+          <p>{message}</p>
+          <Button prominence="secondary" size="sm" onClick={onRetry}>
+            {retry}
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -212,12 +256,11 @@ export function TenantDefault(catalog: Catalog) {
   if (tenant.isPending) return <p role="status">{ui("Loading Tenant default…")}</p>;
   if (tenant.isError)
     return (
-      <div role="alert" className="space-y-2">
-        <p>{ui("Tenant default could not be loaded.")}</p>
-        <Button prominence="secondary" onClick={() => void tenant.refetch()}>
-          {ui("Retry Tenant default")}
-        </Button>
-      </div>
+      <LoadFailure
+        message={ui("Tenant default could not be loaded.")}
+        retry={ui("Retry Tenant default")}
+        onRetry={() => void tenant.refetch()}
+      />
     );
   return (
     <SelectionEditor
@@ -238,9 +281,7 @@ export function TenantDefault(catalog: Catalog) {
           (
             await setChatModelDefault({
               query: { revision, modelConfigurationId: modelConfigurationId ?? "" },
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             })
           ).data,
       }}
@@ -248,19 +289,29 @@ export function TenantDefault(catalog: Catalog) {
   );
 }
 
-/** Tenant models for tasks beside the conversation (Onyx llm_model_flow); unset uses the conversation model. */
+/**
+ * Tenant models for tasks beside the conversation (Onyx llm_model_flow). Each row names its model; a row whose model
+ * was deleted or became unavailable names the Chat default it falls back to.
+ */
 export function TaskModels(catalog: Catalog) {
   const ui = useAppTranslation();
   const flows = useQuery({ ...listChatModelFlowsOptions(), retry: false });
+  const tenant = useQuery({ ...getChatModelDefaultOptions(), retry: false });
+  const fallbackModel = catalog.models.find(
+    (model) => model.id === tenant.data?.modelConfigurationId,
+  );
+  const fallbackProvider =
+    fallbackModel && catalog.providers.find((provider) => provider.id === fallbackModel.providerId);
+  const fallback =
+    fallbackModel && fallbackProvider ? modelLabel(fallbackModel, fallbackProvider) : undefined;
   if (flows.isPending) return <p role="status">{ui("Loading task models…")}</p>;
   if (flows.isError)
     return (
-      <div role="alert" className="space-y-2">
-        <p>{ui("Task models could not be loaded.")}</p>
-        <Button prominence="secondary" onClick={() => void flows.refetch()}>
-          {ui("Retry task models")}
-        </Button>
-      </div>
+      <LoadFailure
+        message={ui("Task models could not be loaded.")}
+        retry={ui("Retry task models")}
+        onRetry={() => void flows.refetch()}
+      />
     );
   const copy: Record<ModelFlow["flow"], Pick<Row, "title" | "description" | "ariaLabel">> = {
     CHAT_NAMING: {
@@ -272,6 +323,11 @@ export function TaskModels(catalog: Catalog) {
       title: ui("Meeting minutes"),
       description: ui("Writes the summary, decisions and action items of a recorded meeting."),
       ariaLabel: ui("Meeting minutes model"),
+    },
+    MEETING_CORRECTION: {
+      title: ui("Transcript corrections"),
+      description: ui("Proposes what was said where the speech provider was unsure."),
+      ariaLabel: ui("Transcript correction model"),
     },
   };
   return flows.data.map((flow) => (
@@ -287,8 +343,10 @@ export function TaskModels(catalog: Catalog) {
       }}
       row={{
         ...copy[flow.flow],
-        emptyLabel: ui("Use the conversation model"),
-        unavailableMessage: ui("Unavailable; the conversation model is used instead."),
+        unsetMessage: fallback && ui("No model chosen; {{model}} is used.", { model: fallback }),
+        unavailableMessage: fallback
+          ? ui("Unavailable; {{model}} is used instead.", { model: fallback })
+          : ui("Unavailable; the Chat model is used instead."),
         saveLabel: ui("Save task model"),
         savedMessage: ui("Task model saved."),
         save: async (revision, modelConfigurationId, signal) =>
@@ -296,9 +354,7 @@ export function TaskModels(catalog: Catalog) {
             await setChatModelFlow({
               path: { flow: flow.flow },
               query: { revision, ...(modelConfigurationId ? { modelConfigurationId } : {}) },
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             })
           ).data,
       }}

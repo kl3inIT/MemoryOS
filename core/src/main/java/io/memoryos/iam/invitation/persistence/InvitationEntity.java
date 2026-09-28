@@ -1,8 +1,8 @@
 package io.memoryos.iam.invitation.persistence;
 
-import io.memoryos.iam.invitation.InvitationException;
-import io.memoryos.iam.invitation.InvitationFailureReason;
-import io.memoryos.iam.invitation.InvitationStatus;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

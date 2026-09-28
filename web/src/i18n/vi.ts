@@ -1,6 +1,6 @@
-import { appVi } from "./app-translations";
+import { englishUi } from "./app-translations.vi";
 export const vi = {
-  app: appVi,
+  app: englishUi,
   renderers: {
     artifact: "Bản trình bày",
     openArtifact: "Mở bản trình bày: {{title}}",
@@ -85,9 +85,11 @@ export const vi = {
     preview: "Xem trước ảnh",
     previewTitle: "Xem trước ảnh đính kèm",
     fileLabel: "Tệp đính kèm: {{name}}",
+    list: "Tệp đính kèm",
     remove: "Gỡ tệp",
     uploading: "Đang tải…",
     processing: "Đang xử lý…",
+    preparing: "Đang chuẩn bị…",
     failed: "Không đính kèm được tệp. Hãy gỡ tệp rồi thử lại.",
   },
   common: {
@@ -150,6 +152,7 @@ export const vi = {
     chatUncertain: "Chưa xác nhận được kết quả. Tải lại để kiểm tra trước khi thử lại.",
     actionFailed: "Không thể hoàn tất thao tác. Vui lòng thử lại.",
     invitationConflict: "Đã có lời mời đang chờ cho email này.",
+    invitationQueryInvalid: "Trang hoặc bộ lọc lời mời không hợp lệ.",
     identityConflict:
       "Email này thuộc tài khoản không thể sử dụng lại. Vui lòng liên hệ quản trị viên.",
     copyInvitation:

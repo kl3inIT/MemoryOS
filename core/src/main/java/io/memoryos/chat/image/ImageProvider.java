@@ -1,5 +1,6 @@
 package io.memoryos.chat.image;
 
+import org.springframework.modulith.NamedInterface;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -10,6 +11,7 @@ import org.jspecify.annotations.Nullable;
  * Implemented image protocols and the models their adapters serve end to end; native model tools are not
  * image-provider connections. The catalog prefills administration; a connection may still name another model.
  */
+@NamedInterface("image")
 public enum ImageProvider {
     OPENAI_IMAGE("https://api.openai.com/v1", false, null, List.of(
             new KnownModel("gpt-image-2", "GPT Image 2", "image/png", KnownModel.GPT_IMAGE_SIZES, true, false),

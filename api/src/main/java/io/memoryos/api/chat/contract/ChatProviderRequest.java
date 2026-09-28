@@ -1,8 +1,8 @@
 package io.memoryos.api.chat.contract;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.memoryos.chat.catalog.DataBoundary;
-import io.memoryos.chat.catalog.ModelCatalogService;
+import io.memoryos.ai.DataBoundary;
+import io.memoryos.ai.ModelCatalogService;
 import java.util.UUID;
 import java.util.Set;
 import org.jspecify.annotations.NonNull;

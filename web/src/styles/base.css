@@ -56,16 +56,32 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Tailwind v4 resets buttons to the arrow cursor. Anything the person can press says so with the hand,
+     while a disabled control keeps the arrow because pressing it does nothing. */
+  :where(
+    button,
+    [role="button"],
+    [role="menuitem"],
+    [role="option"],
+    [role="tab"],
+    summary,
+    label[for],
+    a[href]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+
+  :where(button, [role="button"]):is(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: not-allowed;
+  }
+
   :where(input, textarea, select)[aria-invalid="true"] {
     border-color: var(--status-danger-content);
   }
 
   @media (pointer: coarse) {
-    :root {
-      --sidebar-width-collapsed: 4rem;
-    }
-
-    [data-slot="icon-button"] {
+    [data-slot="icon-button"],
+    [data-collapsible="icon"] [data-slot="sidebar-menu-button"] {
       min-width: 2.75rem;
     }
     :where(
@@ -73,9 +89,10 @@
       [data-slot="icon-button"],
       [data-slot="text-button"],
       [data-slot="sidebar-tab"],
+      [data-slot="sidebar-menu-button"],
       [data-slot="menu-item"],
       [data-slot="input"],
-      [data-slot="select"],
+      [data-slot="native-select"],
       [data-slot="sources"]
     ) {
       min-height: 2.75rem;
@@ -91,5 +108,19 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+
+  /*
+   * A cited passage located in a rendered original, painted through the CSS Custom Highlight API so no
+   * element is inserted into the renderer's output. The page beneath is `--surface-document`, white in both
+   * themes, so the highlighter reads the same either way — as the PDF reader's box overlay does. The one
+   * the citation rail has selected is drawn at full strength.
+   */
+  ::highlight(memoryos-citation) {
+    background-color: color-mix(in srgb, var(--pdf-highlight) 45%, transparent);
+  }
+
+  ::highlight(memoryos-citation-active) {
+    background-color: var(--pdf-highlight);
   }
 }

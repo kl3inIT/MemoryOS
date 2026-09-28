@@ -1,0 +1,31 @@
+{"schema":"memoryos-extraction-v1","blocks":[
+{"index":0,"kind":"HEADING","text":"Báo cáo tài chính quý I","provenance":[{"page_no":1,"bbox":{"l":72.5,"t":780.25,"r":410.75,"b":760.5,"coord_origin":"BOTTOMLEFT"},"charspan":[0,23]}],"headingLevel":1},
+{"index":1,"kind":"PARAGRAPH","text":"Công ty cổ phần Tasco trình bày báo cáo tài chính hợp nhất.","provenance":[{"page_no":1,"bbox":{"l":72.5,"t":740.0,"r":520.5,"b":720.75,"coord_origin":"BOTTOMLEFT"},"charspan":[0,58]}]},
+{"index":2,"kind":"PARAGRAPH","text":"Số liệu được lập theo chuẩn mực kế toán Việt Nam.","provenance":[{"page_no":1,"bbox":{"l":72.5,"t":715.0,"r":500.5,"b":700.25,"coord_origin":"BOTTOMLEFT"},"charspan":[0,48]}]},
+{"index":3,"kind":"LIST_ITEM","text":"Đơn vị tính: VND","provenance":[{"page_no":2,"bbox":{"l":90.0,"t":700.5,"r":200.5,"b":690.0,"coord_origin":"BOTTOMLEFT"},"charspan":[0,16]}]},
+{"index":4,"kind":"HEADING","text":"Bảng cân đối kế toán","provenance":[{"page_no":2,"bbox":{"l":72.5,"t":680.0,"r":300.5,"b":660.0,"coord_origin":"BOTTOMLEFT"},"charspan":[0,20]}],"headingLevel":2},
+{"index":5,"kind":"TABLE","text":"","provenance":[{"page_no":2,"bbox":{"l":60.5,"t":650.25,"r":540.75,"b":400.5,"coord_origin":"BOTTOMLEFT"},"charspan":[0,0]}],"table":{"table_cells":[
+ {"bbox":{"l":61.0,"t":200.0,"r":150.0,"b":210.0,"coord_origin":"TOPLEFT"},"row_span":2,"col_span":1,"start_row_offset_idx":0,"end_row_offset_idx":2,"start_col_offset_idx":0,"end_col_offset_idx":1,"text":"Chỉ tiêu","column_header":true,"row_header":false,"row_section":false,"fillable":false},
+ {"row_span":1,"col_span":2,"start_row_offset_idx":0,"end_row_offset_idx":1,"start_col_offset_idx":1,"end_col_offset_idx":3,"text":"Số dư","column_header":true,"row_header":false,"row_section":false,"fillable":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":1,"end_row_offset_idx":2,"start_col_offset_idx":1,"end_col_offset_idx":2,"text":"Đầu năm","column_header":true,"row_header":false,"row_section":false,"fillable":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":1,"end_row_offset_idx":2,"start_col_offset_idx":2,"end_col_offset_idx":3,"text":"Cuối năm","column_header":true,"row_header":false,"row_section":false,"fillable":false},
+ {"row_span":2,"col_span":1,"start_row_offset_idx":2,"end_row_offset_idx":4,"start_col_offset_idx":0,"end_col_offset_idx":1,"text":"Tiền và tương đương tiền","column_header":false,"row_header":true,"row_section":false,"fillable":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":2,"end_row_offset_idx":3,"start_col_offset_idx":1,"end_col_offset_idx":2,"text":"1.234.567","column_header":false,"row_header":false,"row_section":false,"fillable":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":2,"end_row_offset_idx":3,"start_col_offset_idx":2,"end_col_offset_idx":3,"text":"2.345.678","column_header":false,"row_header":false,"row_section":false,"fillable":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":3,"end_row_offset_idx":4,"start_col_offset_idx":1,"end_col_offset_idx":2,"text":"(12.000)","column_header":false,"row_header":false,"row_section":false,"fillable":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":3,"end_row_offset_idx":4,"start_col_offset_idx":2,"end_col_offset_idx":3,"text":"—","column_header":false,"row_header":false,"row_section":false,"fillable":false}
+],"num_rows":4,"num_cols":3,"grid":[]}},
+{"index":6,"kind":"IMAGE","text":"","provenance":[{"page_no":2,"bbox":{"l":100.0,"t":380.0,"r":200.0,"b":300.0,"coord_origin":"BOTTOMLEFT"},"charspan":[0,0]}],"image":{"mimetype":"image/png","dpi":144,"size":{"width":1.0,"height":1.0},"uri":"data:image/png;base64,aW1hZ2U="}},
+{"index":7,"kind":"HEADING","text":"Thuyết minh","provenance":[{"page_no":3,"bbox":{"l":72.5,"t":780.0,"r":200.5,"b":760.0,"coord_origin":"BOTTOMLEFT"},"charspan":[0,11]}],"headingLevel":2},
+{"index":8,"kind":"TABLE","text":"","provenance":[{"page_no":3,"bbox":{"l":60.5,"t":750.5,"r":540.5,"b":600.25,"coord_origin":"BOTTOMLEFT"},"charspan":[0,0]}],"table":{"table_cells":[
+ {"row_span":1,"col_span":1,"start_row_offset_idx":0,"end_row_offset_idx":1,"start_col_offset_idx":0,"end_col_offset_idx":1,"text":"Phải thu khách hàng","column_header":false,"row_header":true,"row_section":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":0,"end_row_offset_idx":1,"start_col_offset_idx":1,"end_col_offset_idx":2,"text":"45.000","column_header":false,"row_header":false,"row_section":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":1,"end_row_offset_idx":2,"start_col_offset_idx":0,"end_col_offset_idx":1,"text":"Trả trước người bán","column_header":false,"row_header":false,"row_section":false},
+ {"row_span":1,"col_span":1,"start_row_offset_idx":1,"end_row_offset_idx":2,"start_col_offset_idx":1,"end_col_offset_idx":2,"text":"7.500","column_header":false,"row_header":false,"row_section":false}
+],"num_rows":2,"num_cols":2}},
+{"index":9,"kind":"PARAGRAPH","text":"Đoạn không có vị trí.","provenance":[]},
+{"index":10,"kind":"PARAGRAPH","text":"Đoạn trải trên hai trang.","provenance":[{"page_no":3,"bbox":{"l":72.5,"t":120.0,"r":500.5,"b":100.0,"coord_origin":"BOTTOMLEFT"},"charspan":[0,10]},{"page_no":4,"bbox":{"l":72.5,"t":780.0,"r":500.5,"b":760.0,"coord_origin":"BOTTOMLEFT"},"charspan":[10,25]}]}
+],
+"pages":{"1":{"size":{"width":595.2,"height":841.8},"page_no":1},"2":{"size":{"width":595.2,"height":841.8},"page_no":2},"3":{"size":{"width":595.2,"height":841.8},"page_no":3},"4":{"size":{"width":841.8,"height":595.2},"page_no":4}},
+"page_orientation":{"4":{"correction":90,"reason":"osd"}},
+"financial_checks":[]}

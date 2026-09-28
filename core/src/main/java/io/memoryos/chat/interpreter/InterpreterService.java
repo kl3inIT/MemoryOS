@@ -1,11 +1,27 @@
 package io.memoryos.chat.interpreter;
 
+import io.memoryos.document.SpreadsheetPreview;
+import io.memoryos.objectstorage.ObjectKey;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.modulith.NamedInterface;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.library.StorageQuotaService;
+import io.memoryos.library.LibraryTrashProperties;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
@@ -17,8 +33,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Per-Tenant Code Interpreter switch and the files its runs produce (MEM-110). */
 @Service
+@NamedInterface("interpreter")
 public class InterpreterService {
-    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(InterpreterService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(InterpreterService.class);
     private final JdbcInterpreterRepository repository;
     private final InterpreterProperties properties;
     private final IamAuthorization authorization;
@@ -26,20 +43,20 @@ public class InterpreterService {
     private final ObjectWriteService writes;
     private final ObjectStorage storage;
     private final TransactionTemplate tx;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
-    private final io.memoryos.chat.ChatStorageQuotaService quotas;
-    private final io.memoryos.chat.application.ChatRetentionProperties retention;
+    private final StorageQuotaService quotas;
+    private final LibraryTrashProperties trash;
 
     public InterpreterService(JdbcInterpreterRepository repository, InterpreterProperties properties, IamAuthorization authorization,
                               TenantAccessResolver tenants, ObjectWriteService writes, ObjectStorage storage,
-                              io.memoryos.chat.ChatStorageQuotaService quotas,
-                              io.memoryos.chat.application.ChatRetentionProperties retention,
-                              PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+                              StorageQuotaService quotas,
+                              LibraryTrashProperties trash,
+                              PlatformTransactionManager transactionManager, AuditTrail audit) {
         this.audit = audit;
         this.repository = repository; this.properties = properties; this.authorization = authorization;
         this.tenants = tenants; this.writes = writes; this.storage = storage; this.quotas = quotas;
-        this.retention = retention; this.tx = new TransactionTemplate(transactionManager);
+        this.trash = trash; this.tx = new TransactionTemplate(transactionManager);
     }
 
     /**
@@ -48,7 +65,7 @@ public class InterpreterService {
      * of failing the whole turn.
      */
     private void requireRoom(TenantId tenant, UUID messageId, long bytes) {
-        var owner = repository.owner(tenant, messageId).map(io.memoryos.iam.identity.ActorId::new)
+        var owner = repository.owner(tenant, messageId).map(ActorId::new)
                 .orElseThrow(() -> new IllegalStateException("generated file has no answer in this tenant"));
         quotas.requireRoom(tenant, owner, bytes);
     }
@@ -72,7 +89,7 @@ public class InterpreterService {
         if (current != revision) throw ChatException.conflict();
         if (enabled && !properties.configured()) throw ChatException.providerUnavailable();
         var saved = repository.save(tenant, enabled);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.INTERPRETER_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant.value())).actor(actor).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
+        audit.record(AuditRecord.of(AuditAction.INTERPRETER_CHANGE, tenant).actor(actor).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
         return new Settings(properties.configured(), saved.enabled(), saved.revision());
     }
 
@@ -91,9 +108,9 @@ public class InterpreterService {
      * Generated files for an already-authorized page of messages, keyed by message id. The caller has resolved these
      * message ids from an ownership-checked history read; results are scoped to the actor's active Tenant.
      */
-    public java.util.Map<UUID, java.util.List<JdbcInterpreterRepository.GeneratedFile>> forMessages(
-            ActorId actor, java.util.Collection<UUID> messageIds) {
-        var tenant = tenants.findActiveTenant(actor).orElseThrow(io.memoryos.chat.ChatException::unavailable);
+    public Map<UUID, List<GeneratedFile>> forMessages(
+            ActorId actor, Collection<UUID> messageIds) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         return repository.byMessages(tenant, messageIds);
     }
 
@@ -104,7 +121,7 @@ public class InterpreterService {
     public void delete(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         tx.executeWithoutResult(ignored -> {
-            if (!repository.markArtifactDeleted(tenant, actor, id, retention.trashAfter())) throw ChatException.unavailable();
+            if (!repository.markArtifactDeleted(tenant, actor, id, trash.trashAfter())) throw ChatException.unavailable();
         });
         LOGGER.atInfo().addKeyValue("event", "chat.artifact.deleted").addKeyValue("artifact_kind", "GENERATED_FILE")
                 .log("Generated file hidden; the cleanup sweep releases its bytes");
@@ -116,7 +133,7 @@ public class InterpreterService {
 
     /** Persists a generated file with optional chart data (a JSON object) captured from its figure. */
     public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes,
-                      @org.jspecify.annotations.Nullable String chart) {
+                      @Nullable String chart) {
         requireRoom(tenant, messageId, bytes.length);
         UUID id = UUID.randomUUID();
         var staged = writes.stage(tenant, new ObjectWriteService.Specification(filename, mediaType, false), bytes);
@@ -143,7 +160,7 @@ public class InterpreterService {
     static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
     /** The owner-private presentation to preview, with its cached PDF when one exists. */
-    public JdbcInterpreterRepository.Artifact presentation(ActorId actor, UUID id) {
+    public InterpreterArtifact presentation(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var artifact = repository.ownedArtifact(tenant, actor, id).orElseThrow(ChatException::unavailable);
         if (!PPTX.equals(artifact.mediaType())) throw ChatException.invalid("Only pptx files have a PDF preview");
@@ -154,7 +171,7 @@ public class InterpreterService {
         return tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
     }
 
-    public ObjectContent openObject(io.memoryos.objectstorage.ObjectKey key) {
+    public ObjectContent openObject(ObjectKey key) {
         return storage.open(key);
     }
 
@@ -187,12 +204,12 @@ public class InterpreterService {
     static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     /** Onyx {@code fetch_chat_file(parsed=true)}: an owner-private generated xlsx as CSV text per sheet. */
-    public java.util.List<SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
+    public List<SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
         var served = open(actor, id);
         try (var content = served.content()) {
             if (!XLSX.equals(served.mediaType())) throw ChatException.invalid("Only xlsx files have a spreadsheet preview");
             return SpreadsheetPreview.parse(content.inputStream());
-        } catch (java.io.IOException failed) {
+        } catch (IOException failed) {
             throw ChatException.invalid("The workbook cannot be previewed");
         }
     }

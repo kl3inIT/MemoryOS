@@ -7,10 +7,14 @@ import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
+import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentChunkPort;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchTimings;
+import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
+import io.memoryos.retrieval.settings.SearchGeneration;
+import io.memoryos.retrieval.settings.SearchGenerations;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.net.URI;
@@ -21,11 +25,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /** Opt-in acceptance fixture: an authorized snapshot, isolated index, real query embeddings.
  * No corpus, credentials or answers are checked into the repository. */
@@ -47,7 +53,7 @@ public final class LiveSearchCorpus implements AutoCloseable {
             var config = new SearchInfrastructureConfiguration();
             var properties = new SearchProperties(URI.create("http://" + container.getHost() + ":" + container.getMappedPort(9200)),
                     "", "", "", "https://api.openai.com/v1", key, "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 500, .5,
-                    .70, Duration.ofSeconds(30), "memoryos-acceptance", 0);
+                    .70, Duration.ofSeconds(30), "memoryos-acceptance", 0, "", "");
             opened = config.searchTransport(properties);
             transport = opened;
             var mapper = new ObjectMapper();
@@ -69,13 +75,19 @@ public final class LiveSearchCorpus implements AutoCloseable {
             when(chunks.currentGenerations(any(), any(), any())).thenReturn(generations);
             when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
             var gateway = new OpenSearchGateway(config.searchClient(transport), mapper);
-            index = new OpenSearchIndexService(gateway, new ValidatedEmbeddingService(
-                    config.searchEmbeddingModel(properties, ObservationRegistry.NOOP), properties.model(), 3072, 32, 2),
+            var embeddings = new ValidatedEmbeddingService(OpenAiCompatibleEmbeddings.model(properties.embeddingEndpoint(),
+                    properties.apiKey(), properties.model(), properties.dimensions(), properties.embeddingRetries(),
+                    properties.embeddingTimeout(), ObservationRegistry.NOOP), properties.model(), 3072, 32, 2);
+            var now = Instant.now();
+            var generation = new SearchGeneration(UUID.randomUUID(), tenant.value(), UUID.randomUUID(), properties.model(),
+                    properties.dimensions(), "", "", properties.minimumSemanticScore(), DocumentChunk.CONVENTION,
+                    SearchGenerations.legacyIdentity(properties), SearchGeneration.Status.PRESENT, false, now, now, null);
+            index = new OpenSearchIndexService(gateway, SearchGenerations.fixed(generation, embeddings, properties),
                     properties, mapper, chunks, sources, new SearchTimings(meters, ObservationRegistry.NOOP));
             index.ensureIndex();
             var bulk = new StringBuilder();
             for (var hit : data.path("hits")) {
-                var value = (tools.jackson.databind.node.ObjectNode) hit.path("_source");
+                var value = (ObjectNode) hit.path("_source");
                 value.put("tenant_id", tenant.value().toString()).put("index_identity", index.identity());
                 UUID doc = UUID.fromString(value.path("document_id").asString());
                 var expected = generations.get(doc);
@@ -85,8 +97,8 @@ public final class LiveSearchCorpus implements AutoCloseable {
                     throw new IllegalArgumentException("Snapshot contains an obsolete generation");
                 value.set("source_metadata", mapper.valueToTree(origins.get(doc).stream().map(origin -> Map.of(
                         "source_id", origin.sourceId().toString(), "item_id", origin.itemId().toString(), "type", "FILE",
-                        "created_at", java.util.Objects.requireNonNull(origin.createdAt()).toString(),
-                        "updated_at", java.util.Objects.requireNonNull(origin.updatedAt()).toString())).toList()));
+                        "created_at", Objects.requireNonNull(origin.createdAt()).toString(),
+                        "updated_at", Objects.requireNonNull(origin.updatedAt()).toString())).toList()));
                 bulk.append(mapper.writeValueAsString(Map.of("index", Map.of("_index", index.identity(), "_id", hit.path("_id").asString())))).append('\n');
                 bulk.append(mapper.writeValueAsString(value)).append('\n');
             }

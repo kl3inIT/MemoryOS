@@ -1,6 +1,6 @@
 package io.memoryos.api.users.contract;
 
-import io.memoryos.iam.user.UserCounts;
+import io.memoryos.iam.UserCounts;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

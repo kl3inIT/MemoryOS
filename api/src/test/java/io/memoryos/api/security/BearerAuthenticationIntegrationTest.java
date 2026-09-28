@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.sun.net.httpserver.HttpExchange;
 import io.memoryos.api.ApiPostgresDatabase;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -18,6 +19,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
 
+import io.swagger.v3.core.util.Json;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -290,7 +292,7 @@ class BearerAuthenticationIntegrationTest {
         assertEquals(200, response.statusCode());
         assertEquals(
                 "Test",
-                io.swagger.v3.core.util.Json.mapper()
+                Json.mapper()
                         .readTree(response.body())
                         .path("tenant")
                         .path("displayName")
@@ -323,7 +325,7 @@ class BearerAuthenticationIntegrationTest {
         assertEquals(400, response.statusCode());
         assertEquals(
                 "REQUEST_VALIDATION",
-                io.swagger.v3.core.util.Json.mapper().readTree(response.body()).path("code").textValue()
+                Json.mapper().readTree(response.body()).path("code").textValue()
         );
     }
 
@@ -341,7 +343,7 @@ class BearerAuthenticationIntegrationTest {
     @Test
     void accountLanguagePersistsAndNeverChangesAuthorizationRevisionOrAnotherActor() throws Exception {
         String bearer = token(validClaims("startup-owner"), SIGNING_KEY);
-        var json = io.swagger.v3.core.util.Json.mapper();
+        var json = Json.mapper();
         var before = json.readTree(request(bearer).body());
         try {
             for (String language : List.of("en", "en", "vi")) {
@@ -366,11 +368,11 @@ class BearerAuthenticationIntegrationTest {
         assertEquals(403, languageRequest(bearer, "{\"uiLanguage\":\"en\"}", false).statusCode());
         var response = languageRequest(bearer, "{\"uiLanguage\":\"fr\"}", true);
         assertEquals(400, response.statusCode());
-        var body = io.swagger.v3.core.util.Json.mapper().readTree(response.body());
+        var body = Json.mapper().readTree(response.body());
         assertEquals("REQUEST_VALIDATION", body.path("code").asText());
         assertEquals("uiLanguage", body.path("errors").get(0).path("field").asText());
         assertEquals("INVALID", body.path("errors").get(0).path("code").asText());
-        var missing = io.swagger.v3.core.util.Json.mapper().readTree(languageRequest(bearer, "{}", true).body());
+        var missing = Json.mapper().readTree(languageRequest(bearer, "{}", true).body());
         assertEquals("REQUIRED", missing.path("errors").get(0).path("code").asText());
     }
 
@@ -462,7 +464,7 @@ class BearerAuthenticationIntegrationTest {
         return "http://127.0.0.1:" + server.getAddress().getPort();
     }
 
-    private static void sendJson(com.sun.net.httpserver.HttpExchange exchange, String json) throws IOException {
+    private static void sendJson(HttpExchange exchange, String json) throws IOException {
         byte[] body = json.getBytes(UTF_8);
         exchange.getResponseHeaders().add("Content-Type", "application/json");
         exchange.sendResponseHeaders(200, body.length);

@@ -85,3 +85,21 @@ def test_a_reply_keeps_what_each_step_read_even_when_it_is_not_cited() -> None:
     assert reply.timeline[0]["documents"] == [
         {"documentId": "d1", "title": "Thông báo nhân sự", "from": 0, "to": 3}
     ]
+
+
+def test_a_reply_keeps_the_refusal_reason_and_the_citation_numbers_of_its_sources() -> None:
+    message = dict(
+        MESSAGE,
+        refusalReason="no_evidence",
+        sources=[
+            {"citationId": 2, "documentId": "d2"},
+            {"citationId": 1, "documentId": "d1"},
+        ],
+    )
+
+    reply = ActorClient._reply(message, 1.0)
+
+    assert reply.refusal_reason == "no_evidence"
+    assert reply.citation_ids == [1, 2]
+    # A server older than grounded mode sends no field; that reads as no structured refusal.
+    assert ActorClient._reply(MESSAGE, 1.0).refusal_reason is None

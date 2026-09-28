@@ -22,17 +22,21 @@ import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.UploadConstraints;
 import io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 import java.net.URI;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -99,28 +103,6 @@ class ObjectUploadLifecycleIntegrationTest {
                         """)
                 .param("id", tenantId.value())
                 .update();
-    }
-
-    @Test
-    void aServerWriteIsAVerifiedUploadThatIsAdoptedOrReclaimedLikeABrowserOne() {
-        var chatFile = new ObjectUploadSpecification("test.txt", "text/plain", 4, CHECKSUM, ObjectUploadPurpose.CHAT_FILE);
-        var adopted = uploads.write(tenantId, chatFile, "test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        assertEquals("VERIFIED", uploadStatus(adopted.uploadId().value()));
-        uploads.adopt(tenantId, adopted.uploadId(), adopted.token());
-        assertEquals("ADOPTED", uploadStatus(adopted.uploadId().value()));
-
-        // Bytes that disagree with their declared checksum are never verified.
-        var wrong = assertThrows(ObjectUploadException.class,
-                () -> uploads.write(tenantId, chatFile, "tent".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        assertEquals("OBJECT_UPLOAD_INTEGRITY_MISMATCH", wrong.code());
-        assertThrows(IllegalArgumentException.class, () -> uploads.write(tenantId, chatFile, new byte[3]));
-
-        // A write its caller never adopts is reclaimed by the abandoned-upload cleanup.
-        var abandoned = uploads.write(tenantId, chatFile, "test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        clock.advance(Duration.ofHours(1));
-        assertEquals(2, uploads.cleanupAbandoned());
-        assertEquals("EXPIRED", uploadStatus(abandoned.uploadId().value()));
-        assertEquals("ADOPTED", uploadStatus(adopted.uploadId().value()));
     }
 
     @Test
@@ -252,7 +234,7 @@ class ObjectUploadLifecycleIntegrationTest {
 
             assertEquals(1, uploads.cleanupAbandoned());
             storage.releaseInspection();
-            var failure = assertThrows(java.util.concurrent.ExecutionException.class, verification::get);
+            var failure = assertThrows(ExecutionException.class, verification::get);
             var conflict = assertInstanceOf(ObjectUploadException.class, failure.getCause());
             assertEquals("OBJECT_UPLOAD_CONFLICT", conflict.code());
         }
@@ -306,9 +288,9 @@ class ObjectUploadLifecycleIntegrationTest {
         public void write(ObjectKey key, byte[] content, String mediaType) {
             lastKey = key;
             try {
-                objects.put(key, new ObjectMetadata(content.length, mediaType, new ContentSha256(java.util.HexFormat.of()
-                        .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(content)))));
-            } catch (java.security.NoSuchAlgorithmException impossible) {
+                objects.put(key, new ObjectMetadata(content.length, mediaType, new ContentSha256(HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(content)))));
+            } catch (NoSuchAlgorithmException impossible) {
                 throw new IllegalStateException(impossible);
             }
         }

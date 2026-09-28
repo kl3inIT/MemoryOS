@@ -1,9 +1,11 @@
-import { ChatModelLogo } from "@/features/chat/chat-model-logo";
+import { ModelLogo } from "./model-logo";
 import { Brain, Eye, RefreshCw, Search, Wrench } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -15,7 +17,6 @@ import {
 } from "@/components/ui/table";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { listReportedProviderModels } from "@/lib/hey-api/sdk.gen";
 import type { ProviderTestInput } from "@/lib/hey-api/types.gen";
 import {
@@ -24,7 +25,7 @@ import {
   type ManagedModel,
   type ReportedModel,
 } from "./model-catalog";
-import { useModelAction } from "./use-model-action";
+import { useModelMutation } from "./model-mutation";
 
 /**
  * The models of the provider being edited, listed inside its own form as Onyx lists them: the endpoint is read with
@@ -37,16 +38,31 @@ export function ProviderModelsField({
   selected,
   onSelected,
   disabled,
+  listOnOpen = false,
 }: {
   connection: () => ProviderTestInput | null;
   configured: ManagedModel[];
   selected: ReportedModel[];
   onSelected: (models: ReportedModel[]) => void;
   disabled?: boolean;
+  /** Opened from the connection's "Fetch models" button: the endpoint is read at once and the list brought into view. */
+  listOnOpen?: boolean;
 }) {
   const ui = useAppTranslation();
-  const action = useModelAction();
+  const id = useId();
   const [reported, setReported] = useState<ReportedModel[] | null>(null);
+  const listing = useModelMutation(async (signal) => {
+    // The endpoint and key are read at the press, never held as mutation variables.
+    const body = connection();
+    if (!body) return;
+    const result = await listReportedProviderModels({
+      body,
+      signal,
+    });
+    signal.throwIfAborted();
+    setReported(result.data.models);
+    onSelected([]);
+  });
   const [query, setQuery] = useState("");
   const already = new Set(configured.map((model) => model.modelName));
   const all = useMemo(() => reported ?? [], [reported]);
@@ -63,36 +79,33 @@ export function ProviderModelsField({
   );
 
   async function refresh() {
-    const body = connection();
-    if (!body || action.pending) return;
+    if (connection() === null || listing.pending) return;
     // A second press replaces the first listing rather than racing it, as Onyx's refetch button does.
-    action.cancel();
+    listing.cancel();
     try {
-      await action.run(async (signal) => {
-        const result = await listReportedProviderModels({
-          body,
-          headers: sameOriginMutationHeaders,
-          signal,
-          throwOnError: true,
-        });
-        signal.throwIfAborted();
-        setReported(result.data.models);
-        onSelected([]);
-      });
+      await listing.run();
     } catch {
       /* Safe action-local feedback only. */
     }
   }
 
+  const field = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!listOnOpen) return;
+    field.current?.scrollIntoView({ block: "nearest" });
+    // A second run (React's development double effect) replaces the first listing rather than racing it.
+    void refresh();
+    // On opening only; later listings are the owner's own press.
+  }, [listOnOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className="space-y-3">
+    <div ref={field} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-main-ui-action">{ui("Models")}</p>
-          <p className="text-xs text-content-muted">
-            {reported === null
-              ? ui("Read the endpoint to list the models it serves.")
-              : selected.length > 0
+          {reported === null ? null : (
+            <p className="font-secondary-body text-content-muted">
+              {selected.length > 0
                 ? ui(
                     appText("{{shown}} of {{total}} models · {{selected}} selected", {
                       shown: shown.length,
@@ -106,42 +119,47 @@ export function ProviderModelsField({
                       total: all.length,
                     }),
                   )}
-          </p>
+            </p>
+          )}
         </div>
         <Button
           prominence="secondary"
-          pending={action.pending}
-          disabled={disabled || connection() === null || action.pending}
+          pending={listing.pending}
+          disabled={disabled || connection() === null || listing.pending}
           onClick={() => void refresh()}
         >
-          <RefreshCw aria-hidden="true" />
+          <RefreshCw data-icon="inline-start" aria-hidden="true" />
           {reported === null ? ui("List models") : ui("Refresh")}
         </Button>
       </div>
-      {action.error && <p role="alert">{ui(action.error)}</p>}
-      {reported !== null && all.length === 0 && !action.pending && (
-        <p className="text-sm text-content-muted">{ui("This endpoint reported no models.")}</p>
+      {listing.error && (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{ui(listing.error)}</AlertDescription>
+        </Alert>
+      )}
+      {reported !== null && all.length === 0 && !listing.pending && (
+        <p className="font-secondary-body text-content-muted">
+          {ui("This endpoint reported no models.")}
+        </p>
       )}
       {all.length > 0 && (
         <>
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-content-muted"
-              aria-hidden="true"
-            />
-            <Input
+          <InputGroup>
+            <InputGroupAddon>
+              <Search aria-hidden="true" />
+            </InputGroupAddon>
+            <InputGroupInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={ui("Search models…")}
               aria-label={ui("Search models")}
-              className="pl-8"
             />
-          </div>
+          </InputGroup>
           <div className="flex flex-wrap gap-2">
             <Button
               prominence="tertiary"
               size="sm"
-              disabled={disabled || action.pending || selectable.length === 0}
+              disabled={disabled || listing.pending || selectable.length === 0}
               onClick={() =>
                 onSelected([
                   ...selected,
@@ -156,15 +174,15 @@ export function ProviderModelsField({
             <Button
               prominence="tertiary"
               size="sm"
-              disabled={disabled || action.pending || selected.length === 0}
+              disabled={disabled || listing.pending || selected.length === 0}
               onClick={() => onSelected([])}
             >
               {ui("Clear selection")}
             </Button>
           </div>
-          <div className="max-h-[40dvh] overflow-y-auto rounded-lg border border-border-subtle">
-            <Table>
-              <TableHeader className="sticky top-0 bg-surface-subtle">
+          <div className="overflow-hidden rounded-lg border border-border-subtle">
+            <Table maxHeight="list">
+              <TableHeader sticky>
                 <TableRow>
                   <TableHead>{ui("Model")}</TableHead>
                   <TableHead className="text-right">{ui("Context")}</TableHead>
@@ -177,16 +195,18 @@ export function ProviderModelsField({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {shown.map((model) => {
+                {shown.map((model, index) => {
                   const configuredAlready = already.has(model.modelName);
+                  const checkbox = `${id}-${index}`;
                   return (
                     <TableRow key={model.modelName}>
-                      <TableCell className="max-w-44 font-main-ui-body sm:max-w-72">
+                      <TableCell className="max-w-44 sm:max-w-72">
                         {!configuredAlready ? (
-                          <label className="flex min-w-0 items-center gap-2">
+                          <span className="flex min-w-0 items-center gap-2">
                             <Checkbox
+                              id={checkbox}
                               checked={selected.some((one) => one.modelName === model.modelName)}
-                              disabled={disabled || action.pending}
+                              disabled={disabled || listing.pending}
                               onCheckedChange={(checked) =>
                                 onSelected(
                                   checked === true
@@ -195,8 +215,10 @@ export function ProviderModelsField({
                                 )
                               }
                             />
-                            <ModelName model={model} />
-                          </label>
+                            <Label htmlFor={checkbox} className="min-w-0">
+                              <ModelName model={model} />
+                            </Label>
+                          </span>
                         ) : (
                           // A checked, locked box keeps configured names aligned with selectable ones.
                           <span className="flex min-w-0 items-center gap-2">
@@ -205,24 +227,32 @@ export function ProviderModelsField({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {compactTokens(model.contextWindow)}
+                      <TableCell className="text-right">
+                        <span className="tabular-nums">{compactTokens(model.contextWindow)}</span>
                         {model.source === "none" && (
-                          <span className="block text-xs text-content-muted">{ui("Default")}</span>
+                          <span className="block font-secondary-body text-content-muted">
+                            {ui("Default")}
+                          </span>
                         )}
                       </TableCell>
-                      <TableCell className="hidden text-right tabular-nums sm:table-cell">
+                      <TableCell className="hidden text-right sm:table-cell">
                         {model.maxOutputTokens == null ? (
                           <span className="text-content-muted">{ui("Default")}</span>
                         ) : (
-                          compactTokens(model.maxOutputTokens)
+                          <span className="tabular-nums">
+                            {compactTokens(model.maxOutputTokens)}
+                          </span>
                         )}
                       </TableCell>
-                      <TableCell className="hidden text-right tabular-nums md:table-cell">
-                        {millionTokenPrice(model.pricing?.inputPerMillion) ?? "—"}
+                      <TableCell className="hidden text-right md:table-cell">
+                        <span className="tabular-nums">
+                          {millionTokenPrice(model.pricing?.inputPerMillion) ?? "—"}
+                        </span>
                       </TableCell>
-                      <TableCell className="hidden text-right tabular-nums md:table-cell">
-                        {millionTokenPrice(model.pricing?.outputPerMillion) ?? "—"}
+                      <TableCell className="hidden text-right md:table-cell">
+                        <span className="tabular-nums">
+                          {millionTokenPrice(model.pricing?.outputPerMillion) ?? "—"}
+                        </span>
                       </TableCell>
                       <TableCell className="text-right">
                         {configuredAlready ? (
@@ -251,7 +281,7 @@ function ModelName({ model }: { model: ReportedModel }) {
   ];
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <ChatModelLogo modelName={model.modelName} className="size-4 shrink-0" />
+      <ModelLogo modelName={model.modelName} className="size-4 shrink-0" />
       <span className="truncate" title={model.modelName}>
         {model.modelName}
       </span>

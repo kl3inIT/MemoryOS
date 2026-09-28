@@ -1,6 +1,6 @@
 package io.memoryos.objectstorage;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 public interface StoredObjectRegistry {
     void markDeletePending(TenantId tenantId, StoredObjectId storedObjectId);

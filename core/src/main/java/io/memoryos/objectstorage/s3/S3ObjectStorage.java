@@ -1,5 +1,6 @@
 package io.memoryos.objectstorage.s3;
 
+import io.memoryos.shared.Sha256;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
@@ -17,7 +18,9 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -27,6 +30,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -101,16 +105,13 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
             throw new IllegalArgumentException("object write exceeds bounds");
         }
         try {
-            var checksum = java.util.Base64.getEncoder().encodeToString(
-                    java.security.MessageDigest.getInstance("SHA-256").digest(content));
+            var checksum = Base64.getEncoder().encodeToString(Sha256.digest(content));
             client.putObject(PutObjectRequest.builder().bucket(bucket).key(key.value())
-                            .overrideConfiguration(c -> c.apiCallTimeout(java.time.Duration.ofMinutes(2)))
+                            .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofMinutes(2)))
                             .contentType(mediaType).contentLength((long) content.length)
                             .checksumSHA256(checksum).ifNoneMatch("*").build(),
-                    software.amazon.awssdk.core.sync.RequestBody.fromContentProvider(
+                    RequestBody.fromContentProvider(
                             () -> new ByteArrayInputStream(content), content.length, mediaType));
-        } catch (java.security.NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(exception);
         } catch (S3Exception | SdkClientException exception) {
             throw translate(exception);
         }

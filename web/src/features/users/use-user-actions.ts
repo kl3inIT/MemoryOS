@@ -1,12 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   activateUserMutation,
+  createInvitationMutation,
   deactivateUserMutation,
   revokeInvitationMutation,
+  rotateInvitationMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { createInvitation, rotateInvitation } from "@/lib/hey-api/sdk.gen";
 import type { IssuedInvitation, UserListItem } from "@/lib/hey-api/types.gen";
 import { invitationError, membershipActionError } from "./user-action-errors";
 import type { ErrorMessage } from "@/lib/problem-presentation";
@@ -25,27 +25,16 @@ type UseUserActionsOptions = {
   onInvitationIssued: (invitation: IssuedInvitation) => void;
 };
 
-type InvitationIssue = { email: string } | { invitationId: string };
-
 export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserActionsOptions) {
   const activateUser = useMutation(activateUserMutation());
   const deactivateUser = useMutation(deactivateUserMutation());
-  const invitationIssue = useMutation({
-    mutationFn: async (input: InvitationIssue) => {
-      const { data } =
-        "email" in input
-          ? await createInvitation({
-              body: input,
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
-            })
-          : await rotateInvitation({
-              path: input,
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
-            });
-      onInvitationIssued(data);
-    },
+  const createInvitation = useMutation({
+    ...createInvitationMutation(),
+    onSuccess: onInvitationIssued,
+  });
+  const rotateInvitation = useMutation({
+    ...rotateInvitationMutation(),
+    onSuccess: onInvitationIssued,
   });
   const revokeInvitation = useMutation(revokeInvitationMutation());
   const activeRows = useRef(new Set<string>());
@@ -98,7 +87,6 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
     await runAction(entry, "activate", () =>
       activateUser.mutateAsync({
         path: { actorId },
-        headers: sameOriginMutationHeaders,
       }),
     );
   }
@@ -109,7 +97,6 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
     await runAction(entry, "deactivate", () =>
       deactivateUser.mutateAsync({
         path: { actorId },
-        headers: sameOriginMutationHeaders,
       }),
     );
   }
@@ -118,7 +105,7 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
     if (issuanceInFlight.current) return;
     issuanceInFlight.current = true;
     try {
-      await invitationIssue.mutateAsync({ email });
+      await createInvitation.mutateAsync({ body: { email } });
       onUsersChanged();
     } finally {
       issuanceInFlight.current = false;
@@ -130,7 +117,9 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
     if (!invitationId || issuanceInFlight.current) return;
     issuanceInFlight.current = true;
     try {
-      await runAction(entry, "rotate", () => invitationIssue.mutateAsync({ invitationId }));
+      await runAction(entry, "rotate", async () => {
+        await rotateInvitation.mutateAsync({ path: { invitationId } });
+      });
     } finally {
       issuanceInFlight.current = false;
     }
@@ -142,7 +131,6 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
     await runAction(entry, "revoke", () =>
       revokeInvitation.mutateAsync({
         path: { invitationId },
-        headers: sameOriginMutationHeaders,
       }),
     );
   }
@@ -150,7 +138,7 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
   return {
     pendingActions,
     rowErrors,
-    invitationPending: invitationIssue.isPending,
+    invitationPending: createInvitation.isPending || rotateInvitation.isPending,
     create,
     activate,
     deactivate,

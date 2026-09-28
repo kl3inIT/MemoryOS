@@ -2,7 +2,13 @@ import { useSyncExternalStore } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { MeetingRecorder } from "./meeting-recorder";
 import type { MeetingTrack, StreamedUtterance } from "./meeting-socket";
-import { issueMeetingTicket, meetingKey, meetingsKey, type MeetingDetail } from "./meetings-api";
+import {
+  finishMeeting,
+  issueMeetingTicket,
+  meetingQueryKey,
+  invalidateMeetingList,
+  type MeetingDetail,
+} from "./meetings-api";
 
 /**
  * The one meeting being recorded in this browser tab. It lives outside any page, so moving to Chat or the library
@@ -11,6 +17,9 @@ import { issueMeetingTicket, meetingKey, meetingsKey, type MeetingDetail } from 
 type Active = { meetingId: string; recorder: MeetingRecorder };
 
 let active: Active | undefined;
+/** Why the last recording in this tab stopped on its own; it stays until the next recording starts or the meeting ends. */
+type Failure = { meetingId: string; code: string };
+let failure: Failure | undefined;
 const listeners = new Set<() => void>();
 
 function publish() {
@@ -22,12 +31,12 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-export function activeMeeting() {
-  return active;
-}
-
 export function useActiveMeeting() {
   return useSyncExternalStore(subscribe, () => active);
+}
+
+export function useRecordingFailure() {
+  return useSyncExternalStore(subscribe, () => failure);
 }
 
 /** Starts recording a meeting's tracks; a meeting already recording elsewhere in this tab is stopped first. */
@@ -38,6 +47,7 @@ export async function startRecording(
 ) {
   if (active && active.meetingId !== meetingId) await stopRecording();
   if (active) return active.recorder;
+  failure = undefined;
   const recorder = new MeetingRecorder({
     meetingId,
     issueTicket: (track) => issueMeetingTicket(meetingId, track),
@@ -45,9 +55,10 @@ export async function startRecording(
   });
   active = { meetingId, recorder };
   const unsubscribe = recorder.subscribe(() => {
-    const phase = recorder.getSnapshot().phase;
+    const { phase, error } = recorder.getSnapshot();
     if (phase === "stopped" || phase === "failed") {
       unsubscribe();
+      if (phase === "failed") failure = { meetingId, code: error ?? "MEETING_CONNECTION" };
       if (active?.recorder === recorder) active = undefined;
       publish();
     }
@@ -67,13 +78,30 @@ export async function startRecording(
   return recorder;
 }
 
-export async function stopRecording() {
+async function stopRecording() {
   const current = active;
   if (!current) return;
   await current.recorder.stop();
   if (active === current) active = undefined;
   window.removeEventListener("beforeunload", warnBeforeUnload);
   publish();
+}
+
+/**
+ * Ends a meeting without holding the person on a dialog: the recording stops at once, the last words are stored in the
+ * background (the recording bar says so, and leaving the tab still asks first), and the meeting ends once they are.
+ * It lives here rather than on the page, so moving elsewhere in the app does not lose the tail.
+ */
+export async function endMeeting(meetingId: string, cache: QueryClient) {
+  if (active?.meetingId === meetingId) await stopRecording();
+  const ended = await finishMeeting(meetingId);
+  if (failure?.meetingId === meetingId) {
+    failure = undefined;
+    publish();
+  }
+  cache.setQueryData(meetingQueryKey(meetingId), ended);
+  void invalidateMeetingList(cache);
+  return ended;
 }
 
 function warnBeforeUnload(event: BeforeUnloadEvent) {
@@ -83,7 +111,7 @@ function warnBeforeUnload(event: BeforeUnloadEvent) {
 
 /** Adds a live utterance to the cached meeting, keeping the transcript in time order. */
 function appendUtterance(cache: QueryClient, meetingId: string, utterance: StreamedUtterance) {
-  cache.setQueryData<MeetingDetail>(meetingKey(meetingId), (meeting) => {
+  cache.setQueryData<MeetingDetail>(meetingQueryKey(meetingId), (meeting) => {
     if (!meeting || meeting.utterances.some((item) => item.id === utterance.id)) return meeting;
     const speakers = meeting.speakers.some(
       (item) => item.track === utterance.track && item.label === utterance.speaker,
@@ -95,5 +123,5 @@ function appendUtterance(cache: QueryClient, meetingId: string, utterance: Strea
     );
     return { ...meeting, speakers, utterances };
   });
-  void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+  void invalidateMeetingList(cache);
 }

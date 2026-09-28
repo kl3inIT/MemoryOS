@@ -1,12 +1,12 @@
 package io.memoryos.iam.user;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.user.UserPage;
-import io.memoryos.iam.user.UserQuery;
-import io.memoryos.iam.user.UserQueryService;
+import io.memoryos.iam.UserPage;
+import io.memoryos.iam.UserQuery;
+import io.memoryos.iam.UserQueryService;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.user.persistence.UserQueryRepository;
 
 import java.time.Clock;

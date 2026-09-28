@@ -30,10 +30,13 @@ API startup invokes `InitialTenantBootstrapper` after Flyway migration. The boot
 2. resolves or creates the exact `(issuer, subject)` Actor binding;
 3. persists the configured Tenant;
 4. persists its active `OWNER` membership;
-5. idempotently provisions Admin and Basic and their configured-owner memberships; and
-6. publishes the Tenant through the singleton state.
+5. idempotently provisions Admin and Basic and their configured-owner memberships;
+6. publishes the Tenant through the singleton state; and
+7. publishes `TenantBootstrapped(tenantId, created=true)` as a Spring application event.
 
-A concurrent replica waits on the singleton row and then verifies the published aggregate. Identical configuration returns the existing IDs with `created=false` and repairs missing system-Group bootstrap state idempotently. Configured UUID, owner identity, name, slug, lifecycle status, membership or change-reference drift fails with `TenantBootstrapConflictException`. Identity, Tenant, membership and Group writes roll back together when any bootstrap step fails.
+A concurrent replica waits on the singleton row and then verifies the published aggregate. Identical configuration returns the existing IDs with `created=false`, repairs missing system-Group bootstrap state idempotently and publishes `TenantBootstrapped(tenantId, created=false)`. Configured UUID, owner identity, name, slug, lifecycle status, membership or change-reference drift fails with `TenantBootstrapConflictException`.
+
+`TenantBootstrapped` listeners are synchronous `@EventListener`s that run in the bootstrap transaction and provision their module's per-Tenant defaults insert-only. The re-verification event lets a module added after the Tenant was created provision it on the next start. Chat provisions its model catalog and built-in agent this way ([catalog contract](chat-models.md#credentials-and-provider-extension)). Identity, Tenant, membership, Group and listener writes roll back together when any bootstrap step fails.
 
 ## Request context and IAM authority
 
@@ -59,7 +62,7 @@ Invitation acceptance stays inside IAM but uses the narrow `TenantMembershipProv
 
 ## Persistence and migration boundary
 
-IAM lifecycle persistence is JPA over the existing relational tables. `ActorEntity`, exact binding/profile entities, `TenantEntity`, `TenantMembershipEntity`, `InvitationEntity`, bootstrap state and Group entities live under `io.memoryos.iam.persistence`. Concrete SQL repositories remain appropriate for bounded Users/invitation projections, capability union/scope reads, bulk operations and explicit row locks. JPA and JDBC share the API's transaction manager and DataSource; Flyway owns DDL and Hibernate validates it.
+IAM lifecycle persistence is JPA over the existing relational tables. `ActorEntity`, exact binding/profile entities, `TenantEntity`, `TenantMembershipEntity`, `InvitationEntity`, bootstrap state and Group entities live in the `persistence` package of their IAM area (`io.memoryos.iam.identity.persistence`, `iam.tenant.persistence`, `iam.invitation.persistence`, `iam.group.persistence`). Concrete SQL repositories remain appropriate for bounded Users/invitation projections, capability union/scope reads, bulk operations and explicit row locks. JPA and JDBC share the API's transaction manager and DataSource; Flyway owns DDL and Hibernate validates it.
 
 V1–V6 remain immutable historical migrations. V6 renamed active Organization tables, columns, constraints and indexes to Tenant while preserving UUIDs and business rows, then added the database singleton constraint. V13 added profile provenance. V14 added `STANDARD` Account Type and `authorization_version`, restricted membership roles to `OWNER`/`MEMBER`, and deliberately deleted serialized Spring Sessions because the `ActorId` package cutover is not wire-compatible. V15 added Groups and migrated every existing membership to Basic and existing owners to Admin. V16 is Connector-owned and adds Source–Group associations without moving Source persistence into IAM.
 

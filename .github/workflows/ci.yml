@@ -12,6 +12,9 @@ name: CI
       - 'docs/**'
       - '*.md'
       - 'tools/visual-paradigm-mcp/**'
+  # A merge that produced no run leaves main with nothing to deploy from, and an empty commit cannot start one
+  # because a push that changes no file matches every ignored path. This is the way back.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,9 +23,12 @@ defaults:
   run:
     shell: bash
 
+# One run per branch, and the newest commit wins. Keying main by its commit let three of them verify at once,
+# each publishing a release, so the deploys that followed took turns calling one another stale. A commit that
+# supersedes another already contains it, so finishing the older run proves nothing worth waiting for.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   changes:
@@ -76,7 +82,7 @@ jobs:
                     backend=true
                     landing=true
                     ;;
-                  core/*|connector/*|api/*|worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
+                  core/*|sources/*|api/*|worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
                     backend=true
                     ;;
                   interpreter/*)
@@ -116,7 +122,10 @@ jobs:
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           bash -n infrastructure/deployment/deploy.sh
-          shellcheck -x infrastructure/deployment/deploy.sh
+          bash -n infrastructure/deployment/deploy-serving.sh
+          sh -n infrastructure/deployment/serving-firewall.sh
+          shellcheck -x infrastructure/deployment/deploy.sh api/src/main/docker/application-launcher.sh api/src/main/docker/api-entrypoint.sh             infrastructure/keycloak/smoke-test-image.sh \
+            infrastructure/deployment/deploy-serving.sh infrastructure/deployment/serving-firewall.sh
 
       - name: Verify deployment and monitoring configuration
         # Interpolation-only values; this step never starts application services.
@@ -126,6 +135,7 @@ jobs:
           MEMORYOS_WEB_IMAGE: memoryos-web:config-check
           MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
           MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
+          MEMORYOS_KEYCLOAK_IMAGE: memoryos-keycloak:config-check
           MEMORYOS_POSTGRES_ADMIN_PASSWORD: config-check-only
           MEMORYOS_DATABASE_PASSWORD: config-check-only
           MEMORYOS_KEYCLOAK_DATABASE_PASSWORD: config-check-only
@@ -142,7 +152,10 @@ jobs:
             -f infrastructure/deployment/compose.search.staging.yaml config --quiet
           docker compose --env-file infrastructure/deployment/production.env.example \
             -f infrastructure/deployment/compose.base.yaml \
-            -f infrastructure/deployment/compose.production.yaml config --quiet
+            -f infrastructure/deployment/compose.production.yaml \
+            -f infrastructure/deployment/compose.search.production.yaml config --quiet
+          docker compose --env-file infrastructure/deployment/serving.env.example \
+            -f infrastructure/deployment/compose.serving.yaml config --quiet
           docker compose --env-file infrastructure/observability/observability.env.example \
             -f infrastructure/observability/compose.observability.yaml config --quiet
           docker run --rm --network none --entrypoint promtool \
@@ -174,18 +187,22 @@ jobs:
       - name: Verify staging deployment boundaries
         run: python3 -m unittest discover -s infrastructure/deployment -p 'test_*.py'
 
+      - name: Verify off-host backup and retention
+        run: python3 -m unittest discover -s infrastructure/backup -p 'test_*.py'
+
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: backend-tests
           path: |
             core/build/test-results/test/*.xml
-            connector/build/test-results/test/*.xml
+            sources/build/test-results/test/*.xml
             api/build/test-results/test/*.xml
             worker/build/test-results/test/*.xml
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
   frontend-check:
     needs: changes
@@ -198,29 +215,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Install the frontend toolchain and dependencies
+        uses: ./.github/actions/pnpm-project
         with:
-          node-version: '24'
-
-      - name: Enable pnpm 11.22.0
-        run: |
-          corepack enable
-          corepack install --global pnpm@11.22.0
-
-      - name: Restore the pnpm store
-        id: pnpm-store-web1
-        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm downloads
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ${{ steps.pnpm-store-web1.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
-
-      - name: Install frontend dependencies
-        run: pnpm --dir web install --frozen-lockfile
+          directory: web
 
       # Static, unit and build gate; it needs no browser, so it runs outside the Playwright container.
       - name: Verify frontend
@@ -236,12 +234,13 @@ jobs:
 
       - name: Upload frontend unit reports
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: frontend-check-reports
           path: web/reports/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
   frontend:
     needs: changes
@@ -262,95 +261,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Install the frontend toolchain and dependencies
+        uses: ./.github/actions/pnpm-project
         with:
-          node-version: '24'
-
-      - name: Enable pnpm 11.22.0
-        run: |
-          corepack enable
-          corepack install --global pnpm@11.22.0
-
-      - name: Restore the pnpm store
-        id: pnpm-store-web2
-        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm downloads
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ${{ steps.pnpm-store-web2.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
-
-      - name: Install frontend dependencies
-        run: pnpm --dir web install --frozen-lockfile
+          directory: web
 
       - name: Exercise browser states
         run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-      - name: Upload shard blob report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: blob-report-${{ matrix.shard }}
-          path: web/blob-report/
-          if-no-files-found: warn
-          retention-days: 1
-
-  # Not a gate: merges the shard blob reports (with their traces, screenshots and videos) into one HTML report.
-  frontend-report:
-    needs: [changes, frontend]
-    if: ${{ !cancelled() && needs.changes.outputs.web == 'true' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: '24'
-
-      - name: Enable pnpm 11.22.0
-        run: |
-          corepack enable
-          corepack install --global pnpm@11.22.0
-
-      - name: Restore the pnpm store
-        id: pnpm-store-web3
-        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm downloads
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ${{ steps.pnpm-store-web3.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
-
-      - name: Install frontend dependencies
-        run: pnpm --dir web install --frozen-lockfile
-
-      - name: Download shard blob reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: blob-report-*
-          merge-multiple: true
-          path: web/all-blob-reports
-
-      - name: Merge browser reports
-        run: pnpm --dir web exec playwright merge-reports --reporter html ./all-blob-reports
-
-      - name: Upload merged browser report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: frontend-tests
-          path: web/playwright-report/
-          if-no-files-found: warn
-          retention-days: 7
 
   frontend-image:
     needs: changes
@@ -440,7 +358,7 @@ jobs:
           path: candidate/web.tar
           if-no-files-found: error
           compression-level: 1
-          retention-days: 7
+          retention-days: 2
 
   landing:
     needs: changes
@@ -456,29 +374,10 @@ jobs:
       - name: Validate the landing smoke script
         run: shellcheck landing/scripts/smoke-image.sh
 
-      - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Install the landing toolchain and dependencies
+        uses: ./.github/actions/pnpm-project
         with:
-          node-version: '24'
-
-      - name: Enable pnpm 11.22.0
-        run: |
-          corepack enable
-          corepack install --global pnpm@11.22.0
-
-      - name: Restore the pnpm store
-        id: pnpm-store-landing1
-        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm downloads
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ${{ steps.pnpm-store-landing1.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ hashFiles('landing/pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
-
-      - name: Install landing dependencies
-        run: pnpm --dir landing install --frozen-lockfile
+          directory: landing
 
       - name: Verify landing page
         run: pnpm --dir landing check
@@ -516,12 +415,13 @@ jobs:
 
       - name: Upload landing test reports
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: landing-tests
           path: landing/reports/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
       # Named outside candidate-* so the application publication never downloads it.
       - name: Preserve verified landing image
@@ -532,7 +432,7 @@ jobs:
           path: candidate/landing.tar
           if-no-files-found: error
           compression-level: 1
-          retention-days: 7
+          retention-days: 2
 
   interpreter:
     needs: changes
@@ -635,7 +535,7 @@ jobs:
           path: candidate/interpreter.tar
           if-no-files-found: error
           compression-level: 1
-          retention-days: 7
+          retention-days: 2
 
   backend-images:
     needs: changes
@@ -690,11 +590,29 @@ jobs:
             type=gha,scope=backend-worker
           cache-to: type=gha,mode=max,scope=backend-worker
 
+      # The login theme is inside this image, so a release carries its own sign-in page.
+      - name: Build production Keycloak image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: infrastructure/keycloak
+          tags: memoryos-keycloak:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: type=gha,scope=keycloak
+          cache-to: type=gha,mode=max,scope=keycloak
+
+      - name: Prove the Keycloak image serves the MemoryOS login theme
+        run: infrastructure/keycloak/smoke-test-image.sh "memoryos-keycloak:sha-$GITHUB_SHA"
+
       - name: Save backend images for publication
         if: ${{ github.event_name == 'push' }}
         run: |
           mkdir -p candidate
-          docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"
+          docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"             "memoryos-keycloak:sha-$GITHUB_SHA"
 
       - name: Preserve verified backend images
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -704,7 +622,7 @@ jobs:
           path: candidate/backend.tar
           if-no-files-found: error
           compression-level: 1
-          retention-days: 7
+          retention-days: 2
 
   secrets:
     runs-on: ubuntu-24.04
@@ -785,7 +703,7 @@ jobs:
           docker load --input candidate/web.tar
           docker load --input candidate/interpreter.tar
           mkdir release
-          for component in api worker web interpreter interpreter-executor; do
+          for component in api worker web interpreter interpreter-executor keycloak; do
             image="memoryos-$component:sha-$GITHUB_SHA"
             docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
               .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha

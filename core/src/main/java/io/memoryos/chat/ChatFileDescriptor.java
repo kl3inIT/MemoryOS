@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import io.memoryos.library.UserFile;
 import java.util.UUID;
 
 /** Immutable display metadata, never an authorization or a storage URL. */

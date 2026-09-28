@@ -3,12 +3,16 @@ _meta:
   config_version: 2
 config:
   dynamic:
+    # >>> dashboards: dropped when the deployment publishes no Dashboards. Both blocks exist only
+    # to let a browser reach Dashboards through the identity provider; a deployment without it has
+    # no such browser, no OIDC client and no audience for a token to carry.
     kibana:
       multitenancy_enabled: true
       private_tenant_enabled: false
       default_tenant: global tenant
       server_username: memoryos-dashboards
       index: .kibana
+    # <<< dashboards
     http:
       anonymous_auth_enabled: false
     authc:
@@ -21,6 +25,7 @@ config:
           challenge: false
         authentication_backend:
           type: intern
+      # >>> dashboards
       openid_auth_domain:
         http_enabled: true
         transport_enabled: false
@@ -36,3 +41,4 @@ config:
             openid_connect_url: __OIDC_ISSUER__/.well-known/openid-configuration
         authentication_backend:
           type: noop
+      # <<< dashboards

@@ -5,18 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.retrieval.SearchUnavailableException;
+import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.micrometer.observation.ObservationRegistry;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
@@ -54,18 +55,10 @@ class SpringAiEmbeddingHttpTest {
         });
         server.start();
         try {
-            // This protocol fixture uses a fake credential and a local HTTP server.
-            // Runtime properties reject HTTP credentials in SearchPropertiesTest.
-            var properties = mock(SearchProperties.class);
-            when(properties.embeddingEndpoint()).thenReturn("http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
-            when(properties.apiKey()).thenReturn("test-only-credential");
-            when(properties.model()).thenReturn("text-embedding-3-large");
-            when(properties.dimensions()).thenReturn(3072);
-            when(properties.timeout()).thenReturn(Duration.ofSeconds(3));
-            when(properties.embeddingTimeout()).thenReturn(Duration.ofSeconds(3));
-            when(properties.embeddingRetries()).thenReturn(2);
-            var model = new SearchInfrastructureConfiguration().searchEmbeddingModel(properties, ObservationRegistry.NOOP);
-            var embeddings = new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2);
+            // This protocol fixture uses a fake credential and a local HTTP server, as an internal provider would.
+            var model = OpenAiCompatibleEmbeddings.model("http://127.0.0.1:" + server.getAddress().getPort() + "/v1",
+                    "test-only-credential", "text-embedding-3-large", 3072, 2, Duration.ofSeconds(3), ObservationRegistry.NOOP);
+            var embeddings = new ValidatedEmbeddingService(model, "text-embedding-3-large", 3072, 32, 2);
             assertEquals(3072, embeddings.query("Chính sách nghỉ phép").length);
             var failure = assertThrows(SearchUnavailableException.class, () -> embeddings.query("Chính sách nghỉ phép"));
             assertNull(failure.getCause());
@@ -79,7 +72,7 @@ class SpringAiEmbeddingHttpTest {
         var mapper = new ObjectMapper();
         var calls = new AtomicInteger();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.createContext("/v1/embeddings", exchange -> {
             try {
                 exchange.getRequestBody().readAllBytes();
@@ -92,22 +85,15 @@ class SpringAiEmbeddingHttpTest {
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.length);
                 exchange.getResponseBody().write(response);
-            } catch (InterruptedException | java.io.IOException ignored) {
+            } catch (InterruptedException | IOException ignored) {
                 // The client gave up on the stalled attempt.
             } finally { exchange.close(); }
         });
         server.start();
         try {
-            var properties = mock(SearchProperties.class);
-            when(properties.embeddingEndpoint()).thenReturn("http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
-            when(properties.apiKey()).thenReturn("test-only-credential");
-            when(properties.model()).thenReturn("text-embedding-3-large");
-            when(properties.dimensions()).thenReturn(3072);
-            when(properties.timeout()).thenReturn(Duration.ofSeconds(30));
-            when(properties.embeddingTimeout()).thenReturn(Duration.ofMillis(500));
-            when(properties.embeddingRetries()).thenReturn(2);
-            var model = new SearchInfrastructureConfiguration().searchEmbeddingModel(properties, ObservationRegistry.NOOP);
-            var embeddings = new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2);
+            var model = OpenAiCompatibleEmbeddings.model("http://127.0.0.1:" + server.getAddress().getPort() + "/v1",
+                    "test-only-credential", "text-embedding-3-large", 3072, 2, Duration.ofMillis(500), ObservationRegistry.NOOP);
+            var embeddings = new ValidatedEmbeddingService(model, "text-embedding-3-large", 3072, 32, 2);
 
             long started = System.nanoTime();
             assertEquals(3072, embeddings.query("Chính sách nghỉ phép").length);

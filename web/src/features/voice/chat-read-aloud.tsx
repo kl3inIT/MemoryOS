@@ -1,6 +1,7 @@
 import { ActionBarPrimitive, useAuiState } from "@assistant-ui/react";
-import { LoaderCircle, Square, Volume2 } from "lucide-react";
+import { Square, Volume2 } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
+import { Spinner } from "@/components/ui/spinner";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAutoPlayback } from "./use-chat-auto-playback";
 
@@ -36,11 +37,7 @@ export function ChatReadAloudButton() {
         prominence="internal"
         size="sm"
       >
-        {loading ? (
-          <LoaderCircle className="animate-spin motion-reduce:animate-none" />
-        ) : (
-          <Square />
-        )}
+        {loading ? <Spinner aria-hidden="true" /> : <Square />}
       </IconButton>
     </ActionBarPrimitive.StopSpeaking>
   );

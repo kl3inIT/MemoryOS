@@ -104,7 +104,15 @@ async function open(page: Page, width: number, scheme: "light" | "dark") {
   await page.route("**/api/chat/providers", (route) => route.fulfill({ json: providers }));
   await page.route("**/api/chat/providers/*/models", (route) =>
     route.fulfill({
-      json: route.request().url().includes(providers[0]!.id) ? [configured] : [],
+      json:
+        route.request().method() === "POST"
+          ? {
+              ...configured,
+              modelName: (route.request().postDataJSON() as { modelName: string }).modelName,
+            }
+          : route.request().url().includes(providers[0]!.id)
+            ? [configured]
+            : [],
     }),
   );
   // The form lists models for the provider it is editing, saved or not, so the body names it.
@@ -135,6 +143,8 @@ async function open(page: Page, width: number, scheme: "light" | "dark") {
   await page.route("**/api/chat/projects?*", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/chat/personas?*", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/chat/models", (route) => route.fulfill({ json: [] }));
+  // Adding models refreshes the whole catalog, task models included.
+  await page.route("**/api/chat/model-flows", (route) => route.fulfill({ json: [] }));
   await page.goto("/admin/models");
   await expect(page.getByRole("heading", { name: /Mô hình|Models/ }).first()).toBeVisible({
     timeout: 60_000,
@@ -173,6 +183,15 @@ for (const [label, width, scheme] of [
     await dialog.getByRole("checkbox").first().check();
     await shot(page, `${label}-provider-form-search`);
     await page.keyboard.press("Escape");
+
+    // The connection's own button opens only the listing, read at once, and adds what is picked.
+    await page.getByRole("button", { name: "Lấy mô hình từ nhà cung cấp" }).first().click();
+    const discovery = page.getByRole("dialog", { name: "Lấy mô hình từ nhà cung cấp" });
+    await expect(discovery.getByText("openai/gpt-5-mini", { exact: true })).toBeVisible();
+    await discovery.getByRole("checkbox").first().check();
+    await shot(page, `${label}-discovery-dialog`);
+    await discovery.getByRole("button", { name: /^Thêm 1 model/ }).click();
+    await expect(discovery).toHaveCount(0);
 
     // A new provider: the endpoint and the typed key list models before anything is saved.
     await page

@@ -1,18 +1,22 @@
 package io.memoryos.document.application;
 
 import io.memoryos.document.DocumentChunk;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import io.memoryos.document.DocumentContentException;
+import io.memoryos.document.ExtractedDocument;
+import io.memoryos.document.ExtractedDocument.Block;
+import io.memoryos.document.ExtractedDocument.Cell;
+import io.memoryos.document.ExtractedDocument.Kind;
+import io.memoryos.document.ExtractedDocument.Table;
+import io.memoryos.shared.Sha256;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.TreeMap;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 
 /** Preserves structural boundaries and table labels before applying token limits. */
 @Component
@@ -27,50 +31,106 @@ public final class StructuredDocumentChunker {
     }
 
     public List<DocumentChunk> chunk(String title, String canonicalJson) {
-        JsonNode root = mapper.readTree(canonicalJson);
-        if (!"memoryos-extraction-v1".equals(root.path("schema").asString())
-                || !root.path("blocks").isArray()) {
-            throw new IllegalArgumentException("unsupported extraction artifact");
-        }
+        ExtractedDocument document = ExtractionArtifactReader.read(mapper, canonicalJson);
         var result = new ArrayList<DocumentChunk>();
         var headings = new ArrayList<String>();
-        int position = 0;
-        for (JsonNode block : root.path("blocks")) {
-            int blockIndex = block.path("index").asInt(position++);
-            String kind = block.path("kind").asString();
-            String text = block.path("text").asString("").strip();
-            if ("HEADING".equals(kind)) {
-                int level = Math.clamp(block.path("headingLevel").asInt(1), 1, 8);
+        // Adjacent text blocks share one chunk up to the token bound; reports with thousands of
+        // one-line paragraphs would otherwise exhaust MAX_CHUNKS. Headings and tables flush the
+        // buffer so a merged chunk never crosses a section boundary.
+        var pending = new StringBuilder();
+        var pendingProvenance = mapper.createArrayNode();
+        // Chat citations cap provenance at 8192 chars; keep the leading locations and drop the tail.
+        int pendingProvenanceChars = 0;
+        int pendingIndex = -1;
+        for (Block block : document.blocks()) {
+            int blockIndex = block.index();
+            Kind kind = block.kind();
+            String text = block.text().strip();
+            if ((kind == Kind.HEADING || kind == Kind.TABLE) && !pending.isEmpty()) {
+                append(result, pending.toString(), prefix(title, headings), headings, pendingIndex,
+                        mergedProvenance(pendingProvenance), 0);
+                pending.setLength(0);
+                pendingProvenance.removeAll();
+                pendingProvenanceChars = 0;
+            }
+            if (kind == Kind.HEADING) {
+                int level = Math.clamp(block.headingLevel() == null ? 1 : block.headingLevel(), 1, 8);
                 while (headings.size() >= level) headings.removeLast();
                 if (!text.isEmpty()) headings.add(text);
             }
             String prefix = prefix(title, headings);
-            String provenance = mapper.writeValueAsString(block.path("provenance"));
-            if ("TABLE".equals(kind) && block.path("table").path("table_cells").isArray()) {
-                appendTable(result, block.path("table"), prefix, headings, blockIndex, provenance);
-            } else if ("TABLE".equals(kind) && block.path("table").path("cells").isArray()) {
-                String sheet = block.path("sheetName").asString(block.path("provenance").path("sheetName").asString(text));
-                appendNativeTable(result, block.path("table"), prefix(title, sheet.isBlank() ? headings : List.of(sheet)),
-                        headings, blockIndex, provenance, 0);
-            } else if (!"IMAGE".equals(kind) && !text.isEmpty()) {
-                append(result, text, prefix, headings, blockIndex, provenance, 0);
+            JsonNode location = provenance(block);
+            String provenance = mapper.writeValueAsString(location);
+            if (kind == Kind.TABLE && block.table() != null) {
+                // A sheet names its own addressed rows; labelled tables sit under the heading trail.
+                String sheet = block.sheetName() == null ? text : block.sheetName();
+                String tablePrefix = block.table().hasColumnHeaders() || sheet.isBlank()
+                        ? prefix : prefix(title, List.of(sheet));
+                appendTable(result, block.table(), tablePrefix, headings, blockIndex, provenance, 0);
+            } else if (kind == Kind.HEADING) {
+                if (!text.isEmpty()) append(result, text, prefix, headings, blockIndex, provenance, 0);
+            } else if (kind != Kind.IMAGE && !text.isEmpty()) {
+                if (pending.isEmpty()) {
+                    pendingIndex = blockIndex;
+                } else if (tokens.estimate(prefix + pending + "\n\n" + text) > MAX_TOKENS) {
+                    append(result, pending.toString(), prefix, headings, pendingIndex,
+                            mergedProvenance(pendingProvenance), 0);
+                    pending.setLength(0);
+                    pendingProvenance.removeAll();
+                    pendingProvenanceChars = 0;
+                    pendingIndex = blockIndex;
+                }
+                if (!pending.isEmpty()) pending.append("\n\n");
+                pending.append(text);
+                if (pendingProvenanceChars < 6000) {
+                    pendingProvenance.add(location);
+                    pendingProvenanceChars += provenance.length() + 1;
+                }
             }
         }
-        if (result.isEmpty()) throw new IllegalArgumentException("artifact has no searchable text");
+        if (!pending.isEmpty()) {
+            append(result, pending.toString(), prefix(title, headings), headings, pendingIndex,
+                    mergedProvenance(pendingProvenance), 0);
+        }
+        if (result.isEmpty()) throw new DocumentContentException("SEARCH_INDEX_NO_TEXT", "artifact has no searchable text");
         return List.copyOf(result);
     }
 
-    /** Native cells retain explicit coordinates. Never guess that the first row is a header. */
-    private void appendNativeTable(List<DocumentChunk> result, JsonNode table, String prefix,
+    /** No location is `null`, one location is that object, and several are an array of them. */
+    private JsonNode provenance(Block block) {
+        var locations = block.locations();
+        if (locations.isEmpty()) return mapper.nullNode();
+        if (locations.size() == 1) return mapper.valueToTree(locations.getFirst());
+        return mapper.valueToTree(locations);
+    }
+
+    /** One block keeps its original provenance shape; merged blocks report every source location. */
+    private String mergedProvenance(ArrayNode provenance) {
+        if (provenance.size() == 1) return mapper.writeValueAsString(provenance.get(0));
+        return mapper.writeValueAsString(provenance);
+    }
+
+    /**
+     * One table branch for every provider. A table with explicit column headers reads as labelled
+     * values under its row headers; any other table reads by cell address. Never guess that the
+     * first row is a header.
+     */
+    private void appendTable(List<DocumentChunk> result, Table table, String prefix,
             List<String> headings, int blockIndex, String provenance, int depth) {
-        if (depth > 100 || table.path("cells").size() > 200000) throw new IllegalArgumentException("table exceeds bounds");
-        var rows = new TreeMap<Integer, TreeMap<Integer, JsonNode>>();
-        for (var cell : table.path("cells")) {
-            int row = cell.path("row").asInt(-1), column = cell.path("column").asInt(-1);
+        if (table.hasColumnHeaders()) appendLabelledTable(result, table, prefix, headings, blockIndex, provenance);
+        else appendAddressedTable(result, table, prefix, headings, blockIndex, provenance, depth);
+    }
+
+    private void appendAddressedTable(List<DocumentChunk> result, Table table, String prefix,
+            List<String> headings, int blockIndex, String provenance, int depth) {
+        if (depth > 100 || table.cells().size() > 200000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "table exceeds bounds");
+        var rows = new TreeMap<Integer, TreeMap<Integer, Cell>>();
+        for (var cell : table.cells()) {
+            int row = cell.row(), column = cell.column();
             if (row < 0 || row >= 1048576 || column < 0 || column >= 16384)
-                throw new IllegalArgumentException("invalid cell coordinates");
+                throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "invalid cell coordinates");
             if (rows.computeIfAbsent(row, ignored -> new TreeMap<>()).put(column, cell) != null)
-                throw new IllegalArgumentException("duplicate cell coordinates");
+                throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "duplicate cell coordinates");
         }
         int part = 0;
         for (var row : rows.entrySet()) {
@@ -78,15 +138,15 @@ public final class StructuredDocumentChunker {
             for (var entry : row.getValue().entrySet()) {
                 var cell = entry.getValue();
                 String address = columnName(entry.getKey()) + (row.getKey() + 1);
-                var value = new StringBuilder(cell.path("text").asString(""));
-                // Google Docs table cells contain nested canonical blocks, not spreadsheet values.
-                for (var block : cell.path("blocks")) {
-                    if (block.path("table").path("cells").isArray()) {
-                        appendNativeTable(result, block.path("table"), prefix, headings, blockIndex,
-                                mapper.writeValueAsString(block.path("provenance")), depth + 1);
+                var value = new StringBuilder(cell.text());
+                // Google Docs table cells contain nested blocks, not spreadsheet values.
+                for (var block : cell.blocks()) {
+                    if (block.table() != null) {
+                        appendTable(result, block.table(), prefix, headings, blockIndex,
+                                mapper.writeValueAsString(provenance(block)), depth + 1);
                     } else {
                         if (!value.isEmpty()) value.append('\n');
-                        value.append(block.path("text").asString(""));
+                        value.append(block.text());
                     }
                 }
                 if (value.toString().isBlank()) continue;
@@ -113,47 +173,49 @@ public final class StructuredDocumentChunker {
         return value + "\n";
     }
 
-    private void appendTable(List<DocumentChunk> result, JsonNode table, String prefix,
+    private void appendLabelledTable(List<DocumentChunk> result, Table table, String prefix,
             List<String> headings, int blockIndex, String provenance) {
-        var cells = new ArrayList<JsonNode>();
-        table.path("table_cells").forEach(cells::add);
-        if (cells.size() > 100_000) throw new IllegalArgumentException("table exceeds cell limit");
-        cells.sort(Comparator.comparingInt((JsonNode c) -> c.path("start_row_offset_idx").asInt())
-                .thenComparingInt(c -> c.path("start_col_offset_idx").asInt()));
+        var cells = new ArrayList<>(table.cells());
+        if (cells.size() > 100_000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "table exceeds cell limit");
+        cells.sort(Comparator.comparingInt(Cell::row).thenComparingInt(Cell::column));
         var headers = new TreeMap<Integer, List<String>>();
         int expandedCells = 0;
-        for (JsonNode cell : cells) {
-            if (!cell.path("column_header").asBoolean(false)) continue;
-            int start = cell.path("start_col_offset_idx").asInt();
-            int end = cell.path("end_col_offset_idx").asInt(start + 1);
-            if (start < 0 || end <= start || end - start > 2048) throw new IllegalArgumentException("invalid table span");
-            expandedCells += end - start;
-            if (expandedCells > 100_000) throw new IllegalArgumentException("expanded table exceeds cell limit");
+        for (Cell cell : cells) {
+            if (!cell.columnHeader()) continue;
+            int start = cell.column();
+            long end = (long) start + cell.columnSpan();
+            if (start < 0 || end <= start || end - start > 2048) throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "invalid table span");
+            expandedCells += (int) (end - start);
+            if (expandedCells > 100_000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "expanded table exceeds cell limit");
+            // A blank header cell adds nothing to a stacked label; a column with none reads "Column N".
+            if (cell.text().isBlank()) continue;
             for (int column = start; column < end; column++) {
-                headers.computeIfAbsent(column, _ -> new ArrayList<>()).add(cell.path("text").asString(""));
+                headers.computeIfAbsent(column, _ -> new ArrayList<>()).add(cell.text());
             }
         }
-        var rows = new TreeMap<Integer, List<JsonNode>>();
-        for (JsonNode cell : cells) {
-            if (cell.path("column_header").asBoolean(false)) continue;
-            int start = cell.path("start_row_offset_idx").asInt();
-            int end = cell.path("end_row_offset_idx").asInt(start + 1);
-            if (start < 0 || end <= start || end - start > 2048) throw new IllegalArgumentException("invalid table row span");
-            expandedCells += end - start;
-            if (expandedCells > 100_000) throw new IllegalArgumentException("expanded table exceeds cell limit");
+        var rows = new TreeMap<Integer, List<Cell>>();
+        for (Cell cell : cells) {
+            if (cell.columnHeader()) continue;
+            int start = cell.row();
+            long end = (long) start + cell.rowSpan();
+            if (start < 0 || end <= start || end - start > 2048) throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "invalid table row span");
+            expandedCells += (int) (end - start);
+            if (expandedCells > 100_000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "expanded table exceeds cell limit");
             for (int row = start; row < end; row++) rows.computeIfAbsent(row, _ -> new ArrayList<>()).add(cell);
         }
         int part = 0;
         for (var entry : rows.entrySet()) {
             // Each value repeats its column label; wide rows split only between cells.
-            String rowHeader = entry.getValue().stream().filter(c -> c.path("row_header").asBoolean(false))
-                    .map(c -> c.path("text").asString("")).reduce((a, b) -> a + " / " + b).orElse("");
+            String rowHeader = entry.getValue().stream().filter(Cell::rowHeader)
+                    .map(Cell::text).reduce((a, b) -> a + " / " + b).orElse("");
             String rowPrefix = prefix + (rowHeader.isBlank() ? "" : "Row: " + rowHeader + "\n");
             var row = new StringBuilder();
-            for (JsonNode cell : entry.getValue()) {
-                int column = cell.path("start_col_offset_idx").asInt();
+            for (Cell cell : entry.getValue()) {
+                // As in addressed mode, an empty cell has no value to label.
+                if (cell.text().isBlank()) continue;
+                int column = cell.column();
                 String label = String.join(" / ", headers.getOrDefault(column, List.of("Column " + (column + 1))));
-                String value = label + ": " + cell.path("text").asString("");
+                String value = label + ": " + cell.text();
                 part = appendCell(result, row, value, rowPrefix, headings, blockIndex, tableLocation(provenance, entry.getKey()), part);
             }
             if (!row.isEmpty()) part = append(result, row.toString(), rowPrefix,
@@ -195,9 +257,9 @@ public final class StructuredDocumentChunker {
             String window = text.substring(offset, windowEnd);
             int end = boundedEnd(prefix, window);
             String passage = prefix + window.substring(0, end).strip();
-            if (result.size() >= MAX_CHUNKS) throw new IllegalArgumentException("document exceeds chunk limit");
+            if (result.size() >= MAX_CHUNKS) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "document exceeds chunk limit");
             result.add(new DocumentChunk(result.size(), passage, headings, blockIndex, part++, provenance,
-                    sha256(passage), tokens.estimate(passage)));
+                    Sha256.hex(passage), tokens.estimate(passage)));
             offset += end;
         }
         return part;
@@ -216,15 +278,7 @@ public final class StructuredDocumentChunker {
         int end = text.offsetByCodePoints(0, low);
         int boundary = Math.max(text.lastIndexOf('\n', end - 1), text.lastIndexOf(' ', end - 1));
         if (boundary > end / 2) end = boundary;
-        if (tokens.estimate(prefix + text.substring(0, end)) > MAX_TOKENS) throw new IllegalArgumentException("unbounded chunk");
+        if (tokens.estimate(prefix + text.substring(0, end)) > MAX_TOKENS) throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "unbounded chunk");
         return end;
-    }
-
-    public static String sha256(String text) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

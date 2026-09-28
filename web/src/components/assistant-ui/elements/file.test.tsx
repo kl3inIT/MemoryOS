@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { documentKind } from "@/features/search/document-source-presentation";
+import { documentKind } from "@/features/documents/document-source-presentation";
 import { File } from "./file";
 
 function glyph(filename: string, mimeType = "application/octet-stream") {

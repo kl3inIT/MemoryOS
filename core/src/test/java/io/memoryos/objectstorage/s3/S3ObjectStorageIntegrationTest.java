@@ -21,6 +21,7 @@ import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HexFormat;
 
 import org.junit.jupiter.api.AfterAll;
@@ -51,8 +52,8 @@ class S3ObjectStorageIntegrationTest {
     @Container
     private static final GenericContainer<?> MINIO = new GenericContainer<>(
             DockerImageName.parse(
-                    "quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z"
-                            + "@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
+                    "ghcr.io/kl3init/memoryos-minio:RELEASE.2025-04-22T22-12-26Z"
+                            + "@sha256:159a90402c72e031227cdf0f3fb0ba82c54e517a110b2d0b462817dc849b0ac2"
             )
     )
             .withEnv("MINIO_ROOT_USER", ACCESS_KEY)
@@ -120,8 +121,8 @@ class S3ObjectStorageIntegrationTest {
 
     @Test
     void rejectsContentThatDoesNotMatchTheSignedChecksum() throws Exception {
-        byte[] declared = "declared".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] altered = "alteredd".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] declared = "declared".getBytes(StandardCharsets.UTF_8);
+        byte[] altered = "alteredd".getBytes(StandardCharsets.UTF_8);
         var checksum = new ContentSha256(
                 HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(declared))
         );
@@ -184,7 +185,7 @@ class S3ObjectStorageIntegrationTest {
 
     @Test
     void presignsVerifiesStreamsAndIdempotentlyDeletesObjects() throws Exception {
-        byte[] content = "provider-neutral object storage".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] content = "provider-neutral object storage".getBytes(StandardCharsets.UTF_8);
         var checksum = new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
         var key = new ObjectKey("raw/10000000-0000-0000-0000-000000000052/20000000-0000-0000-0000-000000000052");
 
@@ -219,7 +220,7 @@ class S3ObjectStorageIntegrationTest {
                 assertEquals(9, range.first());
                 assertEquals(content.length - 1, range.last());
                 assertEquals(content.length, range.totalBytes());
-                assertArrayEquals(java.util.Arrays.copyOfRange(content, 9, content.length), range.inputStream().readAllBytes());
+                assertArrayEquals(Arrays.copyOfRange(content, 9, content.length), range.inputStream().readAllBytes());
             }
 
             storage.delete(key);
@@ -232,7 +233,7 @@ class S3ObjectStorageIntegrationTest {
 
     @Test
     void expiredAuthorizationCannotCreateAnObject() throws Exception {
-        byte[] content = "expired".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] content = "expired".getBytes(StandardCharsets.UTF_8);
         var checksum = new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
         var key = new ObjectKey("raw/10000000-0000-0000-0000-000000000052/30000000-0000-0000-0000-000000000052");
 

@@ -1,6 +1,6 @@
 package io.memoryos.iam.group.persistence;
 
-import io.memoryos.iam.group.GroupSystemKey;
+import io.memoryos.iam.GroupSystemKey;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;

@@ -10,6 +10,12 @@ set -eu
 : "${MEMORYOS_KEYCLOAK_DATABASE_NAME:=keycloak}"
 : "${MEMORYOS_KEYCLOAK_DATABASE_USERNAME:=keycloak}"
 : "${MEMORYOS_KEYCLOAK_DATABASE_PASSWORD:?MEMORYOS_KEYCLOAK_DATABASE_PASSWORD is required}"
+# Above the pools the api and the worker hold together, so that a migration, an operator looking
+# at data during an incident, and the overlap while a rollout replaces a container each still have
+# a connection to use. A role at its limit reports "too many connections", never "raise the limit".
+: "${MEMORYOS_DATABASE_CONNECTION_LIMIT:=40}"
+# Twice what Keycloak's own pool holds at most (KC_DB_POOL_MAX_SIZE), for the same reason.
+: "${MEMORYOS_KEYCLOAK_DATABASE_CONNECTION_LIMIT:=20}"
 
 bootstrap_database() {
     database_name="$1"
@@ -32,13 +38,13 @@ bootstrap_database \
     "${MEMORYOS_DATABASE_NAME}" \
     "${MEMORYOS_DATABASE_USERNAME}" \
     "${MEMORYOS_DATABASE_PASSWORD}" \
-    20
+    "${MEMORYOS_DATABASE_CONNECTION_LIMIT}"
 
 bootstrap_database \
     "${MEMORYOS_KEYCLOAK_DATABASE_NAME}" \
     "${MEMORYOS_KEYCLOAK_DATABASE_USERNAME}" \
     "${MEMORYOS_KEYCLOAK_DATABASE_PASSWORD}" \
-    20
+    "${MEMORYOS_KEYCLOAK_DATABASE_CONNECTION_LIMIT}"
 
 psql \
     --no-psqlrc \

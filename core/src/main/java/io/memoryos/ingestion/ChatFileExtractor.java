@@ -1,6 +1,7 @@
 package io.memoryos.ingestion;
 
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractionException;
 import java.io.InputStream;
 
 /** Chat's independently bounded binary input, not Source FILE's 10 MiB contract. */

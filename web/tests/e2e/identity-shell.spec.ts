@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { expectNoSeriousA11yViolations } from "./axe";
 
 const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
 const OWNER_SESSION = {
@@ -82,6 +83,7 @@ test("renders the authenticated application shell", async ({ page }) => {
     page.getByRole("heading", { name: "What would you like to explore?" }),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Question", exact: true })).toBeEnabled();
+  await expectNoSeriousA11yViolations(page);
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "What would you like to explore?" }),
@@ -161,7 +163,7 @@ test("signs out from the account menu with the same-origin guard", async ({ page
 
   await page.goto("/");
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
 
   // The server ended the provider session, so the reloaded app is signed out and goes straight to sign-in.
   await expect(page).toHaveURL(/\/login\/oauth2\/code\/memoryos\?/, { timeout: 15_000 });
@@ -195,7 +197,7 @@ test("opens the provider logout page when the server could not end the provider 
 
   await page.goto("/");
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/signed-out-test$/);
 });
@@ -211,13 +213,13 @@ test("persists the selected dark theme", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await page.getByRole("button", { name: "Use dark theme" }).click();
+  await page.getByRole("menuitem", { name: "Use dark theme" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await expect(page.getByRole("button", { name: "Use light theme" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Use light theme" })).toBeVisible();
 });
 
 test("opens the separate administration shell", async ({ page }) => {
@@ -239,6 +241,7 @@ test("opens the separate administration shell", async ({ page }) => {
     "page",
   );
   await expect(page.getByRole("heading", { name: "Existing sources", exact: true })).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
 });
 
 test("separates listing Sources from adding one in the administration menu", async ({ page }) => {
@@ -253,6 +256,8 @@ test("separates listing Sources from adding one in the administration menu", asy
   await page.goto("/admin");
   const navigation = page.getByRole("navigation", { name: "Administration navigation" });
   await expect(navigation.getByText("Documents & Knowledge")).toBeVisible();
+  const knowledge = navigation.getByRole("group", { name: "Documents & Knowledge" });
+  await expect(knowledge.getByRole("link", { name: "Search settings", exact: true })).toBeVisible();
   const list = navigation.getByRole("link", { name: "Existing sources", exact: true });
   const add = navigation.getByRole("link", { name: "Add a source", exact: true });
   await expect(list).toHaveAttribute("aria-current", "page");
@@ -314,6 +319,7 @@ test("keeps one document, identity session, and admin shell across internal rout
   const adminSidebar = page.getByRole("complementary", { name: "Administration sidebar" });
   await adminSidebar.getByRole("button", { name: "Collapse sidebar" }).click();
   await expect(adminSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
   await adminSidebar.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(adminSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
@@ -346,16 +352,17 @@ test("closes mobile administration navigation after a client route change", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin");
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
-  await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await page.getByRole("link", { name: "Admin Panel" }).click();
+  await page.getByRole("menuitem", { name: "Admin Panel" }).click();
   await expect(page).toHaveURL(/\/admin$/);
-  await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
 });
 
 test("keeps unprovisioned access separate from signed-out state", async ({ page }) => {

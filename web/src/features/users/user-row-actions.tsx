@@ -1,18 +1,11 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import {
-  LoaderCircle,
-  MoreHorizontal,
-  RefreshCw,
-  UserCheck,
-  UserX,
-  Users,
-  XCircle,
-} from "lucide-react";
+import { MoreHorizontal, RefreshCw, UserCheck, UserX, Users, XCircle } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
-import { Popover } from "radix-ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { MenuItem } from "@/components/ui/menu-item";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import type { UserListItem } from "@/lib/hey-api/types.gen";
 import { invitationError, membershipActionError } from "./user-action-errors";
 import { userActionPendingLabel, type UserPendingAction } from "./use-user-actions";
@@ -101,13 +94,13 @@ export function UserRowActions({
 
   return (
     <>
-      <Popover.Root
+      <Popover
         open={menuOpen}
         onOpenChange={(nextOpen) => {
           if (!pendingAction) setMenuOpen(nextOpen);
         }}
       >
-        <Popover.Trigger asChild>
+        <PopoverTrigger asChild>
           <IconButton
             ref={actionButtonRef}
             size="sm"
@@ -119,23 +112,15 @@ export function UserRowActions({
             }
             pending={Boolean(pendingAction)}
           >
-            {pendingAction ? (
-              <LoaderCircle className="animate-spin motion-reduce:animate-none" />
-            ) : (
-              <MoreHorizontal />
-            )}
+            <MoreHorizontal />
           </IconButton>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            align="end"
-            sideOffset={6}
-            className="z-30 w-56 rounded-xl border border-border-default bg-surface-overlay p-1.5 shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none"
-          >
+        </PopoverTrigger>
+        <PopoverContent align="end" sideOffset={6} className="w-56 p-1.5">
+          <div className="flex flex-col gap-1">
             {canChangeGroups ? (
               <>
                 <MenuItem
-                  icon={<Users className="size-4.5" />}
+                  icon={<Users />}
                   onClick={() => {
                     setMenuOpen(false);
                     onEditGroups(actionButtonRef.current);
@@ -143,16 +128,14 @@ export function UserRowActions({
                 >
                   {ui("Edit groups")}
                 </MenuItem>
-                {canChangeMembership ? (
-                  <div className="my-1 border-t border-border-subtle" />
-                ) : null}
+                {canChangeMembership ? <Separator /> : null}
               </>
             ) : null}
             {canChangeMembership ? (
               entry.status === "ACTIVE" ? (
                 <MenuItem
                   tone="danger"
-                  icon={<UserX className="size-4.5" />}
+                  icon={<UserX />}
                   onClick={() => {
                     setMenuOpen(false);
                     setConfirmation("deactivate");
@@ -162,7 +145,7 @@ export function UserRowActions({
                 </MenuItem>
               ) : (
                 <MenuItem
-                  icon={<UserCheck className="size-4.5" />}
+                  icon={<UserCheck />}
                   onClick={() => {
                     setMenuOpen(false);
                     setConfirmation("activate");
@@ -174,7 +157,7 @@ export function UserRowActions({
             ) : canManageInvitation ? (
               <>
                 <MenuItem
-                  icon={<RefreshCw className="size-4.5" />}
+                  icon={<RefreshCw />}
                   disabled={invitationPending}
                   onClick={() => {
                     setMenuOpen(false);
@@ -183,10 +166,10 @@ export function UserRowActions({
                 >
                   {ui("Rotate recovery link")}
                 </MenuItem>
-                <div className="my-1 border-t border-border-subtle" />
+                <Separator />
                 <MenuItem
                   tone="danger"
-                  icon={<XCircle className="size-4.5" />}
+                  icon={<XCircle />}
                   onClick={() => {
                     setMenuOpen(false);
                     setConfirmation("revoke");
@@ -196,9 +179,9 @@ export function UserRowActions({
                 </MenuItem>
               </>
             ) : null}
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <ConfirmDialog
         open={confirmation !== null}

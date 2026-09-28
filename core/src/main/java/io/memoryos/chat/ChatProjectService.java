@@ -1,14 +1,15 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JpaProjectRepository;
-import io.memoryos.chat.persistence.ChatPage;
-import io.memoryos.chat.persistence.ProjectEntity;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.library.UserFileService;
+import io.memoryos.chat.project.persistence.JpaProjectRepository;
+import io.memoryos.chat.project.persistence.ChatPage;
+import io.memoryos.chat.project.persistence.ProjectEntity;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -24,16 +25,21 @@ public class ChatProjectService {
     private final JdbcChatRepository chats;
     private final JpaProjectRepository settings;
     private final ChatSessionService sessions;
-    private final ChatFileService files;
+    private final UserFileService files;
     public ChatProjectService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                              JpaProjectRepository settings, ChatSessionService sessions, ChatFileService files) {
+                              JpaProjectRepository settings, ChatSessionService sessions, UserFileService files) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings; this.sessions = sessions;
         this.files = files;
     }
-    public record ProjectInput(String name, String description, String instructions, @Nullable List<UUID> fileIds) {
-        public ProjectInput(String name, String description, String instructions) { this(name, description, instructions, null); }
+    public record ProjectInput(String name, String description, String instructions, @Nullable List<UUID> fileIds,
+                               @Nullable String iconName) {
+        public ProjectInput(String name, String description, String instructions) { this(name, description, instructions, null, null); }
+        public ProjectInput(String name, String description, String instructions, List<UUID> fileIds) {
+            this(name, description, instructions, fileIds, null);
+        }
     }
-    public record ProjectView(UUID id, String name, String description, String instructions, long revision, Instant updatedAt, List<UUID> fileIds) {}
+    public record ProjectView(UUID id, String name, String description, String instructions, long revision, Instant updatedAt,
+                              List<UUID> fileIds, @Nullable String iconName) {}
 
     @Transactional(readOnly = true)
     public List<ProjectView> list(ActorId actor, int offset, int limit) {
@@ -44,7 +50,8 @@ public class ChatProjectService {
     @Transactional
     public ProjectView create(ActorId actor, ProjectInput input) {
         var tenant = write(actor); validate(input);
-        var entity = new ProjectEntity(UUID.randomUUID(), tenant.value(), actor.value(), input.name().strip(), input.description(), input.instructions());
+        var entity = new ProjectEntity(UUID.randomUUID(), tenant.value(), actor.value(), input.name().strip(), input.description(),
+                input.instructions(), icon(input.iconName()));
         if (input.fileIds() != null) { files.admit(tenant, actor, input.fileIds()); entity.files(input.fileIds()); }
         return view(settings.saveAndFlush(entity));
     }
@@ -57,7 +64,9 @@ public class ChatProjectService {
         var entity = owned(tenant, actor, id, true); validate(input);
         if (entity.revision() != revision) throw ChatException.conflict();
         if (input.fileIds() != null) { files.admit(tenant, actor, input.fileIds()); entity.files(input.fileIds()); }
-        entity.update(input.name().strip(), input.description(), input.instructions()); settings.flush(); return view(entity);
+        entity.update(input.name().strip(), input.description(), input.instructions(),
+                input.iconName() == null ? entity.iconName() : icon(input.iconName()));
+        settings.flush(); return view(entity);
     }
     @Transactional
     public void delete(ActorId actor, UUID id, long revision) {
@@ -101,6 +110,10 @@ public class ChatProjectService {
     private static void validate(ProjectInput input) {
         ChatPersonaService.text(input.name(), 200, true); ChatPersonaService.text(input.description(), 2000, false);
         ChatPersonaService.text(input.instructions(), 32000, false);
+        if (input.iconName() != null && !input.iconName().matches("[a-z0-9-]{1,40}")) throw ChatException.invalid("Invalid icon.");
     }
-    private static ProjectView view(ProjectEntity p) { return new ProjectView(p.id(), p.name(), p.description(), p.instructions(), p.revision(), p.updatedAt(), p.fileIds()); }
+    private static @Nullable String icon(@Nullable String iconName) {
+        return iconName == null || iconName.isBlank() ? null : iconName;
+    }
+    private static ProjectView view(ProjectEntity p) { return new ProjectView(p.id(), p.name(), p.description(), p.instructions(), p.revision(), p.updatedAt(), p.fileIds(), p.iconName()); }
 }

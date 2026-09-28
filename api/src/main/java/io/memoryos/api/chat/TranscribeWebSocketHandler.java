@@ -1,10 +1,10 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.BusinessException;
-import io.memoryos.chat.voice.Transcript;
-import io.memoryos.chat.voice.TranscriptionSession;
-import io.memoryos.chat.voice.VoiceTranscriptionService;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.voice.Transcript;
+import io.memoryos.voice.TranscriptionSession;
+import io.memoryos.voice.VoiceTranscriptionService;
+import io.memoryos.shared.ActorId;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,6 +15,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,7 @@ import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorato
  * or duration bound, so this socket adds both. Transcripts and audio are never logged.
  */
 @Component
+@NullMarked
 class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements DisposableBean {
     static final String PATH = "/api/chat/voice/transcribe/stream";
     static final int MAX_BINARY_FRAME = 64 * 1024;

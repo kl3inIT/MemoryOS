@@ -1,5 +1,5 @@
 import type { ReactNode, Ref } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, type RegisteredRouter, type ValidateLinkOptions } from "@tanstack/react-router";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,23 +8,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { PageHeader } from "@/components/ui/settings-layout";
+import { PageHeader } from "@/components/composites/settings-layout";
 
-/**
- * The top of a detail page: the way back to the list this resource came from, then the resource itself.
- * Every detail page returns the same way, instead of a breadcrumb here and a Cancel button there.
- */
-export function DetailHeader({
-  parent,
-  backRef,
-  icon,
-  iconSize,
-  title,
-  description,
-  actions,
-}: {
-  /** The list this resource belongs to. `to` and `search` are passed straight to the router link. */
-  parent: { label: string; to: string; search?: Record<string, unknown> };
+type DetailHeaderProps<TRouter extends RegisteredRouter = RegisteredRouter, TOptions = unknown> = {
+  /** The list this resource belongs to: its label and the router link options that open it. */
+  parent: ValidateLinkOptions<TRouter, TOptions> & { label: string };
   /** Focus lands here after the resource is deleted or becomes unreadable. */
   backRef?: Ref<HTMLAnchorElement>;
   icon?: ReactNode;
@@ -33,7 +21,25 @@ export function DetailHeader({
   title?: string;
   description?: ReactNode;
   actions?: ReactNode;
-}) {
+};
+
+/**
+ * The top of a detail page: the way back to the list this resource came from, then the resource itself.
+ * Every detail page returns the same way, instead of a breadcrumb here and a Cancel button there.
+ */
+export function DetailHeader<TRouter extends RegisteredRouter, TOptions>(
+  props: DetailHeaderProps<TRouter, TOptions>,
+): ReactNode;
+export function DetailHeader({
+  parent,
+  backRef,
+  icon,
+  iconSize,
+  title,
+  description,
+  actions,
+}: DetailHeaderProps): ReactNode {
+  const { label, ...link } = parent;
   return (
     <>
       <Breadcrumb>
@@ -41,13 +47,11 @@ export function DetailHeader({
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
               <Link
+                {...link}
                 ref={backRef}
-                // The router types every known route; a shared composite takes the path as given.
-                to={parent.to as never}
-                search={parent.search as never}
-                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="rounded-sm focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
               >
-                {parent.label}
+                {label}
               </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
@@ -55,7 +59,7 @@ export function DetailHeader({
             <>
               <BreadcrumbSeparator />
               <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="truncate">{title}</BreadcrumbPage>
+                <BreadcrumbPage>{title}</BreadcrumbPage>
               </BreadcrumbItem>
             </>
           ) : null}

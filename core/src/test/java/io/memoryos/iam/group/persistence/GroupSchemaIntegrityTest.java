@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamCapability;
 
 import java.util.Set;
 import java.util.UUID;
@@ -15,7 +15,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.iam.group.persistence.GroupEntity;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class GroupSchemaIntegrityTest {

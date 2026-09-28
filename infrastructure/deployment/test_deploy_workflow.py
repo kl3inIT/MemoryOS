@@ -44,7 +44,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             WORKFLOW.index("deploy '$RELEASE' '$DEPLOY_ENVIRONMENT' '$GITHUB_ACTOR'"),
             WORKFLOW.index("finish '$RELEASE'"),
         )
-        for guard in ("pg_dump", "pg_restore --list", "flock --nonblock", '--no-deps --pull never --wait', '.State.Health.Status == "healthy"', '.Image == $image', 'org.opencontainers.image.revision'):
+        for guard in ("pg_dump", "pg_restore --list", "flock --nonblock", '--no-deps --pull never --force-recreate --wait', '.State.Health.Status == "healthy"', '.Image == $image', 'org.opencontainers.image.revision'):
             self.assertIn(guard, SCRIPT)
 
     def test_failure_reports_without_automatic_rollback(self):
@@ -57,16 +57,19 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             self.assertIn("cancel-in-progress: false", caller)
 
     def test_manual_finish_keeps_exact_selection_and_server_ownership_guard(self):
-        rollout_id = WORKFLOW.index("id: rollout")
-        rollout_start = WORKFLOW.rfind("- name:", 0, rollout_id)
-        recovery_start = WORKFLOW.rfind("- name:", 0, rollout_start)
-        recovery = WORKFLOW[recovery_start:rollout_start]
+        recovery_start = WORKFLOW.index("- name: Finish only the explicitly selected healthy recovery")
+        recovery = WORKFLOW[recovery_start:WORKFLOW.index("- name:", recovery_start + 1)]
         self.assertIn("inputs.recovery_release != ''", recovery)
         self.assertIn('[[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}', recovery)
         self.assertIn("finish '$RECOVERY_RELEASE'", recovery)
         finish = SCRIPT.split('elif [[ "$mode" == finish ]]', 1)[1]
         self.assertLess(finish.index('"$(cat "$state/pending")" == "$release"'), finish.index("verify_runtime"))
         self.assertLess(finish.index("verify_runtime"), finish.index('rm -- "$state/pending"'))
+
+    def test_a_failure_reports_its_line_and_command(self):
+        # The trap is set before the first assertion so no refusal is silent.
+        self.assertIn("set -Eeuo pipefail\n"
+                      "trap 'echo \"deploy.sh: failed at line $LINENO: $BASH_COMMAND\" >&2' ERR\n", SCRIPT)
 
     def test_environment_selects_configuration_instead_of_being_hardcoded(self):
         # One script serves both environments; forking it would let the two drift apart.
@@ -140,11 +143,13 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
         self.assertIn("name: candidate-interpreter", CI_WORKFLOW)
         self.assertIn("docker load --input candidate/interpreter.tar", publish)
-        self.assertIn("for component in api worker web interpreter interpreter-executor; do", publish)
+        self.assertIn("for component in api worker web interpreter interpreter-executor keycloak; do", publish)
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
-        self.assertIn("images=(api worker web interpreter interpreter-executor)", SCRIPT)
-        self.assertIn('[[ $(wc -l < "$tx/images.env") == 6 ]]', SCRIPT)
+        self.assertIn("images=(api worker web interpreter interpreter-executor keycloak)", SCRIPT)
+        # images.env holds one line per image plus the release; the count follows the list.
+        self.assertIn('[[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]]', SCRIPT)
+        self.assertNotIn('== 7 ]]', SCRIPT)
         deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
         # The executor is not a Compose service: pull it with the job-scoped credentials before reserving.
         self.assertLess(deploy.index("docker login ghcr.io"), deploy.index("docker pull --quiet"))
@@ -153,14 +158,156 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn('has_interpreter "$state/current.env"', deploy)
         self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
 
-    def test_release_contract_has_no_model_serving(self):
-        # Managed model serving was removed until a qualified environment exists (MEM-77).
+    def test_keycloak_joins_the_release_only_where_the_host_leaves_it_to_the_release(self):
+        backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
+        self.assertIn("context: infrastructure/keycloak", backend)
+        self.assertIn("infrastructure/keycloak/smoke-test-image.sh", backend)
+        self.assertIn('"memoryos-keycloak:sha-$GITHUB_SHA"', backend)
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # Staging names the OrgMemory image in its environment file; the release must not override it.
+        strip = deploy.index('sed -i "/^$(image_key keycloak)=/d" "$tx/candidate.env"')
+        self.assertLess(deploy.index('cp "$tx/images.env" "$tx/candidate.env"'), strip)
+        self.assertIn('grep -q "^$(image_key keycloak)=" "$environment_file"', deploy)
+        # A Keycloak started by hand carries another revision; it joins the capture only once a release put it there.
+        self.assertIn('has_keycloak "$state/current.env"', deploy)
+        # Its database is dumped before a Keycloak that may migrate it starts.
+        self.assertLess(deploy.index('-d keycloak -Fc'), deploy.index("target=candidate; rollout"))
+        rollout = SCRIPT.split("rollout() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertLess(rollout.index("keycloak"), rollout.index(" api"))
+        rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
+        self.assertNotIn("stop --timeout 45 keycloak", rollback)
+
+    def test_the_release_source_is_readable_and_nothing_else_is(self):
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # Services started from the release's Compose files read its scripts as their own users;
+        # a root-only source is how Keycloak lost its theme and the host kept a hand-made copy.
+        extract = deploy.index('tar --extract --file "$tx/configuration.tar"')
+        self.assertLess(extract, deploy.index('chmod -R u=rwX,go=rX "$tx/source"'))
+        self.assertIn('chmod o+x "$state" "$tx"', deploy)
+        # Environment copies, dumps and state files are still created under this mask.
+        self.assertIn("\numask 077\n", SCRIPT)
+        self.assertNotRegex(SCRIPT, r"chmod[^\n]*(\.env|\.dump|pending|current)")
+
+    def test_only_production_rolls_out_the_serving_node(self):
+        # The serving node (MEM-192) holds production's GPU services. Staging has none, the release
+        # builds nothing for it, and the application host's script never reaches it.
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
         for text in (WORKFLOW, publish, SCRIPT):
-            self.assertNotIn("serving", text)
             self.assertNotIn("inference", text)
+        for text in (publish, SCRIPT):
+            self.assertNotIn("serving", text)
+        start = WORKFLOW.index("- name: Roll out the serving node")
+        step = WORKFLOW[start:WORKFLOW.index("- name:", start + 1)]
+        self.assertIn("inputs.environment == 'production'", step)
+        self.assertIn("ProxyJump deploy-target", step)
+        self.assertIn("StrictHostKeyChecking yes", step)
+        self.assertLess(start, WORKFLOW.index("id: rollout"), "the worker starts against a serving node already rolled out")
+        # The step's own leading comment belongs to it.
+        outside = WORKFLOW[:WORKFLOW.rfind("\n\n", 0, start)] + WORKFLOW[WORKFLOW.index("- name:", start + 1):]
+        self.assertEqual(["serving-key"], sorted(set(re.findall(r"serving[\w-]*", outside))))
         self.assertIn("sha256sum configuration.tar images.env > SHA256SUMS", publish)
         self.assertIn("{manifest.json,configuration.tar,images.env,SHA256SUMS}", SCRIPT)
+
+    def test_the_serving_firewall_guards_docker_without_being_restarted_by_a_deployment(self):
+        deployment = ROOT / "infrastructure/deployment"
+        unit = (deployment / "systemd/memoryos-serving-firewall.service").read_text(encoding="utf-8")
+        directives = [line.strip() for line in unit.splitlines() if line.strip() and not line.startswith("#")]
+        # At boot the rule exists before any container publishes a port, and a failed rule keeps Docker down.
+        self.assertIn("Before=docker.service", directives)
+        self.assertIn("RequiredBy=docker.service", directives)
+        for directive in directives:
+            self.assertNotRegex(directive, r"^(After|Requires|PartOf|WantedBy)=.*docker")
+        serving = (deployment / "deploy-serving.sh").read_text(encoding="utf-8")
+        # Docker requires the unit, so restarting it would restart every container.
+        self.assertNotRegex(serving, r"systemctl\s+(re)?start\s+memoryos-serving-firewall")
+        applied = serving.index('/usr/local/sbin/memoryos-serving-firewall "$allowed" "${ports[@]}"')
+        checked = serving.index("A published port is missing from MEMORYOS_SERVING_PORTS")
+        self.assertLess(checked, applied, "a port the firewall would not filter stops the deployment first")
+        self.assertLess(checked, serving.index("compose up"))
+        self.assertLess(applied, serving.index("compose up"), "the rule is current before containers publish")
+        # Images are pinned by digest; one already present is not fetched again from its registry.
+        self.assertIn("compose pull --quiet --policy missing", serving)
+
+    def test_the_embedding_service_is_pinned_private_filtered_and_keyed_from_a_file(self):
+        # MEM-135: TEI serves Qwen3-Embedding-4B to the api and worker from the serving node.
+        deployment = ROOT / "infrastructure/deployment"
+        compose = (deployment / "compose.serving.yaml").read_text(encoding="utf-8")
+        environment = (deployment / "serving.env.example").read_text(encoding="utf-8")
+        serving = (deployment / "deploy-serving.sh").read_text(encoding="utf-8")
+        services = compose.split("\nservices:\n", 1)[1].split("\nvolumes:\n", 1)[0]
+
+        def block(name):
+            return re.search(r"\n  %s:\n(.*?)(?=\n  [a-z-]+:\n|\Z)" % re.escape(name), "\n" + services, re.S).group(1)
+
+        tei, download = block("tei"), block("tei-model-download")
+        # Every image on the node is pinned by digest, the embedding server and its downloader included.
+        for image in re.findall(r"image: \$\{[A-Z_]+:-([^}]+)\}", compose):
+            self.assertRegex(image, r"@sha256:[0-9a-f]{64}$", image)
+        self.assertIn("text-embeddings-inference:89-1.9.4@sha256:"
+                      "1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2", tei)
+        # The model is one pinned revision downloaded once; TEI itself never reaches Hugging Face.
+        self.assertIn("MODEL_REVISION: 5cf2132abc99cad020ac570b19d031efec650f2b", download)
+        self.assertIn('restart: "no"', download)
+        self.assertRegex(tei, r"tei-model-download:\n\s+condition: service_completed_successfully")
+        self.assertIn('HF_HUB_OFFLINE: "1"', tei)
+        self.assertIn("tei-models:/models:ro", tei)
+        # The served name is what /v1/embeddings reports, which the embedding client checks against its generation.
+        for flag in ("--max-client-batch-size 32", "--auto-truncate", "--port 8080", "--served-model-name Qwen/Qwen3-Embedding-4B"):
+            self.assertIn(flag, tei)
+        self.assertIn("memory: ${MEMORYOS_TEI_MEMORY_LIMIT:-6g}", tei)
+        # Published on the private address only, on a port the firewall filters.
+        published = re.findall(r"- (\$\{[^}]+\}):\$\{MEMORYOS_TEI_PORT:-(\d+)\}:8080", tei)
+        self.assertEqual([("${MEMORYOS_SERVING_PRIVATE_ADDRESS:?the serving node private address}", "18090")], published)
+        ports = re.search(r"(?m)^MEMORYOS_SERVING_PORTS=(.*)$", environment).group(1).split()
+        for port in re.findall(r"_PORT:-(\d+)\}:", compose):
+            self.assertIn(port, ports, "every published port is one the firewall filters")
+        self.assertIn("MEMORYOS_TEI_PORT=18090", environment)
+        # The key is a file on the node that reaches TEI as a variable, never as an argument ps shows.
+        self.assertIn("/apps/memoryos-serving/secrets/tei/api-key.txt", compose)
+        self.assertIn('API_KEY="$$(cat /run/secrets/tei_api_key)"', tei)
+        self.assertNotIn("--api-key", compose)
+        # The health check fails when the server stops refusing a request without the key.
+        self.assertIn('/v1/embeddings)" = 401', tei)
+        # A missing key file stops the rollout before anything starts, and only its path is printed.
+        checked = serving.index("Missing Compose secret file: $file")
+        self.assertLess(checked, serving.index("compose up"))
+        self.assertLess(checked, serving.index('/usr/local/sbin/memoryos-serving-firewall "$allowed"'))
+        # The exited one-shot download counts only when it succeeded; every other service must be healthy.
+        self.assertIn('.Service == "tei-model-download" and .State == "exited" and .ExitCode == 0', serving)
+        self.assertNotRegex(serving, r"cat [^\n]*secret")
+        self.assertNotIn("set -x", serving)
+
+    def test_one_release_from_two_transactions_is_not_a_mixed_runtime(self):
+        # Staging, 2026-09-23: redeploying the running release recreated only the api; worker, web and
+        # interpreter kept the earlier transaction's labels and every later deployment stopped here.
+        rollout = SCRIPT.split("rollout() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertEqual(rollout.count("compose up -d"), rollout.count("--force-recreate"))
+        program = SCRIPT.split("--argjson count \"${#previous_components[@]}\" '", 1)[1].split("\n    ')", 1)[0]
+        jq = shutil.which("jq")
+        if jq is None:
+            self.skipTest("jq is required to run the runtime check")
+
+        def container(name, transaction, revision="c" * 40, health="healthy"):
+            files = ",".join(f"/apps/memoryos/deployments/{transaction}/source/infrastructure/deployment/{file}"
+                             for file in ("compose.base.yaml", "compose.staging.yaml"))
+            return {"Name": "/memoryos-" + name, "Image": "sha256:" + "0" * 64,
+                    "State": {"Running": True, "Health": {"Status": health}},
+                    "Config": {"Labels": {"org.opencontainers.image.revision": revision,
+                                          "com.docker.compose.project.config_files": files}}}
+
+        def check(runtime):
+            return subprocess.run([jq, "--exit-status", "--argjson", "count", str(len(runtime)), program],
+                                  input=json.dumps(runtime), capture_output=True, text=True)
+
+        two_transactions = [container("api", "c-2-1"), container("worker", "c-1-1"), container("web", "c-1-1")]
+        self.assertEqual(0, check(two_transactions).returncode)
+        mixed_release = [container("api", "c-2-1"), container("worker", "c-1-1", revision="d" * 40), container("web", "c-1-1")]
+        self.assertIn("Unhealthy or mixed runtime", check(mixed_release).stderr)
+        unhealthy = [container("api", "c-2-1"), container("worker", "c-2-1", health="starting"), container("web", "c-2-1")]
+        self.assertIn("Unhealthy or mixed runtime", check(unhealthy).stderr)
+        other_files = two_transactions[:2] + [container("web", "c-1-1")]
+        other_files[2]["Config"]["Labels"]["com.docker.compose.project.config_files"] += ",/elsewhere/compose.yaml"
+        self.assertIn("Unhealthy or mixed runtime", check(other_files).stderr)
 
     def test_interpreter_is_reachable_only_on_the_internal_network(self):
         compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
@@ -188,8 +335,10 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertRegex(interpreter, r"cap_add:\n\s+- DAC_OVERRIDE")
         self.assertIn("MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key", api)
         self.assertIn("- interpreter_api_key", api)
+        # The launcher reads any MEMORYOS_<NAME>_FILE rather than naming this key; that behaviour is
+        # exercised in test_launcher_secret_files.py.
         launcher = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
-        self.assertIn('MEMORYOS_INTERPRETER_API_KEY=$(cat "$MEMORYOS_INTERPRETER_API_KEY_FILE")', launcher)
+        self.assertIn('export "${secret_variable%_FILE}=$secret_value"', launcher)
 
 
 @unittest.skipUnless(os.name == "posix" and all(shutil.which(tool) for tool in ("bash", "flock", "jq")),
@@ -251,6 +400,9 @@ if args[:2] == ["image", "inspect"]:
     print(args[-1])
 elif args[0] == "inspect":
     print(json.dumps([json.loads((root / "runtime.json").read_text())[args[1]]]))
+elif args[:2] == ["exec", "memoryos-postgres"] and any("to_regclass" in arg for arg in args):
+    # Whether Flyway has run here: a database with no recorded migration has no history table.
+    print("t" if (root / "schema").read_text().strip() else "f")
 elif args[:2] == ["exec", "memoryos-postgres"]:
     print((root / "schema").read_text(), end="")
 elif args[0] == "compose":
@@ -285,7 +437,15 @@ else:
     def test_an_unknown_environment_is_refused_before_any_runtime_call(self):
         result = self.operate("finish", environment="prod")
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unknown environment: prod", result.stderr)
         self.assertEqual(self.docker_calls(), [])
+
+    def test_an_unexpected_failure_names_its_line_and_command(self):
+        # A failing Docker call is not one of the named assertions; the ERR trap still says where it stopped.
+        self.set_runtime(unhealthy="web")
+        result = self.operate("finish")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertRegex(result.stderr, r"deploy\.sh: failed at line [0-9]+: ")
         self.assertTrue(self.pending.exists())
 
     def docker_calls(self):

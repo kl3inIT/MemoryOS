@@ -1,8 +1,8 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.chat.contract.VoiceTicketPurpose;
-import io.memoryos.chat.voice.VoiceSynthesisService;
-import io.memoryos.chat.voice.VoiceTranscriptionService;
+import io.memoryos.voice.VoiceSynthesisService;
+import io.memoryos.voice.VoiceTranscriptionService;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;

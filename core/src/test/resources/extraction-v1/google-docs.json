@@ -1,0 +1,26 @@
+{"schema":"memoryos-extraction-v1","source":{"format":"GOOGLE_DOCS"},"documentProperties":{"documentId":"doc1","title":"Quy chế"},"tabs":[{"properties":{"tabId":"t.0","title":"Chính"}}],"blocks":[
+{"index":0,"kind":"HEADING","provenance":{"tabId":"t.0","section":"body","startIndex":1,"endIndex":10},"paragraphStyle":{"namedStyleType":"HEADING_2"},"elements":[],"headingStyle":"HEADING_2","text":"Quy chế\n"},
+{"index":1,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"body","startIndex":10,"endIndex":40},"paragraphStyle":{"namedStyleType":"NORMAL_TEXT"},"elements":[],"text":"Áp dụng cho toàn bộ nhân viên.\n"},
+{"index":2,"kind":"SECTION_BREAK","provenance":{"tabId":"t.0","section":"body","startIndex":40,"endIndex":41},"element":{"sectionBreak":{}}},
+{"index":3,"kind":"LIST_ITEM","provenance":{"tabId":"t.0","section":"body","startIndex":41,"endIndex":60},"bullet":{"listId":"list1"},"elements":[],"text":"Nghỉ phép 12 ngày\n"},
+{"index":4,"kind":"TABLE","provenance":{"tabId":"t.0","section":"body","startIndex":60,"endIndex":200},"table":{"rowCount":2,"columnCount":2,"coordinateBase":0,"cells":[
+ {"row":0,"column":0,"rowSpan":1,"columnSpan":1,"style":{},"provenance":{"tabId":"t.0","section":"body","startIndex":61,"endIndex":70},"blocks":[
+  {"index":0,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"body/table/0/0","startIndex":62,"endIndex":70},"elements":[],"text":"Chức danh\n"}]},
+ {"row":0,"column":1,"rowSpan":1,"columnSpan":1,"style":{},"provenance":{"tabId":"t.0","section":"body","startIndex":70,"endIndex":80},"blocks":[
+  {"index":0,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"body/table/0/1","startIndex":71,"endIndex":80},"elements":[],"text":"Mức phụ cấp\n"}]},
+ {"row":1,"column":0,"rowSpan":1,"columnSpan":1,"style":{},"provenance":{"tabId":"t.0","section":"body","startIndex":80,"endIndex":100},"blocks":[
+  {"index":0,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"body/table/1/0","startIndex":81,"endIndex":90},"elements":[],"text":"Trưởng phòng\n"},
+  {"index":1,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"body/table/1/0","startIndex":90,"endIndex":100},"elements":[],"text":"Phó phòng\n"}]},
+ {"row":1,"column":1,"rowSpan":1,"columnSpan":1,"style":{},"provenance":{"tabId":"t.0","section":"body","startIndex":100,"endIndex":199},"blocks":[
+  {"index":0,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"body/table/1/1","startIndex":101,"endIndex":110},"elements":[],"text":"Xem bảng dưới\n"},
+  {"index":1,"kind":"TABLE","provenance":{"tabId":"t.0","section":"body/table/1/1","startIndex":110,"endIndex":198},"table":{"rowCount":1,"columnCount":2,"coordinateBase":0,"cells":[
+   {"row":0,"column":0,"rowSpan":1,"columnSpan":1,"style":{},"provenance":{"tabId":"t.0","section":"body/table/1/1","startIndex":111,"endIndex":130},"blocks":[
+    {"index":0,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"body/table/1/1/table/0/0","startIndex":112,"endIndex":130},"elements":[],"text":"Hà Nội\n"}]},
+   {"row":0,"column":1,"rowSpan":1,"columnSpan":1,"style":{},"provenance":{"tabId":"t.0","section":"body/table/1/1","startIndex":130,"endIndex":197},"blocks":[
+    {"index":0,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"body/table/1/1/table/0/1","startIndex":131,"endIndex":197},"elements":[],"text":"2.000.000 đồng\n"}]}
+  ]}}]}
+]}},
+{"index":5,"kind":"STRUCTURAL_ELEMENT","provenance":{"tabId":"t.0","section":"body","startIndex":200},"element":{}},
+{"index":6,"kind":"HEADING","provenance":{"tabId":"t.0","section":"headers/kix.h1","startIndex":0,"endIndex":8},"elements":[],"headingStyle":"TITLE","text":"Đầu trang\n"},
+{"index":7,"kind":"PARAGRAPH","provenance":{"tabId":"t.0","section":"footnotes/kix.f1","startIndex":0,"endIndex":20},"elements":[],"text":"Chú thích cuối trang.\n"}
+]}

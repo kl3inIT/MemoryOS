@@ -5,27 +5,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.SourceSearchService;
-import io.memoryos.connector.application.DefaultSourceDocumentAccessResolver;
-import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
+import io.memoryos.connector.source.DefaultSourceDocumentAccessResolver;
+import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentChunkRepository;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.DefaultIamAuthorization;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -124,15 +129,15 @@ class SearchAuthorizationCostMeasurementTest {
     /** Same bytes as PostgreSQL {@code md5('doc'||n)::uuid}, without UUID version bits. */
     private static UUID document(int index) {
         try {
-            var hash = java.nio.ByteBuffer.wrap(java.security.MessageDigest.getInstance("MD5")
-                    .digest(("doc" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            var hash = ByteBuffer.wrap(MessageDigest.getInstance("MD5")
+                    .digest(("doc" + index).getBytes(StandardCharsets.UTF_8)));
             return new UUID(hash.getLong(), hash.getLong());
-        } catch (java.security.NoSuchAlgorithmException impossible) {
+        } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);
         }
     }
 
-    private static String measure(String name, java.util.function.Supplier<?> operation) {
+    private static String measure(String name, Supplier<?> operation) {
         for (int i = 0; i < WARMUP; i++) operation.get();
         long[] samples = new long[ITERATIONS];
         for (int i = 0; i < ITERATIONS; i++) {
@@ -186,6 +191,10 @@ class SearchAuthorizationCostMeasurementTest {
                 """
                 INSERT INTO documents(id,tenant_id,status,title,content_generation,searchable_generation,search_index_identity)
                 SELECT md5('doc'||d)::uuid, :tenant, 'ELIGIBLE', 'Document '||d, md5('gen'||d)::uuid, md5('gen'||d)::uuid, 'space'
+                FROM generate_series(1,:documents) d""",
+                """
+                INSERT INTO document_search_projection(tenant_id,document_id,index_identity,generation)
+                SELECT :tenant, md5('doc'||d)::uuid, 'space', md5('gen'||d)::uuid
                 FROM generate_series(1,:documents) d""",
                 """
                 INSERT INTO documents_by_connector_credential_pair(tenant_id,connector_id,connector_credential_pair_id,document_id,connector_item_id,retrieval_eligible)

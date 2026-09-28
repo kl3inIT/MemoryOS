@@ -8,10 +8,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.memoryos.TestDatabase;
 import io.memoryos.chat.ChatException;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
@@ -23,13 +25,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class InterpreterServiceSpreadsheetTest {
     private final JdbcInterpreterRepository repository = mock(JdbcInterpreterRepository.class);
     private final TenantAccessResolver tenants = mock(TenantAccessResolver.class);
     private final ObjectStorage storage = mock(ObjectStorage.class);
     private final InterpreterService service = new InterpreterService(repository, null, null, tenants, null,
-            storage, null, null, null, io.memoryos.TestDatabase.noAudit());
+            storage, null, null, null, TestDatabase.noAudit());
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final UUID id = UUID.randomUUID();
@@ -38,7 +41,7 @@ class InterpreterServiceSpreadsheetTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         var key = new ObjectKey("raw/chart");
         when(repository.ownedArtifact(tenant, actor, id)).thenReturn(Optional.of(
-                new JdbcInterpreterRepository.Artifact(key, "chart.png", "image/png")));
+                new InterpreterArtifact(key, "chart.png", "image/png")));
         var closed = new AtomicBoolean();
         when(storage.open(key)).thenReturn(content(closed));
 
@@ -49,7 +52,7 @@ class InterpreterServiceSpreadsheetTest {
         // Another owner's file never reaches storage.
         when(repository.ownedArtifact(tenant, actor, id)).thenReturn(Optional.empty());
         assertThrows(ChatException.class, () -> service.spreadsheet(actor, id));
-        verify(storage, org.mockito.Mockito.times(1)).open(any());
+        verify(storage, Mockito.times(1)).open(any());
     }
 
     private static ObjectContent content(AtomicBoolean closed) {

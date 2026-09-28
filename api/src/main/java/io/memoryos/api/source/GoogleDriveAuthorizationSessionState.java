@@ -1,9 +1,12 @@
 package io.memoryos.api.source;
 
-import io.memoryos.connector.GoogleDriveAuthorizationService.Preparation;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.iam.identity.IdentityContext;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.connector.GoogleDriveAccountClient.Consent;
+import io.memoryos.connector.GoogleDriveAuthorizationService.Preparation;
+import io.memoryos.connector.SourceException;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.shared.Sha256;
+import io.memoryos.shared.TenantId;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.Serial;
 import java.io.Serializable;
@@ -13,6 +16,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -27,7 +31,7 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
     public static GoogleDriveAuthorizationSessionState start(HttpServletRequest request, IdentityContext identity, Preparation preparation) {
         var session = request.getSession(false);
         if (session == null || !actorMatches(request, identity.actorId().value())) {
-            throw io.memoryos.connector.SourceException.invalid("Google authorization requires your existing browser session.", "OAuth requires matching Actor session");
+            throw SourceException.invalid("Google authorization requires your existing browser session.", "OAuth requires matching Actor session");
         }
         var pending = new GoogleDriveAuthorizationSessionState(identity.actorId().value(), preparation.tenantId().value(),
                 preparation.name(), preparation.credentialId() == null ? null : preparation.credentialId().value(),
@@ -53,9 +57,13 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
                 consentId, oauthClientSnapshot);
     }
 
+    /** What the consent URL carries: this flow's state, nonce and S256 code challenge, never the verifier. */
+    public Consent consent() {
+        return new Consent(state, nonce, challenge());
+    }
+
     public String challenge() {
-        try { return Base64.getUrlEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII))); }
-        catch (java.security.NoSuchAlgorithmException exception) { throw new IllegalStateException("SHA-256 unavailable", exception); }
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(Sha256.digest(verifier.getBytes(StandardCharsets.US_ASCII)));
     }
 
     static boolean equal(String expected, String supplied) {
@@ -66,7 +74,7 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
         var session = request.getSession(false);
         if (session == null || !(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) instanceof SecurityContext context)
                 || context.getAuthentication() == null || !context.getAuthentication().isAuthenticated()) return false;
-        return context.getAuthentication().getPrincipal() instanceof IdentityContext identity && identity.actorId().value().equals(actorId);
+        return context.getAuthentication().getPrincipal() instanceof IdentityContext(var actor) && actor.value().equals(actorId);
     }
 
     private static String random() {
@@ -74,5 +82,5 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    @Override public String toString() { return "GoogleDriveAuthorizationSessionState[redacted]"; }
+    @Override public @NonNull String toString() { return "GoogleDriveAuthorizationSessionState[redacted]"; }
 }

@@ -18,9 +18,8 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.ExtractionArtifactPort;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationWorkload;
@@ -30,6 +29,7 @@ import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.objectstorage.StoredObjectRegistry;
+import io.memoryos.shared.TenantId;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tag;
@@ -45,6 +45,7 @@ import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -115,7 +116,7 @@ class DefaultIngestionCoordinatorTest {
         assertOutcome("INGESTION", "FAILED");
         assertWait("INGESTION", 1);
         verify(indexing).fail(eq(work), eq("SOURCE_EXTRACTION_" + failure.name()), eq("test failure"), any());
-        verify(indexing, Mockito.never()).retry(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), any());
+        verify(indexing, Mockito.never()).retry(any(), any(), any(), any(), ArgumentMatchers.anyInt(), any());
         verify(content).close();
         verify(renewal).cancel(false);
     }

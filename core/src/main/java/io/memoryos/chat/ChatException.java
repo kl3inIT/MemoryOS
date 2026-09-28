@@ -26,12 +26,6 @@ public final class ChatException extends BusinessException {
         return new ChatException("CHAT_CONFLICT", FailureCategory.CONFLICT, "Chat changed or has an active reply.");
     }
 
-    /** The owner's file library is at its storage limit; the caller's own numbers say by how much. */
-    public static ChatException storageFull(long usedBytes, long limitBytes) {
-        return new ChatException("CHAT_STORAGE_FULL", FailureCategory.CONFLICT,
-                "The file library is full: " + usedBytes + " of " + limitBytes + " bytes are used.");
-    }
-
     public static ChatException busy() {
         return new ChatException("CHAT_CAPACITY_EXCEEDED", FailureCategory.SERVICE_UNAVAILABLE, "Chat is busy. Retry later.");
     }
@@ -42,21 +36,6 @@ public final class ChatException extends BusinessException {
     }
 
     /** The selected model cannot run Deep research: it lacks tool calling or the minimum context window. */
-    public static ChatException providerCredentialRejected() {
-        return new ChatException("CHAT_PROVIDER_CREDENTIAL_REJECTED", FailureCategory.VALIDATION,
-                "The provider rejected the API key.");
-    }
-
-    public static ChatException providerUnreachable() {
-        return new ChatException("CHAT_PROVIDER_UNREACHABLE", FailureCategory.SERVICE_UNAVAILABLE,
-                "The provider endpoint could not be reached.");
-    }
-
-    public static ChatException providerIncompatible() {
-        return new ChatException("CHAT_PROVIDER_INCOMPATIBLE", FailureCategory.VALIDATION,
-                "The endpoint did not answer as an OpenAI-compatible API.");
-    }
-
     public static ChatException researchModelUnsupported() {
         return new ChatException("CHAT_RESEARCH_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
                 "The selected model cannot run Deep research.");
@@ -66,6 +45,12 @@ public final class ChatException extends BusinessException {
     public static ChatException researchUnavailable() {
         return new ChatException("CHAT_RESEARCH_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
                 "Deep research is not available.");
+    }
+
+    /** MEM-195: answers from documents only need a model that can be made to search first. */
+    public static ChatException groundedModelUnsupported() {
+        return new ChatException("CHAT_GROUNDED_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
+                "The selected model cannot answer from the organization's documents only.");
     }
 
     /** Web search was requested but this Tenant has no usable Web connection or a tool-capable model. */

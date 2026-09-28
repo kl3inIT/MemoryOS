@@ -4,7 +4,7 @@ import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Isolation;
@@ -119,47 +120,112 @@ public class JdbcDocumentChunkRepository {
                 h.userFileId() == null ? null : UUID.fromString(h.userFileId())));
     }
 
+    /**
+     * An index is served unless it belongs to a search generation that is not PRESENT (the FUTURE being rebuilt or a
+     * retained PAST one). Before the first generation is seeded the only index is the served one.
+     */
+    private static final String SERVED = """
+            NOT EXISTS (SELECT 1 FROM search_settings s WHERE s.index_identity=:identity AND s.status<>'PRESENT')
+            """;
+
+    /**
+     * Records the generation as complete in the index with the chunk count written there. {@code
+     * document_search_projection} holds readiness per index, so a document can be ready in one generation's index
+     * while another is being built. The columns on {@code documents} keep the served generation that Source status
+     * and retention read, so only the served index writes them.
+     */
     public boolean markReady(TenantId tenant, DocumentId document, UUID generation, String identity) {
-        return jdbc.sql("""
-                UPDATE documents SET searchable_generation=:generation,search_index_identity=:identity,search_error_code=NULL
+        var count = jdbc.sql("""
+                SELECT chunk_count FROM documents
                 WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation
                     AND chunk_generation=:generation AND chunk_count>0 AND status='ELIGIBLE'
+                FOR UPDATE
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
-                .param("identity", identity).update() == 1;
+                .query(Integer.class).optional();
+        if (count.isEmpty()) return false;
+        jdbc.sql("""
+                UPDATE documents SET searchable_generation=:generation,search_index_identity=:identity,search_error_code=NULL
+                WHERE tenant_id=:tenant AND id=:document AND\s""" + SERVED)
+                .param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .param("identity", identity).update();
+        jdbc.sql("""
+                INSERT INTO document_search_projection(tenant_id,document_id,index_identity,generation,chunk_count)
+                VALUES (:tenant,:document,:identity,:generation,:count)
+                ON CONFLICT (tenant_id,document_id,index_identity)
+                DO UPDATE SET generation=EXCLUDED.generation,chunk_count=EXCLUDED.chunk_count,ready_at=CURRENT_TIMESTAMP
+                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .param("identity", identity).param("count", count.orElseThrow()).update();
+        return true;
     }
 
     /**
-     * Records the state of the current content generation. Readiness is withdrawn only when that generation is the one
-     * being served (projection repair); a pending or failed replacement leaves the previous ready generation searchable.
+     * Points every document's served generation at the one ready in the index, or at none when the index does not
+     * hold the document; runs when the index's generation becomes PRESENT.
      */
-    public void searchState(TenantId tenant, DocumentId document, UUID generation, String error) {
+    public void serve(String identity) {
+        jdbc.sql("""
+                UPDATE documents d SET searchable_generation=p.generation,search_index_identity=p.index_identity,search_error_code=NULL
+                FROM document_search_projection p
+                WHERE p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
+                    AND (d.searchable_generation IS DISTINCT FROM p.generation OR d.search_index_identity IS DISTINCT FROM p.index_identity
+                        OR d.search_error_code IS NOT NULL AND p.generation=d.content_generation)
+                """).param("identity", identity).update();
+        jdbc.sql("""
+                UPDATE documents d SET searchable_generation=NULL,search_index_identity=NULL
+                WHERE d.searchable_generation IS NOT NULL AND NOT EXISTS (SELECT 1 FROM document_search_projection p
+                    WHERE p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity)
+                """).param("identity", identity).update();
+    }
+
+    /**
+     * Records the state of the current content generation in one index. Readiness is withdrawn only when that
+     * generation is the one ready there (projection repair); a pending or failed replacement leaves the previous
+     * ready generation searchable. Only the served index writes the document's columns: a rebuild beside it neither
+     * hides the document nor reports its failures on the Source.
+     */
+    public void searchState(TenantId tenant, DocumentId document, UUID generation, String error, String identity) {
         jdbc.sql("""
                 UPDATE documents SET search_error_code=:error,
                     searchable_generation=CASE WHEN searchable_generation=:generation THEN NULL ELSE searchable_generation END,
                     search_index_identity=CASE WHEN searchable_generation=:generation THEN NULL ELSE search_index_identity END
-                WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation
+                WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation AND\s""" + SERVED)
+                .param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .param("error", error, Types.VARCHAR).param("identity", identity).update();
+        jdbc.sql("""
+                DELETE FROM document_search_projection p USING documents d
+                WHERE p.tenant_id=:tenant AND p.document_id=:document AND p.generation=:generation AND p.index_identity=:identity
+                    AND d.tenant_id=p.tenant_id AND d.id=p.document_id AND d.content_generation=:generation
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
-                .param("error", error, Types.VARCHAR).update();
+                .param("identity", identity).update();
     }
 
     /** Whether the generation is the one currently served under the index identity. */
     public boolean isCurrent(TenantId tenant, DocumentId document, UUID generation, String identity) {
         return jdbc.sql("""
-                SELECT COUNT(*) FROM documents WHERE tenant_id=:tenant AND id=:document AND status='ELIGIBLE'
-                    AND searchable_generation=:generation AND search_index_identity=:identity
+                SELECT COUNT(*) FROM documents d JOIN document_search_projection p
+                    ON p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
+                WHERE d.tenant_id=:tenant AND d.id=:document AND d.status='ELIGIBLE' AND p.generation=:generation
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("identity", identity).query(Integer.class).single() == 1;
     }
 
-    public List<DocumentIndexState> scan(String identity, String after, int limit) {
-        return jdbc.sql("""
-                SELECT d.tenant_id,d.id,d.content_generation,COALESCE(d.chunk_count,0) AS chunk_count,
-                    (d.searchable_generation=d.content_generation AND d.search_index_identity=:identity) AS ready
+    /**
+     * One page of eligible documents in (Tenant, Document) order. The row-value cursor walks the unique
+     * {@code (tenant_id, id)} index of {@code documents}, so a page costs the same wherever the scan is.
+     */
+    public List<DocumentIndexState> scan(String identity, DocumentIndexState.@Nullable Cursor after, int limit) {
+        String resume = after == null ? "" : "AND (d.tenant_id,d.id) > (:afterTenant,:afterDocument)";
+        var statement = jdbc.sql("""
+                SELECT d.tenant_id,d.id,d.content_generation,
+                    COALESCE(CASE WHEN p.generation=d.content_generation THEN p.chunk_count END,d.chunk_count,0) AS chunk_count,
+                    COALESCE(p.generation=d.content_generation,FALSE) AS ready
                 FROM documents d JOIN tenants t ON t.id=d.tenant_id
-                WHERE d.status='ELIGIBLE' AND t.status='ACTIVE' AND d.extraction_artifact_id IS NOT NULL
-                    AND d.tenant_id::text || ':' || d.id::text > :after
-                ORDER BY d.tenant_id::text || ':' || d.id::text LIMIT :limit
-                """).param("identity", identity).param("after", after).param("limit", Math.clamp(limit, 1, 100))
+                LEFT JOIN document_search_projection p ON p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
+                WHERE d.status='ELIGIBLE' AND t.status='ACTIVE' AND d.extraction_artifact_id IS NOT NULL %s
+                ORDER BY d.tenant_id,d.id LIMIT :limit
+                """.formatted(resume)).param("identity", identity).param("limit", Math.clamp(limit, 1, 100));
+        if (after != null) statement = statement.param("afterTenant", after.tenantId().value()).param("afterDocument", after.documentId().value());
+        return statement
                 .query((rs, _) -> new DocumentIndexState(new TenantId(rs.getObject("tenant_id", UUID.class)),
                         new DocumentId(rs.getObject("id", UUID.class)), rs.getObject("content_generation", UUID.class),
                         rs.getInt("chunk_count"), rs.getBoolean("ready"))).list();
@@ -169,10 +235,11 @@ public class JdbcDocumentChunkRepository {
         if (documents.isEmpty()) return Map.of();
         if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var rows = jdbc.sql("""
-                SELECT id,CASE WHEN :identity='' THEN content_generation ELSE searchable_generation END AS generation
-                FROM documents WHERE tenant_id=:tenant AND id IN (:documents)
-                    AND status='ELIGIBLE' AND (:identity='' OR
-                        (searchable_generation IS NOT NULL AND search_index_identity=:identity))
+                SELECT d.id,CASE WHEN :identity='' THEN d.content_generation ELSE p.generation END AS generation
+                FROM documents d LEFT JOIN document_search_projection p
+                    ON p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
+                WHERE d.tenant_id=:tenant AND d.id IN (:documents)
+                    AND d.status='ELIGIBLE' AND (:identity='' OR p.generation IS NOT NULL)
                 """).param("tenant", tenant.value()).param("documents", documents).param("identity", readyIdentity)
                 .query((rs, _) -> Map.entry(rs.getObject("id", UUID.class), rs.getObject("generation", UUID.class))).list();
         return rows.stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -195,5 +262,5 @@ public class JdbcDocumentChunkRepository {
 
     public record ArtifactReader(TenantId tenantId, DocumentId documentId, UUID generation, UUID readerId,
             UUID artifactId, String objectKey, String hash, long size, String title, String mediaType, Instant updatedAt) { }
-    private record Header(String title, String mediaType, Instant updatedAt, int count, @org.jspecify.annotations.Nullable String userFileId) { }
+    private record Header(String title, String mediaType, Instant updatedAt, int count, @Nullable String userFileId) { }
 }

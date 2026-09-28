@@ -1,154 +1,172 @@
-import { sameOriginMutationHeaders } from "@/lib/api";
+import type { QueryClient } from "@tanstack/react-query";
 import {
-  createMeeting,
+  getMeetingMinutesHeadingQueryKey,
+  getMeetingQueryKey,
+  listMeetingCorrectionsQueryKey,
+  listMeetingsQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import {
   createMeetingTicket,
-  deleteMeeting,
   endMeeting,
-  exportMeetingMinutes,
   finalizeMeetingRecording,
-  getMeeting,
-  listMeetings,
-  listMeetingTranscribers,
-  markMeetingMinutesItem,
-  nameMeetingSpeaker,
-  publishMeetingMinutes,
-  rerunMeetingMinutes,
   reserveMeetingRecording,
-  shareMeeting as shareMeetingRequest,
-  updateMeetingNotes,
 } from "@/lib/hey-api/sdk.gen";
 import type {
-  MeetingAudio,
-  MeetingCreateRequest,
-  MeetingHeadingRequest,
+  MeetingCorrection,
+  MeetingCorrectionApplied,
   MeetingDetail,
-  MeetingMinutes,
+  MeetingHeadingRequest,
   MeetingMinutesItem,
-  MeetingReader,
+  MeetingSpeaker,
   MeetingSummary,
   MeetingTranscriber,
   MeetingUtterance,
 } from "@/lib/hey-api/types.gen";
-import { putAuthorizedObject, sha256 } from "@/features/sources/direct-upload";
+import { putAuthorizedObject, sha256 } from "@/lib/direct-upload";
+import type { NamedRef, Person } from "@/features/identity/principals";
 import type { MeetingTrack } from "./meeting-socket";
 
 export type {
-  MeetingAudio,
+  MeetingCorrection,
   MeetingDetail,
   MeetingHeadingRequest,
-  MeetingMinutes,
   MeetingMinutesItem,
-  MeetingReader,
+  MeetingSpeaker,
   MeetingSummary,
   MeetingTranscriber,
-  MeetingUtterance,
 };
 export type MeetingKind = MeetingDetail["kind"];
 
-export const meetingsKey = ["meetings"] as const;
-export const meetingKey = (id: string) => [...meetingsKey, id] as const;
+/** The cached meeting with its transcript, as the meeting page reads it. */
+export const meetingQueryKey = (meetingId: string) => getMeetingQueryKey({ path: { meetingId } });
+/** The owner's correction proposals of one meeting. */
+export const correctionsQueryKey = (meetingId: string) =>
+  listMeetingCorrectionsQueryKey({ path: { meetingId } });
+/** The biên bản heading the owner last saved for one meeting. */
+export const headingQueryKey = (meetingId: string) =>
+  getMeetingMinutesHeadingQueryKey({ path: { meetingId } });
 
-export async function loadMeetings(signal: AbortSignal): Promise<MeetingSummary[]> {
-  const { data } = await listMeetings({ signal, throwOnError: true });
-  return data;
+/** Marks the meeting list stale; a meeting's own detail, its proposals and the transcribers stay as they are. */
+export function invalidateMeetingList(cache: QueryClient) {
+  return cache.invalidateQueries({ queryKey: listMeetingsQueryKey() });
 }
 
-export async function loadMeeting(id: string, signal: AbortSignal): Promise<MeetingDetail> {
-  const { data } = await getMeeting({ path: { meetingId: id }, signal, throwOnError: true });
-  return data;
+/**
+ * Folds the part of a meeting a small change answered with into the cached meeting. The transcript is never sent
+ * back for a tick or a rename; a meeting that is not cached is read whole the next time it is shown.
+ */
+export function patchMeeting(
+  cache: QueryClient,
+  meetingId: string,
+  patch: (meeting: MeetingDetail) => MeetingDetail,
+) {
+  cache.setQueryData<MeetingDetail>(meetingQueryKey(meetingId), (current) =>
+    current ? patch(current) : current,
+  );
 }
 
-export async function startMeeting(body: MeetingCreateRequest): Promise<MeetingDetail> {
-  const { data } = await createMeeting({
-    body,
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data;
+/** The meeting with one speaker as the server now has it. */
+export function withSpeaker(meeting: MeetingDetail, speaker: MeetingSpeaker): MeetingDetail {
+  return {
+    ...meeting,
+    speakers: meeting.speakers.map((current) =>
+      current.track === speaker.track && current.label === speaker.label ? speaker : current,
+    ),
+  };
 }
 
+/** The meeting with one decision or piece of work as the server now has it; a topic is never changed. */
+export function withMinutesItem(meeting: MeetingDetail, item: MeetingMinutesItem): MeetingDetail {
+  const replace = (items: MeetingMinutesItem[]) =>
+    items.map((current) => (current.id === item.id ? item : current));
+  const { minutes } = meeting;
+  return {
+    ...meeting,
+    minutes: {
+      ...minutes,
+      decisions: replace(minutes.decisions),
+      actions: replace(minutes.actions),
+      // Only the owner's own words are marked edited, and writing them marks the minutes edited too.
+      edited: minutes.edited || item.edited,
+    },
+  };
+}
+
+/** The meeting with an item the owner wrote in, after the others of its kind as the server placed it. */
+export function withAddedMinutesItem(
+  meeting: MeetingDetail,
+  kind: "ACTION" | "DECISION",
+  item: MeetingMinutesItem,
+): MeetingDetail {
+  const { minutes } = meeting;
+  const list = kind === "ACTION" ? "actions" : "decisions";
+  return {
+    ...meeting,
+    minutes: { ...minutes, [list]: [...minutes[list], item], edited: true },
+  };
+}
+
+/** The meeting without an item the owner took out; taking one out makes the minutes the owner's. */
+export function withoutMinutesItem(meeting: MeetingDetail, itemId: string): MeetingDetail {
+  const keep = (items: MeetingMinutesItem[]) => items.filter((item) => item.id !== itemId);
+  const { minutes } = meeting;
+  return {
+    ...meeting,
+    minutes: {
+      ...minutes,
+      decisions: keep(minutes.decisions),
+      actions: keep(minutes.actions),
+      edited: true,
+    },
+  };
+}
+
+/** The meeting with one line as the server now has it. */
+function withUtterance(meeting: MeetingDetail, utterance: MeetingUtterance): MeetingDetail {
+  return {
+    ...meeting,
+    utterances: meeting.utterances.map((current) =>
+      current.id === utterance.id ? utterance : current,
+    ),
+  };
+}
+
+/** The proposals with one as the server now has it; a correction written by hand is new and comes last. */
+function withCorrection(
+  corrections: MeetingCorrection[],
+  correction: MeetingCorrection,
+): MeetingCorrection[] {
+  return corrections.some((current) => current.id === correction.id)
+    ? corrections.map((current) => (current.id === correction.id ? correction : current))
+    : [...corrections, correction];
+}
+
+/**
+ * Folds what deciding one stretch answered into the cached meeting and its proposals: the line it rewrote, when it
+ * rewrote one, and the proposal as it now stands. Neither is read again.
+ */
+export function foldCorrection(
+  cache: QueryClient,
+  meetingId: string,
+  answer: MeetingCorrectionApplied | MeetingCorrection,
+) {
+  const correction = "utterance" in answer ? answer.correction : answer;
+  if ("utterance" in answer)
+    patchMeeting(cache, meetingId, (meeting) => withUtterance(meeting, answer.utterance));
+  cache.setQueryData<MeetingCorrection[]>(correctionsQueryKey(meetingId), (current) =>
+    current ? withCorrection(current, correction) : current,
+  );
+}
+
+/** A one-use ticket that opens one track's audio socket; the recorder asks for one per connection. */
 export async function issueMeetingTicket(meetingId: string, track: MeetingTrack): Promise<string> {
-  const { data } = await createMeetingTicket({
-    path: { meetingId },
-    body: { track },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
+  const { data } = await createMeetingTicket({ path: { meetingId }, body: { track } });
   return data.ticket;
 }
 
-export async function saveMeetingNotes(meetingId: string, notes: string, revision: number) {
-  const { data } = await updateMeetingNotes({
-    path: { meetingId },
-    body: { notes, revision },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data;
-}
-
-export async function nameSpeaker(
-  meetingId: string,
-  track: MeetingTrack,
-  label: string,
-  name: string | null,
-) {
-  const { data } = await nameMeetingSpeaker({
-    path: { meetingId, track, label },
-    body: { name },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data;
-}
-
+/** Ends the meeting once its last words are stored; the recording session calls it outside any page. */
 export async function finishMeeting(meetingId: string) {
-  const { data } = await endMeeting({
-    path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data;
-}
-
-export async function rerunMinutes(meetingId: string) {
-  const { data } = await rerunMeetingMinutes({
-    path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data;
-}
-
-export async function markMinutesItem(meetingId: string, itemId: string, done: boolean) {
-  const { data } = await markMeetingMinutesItem({
-    path: { meetingId, itemId },
-    body: { done },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data;
-}
-
-/** Downloads the minutes as a biên bản; the heading is printed, not stored, so it travels with the call. */
-export async function exportMinutes(
-  meetingId: string,
-  heading: MeetingHeadingRequest,
-): Promise<Blob> {
-  const { data } = await exportMeetingMinutes({
-    path: { meetingId },
-    body: heading,
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data as Blob;
-}
-
-export const transcribersKey = [...meetingsKey, "transcribers"] as const;
-
-/** The speech connections a recording may be transcribed with, the Tenant's own first. */
-export async function loadTranscribers(signal: AbortSignal): Promise<MeetingTranscriber[]> {
-  const { data } = await listMeetingTranscribers({ signal, throwOnError: true });
+  const { data } = await endMeeting({ path: { meetingId } });
   return data;
 }
 
@@ -156,13 +174,19 @@ export async function loadTranscribers(signal: AbortSignal): Promise<MeetingTran
  * Sends a recording straight to object storage, as a library upload does, and then tells the meeting to transcribe
  * it. The bytes never pass through the API.
  */
-export async function uploadRecording(
-  meetingId: string,
-  file: File,
-  provider: MeetingTranscriber["provider"] | undefined,
-  signal: AbortSignal,
-  onProgress: (percent: number) => void,
-): Promise<MeetingDetail> {
+export async function uploadRecording({
+  meetingId,
+  file,
+  provider,
+  signal,
+  onProgress,
+}: {
+  meetingId: string;
+  file: File;
+  provider: MeetingTranscriber["provider"] | undefined;
+  signal: AbortSignal;
+  onProgress: (percent: number) => void;
+}): Promise<MeetingDetail> {
   const { data: reserved } = await reserveMeetingRecording({
     path: { meetingId },
     body: {
@@ -172,9 +196,7 @@ export async function uploadRecording(
       sha256: await sha256(file, signal),
       provider,
     },
-    headers: sameOriginMutationHeaders,
     signal,
-    throwOnError: true,
   });
   await putAuthorizedObject(
     {
@@ -186,41 +208,49 @@ export async function uploadRecording(
     signal,
     onProgress,
   );
-  const { data } = await finalizeMeetingRecording({
-    path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
+  const { data } = await finalizeMeetingRecording({ path: { meetingId } });
   return data;
 }
 
-/** Replaces who else may read the meeting; the server rechecks every member and Group. */
-export async function shareMeeting(meetingId: string, members: string[], groups: string[]) {
-  const { data } = await shareMeetingRequest({
-    path: { meetingId },
-    body: { members, groups },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data;
+/** Who a meeting reaches beside its owner. Names typed for people outside MemoryOS are kept separately. */
+export type MeetingAudience = { people: Person[]; groups: NamedRef[] };
+
+/** The readers a meeting already has, as the picker shows them. */
+export function audienceOf(meeting: MeetingDetail): MeetingAudience {
+  return {
+    people: meeting.readers
+      .filter((reader) => reader.kind === "MEMBER")
+      .map((reader) => ({ actorId: reader.id, name: reader.name, email: null })),
+    groups: meeting.readers
+      .filter((reader) => reader.kind === "GROUP")
+      .map((reader) => ({ id: reader.id, name: reader.name })),
+  };
 }
 
-/** Takes the minutes into the caller's library so a conversation can use them; asking twice returns the same file. */
-export async function publishMinutes(meetingId: string) {
-  const { data } = await publishMeetingMinutes({
-    path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
-  return data;
+/** The share request for an audience: the members and Groups by id. */
+export function shareBody(audience: MeetingAudience) {
+  return {
+    members: audience.people.map((person) => person.actorId),
+    groups: audience.groups.map((group) => group.id),
+  };
 }
 
-export async function removeMeeting(meetingId: string) {
-  await deleteMeeting({
-    path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
-  });
+/** Splits "Anh Thanh, Chị Lan" into names; the server trims and de-duplicates again. */
+export function splitNames(value: string) {
+  return value
+    .split(/[,;\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/** Saves a downloaded document through a temporary object URL, as the file preview does. */
+export function saveDocument(document: Blob, name: string) {
+  const url = URL.createObjectURL(document);
+  const link = Object.assign(window.document.createElement("a"), { href: url, download: name });
+  window.document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 /** Where each track's recording left off, so a meeting reopened after a closed tab continues its clock. */
@@ -238,17 +268,11 @@ export function formatWhen(iso: string, language: string) {
   );
 }
 
-/** "ngày 21 tháng 9 năm 2026", the form a biên bản is written in. */
-export function vietnameseDate(iso: string) {
-  const at = new Date(iso);
-  return `ngày ${at.getDate()} tháng ${at.getMonth() + 1} năm ${at.getFullYear()}`;
-}
-
-/** "09 giờ 00 ngày 21 tháng 9 năm 2026". */
+/** "09 giờ 00 ngày 21 tháng 9 năm 2026", the form a biên bản is written in. */
 export function vietnameseMoment(iso: string) {
   const at = new Date(iso);
   const pad = (value: number) => String(value).padStart(2, "0");
-  return `${pad(at.getHours())} giờ ${pad(at.getMinutes())} ${vietnameseDate(iso)}`;
+  return `${pad(at.getHours())} giờ ${pad(at.getMinutes())} ngày ${at.getDate()} tháng ${at.getMonth() + 1} năm ${at.getFullYear()}`;
 }
 
 export function formatClock(ms: number) {

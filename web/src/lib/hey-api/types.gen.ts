@@ -38,7 +38,7 @@ export type SharePointSelectionReceiptResponse = {
 export type SourceOperation = {
     id: string;
     type: string;
-    status: string;
+    status: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUCCEEDED' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED';
     createdAt: string;
     completedAt: string | null;
     errorCode: string | null;
@@ -140,6 +140,47 @@ export type GoogleDriveSelectionReceiptResponse = {
     operation: SourceOperation;
 };
 
+export type EmbeddingProviderRequest = {
+    name: string;
+    endpoint: string;
+    apiKey: string | null;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    revision: number | null;
+};
+
+export type EmbeddingProviderResponse = {
+    id: string;
+    name: string;
+    endpoint: string;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    hasApiKey: boolean;
+    revision: number;
+    inUse: boolean;
+};
+
+/**
+ * What the owner fills in once the meeting is under way
+ */
+export type MeetingUpdateRequest = {
+    title: string;
+    /**
+     * Participant names, at most 50
+     */
+    participants: Array<string>;
+};
+
+/**
+ * The meeting's name and the people in it, as stored
+ */
+export type MeetingParticulars = {
+    title: string;
+    participants: Array<string>;
+    /**
+     * The meeting's revision, which the next notes save names
+     */
+    revision: number;
+};
+
 /**
  * A blank or absent name restores the automatic label
  */
@@ -147,62 +188,57 @@ export type MeetingSpeakerRequest = {
     name?: string | null;
 };
 
-/**
- * An uploaded recording being turned into a transcript
- */
-export type MeetingAudio = {
-    status: 'NONE' | 'WAITING' | 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
-    failure: string | null;
-    filename: string | null;
-    sizeBytes: number;
-    provider: string | null;
+export type MeetingSpeaker = {
+    track: 'MIC' | 'TAB';
+    label: string;
+    name: string | null;
+    /**
+     * The name this voice gave itself, offered to the owner
+     */
+    suggestion?: MeetingSpeakerSuggestion;
 };
 
-export type MeetingDetail = {
+export type MeetingSpeakerSuggestion = {
+    name: string;
+    utteranceId: string;
+    confidence: number;
+};
+
+/**
+ * Everyone who may read this meeting, replacing the current list
+ */
+export type MeetingShareRequest = {
+    members: Array<string>;
+    groups: Array<string>;
+};
+
+/**
+ * One member, or one Group, the meeting is shared with
+ */
+export type MeetingReader = {
+    kind: 'MEMBER' | 'GROUP';
     id: string;
-    title: string;
-    kind: 'ONLINE' | 'IN_PERSON';
-    language: string | null;
-    participants: Array<string>;
-    terms: Array<string>;
+    name: string;
+};
+
+export type MeetingNotesRequest = {
     notes: string;
-    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
-    provider: string | null;
-    /**
-     * Whether speaker labels distinguish people
-     */
-    diarized: boolean;
-    createdAt: string;
-    endedAt: string | null;
     revision: number;
-    speakers: Array<MeetingSpeaker>;
-    utterances: Array<MeetingUtterance>;
-    minutes: MeetingMinutes;
-    audio: MeetingAudio;
-    /**
-     * Whether the reader recorded this meeting; only its owner may edit it
-     */
-    owned: boolean;
-    /**
-     * Who the meeting is shared with; empty for anyone but its owner
-     */
-    readers: Array<MeetingReader>;
 };
 
 /**
- * What the model made of the meeting once it ended
+ * The owner's notes as stored
  */
-export type MeetingMinutes = {
-    status: 'NONE' | 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
-    failure: string | null;
-    summary: string;
+export type MeetingNotes = {
+    notes: string;
     /**
-     * What kind of meeting this was
+     * The meeting's revision, which the next save names
      */
-    kind: string;
-    generatedAt: string | null;
-    decisions: Array<MeetingMinutesItem>;
-    actions: Array<MeetingMinutesItem>;
+    revision: number;
+};
+
+export type MeetingItemRequest = {
+    done: boolean;
 };
 
 /**
@@ -219,48 +255,76 @@ export type MeetingMinutesItem = {
     quote: string | null;
     sourceUtteranceId: string | null;
     done: boolean;
+    /**
+     * Whether these words are the owner's rather than the model's
+     */
+    edited: boolean;
+};
+
+export type MeetingMinutesSummaryRequest = {
+    summary: string;
 };
 
 /**
- * One member, or one Group, the meeting is shared with
+ * The summary of the minutes as it now reads
  */
-export type MeetingReader = {
-    kind: 'MEMBER' | 'GROUP';
-    id: string;
-    name: string;
+export type MeetingMinutesSummary = {
+    summary: string;
+    /**
+     * Whether the words standing now are the owner's rather than the model's
+     */
+    edited: boolean;
 };
 
-export type MeetingSpeaker = {
-    track: 'MIC' | 'TAB';
-    label: string;
-    name: string | null;
-};
-
-export type MeetingUtterance = {
-    id: string;
-    track: 'MIC' | 'TAB';
-    speaker: string;
-    startMs: number;
-    endMs: number;
+export type MeetingMinutesItemRequest = {
     text: string;
-    confidence: number;
+    owner?: string | null;
+    due?: string | null;
 };
 
 /**
- * Everyone who may read this meeting, replacing the current list
+ * The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis
  */
-export type MeetingShareRequest = {
-    members: Array<string>;
-    groups: Array<string>;
+export type MeetingHeadingRequest = {
+    organization?: string;
+    parentOrganization?: string;
+    number?: string;
+    about?: string;
+    place?: string;
+    opened?: string;
+    closed?: string;
+    chair?: string;
+    chairRole?: string;
+    secretary?: string;
+    secretaryRole?: string;
+    attendees?: Array<string>;
+    /**
+     * Times New Roman, Arial, Calibri or Tahoma; anything else is set in Times New Roman, which the decree asks for
+     */
+    font?: string;
 };
 
-export type MeetingNotesRequest = {
-    notes: string;
-    revision: number;
-};
-
-export type MeetingItemRequest = {
-    done: boolean;
+/**
+ * The biên bản heading as the owner last saved it
+ */
+export type MeetingHeading = {
+    /**
+     * Whether the owner saved one for this meeting. Otherwise only the organization, its parent and the typeface are filled, carried from the caller's last biên bản
+     */
+    saved: boolean;
+    organization: string;
+    parentOrganization: string;
+    number: string;
+    about: string;
+    place: string;
+    opened: string;
+    closed: string;
+    chair: string;
+    chairRole: string;
+    secretary: string;
+    secretaryRole: string;
+    attendees: Array<string>;
+    font: string;
 };
 
 /**
@@ -600,11 +664,63 @@ export type ChatSettingsResponse = {
      * Who in the organization may read other people's conversations: NORMAL names the asker, ANONYMIZED hides only their name and e-mail, DISABLED refuses every read
      */
     chatHistoryVisibility: 'NORMAL' | 'ANONYMIZED' | 'DISABLED';
+    /**
+     * Every turn answers from the organization's documents only
+     */
+    groundedAnswers: boolean;
+    /**
+     * In that mode, a person may still turn Web search on for a turn
+     */
+    groundedAllowWeb: boolean;
     revision: number;
 };
 
 export type ChatHistoryVisibilityRequest = {
     visibility: 'NORMAL' | 'ANONYMIZED' | 'DISABLED';
+    revision?: number;
+};
+
+export type ChatGuardrailTopic = {
+    topic: 'POLITICS' | 'LEADERS' | 'RELIGION';
+    enabled: boolean;
+    /**
+     * What the person is told when a question matches
+     */
+    message: string;
+};
+
+export type ChatGuardrailsRequest = {
+    topics: Array<ChatGuardrailTopic>;
+    /**
+     * Exact phrases no question or answer may contain; at most 20 of at most 100 characters
+     */
+    blockedPhrases: Array<string>;
+    /**
+     * What the person is told when a blocked phrase matches
+     */
+    blockedPhraseMessage?: string;
+    revision?: number;
+};
+
+export type ChatGuardrailsResponse = {
+    /**
+     * Every built-in topic, in a fixed order
+     */
+    topics: Array<ChatGuardrailTopic>;
+    blockedPhrases: Array<string>;
+    blockedPhraseMessage: string;
+    revision: number;
+};
+
+export type ChatGroundedRequest = {
+    /**
+     * Every turn answers from the organization's documents only
+     */
+    groundedAnswers: boolean;
+    /**
+     * In that mode, a person may still turn Web search on for a turn
+     */
+    groundedAllowWeb: boolean;
     revision?: number;
 };
 
@@ -760,6 +876,7 @@ export type ProjectInput = {
     description?: string;
     instructions?: string;
     fileIds?: Array<string>;
+    iconName?: string;
 };
 
 export type ProjectView = {
@@ -770,6 +887,7 @@ export type ProjectView = {
     revision?: number;
     updatedAt?: string;
     fileIds?: Array<string>;
+    iconName?: string;
 };
 
 export type ChatPreferencesInput = {
@@ -810,8 +928,8 @@ export type PersonaInput = {
     avatarFileId?: string;
     labelIds?: Array<string>;
     replaceBaseSystemPrompt?: boolean;
-    datetimeAware?: boolean;
     knowledgeCutoff?: string;
+    grounded?: boolean;
 };
 
 export type AgentGroupShare = {
@@ -893,7 +1011,7 @@ export type PersonaView = {
     featured?: boolean;
     displayPriority?: number;
     replaceBaseSystemPrompt?: boolean;
-    datetimeAware?: boolean;
+    grounded?: boolean;
     knowledgeCutoff?: string;
     pinned?: boolean;
     deletedAt?: string;
@@ -1012,7 +1130,7 @@ export type Pricing = {
  * Tenant model for one task; no model uses the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
+    flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -1153,7 +1271,7 @@ export type SourceUploadAuthorization = {
 export type SourceIndexAttempt = {
     id: string;
     filename: string | null;
-    status: string;
+    status: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUCCEEDED' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED';
     createdAt: string;
     /**
      * Actual first processing start; null when not started or unavailable in retained history.
@@ -1176,6 +1294,10 @@ export type SourceItem = {
     lastIndexedAt: string | null;
     latestAttempt: SourceIndexAttempt;
     errorCode: string | null;
+    /**
+     * Stable code explaining a FAILED search status, e.g. SEARCH_INDEX_CONTENT_LIMIT.
+     */
+    searchErrorCode: string | null;
     searchStatus: 'WAITING' | 'INDEXING' | 'READY' | 'FAILED';
 };
 
@@ -1359,6 +1481,67 @@ export type SourceTypeFacet = {
     count: number;
 };
 
+export type SearchGenerationResponse = {
+    id: string;
+    status: 'PRESENT' | 'FUTURE' | 'PAST';
+    providerId: string;
+    providerName: string;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    model: string;
+    dimensions: number;
+    queryPrefix: string;
+    documentPrefix: string;
+    minimumSemanticScore: number;
+    chunkConvention: string;
+    automatic: boolean;
+    documentCount: number;
+    createdAt: string;
+    activatedAt: string | null;
+    retainedUntil: string | null;
+    cleanupBlocked: boolean;
+};
+
+export type SearchRebuildProgressResponse = {
+    ready: number;
+    total: number;
+    failed: number;
+    pending: number;
+    estimatedSecondsRemaining: number | null;
+    switchable: boolean;
+};
+
+export type SearchSettingsResponse = {
+    present: SearchGenerationResponse;
+    future: SearchGenerationResponse | null;
+    past: Array<SearchGenerationResponse>;
+    rebuild: SearchRebuildProgressResponse | null;
+};
+
+export type SearchGenerationRequest = {
+    providerId: string;
+    model: string;
+    dimensions: number;
+    queryPrefix: string;
+    documentPrefix: string;
+    minimumSemanticScore: number;
+};
+
+export type EmbeddingProviderTestRequest = {
+    providerId: string | null;
+    endpoint: string | null;
+    apiKey: string | null;
+    model: string;
+    dimensions: number | null;
+};
+
+export type EmbeddingProviderTestResponse = {
+    ok: boolean;
+    model: string | null;
+    dimensions: number | null;
+    latencyMs: number;
+    error: string | null;
+};
+
 /**
  * What the owner enters before recording
  */
@@ -1374,6 +1557,153 @@ export type MeetingCreateRequest = {
      * Names and terms the speech provider should prefer, at most 100
      */
     terms?: Array<string> | null;
+};
+
+/**
+ * An uploaded recording being turned into a transcript
+ */
+export type MeetingAudio = {
+    status: 'NONE' | 'WAITING' | 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+    failure: string | null;
+    filename: string | null;
+    sizeBytes: number;
+    provider: string | null;
+};
+
+/**
+ * A moment the caller marked while the meeting was running. Only they see it.
+ */
+export type MeetingBookmark = {
+    id: string;
+    atMs: number;
+    label: string;
+};
+
+export type MeetingDetail = {
+    id: string;
+    title: string;
+    kind: 'ONLINE' | 'IN_PERSON';
+    language: string | null;
+    participants: Array<string>;
+    terms: Array<string>;
+    notes: string;
+    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
+    provider: string | null;
+    /**
+     * Whether speaker labels distinguish people
+     */
+    diarized: boolean;
+    createdAt: string;
+    endedAt: string | null;
+    revision: number;
+    speakers: Array<MeetingSpeaker>;
+    utterances: Array<MeetingUtterance>;
+    minutes: MeetingMinutes;
+    audio: MeetingAudio;
+    /**
+     * Whether the reader recorded this meeting; only its owner may edit it
+     */
+    owned: boolean;
+    /**
+     * Who the meeting is shared with; empty for anyone but its owner
+     */
+    readers: Array<MeetingReader>;
+    /**
+     * Lines the caller starred; another reader's stars are their own
+     */
+    starred: Array<string>;
+    /**
+     * Moments the caller marked while the meeting was running
+     */
+    bookmarks: Array<MeetingBookmark>;
+    /**
+     * Whether a correction pass is running on this meeting right now
+     */
+    correcting: boolean;
+};
+
+/**
+ * What the model made of the meeting once it ended
+ */
+export type MeetingMinutes = {
+    status: 'NONE' | 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
+    failure: string | null;
+    summary: string;
+    /**
+     * What kind of meeting this was
+     */
+    kind: string;
+    generatedAt: string | null;
+    decisions: Array<MeetingMinutesItem>;
+    actions: Array<MeetingMinutesItem>;
+    /**
+     * Whether the words standing now are the owner's rather than the model's
+     */
+    edited: boolean;
+    /**
+     * The subjects the meeting moved through, each at the line it began
+     */
+    topics: Array<MeetingMinutesItem>;
+};
+
+export type MeetingUtterance = {
+    id: string;
+    track: 'MIC' | 'TAB';
+    speaker: string;
+    startMs: number;
+    endMs: number;
+    text: string;
+    confidence: number;
+    spans: Array<MeetingUtteranceSpan>;
+    /**
+     * Who last changed what this line says; absent while nobody has
+     */
+    editSource?: 'MODEL' | 'HUMAN';
+};
+
+/**
+ * A stretch of the utterance the provider was unsure of, by character offset, half-open.
+ */
+export type MeetingUtteranceSpan = {
+    start: number;
+    end: number;
+    confidence: number;
+};
+
+/**
+ * What was said at one marked stretch of a line
+ */
+export type MeetingWordCorrectionRequest = {
+    start: number;
+    end: number;
+    text: string;
+};
+
+/**
+ * One proposal for one uncertain stretch. Nothing changes until it is accepted.
+ */
+export type MeetingCorrection = {
+    id: string;
+    utteranceId: string;
+    runId: string;
+    start: number;
+    end: number;
+    before: string;
+    after: string;
+    reason: string;
+    confidence: number;
+    contextFit: number;
+    meaningSafe: number;
+    matchedGlossary: boolean;
+    status: 'PENDING' | 'ACCEPTED' | 'KEPT' | 'REVERTED';
+};
+
+/**
+ * What deciding one stretch changed: the one line it rewrote and the proposal as it now stands
+ */
+export type MeetingCorrectionApplied = {
+    utterance: MeetingUtterance;
+    correction: MeetingCorrection;
 };
 
 export type MeetingTicketRequest = {
@@ -1419,21 +1749,13 @@ export type MeetingRecordingReservation = {
 };
 
 /**
- * The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis
+ * A decision or a piece of work the model missed
  */
-export type MeetingHeadingRequest = {
-    organization?: string;
-    parentOrganization?: string;
-    number?: string;
-    about?: string;
-    place?: string;
-    opened?: string;
-    closed?: string;
-    chair?: string;
-    chairRole?: string;
-    secretary?: string;
-    secretaryRole?: string;
-    attendees?: Array<string>;
+export type MeetingNewMinutesItemRequest = {
+    kind: 'DECISION' | 'ACTION';
+    text: string;
+    owner?: string | null;
+    due?: string | null;
 };
 
 /**
@@ -1446,6 +1768,33 @@ export type MeetingLibraryFile = {
      * READY when Chat can read it; PROCESSING while it is extracted
      */
     status: string;
+};
+
+export type MeetingCorrectionRun = {
+    runId: string;
+    corrections: Array<MeetingCorrection>;
+};
+
+export type AcceptMeetingCorrection = {
+    /**
+     * The caller's own wording instead of the model's
+     */
+    text?: string | null;
+};
+
+export type MeetingCorrectionRunRef = {
+    runId: string;
+};
+
+export type MeetingBookmarkRequest = {
+    /**
+     * Milliseconds from the start of the recording
+     */
+    atMs: number;
+    /**
+     * What to call it; a number is used when this is left out
+     */
+    label?: string | null;
 };
 
 export type McpToolRefresh = {
@@ -2080,6 +2429,10 @@ export type SourceRunError = {
     stage: 'PROVIDER' | 'STORAGE_READ' | 'STORAGE_WRITE' | 'EXTRACTION' | 'PUBLICATION' | 'SYSTEM';
     code: string;
     occurredAt: string;
+    /**
+     * When a later run acquired the same file again; null while the error stands
+     */
+    resolvedAt: string | null;
     errorMessage: string | null;
     errorDetail: string | null;
     currentItemStatus: 'PENDING' | 'INDEXED' | 'FAILED' | 'DELETING';
@@ -2190,6 +2543,15 @@ export type GoogleDriveSelectionPolicyResponse = {
     maxLinkedDocuments: number;
 };
 
+export type EmbeddingModelPresetResponse = {
+    model: string;
+    label: string;
+    dimensions: number;
+    queryPrefix: string;
+    documentPrefix: string;
+    maxInputTokens: number;
+};
+
 export type Passage = {
     ordinal: number;
     content: string;
@@ -2204,6 +2566,16 @@ export type SearchDocument = {
     firstOrdinal: number;
     totalChunks: number;
     hasMore: boolean;
+};
+
+export type DocumentSpreadsheet = {
+    sheets: Array<DocumentSpreadsheetSheet>;
+};
+
+export type DocumentSpreadsheetSheet = {
+    name: string;
+    csv: string;
+    truncated: boolean;
 };
 
 export type MeetingSummary = {
@@ -2270,6 +2642,22 @@ export type CurrentInvitation = {
     tenantDisplayName: string;
     expiresAt: string;
     continueUrl: string;
+};
+
+export type PrincipalGroup = {
+    id: string;
+    name: string;
+};
+
+export type PrincipalOptions = {
+    people: Array<PrincipalPerson>;
+    groups: Array<PrincipalGroup>;
+};
+
+export type PrincipalPerson = {
+    actorId: string;
+    name: string | null;
+    email: string | null;
 };
 
 export type CurrentIdentity = {
@@ -2445,6 +2833,10 @@ export type ChatMessage = {
      * Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise
      */
     failureCode: string | null;
+    /**
+     * Why a COMPLETED reply declined instead of answering: no_evidence, uncited or blocked_topic (answers from documents only, sensitive topics); null otherwise
+     */
+    refusalReason: string | null;
 };
 
 export type ChatMessageResearch = {
@@ -2736,11 +3128,6 @@ export type SourceOption = {
     id?: string;
     name?: string;
     type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
-};
-
-export type AgentShareOptions = {
-    people?: Array<AgentPerson>;
-    groups?: Array<AgentRef>;
 };
 
 export type ChatPersona = {
@@ -3055,15 +3442,35 @@ export type ApiProblem = {
             max?: number;
         };
     }>;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent.
+     */
+    scope?: 'TENANT' | 'GROUP' | 'PERSON';
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent, for a Group budget.
+     */
+    group?: string;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees.
+     */
+    resetsAt?: string;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees; equals the Retry-After header.
+     */
+    retryAfterSeconds?: number;
+    /**
+     * CHAT_FILE_IN_USE only: the Projects and agents that attach the file.
+     */
+    usedBy?: Array<{
+        kind: 'AGENT' | 'PROJECT';
+        id: string;
+        name: string;
+    }>;
 };
 
 export type ReplaceSharePointScopeData = {
     body: ReplaceSharePointScopeRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3110,10 +3517,6 @@ export type ReplaceSharePointScopeResponse = ReplaceSharePointScopeResponses[key
 export type UpdateSharePointScheduleData = {
     body: UpdateSharePointScheduleRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3160,10 +3563,6 @@ export type UpdateSharePointScheduleResponse = UpdateSharePointScheduleResponses
 export type UpdateGoogleDriveScheduleData = {
     body: UpdateGoogleDriveScheduleRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3185,10 +3584,6 @@ export type UpdateGoogleDriveScheduleResponse = UpdateGoogleDriveScheduleRespons
 export type ReplaceGoogleDriveRootsData = {
     body: ReplaceGoogleDriveRootsRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3207,14 +3602,299 @@ export type ReplaceGoogleDriveRootsResponses = {
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
 
+export type DeleteEmbeddingProviderData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/search/embedding-providers/{providerId}';
+};
+
+export type DeleteEmbeddingProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * A search generation still uses the provider
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteEmbeddingProviderError = DeleteEmbeddingProviderErrors[keyof DeleteEmbeddingProviderErrors];
+
+export type DeleteEmbeddingProviderResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteEmbeddingProviderResponse = DeleteEmbeddingProviderResponses[keyof DeleteEmbeddingProviderResponses];
+
+export type UpdateEmbeddingProviderData = {
+    body: EmbeddingProviderRequest;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/search/embedding-providers/{providerId}';
+};
+
+export type UpdateEmbeddingProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateEmbeddingProviderError = UpdateEmbeddingProviderErrors[keyof UpdateEmbeddingProviderErrors];
+
+export type UpdateEmbeddingProviderResponses = {
+    /**
+     * Successful result
+     */
+    200: EmbeddingProviderResponse;
+};
+
+export type UpdateEmbeddingProviderResponse = UpdateEmbeddingProviderResponses[keyof UpdateEmbeddingProviderResponses];
+
+export type DeleteMeetingData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}';
+};
+
+export type DeleteMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type DeleteMeetingError = DeleteMeetingErrors[keyof DeleteMeetingErrors];
+
+export type DeleteMeetingResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteMeetingResponse = DeleteMeetingResponses[keyof DeleteMeetingResponses];
+
+export type GetMeetingData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}';
+};
+
+export type GetMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type GetMeetingError = GetMeetingErrors[keyof GetMeetingErrors];
+
+export type GetMeetingResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
+
+export type UpdateMeetingData = {
+    body: MeetingUpdateRequest;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}';
+};
+
+export type UpdateMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type UpdateMeetingError = UpdateMeetingErrors[keyof UpdateMeetingErrors];
+
+export type UpdateMeetingResponses = {
+    /**
+     * The name and the people as stored, and the new revision
+     */
+    200: MeetingParticulars;
+};
+
+export type UpdateMeetingResponse = UpdateMeetingResponses[keyof UpdateMeetingResponses];
+
+export type UnstarMeetingUtteranceData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/star';
+};
+
+export type UnstarMeetingUtteranceErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or line not available
+     */
+    404: ApiProblem;
+};
+
+export type UnstarMeetingUtteranceError = UnstarMeetingUtteranceErrors[keyof UnstarMeetingUtteranceErrors];
+
+export type UnstarMeetingUtteranceResponses = {
+    /**
+     * Every line the caller still has starred in this meeting
+     */
+    200: Array<string>;
+};
+
+export type UnstarMeetingUtteranceResponse = UnstarMeetingUtteranceResponses[keyof UnstarMeetingUtteranceResponses];
+
+export type StarMeetingUtteranceData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/star';
+};
+
+export type StarMeetingUtteranceErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or line not available
+     */
+    404: ApiProblem;
+};
+
+export type StarMeetingUtteranceError = StarMeetingUtteranceErrors[keyof StarMeetingUtteranceErrors];
+
+export type StarMeetingUtteranceResponses = {
+    /**
+     * Every line the caller starred in this meeting
+     */
+    200: Array<string>;
+};
+
+export type StarMeetingUtteranceResponse = StarMeetingUtteranceResponses[keyof StarMeetingUtteranceResponses];
+
 export type NameMeetingSpeakerData = {
     body: MeetingSpeakerRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         track: 'MIC' | 'TAB';
@@ -3247,21 +3927,15 @@ export type NameMeetingSpeakerError = NameMeetingSpeakerErrors[keyof NameMeeting
 
 export type NameMeetingSpeakerResponses = {
     /**
-     * The meeting
+     * The speaker as now named
      */
-    200: MeetingDetail;
+    200: MeetingSpeaker;
 };
 
 export type NameMeetingSpeakerResponse = NameMeetingSpeakerResponses[keyof NameMeetingSpeakerResponses];
 
 export type ShareMeetingData = {
     body: MeetingShareRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -3292,21 +3966,15 @@ export type ShareMeetingError = ShareMeetingErrors[keyof ShareMeetingErrors];
 
 export type ShareMeetingResponses = {
     /**
-     * The meeting, with its readers
+     * Everyone the meeting is now shared with
      */
-    200: MeetingDetail;
+    200: Array<MeetingReader>;
 };
 
 export type ShareMeetingResponse = ShareMeetingResponses[keyof ShareMeetingResponses];
 
 export type UpdateMeetingNotesData = {
     body: MeetingNotesRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -3341,21 +4009,15 @@ export type UpdateMeetingNotesError = UpdateMeetingNotesErrors[keyof UpdateMeeti
 
 export type UpdateMeetingNotesResponses = {
     /**
-     * The meeting
+     * The notes as stored and the new revision
      */
-    200: MeetingDetail;
+    200: MeetingNotes;
 };
 
 export type UpdateMeetingNotesResponse = UpdateMeetingNotesResponses[keyof UpdateMeetingNotesResponses];
 
 export type MarkMeetingMinutesItemData = {
     body: MeetingItemRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         itemId: string;
@@ -3387,21 +4049,212 @@ export type MarkMeetingMinutesItemError = MarkMeetingMinutesItemErrors[keyof Mar
 
 export type MarkMeetingMinutesItemResponses = {
     /**
-     * The meeting
+     * The item as it now reads
      */
-    200: MeetingDetail;
+    200: MeetingMinutesItem;
 };
 
 export type MarkMeetingMinutesItemResponse = MarkMeetingMinutesItemResponses[keyof MarkMeetingMinutesItemResponses];
 
+export type EditMeetingMinutesSummaryData = {
+    body: MeetingMinutesSummaryRequest;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/summary';
+};
+
+export type EditMeetingMinutesSummaryErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type EditMeetingMinutesSummaryError = EditMeetingMinutesSummaryErrors[keyof EditMeetingMinutesSummaryErrors];
+
+export type EditMeetingMinutesSummaryResponses = {
+    /**
+     * The summary as it now reads
+     */
+    200: MeetingMinutesSummary;
+};
+
+export type EditMeetingMinutesSummaryResponse = EditMeetingMinutesSummaryResponses[keyof EditMeetingMinutesSummaryResponses];
+
+export type RemoveMeetingMinutesItemData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/items/{itemId}';
+};
+
+export type RemoveMeetingMinutesItemErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or item not available
+     */
+    404: ApiProblem;
+};
+
+export type RemoveMeetingMinutesItemError = RemoveMeetingMinutesItemErrors[keyof RemoveMeetingMinutesItemErrors];
+
+export type RemoveMeetingMinutesItemResponses = {
+    /**
+     * Removed; the minutes now count as the owner's words
+     */
+    204: void;
+};
+
+export type RemoveMeetingMinutesItemResponse = RemoveMeetingMinutesItemResponses[keyof RemoveMeetingMinutesItemResponses];
+
+export type EditMeetingMinutesItemData = {
+    body: MeetingMinutesItemRequest;
+    path: {
+        meetingId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/items/{itemId}';
+};
+
+export type EditMeetingMinutesItemErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or item not available
+     */
+    404: ApiProblem;
+};
+
+export type EditMeetingMinutesItemError = EditMeetingMinutesItemErrors[keyof EditMeetingMinutesItemErrors];
+
+export type EditMeetingMinutesItemResponses = {
+    /**
+     * The item as it now reads
+     */
+    200: MeetingMinutesItem;
+};
+
+export type EditMeetingMinutesItemResponse = EditMeetingMinutesItemResponses[keyof EditMeetingMinutesItemResponses];
+
+export type GetMeetingMinutesHeadingData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/heading';
+};
+
+export type GetMeetingMinutesHeadingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type GetMeetingMinutesHeadingError = GetMeetingMinutesHeadingErrors[keyof GetMeetingMinutesHeadingErrors];
+
+export type GetMeetingMinutesHeadingResponses = {
+    /**
+     * The heading
+     */
+    200: MeetingHeading;
+};
+
+export type GetMeetingMinutesHeadingResponse = GetMeetingMinutesHeadingResponses[keyof GetMeetingMinutesHeadingResponses];
+
+export type SaveMeetingMinutesHeadingData = {
+    body: MeetingHeadingRequest;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/heading';
+};
+
+export type SaveMeetingMinutesHeadingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type SaveMeetingMinutesHeadingError = SaveMeetingMinutesHeadingErrors[keyof SaveMeetingMinutesHeadingErrors];
+
+export type SaveMeetingMinutesHeadingResponses = {
+    /**
+     * The heading as stored
+     */
+    200: MeetingHeading;
+};
+
+export type SaveMeetingMinutesHeadingResponse = SaveMeetingMinutesHeadingResponses[keyof SaveMeetingMinutesHeadingResponses];
+
 export type DeleteMcpServerData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -3498,12 +4351,6 @@ export type GetMcpServerResponse = GetMcpServerResponses[keyof GetMcpServerRespo
 
 export type UpdateMcpServerData = {
     body: McpServerInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -3553,12 +4400,6 @@ export type UpdateMcpServerResponse = UpdateMcpServerResponses[keyof UpdateMcpSe
 
 export type SetMcpServerToolEnabledData = {
     body: McpToolEnablement;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
         toolId: string;
@@ -3609,12 +4450,6 @@ export type SetMcpServerToolEnabledResponse = SetMcpServerToolEnabledResponses[k
 
 export type SetAllMcpServerToolsEnabledData = {
     body: McpToolEnablement;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -3662,12 +4497,6 @@ export type SetAllMcpServerToolsEnabledResponse = SetAllMcpServerToolsEnabledRes
 
 export type DeleteMcpServerOAuthClientData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
         clientId: string;
@@ -3718,12 +4547,6 @@ export type DeleteMcpServerOAuthClientResponse = DeleteMcpServerOAuthClientRespo
 
 export type UpdateMcpServerOAuthClientData = {
     body: McpOAuthClientInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
         clientId: string;
@@ -3774,12 +4597,6 @@ export type UpdateMcpServerOAuthClientResponse = UpdateMcpServerOAuthClientRespo
 
 export type SaveMcpConnectionApiKeyData = {
     body: McpConnectionApiKeyInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -3827,12 +4644,6 @@ export type SaveMcpConnectionApiKeyResponse = SaveMcpConnectionApiKeyResponses[k
 
 export type SetCurrentIdentityLanguageData = {
     body: LanguagePreference;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/identity/me/language';
@@ -3849,12 +4660,6 @@ export type SetCurrentIdentityLanguageResponse = SetCurrentIdentityLanguageRespo
 
 export type DeleteIdentityProviderData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         alias: string;
     };
@@ -3882,12 +4687,6 @@ export type DeleteIdentityProviderResponse = DeleteIdentityProviderResponses[key
 
 export type UpdateIdentityProviderData = {
     body: UpdateIdentityProviderRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         alias: string;
     };
@@ -3916,10 +4715,6 @@ export type UpdateIdentityProviderResponse = UpdateIdentityProviderResponses[key
 export type DeleteSharePointCredentialData = {
     body?: never;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3970,10 +4765,6 @@ export type DeleteSharePointCredentialResponse = DeleteSharePointCredentialRespo
 export type RenameSharePointCredentialData = {
     body: RenameSharePointCredentialRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -4024,10 +4815,6 @@ export type RenameSharePointCredentialResponse = RenameSharePointCredentialRespo
 export type ReplaceSharePointCredentialAuthenticationData = {
     body: SharePointCredentialRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -4078,10 +4865,6 @@ export type ReplaceSharePointCredentialAuthenticationResponse = ReplaceSharePoin
 export type ReplaceGoogleDriveServiceAccountData = {
     body: GoogleDriveServiceAccountRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -4102,12 +4885,6 @@ export type ReplaceGoogleDriveServiceAccountResponse = ReplaceGoogleDriveService
 
 export type SelectChatWebProviderData = {
     body: WebSelectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/web/selection';
@@ -4153,12 +4930,6 @@ export type SelectChatWebProviderResponse = SelectChatWebProviderResponses[keyof
 
 export type SaveChatWebConnectionData = {
     body: WebConnectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     };
@@ -4206,12 +4977,6 @@ export type SaveChatWebConnectionResponse = SaveChatWebConnectionResponses[keyof
 
 export type SelectChatVoiceProviderData = {
     body: VoiceSelectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/voice/selection';
@@ -4257,12 +5022,6 @@ export type SelectChatVoiceProviderResponse = SelectChatVoiceProviderResponses[k
 
 export type DeleteChatVoiceConnectionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
@@ -4312,12 +5071,6 @@ export type DeleteChatVoiceConnectionResponse = DeleteChatVoiceConnectionRespons
 
 export type SaveChatVoiceConnectionData = {
     body: VoiceConnectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
@@ -4406,12 +5159,6 @@ export type GetChatSettingsResponse = GetChatSettingsResponses[keyof GetChatSett
 
 export type SaveChatSettingsData = {
     body: ChatSettingsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/settings';
@@ -4453,12 +5200,6 @@ export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatS
 
 export type SaveChatHistoryVisibilityData = {
     body: ChatHistoryVisibilityRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/settings/history-visibility';
@@ -4498,14 +5239,131 @@ export type SaveChatHistoryVisibilityResponses = {
 
 export type SaveChatHistoryVisibilityResponse = SaveChatHistoryVisibilityResponses[keyof SaveChatHistoryVisibilityResponses];
 
+export type GetChatGuardrailsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/guardrails';
+};
+
+export type GetChatGuardrailsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatGuardrailsError = GetChatGuardrailsErrors[keyof GetChatGuardrailsErrors];
+
+export type GetChatGuardrailsResponses = {
+    /**
+     * Sensitive-topic guardrails
+     */
+    200: ChatGuardrailsResponse;
+};
+
+export type GetChatGuardrailsResponse = GetChatGuardrailsResponses[keyof GetChatGuardrailsResponses];
+
+export type SaveChatGuardrailsData = {
+    body: ChatGuardrailsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/guardrails';
+};
+
+export type SaveChatGuardrailsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatGuardrailsError = SaveChatGuardrailsErrors[keyof SaveChatGuardrailsErrors];
+
+export type SaveChatGuardrailsResponses = {
+    /**
+     * Saved sensitive-topic guardrails
+     */
+    200: ChatGuardrailsResponse;
+};
+
+export type SaveChatGuardrailsResponse = SaveChatGuardrailsResponses[keyof SaveChatGuardrailsResponses];
+
+export type SaveChatGroundedData = {
+    body: ChatGroundedRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/grounded';
+};
+
+export type SaveChatGroundedErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatGroundedError = SaveChatGroundedErrors[keyof SaveChatGroundedErrors];
+
+export type SaveChatGroundedResponses = {
+    /**
+     * Saved Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatGroundedResponse = SaveChatGroundedResponses[keyof SaveChatGroundedResponses];
+
 export type GenerateChatTitleData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -4549,12 +5407,6 @@ export type GenerateChatTitleResponse = GenerateChatTitleResponses[keyof Generat
 
 export type RenameChatSessionData = {
     body: Title;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -4641,12 +5493,6 @@ export type GetChatSharingResponse = GetChatSharingResponses[keyof GetChatSharin
 
 export type SetChatSharingData = {
     body: Sharing;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -4690,12 +5536,6 @@ export type SetChatSharingResponse = SetChatSharingResponses[keyof SetChatSharin
 
 export type ConfigureChatSessionData = {
     body: ChatSessionSettings;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -4739,12 +5579,6 @@ export type ConfigureChatSessionResponse = ConfigureChatSessionResponses[keyof C
 
 export type PinChatReasoningEffortData = {
     body: ReasoningSelection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -4788,12 +5622,6 @@ export type PinChatReasoningEffortResponse = PinChatReasoningEffortResponses[key
 
 export type MoveChatProjectData = {
     body: ProjectSelection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -4837,12 +5665,6 @@ export type MoveChatProjectResponse = MoveChatProjectResponses[keyof MoveChatPro
 
 export type SelectChatPersonaData = {
     body: PersonaSelection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -4886,12 +5708,6 @@ export type SelectChatPersonaResponse = SelectChatPersonaResponses[keyof SelectC
 
 export type RemoveChatFeedbackData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         assistantMessageId: string;
@@ -4936,12 +5752,6 @@ export type RemoveChatFeedbackResponse = RemoveChatFeedbackResponses[keyof Remov
 
 export type SetChatFeedbackData = {
     body: FeedbackInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         assistantMessageId: string;
@@ -4986,12 +5796,6 @@ export type SetChatFeedbackResponse = SetChatFeedbackResponses[keyof SetChatFeed
 
 export type SelectChatBranchData = {
     body: BranchSelection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5072,12 +5876,6 @@ export type GetChatRetentionResponse = GetChatRetentionResponses[keyof GetChatRe
 
 export type SaveChatRetentionData = {
     body: ChatRetentionInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/retention';
@@ -5115,12 +5913,6 @@ export type SaveChatRetentionResponse = SaveChatRetentionResponses[keyof SaveCha
 
 export type DeleteChatProviderData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         providerId: string;
     };
@@ -5170,12 +5962,6 @@ export type DeleteChatProviderResponse = DeleteChatProviderResponses[keyof Delet
 
 export type UpdateChatProviderData = {
     body: ProviderInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         providerId: string;
     };
@@ -5225,12 +6011,6 @@ export type UpdateChatProviderResponse = UpdateChatProviderResponses[keyof Updat
 
 export type DeleteChatPromptShortcutData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -5274,12 +6054,6 @@ export type DeleteChatPromptShortcutResponse = DeleteChatPromptShortcutResponses
 
 export type UpdateChatPromptShortcutData = {
     body: ShortcutInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -5325,12 +6099,6 @@ export type UpdateChatPromptShortcutResponse = UpdateChatPromptShortcutResponses
 
 export type HideChatPromptShortcutData = {
     body: HiddenRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -5374,12 +6142,6 @@ export type HideChatPromptShortcutResponse = HideChatPromptShortcutResponses[key
 
 export type DeletePublicChatPromptShortcutData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -5423,12 +6185,6 @@ export type DeletePublicChatPromptShortcutResponse = DeletePublicChatPromptShort
 
 export type UpdatePublicChatPromptShortcutData = {
     body: ShortcutInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -5515,12 +6271,6 @@ export type GetChatPromptShortcutPreferencesResponse = GetChatPromptShortcutPref
 
 export type SetChatPromptShortcutPreferencesData = {
     body: PreferencesRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/prompt-shortcuts/preferences';
@@ -5562,12 +6312,6 @@ export type SetChatPromptShortcutPreferencesResponse = SetChatPromptShortcutPref
 
 export type DeleteChatProjectData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         projectId: string;
     };
@@ -5656,12 +6400,6 @@ export type GetChatProjectResponse = GetChatProjectResponses[keyof GetChatProjec
 
 export type UpdateChatProjectData = {
     body: ProjectInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         projectId: string;
     };
@@ -5744,12 +6482,6 @@ export type GetChatPreferencesResponse = GetChatPreferencesResponses[keyof GetCh
 
 export type SaveChatPreferencesData = {
     body: ChatPreferencesInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/preferences';
@@ -5787,12 +6519,6 @@ export type SaveChatPreferencesResponse = SaveChatPreferencesResponses[keyof Sav
 
 export type DeleteChatPersonaData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -5881,12 +6607,6 @@ export type GetChatPersonaResponse = GetChatPersonaResponses[keyof GetChatPerson
 
 export type UpdateChatPersonaData = {
     body: PersonaInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -5932,12 +6652,6 @@ export type UpdateChatPersonaResponse = UpdateChatPersonaResponses[keyof UpdateC
 
 export type ShareChatPersonaData = {
     body: SharingInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -6030,12 +6744,6 @@ export type GetPersonaModelResponse = GetPersonaModelResponses[keyof GetPersonaM
 
 export type SetPersonaModelData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -6086,12 +6794,6 @@ export type SetPersonaModelResponse = SetPersonaModelResponses[keyof SetPersonaM
 
 export type SetChatPersonaListingData = {
     body: ListingInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -6178,12 +6880,6 @@ export type ListChatPersonaPinsResponse = ListChatPersonaPinsResponses[keyof Lis
 
 export type ReplaceChatPersonaPinsData = {
     body: PinsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/persona-pins';
@@ -6225,12 +6921,6 @@ export type ReplaceChatPersonaPinsResponse = ReplaceChatPersonaPinsResponses[key
 
 export type ReorderChatPersonasData = {
     body: PinsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/persona-order';
@@ -6272,12 +6962,6 @@ export type ReorderChatPersonasResponse = ReorderChatPersonasResponses[keyof Reo
 
 export type DeleteChatPersonaLabelData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         labelId: string;
     };
@@ -6321,12 +7005,6 @@ export type DeleteChatPersonaLabelResponse = DeleteChatPersonaLabelResponses[key
 
 export type RenameChatPersonaLabelData = {
     body: LabelRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         labelId: string;
     };
@@ -6370,12 +7048,6 @@ export type RenameChatPersonaLabelResponse = RenameChatPersonaLabelResponses[key
 
 export type DeleteChatModelData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         modelId: string;
     };
@@ -6425,12 +7097,6 @@ export type DeleteChatModelResponse = DeleteChatModelResponses[keyof DeleteChatM
 
 export type UpdateChatModelData = {
     body: ModelInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         modelId: string;
     };
@@ -6480,14 +7146,8 @@ export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatM
 
 export type SetChatModelFlowData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
-        flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
+        flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
         modelConfigurationId?: string;
@@ -6581,12 +7241,6 @@ export type GetChatModelDefaultResponse = GetChatModelDefaultResponses[keyof Get
 
 export type SetChatModelDefaultData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query: {
         modelConfigurationId: string;
@@ -6680,12 +7334,6 @@ export type GetChatInterpreterSettingsResponse = GetChatInterpreterSettingsRespo
 
 export type UpdateChatInterpreterSettingsData = {
     body: InterpreterSettingsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/interpreter';
@@ -6731,12 +7379,6 @@ export type UpdateChatInterpreterSettingsResponse = UpdateChatInterpreterSetting
 
 export type SelectChatImageProviderData = {
     body: ImageSelectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/images/selection';
@@ -6782,12 +7424,6 @@ export type SelectChatImageProviderResponse = SelectChatImageProviderResponses[k
 
 export type SaveChatImageConnectionData = {
     body: ImageConnectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
     };
@@ -6835,12 +7471,6 @@ export type SaveChatImageConnectionResponse = SaveChatImageConnectionResponses[k
 
 export type DeleteDocumentSetData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         documentSetId: string;
     };
@@ -6913,12 +7543,6 @@ export type GetDocumentSetResponse = GetDocumentSetResponses[keyof GetDocumentSe
 
 export type UpdateDocumentSetData = {
     body: Input;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         documentSetId: string;
     };
@@ -6956,12 +7580,6 @@ export type UpdateDocumentSetResponse = UpdateDocumentSetResponses[keyof UpdateD
 
 export type ShareDocumentSetData = {
     body: DocumentSetSharingInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         documentSetId: string;
     };
@@ -6999,12 +7617,6 @@ export type ShareDocumentSetResponse = ShareDocumentSetResponses[keyof ShareDocu
 
 export type DeleteAiUsageLimitData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         limitId: string;
     };
@@ -7040,12 +7652,6 @@ export type DeleteAiUsageLimitResponse = DeleteAiUsageLimitResponses[keyof Delet
 
 export type UpdateAiUsageLimitData = {
     body: AiUsageLimitRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         limitId: string;
     };
@@ -7081,12 +7687,6 @@ export type UpdateAiUsageLimitResponse = UpdateAiUsageLimitResponses[keyof Updat
 
 export type ReplaceUserGroupsData = {
     body: ReplaceUserGroupsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         actorId: string;
     };
@@ -7122,12 +7722,6 @@ export type ReplaceUserGroupsResponse = ReplaceUserGroupsResponses[keyof Replace
 
 export type DeactivateUserData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         actorId: string;
     };
@@ -7163,12 +7757,6 @@ export type DeactivateUserResponse = DeactivateUserResponses[keyof DeactivateUse
 
 export type ActivateUserData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         actorId: string;
     };
@@ -7204,12 +7792,6 @@ export type ActivateUserResponse = ActivateUserResponses[keyof ActivateUserRespo
 
 export type InitiateSourceUploadData = {
     body: InitiateSourceUploadRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7228,12 +7810,6 @@ export type InitiateSourceUploadResponse = InitiateSourceUploadResponses[keyof I
 
 export type FinalizeSourceUploadData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
         uploadId: string;
@@ -7253,12 +7829,6 @@ export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof F
 
 export type SynchronizeSharePointSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7302,12 +7872,6 @@ export type SynchronizeSharePointSourceResponse = SynchronizeSharePointSourceRes
 
 export type UpdateSharePointPauseData = {
     body: UpdateSharePointPauseRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7351,12 +7915,6 @@ export type UpdateSharePointPauseResponse = UpdateSharePointPauseResponses[keyof
 
 export type ResumeSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7375,12 +7933,6 @@ export type ResumeSourceResponse = ResumeSourceResponses[keyof ResumeSourceRespo
 
 export type RenameSourceData = {
     body: RenameSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7399,12 +7951,6 @@ export type RenameSourceResponse = RenameSourceResponses[keyof RenameSourceRespo
 
 export type PauseSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7423,12 +7969,6 @@ export type PauseSourceResponse = PauseSourceResponses[keyof PauseSourceResponse
 
 export type AssignSourceManagerData = {
     body: AssignSourceManagerRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7447,12 +7987,6 @@ export type AssignSourceManagerResponse = AssignSourceManagerResponses[keyof Ass
 
 export type RemoveSourceItemData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
         itemId: string;
@@ -7472,12 +8006,6 @@ export type RemoveSourceItemResponse = RemoveSourceItemResponses[keyof RemoveSou
 
 export type ReindexSourceItemData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
         itemId: string;
@@ -7515,12 +8043,6 @@ export type ListSourceGroupsResponse = ListSourceGroupsResponses[keyof ListSourc
 
 export type UpdateSourceGroupsData = {
     body: UpdateSourceGroupsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7539,12 +8061,6 @@ export type UpdateSourceGroupsResponse = UpdateSourceGroupsResponses[keyof Updat
 
 export type SynchronizeGoogleDriveSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7563,12 +8079,6 @@ export type SynchronizeGoogleDriveSourceResponse = SynchronizeGoogleDriveSourceR
 
 export type UpdateGoogleDrivePauseData = {
     body: UpdateGoogleDrivePauseRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7588,10 +8098,6 @@ export type UpdateGoogleDrivePauseResponse = UpdateGoogleDrivePauseResponses[key
 export type DiscoverGoogleDriveLinkedDocumentsData = {
     body?: never;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -7612,12 +8118,6 @@ export type DiscoverGoogleDriveLinkedDocumentsResponse = DiscoverGoogleDriveLink
 
 export type DeleteSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7636,12 +8136,6 @@ export type DeleteSourceResponse = DeleteSourceResponses[keyof DeleteSourceRespo
 
 export type UpdateSourceAccessData = {
     body: UpdateSourceAccessRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7660,12 +8154,6 @@ export type UpdateSourceAccessResponse = UpdateSourceAccessResponses[keyof Updat
 
 export type CreateSharePointSourceData = {
     body: CreateSharePointSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/sources/sharepoint';
@@ -7707,12 +8195,6 @@ export type CreateSharePointSourceResponse = CreateSharePointSourceResponses[key
 
 export type CreateGoogleDriveSourceData = {
     body: CreateGoogleDriveSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/sources/google-drive';
@@ -7729,12 +8211,6 @@ export type CreateGoogleDriveSourceResponse = CreateGoogleDriveSourceResponses[k
 
 export type CreateFileSourceData = {
     body: CreateFileSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/sources/file';
@@ -7751,12 +8227,6 @@ export type CreateFileSourceResponse = CreateFileSourceResponses[keyof CreateFil
 
 export type SearchDocumentsData = {
     body: SearchRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/search';
@@ -7770,6 +8240,323 @@ export type SearchDocumentsResponses = {
 };
 
 export type SearchDocumentsResponse = SearchDocumentsResponses[keyof SearchDocumentsResponses];
+
+export type RestoreSearchPastGenerationData = {
+    body?: never;
+    path: {
+        generationId: string;
+    };
+    query?: never;
+    url: '/api/search/settings/past/{generationId}/restore';
+};
+
+export type RestoreSearchPastGenerationErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RestoreSearchPastGenerationError = RestoreSearchPastGenerationErrors[keyof RestoreSearchPastGenerationErrors];
+
+export type RestoreSearchPastGenerationResponses = {
+    /**
+     * Successful result
+     */
+    200: SearchSettingsResponse;
+};
+
+export type RestoreSearchPastGenerationResponse = RestoreSearchPastGenerationResponses[keyof RestoreSearchPastGenerationResponses];
+
+export type CancelSearchFutureGenerationData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/search/settings/future';
+};
+
+export type CancelSearchFutureGenerationErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CancelSearchFutureGenerationError = CancelSearchFutureGenerationErrors[keyof CancelSearchFutureGenerationErrors];
+
+export type CancelSearchFutureGenerationResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type CancelSearchFutureGenerationResponse = CancelSearchFutureGenerationResponses[keyof CancelSearchFutureGenerationResponses];
+
+export type CreateSearchFutureGenerationData = {
+    body: SearchGenerationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/search/settings/future';
+};
+
+export type CreateSearchFutureGenerationErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * A future generation already exists
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateSearchFutureGenerationError = CreateSearchFutureGenerationErrors[keyof CreateSearchFutureGenerationErrors];
+
+export type CreateSearchFutureGenerationResponses = {
+    /**
+     * Created
+     */
+    201: SearchGenerationResponse;
+};
+
+export type CreateSearchFutureGenerationResponse = CreateSearchFutureGenerationResponses[keyof CreateSearchFutureGenerationResponses];
+
+export type SwitchSearchFutureGenerationData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/search/settings/future/switch';
+};
+
+export type SwitchSearchFutureGenerationErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SwitchSearchFutureGenerationError = SwitchSearchFutureGenerationErrors[keyof SwitchSearchFutureGenerationErrors];
+
+export type SwitchSearchFutureGenerationResponses = {
+    /**
+     * Successful result
+     */
+    200: SearchSettingsResponse;
+};
+
+export type SwitchSearchFutureGenerationResponse = SwitchSearchFutureGenerationResponses[keyof SwitchSearchFutureGenerationResponses];
+
+export type ListEmbeddingProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/search/embedding-providers';
+};
+
+export type ListEmbeddingProvidersErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListEmbeddingProvidersError = ListEmbeddingProvidersErrors[keyof ListEmbeddingProvidersErrors];
+
+export type ListEmbeddingProvidersResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<EmbeddingProviderResponse>;
+};
+
+export type ListEmbeddingProvidersResponse = ListEmbeddingProvidersResponses[keyof ListEmbeddingProvidersResponses];
+
+export type CreateEmbeddingProviderData = {
+    body: EmbeddingProviderRequest;
+    path?: never;
+    query?: never;
+    url: '/api/search/embedding-providers';
+};
+
+export type CreateEmbeddingProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateEmbeddingProviderError = CreateEmbeddingProviderErrors[keyof CreateEmbeddingProviderErrors];
+
+export type CreateEmbeddingProviderResponses = {
+    /**
+     * Created
+     */
+    201: EmbeddingProviderResponse;
+};
+
+export type CreateEmbeddingProviderResponse = CreateEmbeddingProviderResponses[keyof CreateEmbeddingProviderResponses];
+
+export type TestEmbeddingProviderData = {
+    body: EmbeddingProviderTestRequest;
+    path?: never;
+    query?: never;
+    url: '/api/search/embedding-providers/test';
+};
+
+export type TestEmbeddingProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestEmbeddingProviderError = TestEmbeddingProviderErrors[keyof TestEmbeddingProviderErrors];
+
+export type TestEmbeddingProviderResponses = {
+    /**
+     * The outcome of one embedding call
+     */
+    200: EmbeddingProviderTestResponse;
+};
+
+export type TestEmbeddingProviderResponse = TestEmbeddingProviderResponses[keyof TestEmbeddingProviderResponses];
 
 export type ListMeetingsData = {
     body?: never;
@@ -7806,12 +8593,6 @@ export type ListMeetingsResponse = ListMeetingsResponses[keyof ListMeetingsRespo
 
 export type CreateMeetingData = {
     body: MeetingCreateRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/meetings';
@@ -7843,14 +8624,52 @@ export type CreateMeetingResponses = {
 
 export type CreateMeetingResponse = CreateMeetingResponses[keyof CreateMeetingResponses];
 
+export type CorrectMeetingWordsData = {
+    body: MeetingWordCorrectionRequest;
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/corrections';
+};
+
+export type CorrectMeetingWordsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or line not available
+     */
+    404: ApiProblem;
+    /**
+     * Still recording, or the stretch is no longer marked
+     */
+    409: ApiProblem;
+};
+
+export type CorrectMeetingWordsError = CorrectMeetingWordsErrors[keyof CorrectMeetingWordsErrors];
+
+export type CorrectMeetingWordsResponses = {
+    /**
+     * The line as it now reads and the correction recorded for it
+     */
+    200: MeetingCorrectionApplied;
+};
+
+export type CorrectMeetingWordsResponse = CorrectMeetingWordsResponses[keyof CorrectMeetingWordsResponses];
+
 export type CreateMeetingTicketData = {
     body: MeetingTicketRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -7894,12 +8713,6 @@ export type CreateMeetingTicketResponse = CreateMeetingTicketResponses[keyof Cre
 
 export type ReserveMeetingRecordingData = {
     body: MeetingRecordingRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -7943,12 +8756,6 @@ export type ReserveMeetingRecordingResponse = ReserveMeetingRecordingResponses[k
 
 export type FinalizeMeetingRecordingData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -7988,16 +8795,15 @@ export type FinalizeMeetingRecordingResponse = FinalizeMeetingRecordingResponses
 
 export type RerunMeetingMinutesData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Required once the minutes were corrected by hand, because a rerun writes them again and throws that work away
+         */
+        discardEdits?: boolean;
+    };
     url: '/api/meetings/{meetingId}/minutes';
 };
 
@@ -8018,6 +8824,10 @@ export type RerunMeetingMinutesErrors = {
      * Meeting not available
      */
     404: ApiProblem;
+    /**
+     * The minutes were corrected by hand; say so to discard that work
+     */
+    409: ApiProblem;
 };
 
 export type RerunMeetingMinutesError = RerunMeetingMinutesErrors[keyof RerunMeetingMinutesErrors];
@@ -8031,18 +8841,53 @@ export type RerunMeetingMinutesResponses = {
 
 export type RerunMeetingMinutesResponse = RerunMeetingMinutesResponses[keyof RerunMeetingMinutesResponses];
 
-export type ExportMeetingMinutesData = {
-    body: MeetingHeadingRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
+export type AddMeetingMinutesItemData = {
+    body: MeetingNewMinutesItemRequest;
     path: {
         meetingId: string;
     };
     query?: never;
+    url: '/api/meetings/{meetingId}/minutes/items';
+};
+
+export type AddMeetingMinutesItemErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type AddMeetingMinutesItemError = AddMeetingMinutesItemErrors[keyof AddMeetingMinutesItemErrors];
+
+export type AddMeetingMinutesItemResponses = {
+    /**
+     * The item written in, placed after the others of its kind
+     */
+    200: MeetingMinutesItem;
+};
+
+export type AddMeetingMinutesItemResponse = AddMeetingMinutesItemResponses[keyof AddMeetingMinutesItemResponses];
+
+export type ExportMeetingMinutesData = {
+    body: MeetingHeadingRequest;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        format?: 'DOCX' | 'PDF';
+    };
     url: '/api/meetings/{meetingId}/minutes/export';
 };
 
@@ -8078,12 +8923,6 @@ export type ExportMeetingMinutesResponse = ExportMeetingMinutesResponses[keyof E
 
 export type PublishMeetingMinutesData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8123,12 +8962,6 @@ export type PublishMeetingMinutesResponse = PublishMeetingMinutesResponses[keyof
 
 export type EndMeetingData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8165,6 +8998,337 @@ export type EndMeetingResponses = {
 };
 
 export type EndMeetingResponse = EndMeetingResponses[keyof EndMeetingResponses];
+
+export type ListMeetingCorrectionsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections';
+};
+
+export type ListMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ListMeetingCorrectionsError = ListMeetingCorrectionsErrors[keyof ListMeetingCorrectionsErrors];
+
+export type ListMeetingCorrectionsResponses = {
+    /**
+     * The proposals
+     */
+    200: Array<MeetingCorrection>;
+};
+
+export type ListMeetingCorrectionsResponse = ListMeetingCorrectionsResponses[keyof ListMeetingCorrectionsResponses];
+
+export type ProposeMeetingCorrectionsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections';
+};
+
+export type ProposeMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * A pass is already running
+     */
+    409: ApiProblem;
+};
+
+export type ProposeMeetingCorrectionsError = ProposeMeetingCorrectionsErrors[keyof ProposeMeetingCorrectionsErrors];
+
+export type ProposeMeetingCorrectionsResponses = {
+    /**
+     * What the pass proposed; the transcript is unchanged
+     */
+    200: MeetingCorrectionRun;
+};
+
+export type ProposeMeetingCorrectionsResponse = ProposeMeetingCorrectionsResponses[keyof ProposeMeetingCorrectionsResponses];
+
+export type RevertMeetingCorrectionData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/revert';
+};
+
+export type RevertMeetingCorrectionErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+    /**
+     * The line changed again after this proposal
+     */
+    409: ApiProblem;
+};
+
+export type RevertMeetingCorrectionError = RevertMeetingCorrectionErrors[keyof RevertMeetingCorrectionErrors];
+
+export type RevertMeetingCorrectionResponses = {
+    /**
+     * The line as it now reads and the reverted proposal
+     */
+    200: MeetingCorrectionApplied;
+};
+
+export type RevertMeetingCorrectionResponse = RevertMeetingCorrectionResponses[keyof RevertMeetingCorrectionResponses];
+
+export type KeepMeetingWordingData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/keep';
+};
+
+export type KeepMeetingWordingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+};
+
+export type KeepMeetingWordingError = KeepMeetingWordingErrors[keyof KeepMeetingWordingErrors];
+
+export type KeepMeetingWordingResponses = {
+    /**
+     * The declined proposal; no line changed
+     */
+    200: MeetingCorrection;
+};
+
+export type KeepMeetingWordingResponse = KeepMeetingWordingResponses[keyof KeepMeetingWordingResponses];
+
+export type AcceptMeetingCorrectionData = {
+    body: AcceptMeetingCorrection;
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/accept';
+};
+
+export type AcceptMeetingCorrectionErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+    /**
+     * The line moved since the proposal was made
+     */
+    409: ApiProblem;
+};
+
+export type AcceptMeetingCorrectionError = AcceptMeetingCorrectionErrors[keyof AcceptMeetingCorrectionErrors];
+
+export type AcceptMeetingCorrectionResponses = {
+    /**
+     * The line as it now reads and the accepted proposal
+     */
+    200: MeetingCorrectionApplied;
+};
+
+export type AcceptMeetingCorrectionResponse = AcceptMeetingCorrectionResponses[keyof AcceptMeetingCorrectionResponses];
+
+export type RevertAllMeetingCorrectionsData = {
+    body: MeetingCorrectionRunRef;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/revert-all';
+};
+
+export type RevertAllMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * A line changed again after the pass
+     */
+    409: ApiProblem;
+};
+
+export type RevertAllMeetingCorrectionsError = RevertAllMeetingCorrectionsErrors[keyof RevertAllMeetingCorrectionsErrors];
+
+export type RevertAllMeetingCorrectionsResponses = {
+    /**
+     * The meeting with every line of that pass restored
+     */
+    200: MeetingDetail;
+};
+
+export type RevertAllMeetingCorrectionsResponse = RevertAllMeetingCorrectionsResponses[keyof RevertAllMeetingCorrectionsResponses];
+
+export type AcceptAllMeetingCorrectionsData = {
+    body: MeetingCorrectionRunRef;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/accept-all';
+};
+
+export type AcceptAllMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type AcceptAllMeetingCorrectionsError = AcceptAllMeetingCorrectionsErrors[keyof AcceptAllMeetingCorrectionsErrors];
+
+export type AcceptAllMeetingCorrectionsResponses = {
+    /**
+     * The meeting with every accepted line rewritten
+     */
+    200: MeetingDetail;
+};
+
+export type AcceptAllMeetingCorrectionsResponse = AcceptAllMeetingCorrectionsResponses[keyof AcceptAllMeetingCorrectionsResponses];
+
+export type BookmarkMeetingMomentData = {
+    body: MeetingBookmarkRequest;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/bookmarks';
+};
+
+export type BookmarkMeetingMomentErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type BookmarkMeetingMomentError = BookmarkMeetingMomentErrors[keyof BookmarkMeetingMomentErrors];
+
+export type BookmarkMeetingMomentResponses = {
+    /**
+     * Every mark the caller left in this meeting
+     */
+    200: Array<MeetingBookmark>;
+};
+
+export type BookmarkMeetingMomentResponse = BookmarkMeetingMomentResponses[keyof BookmarkMeetingMomentResponses];
 
 export type ListMcpServersData = {
     body?: never;
@@ -8213,12 +9377,6 @@ export type ListMcpServersResponse = ListMcpServersResponses[keyof ListMcpServer
 
 export type CreateMcpServerData = {
     body: McpServerInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/mcp/servers';
@@ -8264,12 +9422,6 @@ export type CreateMcpServerResponse = CreateMcpServerResponses[keyof CreateMcpSe
 
 export type RefreshMcpServerToolsData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -8317,12 +9469,6 @@ export type RefreshMcpServerToolsResponse = RefreshMcpServerToolsResponses[keyof
 
 export type DiscoverMcpServerOAuthData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -8417,12 +9563,6 @@ export type ListMcpServerOAuthClientsResponse = ListMcpServerOAuthClientsRespons
 
 export type CreateMcpServerOAuthClientData = {
     body: McpOAuthClientInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -8470,12 +9610,6 @@ export type CreateMcpServerOAuthClientResponse = CreateMcpServerOAuthClientRespo
 
 export type RegisterMcpServerOAuthClientData = {
     body: McpOAuthRegistration;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -8523,12 +9657,6 @@ export type RegisterMcpServerOAuthClientResponse = RegisterMcpServerOAuthClientR
 
 export type StartMcpServerOAuthAuthorizationData = {
     body: McpOAuthAuthorizationInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -8576,12 +9704,6 @@ export type StartMcpServerOAuthAuthorizationResponse = StartMcpServerOAuthAuthor
 
 export type StartMcpConnectionAuthorizationData = {
     body: McpConnectionAuthorizationInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -8668,12 +9790,6 @@ export type ListInvitationsResponse = ListInvitationsResponses[keyof ListInvitat
 
 export type CreateInvitationData = {
     body: CreateInvitationRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/invitations';
@@ -8715,12 +9831,6 @@ export type CreateInvitationResponse = CreateInvitationResponses[keyof CreateInv
 
 export type RotateInvitationData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         /**
          * Invitation identifier.
@@ -8759,12 +9869,6 @@ export type RotateInvitationResponse = RotateInvitationResponses[keyof RotateInv
 
 export type RevokeInvitationData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         /**
          * Invitation identifier.
@@ -8828,12 +9932,6 @@ export type ListIdentityProvidersResponse = ListIdentityProvidersResponses[keyof
 
 export type CreateIdentityProviderData = {
     body: CreateIdentityProviderRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/identity-providers';
@@ -8859,12 +9957,6 @@ export type CreateIdentityProviderResponse = CreateIdentityProviderResponses[key
 
 export type DiscoverIdentityProviderData = {
     body: DiscoverIdentityProviderRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/identity-providers/discovery';
@@ -8923,12 +10015,6 @@ export type ListGroupsResponse = ListGroupsResponses[keyof ListGroupsResponses];
 
 export type CreateGroupData = {
     body: CreateGroupRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/groups';
@@ -8945,12 +10031,6 @@ export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponse
 
 export type RemoveGroupSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
         sourceId: string;
@@ -8970,12 +10050,6 @@ export type RemoveGroupSourceResponse = RemoveGroupSourceResponses[keyof RemoveG
 
 export type RenameGroupData = {
     body: RenameGroupRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
     };
@@ -9016,12 +10090,6 @@ export type ListGroupMembersResponse = ListGroupMembersResponses[keyof ListGroup
 
 export type AddGroupMembersData = {
     body: AddGroupMembersRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
     };
@@ -9040,12 +10108,6 @@ export type AddGroupMembersResponse = AddGroupMembersResponses[keyof AddGroupMem
 
 export type RemoveGroupMemberData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
         actorId: string;
@@ -9074,12 +10136,6 @@ export type RemoveGroupMemberResponse = RemoveGroupMemberResponses[keyof RemoveG
 
 export type RemoveGroupManagerData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
         actorId: string;
@@ -9099,12 +10155,6 @@ export type RemoveGroupManagerResponse = RemoveGroupManagerResponses[keyof Remov
 
 export type AssignGroupManagerData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
         actorId: string;
@@ -9124,12 +10174,6 @@ export type AssignGroupManagerResponse = AssignGroupManagerResponses[keyof Assig
 
 export type DeleteGroupData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
     };
@@ -9157,12 +10201,6 @@ export type DeleteGroupResponse = DeleteGroupResponses[keyof DeleteGroupResponse
 
 export type ReplaceGroupCapabilitiesData = {
     body: ReplaceGroupCapabilitiesRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
     };
@@ -9226,12 +10264,6 @@ export type ListSharePointCredentialsResponse = ListSharePointCredentialsRespons
 
 export type CreateSharePointCredentialData = {
     body: SharePointCredentialRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/credentials/sharepoint';
@@ -9277,12 +10309,6 @@ export type CreateSharePointCredentialResponse = CreateSharePointCredentialRespo
 
 export type TestSharePointCredentialData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         credentialId: string;
     };
@@ -9330,12 +10356,6 @@ export type TestSharePointCredentialResponse = TestSharePointCredentialResponses
 
 export type RevokeGoogleDriveCredentialData = {
     body: RevokeGoogleDriveCredentialRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         credentialId: string;
     };
@@ -9354,12 +10374,6 @@ export type RevokeGoogleDriveCredentialResponse = RevokeGoogleDriveCredentialRes
 
 export type CreateGoogleDriveServiceAccountData = {
     body: GoogleDriveServiceAccountRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/credentials/google-drive/service-account';
@@ -9376,12 +10390,6 @@ export type CreateGoogleDriveServiceAccountResponse = CreateGoogleDriveServiceAc
 
 export type StartGoogleDriveAuthorizationData = {
     body: StartGoogleDriveAuthorizationRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/credentials/google-drive/authorization';
@@ -9398,12 +10406,6 @@ export type StartGoogleDriveAuthorizationResponse = StartGoogleDriveAuthorizatio
 
 export type TestChatWebConnectionData = {
     body: WebTestRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     };
@@ -9451,12 +10453,6 @@ export type TestChatWebConnectionResponse = TestChatWebConnectionResponses[keyof
 
 export type ListChatWebEnginesData = {
     body: WebEnginesRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     };
@@ -9504,12 +10500,6 @@ export type ListChatWebEnginesResponse = ListChatWebEnginesResponses[keyof ListC
 
 export type CreateChatVoiceTicketData = {
     body?: VoiceTicketRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/voice/tickets';
@@ -9551,12 +10541,6 @@ export type CreateChatVoiceTicketResponse = CreateChatVoiceTicketResponses[keyof
 
 export type SynthesizeChatVoiceData = {
     body: VoiceSynthesisRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/voice/synthesize';
@@ -9598,12 +10582,6 @@ export type SynthesizeChatVoiceResponse = SynthesizeChatVoiceResponses[keyof Syn
 
 export type TestChatVoiceConnectionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
@@ -9651,12 +10629,6 @@ export type TestChatVoiceConnectionResponse = TestChatVoiceConnectionResponses[k
 
 export type DeleteAllChatSessionsData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/sessions';
@@ -9738,12 +10710,6 @@ export type ListChatSessionsResponse = ListChatSessionsResponses[keyof ListChatS
 
 export type CreateChatSessionData = {
     body: CreateChatSession;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/sessions';
@@ -9781,12 +10747,6 @@ export type CreateChatSessionResponse = CreateChatSessionResponses[keyof CreateC
 
 export type UnarchiveChatSessionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -9868,12 +10828,6 @@ export type GetChatHistoryResponse = GetChatHistoryResponses[keyof GetChatHistor
 
 export type SendChatMessageData = {
     body: Send;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -9921,12 +10875,6 @@ export type SendChatMessageResponse = SendChatMessageResponses[keyof SendChatMes
 
 export type RegenerateChatMessageData = {
     body: Regenerate;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         userMessageId: string;
@@ -9975,12 +10923,6 @@ export type RegenerateChatMessageResponse = RegenerateChatMessageResponses[keyof
 
 export type EditChatMessageData = {
     body: Edit;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         userMessageId: string;
@@ -10029,12 +10971,6 @@ export type EditChatMessageResponse = EditChatMessageResponses[keyof EditChatMes
 
 export type BranchChatSessionData = {
     body?: BranchChatSessionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         messageId: string;
@@ -10075,12 +11011,6 @@ export type BranchChatSessionResponse = BranchChatSessionResponses[keyof BranchC
 
 export type CancelChatMessageData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         assistantMessageId: string;
@@ -10129,12 +11059,6 @@ export type CancelChatMessageResponse = CancelChatMessageResponses[keyof CancelC
 
 export type ArchiveChatSessionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -10174,12 +11098,6 @@ export type ArchiveChatSessionResponse = ArchiveChatSessionResponses[keyof Archi
 
 export type ArchiveAllChatSessionsData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/sessions/archive-all';
@@ -10262,12 +11180,6 @@ export type ListChatProvidersResponse = ListChatProvidersResponses[keyof ListCha
 
 export type CreateChatProviderData = {
     body: ProviderInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/providers';
@@ -10360,12 +11272,6 @@ export type ListConfiguredChatModelsResponse = ListConfiguredChatModelsResponses
 
 export type CreateChatModelData = {
     body: ModelInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         providerId: string;
     };
@@ -10413,12 +11319,6 @@ export type CreateChatModelResponse = CreateChatModelResponses[keyof CreateChatM
 
 export type TestChatProviderData = {
     body: ProviderTestInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/providers/test';
@@ -10464,12 +11364,6 @@ export type TestChatProviderResponse = TestChatProviderResponses[keyof TestChatP
 
 export type ListReportedProviderModelsData = {
     body: ProviderTestInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/providers/reported-models';
@@ -10558,12 +11452,6 @@ export type ListChatPromptShortcutsResponse = ListChatPromptShortcutsResponses[k
 
 export type CreateChatPromptShortcutData = {
     body: ShortcutInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/prompt-shortcuts';
@@ -10646,12 +11534,6 @@ export type ListPublicChatPromptShortcutsResponse = ListPublicChatPromptShortcut
 
 export type CreatePublicChatPromptShortcutData = {
     body: ShortcutInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/prompt-shortcuts/public';
@@ -10737,12 +11619,6 @@ export type ListChatProjectsResponse = ListChatProjectsResponses[keyof ListChatP
 
 export type CreateChatProjectData = {
     body: ProjectInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/projects';
@@ -10830,12 +11706,6 @@ export type ListProjectChatSessionsResponse = ListProjectChatSessionsResponses[k
 
 export type CreateProjectChatSessionData = {
     body: ProjectConversation;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         projectId: string;
     };
@@ -10926,12 +11796,6 @@ export type ListChatPersonasResponse = ListChatPersonasResponses[keyof ListChatP
 
 export type CreateChatPersonaData = {
     body: PersonaInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/personas';
@@ -10973,12 +11837,6 @@ export type CreateChatPersonaResponse = CreateChatPersonaResponses[keyof CreateC
 
 export type RestoreChatPersonaData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -11022,12 +11880,6 @@ export type RestoreChatPersonaResponse = RestoreChatPersonaResponses[keyof Resto
 
 export type TransferChatPersonaData = {
     body: TransferInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -11114,12 +11966,6 @@ export type ListChatPersonaLabelsResponse = ListChatPersonaLabelsResponses[keyof
 
 export type CreateChatPersonaLabelData = {
     body: LabelRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/persona-labels';
@@ -11161,12 +12007,6 @@ export type CreateChatPersonaLabelResponse = CreateChatPersonaLabelResponses[key
 
 export type ValidateChatModelData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         modelId: string;
     };
@@ -11214,12 +12054,6 @@ export type ValidateChatModelResponse = ValidateChatModelResponses[keyof Validat
 
 export type RestoreChatLibraryFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
         id: string;
@@ -11264,12 +12098,6 @@ export type RestoreChatLibraryFileResponse = RestoreChatLibraryFileResponses[key
 
 export type PurgeChatLibraryFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
         id: string;
@@ -11314,12 +12142,6 @@ export type PurgeChatLibraryFileResponse = PurgeChatLibraryFileResponses[keyof P
 
 export type CopyChatLibraryFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         source: 'GENERATED' | 'IMAGE';
         id: string;
@@ -11364,12 +12186,6 @@ export type CopyChatLibraryFileResponse = CopyChatLibraryFileResponses[keyof Cop
 
 export type EmptyChatLibraryTrashData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/library/trash/empty';
@@ -11452,12 +12268,6 @@ export type ListChatLibraryArchivesResponse = ListChatLibraryArchivesResponses[k
 
 export type RequestChatLibraryArchiveData = {
     body: ChatLibraryArchiveRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/library/archives';
@@ -11499,12 +12309,6 @@ export type RequestChatLibraryArchiveResponse = RequestChatLibraryArchiveRespons
 
 export type TestChatImageConnectionData = {
     body?: ImageConnectionTestRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
     };
@@ -11552,12 +12356,6 @@ export type TestChatImageConnectionResponse = TestChatImageConnectionResponses[k
 
 export type RetryChatFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         fileId: string;
     };
@@ -11605,12 +12403,6 @@ export type RetryChatFileResponse = RetryChatFileResponses[keyof RetryChatFileRe
 
 export type FinalizeChatFileUploadData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         fileId: string;
     };
@@ -11658,12 +12450,6 @@ export type FinalizeChatFileUploadResponse = FinalizeChatFileUploadResponses[key
 
 export type InitiateChatFileUploadData = {
     body: ChatFileUploadRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/files/uploads';
@@ -11750,12 +12536,6 @@ export type ListChatExportsResponse = ListChatExportsResponses[keyof ListChatExp
 
 export type RequestChatExportData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/exports';
@@ -11833,12 +12613,6 @@ export type ListDocumentSetsResponse = ListDocumentSetsResponses[keyof ListDocum
 
 export type CreateDocumentSetData = {
     body: Input;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/document-sets';
@@ -11905,12 +12679,6 @@ export type ListUsageReportsResponse = ListUsageReportsResponses[keyof ListUsage
 
 export type RequestUsageReportData = {
     body: UsageReportRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/ai-costs/reports';
@@ -11977,12 +12745,6 @@ export type ListAiUsageLimitsResponse = ListAiUsageLimitsResponses[keyof ListAiU
 
 export type CreateAiUsageLimitData = {
     body: AiUsageLimitRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/ai-costs/limits';
@@ -12057,12 +12819,6 @@ export type GetChatVoiceSettingsResponse = GetChatVoiceSettingsResponses[keyof G
 
 export type UpdateChatVoiceSettingsData = {
     body: VoiceSettingsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/voice/settings';
@@ -12104,12 +12860,6 @@ export type UpdateChatVoiceSettingsResponse = UpdateChatVoiceSettingsResponses[k
 
 export type ChangeChatLibraryFileData = {
     body: ChatLibraryFileChange;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
         id: string;
@@ -12661,6 +13411,96 @@ export type GetSourceOperationResponses = {
 
 export type GetSourceOperationResponse = GetSourceOperationResponses[keyof GetSourceOperationResponses];
 
+export type GetSearchSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/search/settings';
+};
+
+export type GetSearchSettingsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetSearchSettingsError = GetSearchSettingsErrors[keyof GetSearchSettingsErrors];
+
+export type GetSearchSettingsResponses = {
+    /**
+     * Successful result
+     */
+    200: SearchSettingsResponse;
+};
+
+export type GetSearchSettingsResponse = GetSearchSettingsResponses[keyof GetSearchSettingsResponses];
+
+export type ListEmbeddingModelPresetsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/search/embedding-models';
+};
+
+export type ListEmbeddingModelPresetsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListEmbeddingModelPresetsError = ListEmbeddingModelPresetsErrors[keyof ListEmbeddingModelPresetsErrors];
+
+export type ListEmbeddingModelPresetsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<EmbeddingModelPresetResponse>;
+};
+
+export type ListEmbeddingModelPresetsResponse = ListEmbeddingModelPresetsResponses[keyof ListEmbeddingModelPresetsResponses];
+
 export type GetSearchDocumentData = {
     body?: never;
     path: {
@@ -12682,6 +13522,26 @@ export type GetSearchDocumentResponses = {
 
 export type GetSearchDocumentResponse = GetSearchDocumentResponses[keyof GetSearchDocumentResponses];
 
+export type ReadSearchDocumentSpreadsheetData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/search/documents/{documentId}/spreadsheet';
+};
+
+export type ReadSearchDocumentSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: DocumentSpreadsheet;
+};
+
+export type ReadSearchDocumentSpreadsheetResponse = ReadSearchDocumentSpreadsheetResponses[keyof ReadSearchDocumentSpreadsheetResponses];
+
 export type ReadSearchDocumentOriginalData = {
     body?: never;
     headers?: {
@@ -12701,40 +13561,36 @@ export type ReadSearchDocumentOriginalData = {
 
 export type ReadSearchDocumentOriginalErrors = {
     /**
-     * Requested byte range starts beyond the original PDF
+     * Requested byte range starts beyond the original
      */
     416: unknown;
 };
 
 export type ReadSearchDocumentOriginalResponses = {
     /**
-     * Original PDF bytes
+     * Original bytes, under the object's declared media type
      */
     200: Blob | File;
     /**
-     * Requested byte range of the original PDF
+     * Requested byte range of the original
      */
     206: Blob | File;
 };
 
 export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
 
-export type DeleteMeetingData = {
+export type ExportMeetingTranscriptData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
-    query?: never;
-    url: '/api/meetings/{meetingId}';
+    query?: {
+        format?: 'DOCX' | 'PDF';
+    };
+    url: '/api/meetings/{meetingId}/transcript';
 };
 
-export type DeleteMeetingErrors = {
+export type ExportMeetingTranscriptErrors = {
     /**
      * Invalid meeting request
      */
@@ -12753,55 +13609,16 @@ export type DeleteMeetingErrors = {
     404: ApiProblem;
 };
 
-export type DeleteMeetingError = DeleteMeetingErrors[keyof DeleteMeetingErrors];
+export type ExportMeetingTranscriptError = ExportMeetingTranscriptErrors[keyof ExportMeetingTranscriptErrors];
 
-export type DeleteMeetingResponses = {
+export type ExportMeetingTranscriptResponses = {
     /**
-     * Deleted
+     * The transcript
      */
-    204: void;
+    200: Blob | File;
 };
 
-export type DeleteMeetingResponse = DeleteMeetingResponses[keyof DeleteMeetingResponses];
-
-export type GetMeetingData = {
-    body?: never;
-    path: {
-        meetingId: string;
-    };
-    query?: never;
-    url: '/api/meetings/{meetingId}';
-};
-
-export type GetMeetingErrors = {
-    /**
-     * Invalid meeting request
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Chat access, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Meeting not available
-     */
-    404: ApiProblem;
-};
-
-export type GetMeetingError = GetMeetingErrors[keyof GetMeetingErrors];
-
-export type GetMeetingResponses = {
-    /**
-     * The meeting
-     */
-    200: MeetingDetail;
-};
-
-export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
+export type ExportMeetingTranscriptResponse = ExportMeetingTranscriptResponses[keyof ExportMeetingTranscriptResponses];
 
 export type ListMeetingTranscribersData = {
     body?: never;
@@ -13001,6 +13818,42 @@ export type GetCurrentInvitationResponses = {
 };
 
 export type GetCurrentInvitationResponse = GetCurrentInvitationResponses[keyof GetCurrentInvitationResponses];
+
+export type SearchPrincipalsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        size?: number;
+    };
+    url: '/api/identity/principals';
+};
+
+export type SearchPrincipalsErrors = {
+    /**
+     * Invalid principal search
+     */
+    400: ApiProblem;
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active member of the Tenant
+     */
+    403: ApiProblem;
+};
+
+export type SearchPrincipalsError = SearchPrincipalsErrors[keyof SearchPrincipalsErrors];
+
+export type SearchPrincipalsResponses = {
+    /**
+     * Matching people and Groups
+     */
+    200: PrincipalOptions;
+};
+
+export type SearchPrincipalsResponse = SearchPrincipalsResponses[keyof SearchPrincipalsResponses];
 
 export type GetCurrentIdentityData = {
     body?: never;
@@ -13433,12 +14286,6 @@ export type GetSharedChatHistoryResponse = GetSharedChatHistoryResponses[keyof G
 
 export type DeleteChatSessionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -13955,50 +14802,6 @@ export type ListChatPersonasForAdministrationResponses = {
 };
 
 export type ListChatPersonasForAdministrationResponse = ListChatPersonasForAdministrationResponses[keyof ListChatPersonasForAdministrationResponses];
-
-export type ListChatPersonaShareOptionsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        q?: string;
-        limit?: number;
-    };
-    url: '/api/chat/persona-share-options';
-};
-
-export type ListChatPersonaShareOptionsErrors = {
-    /**
-     * Invalid chat request
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Chat resource not accessible
-     */
-    404: ApiProblem;
-    /**
-     * Conversation is running or revision has changed
-     */
-    409: ApiProblem;
-};
-
-export type ListChatPersonaShareOptionsError = ListChatPersonaShareOptionsErrors[keyof ListChatPersonaShareOptionsErrors];
-
-export type ListChatPersonaShareOptionsResponses = {
-    /**
-     * Successful chat operation
-     */
-    200: AgentShareOptions;
-};
-
-export type ListChatPersonaShareOptionsResponse = ListChatPersonaShareOptionsResponses[keyof ListChatPersonaShareOptionsResponses];
 
 export type ListAvailableChatModelsData = {
     body?: never;
@@ -14874,12 +15677,6 @@ export type ListChatFilesResponse = ListChatFilesResponses[keyof ListChatFilesRe
 
 export type DeleteChatFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         fileId: string;
     };
@@ -14971,6 +15768,53 @@ export type GetChatFileResponses = {
 };
 
 export type GetChatFileResponse = GetChatFileResponses[keyof GetChatFileResponses];
+
+export type GetChatFileThumbnailData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/thumbnail';
+};
+
+export type GetChatFileThumbnailErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileThumbnailError = GetChatFileThumbnailErrors[keyof GetChatFileThumbnailErrors];
+
+export type GetChatFileThumbnailResponses = {
+    /**
+     * Thumbnail bytes, or the original image when no smaller rendering could be made
+     */
+    200: Blob | File;
+};
+
+export type GetChatFileThumbnailResponse = GetChatFileThumbnailResponses[keyof GetChatFileThumbnailResponses];
 
 export type ReadChatFileTextData = {
     body?: never;
@@ -15517,6 +16361,47 @@ export type ReadChatDocumentPassagesResponses = {
 
 export type ReadChatDocumentPassagesResponse = ReadChatDocumentPassagesResponses[keyof ReadChatDocumentPassagesResponses];
 
+export type ReadChatDocumentSpreadsheetData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/chat/documents/{documentId}/spreadsheet';
+};
+
+export type ReadChatDocumentSpreadsheetErrors = {
+    /**
+     * Invalid passage window
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Document generation not readable
+     */
+    404: ApiProblem;
+};
+
+export type ReadChatDocumentSpreadsheetError = ReadChatDocumentSpreadsheetErrors[keyof ReadChatDocumentSpreadsheetErrors];
+
+export type ReadChatDocumentSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: DocumentSpreadsheet;
+};
+
+export type ReadChatDocumentSpreadsheetResponse = ReadChatDocumentSpreadsheetResponses[keyof ReadChatDocumentSpreadsheetResponses];
+
 export type ReadChatDocumentOriginalData = {
     body?: never;
     headers?: {
@@ -15552,7 +16437,7 @@ export type ReadChatDocumentOriginalErrors = {
      */
     404: ApiProblem;
     /**
-     * Requested byte range starts beyond the original PDF
+     * Requested byte range starts beyond the original
      */
     416: unknown;
 };
@@ -15561,11 +16446,11 @@ export type ReadChatDocumentOriginalError = ReadChatDocumentOriginalErrors[keyof
 
 export type ReadChatDocumentOriginalResponses = {
     /**
-     * Original PDF bytes
+     * Original bytes, under the object's declared media type
      */
     200: Blob | File;
     /**
-     * Requested byte range of the original PDF
+     * Requested byte range of the original
      */
     206: Blob | File;
 };
@@ -15737,7 +16622,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/summary';
 };
@@ -15922,7 +16807,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/daily';
 };
@@ -15962,7 +16847,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/breakdown';
 };
@@ -15993,14 +16878,89 @@ export type ListAiCostBreakdownResponses = {
 
 export type ListAiCostBreakdownResponse = ListAiCostBreakdownResponses[keyof ListAiCostBreakdownResponses];
 
+export type DismissMeetingSpeakerSuggestionData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        track: 'MIC' | 'TAB';
+        label: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/speakers/{track}/{label}/suggestion';
+};
+
+export type DismissMeetingSpeakerSuggestionErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or speaker not available
+     */
+    404: ApiProblem;
+};
+
+export type DismissMeetingSpeakerSuggestionError = DismissMeetingSpeakerSuggestionErrors[keyof DismissMeetingSpeakerSuggestionErrors];
+
+export type DismissMeetingSpeakerSuggestionResponses = {
+    /**
+     * The speaker, no longer offered a name
+     */
+    200: MeetingSpeaker;
+};
+
+export type DismissMeetingSpeakerSuggestionResponse = DismissMeetingSpeakerSuggestionResponses[keyof DismissMeetingSpeakerSuggestionResponses];
+
+export type RemoveMeetingBookmarkData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        bookmarkId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/bookmarks/{bookmarkId}';
+};
+
+export type RemoveMeetingBookmarkErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or mark not available
+     */
+    404: ApiProblem;
+};
+
+export type RemoveMeetingBookmarkError = RemoveMeetingBookmarkErrors[keyof RemoveMeetingBookmarkErrors];
+
+export type RemoveMeetingBookmarkResponses = {
+    /**
+     * Every mark the caller still has in this meeting
+     */
+    200: Array<MeetingBookmark>;
+};
+
+export type RemoveMeetingBookmarkResponse = RemoveMeetingBookmarkResponses[keyof RemoveMeetingBookmarkResponses];
+
 export type DisconnectMcpServerOAuthData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -16048,12 +17008,6 @@ export type DisconnectMcpServerOAuthResponse = DisconnectMcpServerOAuthResponses
 
 export type DisconnectMcpConnectionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -16102,10 +17056,6 @@ export type DisconnectMcpConnectionResponse = DisconnectMcpConnectionResponses[k
 export type DeleteGoogleDriveCredentialData = {
     body?: never;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -16126,12 +17076,6 @@ export type DeleteGoogleDriveCredentialResponse = DeleteGoogleDriveCredentialRes
 
 export type LeaveChatPersonaData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -16175,12 +17119,6 @@ export type LeaveChatPersonaResponse = LeaveChatPersonaResponses[keyof LeaveChat
 
 export type DeleteChatImageArtifactData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         artifactId: string;
     };
@@ -16224,12 +17162,6 @@ export type DeleteChatImageArtifactResponse = DeleteChatImageArtifactResponses[k
 
 export type DeleteChatFileArtifactData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         artifactId: string;
     };

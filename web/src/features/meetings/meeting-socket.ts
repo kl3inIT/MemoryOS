@@ -1,11 +1,13 @@
 /** Client for one meeting track's recording WebSocket (`/api/meeting-stream`). */
 
-export const MEETING_STREAM_PATH = "/api/meeting-stream";
+const MEETING_STREAM_PATH = "/api/meeting-stream";
 const OPEN_TIMEOUT_MS = 8_000;
 /** The server stores the last utterances after an end; a slow provider may take a few seconds. */
 const FINISH_TIMEOUT_MS = 20_000;
 
 export type MeetingTrack = "MIC" | "TAB";
+
+export type UtteranceSpan = { start: number; end: number; confidence: number };
 
 export type StreamedUtterance = {
   id: string;
@@ -15,6 +17,7 @@ export type StreamedUtterance = {
   endMs: number;
   text: string;
   confidence: number;
+  spans: UtteranceSpan[];
 };
 
 /** Codes after which reconnecting cannot help. */
@@ -58,7 +61,7 @@ export type MeetingSocketOptions = {
   createSocket?: (url: string) => WebSocket;
 };
 
-export function meetingStreamUrl(
+function meetingStreamUrl(
   options: Pick<MeetingSocketOptions, "meetingId" | "track" | "offsetMs" | "ticket">,
   location: Pick<Location, "origin" | "protocol"> = window.location,
 ) {
@@ -91,7 +94,23 @@ function parseUtterance(value: unknown): StreamedUtterance | undefined {
     endMs: item.endMs,
     text: item.text,
     confidence: typeof item.confidence === "number" ? item.confidence : 1,
+    spans: readSpans(item.spans),
   };
+}
+
+function readSpans(value: unknown): UtteranceSpan[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const span = entry as Partial<UtteranceSpan>;
+    if (typeof span?.start !== "number" || typeof span?.end !== "number") return [];
+    return [
+      {
+        start: span.start,
+        end: span.end,
+        confidence: typeof span.confidence === "number" ? span.confidence : 0,
+      },
+    ];
+  });
 }
 
 /** Opens the socket and resolves once the server has opened the provider stream (`ready`). */

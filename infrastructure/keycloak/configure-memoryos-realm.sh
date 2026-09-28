@@ -201,7 +201,29 @@ find_mapper_uuid() {
     --realm "$KEYCLOAK_ADMIN_REALM" \
     --user "$KEYCLOAK_ADMIN_USERNAME" >/dev/null
 
-"$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
+# A new environment has no realm yet, and this script is how one is built. Create it bare and let
+# the reconciliation below give it its shape, so one run serves an empty Keycloak and one that is
+# already serving. Until now the script asserted the realm existed, which meant the first
+# environment could only be built by hand and no record was kept of how.
+if "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null 2>&1; then
+    echo "realm=$TARGET_REALM action=reused"
+else
+    jq -cn --arg realm "$TARGET_REALM" '{realm: $realm, enabled: true}' |
+        "$KCADM" create realms --config "$CONFIG_FILE" -f - >/dev/null
+    "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
+    echo "realm=$TARGET_REALM action=created"
+fi
+
+require_memoryos_theme() {
+    theme_count=$("$KCADM" get serverinfo \
+        --config "$CONFIG_FILE" |
+        jq -r '[.themes.login[]? | select(.name == "memoryos")] | length')
+    if [ "$theme_count" -ne 1 ]; then
+        echo "MemoryOS login theme is not available to Keycloak" >&2
+        exit 1
+    fi
+    echo "theme=memoryos type=login action=available"
+}
 
 configure_realm() {
     # Without a mail server the realm is deliberately unable to send: no smtpServer, and no e-mail
@@ -251,7 +273,20 @@ configure_realm() {
             --config "$CONFIG_FILE" \
             -f - >/dev/null
     fi
-    echo "realm=$TARGET_REALM self-registration=disabled email-verification=required smtp=updated"
+    configured_theme=$("$KCADM" get "realms/$TARGET_REALM" \
+        --config "$CONFIG_FILE" \
+        --fields loginTheme |
+        jq -r '.loginTheme // empty')
+    if [ "$configured_theme" != "memoryos" ]; then
+        echo "MemoryOS realm login theme did not converge" >&2
+        exit 1
+    fi
+    # Say which realm was built, not which one the staging shape would have been.
+    if [ "$SMTP_ENABLED" = true ]; then
+        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=required smtp=configured"
+    else
+        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=disabled smtp=none"
+    fi
 }
 
 configure_provisioning_profile() {
@@ -272,6 +307,7 @@ configure_provisioning_profile() {
     echo "realm=$TARGET_REALM provisioning-provenance=admin-only"
 }
 
+require_memoryos_theme
 configure_realm
 configure_provisioning_profile
 

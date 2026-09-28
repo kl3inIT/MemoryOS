@@ -7,14 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.GroupAdministrationGuard;
-import io.memoryos.iam.group.GroupPermissions;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupService;
-import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupPermissions;
+import io.memoryos.iam.GroupService;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupEntity;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
@@ -24,6 +23,8 @@ import io.memoryos.iam.group.persistence.GroupRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 
+import java.sql.Types;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,11 +32,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.group.DefaultGroupAdministrationGuard;
-import io.memoryos.iam.group.DefaultGroupService;
-import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.IamException;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresGroupMembershipReplacementTest {
@@ -69,7 +65,7 @@ class PostgresGroupMembershipReplacementTest {
                 transactionManager
         );
         GroupAdministrationGuard administrationGuard = TestDatabase.transactionalProxy(
-                new DefaultGroupAdministrationGuard(new GroupInvariantRepository(jdbc)),
+                new GroupAdministrationGuard(new GroupInvariantRepository(jdbc)),
                 GroupAdministrationGuard.class,
                 transactionManager
         );
@@ -109,7 +105,7 @@ class PostgresGroupMembershipReplacementTest {
         assertEquals(0L, membershipCount(REMOVED, MEMBER));
         assertEquals(1L, membershipCount(new GroupId(GroupEntity.BASIC_ID), MEMBER));
         assertEquals(1L, authorizationVersion());
-        assertEquals(java.util.List.of("user.group_change"), actions());
+        assertEquals(List.of("user.group_change"), actions());
     }
 
     @Test
@@ -130,7 +126,7 @@ class PostgresGroupMembershipReplacementTest {
         groups.removeMember(MEMBER, RETAINED, peer);
         assertEquals(0L, membershipCount(RETAINED, peer));
         assertEquals(1L, membershipCount(new GroupId(GroupEntity.BASIC_ID), peer));
-        assertEquals(java.util.List.of("user_group.member_change", "user_group.manager_change", "user_group.manager_change",
+        assertEquals(List.of("user_group.member_change", "user_group.manager_change", "user_group.manager_change",
                 "user_group.manager_change", "user_group.member_change"), actions());
     }
 
@@ -162,13 +158,13 @@ class PostgresGroupMembershipReplacementTest {
         assertTrue(managerFlag(RETAINED));
         // The rename is recorded; each reach past the managed Group is a denial that survives its rollback;
         // refusals of a capability the manager never held are not recorded (ADR 0013).
-        assertEquals(java.util.List.of("user_group.rename", "permission.denied", "permission.denied",
+        assertEquals(List.of("user_group.rename", "permission.denied", "permission.denied",
                 "permission.denied", "permission.denied"), actions());
         assertEquals(4L, jdbc.sql("SELECT count(*) FROM audit_event WHERE outcome = 'DENIED' AND resource_id = :id")
                 .param("id", REMOVED.value().toString()).query(Long.class).single());
     }
 
-    private java.util.List<String> actions() {
+    private List<String> actions() {
         return jdbc.sql("SELECT action FROM audit_event ORDER BY occurred_at, id").query(String.class).list();
     }
 
@@ -271,7 +267,7 @@ class PostgresGroupMembershipReplacementTest {
                 .param("groupId", groupId.value())
                 .param("name", name);
         if (systemKey == null) {
-            statement.param("systemKey", null, java.sql.Types.VARCHAR).update();
+            statement.param("systemKey", null, Types.VARCHAR).update();
         } else {
             statement.param("systemKey", systemKey).update();
         }

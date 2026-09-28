@@ -1,0 +1,19 @@
+[ {
+  "ordinal" : 0,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Chi phí\n[A1] Hạng mục\n[B1] Số tiền",
+  "headings" : [ ],
+  "blockIndex" : 0,
+  "part" : 0,
+  "provenanceJson" : "{\"source\":{\"sheetId\":7,\"title\":\"Chi phí\",\"index\":0,\"sheetType\":\"GRID\",\"gridProperties\":{\"rowCount\":2,\"columnCount\":2}},\"tableRow\":0}",
+  "contentSha256" : "41c6fff002709f4e9c216ae98ab477e6e608cb21a5ddce3907a87e9c6a71ec9f",
+  "tokenCount" : 32
+}, {
+  "ordinal" : 1,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Chi phí\n[A2] Công tác phí\n[B2] 3.500.000",
+  "headings" : [ ],
+  "blockIndex" : 0,
+  "part" : 1,
+  "provenanceJson" : "{\"source\":{\"sheetId\":7,\"title\":\"Chi phí\",\"index\":0,\"sheetType\":\"GRID\",\"gridProperties\":{\"rowCount\":2,\"columnCount\":2}},\"tableRow\":1}",
+  "contentSha256" : "80412042f7fdb0a228225837953f797bfd51b3406599815be7adab187849c255",
+  "tokenCount" : 35
+} ]

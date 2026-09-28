@@ -1,11 +1,11 @@
 package io.memoryos.api.security;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
-import io.memoryos.iam.identity.IdentityContext;
-import io.memoryos.iam.identity.ProviderSessionTerminator;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.ProviderSessionTerminator;
+import io.memoryos.iam.TenantAccessResolver;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -43,21 +43,21 @@ final class ProviderSessionLogoutHandler implements LogoutHandler {
             @Nullable Authentication authentication
     ) {
         String providerSessionId = ProviderSessionState.read(request);
-        boolean ended = false;
-        if (providerSessionId != null) {
-            try {
-                ended = terminator.end(providerSessionId);
-            } catch (RuntimeException exception) {
-                ended = false;
-            }
-        }
+        boolean ended = providerSessionId != null && end(providerSessionId);
         request.setAttribute(ENDED_ATTRIBUTE, ended);
         // Onyx has no logout event; a session ending at Keycloak is the other half of the one that began at sign-in.
-        if (authentication != null && authentication.getPrincipal() instanceof IdentityContext identity) {
-            boolean providerEnded = ended;
-            tenants.findActiveTenant(identity.actorId()).ifPresent(tenant -> audit.recordSeparately(
-                    AuditRecord.of(AuditAction.LOGOUT, tenant).actor(identity.actorId())
-                            .detail("providerSessionEnded", providerEnded).build()));
+        if (authentication != null && authentication.getPrincipal() instanceof IdentityContext(var actor)) {
+            tenants.findActiveTenant(actor).ifPresent(tenant -> audit.recordSeparately(
+                    AuditRecord.of(AuditAction.LOGOUT, tenant).actor(actor)
+                            .detail("providerSessionEnded", ended).build()));
+        }
+    }
+
+    private boolean end(String providerSessionId) {
+        try {
+            return terminator.end(providerSessionId);
+        } catch (RuntimeException exception) {
+            return false;
         }
     }
 

@@ -25,10 +25,11 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
+import io.memoryos.connector.sharepoint.DefaultSharePointSourceService;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IdentityContext;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -85,7 +86,7 @@ class SharePointSourceApiTest {
 
     // The selection processor needs the concrete service, so the mock replaces that bean rather than the port.
     @MockitoBean
-    private io.memoryos.connector.application.DefaultSharePointSourceService sources;
+    private DefaultSharePointSourceService sources;
 
     private ActorAuthenticationToken owner;
 
@@ -108,6 +109,30 @@ class SharePointSourceApiTest {
         owner = new ActorAuthenticationToken(new IdentityContext(new ActorId(jdbcClient.sql("""
                 SELECT actor_id FROM external_identity_bindings WHERE subject = 'sharepoint-source-owner'
                 """).query(UUID.class).single())));
+        when(sources.selectionRequestByteLimit()).thenReturn(3_145_728);
+    }
+
+    @Test
+    void aSelectionAboveTheByteBudgetIsRefusedBeforeItReachesTheService() throws Exception {
+        when(sources.selectionRequestByteLimit()).thenReturn(64);
+
+        mockMvc.perform(post("/api/sources/sharepoint")
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createBody()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+        mockMvc.perform(put("/api/sources/{id}/sharepoint/scope", SOURCE)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"3\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(scopeBody()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+        verify(sources, never()).create(any(), any(), any(), any(), any(), any(), any());
+        verify(sources, never()).replaceScope(any(), any(), any(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -126,7 +151,7 @@ class SharePointSourceApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createBody()))
                 .andExpect(status().isAccepted())
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.sourceId").value(SOURCE.toString()))
                 .andExpect(jsonPath("$.operation.type").value("VALIDATE_SHAREPOINT_SELECTION"));
     }

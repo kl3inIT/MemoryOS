@@ -1,12 +1,13 @@
 package io.memoryos.iam.group.persistence;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.GroupId;
+import io.memoryos.shared.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -160,7 +161,7 @@ public class GroupInvariantRepository {
 
 
     /** The names of the ordinary Groups a member belongs to, for the record of a change to them. */
-    public java.util.List<String> ordinaryGroupNames(TenantId tenantId, ActorId actorId) {
+    public List<String> ordinaryGroupNames(TenantId tenantId, ActorId actorId) {
         return jdbcClient.sql("""
                         SELECT g.name
                         FROM iam_group_memberships membership

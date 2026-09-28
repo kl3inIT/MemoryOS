@@ -1,11 +1,11 @@
 package io.memoryos.iam.invitation.persistence;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.invitation.InvitationQuery;
-import io.memoryos.iam.invitation.InvitationSort;
-import io.memoryos.iam.invitation.InvitationStatus;
-import io.memoryos.iam.invitation.InvitationView;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.InvitationQuery;
+import io.memoryos.iam.InvitationSort;
+import io.memoryos.iam.InvitationStatus;
+import io.memoryos.iam.InvitationView;
+import io.memoryos.shared.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

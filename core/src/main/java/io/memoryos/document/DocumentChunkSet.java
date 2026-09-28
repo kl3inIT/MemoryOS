@@ -1,13 +1,14 @@
 package io.memoryos.document;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record DocumentChunkSet(TenantId tenantId, DocumentId documentId, UUID generation,
         String title, String mediaType, Instant updatedAt, List<DocumentChunk> chunks,
-        @org.jspecify.annotations.Nullable UUID userFileId) {
+        @Nullable UUID userFileId) {
     public DocumentChunkSet { chunks = List.copyOf(chunks); }
 
     public DocumentChunkSet(TenantId tenantId, DocumentId documentId, UUID generation, String title,

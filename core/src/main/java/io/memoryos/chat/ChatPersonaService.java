@@ -1,26 +1,21 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.persistence.JdbcAgentRepository;
-import io.memoryos.chat.persistence.JdbcAgentRepository.Access;
-import io.memoryos.chat.persistence.JdbcAgentRepository.AgentGroupShare;
-import io.memoryos.chat.persistence.JdbcAgentRepository.AgentOwner;
-import io.memoryos.chat.persistence.JdbcAgentRepository.Permission;
-import io.memoryos.chat.persistence.JdbcAgentRepository.AgentRef;
-import io.memoryos.chat.persistence.JdbcAgentRepository.AgentUserShare;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcUserFileRepository;
-import io.memoryos.chat.persistence.JdbcDocumentSetRepository;
-import io.memoryos.chat.persistence.JpaPersonaRepository;
-import io.memoryos.chat.persistence.PersonaEntity;
-import io.memoryos.chat.persistence.PersonaRevisions;
+import io.memoryos.library.UserFileContentService;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.UserFile;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository.Access;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.persona.persistence.JdbcDocumentSetRepository;
+import io.memoryos.chat.persona.persistence.JpaPersonaRepository;
+import io.memoryos.chat.persona.persistence.PersonaEntity;
+import io.memoryos.chat.persona.persistence.PersonaRevisions;
 import io.memoryos.connector.SourceSearchService;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -58,22 +53,21 @@ public class ChatPersonaService {
     private final JdbcAgentRepository agents;
     private final PersonaRevisions revisions;
     private final PersonaProperties defaults;
-    private final ModelCatalogService models;
+    private final ChatModelAccess models;
     private final SourceSearchService sources;
     private final DocumentSetService documentSets;
     private final JdbcDocumentSetRepository documentSetRows;
-    private final ChatFileService files;
-    private final JdbcUserFileRepository userFiles;
-    private final ChatFileContentService content;
+    private final UserFileService files;
+    private final UserFileContentService content;
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
             JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions, PersonaProperties defaults,
-            ModelCatalogService models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
-            ChatFileService files, JdbcUserFileRepository userFiles, ChatFileContentService content) {
+            ChatModelAccess models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
+            UserFileService files, UserFileContentService content) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings;
         this.agents = agents; this.revisions = revisions; this.defaults = defaults; this.models = models;
         this.sources = sources; this.documentSets = documentSets; this.documentSetRows = documentSetRows;
-        this.files = files; this.userFiles = userFiles; this.content = content;
+        this.files = files; this.content = content;
     }
 
     /**
@@ -85,7 +79,8 @@ public class ChatPersonaService {
                                @Nullable Set<String> tools, @Nullable List<UUID> mcpServerIds, @Nullable UUID modelConfigurationId,
                                @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, @Nullable List<UUID> fileIds,
                                @Nullable String iconName, @Nullable UUID avatarFileId, @Nullable List<UUID> labelIds,
-                               @Nullable Boolean replaceBaseSystemPrompt, @Nullable Boolean datetimeAware, @Nullable Instant knowledgeCutoff) {
+                               @Nullable Boolean replaceBaseSystemPrompt, @Nullable Instant knowledgeCutoff,
+                               @Nullable Boolean grounded) {
     }
 
     public record AgentSourceRef(UUID id, String name) {}
@@ -97,24 +92,23 @@ public class ChatPersonaService {
                               @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, List<UUID> fileIds,
                               @Nullable String iconName, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
                               boolean vacant, List<AgentUserShare> userShares, List<AgentGroupShare> groupShares, boolean isPublic,
-                              Permission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
-                              boolean replaceBaseSystemPrompt, boolean datetimeAware, @Nullable Instant knowledgeCutoff,
+                              AgentPermission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
+                              boolean replaceBaseSystemPrompt, boolean grounded, @Nullable Instant knowledgeCutoff,
                               boolean pinned, @Nullable Instant deletedAt) {}
 
-    public record UserShareInput(UUID actorId, Permission permission) {}
-    public record GroupShareInput(UUID groupId, Permission permission) {}
+    public record UserShareInput(UUID actorId, AgentPermission permission) {}
+    public record GroupShareInput(UUID groupId, AgentPermission permission) {}
     public record SharingInput(List<UserShareInput> users, List<GroupShareInput> groups, @Nullable Boolean isPublic,
-                               @Nullable Permission publicPermission) {}
+                               @Nullable AgentPermission publicPermission) {}
     public record TransferInput(@Nullable UUID actorId, @Nullable UUID groupId) {}
     public record ListingInput(boolean listed, boolean featured, @Nullable Integer displayPriority) {}
 
     @Transactional
-    public List<PersonaView> list(ActorId actor, JdbcAgentRepository.View view, @Nullable UUID label, @Nullable String query,
+    public List<PersonaView> list(ActorId actor, AgentListFilter view, @Nullable UUID label, @Nullable String query,
                                   int offset, int limit) {
         page(offset, limit);
         if (query != null && (query.isBlank() || query.length() > 200)) query = null;
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        chats.provisionPersona(tenant, defaults.getName(), defaults.getInstructions(), defaults.getModel());
         agents.seedPinsOnce(tenant.value(), actor.value());
         boolean manage = manages(actor);
         return views(tenant, actor, manage, agents.list(tenant.value(), actor.value(), manage, view, label, query == null ? null : query.strip(), offset, limit));
@@ -208,12 +202,12 @@ public class ChatPersonaService {
         if (entity.revision() != revision) throw ChatException.conflict();
         if (input.users() == null || input.groups() == null || input.users().size() > MAX_SHARES || input.groups().size() > MAX_SHARES)
             throw ChatException.invalid("Share with at most 200 people and 200 Groups.");
-        var users = new LinkedHashMap<UUID, Permission>();
+        var users = new LinkedHashMap<UUID, AgentPermission>();
         input.users().forEach(share -> {
             if (share == null || share.actorId() == null || share.permission() == null || users.put(share.actorId(), share.permission()) != null)
                 throw ChatException.invalid("People can be shared once each.");
         });
-        var groups = new LinkedHashMap<UUID, Permission>();
+        var groups = new LinkedHashMap<UUID, AgentPermission>();
         input.groups().forEach(share -> {
             if (share == null || share.groupId() == null || share.permission() == null || groups.put(share.groupId(), share.permission()) != null)
                 throw ChatException.invalid("Groups can be shared once each.");
@@ -226,7 +220,7 @@ public class ChatPersonaService {
         agents.replaceShares(tenant.value(), id, users, groups);
         // As Onyx, only owners and agent managers change visibility; other editors keep the current setting.
         if (access.owns() && input.isPublic() != null)
-            entity.publish(input.isPublic(), (input.publicPermission() == null ? Permission.VIEWER : input.publicPermission()).name());
+            entity.publish(input.isPublic(), (input.publicPermission() == null ? AgentPermission.VIEWER : input.publicPermission()).name());
         revisions.advance(entity);
         settings.flush();
         return views(tenant, actor, manage, List.of(id)).getFirst();
@@ -262,7 +256,7 @@ public class ChatPersonaService {
         if (input.actorId() != null) agents.removeUserShare(tenant.value(), id, input.actorId());
         // The previous personal owner keeps editing access, as Onyx.
         if (previous != null && !previous.equals(input.actorId()) && agents.countActiveMembers(tenant.value(), List.of(previous)) == 1)
-            agents.upsertUserShare(tenant.value(), id, previous, Permission.EDITOR);
+            agents.upsertUserShare(tenant.value(), id, previous, AgentPermission.EDITOR);
         revisions.advance(entity);
         settings.flush();
         return views(tenant, actor, manage, List.of(id)).getFirst();
@@ -293,11 +287,13 @@ public class ChatPersonaService {
         if (ordered == null || ordered.size() > 1000 || ordered.stream().anyMatch(Objects::isNull)
                 || new HashSet<>(ordered).size() != ordered.size())
             throw ChatException.invalid("Order at most 1000 distinct agents.");
+        if (ordered.isEmpty()) return;
         var entities = new HashMap<UUID, PersonaEntity>();
-        for (var id : ordered.stream().sorted().toList()) {
-            var entity = locked(tenant, id);
+        var rows = settings.lockedAll(tenant.value(), ordered);
+        if (rows.size() != ordered.size()) throw ChatException.unavailable();
+        for (var entity : rows) {
             if (entity.builtin() || entity.deleted()) throw ChatException.unavailable();
-            entities.put(id, entity);
+            entities.put(entity.id(), entity);
         }
         for (int index = 0; index < ordered.size(); index++) {
             var entity = entities.get(ordered.get(index));
@@ -370,16 +366,6 @@ public class ChatPersonaService {
         return views(tenant, actor, manage, kept);
     }
 
-    @Transactional(readOnly = true)
-    public JdbcAgentRepository.AgentShareOptions shareOptions(ActorId actor, @Nullable String query, int limit) {
-        var tenant = tenant(actor);
-        authorization.require(actor, IamCapability.CHAT_WRITE, false);
-        if (limit < 1 || limit > 50) throw ChatException.invalid("Invalid page.");
-        String normalized = query == null || query.isBlank() ? null : query.strip();
-        if (normalized != null && normalized.length() > 200) throw ChatException.invalid("Search text is too long.");
-        return agents.shareOptions(tenant.value(), normalized, limit);
-    }
-
     public record Avatar(ObjectContent content, String mediaType) {}
 
     @Transactional(readOnly = true)
@@ -388,7 +374,7 @@ public class ChatPersonaService {
         var entity = settings.findByTenantIdAndId(tenant.value(), id).orElseThrow(ChatException::unavailable);
         if (entity.avatarFileId() == null || entity.deleted() || !access(tenant, actor, manages(actor), id).uses())
             throw ChatException.unavailable();
-        var file = userFiles.readable(tenant, actor, entity.avatarFileId(), false).orElseThrow(ChatException::unavailable).file();
+        var file = files.readable(tenant, actor, entity.avatarFileId()).orElseThrow(ChatException::unavailable);
         return new Avatar(content.open(actor, tenant, entity.avatarFileId()), file.mediaType());
     }
 
@@ -421,8 +407,7 @@ public class ChatPersonaService {
         // A new image replaces the icon; choosing an icon removes the image; sending neither keeps the image.
         UUID avatar = input.avatarFileId() != null ? input.avatarFileId() : iconName == null ? entity.avatarFileId() : null;
         if (avatar != null && !avatar.equals(entity.avatarFileId())) {
-            var file = userFiles.readable(tenant, actor, avatar, false).orElseThrow(() -> ChatException.invalid("The avatar image is unavailable."))
-                    .file();
+            var file = files.readable(tenant, actor, avatar).orElseThrow(() -> ChatException.invalid("The avatar image is unavailable."));
             if (file.status() != UserFile.Status.READY || !AVATAR_TYPES.contains(file.mediaType()) || file.sizeBytes() > AVATAR_MAX_BYTES)
                 throw ChatException.invalid("Use a PNG, JPEG, WebP or GIF avatar of at most 2 MiB.");
         }
@@ -431,15 +416,14 @@ public class ChatPersonaService {
                 input.starterPrompts(), input.sourceIds(), input.modelConfigurationId(), input.contextTokenLimit(), input.outputTokenLimit(),
                 iconName, avatar,
                 input.replaceBaseSystemPrompt() == null ? entity.replaceBaseSystemPrompt() : input.replaceBaseSystemPrompt(),
-                input.datetimeAware() == null ? entity.datetimeAware() : input.datetimeAware(),
+                input.grounded() == null ? entity.grounded() : input.grounded(),
                 input.knowledgeCutoff()));
     }
 
     private void relations(TenantId tenant, ActorId actor, PersonaEntity entity, PersonaInput input, boolean creating) {
         if (input.documentSetIds() != null || creating) {
-            List<UUID> documentSetIds = input.documentSetIds() == null
-                    ? (creating ? List.of() : documentSetRows.personaSets(tenant.value(), List.of(entity.id())).getOrDefault(entity.id(), List.of()))
-                    : input.documentSetIds();
+            // Only a new agent reaches here without a selection.
+            List<UUID> documentSetIds = input.documentSetIds() == null ? List.of() : input.documentSetIds();
             documentSets.admitAttachments(actor, tenant, documentSetIds);
             documentSetRows.replacePersonaSets(tenant.value(), entity.id(), documentSetIds);
         }
@@ -506,9 +490,9 @@ public class ChatPersonaService {
                     entity.modelConfigurationId(), entity.contextTokenLimit(), entity.outputTokenLimit(), entity.fileIds(),
                     entity.iconName(), entity.avatarFileId() != null, details.labels().getOrDefault(id, List.of()),
                     details.owners().getOrDefault(id, new AgentOwner(null, null)), granted.vacant(), userShares,
-                    details.groupShares().getOrDefault(id, List.of()), entity.isPublic(), Permission.valueOf(entity.publicPermission()),
-                    entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(),
-                    entity.datetimeAware(), entity.knowledgeCutoff(), details.pinned().contains(id), entity.deletedAt()));
+                    details.groupShares().getOrDefault(id, List.of()), entity.isPublic(), AgentPermission.valueOf(entity.publicPermission()),
+                    entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(), entity.grounded(),
+                    entity.knowledgeCutoff(), details.pinned().contains(id), entity.deletedAt()));
         }
         return result;
     }

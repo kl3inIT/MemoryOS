@@ -2,6 +2,7 @@ package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.annotation.LlmTool;
 import io.memoryos.chat.ChatEvidence;
+import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.web.WebConnectionService;
@@ -11,6 +12,7 @@ import io.memoryos.retrieval.SearchTasks;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -19,20 +21,23 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 import tools.jackson.databind.ObjectMapper;
 
 /** Per-turn tools, using the existing cancellation/task scope and citation namespace. */
 public final class WebTools {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(WebTools.class);
+    private static final Logger LOG = LoggerFactory.getLogger(WebTools.class);
     private final WebProviderClient client;
     private final WebConnectionService.Access access;
     private final ChatEvidence evidence;
     private final Runnable active;
     private final SearchTasks.Scope work;
     private final Consumer<ChatToolEvent> events;
-    private final io.memoryos.chat.ChatToolActivity activity;
+    private final ChatToolActivity activity;
     private final IntSupplier contextTokens;
     private final TokenCountEstimator tokens;
     private final HashSet<String> seen = new HashSet<>();
@@ -40,12 +45,12 @@ public final class WebTools {
     public WebTools(WebProviderClient client, WebConnectionService.Access access, ChatEvidence evidence,
                     Runnable active, SearchTasks.Scope work, Consumer<ChatToolEvent> events,
                     IntSupplier contextTokens, TokenCountEstimator tokens) {
-        this(client, access, evidence, active, work, events, contextTokens, tokens, new io.memoryos.chat.ChatToolActivity(ignored -> {}));
+        this(client, access, evidence, active, work, events, contextTokens, tokens, new ChatToolActivity(ignored -> {}));
     }
 
     public WebTools(WebProviderClient client, WebConnectionService.Access access, ChatEvidence evidence,
                     Runnable active, SearchTasks.Scope work, Consumer<ChatToolEvent> events,
-                    IntSupplier contextTokens, TokenCountEstimator tokens, io.memoryos.chat.ChatToolActivity activity) {
+                    IntSupplier contextTokens, TokenCountEstimator tokens, ChatToolActivity activity) {
         this.client = client; this.access = access; this.evidence = evidence; this.active = active;
         this.work = work; this.events = events; this.contextTokens = contextTokens; this.tokens = tokens;
         this.activity = activity;
@@ -59,9 +64,9 @@ public final class WebTools {
         if (invalid(cleaned, 8, 2000)) return "Use one to eight nonempty queries, each at most 2000 printable characters.";
         return run("search", cleaned, query -> client.search(access.search(), query));
     }
-    private static List<String> normalize(@org.jspecify.annotations.Nullable List<String> queries) {
+    private static List<String> normalize(@Nullable List<String> queries) {
         if (queries == null) return List.of();
-        var cleaned = new java.util.ArrayList<String>(queries.size());
+        var cleaned = new ArrayList<String>(queries.size());
         for (var query : queries) {
             if (query == null) continue;
             var text = new StringBuilder(query.length());
@@ -104,9 +109,9 @@ public final class WebTools {
                 catch (IOException | IllegalArgumentException failed) {
                     active.run();
                     // Diagnose the connection without the credential, the endpoint or the query text.
-                    LOG.warn("Web {} failed via {} ({})", kind,
-                            access.search() == null ? "BUILT_IN" : access.search().provider().name(),
-                            failed.getClass().getSimpleName());
+                    LOG.atWarn().addKeyValue("event", "chat.web.request_failed").addKeyValue("kind", kind)
+                            .addKeyValue("provider", access.search() == null ? "BUILT_IN" : access.search().provider().name())
+                            .addKeyValue("error_type", failed.getClass().getName()).log("Web request failed");
                     return new Item(List.of(), true); // Keep other successful pages; never expose raw provider errors.
                 }
             }).toList();

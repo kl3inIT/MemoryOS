@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { meetingStreamUrl, MeetingStreamError, openMeetingSocket } from "./meeting-socket";
+import { MeetingStreamError, openMeetingSocket } from "./meeting-socket";
 
 class FakeSocket {
   readyState = 0;
@@ -50,18 +50,17 @@ function connect() {
 }
 
 describe("meeting track socket", () => {
-  it("addresses the track at a whole-millisecond offset over a secure same-origin socket", () => {
-    expect(
-      meetingStreamUrl(
-        { meetingId: "m", track: "MIC", offsetMs: 1500.9, ticket: "t" },
-        { origin: "https://memoryos.example", protocol: "https:" },
-      ),
-    ).toBe("wss://memoryos.example/api/meeting-stream?meeting=m&track=MIC&offset=1500&ticket=t");
+  it("addresses the track at a whole-millisecond offset over a secure same-origin socket", async () => {
+    const { opening, socket } = connect();
+    expect(socket().url).toBe(
+      "wss://memoryos.example/api/meeting-stream?meeting=meeting-1&track=TAB&offset=61234&ticket=ticket-value",
+    );
+    socket().receive({ type: "ready" });
+    (await opening).close();
   });
 
   it("opens on ready, sends audio, relays previews and stored utterances, and finishes after the server", async () => {
     const { opening, socket, onPreview, onUtterance, onFailure } = connect();
-    expect(socket().url).toContain("offset=61234");
     socket().receive({ type: "ready" });
     const live = await opening;
     const pcm = new ArrayBuffer(4);
@@ -79,12 +78,19 @@ describe("meeting track socket", () => {
         endMs: 2500,
         text: "Chốt ngân sách.",
         confidence: 0.9,
+        spans: [{ start: 5, end: 14, confidence: 0.42 }, { start: 99 }],
       },
     });
     socket().receive({ type: "utterance", utterance: { id: "bad" } });
     expect(onPreview).toHaveBeenCalledWith("2", "Chốt ngân");
     expect(onUtterance).toHaveBeenCalledTimes(1);
-    expect(onUtterance.mock.calls[0][0].text).toBe("Chốt ngân sách.");
+    expect(onUtterance).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        text: "Chốt ngân sách.",
+        spans: [{ start: 5, end: 14, confidence: 0.42 }],
+      }),
+    );
 
     const finishing = live.finish();
     expect(socket().sent.at(-1)).toBe(JSON.stringify({ type: "end" }));
@@ -107,6 +113,9 @@ describe("meeting track socket", () => {
     socket().receive({ type: "error", code: "MEETING_PROVIDER_FAILED" });
     socket().close();
     expect(onFailure).toHaveBeenCalledTimes(1);
-    expect(onFailure.mock.calls[0][0].code).toBe("MEETING_PROVIDER_FAILED");
+    expect(onFailure).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ code: "MEETING_PROVIDER_FAILED" }),
+    );
   });
 });

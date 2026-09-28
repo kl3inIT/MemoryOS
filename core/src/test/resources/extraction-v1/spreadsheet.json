@@ -1,0 +1,20 @@
+{"schema":"memoryos-extraction-v1","source":{"format":"BINARY"},"dateSystem":"1900","blocks":[
+{"index":0,"kind":"TABLE","text":"Doanh thu","provenance":{"sheetIndex":0,"sheetName":"Doanh thu","visibility":"VISIBLE"},"table":{"rowCount":3,"columnCount":3,"coordinateBase":0,"missingCellValue":"EMPTY","merges":[{"startRowIndex":0,"endRowIndex":1,"startColumnIndex":1,"endColumnIndex":3,"range":"B1:C1"}],"cells":[
+ {"row":0,"column":0,"address":"A1","type":"STRING","text":"Khu vực","numberFormat":"General"},
+ {"row":0,"column":1,"address":"B1","type":"STRING","text":"Năm 2025","numberFormat":"General"},
+ {"row":1,"column":0,"address":"A2","type":"STRING","text":"Miền Bắc","numberFormat":"General"},
+ {"row":1,"column":1,"address":"B2","type":"NUMERIC","text":"120,5","numberFormat":"#,##0.0","formula":"SUM(D2:E2)"},
+ {"row":1,"column":2,"address":"C2","type":"BLANK","text":"","numberFormat":"General"},
+ {"row":2,"column":0,"address":"A3","type":"STRING","text":"Miền Nam","numberFormat":"General","note":"Ước tính"},
+ {"row":2,"column":1,"address":"B3","type":"NUMERIC","text":"98","numberFormat":"General","hyperlink":"https://example.invalid"}
+]}},
+{"index":1,"kind":"TABLE","text":"Ẩn","provenance":{"sheetIndex":1,"sheetName":"Ẩn","visibility":"HIDDEN"},"table":{"rowCount":1,"columnCount":1,"coordinateBase":0,"missingCellValue":"EMPTY","merges":[],"cells":[
+ {"row":0,"column":0,"address":"A1","type":"STRING","text":"Ghi chú nội bộ","numberFormat":"General"}
+]}},
+{"index":2,"kind":"TABLE","table":{"coordinateBase":0,"missingCellValue":"EMPTY","cells":[
+ {"row":0,"column":0,"type":"TEXT","value":"Mã","text":"Mã"},
+ {"row":0,"column":1,"type":"TEXT","value":"Tên","text":"Tên"},
+ {"row":1,"column":0,"type":"TEXT","value":"KH-01","text":"KH-01"},
+ {"row":1,"column":1,"type":"TEXT","value":"Công ty An Phát","text":"Công ty An Phát"}
+],"rowCount":2,"columnCount":2,"merges":[]}}
+]}

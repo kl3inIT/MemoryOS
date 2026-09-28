@@ -1,0 +1,8 @@
+{"schema":"memoryos-extraction-v1","source":{"format":"GOOGLE_SHEETS"},"spreadsheetProperties":{"locale":"vi_VN"},"blocks":[
+{"index":0,"kind":"TABLE","text":"Chi phí","provenance":{"sheetId":7,"title":"Chi phí","index":0,"sheetType":"GRID","gridProperties":{"rowCount":2,"columnCount":2}},"table":{"rowCount":2,"columnCount":2,"coordinateBase":0,"missingCellValue":"EMPTY","range":"'Chi phí'!A1:B2","merges":[],"cells":[
+ {"row":0,"column":0,"address":"A1","source":{"formattedValue":"Hạng mục"},"text":"Hạng mục"},
+ {"row":0,"column":1,"address":"B1","source":{"formattedValue":"Số tiền"},"text":"Số tiền"},
+ {"row":1,"column":0,"address":"A2","source":{"formattedValue":"Công tác phí"},"text":"Công tác phí"},
+ {"row":1,"column":1,"address":"B2","source":{"formattedValue":"3.500.000"},"text":"3.500.000","formula":"=SUM(C2:D2)"}
+]}}
+]}

@@ -1,7 +1,7 @@
 // Adapted from assistant-ui (MIT), registry retrieved 2026-09-12.
 "use client";
 
-import { type PropsWithChildren, useState, type FC, isValidElement } from "react";
+import { type PropsWithChildren, useState, isValidElement } from "react";
 import { XIcon, Loader2Icon, AlertCircleIcon } from "lucide-react";
 import { AttachmentPrimitive, ComposerPrimitive, useAuiState, useAui } from "@assistant-ui/react";
 import { useTranslation } from "react-i18next";
@@ -17,9 +17,6 @@ const TooltipTrigger = TooltipPrimitive.Trigger;
 const Dialog = DialogPrimitive.Root;
 const DialogTitle = DialogPrimitive.Title;
 const DialogTrigger = DialogPrimitive.Trigger;
-const Avatar = AvatarPrimitive.Root;
-const AvatarImage = AvatarPrimitive.Image;
-const AvatarFallback = AvatarPrimitive.Fallback;
 function TooltipContent(props: ComponentProps<typeof TooltipPrimitive.Content>) {
   return (
     <TooltipPrimitive.Portal>
@@ -30,26 +27,23 @@ function TooltipContent(props: ComponentProps<typeof TooltipPrimitive.Content>) 
     </TooltipPrimitive.Portal>
   );
 }
-function DialogContent({
-  children,
-  className,
-  ...props
-}: ComponentProps<typeof DialogPrimitive.Content>) {
+function DialogContent({ children, ...props }: ComponentProps<typeof DialogPrimitive.Content>) {
   const { t } = useTranslation("attachments");
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-2xs" />
       <DialogPrimitive.Content
         {...props}
         aria-describedby={undefined}
-        className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface-overlay outline-none",
-          className,
-        )}
+        className="aui-attachment-preview-dialog-content fixed top-1/2 left-1/2 z-50 w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface-overlay p-2 outline-none sm:max-w-3xl"
       >
         {children}
         <DialogPrimitive.Close asChild>
-          <IconButton aria-label={t("closePreview")} className="absolute right-2 top-2">
+          <IconButton
+            aria-label={t("closePreview")}
+            prominence="secondary"
+            className="absolute top-2 right-2"
+          >
             <XIcon />
           </IconButton>
         </DialogPrimitive.Close>
@@ -58,15 +52,16 @@ function DialogContent({
   );
 }
 import { IconButton } from "@/components/ui/icon-button";
+import { ClampedList } from "@/components/ui/clamped-list";
 import { useAttachmentSrc } from "@/hooks/use-attachment-src";
 import { cn } from "@/lib/utils";
-import { DocumentKindIcon } from "@/features/search/document-source-icon";
+import { DocumentKindIcon } from "@/features/documents/document-source-icon";
 
 type AttachmentPreviewProps = {
   src: string;
 };
 
-const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src }) => {
+function AttachmentPreview({ src }: AttachmentPreviewProps) {
   const { t } = useTranslation("attachments");
   const [isLoaded, setIsLoaded] = useState(false);
   return (
@@ -74,7 +69,7 @@ const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src }) => {
       src={src}
       alt={t("preview")}
       className={cn(
-        "block h-auto max-h-[80vh] w-auto max-w-full rounded-sm object-contain transition-opacity duration-300 motion-reduce:transition-none",
+        "block h-auto max-h-lightbox w-auto max-w-full rounded-sm object-contain transition-opacity duration-300 motion-reduce:transition-none",
         isLoaded
           ? "aui-attachment-preview-image-loaded opacity-100"
           : "aui-attachment-preview-image-loading opacity-0",
@@ -82,9 +77,9 @@ const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src }) => {
       onLoad={() => setIsLoaded(true)}
     />
   );
-};
+}
 
-const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
+function AttachmentPreviewDialog({ children }: PropsWithChildren) {
   const { t } = useTranslation("attachments");
   const src = useAttachmentSrc();
 
@@ -95,41 +90,42 @@ const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
       <DialogTrigger className="aui-attachment-preview-trigger cursor-zoom-in" asChild>
         {isValidElement(children) ? children : <button type="button">{children}</button>}
       </DialogTrigger>
-      <DialogContent className="aui-attachment-preview-dialog-content [&>button]:bg-foreground/60 [&>button]:hover:bg-foreground/80 [&_svg]:text-background p-2 sm:max-w-3xl [&>button]:rounded-full [&>button]:p-1 [&>button]:opacity-100 [&>button]:ring-0!">
+      <DialogContent>
         <DialogTitle className="aui-sr-only sr-only">{t("previewTitle")}</DialogTitle>
-        <div className="aui-attachment-preview bg-background relative mx-auto flex max-h-[80dvh] w-full items-center justify-center overflow-hidden rounded-sm">
+        <div className="aui-attachment-preview relative mx-auto flex max-h-lightbox w-full items-center justify-center overflow-hidden rounded-sm bg-background">
           <AttachmentPreview src={src} />
         </div>
       </DialogContent>
     </Dialog>
   );
-};
+}
 
-const AttachmentThumb: FC = () => {
+function AttachmentThumb() {
   const { t } = useTranslation("attachments");
   const src = useAttachmentSrc();
   const name = useAuiState((s) => s.attachment.name);
   const contentType = useAuiState((s) => s.attachment.contentType);
 
   return (
-    <Avatar className="aui-attachment-tile-avatar flex h-full w-full items-center justify-center rounded-none">
-      <AvatarImage
+    <AvatarPrimitive.Root className="aui-attachment-tile-avatar flex h-full w-full items-center justify-center">
+      <AvatarPrimitive.Image
         src={src}
         alt={t("preview")}
-        className="aui-attachment-tile-image h-full w-full rounded-none object-cover"
+        className="aui-attachment-tile-image h-full w-full object-cover"
       />
-      <AvatarFallback className="flex h-full w-full items-center justify-center">
+      <AvatarPrimitive.Fallback className="flex h-full w-full items-center justify-center">
         <DocumentKindIcon
           mediaType={contentType}
           filename={name}
-          className="aui-attachment-tile-fallback-icon size-6 stroke-[1.5]"
+          className="aui-attachment-tile-fallback-icon size-6"
+          strokeWidth={1.5}
         />
-      </AvatarFallback>
-    </Avatar>
+      </AvatarPrimitive.Fallback>
+    </AvatarPrimitive.Root>
   );
-};
+}
 
-const AttachmentUI: FC = () => {
+function AttachmentUI() {
   const { t, i18n } = useTranslation("attachments");
   const status = useAuiState((s) => s.attachment.status);
   const name = useAuiState((s) => s.attachment.name);
@@ -176,8 +172,8 @@ const AttachmentUI: FC = () => {
       <Tooltip>
         <AttachmentPrimitive.Root
           className={cn(
-            "aui-attachment-root relative flex w-64 max-w-full shrink-0 items-center gap-2 rounded-[14px] bg-muted p-2",
-            isComposer && "animate-in fade-in-0 zoom-in-95 duration-200 motion-reduce:animate-none",
+            "aui-attachment-root relative flex w-64 max-w-full shrink-0 items-center gap-2 rounded-xl bg-muted p-2",
+            isComposer && "animate-in duration-200 fade-in-0 zoom-in-95 motion-reduce:animate-none",
             isImage && !isComposer && "aui-attachment-root-message",
           )}
         >
@@ -191,22 +187,22 @@ const AttachmentUI: FC = () => {
                 )}
                 aria-label={t("fileLabel", { name })}
               >
-                <span className="relative size-9 shrink-0 overflow-hidden rounded-[10px] bg-background/50">
+                <span className="relative size-9 shrink-0 overflow-hidden rounded-lg bg-background/50">
                   <AttachmentThumb />
                   {isUploading && (
                     <div
                       aria-hidden="true"
-                      className="aui-attachment-tile-uploading bg-background/60 animate-in fade-in-0 absolute inset-0 flex items-center justify-center backdrop-blur-[2px] motion-reduce:animate-none"
+                      className="aui-attachment-tile-uploading absolute inset-0 flex animate-in items-center justify-center bg-background/60 backdrop-blur-2xs fade-in-0 motion-reduce:animate-none"
                     >
-                      <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+                      <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
                     </div>
                   )}
                   {isError && (
                     <div
                       aria-hidden="true"
-                      className="aui-attachment-tile-error bg-background/70 animate-in fade-in-0 absolute inset-0 flex items-center justify-center backdrop-blur-[2px] motion-reduce:animate-none"
+                      className="aui-attachment-tile-error absolute inset-0 flex animate-in items-center justify-center bg-background/70 backdrop-blur-2xs fade-in-0 motion-reduce:animate-none"
                     >
-                      <AlertCircleIcon className="text-destructive size-4" />
+                      <AlertCircleIcon className="size-4 text-destructive" />
                     </div>
                   )}
                 </span>
@@ -236,9 +232,9 @@ const AttachmentUI: FC = () => {
       </Tooltip>
     </TooltipProvider>
   );
-};
+}
 
-const AttachmentRemove: FC = () => {
+function AttachmentRemove() {
   const { t } = useTranslation("attachments");
   return (
     <AttachmentPrimitive.Remove asChild>
@@ -247,16 +243,104 @@ const AttachmentRemove: FC = () => {
         title={t("remove")}
         size="sm"
         prominence="secondary"
-        className="z-10 size-6 min-h-0 min-w-0 shrink-0 rounded-full border-0 p-0"
+        className="z-10 size-6 min-h-0 min-w-0 shrink-0 p-0"
       >
-        <XIcon className="aui-attachment-remove-icon size-3 stroke-[2.5]" />
+        <XIcon className="aui-attachment-remove-icon size-3" strokeWidth={2.5} />
       </IconButton>
     </AttachmentPrimitive.Remove>
   );
+}
+
+/**
+ * A file the composer is still preparing on the server, before it exists as an attachment: the library copy a
+ * person asked for. It carries the same tile as a real attachment so the wait is shown where the files are.
+ */
+export type ComposerPendingAttachment = {
+  id: string;
+  name: string;
+  contentType: string;
+  /** The preparation failed; the tile says so and stays until the person takes it off. */
+  failed?: boolean;
+  onRemove?: () => void;
 };
 
-export const ComposerAttachments: FC = () => (
-  <div className="aui-composer-attachments flex min-w-0 w-full flex-row flex-wrap items-center gap-2 p-1 empty:hidden">
-    <ComposerPrimitive.Attachments>{() => <AttachmentUI />}</ComposerPrimitive.Attachments>
-  </div>
-);
+function PendingAttachmentUI({ item }: { item: ComposerPendingAttachment }) {
+  const { t } = useTranslation("attachments");
+  return (
+    <div className="aui-attachment-root relative flex w-64 max-w-full shrink-0 animate-in items-center gap-2 rounded-xl bg-muted p-2 duration-200 fade-in-0 zoom-in-95 motion-reduce:animate-none">
+      <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background/50">
+        <DocumentKindIcon
+          mediaType={item.contentType}
+          filename={item.name}
+          className="size-6"
+          strokeWidth={1.5}
+        />
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-2xs"
+        >
+          {item.failed ? (
+            <AlertCircleIcon className="size-4 text-destructive" />
+          ) : (
+            <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+          )}
+        </span>
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium" title={item.name}>
+          {item.name}
+        </span>
+        <span
+          role="status"
+          className={cn(
+            "truncate text-xs text-muted-foreground",
+            item.failed && "text-destructive",
+          )}
+        >
+          {item.failed ? t("failed") : t("preparing")}
+        </span>
+      </span>
+      {item.onRemove && (
+        <IconButton
+          aria-label={t("remove")}
+          title={t("remove")}
+          size="sm"
+          prominence="secondary"
+          className="z-10 size-6 min-h-0 min-w-0 shrink-0 p-0"
+          onClick={item.onRemove}
+        >
+          <XIcon className="size-3" strokeWidth={2.5} />
+        </IconButton>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The draft's attachments, kept to two rows: a message may carry twenty files, and twenty tiles would push the
+ * question out of the composer. The rest sit behind the list's "+N" card, where they can still be taken off.
+ */
+export function ComposerAttachments({
+  pending = [],
+}: {
+  pending?: readonly ComposerPendingAttachment[];
+}) {
+  const { t } = useTranslation("attachments");
+  const attachments = useAuiState((state) => state.composer.attachments);
+  const items = [
+    ...attachments.map((attachment, index) => (
+      <ComposerPrimitive.AttachmentByIndex
+        key={attachment.id}
+        index={index}
+        components={{ Attachment: AttachmentUI }}
+      />
+    )),
+    ...pending.map((item) => <PendingAttachmentUI key={`pending:${item.id}`} item={item} />),
+  ];
+  if (items.length === 0) return null;
+  return (
+    <div className="aui-composer-attachments w-full p-1">
+      <ClampedList label={t("list")} maxRows={2} items={items} />
+    </div>
+  );
+}

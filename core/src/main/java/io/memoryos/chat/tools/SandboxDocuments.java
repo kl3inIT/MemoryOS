@@ -1,6 +1,6 @@
 package io.memoryos.chat.tools;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.SearchHit;
 import java.util.ArrayList;
@@ -63,7 +63,7 @@ public final class SandboxDocuments {
         return new ArrayList<>(documents.values());
     }
 
-    public DocumentOriginalService.OriginalPdf open(Document document) {
+    public DocumentOriginalService.Original open(Document document) {
         return originals.citationOriginal(actor, document.documentId(), document.generation());
     }
 

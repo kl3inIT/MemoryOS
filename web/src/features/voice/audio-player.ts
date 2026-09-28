@@ -21,7 +21,7 @@ export type AudioPlayerEnvironment = {
   revokeObjectURL: (url: string) => void;
 };
 
-export function browserAudioEnvironment(): AudioPlayerEnvironment {
+function browserAudioEnvironment(): AudioPlayerEnvironment {
   const streaming = typeof MediaSource !== "undefined" && MediaSource.isTypeSupported(MPEG);
   return {
     createAudio: () => new Audio(),
