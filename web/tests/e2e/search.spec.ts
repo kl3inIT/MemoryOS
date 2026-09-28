@@ -72,13 +72,14 @@ test("searches merged sections, filters, pages and opens each best match with es
         hasMore: request.page === 0,
         totalResults: 11,
         candidateLimit: 500,
+        sourceFacets: { total: 11, types: [{ type: "FILE", count: 11 }] },
         results: [
           {
             documentId,
             generation,
             title: request.page === 0 ? "HR-2026 Quy định nghỉ phép" : "Quy định bổ sung",
             mediaType: "application/pdf",
-            sourceTypes: [],
+            sourceTypes: ["FILE"],
             authors: [],
             providerUrl: null,
             updatedAt: "2026-09-08T00:00:00Z",
@@ -126,6 +127,8 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(
     page.getByRole("heading", { name: "11 results for “chính sách nghỉ phép”" }),
   ).toBeVisible();
+  // The source rail counts the candidates the API reports per connector.
+  await expect(page.getByRole("button", { name: "All sources: 11 results" })).toBeVisible();
   await expect(page.getByRole("button", { name: "File type: PDF" })).toBeVisible();
   await expect(page.getByText("application/pdf", { exact: true })).toHaveCount(0);
   await expect(
@@ -201,6 +204,7 @@ test("handles unavailable, retry, empty and a pending search", async ({ page }) 
           hasMore: false,
           totalResults: request.query === "slow" ? 1 : 0,
           candidateLimit: 500,
+          sourceFacets: { total: request.query === "slow" ? 1 : 0, types: [] },
           results:
             request.query === "slow"
               ? [
@@ -248,6 +252,7 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
         hasMore: false,
         totalResults: 1,
         candidateLimit: 500,
+        sourceFacets: { total: 1, types: [] },
         results: [
           {
             documentId,
@@ -317,8 +322,15 @@ test("shows source type, provider and authors, links to Google Drive and outline
       json: {
         page: 0,
         hasMore: false,
-        totalResults: 1,
+        totalResults: 3,
         candidateLimit: 500,
+        sourceFacets: {
+          total: 3,
+          types: [
+            { type: "GOOGLE_DRIVE", count: 2 },
+            { type: "FILE", count: 1 },
+          ],
+        },
         results: [
           {
             documentId,
