@@ -680,8 +680,11 @@ for (const width of [1440, 390]) {
       page.getByRole("heading", { name: "Giao ban tuần · Khối Tài chính", level: 1 }),
     ).toBeVisible();
     await expect(page.getByRole("timer")).toBeVisible();
+    // The newest line is also announced in a screen-reader live region, so the check reads the transcript list.
     await expect(
-      page.getByText("Bên nhân sự đã gửi bảng KPI tháng 9", { exact: false }),
+      page
+        .getByRole("region", { name: "Transcript" })
+        .getByText("Bên nhân sự đã gửi bảng KPI tháng 9", { exact: false }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Em sẽ gửi báo giá gói MemoryOS…")).toBeVisible();
     expect(audio.offset).toBe("0");
