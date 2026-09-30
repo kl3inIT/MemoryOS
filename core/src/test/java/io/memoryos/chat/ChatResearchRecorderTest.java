@@ -19,11 +19,12 @@ class ChatResearchRecorderTest {
         var recorder = new ChatResearchRecorder();
         recorder.accept(ChatResearchEvent.plan("1. Revenue"));
         recorder.accept(ChatResearchEvent.branching(2));
-        recorder.accept(new ChatToolEvent(revenue, ChatToolEvent.Stage.STARTED).tab(0));
-        recorder.accept(new ChatToolEvent(costs, ChatToolEvent.Stage.STARTED).tab(1));
+        recorder.accept(ChatToolEvent.started(revenue).tab(0));
+        recorder.accept(ChatToolEvent.started(costs).tab(1));
         recorder.accept(ChatResearchEvent.agent("call_revenue", 0, "Revenue in 2025"));
-        recorder.accept(new ChatToolEvent(search, ChatToolEvent.Stage.STARTED).nested("call_revenue"));
-        recorder.accept(new ChatToolEvent(search, new ChatToolEvent.QueryPlan(List.of("revenue 2025"), SearchFilters.NONE)).nested("call_revenue"));
+        recorder.accept(ChatToolEvent.started(search).nested("call_revenue"));
+        recorder.accept(ChatToolEvent.searching(search, new ChatToolEvent.QueryPlan(List.of("revenue 2025"),
+                SearchFilters.NONE)).nested("call_revenue"));
         recorder.accept(ChatToolEvent.finished(search, false, 12L).nested("call_revenue"));
         recorder.accept(new ChatReasoningDelta("Next: margins", "call_revenue"));
         recorder.accept(ChatResearchEvent.report("call_revenue", "Revenue grew "));
@@ -32,9 +33,9 @@ class ChatResearchRecorderTest {
         recorder.accept(ChatToolEvent.finished(revenue, false, 900L).tab(0));
         recorder.accept(ChatToolEvent.finished(costs, true, 30L).tab(1));
         // Top-level steps and unknown agents belong elsewhere.
-        recorder.accept(new ChatToolEvent(search, ChatToolEvent.Stage.STARTED));
+        recorder.accept(ChatToolEvent.started(search));
         recorder.accept(ChatResearchEvent.report("call_unknown", "ignored"));
-        recorder.accept(new ChatToolEvent(policy, ChatToolEvent.Stage.STARTED).tab(0));
+        recorder.accept(ChatToolEvent.started(policy).tab(0));
 
         var agents = recorder.seal();
 
@@ -60,7 +61,7 @@ class ChatResearchRecorderTest {
         for (int cycle = 0; cycle < 12; cycle++) {
             for (int tab = 0; tab < 3; tab++) {
                 String id = "call_" + cycle + "_" + tab;
-                recorder.accept(new ChatToolEvent(new ChatToolEvent.Call(id, "research_agent"), ChatToolEvent.Stage.STARTED).tab(tab));
+                recorder.accept(ChatToolEvent.started(new ChatToolEvent.Call(id, "research_agent")).tab(tab));
                 recorder.accept(ChatResearchEvent.report(id, "r".repeat(ChatActivity.MAX_REASONING)));
                 for (int i = 0; i < 7; i++) recorder.accept(ChatResearchEvent.report(id, "r".repeat(ChatActivity.MAX_REASONING)));
             }

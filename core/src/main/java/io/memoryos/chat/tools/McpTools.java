@@ -92,7 +92,7 @@ public final class McpTools {
         var current = activity.current();
         // The runner's inspector opens the step; a direct call (tests, or a runner without it) opens and closes its own.
         var call = current != null ? current : new ChatToolEvent.Call("mcp-" + UUID.randomUUID(), binding.modelName());
-        if (current == null) events.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED));
+        if (current == null) events.accept(ChatToolEvent.started(call));
         long start = System.nanoTime();
         ChatToolEvent.Failure failure = null;
         boolean failed = true;

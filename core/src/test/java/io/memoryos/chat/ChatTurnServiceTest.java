@@ -78,8 +78,8 @@ class ChatTurnServiceTest {
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
     private void prepare() {
-        var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(Tokenizers.o200k(),
-                p -> p), 32000, 4096, true, false);
+        var binding = ModelBinding.builder(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false).build();
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
@@ -90,10 +90,14 @@ class ChatTurnServiceTest {
                 "", "gpt-5-mini", ChatTurnOptions.DEFAULT, "0", null, List.of(),
                 Set.of("search", "web_search", "image_generation"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
-        var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
-                "Question", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
-        when(persistence.loadContext(any(), any(), any())).thenReturn(new ChatTurnPersistence.TurnContext(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question)));
+        var question = ChatMessage.builder(pair.userMessageId(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .parentMessageId(parent)
+                .latestChildMessageId(pair.assistantMessageId())
+                .content("Question")
+                .finishedAt(Instant.now())
+                .build();
+        when(persistence.loadContext(any(), any(), any())).thenReturn(ChatTurnPersistence.TurnContext.builder(actor,
+                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question)).build());
     }
 
     @Test
@@ -303,8 +307,9 @@ class ChatTurnServiceTest {
     }
 
     private ChatCommand mcpCommand(UUID requestId) {
-        return new ChatCommand(ChatCommand.Operation.SEND, parent, requestId, "Question", null, List.of(), WebSearchMode.off,
-                ImageMode.off, List.of(UUID.randomUUID()));
+        return ChatCommand.builder(ChatCommand.Operation.SEND, parent, requestId, "Question")
+                .mcpServerIds(List.of(UUID.randomUUID()))
+                .build();
     }
 
     /** Blocks {@code mcp.open} until released, as a slow MCP server or OAuth token endpoint would. */

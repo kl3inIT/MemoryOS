@@ -38,7 +38,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -68,22 +67,28 @@ class ChatGroundedTurnTest {
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
     private void prepare(boolean toolCalling, ChatSettingsService.TurnPolicy policy, ChatGuardrailCheck.Kind kind) {
-        var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
-                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false);
+        var binding = ModelBinding.builder(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false).build();
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         // The agent itself does not search; grounded mode adds the search tool only while it applies.
-        var grounded = new ChatTurnOptions(false, List.of(), null, null).withGrounded(true);
+        var grounded = ChatTurnOptions.builder().searchEnabled(false).grounded(true).build();
         when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
                 "", "gpt-5-mini", grounded, "0", null, List.of(), Set.of("search", "web_search"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
-        var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
-                "Vợ bác Hồ là ai?", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
-        when(persistence.loadContext(any(), any(), any())).thenReturn(new ChatTurnPersistence.TurnContext(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question), grounded, Map.of(), List.of(), null));
+        var question = ChatMessage.builder(pair.userMessageId(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .parentMessageId(parent)
+                .latestChildMessageId(pair.assistantMessageId())
+                .content("Vợ bác Hồ là ai?")
+                .finishedAt(Instant.now())
+                .build();
+        when(persistence.loadContext(any(), any(), any())).thenReturn(ChatTurnPersistence.TurnContext.builder(actor,
+                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question))
+                .options(grounded)
+                .build());
         when(settings.turnPolicy(any())).thenReturn(policy);
         when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), 0));
         when(guardrails.check(any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
@@ -101,7 +106,7 @@ class ChatGroundedTurnTest {
     private void answers(String text, ChatSource... sources) {
         doAnswer(call -> {
             Consumer<ChatActivityEvent> events = call.getArgument(5);
-            for (var source : sources) events.accept(new ChatToolEvent(ChatEvidence.FILE_CONTEXT, source));
+            for (var source : sources) events.accept(ChatToolEvent.source(ChatEvidence.FILE_CONTEXT, source));
             call.<Consumer<String>>getArgument(3).accept(text);
             return null;
         }).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
@@ -133,8 +138,7 @@ class ChatGroundedTurnTest {
     @Test
     void anAnswerCitingRegisteredEvidenceIsReleasedAndTheTurnIsGrounded() {
         prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
-        var source = new ChatSource(1, null, null, "Quy chế nhân sự.pdf", 0, 0, List.of(), UUID.randomUUID(), null, null,
-                "application/pdf", List.of(), null);
+        var source = ChatSource.file(1, UUID.randomUUID(), "Quy chế nhân sự.pdf", "application/pdf", null);
         answers("Theo quy chế nhân sự [1], nhân viên được nghỉ 12 ngày.", source);
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
@@ -185,12 +189,14 @@ class ChatGroundedTurnTest {
         try (var service = service(new AtomicReference<>())) {
             assertEquals("CHAT_GROUNDED_MODEL_UNSUPPORTED", assertThrows(ChatException.class,
                     () -> service.send(actor, session, parent, UUID.randomUUID(), "Q", null)).code());
-            var research = new ChatCommand(ChatCommand.Operation.SEND, parent, UUID.randomUUID(), "Q", null, List.of(),
-                    WebSearchMode.off, ImageMode.off, true);
+            var research = ChatCommand.builder(ChatCommand.Operation.SEND, parent, UUID.randomUUID(), "Q")
+                    .deepResearch(true)
+                    .build();
             assertEquals("CHAT_RESEARCH_UNAVAILABLE", assertThrows(ChatException.class,
                     () -> service.command(actor, session, research)).code());
-            var web = new ChatCommand(ChatCommand.Operation.SEND, parent, UUID.randomUUID(), "Q", null, List.of(),
-                    WebSearchMode.auto, ImageMode.off, false);
+            var web = ChatCommand.builder(ChatCommand.Operation.SEND, parent, UUID.randomUUID(), "Q")
+                    .webSearch(WebSearchMode.auto)
+                    .build();
             assertEquals("CHAT_WEB_UNAVAILABLE", assertThrows(ChatException.class,
                     () -> service.command(actor, session, web)).code());
             verify(persistence, never()).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());

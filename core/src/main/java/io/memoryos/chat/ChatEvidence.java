@@ -27,7 +27,7 @@ public final class ChatEvidence {
 
     public synchronized void publishTo(Consumer<? super ChatToolEvent> consumer) {
         events = consumer;
-        sources.values().forEach(source -> events.accept(new ChatToolEvent(FILE_CONTEXT, source)));
+        sources.values().forEach(source -> events.accept(ChatToolEvent.source(FILE_CONTEXT, source)));
     }
 
     /** File tools attribute their evidence to the tool call in progress. */
@@ -36,13 +36,11 @@ public final class ChatEvidence {
     }
 
     public synchronized @Nullable ChatSource file(UUID id, String title, @Nullable String mediaType) {
-        return register("file:" + id, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), id, null, null,
-                mediaType, List.of(), null), currentCall());
+        return register("file:" + id, number -> ChatSource.file(number, id, title, mediaType, null), currentCall());
     }
 
     public synchronized @Nullable ChatSource file(UUID id, String title, @Nullable String mediaType, ChatSource.FileLocation location) {
-        return register("file:" + id + ":" + location, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), id, location, null,
-                mediaType, List.of(), null), currentCall());
+        return register("file:" + id + ":" + location, number -> ChatSource.file(number, id, title, mediaType, location), currentCall());
     }
 
     public synchronized @Nullable ChatSource register(String key, IntFunction<ChatSource> factory, ChatToolEvent.Call call) {
@@ -57,7 +55,7 @@ public final class ChatEvidence {
         if (bytes + size > MAX_BYTES) return null;
         sources.put(key, source);
         bytes += size;
-        events.accept(new ChatToolEvent(call, source));
+        events.accept(ChatToolEvent.source(call, source));
         return source;
     }
 

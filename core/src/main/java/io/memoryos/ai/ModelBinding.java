@@ -6,6 +6,7 @@ import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -18,16 +19,43 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
                                ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
                                UnaryOperator<Prompt> requiredTools,
                                BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling) {
-    public ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                            ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
-        this(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, UnaryOperator.identity());
+    /** A binding that leaves tool requests unchanged and has no per-turn sampling. */
+    public static Builder builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
+                                  int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
+        return new Builder(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision);
     }
-    public ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                            ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
-                            UnaryOperator<Prompt> requiredTools) {
-        this(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, requiredTools,
-                (llmService, ignored) -> llmService);
+
+    public static final class Builder {
+        private final SpringAiLlmService service;
+        private final UnaryOperator<Prompt> finalRequest;
+        private final ModelRequestPolicy policy;
+        private final int contextWindow;
+        private final @Nullable Integer maxOutputTokens;
+        private final boolean toolCalling;
+        private final boolean vision;
+        private UnaryOperator<Prompt> requiredTools = UnaryOperator.identity();
+        private BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling = (llmService, ignored) -> llmService;
+
+        private Builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
+                        int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
+            this.service = service;
+            this.finalRequest = finalRequest;
+            this.policy = policy;
+            this.contextWindow = contextWindow;
+            this.maxOutputTokens = maxOutputTokens;
+            this.toolCalling = toolCalling;
+            this.vision = vision;
+        }
+
+        public Builder requiredTools(UnaryOperator<Prompt> value) { requiredTools = value; return this; }
+        public Builder sampling(BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> value) { sampling = value; return this; }
+
+        public ModelBinding build() {
+            return new ModelBinding(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
+                    requiredTools, sampling);
+        }
     }
+
     /**
      * This turn's output bound, creativity and reasoning level. The sampling values wrap the options converter, which
      * runs per inference and can still tell a helper call from an answer, so the cached client and its lease are
@@ -39,7 +67,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
      */
     public UnaryOperator<Prompt> requireTool(String name) {
         return prompt -> {
-            if (!(prompt.getOptions() instanceof org.springframework.ai.model.tool.ToolCallingChatOptions options)
+            if (!(prompt.getOptions() instanceof ToolCallingChatOptions options)
                     || options.getToolCallbacks() == null) return prompt;
             var kept = options.getToolCallbacks().stream()
                     .filter(callback -> callback.getToolDefinition().name().equals(name)).toList();

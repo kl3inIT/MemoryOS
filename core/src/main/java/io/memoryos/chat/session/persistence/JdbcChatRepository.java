@@ -444,11 +444,17 @@ public class JdbcChatRepository {
                     var tools = Set.copyOf(List.of((String[]) row.getArray("tools").getArray()));
                     String pinned = row.getString("reasoning_effort");
                     return new Persona(row.getString("instructions"), row.getString("model"),
-                            new ChatTurnOptions(tools.contains("search"), List.of((UUID[]) row.getArray("sources").getArray()),
-                                    row.getBoolean("restricts_sources"),
-                                    row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class),
-                                    cutoff == null ? null : cutoff.toInstant(), row.getString("task_prompt"),
-                                    tools.contains("code_interpreter")).withGrounded(row.getBoolean("grounded")),
+                            ChatTurnOptions.builder()
+                                    .searchEnabled(tools.contains("search"))
+                                    .sourceIds(List.of((UUID[]) row.getArray("sources").getArray()))
+                                    .sourcesRestricted(row.getBoolean("restricts_sources"))
+                                    .contextTokenLimit(row.getObject("context_token_limit", Integer.class))
+                                    .outputTokenLimit(row.getObject("output_token_limit", Integer.class))
+                                    .knowledgeCutoff(cutoff == null ? null : cutoff.toInstant())
+                                    .taskPrompt(row.getString("task_prompt"))
+                                    .codeInterpreter(tools.contains("code_interpreter"))
+                                    .grounded(row.getBoolean("grounded"))
+                                    .build(),
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),

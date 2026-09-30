@@ -42,8 +42,7 @@ final class ChatResearchRecorder {
         switch (event) {
             case ChatToolEvent tool when tool.parentToolCallId() != null -> {
                 var agent = agents.get(tool.parentToolCallId());
-                if (agent != null) agent.activity.accept(new ChatToolEvent(tool.toolCallId(), tool.toolName(), tool.stage(), tool.source(),
-                        tool.search(), tool.documents(), tool.durationMs()), 0);
+                if (agent != null) agent.activity.accept(tool.unplaced(), 0);
             }
             case ChatToolEvent tool when tool.tabIndex() != null -> agentStep(tool);
             case ChatToolEvent ignored -> { }

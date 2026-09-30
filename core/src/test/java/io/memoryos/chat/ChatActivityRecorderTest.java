@@ -19,7 +19,7 @@ class ChatActivityRecorderTest {
     void keepsTheFailureCategoryOfAFailedStepAndRejectsItOnAnyOther() {
         var recorder = new ChatActivityRecorder();
         var mcp = new ChatToolEvent.Call("call_mcp", "mcp_drive_search_files");
-        recorder.accept(new ChatToolEvent(mcp, ChatToolEvent.Stage.STARTED), 0);
+        recorder.accept(ChatToolEvent.started(mcp), 0);
         recorder.accept(ChatToolEvent.finished(mcp, true, 7L, ChatToolEvent.Failure.AUTHORIZATION_REQUIRED), 0);
 
         var step = recorder.seal().steps().getFirst();
@@ -34,16 +34,16 @@ class ChatActivityRecorderTest {
     @Test
     void recordsOrderedStepsSummariesCitationsAndReasoningSegments() {
         var recorder = new ChatActivityRecorder();
-        var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
+        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
         recorder.accept(new ChatReasoningDelta("Looking for "), 0);
         recorder.accept(new ChatReasoningDelta("the policy."), 0);
-        recorder.accept(new ChatToolEvent(search, ChatToolEvent.Stage.STARTED), 0);
-        recorder.accept(new ChatToolEvent(search, new ChatToolEvent.QueryPlan(List.of("leave policy", "leave policy"), SearchFilters.NONE)), 0);
-        recorder.accept(new ChatToolEvent(search, source), 0);
-        recorder.accept(new ChatToolEvent(ChatEvidence.FILE_CONTEXT, source), 0);
+        recorder.accept(ChatToolEvent.started(search), 0);
+        recorder.accept(ChatToolEvent.searching(search, new ChatToolEvent.QueryPlan(List.of("leave policy", "leave policy"), SearchFilters.NONE)), 0);
+        recorder.accept(ChatToolEvent.source(search, source), 0);
+        recorder.accept(ChatToolEvent.source(ChatEvidence.FILE_CONTEXT, source), 0);
         recorder.accept(ChatToolEvent.finished(search, false, 42L), 0);
         recorder.accept(new ChatReasoningDelta("Reading the file."), 12);
-        recorder.accept(new ChatToolEvent(read, ChatToolEvent.Stage.STARTED), 12);
+        recorder.accept(ChatToolEvent.started(read), 12);
 
         var activity = recorder.seal();
 
@@ -68,12 +68,12 @@ class ChatActivityRecorderTest {
     void researchAgentStepsReasoningAndProgressStayOutOfTopLevelActivity() {
         var recorder = new ChatActivityRecorder();
         var agent = new ChatToolEvent.Call("call_agent", "research_agent");
-        var nestedSource = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
+        var nestedSource = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
         recorder.accept(ChatResearchEvent.plan("1. Revenue"), 0);
-        recorder.accept(new ChatToolEvent(agent, ChatToolEvent.Stage.STARTED).tab(0), 0);
+        recorder.accept(ChatToolEvent.started(agent).tab(0), 0);
         recorder.accept(ChatResearchEvent.agent("call_agent", 0, "Revenue in 2025"), 0);
-        recorder.accept(new ChatToolEvent(search, ChatToolEvent.Stage.STARTED).nested("call_agent"), 0);
-        recorder.accept(new ChatToolEvent(search, nestedSource).nested("call_agent"), 0);
+        recorder.accept(ChatToolEvent.started(search).nested("call_agent"), 0);
+        recorder.accept(ChatToolEvent.source(search, nestedSource).nested("call_agent"), 0);
         recorder.accept(new ChatReasoningDelta("Agent thinking", "call_agent"), 0);
         recorder.accept(ChatResearchEvent.report("call_agent", "Revenue grew [1]."), 0);
         recorder.accept(ChatToolEvent.finished(agent, false, 5L), 0);
@@ -88,8 +88,8 @@ class ChatActivityRecorderTest {
     @Test
     void researchEventsValidatePlacementAndBounds() {
         var call = new ChatToolEvent.Call("call_1", "research_agent");
-        assertThrows(IllegalArgumentException.class, () -> new ChatToolEvent(call, ChatToolEvent.Stage.STARTED).tab(3));
-        assertThrows(IllegalArgumentException.class, () -> new ChatToolEvent(call, ChatToolEvent.Stage.STARTED).tab(0).nested("call_0").tab(1).nested(""));
+        assertThrows(IllegalArgumentException.class, () -> ChatToolEvent.started(call).tab(3));
+        assertThrows(IllegalArgumentException.class, () -> ChatToolEvent.started(call).tab(0).nested("call_0").tab(1).nested(""));
         assertThrows(IllegalArgumentException.class, () -> ChatResearchEvent.branching(1));
         assertThrows(IllegalArgumentException.class, () -> ChatResearchEvent.branching(4));
         assertThrows(IllegalArgumentException.class, () -> ChatResearchEvent.agent("call_1", 0, "t".repeat(ChatResearchEvent.MAX_TASK + 1)));
@@ -107,9 +107,9 @@ class ChatActivityRecorderTest {
                 new ChatToolEvent.ReadingDocument(UUID.randomUUID(), UUID.randomUUID(), "T".repeat(255), index, index)).toList();
         for (int step = 0; step < 40; step++) {
             var call = new ChatToolEvent.Call("call_" + step, "search_knowledge");
-            recorder.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED), 0);
-            recorder.accept(new ChatToolEvent(call, new ChatToolEvent.QueryPlan(
-                    IntStream.range(0, 8).mapToObj(query -> query + "q".repeat(1990)).toList(), SearchFilters.NONE)), 0);
+            recorder.accept(ChatToolEvent.started(call), 0);
+            recorder.accept(ChatToolEvent.searching(call, new ChatToolEvent.QueryPlan( IntStream.range(0,
+                    8).mapToObj(query -> query + "q".repeat(1990)).toList(), SearchFilters.NONE)), 0);
             recorder.accept(ChatToolEvent.reading(call, documents), 0);
             recorder.accept(ChatToolEvent.finished(call, false, 5L), 0);
         }
@@ -130,7 +130,7 @@ class ChatActivityRecorderTest {
     @Test
     void terminalDurationsBelongOnlyToTerminalStages() {
         assertThrows(IllegalArgumentException.class, () ->
-                new ChatToolEvent("call_1", "search_knowledge", ChatToolEvent.Stage.STARTED, null, null, List.of(), 5L));
+                new ChatToolEvent("call_1", "search_knowledge", ChatToolEvent.Stage.STARTED, null, null, List.of(), 5L, null, null, null));
         assertThrows(IllegalArgumentException.class, () -> new ChatToolEvent.Call("call_1", "bad name"));
         assertThrows(IllegalArgumentException.class, () -> new ChatReasoningDelta(""));
     }

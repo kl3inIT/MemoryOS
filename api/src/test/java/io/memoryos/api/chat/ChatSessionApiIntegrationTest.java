@@ -2053,10 +2053,11 @@ class ChatSessionApiIntegrationTest {
         var service = new SpringAiLlmService("fixture-model", "fixture-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 null, List.of(), PricingModel.usdPer1MTokens(1, 2));
-        var binding = new ModelBinding(service, prompt -> prompt, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false);
+        var binding = ModelBinding.builder(service, prompt -> prompt, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p),
+                32000, 4096, true, false).build();
         for (int turn = 0; turn < 2; turn++) {
-            var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
-                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
+            var setup = ChatTurnSetup.builder(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
+                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding).build();
             var accounting = new AtomicReference<ModelAccounting>();
             var answer = new StringBuilder();
             executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {}, ignored -> {});
@@ -3047,7 +3048,10 @@ class ChatSessionApiIntegrationTest {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
                     };
-                    return new Client(new ModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
+                    return new Client(ModelBinding.builder(new SpringAiLlmService(name, "Fixture Local", nativeModel),
+                            p -> p, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), settings.contextWindow(),
+                            settings.maxOutputTokens(), settings.capabilities().toolCalling(),
+                            settings.capabilities().vision()).build(), () -> {});
                 }
             };
         }

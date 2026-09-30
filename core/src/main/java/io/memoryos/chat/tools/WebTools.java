@@ -100,9 +100,9 @@ public final class WebTools {
         var current = activity.current();
         var toolCall = current != null ? current
                 : new ChatToolEvent.Call("web-" + kind + "-" + UUID.randomUUID(), kind.equals("search") ? "web_search" : "open_url");
-        if (current == null) events.accept(new ChatToolEvent(toolCall, ChatToolEvent.Stage.STARTED));
-        if (kind.equals("search")) events.accept(new ChatToolEvent(toolCall,
-                new ChatToolEvent.QueryPlan(pending, new SearchFilters(Set.of(), null, null))));
+        if (current == null) events.accept(ChatToolEvent.started(toolCall));
+        if (kind.equals("search")) events.accept(ChatToolEvent.searching(toolCall, new ChatToolEvent.QueryPlan(pending,
+                new SearchFilters(Set.of(), null, null))));
         try (var ignored = work.enter()) {
             var tasks = pending.stream().<Callable<Item>>map(input -> () -> {
                 try { return new Item(call.call(input), false); }
@@ -132,8 +132,8 @@ public final class WebTools {
                     text = text.substring(0, text.length() / 2);
                 if (tokens.estimate(output + entry(result, text, evidence.nextId()) + footer) + 64 > budget) break;
                 String excerpt = text.substring(0, Math.min(text.length(), 1000));
-                var source = evidence.register("web:" + result.url(), number -> new ChatSource(number, null, null,
-                        result.title(), 0, 0, List.of(), null, null, new ChatSource.WebLocation(result.url(), excerpt, Instant.now())), toolCall);
+                var source = evidence.register("web:" + result.url(), number -> ChatSource.web(number, result.title(),
+                        new ChatSource.WebLocation(result.url(), excerpt, Instant.now())), toolCall);
                 if (source == null) break;
                 output.append(entry(result, text, source.citationId())).append('\n');
             }

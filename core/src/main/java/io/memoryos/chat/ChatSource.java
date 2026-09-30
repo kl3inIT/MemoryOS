@@ -20,28 +20,36 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
                          @Nullable String mediaType, List<SourceType> sourceTypes, @Nullable String providerUrl) {
     private static final String DRIVE_OPEN = "https://drive.google.com/open?id=";
 
-    public ChatSource(int citationId, @Nullable UUID documentId, @Nullable UUID generation, String title,
-                      int startOrdinal, int endOrdinal, List<Provenance> provenance, @Nullable UUID fileId,
-                      @Nullable FileLocation fileLocation, @Nullable WebLocation web) {
-        this(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, fileLocation, web, null, List.of(), null);
+    /** A passage of an indexed Document. */
+    public static ChatSource document(int citationId, UUID documentId, UUID generation, String title,
+                                      int startOrdinal, int endOrdinal, List<Provenance> provenance) {
+        return new ChatSource(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance,
+                null, null, null, null, List.of(), null);
     }
-    public ChatSource(int citationId, @Nullable UUID documentId, @Nullable UUID generation, String title,
-                      int startOrdinal, int endOrdinal, List<Provenance> provenance, @Nullable UUID fileId, @Nullable FileLocation fileLocation) {
-        this(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, fileLocation, null);
+
+    /** A file of the conversation, as a whole or at {@code location}. */
+    public static ChatSource file(int citationId, UUID fileId, String title, @Nullable String mediaType,
+                                  @Nullable FileLocation location) {
+        return new ChatSource(citationId, null, null, title, 0, 0, List.of(), fileId, location, null,
+                mediaType, List.of(), null);
     }
+
+    /** A Web page. */
+    public static ChatSource web(int citationId, String title, WebLocation web) {
+        return new ChatSource(citationId, null, null, title, 0, 0, List.of(), null, null, web, null, List.of(), null);
+    }
+
+    /** The same evidence with how it was presented when it was cited. */
+    public ChatSource described(@Nullable String mediaType, List<SourceType> sourceTypes, @Nullable String providerUrl) {
+        return new ChatSource(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId,
+                fileLocation, web, mediaType, sourceTypes, providerUrl);
+    }
+
     public record WebLocation(String url, String excerpt, Instant retrievedAt) {
         public WebLocation {
             WebHttp.pageUri(url);
             if (excerpt == null || excerpt.length() > 4000 || retrievedAt == null) throw new IllegalArgumentException("Invalid Web evidence");
         }
-    }
-    public ChatSource(int citationId, @Nullable UUID documentId, @Nullable UUID generation, String title,
-                      int startOrdinal, int endOrdinal, List<Provenance> provenance, @Nullable UUID fileId) {
-        this(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, null);
-    }
-    public ChatSource(int citationId, UUID documentId, UUID generation, String title,
-                      int startOrdinal, int endOrdinal, List<Provenance> provenance) {
-        this(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, null);
     }
     public ChatSource {
         sourceTypes = sourceTypes == null ? List.of() : sourceTypes.stream().distinct().toList();

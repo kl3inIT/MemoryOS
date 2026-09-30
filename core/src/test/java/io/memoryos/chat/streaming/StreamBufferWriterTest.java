@@ -99,7 +99,7 @@ class StreamBufferWriterTest {
         writer.reasoning(id, "Think");
         writer.reasoning(id, "ing");
         writer.append(id, "Answer");
-        writer.tool(id, new ChatToolEvent(new ChatToolEvent.Call("call_1", "read_file"), ChatToolEvent.Stage.STARTED));
+        writer.tool(id, ChatToolEvent.started(new ChatToolEvent.Call("call_1", "read_file")));
         writer.finish(id, Status.COMPLETED, null);
         List<StreamBufferWriter.Event> events;
         try (var reader = writer.subscribe(id, 0, () -> false)) {
@@ -150,11 +150,11 @@ class StreamBufferWriterTest {
         var writer = new StreamBufferWriter(redis, limits);
         var id = UUID.randomUUID();
         var call = new ChatToolEvent.Call("call_s", "search_knowledge");
-        var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
+        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
         var published = List.of(
-                new ChatToolEvent(call, new ChatToolEvent.QueryPlan(List.of("leave policy"), SearchFilters.NONE)),
+                ChatToolEvent.searching(call, new ChatToolEvent.QueryPlan(List.of("leave policy"), SearchFilters.NONE)),
                 ChatToolEvent.reading(call, List.of(new ChatToolEvent.ReadingDocument(UUID.randomUUID(), UUID.randomUUID(), "HR", 0, 3))),
-                new ChatToolEvent(call, source).nested("call_agent"),
+                ChatToolEvent.source(call, source).nested("call_agent"),
                 ChatToolEvent.finished(call, false, 12L).tab(1));
         var image = new ChatImageEvent("call_i", ChatImageEvent.Stage.COMPLETED, UUID.randomUUID(), "image/png", "A cat");
         writer.open(id);
