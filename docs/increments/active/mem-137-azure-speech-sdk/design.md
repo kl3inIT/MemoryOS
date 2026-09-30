@@ -35,8 +35,11 @@ Azure's own silence detection can end utterances, which the chunked path cannot.
   `SpeechConfig`'s endpoint overloads name `azure-core`'s `TokenCredential`, so it is needed to compile. The JAR is
   about 15 MB and carries the native libraries for Linux, Windows and macOS.
 - **License:** the SDK is under the *Microsoft Software License Terms for Microsoft Cognitive Services Speech SDK*
-  (https://aka.ms/csspeech/license), not an open-source license. **Owner review required** that shipping it in the
-  API image is acceptable.
+  (https://aka.ms/csspeech/license), not an open-source license. The owner accepted shipping it in the API image on
+  2026-09-30. Redistribution to a customer who runs the image needs matching protective terms in that agreement.
+- **Telemetry off** (owner decision 2026-09-30): every `SpeechConfig` sets `SPEECH-TelemetryDataEnabled=false`, the
+  switch Microsoft's SDK README names, so only the audio and text a request needs leave MemoryOS. Microsoft cannot
+  analyze a support request in detail while it is off; it can be turned on for one.
 - **Seam:** `AzureSpeechGateway` (package-private in `voice`) is every SDK call; `SpeechSdkGateway` is the real one,
   `FakeAzureSpeechGateway` the test one, so unit tests never load the native library.
 - **Dictation:** `AzureVoiceAdapter` implements `RealtimeTranscriptionAdapter`. `AzureRealtimeTranscriber` resamples

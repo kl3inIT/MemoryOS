@@ -34,6 +34,8 @@ final class SpeechSdkGateway implements AzureSpeechGateway {
     /** Recognition of audio already sent ends within a few seconds of the stream closing. */
     private static final Duration STOP_TIMEOUT = Duration.ofSeconds(8);
     private static final int READ_BYTES = 16 * 1024;
+    /** Named in Microsoft's Speech SDK README; the SDK has no typed property for it. */
+    private static final String TELEMETRY_PROPERTY = "SPEECH-TelemetryDataEnabled";
 
     @Override
     public Recognition recognize(AzureSpeechTarget target, String key, List<String> locales, RecognitionListener listener) {
@@ -99,8 +101,11 @@ final class SpeechSdkGateway implements AzureSpeechGateway {
     private static SpeechConfig config(AzureSpeechTarget target, String key) {
         try {
             var endpoint = target.endpoint();
-            return endpoint != null ? SpeechConfig.fromEndpoint(endpoint, key)
+            SpeechConfig config = endpoint != null ? SpeechConfig.fromEndpoint(endpoint, key)
                     : SpeechConfig.fromSubscription(key, target.region());
+            // Only the audio and text a request needs leave MemoryOS; the SDK's usage telemetry to Microsoft is off.
+            config.setProperty(TELEMETRY_PROPERTY, "false");
+            return config;
         } catch (RuntimeException | LinkageError failed) {
             throw new IllegalStateException("Azure Speech SDK unavailable");
         }
