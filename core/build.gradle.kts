@@ -19,6 +19,12 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = 2
     // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
     inputs.property("memoryosSearchAuthzMeasure", providers.environmentVariable("MEMORYOS_SEARCH_AUTHZ_MEASURE").orElse("false"))
+    // MEM-199: a fork that runs out of heap leaves its heap dump and GC log for CI to upload. Attaching jcmd from
+    // -XX:OnOutOfMemoryError hangs, because it runs while the JVM is stopped at the error.
+    val diagnostics = layout.buildDirectory.dir("test-diagnostics/$name").get().asFile
+    jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=$diagnostics",
+            "-Xlog:gc*:file=$diagnostics/gc-%p.log:time,uptime,level,tags:filecount=0")
+    doFirst { diagnostics.mkdirs() }
 }
 
 dependencies {
