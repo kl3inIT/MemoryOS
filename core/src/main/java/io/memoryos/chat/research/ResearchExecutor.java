@@ -265,7 +265,7 @@ public final class ResearchExecutor {
             for (int tab = 0; tab < calls.size(); tab++) {
                 var step = ChatToolActivity.call(calls.get(tab).getId(), calls.get(tab).getName());
                 steps.add(step);
-                turn.events().accept(new ChatToolEvent(step, ChatToolEvent.Stage.STARTED).tab(tab));
+                turn.events().accept(ChatToolEvent.started(step).tab(tab));
             }
             var tasks = new ArrayList<Callable<Optional<AgentResult>>>();
             // Agents run on other threads; their spans are parented on the execution step explicitly.

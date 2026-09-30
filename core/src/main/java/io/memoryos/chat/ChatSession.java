@@ -15,17 +15,5 @@ public record ChatSession(UUID id, UUID personaId, UUID rootMessageId, String ti
         Instant createdAt, Instant updatedAt, @Nullable UUID projectId,
         @Nullable ReasoningEffort reasoningEffort, @Nullable Instant archivedAt,
         @Nullable UUID branchedFromSessionId, @Nullable UUID branchedFromMessageId, boolean temporary) {
-    public ChatSession(UUID id, UUID personaId, UUID rootMessageId, String title,
-            Instant createdAt, Instant updatedAt, @Nullable UUID projectId) {
-        this(id, personaId, rootMessageId, title, createdAt, updatedAt, projectId, null, null, null, null, false);
-    }
-
-    public ChatSession(UUID id, UUID personaId, UUID rootMessageId, String title,
-            Instant createdAt, Instant updatedAt, @Nullable UUID projectId,
-            @Nullable ReasoningEffort reasoningEffort) {
-        this(id, personaId, rootMessageId, title, createdAt, updatedAt, projectId, reasoningEffort, null, null,
-                null, false);
-    }
-
     public boolean archived() { return archivedAt != null; }
 }

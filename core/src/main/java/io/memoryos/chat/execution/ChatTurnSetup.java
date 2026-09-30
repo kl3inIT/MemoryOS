@@ -55,21 +55,51 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         public static final Research OFF = new Research(false, false, null, List.of());
         public Research { files = List.copyOf(files); }
     }
-    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
-                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence,
-                         WebSearchMode webSearch, WebConnectionService.Access webAccess,
-                         ImageMode image, ImageConnectionService.Access imageAccess) {
-        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence,
-                webSearch, webAccess, image, imageAccess, Research.OFF, null);
+    /**
+     * A turn with default options, no files, fresh evidence and neither Web search, image generation, Deep research
+     * nor MCP tools; the {@code with…} methods add those once they are resolved.
+     */
+    public static Builder builder(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
+                                  String model, List<Message> messages, ModelBinding binding) {
+        return new Builder(sessionId, assistantMessageId, actor, tenant, model, messages, binding);
     }
-    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
-                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence) {
-        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence,
-                WebSearchMode.off, new WebConnectionService.Access(null, null),
-                ImageMode.off, new ImageConnectionService.Access(null), Research.OFF, null);
+
+    public static final class Builder {
+        private final UUID sessionId;
+        private final UUID assistantMessageId;
+        private final ActorId actor;
+        private final TenantId tenant;
+        private final String model;
+        private final List<Message> messages;
+        private final ModelBinding binding;
+        private ChatTurnOptions options = ChatTurnOptions.DEFAULT;
+        private Set<UUID> fileIds = Set.of();
+        private Map<Integer, List<ChatFileDescriptor>> images = Map.of();
+        private ChatEvidence evidence = new ChatEvidence();
+
+        private Builder(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
+                        String model, List<Message> messages, ModelBinding binding) {
+            this.sessionId = sessionId;
+            this.assistantMessageId = assistantMessageId;
+            this.actor = actor;
+            this.tenant = tenant;
+            this.model = model;
+            this.messages = messages;
+            this.binding = binding;
+        }
+
+        public Builder options(ChatTurnOptions value) { options = value; return this; }
+        public Builder fileIds(Set<UUID> value) { fileIds = value; return this; }
+        public Builder images(Map<Integer, List<ChatFileDescriptor>> value) { images = value; return this; }
+        public Builder evidence(ChatEvidence value) { evidence = value; return this; }
+
+        public ChatTurnSetup build() {
+            return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options,
+                    fileIds, images, evidence, WebSearchMode.off, new WebConnectionService.Access(null, null),
+                    ImageMode.off, new ImageConnectionService.Access(null), Research.OFF, null);
+        }
     }
+
     public ChatTurnSetup withWeb(WebSearchMode intent, WebConnectionService.Access access) {
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, intent, access, image, imageAccess, research, mcp);
     }
@@ -91,19 +121,6 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
     public static final int IMAGE_INPUT_TOKENS = ModelRequestPolicy.IMAGE_INPUT_TOKENS;
     /** A wide citation marker for token estimates: citation numbers have no cap. */
     private static final int CITATION_ESTIMATE = 99999;
-    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
-                         Set<UUID> fileIds) {
-        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, Map.of(), new ChatEvidence());
-    }
-    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options) {
-        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, Set.of());
-    }
-    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ModelBinding binding) {
-        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, ChatTurnOptions.DEFAULT);
-    }
     public ChatTurnSetup {
         messages = List.copyOf(messages);
         fileIds = Set.copyOf(fileIds);
@@ -264,7 +281,12 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         selected.addFirst(new SystemMessage(instructions));
         var images = new LinkedHashMap<Integer, List<ChatFileDescriptor>>();
         for (int i = 0; i < selected.size(); i++) if (media.containsKey(selected.get(i))) images.put(i, media.get(selected.get(i)));
-        return new ChatTurnSetup(session, assistant, context.actor(), context.tenant(), binding.service().getName(), selected, binding, context.options(), allowedFiles, images, evidence);
+        return ChatTurnSetup.builder(session, assistant, context.actor(), context.tenant(), binding.service().getName(), selected, binding)
+                .options(context.options())
+                .fileIds(allowedFiles)
+                .images(images)
+                .evidence(evidence)
+                .build();
     }
 
     private static int count(ModelRequestPolicy policy, List<org.springframework.ai.chat.messages.Message> messages, int imageTokens) {

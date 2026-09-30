@@ -68,7 +68,7 @@ class ModelCallsTest {
 
     private static ModelBinding binding() {
         var policy = ModelRequestPolicy.hosted(Tokenizers.o200k(), prompt -> prompt);
-        return new ModelBinding(new SpringAiLlmService("fixture", "fixture", mock(ChatModel.class)), prompt -> prompt,
-                policy, 32000, 4096, false, false);
+        return ModelBinding.builder(new SpringAiLlmService("fixture", "fixture", mock(ChatModel.class)), prompt -> prompt,
+                policy, 32000, 4096, false, false).build();
     }
 }

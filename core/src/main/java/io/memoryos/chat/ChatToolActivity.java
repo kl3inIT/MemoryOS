@@ -33,7 +33,7 @@ public final class ChatToolActivity implements ToolCallInspector {
         current = call;
         failed = false;
         failure = null;
-        events.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED));
+        events.accept(ChatToolEvent.started(call));
         return call;
     }
 

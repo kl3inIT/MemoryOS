@@ -71,10 +71,10 @@ class ResearchExecutorLiveTest {
         var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
         try (var client = adapter.create(new ProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, Duration.ofSeconds(60));
              var work = new SearchTasks.Scope(Duration.ofSeconds(5))) {
-            var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()),
-                    model, List.of(new SystemMessage("Persona instructions are not used by research."),
-                    new UserMessage("Research the electric motorbike market in Vietnam in 2025: the market leaders and their shares, and the policy "
-                            + "changes that affect it. Use only the organization knowledge base; keep the report short.")), client.binding())
+            var setup = ChatTurnSetup.builder(UUID.randomUUID(), UUID.randomUUID(), new ActorId(UUID.randomUUID()),
+                    new TenantId(UUID.randomUUID()), model,
+                    List.of(new SystemMessage("Persona instructions are not used by research."),
+                    new UserMessage("Research the electric motorbike market in Vietnam in 2025: the market leaders and their shares, and the policy " + "changes that affect it. Use only the organization knowledge base; keep the report short.")), client.binding()).build()
                     .withResearch(new ChatTurnSetup.Research(true, true, "vi", List.of()));
             var events = new CopyOnWriteArrayList<ChatActivityEvent>();
             var guards = new CopyOnWriteArrayList<ChatModelGuard>();
@@ -120,8 +120,9 @@ class ResearchExecutorLiveTest {
                     var call = Objects.requireNonNull(agent.activity().current());
                     var text = new StringBuilder();
                     for (var document : DOCUMENTS.entrySet()) {
-                        var source = agent.evidence().register("doc:" + document.getKey(), id -> new ChatSource(id, uuid(document.getKey()),
-                                uuid(document.getKey() + ":g"), document.getKey() + " report", 0, 0, List.of(new ChatSource.Provenance(0, "[]"))), call);
+                        var source = agent.evidence().register("doc:" + document.getKey(), id -> ChatSource.document(id,
+                                uuid(document.getKey()), uuid(document.getKey() + ":g"), document.getKey() + " report", 0, 0,
+                                List.of(new ChatSource.Provenance(0, "[]"))), call);
                         if (source != null) text.append("\n[").append(source.citationId()).append("] ").append(document.getValue());
                     }
                     return Tool.Result.text(text.toString());

@@ -181,8 +181,9 @@ public class ChatTurnPersistence {
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
                                String text, Duration lease, int contextTokenLimit, @Nullable ModelSelection selection) {
-        return reserve(actor, sessionId, new ChatCommand(ChatCommand.Operation.SEND, parentId, requestId, text,
-                selection == null ? null : selection.requestedId()), lease, contextTokenLimit, selection);
+        return reserve(actor, sessionId, ChatCommand.builder(ChatCommand.Operation.SEND, parentId, requestId, text)
+                .modelConfigurationId(selection == null ? null : selection.requestedId())
+                .build(), lease, contextTokenLimit, selection);
     }
 
     /** The lease is a liveness fence renewed by the running process, not a turn deadline. */
@@ -288,7 +289,9 @@ public class ChatTurnPersistence {
 
     @Transactional(readOnly = true)
     public Optional<Reservation> existing(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID requestedModelId) {
-        return existing(actor, session, new ChatCommand(ChatCommand.Operation.SEND, parent, request, text, requestedModelId));
+        return existing(actor, session, ChatCommand.builder(ChatCommand.Operation.SEND, parent, request, text)
+                .modelConfigurationId(requestedModelId)
+                .build());
     }
 
     @Transactional(readOnly = true)
@@ -348,19 +351,44 @@ public class ChatTurnPersistence {
                               Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles,
                               @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages) {
         public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
-        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options,
-                           Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles, @Nullable String uiLanguage) {
-            this(actor, tenant, model, instructions, newestFirst, options, fileTexts, workspaceFiles, uiLanguage, Map.of());
+
+        /** A context with default options and no files, account language or generated images. */
+        public static Builder builder(ActorId actor, TenantId tenant, String model, String instructions,
+                                      List<ChatMessage> newestFirst) {
+            return new Builder(actor, tenant, model, instructions, newestFirst);
         }
-        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options,
-                           Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles) {
-            this(actor, tenant, model, instructions, newestFirst, options, fileTexts, workspaceFiles, null);
-        }
-        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options) {
-            this(actor, tenant, model, instructions, newestFirst, options, Map.of(), List.of());
-        }
-        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst) {
-            this(actor, tenant, model, instructions, newestFirst, ChatTurnOptions.DEFAULT);
+
+        public static final class Builder {
+            private final ActorId actor;
+            private final TenantId tenant;
+            private final String model;
+            private final String instructions;
+            private final List<ChatMessage> newestFirst;
+            private ChatTurnOptions options = ChatTurnOptions.DEFAULT;
+            private Map<UUID, UserFileService.FileText> fileTexts = Map.of();
+            private List<ChatFileDescriptor> workspaceFiles = List.of();
+            private @Nullable String uiLanguage;
+            private Map<UUID, List<UUID>> generatedImages = Map.of();
+
+            private Builder(ActorId actor, TenantId tenant, String model, String instructions,
+                            List<ChatMessage> newestFirst) {
+                this.actor = actor;
+                this.tenant = tenant;
+                this.model = model;
+                this.instructions = instructions;
+                this.newestFirst = newestFirst;
+            }
+
+            public Builder options(ChatTurnOptions value) { options = value; return this; }
+            public Builder fileTexts(Map<UUID, UserFileService.FileText> value) { fileTexts = value; return this; }
+            public Builder workspaceFiles(List<ChatFileDescriptor> value) { workspaceFiles = value; return this; }
+            public Builder uiLanguage(@Nullable String value) { uiLanguage = value; return this; }
+            public Builder generatedImages(Map<UUID, List<UUID>> value) { generatedImages = value; return this; }
+
+            public TurnContext build() {
+                return new TurnContext(actor, tenant, model, instructions, newestFirst, options, fileTexts,
+                        workspaceFiles, uiLanguage, generatedImages);
+            }
         }
     }
 

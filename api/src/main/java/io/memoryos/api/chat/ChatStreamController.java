@@ -10,7 +10,7 @@ import io.memoryos.api.chat.contract.ReasoningEvent;
 import io.memoryos.api.chat.contract.ResearchAgentStartEvent;
 import io.memoryos.api.chat.contract.ResearchPlanEvent;
 import io.memoryos.api.chat.contract.ResetEvent;
-import io.memoryos.api.chat.contract.TextDeltaEvent;
+import io.memoryos.api.chat.contract.TextEvent;
 import io.memoryos.api.chat.contract.ToolEvent;
 import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
 import io.memoryos.chat.ChatException;
@@ -62,12 +62,12 @@ class ChatStreamController {
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(operationId = "streamChatMessage", summary = "Read or resume reply events; reset requires persisted history",
-            description = "Events: text-delta, reasoning, tool, image, research-plan, top-level-branching, research-agent-start, "
-                    + "intermediate-report, intermediate-report-citations, outcome, reset. Content event id is assistantMessageId:sequence. "
+            description = "Events: text, reasoning, tool, image, code, research_plan, top_level_branching, research_agent_start, "
+                    + "intermediate_report, intermediate_report_citations, outcome, reset. Content event id is assistantMessageId:sequence. "
                     + "Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.")
     @ApiResponse(responseCode = "200", description = "SSE frames; the schema describes each data payload",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
-                    schema = @Schema(oneOf = {TextDeltaEvent.class, OutcomeEvent.class,
+                    schema = @Schema(oneOf = {TextEvent.class, OutcomeEvent.class,
                             ResetEvent.class, ToolEvent.class, ReasoningEvent.class,
                             ImageEvent.class, CodeEvent.class,
                             ResearchPlanEvent.class,

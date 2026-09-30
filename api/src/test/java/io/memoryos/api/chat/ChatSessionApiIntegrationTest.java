@@ -37,6 +37,8 @@ import io.memoryos.api.mcp.McpAuthorizationSessionState;
 import io.memoryos.api.mcp.McpFixtureServer;
 import io.memoryos.api.mcp.contract.McpOAuthClientRequest;
 import io.memoryos.api.mcp.contract.McpServerRequest;
+import io.memoryos.chat.streaming.ChatStreamEvent;
+import io.memoryos.chat.streaming.ToolProgress;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
@@ -1335,8 +1337,8 @@ class ChatSessionApiIntegrationTest {
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
         var events = replay(UUID.fromString(id));
-        assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
-                && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
+        assertTrue(events.stream().anyMatch(e -> e instanceof ToolProgress && ((ToolProgress) e).tool().source() != null
+                && ((ToolProgress) e).tool().toolCallId().equals("search-1") && ((ToolProgress) e).tool().source().citationId() == 1));
         assertEquals("outcome", events.getLast().type());
     }
 
@@ -1451,15 +1453,15 @@ class ChatSessionApiIntegrationTest {
         assertEquals(0, bogus.path("activity").path("steps").size(), "an unknown tool never runs");
         var events = replay(UUID.fromString(id));
         {
-            assertTrue(events.stream().anyMatch(e -> e.type().equals("research-plan")));
-            assertTrue(events.stream().anyMatch(e -> e.type().equals("top-level-branching")));
-            assertTrue(events.stream().anyMatch(e -> e.tool() != null && "agent-2".equals(e.tool().toolCallId())
-                    && Integer.valueOf(1).equals(e.tool().tabIndex())));
-            assertTrue(events.stream().anyMatch(e -> e.tool() != null && "search-1".equals(e.tool().toolCallId())
-                    && "agent-1".equals(e.tool().parentToolCallId())));
-            assertTrue(events.stream().anyMatch(e -> e.type().equals("intermediate-report-citations")));
-            assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
-                    && e.tool().source().citationId() == 1 && "agent-1".equals(e.tool().toolCallId())));
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("research_plan")));
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("top_level_branching")));
+            assertTrue(events.stream().anyMatch(e -> e instanceof ToolProgress && "agent-2".equals(((ToolProgress) e).tool().toolCallId())
+                    && Integer.valueOf(1).equals(((ToolProgress) e).tool().tabIndex())));
+            assertTrue(events.stream().anyMatch(e -> e instanceof ToolProgress && "search-1".equals(((ToolProgress) e).tool().toolCallId())
+                    && "agent-1".equals(((ToolProgress) e).tool().parentToolCallId())));
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("intermediate_report_citations")));
+            assertTrue(events.stream().anyMatch(e -> e instanceof ToolProgress && ((ToolProgress) e).tool().source() != null
+                    && ((ToolProgress) e).tool().source().citationId() == 1 && "agent-1".equals(((ToolProgress) e).tool().toolCallId())));
             assertEquals("outcome", events.getLast().type());
         }
         verify(searchIndex).batch(any(), any(), any(), any());
@@ -2026,7 +2028,7 @@ class ChatSessionApiIntegrationTest {
             var response = http.send(httpRequest(events, token).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
             assertEquals(200, response.statusCode());
             String frames = response.body();
-            assertTrue(frames.contains("event:text-delta"), frames);
+            assertTrue(frames.contains("event:text"), frames);
             assertTrue(frames.contains("Answer 😀"), frames);
             assertTrue(frames.contains("event:outcome"), frames);
             assertTrue(frames.contains("\"status\":\"COMPLETED\""), frames);
@@ -2035,7 +2037,7 @@ class ChatSessionApiIntegrationTest {
                     HttpResponse.BodyHandlers.ofString(UTF_8));
             assertEquals(200, resumed.statusCode());
             String tail = resumed.body();
-            assertFalse(tail.contains("event:text-delta"), tail);
+            assertFalse(tail.contains("event:text"), tail);
             assertTrue(tail.contains("event:outcome"), tail);
         }
     }
@@ -2053,10 +2055,11 @@ class ChatSessionApiIntegrationTest {
         var service = new SpringAiLlmService("fixture-model", "fixture-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 null, List.of(), PricingModel.usdPer1MTokens(1, 2));
-        var binding = new ModelBinding(service, prompt -> prompt, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false);
+        var binding = ModelBinding.builder(service, prompt -> prompt, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p),
+                32000, 4096, true, false).build();
         for (int turn = 0; turn < 2; turn++) {
-            var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
-                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
+            var setup = ChatTurnSetup.builder(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
+                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding).build();
             var accounting = new AtomicReference<ModelAccounting>();
             var answer = new StringBuilder();
             executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {}, ignored -> {});
@@ -2111,7 +2114,7 @@ class ChatSessionApiIntegrationTest {
             assertEquals(200, live.statusCode());
             try (var input = new BufferedReader(new InputStreamReader(live.body(), UTF_8))) {
                 String frame = readFrame(input);
-                assertTrue(frame.contains("event:text-delta"), frame);
+                assertTrue(frame.contains("event:text"), frame);
                 assertTrue(frame.contains("Partial"), frame);
                 assertEquals("RUNNING", jdbc.sql("SELECT status FROM chat_message WHERE id = :id")
                         .param("id", UUID.fromString(id)).query(String.class).single());
@@ -2129,7 +2132,7 @@ class ChatSessionApiIntegrationTest {
                 do { frame = readFrame(input); } while (frame.startsWith(":"));
                 assertTrue(frame.contains("event:outcome"), frame);
                 assertTrue(frame.contains("\"status\":\"CANCELED\""), frame);
-                assertFalse(frame.contains("event:text-delta"), frame);
+                assertFalse(frame.contains("event:text"), frame);
             }
             awaitOutcome(id, "CANCELED");
             assertEquals("Partial", jdbc.sql("SELECT content FROM chat_message WHERE id = :id")
@@ -3047,7 +3050,10 @@ class ChatSessionApiIntegrationTest {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
                     };
-                    return new Client(new ModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
+                    return new Client(ModelBinding.builder(new SpringAiLlmService(name, "Fixture Local", nativeModel),
+                            p -> p, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), settings.contextWindow(),
+                            settings.maxOutputTokens(), settings.capabilities().toolCalling(),
+                            settings.capabilities().vision()).build(), () -> {});
                 }
             };
         }
@@ -5817,8 +5823,8 @@ class ChatSessionApiIntegrationTest {
      * Every buffered event of a finished reply. One read returns one batch of at most 64 records, so a turn that
      * wrote more than that ends its batch before the outcome; draining is what a browser does too.
      */
-    private List<StreamBufferWriter.Event> replay(UUID assistant) throws InterruptedException {
-        var events = new ArrayList<StreamBufferWriter.Event>();
+    private List<ChatStreamEvent> replay(UUID assistant) throws InterruptedException {
+        var events = new ArrayList<ChatStreamEvent>();
         try (var reader = streams.subscribe(assistant, 0, () -> false)) {
             while (true) {
                 var batch = reader.read();
@@ -5991,7 +5997,7 @@ class ChatSessionApiIntegrationTest {
                         if (!line.startsWith("data:")) continue;
                         long ms = (System.nanoTime() - started) / 1_000_000;
                         var data = Json.mapper().readTree(line.substring(5));
-                        if ("text-delta".equals(event) && firstText == null) firstText = ms;
+                        if ("text".equals(event) && firstText == null) firstText = ms;
                         if ("tool".equals(event)) events.add(Map.of("ms", ms, "stage", data.path("stage").asText(),
                                 "toolCallId", data.path("toolCallId").asText(), "queryCount", data.path("search").path("queries").size()));
                     }

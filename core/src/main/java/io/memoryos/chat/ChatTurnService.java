@@ -182,7 +182,9 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Accepted send(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID modelConfigurationId) {
-        return command(actor, session, new ChatCommand(ChatCommand.Operation.SEND, parent, request, text, modelConfigurationId));
+        return command(actor, session, ChatCommand.builder(ChatCommand.Operation.SEND, parent, request, text)
+                .modelConfigurationId(modelConfigurationId)
+                .build());
     }
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {

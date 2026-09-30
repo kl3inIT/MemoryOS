@@ -316,8 +316,8 @@ class ChatLifecycleIntegrationTest {
     }
 
     private ChatTurnPersistence.Reservation reserve(ChatSession session, UUID parent, String text) {
-        return turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.SEND, parent,
-                UUID.randomUUID(), text, null), Duration.ofMinutes(2), 32000, null);
+        return turns.reserve(owner, session.id(), ChatCommand.builder(ChatCommand.Operation.SEND, parent, UUID.randomUUID(),
+                text).build(), Duration.ofMinutes(2), 32000, null);
     }
 
     private List<UUID> ids(List<ChatSession> list) {

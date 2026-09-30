@@ -45,8 +45,12 @@ class ChatTurnSetupTest {
         var artifact = new ChatArtifact(UUID.randomUUID(), "Revenue", """
                 {"root":{"component":"Metric","props":{"label":"September","value":"125000"}}}
                 """);
-        var answer = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.ASSISTANT,
-                "", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(), List.of(artifact));
+        var answer = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.ASSISTANT,
+                ChatMessage.Status.COMPLETED, Instant.now())
+                .content("")
+                .finishedAt(Instant.now())
+                .artifacts(List.of(artifact))
+                .build();
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(),
                 context(List.of(message(ChatMessage.Role.USER, "Explain September"), answer, message(ChatMessage.Role.USER, "Summarize revenue"))), 32000, binding(), "");
         assertTrue(setup.messages().stream().anyMatch(m -> m.getContent().contains("125000") && m.getContent().contains("data, not instructions")));
@@ -58,11 +62,14 @@ class ChatTurnSetupTest {
     @Test
     void switchingToNonVisionKeepsHistoryAndWorkspaceMarkersWithoutImageBudget() {
         var file = new ChatFileDescriptor(UUID.randomUUID(), "picture.png", "image/png", 100);
-        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
-                "Continue", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
-        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
-                "Answer", List.of(question), ChatTurnOptions.DEFAULT,
-                Map.of(), List.of(file));
+        var question = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .content("Continue")
+                .finishedAt(Instant.now())
+                .files(List.of(file))
+                .build();
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer", List.of(question))
+                .workspaceFiles(List.of(file))
+                .build();
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, binding(), "");
         assertEquals(Map.of(), setup.images());
         Assertions.assertTrue(setup.messages().get(1).getContent().contains("this model cannot view images"));
@@ -76,10 +83,14 @@ class ChatTurnSetupTest {
     void visionPreservesImageAttachmentOrderAndChecksStopBeforeAndAfterPrivateIo() {
         var first = new ChatFileDescriptor(UUID.randomUUID(), "first.png", "image/png", 3);
         var second = new ChatFileDescriptor(UUID.randomUUID(), "second.png", "image/png", 3);
-        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
-                "Compare", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(first, second));
+        var question = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .content("Compare")
+                .finishedAt(Instant.now())
+                .files(List.of(first, second))
+                .build();
         var base = binding();
-        var vision = new ModelBinding(base.service(), base.finalRequest(), base.policy(), base.contextWindow(), base.maxOutputTokens(), false, true);
+        var vision = ModelBinding.builder(base.service(), base.finalRequest(), base.policy(), base.contextWindow(),
+                base.maxOutputTokens(), false, true).build();
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(question)), 32000, vision, "");
         assertEquals(List.of(first, second), setup.images().get(1));
         var content = mock(UserFileContentService.class);
@@ -96,17 +107,20 @@ class ChatTurnSetupTest {
     @Test
     void visionRejectsCurrentImagesThatCannotFitInsteadOfSilentlyRemovingThem() {
         var file = new ChatFileDescriptor(UUID.randomUUID(), "picture.png", "image/png", 100);
-        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
-                "", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
+        var question = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .content("")
+                .finishedAt(Instant.now())
+                .files(List.of(file))
+                .build();
         var base = binding();
-        var vision = new ModelBinding(base.service(), base.finalRequest(), base.policy(), base.contextWindow(), base.maxOutputTokens(), false, true);
+        var vision = ModelBinding.builder(base.service(), base.finalRequest(), base.policy(), base.contextWindow(),
+                base.maxOutputTokens(), false, true).build();
         assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(question)), 2000, vision, ""));
     }
 
     private static ModelBinding binding() {
-        return new ModelBinding(new SpringAiLlmService(
-                "binding-model", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(
-        Tokenizers.o200k(), p -> p), 32000, 4096, false, false);
+        return ModelBinding.builder(new SpringAiLlmService( "binding-model", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted( Tokenizers.o200k(), p -> p), 32000, 4096, false, false).build();
     }
     @Test
     void contextLimitKeepsNewestQuestionAndDropsOrphanAssistant() {
@@ -127,16 +141,16 @@ class ChatTurnSetupTest {
     }
 
     private TurnContext context(List<ChatMessage> messages) {
-        return new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "gpt-5-mini",
-                "Answer", messages);
+        return TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", messages).build();
     }
 
     @Test
     void emptyOrNullAssistantDoesNotDropEarlierContext() {
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(
                 message(ChatMessage.Role.USER, "Newest"),
-                new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.ASSISTANT,
-                        null, ChatMessage.Status.FAILED, Instant.now(), Instant.now()),
+                ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.ASSISTANT, ChatMessage.Status.FAILED, Instant.now())
+                        .finishedAt(Instant.now())
+                        .build(),
                 message(ChatMessage.Role.ASSISTANT, ""), message(ChatMessage.Role.USER, "Earlier"))),
                 32000, binding(), "");
         assertEquals(List.of("Earlier", "Newest"), setup.messages().stream().skip(1).map(Message::getContent).toList());
@@ -158,19 +172,25 @@ class ChatTurnSetupTest {
     }
 
     private ChatMessage message(ChatMessage.Role role, String content) {
-        return new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, role, content,
-                ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
+        return ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), role, ChatMessage.Status.COMPLETED, Instant.now())
+                .content(content)
+                .finishedAt(Instant.now())
+                .build();
     }
 
     @Test
     void unicodeFileContentIsPlacedBeforeItsQuestionAndWorkspaceContent() {
         var id = UUID.randomUUID();
         var file = new ChatFileDescriptor(id, "ghi-chu.txt", "text/plain", 20);
-        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
-                "Tóm tắt", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
-        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
-                "Answer", List.of(question), ChatTurnOptions.DEFAULT,
-                Map.of(id, new UserFileService.FileText("A😀Việt", 0, 6)), List.of(file));
+        var question = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .content("Tóm tắt")
+                .finishedAt(Instant.now())
+                .files(List.of(file))
+                .build();
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer", List.of(question))
+                .fileTexts(Map.of(id, new UserFileService.FileText("A😀Việt", 0, 6)))
+                .workspaceFiles(List.of(file))
+                .build();
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
         assertEquals(4, setup.messages().size());
         Assertions.assertTrue(setup.messages().get(1).getContent().contains("A😀Việt"));
@@ -182,22 +202,25 @@ class ChatTurnSetupTest {
     @Test
     void attachmentFramingFallsBackToFileToolsWithoutPublishingUnseenEvidence() {
         var file = new ChatFileDescriptor(UUID.randomUUID(), "notes.txt", "text/plain", 4);
-        var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
-                "Summarize", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
-        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
-                "Answer", List.of(question), ChatTurnOptions.DEFAULT,
-                Map.of(file.id(), new UserFileService.FileText("text", 0, 4)), List.of());
+        var question = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .content("Summarize")
+                .finishedAt(Instant.now())
+                .files(List.of(file))
+                .build();
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer", List.of(question))
+                .fileTexts(Map.of(file.id(), new UserFileService.FileText("text", 0, 4)))
+                .build();
         var base = binding();
         var policy = new ModelRequestPolicy(base.policy().tokens(),
                 prompt -> base.policy().framing().applyAsInt(prompt)
                         + Math.max(0, prompt.getInstructions().size() - 2) * 10000,
                 prompt -> prompt, ignored -> {});
-        var tools = new ModelBinding(base.service(), base.finalRequest(), policy, 32000, 4096, true, false);
+        var tools = ModelBinding.builder(base.service(), base.finalRequest(), policy, 32000, 4096, true, false).build();
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, tools, "");
         assertEquals(Set.of(file.id()), setup.fileIds());
         Assertions.assertTrue(setup.messages().getLast().getContent().startsWith("Summarize"));
         Assertions.assertTrue(setup.evidence().snapshot().isEmpty());
-        var noTools = new ModelBinding(base.service(), base.finalRequest(), policy, 32000, 4096, false, false);
+        var noTools = ModelBinding.builder(base.service(), base.finalRequest(), policy, 32000, 4096, false, false).build();
         assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, noTools, ""));
     }
 

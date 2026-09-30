@@ -18,7 +18,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -53,14 +52,14 @@ class StreamBufferWriterTest {
             writer.append(id, "second");
             writer.finish(id, Status.COMPLETED, null);
             var events = readAll(reader);
-            assertEquals("first😀second", events.stream().map(StreamBufferWriter.Event::text).filter(Objects::nonNull).reduce("", String::concat));
-            assertEquals(List.of(1L, 2L, 3L), events.stream().map(StreamBufferWriter.Event::sequence).toList());
-            assertEquals(Status.COMPLETED, events.getLast().status());
+            assertEquals("first😀second", StreamEvents.text(events));
+            assertEquals(List.of(1L, 2L, 3L), events.stream().map(ChatStreamEvent::sequence).toList());
+            assertEquals(Status.COMPLETED, StreamEvents.outcome(events).status());
         }
         // Any process reads the same reply: this reader only knows Redis.
         var other = new StreamBufferWriter(redis, limits);
         try (var reader = other.subscribe(id, 1, () -> false)) {
-            assertEquals(List.of(2L, 3L), readAll(reader).stream().map(StreamBufferWriter.Event::sequence).toList());
+            assertEquals(List.of(2L, 3L), readAll(reader).stream().map(ChatStreamEvent::sequence).toList());
         }
         assertEquals(0, writer.readerCount());
         assertEquals(0, other.readerCount());
@@ -86,7 +85,7 @@ class StreamBufferWriterTest {
             writer.append(id, "second");
             writer.flush();
             var batch = pending.get(3, TimeUnit.SECONDS);
-            assertEquals("second", batch.events().getFirst().text());
+            assertEquals("second", StreamEvents.text(batch.events()));
             assertTrue(Duration.ofNanos(System.nanoTime() - started).toMillis() < 2000);
         }
     }
@@ -99,16 +98,16 @@ class StreamBufferWriterTest {
         writer.reasoning(id, "Think");
         writer.reasoning(id, "ing");
         writer.append(id, "Answer");
-        writer.tool(id, new ChatToolEvent(new ChatToolEvent.Call("call_1", "read_file"), ChatToolEvent.Stage.STARTED));
+        writer.tool(id, ChatToolEvent.started(new ChatToolEvent.Call("call_1", "read_file")));
         writer.finish(id, Status.COMPLETED, null);
-        List<StreamBufferWriter.Event> events;
+        List<ChatStreamEvent> events;
         try (var reader = writer.subscribe(id, 0, () -> false)) {
             events = readAll(reader);
         }
         // The first chunk flushes immediately, as for answer text; a type change flushes the pending chunk.
-        assertEquals(List.of("reasoning", "reasoning", "text-delta", "tool", "outcome"), events.stream().map(StreamBufferWriter.Event::type).toList());
-        assertEquals("Thinking", events.stream().filter(event -> event.type().equals("reasoning")).map(StreamBufferWriter.Event::text).reduce("", String::concat));
-        assertEquals("Answer", events.get(2).text());
+        assertEquals(List.of("reasoning", "reasoning", "text", "tool", "outcome"), events.stream().map(ChatStreamEvent::type).toList());
+        assertEquals("Thinking", events.stream().filter(Reasoning.class::isInstance).map(event -> ((Reasoning) event).text()).reduce("", String::concat));
+        assertEquals("Answer", StreamEvents.text(events));
     }
 
     @Test
@@ -128,20 +127,20 @@ class StreamBufferWriterTest {
         writer.reasoning(id, "Orchestrator thinks");
         writer.research(id, ChatResearchEvent.citations("call_a", List.of(new ChatResearchEvent.Citation(1, 3))));
         writer.finish(id, Status.COMPLETED, null);
-        List<StreamBufferWriter.Event> events;
+        List<ChatStreamEvent> events;
         try (var reader = writer.subscribe(id, 0, () -> false)) {
             events = readAll(reader);
         }
-        assertEquals(List.of("research-plan", "research-plan", "top-level-branching", "research-agent-start", "research-agent-start",
-                        "intermediate-report", "intermediate-report", "intermediate-report", "reasoning", "reasoning", "intermediate-report-citations", "outcome"),
-                events.stream().map(StreamBufferWriter.Event::type).toList());
-        assertEquals("1. Revenue", events.subList(0, 2).stream().map(event -> Objects.requireNonNull(event.research()).text()).reduce("", String::concat));
+        assertEquals(List.of("research_plan", "research_plan", "top_level_branching", "research_agent_start", "research_agent_start",
+                        "intermediate_report", "intermediate_report", "intermediate_report", "reasoning", "reasoning", "intermediate_report_citations", "outcome"),
+                events.stream().map(ChatStreamEvent::type).toList());
+        assertEquals("1. Revenue", events.subList(0, 2).stream().map(event -> ((ResearchPlan) event).text()).reduce("", String::concat));
         // A pending delta belongs to one agent: another agent's delta flushes it first.
         assertEquals(List.of("call_a", "call_b", "call_a"), events.subList(5, 8).stream()
-                .map(event -> Objects.requireNonNull(event.research()).toolCallId()).toList());
-        assertEquals("call_b", events.get(8).parentToolCallId());
-        assertNull(events.get(9).parentToolCallId());
-        assertEquals(3, Objects.requireNonNull(events.get(10).research()).citations().getFirst().citationId());
+                .map(event -> ((IntermediateReport) event).toolCallId()).toList());
+        assertEquals("call_b", ((Reasoning) events.get(8)).parentToolCallId());
+        assertNull(((Reasoning) events.get(9)).parentToolCallId());
+        assertEquals(3, ((IntermediateReportCitations) events.get(10)).citations().getFirst().citationId());
         for (int i = 0; i < events.size(); i++) assertEquals(i + 1, events.get(i).sequence());
     }
 
@@ -150,11 +149,11 @@ class StreamBufferWriterTest {
         var writer = new StreamBufferWriter(redis, limits);
         var id = UUID.randomUUID();
         var call = new ChatToolEvent.Call("call_s", "search_knowledge");
-        var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
+        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
         var published = List.of(
-                new ChatToolEvent(call, new ChatToolEvent.QueryPlan(List.of("leave policy"), SearchFilters.NONE)),
+                ChatToolEvent.searching(call, new ChatToolEvent.QueryPlan(List.of("leave policy"), SearchFilters.NONE)),
                 ChatToolEvent.reading(call, List.of(new ChatToolEvent.ReadingDocument(UUID.randomUUID(), UUID.randomUUID(), "HR", 0, 3))),
-                new ChatToolEvent(call, source).nested("call_agent"),
+                ChatToolEvent.source(call, source).nested("call_agent"),
                 ChatToolEvent.finished(call, false, 12L).tab(1));
         var image = new ChatImageEvent("call_i", ChatImageEvent.Stage.COMPLETED, UUID.randomUUID(), "image/png", "A cat");
         writer.open(id);
@@ -165,14 +164,14 @@ class StreamBufferWriterTest {
                 ChatCodeEvent.completed("call_p", List.of(new ChatCodeEvent.GeneratedFile(UUID.randomUUID(), "a.csv", "text/csv", 3))));
         code.forEach(event -> writer.code(id, event));
         writer.finish(id, Status.FAILED, "CHAT_INTERRUPTED", true);
-        List<StreamBufferWriter.Event> events;
+        List<ChatStreamEvent> events;
         try (var reader = writer.subscribe(id, 0, () -> false)) {
             events = readAll(reader);
         }
-        assertEquals(published, events.subList(0, 4).stream().map(StreamBufferWriter.Event::tool).toList());
-        assertEquals(image, events.get(4).image());
-        assertEquals(code, events.subList(5, 9).stream().map(StreamBufferWriter.Event::code).toList());
-        assertEquals(new StreamBufferWriter.Event(id, 10, "outcome", null, Status.FAILED, "CHAT_INTERRUPTED", null, true), events.get(9));
+        assertEquals(published, events.subList(0, 4).stream().map(StreamEvents::tool).toList());
+        assertEquals(new ImageProgress(id, 5, image), events.get(4));
+        assertEquals(code, events.subList(5, 9).stream().map(event -> ((CodeRun) event).code()).toList());
+        assertEquals(new Outcome(id, 10, Status.FAILED, "CHAT_INTERRUPTED", true), events.get(9));
     }
 
     @Test
@@ -208,7 +207,7 @@ class StreamBufferWriterTest {
         }
         // A reply that ended (a dead writer, a lease reconciled elsewhere) without an outcome entry: drain, then reset.
         try (var reader = writer.subscribe(id, 1, () -> false)) {
-            assertEquals(List.of(2L), reader.read().events().stream().map(StreamBufferWriter.Event::sequence).toList());
+            assertEquals(List.of(2L), reader.read().events().stream().map(ChatStreamEvent::sequence).toList());
             var ended = reader.read();
             assertTrue(ended.done());
             assertEquals("BUFFER_GAP", ended.reset());
@@ -236,7 +235,7 @@ class StreamBufferWriterTest {
             running.set(false);
             var outcome = reader.read();
             assertTrue(outcome.done());
-            assertEquals(Status.CANCELED, outcome.events().getLast().status());
+            assertEquals(Status.CANCELED, StreamEvents.outcome(outcome.events()).status());
         }
     }
 
@@ -261,14 +260,14 @@ class StreamBufferWriterTest {
         TimeUnit.MILLISECONDS.sleep(30);
         writer.append(id, "y".repeat(2000));
         writer.finish(id, Status.COMPLETED, null);
-        var events = new ArrayList<StreamBufferWriter.Event>();
+        var events = new ArrayList<ChatStreamEvent>();
         try (var reader = writer.subscribe(id, 0, () -> false)) {
             var batch = reader.read();
             for (; batch.reset() == null; batch = reader.read()) events.addAll(batch.events());
             assertEquals("BUFFER_GAP", batch.reset());
             assertTrue(batch.done());
         }
-        assertEquals("x".repeat(20), events.getFirst().text());
+        assertEquals("x".repeat(20), ((TextDelta) events.getFirst()).text());
         assertTrue(events.stream().noneMatch(event -> event.type().equals("outcome")));
         // Appending stopped at the marker: nothing, not even the outcome, follows it.
         var entries = redis.opsForStream().range(StreamBufferWriter.key(id), Range.unbounded());
@@ -277,13 +276,44 @@ class StreamBufferWriterTest {
     }
 
     @Test
+    void anEntryThatCannotBeDecodedEndsTheReplayWithAResetInsteadOfFailingIt() throws Exception {
+        var writer = new StreamBufferWriter(redis, limits);
+        var id = UUID.randomUUID();
+        String key = StreamBufferWriter.key(id);
+        String readable = "{\"assistantMessageId\":\"" + id + "\",\"sequence\":1,\"type\":\"text\",\"text\":\"a\"}";
+        redis.opsForStream().add(StreamRecords.string(Map.of("type", "text", "data", readable))
+                .withStreamKey(key).withId(RecordId.of(0, 1)));
+        // A known type without the component this version requires, an entry that is not JSON, and one without data.
+        redis.opsForStream().add(StreamRecords.string(Map.of("type", "text", "data",
+                "{\"assistantMessageId\":\"" + id + "\",\"sequence\":2,\"type\":\"text\"}"))
+                .withStreamKey(key).withId(RecordId.of(0, 2)));
+
+        try (var reader = writer.subscribe(id, 0, () -> false)) {
+            var first = reader.read();
+            assertEquals("a", StreamEvents.text(first.events()));
+            assertFalse(first.done());
+            var second = reader.read();
+            assertTrue(second.done());
+            assertEquals("BUFFER_GAP", second.reset());
+        }
+        for (String data : List.of("not json", "null")) {
+            var other = UUID.randomUUID();
+            redis.opsForStream().add(StreamRecords.string(Map.of("type", "text", "data", data))
+                    .withStreamKey(StreamBufferWriter.key(other)).withId(RecordId.of(0, 1)));
+            try (var reader = writer.subscribe(other, 0, () -> false)) {
+                assertEquals("BUFFER_GAP", reader.read().reset());
+            }
+        }
+    }
+
+    @Test
     void writesAlreadyInRedisAreAcknowledgedAndTheRestRetried() throws Exception {
         var writer = new StreamBufferWriter(redis, limits);
         var id = UUID.randomUUID();
         String key = StreamBufferWriter.key(id);
         // As a pipeline that timed out after Redis applied its first entry.
-        redis.opsForStream().add(StreamRecords.string(Map.of("type", "text-delta", "data",
-                "{\"assistantMessageId\":\"" + id + "\",\"sequence\":1,\"type\":\"text-delta\",\"text\":\"a\",\"hasArtifacts\":false}"))
+        redis.opsForStream().add(StreamRecords.string(Map.of("type", "text", "data",
+                "{\"assistantMessageId\":\"" + id + "\",\"sequence\":1,\"type\":\"text\",\"text\":\"a\"}"))
                 .withStreamKey(key).withId(RecordId.of(0, 1)));
         writer.open(id);
         writer.append(id, "a");
@@ -295,8 +325,8 @@ class StreamBufferWriterTest {
         writer.flush();
         try (var reader = writer.subscribe(id, 0, () -> false)) {
             var events = readAll(reader);
-            assertEquals(List.of(1L, 2L, 3L), events.stream().map(StreamBufferWriter.Event::sequence).toList());
-            assertEquals("ab", events.stream().map(StreamBufferWriter.Event::text).filter(Objects::nonNull).reduce("", String::concat));
+            assertEquals(List.of(1L, 2L, 3L), events.stream().map(ChatStreamEvent::sequence).toList());
+            assertEquals("ab", StreamEvents.text(events));
         }
     }
 
@@ -323,8 +353,8 @@ class StreamBufferWriterTest {
         writer.flush();
         try (var reader = writer.subscribe(id, 0, () -> false)) {
             var events = readAll(reader);
-            assertEquals("before during", events.stream().map(StreamBufferWriter.Event::text).filter(Objects::nonNull).reduce("", String::concat));
-            assertEquals(List.of(1L, 2L, 3L), events.stream().map(StreamBufferWriter.Event::sequence).toList());
+            assertEquals("before during", StreamEvents.text(events));
+            assertEquals(List.of(1L, 2L, 3L), events.stream().map(ChatStreamEvent::sequence).toList());
         }
     }
 
@@ -368,8 +398,8 @@ class StreamBufferWriterTest {
         assertThrows(IllegalStateException.class, () -> writer.append(id, "late"));
     }
 
-    private static List<StreamBufferWriter.Event> readAll(StreamBufferWriter.Reader reader) throws InterruptedException {
-        var events = new ArrayList<StreamBufferWriter.Event>();
+    private static List<ChatStreamEvent> readAll(StreamBufferWriter.Reader reader) throws InterruptedException {
+        var events = new ArrayList<ChatStreamEvent>();
         for (var batch = reader.read(); ; batch = reader.read()) {
             events.addAll(batch.events());
             assertNull(batch.reset());

@@ -418,7 +418,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               failures = 0;
               this.callbacks.state("streaming");
             }
-            if (envelope.event === "text-delta") {
+            if (envelope.event === "text") {
               const delta = textSchema.parse(data).text;
               if (text.length + delta.length > 1_000_000)
                 throw new Error("Reply exceeds the supported limit");
@@ -461,15 +461,15 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               if (reasoning.parentToolCallId)
                 yield* research.reasoning(reasoning.parentToolCallId, reasoning.text);
               else yield* activity.reasoning(reasoning.text);
-            } else if (envelope.event === "research-plan") {
+            } else if (envelope.event === "research_plan") {
               yield* research.planDelta(researchPlanEventSchema.parse(data).text);
-            } else if (envelope.event === "research-agent-start") {
+            } else if (envelope.event === "research_agent_start") {
               const start = researchAgentEventSchema.parse(data);
               yield* research.agent(start.toolCallId, start.task);
-            } else if (envelope.event === "intermediate-report") {
+            } else if (envelope.event === "intermediate_report") {
               const report = researchReportEventSchema.parse(data);
               yield* research.report(report.toolCallId, report.text);
-            } else if (envelope.event === "intermediate-report-citations") {
+            } else if (envelope.event === "intermediate_report_citations") {
               const cited = researchCitationsEventSchema.parse(data);
               yield* research.citations(cited.toolCallId, cited.citations);
             } else if (envelope.event === "image") {

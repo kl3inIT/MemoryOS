@@ -2946,7 +2946,7 @@ export type WebLocation = {
     retrievedAt?: string;
 };
 
-export type TextDeltaEvent = {
+export type TextEvent = {
     assistantMessageId: string;
     sequence: number;
     text: string;
@@ -14720,7 +14720,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
+    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

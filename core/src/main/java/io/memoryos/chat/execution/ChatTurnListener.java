@@ -32,12 +32,12 @@ public record ChatTurnListener(ChatEvidence evidence, Consumer<ChatActivityEvent
 
     @Override
     public void webSearchStarted(String callId) {
-        events.accept(new ChatToolEvent(call(callId), ChatToolEvent.Stage.STARTED));
+        events.accept(ChatToolEvent.started(call(callId)));
     }
 
     @Override
     public void webSearchQueries(String callId, List<String> queries) {
-        events.accept(new ChatToolEvent(call(callId), new ChatToolEvent.QueryPlan(queries, new SearchFilters(Set.of(), null, null))));
+        events.accept(ChatToolEvent.searching(call(callId), new ChatToolEvent.QueryPlan(queries, new SearchFilters(Set.of(), null, null))));
     }
 
     @Override
@@ -47,8 +47,8 @@ public record ChatTurnListener(ChatEvidence evidence, Consumer<ChatActivityEvent
 
     @Override
     public void webCitation(String callId, String url, String title, String excerpt) {
-        evidence.register("web:" + url, number -> new ChatSource(number, null, null, title, 0, 0, List.of(), null, null,
-                new ChatSource.WebLocation(url, excerpt, Instant.now())), call(callId));
+        evidence.register("web:" + url, number -> ChatSource.web(number, title, new ChatSource.WebLocation(url, excerpt,
+                Instant.now())), call(callId));
     }
 
     private static ChatToolEvent.Call call(String callId) {

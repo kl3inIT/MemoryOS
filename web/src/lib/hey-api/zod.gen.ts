@@ -3039,7 +3039,7 @@ export const zChatMessage = z.object({
     refusalReason: z.string().nullable()
 });
 
-export const zTextDeltaEvent = z.object({
+export const zTextEvent = z.object({
     assistantMessageId: z.uuid(),
     sequence: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     text: z.string()
@@ -6678,7 +6678,7 @@ export const zStreamChatMessageQuery = z.object({
  * SSE frames; the schema describes each data payload
  */
 export const zStreamChatMessageResponse = z.union([
-    zTextDeltaEvent,
+    zTextEvent,
     zOutcomeEvent,
     zResetEvent,
     zToolEvent,

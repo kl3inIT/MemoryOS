@@ -166,7 +166,8 @@ class ModelCatalogSelectionTest {
             when(catalog.provider(tenant, provider.id())).thenReturn(Optional.of(provider));
             naming(null);
             when(chats.findOwned(new TenantId(tenant), actor, session, false)).thenReturn(Optional.of(new ChatSession(
-                    session, persona, UUID.randomUUID(), "Chat", Instant.now(), Instant.now(), null)));
+                    session, persona, UUID.randomUUID(), "Chat", Instant.now(), Instant.now(), null, null, null, null, null,
+                    false)));
             when(chats.persona(session, true, false)).thenReturn(new JdbcChatRepository.Persona("", "luna",
                     ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null));
             when(agents.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, null, 1));

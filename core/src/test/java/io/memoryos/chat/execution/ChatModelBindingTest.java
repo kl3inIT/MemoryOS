@@ -43,8 +43,8 @@ class ChatModelBindingTest {
         var configured = new SpringAiLlmService("another-model", "another-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 LocalDate.of(2025, 1, 1), List.of(), pricing);
-        var binding = new ModelBinding(configured, prompt -> prompt, ModelRequestPolicy.hosted(
-                Tokenizers.o200k(), p -> p), 32000, 4096, true, false);
+        var binding = ModelBinding.builder(configured, prompt -> prompt, ModelRequestPolicy.hosted( Tokenizers.o200k(),
+                p -> p), 32000, 4096, true, false).build();
         var process = mock(AgentProcess.class);
         var budget = mock(Budget.class, RETURNS_DEEP_STUBS);
         when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null);
