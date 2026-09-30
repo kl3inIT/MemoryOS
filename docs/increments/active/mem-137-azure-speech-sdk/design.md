@@ -66,5 +66,4 @@ Azure's own silence detection can end utterances, which the chunked path cannot.
 - Native load on Windows: `SpeechConfig.fromEndpoint` and `fromSubscription` created from the real SDK (scratch
   test, not committed).
 - CI `backend-images` builds the API image with the library asserts.
-- **Owner acceptance with a real Azure key** (dictation in Vietnamese and English, read-aloud Stop) remains, as for
-  the other live providers.
+- No live-key acceptance: the owner waived it on 2026-09-30.
