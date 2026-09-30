@@ -15,6 +15,7 @@ shows how far the connector already is from that and where it is not.
 
 1. MEM-118 and MEM-128 are one issue: standardize connectors, then build Lark on the standard.
 2. Everything is standardized now, before production; no family is left on the old shape.
+3. The connector database is standardized first; Lark Suite waits until that is done and gets its own go-ahead.
 
 ## Inventory
 
@@ -66,6 +67,35 @@ implements as it can (`CheckpointedConnector`, `SlimConnectorWithPermSync`, `Hie
 
 ## Design
 
+### Connector database
+
+MemoryOS already has the provider-neutral layer Onyx has: `connectors`, `credentials`, `connector_credential_pairs`,
+`index_attempts`, `source_sync_attempts` and `connector_cleanup_attempts` name no provider. The 17 `google_*` and
+9 `sharepoint_*` tables extend it. Comparing the current columns of each pair (V1 to V133) shows three places where
+the two providers keep the same data under two names, and the rest is genuinely different:
+
+| Pair | Same in both | Only one provider | Decision |
+| --- | --- | --- | --- |
+| `*_selection_operations` | 37 of 41 columns: identity, request, bounds, progress and the whole queue | Drive: discovery revision and counters. SharePoint: include flags and intervals | **Merge** into `source_selection_operations` with a details table per provider (section 1) |
+| `*_sources` | The sync state the engine reads and writes: scope revision (`revision` / `scope_revision`), `generation`, `schedule_revision`, `sync_interval_minutes`, `next_sync_at`, `last_synced_at`, `sync_paused` | Drive: discovery state. SharePoint: include flags, prune schedule, refresh window, tenant host. `scope_mode` has different values in each | **Split**: the shared sync state moves to one `source_sync_state` table; each provider table keeps its own configuration |
+| `*_credentials` | `connection_status`, `credential_revision`, `payload_revision`, `auth_method` | Every secret: Drive refresh token, OAuth client and service account key; SharePoint client secret, private key and certificate | **Split**: the shared credential state moves onto the neutral `credentials` table; each provider table keeps its secrets |
+| `*_roots`, `*_selection_entries` | 2 to 4 key columns | Everything that describes a scope: Drive files and folders, SharePoint sites, libraries and items | Stay per provider |
+| ACL snapshots, frontier, membership, linked documents, group sync, items, exclusions, sync runs | — | Protocol state of one provider | Stay per provider |
+
+Why the two splits matter: `JdbcSourceSyncRepository` builds ten SQL statements by splicing a provider's Source
+table, scope revision column and credential table from the `SyncTarget` enum. With `source_sync_state` and the
+credential state on `credentials`, that SQL names fixed tables, `SyncTarget` disappears, and a new provider adds only
+the tables that hold its own configuration, secrets and protocol state.
+
+Each change is one migration that preserves data ([ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md)):
+create or extend the neutral table, copy the columns from both provider tables, repoint the constraints and triggers
+that read them, then drop the moved columns. The API does not change: the columns move between tables, and the
+repositories that read them return the same values.
+
+Not proposed: folding the provider tables into JSON columns on the neutral tables, as Onyx's
+`connector_specific_config` does. MemoryOS's provider state is relational (frontier pages, ancestors, ACL snapshots,
+sync runs with foreign keys and triggers), and typed columns keep the database's checks.
+
 ### 1. One selection-verification workload (inventory 1)
 
 The largest gap. Selection verification is the same work for every provider, so it becomes one workload:
@@ -110,8 +140,8 @@ The largest gap. Selection verification is the same work for every provider, so 
 engine still answers by `switch` or `==`:
 
 - `ProviderAuthorityService` is removed; its callers ask the registry for `credentialCurrent` (`FILE` answers false).
-- `SyncTarget` stops being an enum: each adapter returns its `SyncTarget` record (Source table, scope revision
-  column, credential table). The identifier check that guards the spliced names stays in the record.
+- `SyncTarget` is deleted once the [connector database](#connector-database) is standardized: the engine then reads
+  neutral tables and splices no provider table name.
 - `SourceSyncAdapterRegistry` replaces the engine's private map and fails startup when a `SourceType` other than
   `FILE` has no adapter or has two.
 - `SourceCapabilities` from the adapter: `permissionSync` (today only Drive) replaces `type == GOOGLE_DRIVE` in
@@ -145,9 +175,10 @@ the provider state MemoryOS already stores (Drive ancestors, SharePoint items), 
 endpoint under the Sources API and the tree on the library's Sources view. This is a product feature with UI; its
 screens need the owner's review before merge.
 
-### 6. Lark Suite
+### 6. Lark Suite (deferred)
 
-Built on the shape above, scope from MEM-128. Lark adds `LarkGateway` and `RestLarkGateway` (`sources`),
+Waits until the steps above are delivered and the owner gives a separate go-ahead. Built on the shape above, scope
+from MEM-128. Lark adds `LarkGateway` and `RestLarkGateway` (`sources`),
 `connector.lark` with its `SourceSyncAdapter`, `SourceSelectionProcessor`, credential and scope services and
 `lark_*` tables, one `SourceType` constant and its CHECK, its controllers and web screens, and no engine change.
 
