@@ -75,17 +75,31 @@ The largest gap. Selection verification is the same work for every provider, so 
 - `SourceSelectionProcessor` gains `SourceType type()`, and `SelectionValidationProcessor` takes the processors as a
   registry keyed by `SourceType` (every type except `FILE`, checked at startup) instead of two constructor arguments
   and a `switch`.
-- **The queue the relay reads is the open decision.** The two operation tables share their queue columns (`id`,
-  `tenant_id`, `source_id`, status, and the claim and dispatch columns `SelectionOperations` already handles) and
-  differ in the payload (Drive discovery counters, SharePoint access and schedule).
-  - **A (recommended).** A neutral header table `source_selection_operations` (`id`, `tenant_id`, `source_id`,
-    `source_type`, status, claim, dispatch), with each provider keeping its payload table keyed by the operation id.
-    One candidate query; the delivery finds its processor by `source_type`; a new provider adds a payload table
-    only. Needs a data-preserving migration ([ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md)):
-    copy the queue columns of both tables, keep the payload.
-  - **B.** Keep both tables as they are; each processor names its table and the dispatch repository unions the
-    candidates of every registered table. No migration, but the relay's SQL is built from adapter-supplied table
-    names and a delivery must probe each processor to find its owner.
+- **One queue table (owner decision 2026-09-30).** `google_drive_selection_operations` (V30, V47, V77) and
+  `sharepoint_selection_operations` (V81) are the same table but for a few columns, so they merge, as Onyx keeps one
+  `connector` table with a `source` column. Rejected: keeping both and having the relay union every registered table,
+  which builds SQL from adapter-supplied names and makes a delivery probe each processor for its owner.
+  - **`source_selection_operations`** holds every column the two share, plus `source_type`: identity (`id`,
+    `tenant_id`, `source_id`, `actor_id`, `request_id`, `request_hash`), the request (`credential_id`,
+    `credential_revision`, `scope_revision`, `scope_mode`, `source_name`, `access_type`, `group_ids`), its bounds and
+    progress (`max_requests`, `max_roots`, `max_request_bytes`, `request_count`, `elapsed_millis`), and the whole
+    queue (status, claim, lease, dispatch, attempts, error, origin trace, timestamps). Its indexes are the ones both
+    tables have: one live operation per `(tenant_id, source_id)`, the dispatch index and the credential index.
+    `scope_mode` is checked per `source_type`.
+  - **A details table per provider**, keyed by the operation id with `ON DELETE CASCADE`, holds what only that
+    provider has: `google_drive_selection_details` (`discovery_revision`, `max_metadata`, `ancestor_count`,
+    `metadata_count`) and `sharepoint_selection_details` (`include_documents`, `include_pages`,
+    `sync_interval_minutes`, `prune_interval_hours`). Lark adds its own and nothing else.
+  - **One migration, data preserved** ([ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md)): create
+    the header and details tables, copy every row of both old tables, repoint the child tables' foreign keys
+    (Drive selection entries, ancestors and metadata; SharePoint selection entries), replace the ten per-provider
+    trigger functions (cancel on a deleted or changed credential, a deleting Source, a revoked membership, an
+    inactive Tenant) with provider-neutral ones on the header, keep Drive's checkpoint compaction, then drop the old
+    tables. Operation ids are UUIDs, so the two tables' rows do not collide.
+  - **The API does not change.** The operation type a client sees (`VALIDATE_GOOGLE_DRIVE_SELECTION`,
+    `VALIDATE_SHAREPOINT_SELECTION`) is derived from `source_type`, so `openapi.yml` stays as it is.
+  - `SelectionOperations` drops its table-name argument; `JdbcSourceOperationQueryRepository` reads one table instead
+    of a union per provider; `JdbcOperationDispatchRepository` has one candidate query.
 - The old streams drain before removal: the relay stops publishing to them in the release that starts the new
   stream, and their consumers go in the following one. Operations are PostgreSQL-authoritative, so an undelivered one
   is relayed again on the new stream.
