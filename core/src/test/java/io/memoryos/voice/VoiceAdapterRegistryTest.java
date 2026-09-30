@@ -29,7 +29,7 @@ class VoiceAdapterRegistryTest {
         assertEquals(EnumSet.of(VoiceProvider.OPENAI, VoiceProvider.OPENAI_COMPATIBLE, VoiceProvider.SONIOX),
                 matching(registry::transcribesRecordings));
         assertEquals(EnumSet.of(VoiceProvider.SONIOX), matching(registry::diarizesRecordings));
-        assertEquals(EnumSet.of(VoiceProvider.OPENAI, VoiceProvider.SONIOX), matching(p -> registry.realtime(p).isPresent()));
+        assertEquals(EnumSet.of(VoiceProvider.OPENAI, VoiceProvider.AZURE, VoiceProvider.SONIOX), matching(p -> registry.realtime(p).isPresent()));
         assertEquals(EnumSet.of(VoiceProvider.SONIOX), matching(p -> registry.live(p).isPresent()));
     }
 

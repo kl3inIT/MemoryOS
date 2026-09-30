@@ -1,6 +1,5 @@
 package io.memoryos.voice;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
 import java.net.URI;
@@ -16,15 +15,14 @@ import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Azure AI Speech REST adapter (decision Q1: REST only). The endpoint is the Speech resource endpoint. Speech-to-text
+ * Azure AI Speech over REST: connection checks, clip transcription and the realtime fallback. Realtime dictation and
+ * read-aloud use the Speech SDK (MEM-137). The endpoint is the Speech resource endpoint. Speech-to-text
  * uses the short-audio API, which accepts 16 kHz WAV and at most 60 seconds per request, so longer recordings are sent
- * in consecutive parts. Text-to-speech sends escaped SSML and streams MP3.
+ * in consecutive parts.
  */
 final class AzureSpeech {
     static final String STT_PATH = "/stt/speech/recognition/conversation/cognitiveservices/v1";
-    static final String TTS_PATH = "/tts/cognitiveservices/v1";
     static final String VOICES_PATH = "/tts/cognitiveservices/voices/list";
-    static final String OUTPUT_FORMAT = "audio-24khz-48kbitrate-mono-mp3";
     /** Below the 60-second short-audio limit. */
     static final int PART_SECONDS = 55;
     private static final int PART_BYTES = PART_SECONDS * Pcm16.BYTES_PER_SECOND_16K;
@@ -64,17 +62,13 @@ final class AzureSpeech {
         return String.join(" ", parts);
     }
 
-    /** One streamed MP3 request for a text segment; the voice's locale names the SSML language. */
-    static HttpRequest speech(String endpoint, String key, String voice, double speed, String text, Duration timeout) {
+    /** The SSML for one text segment, for REST and the Speech SDK alike; the voice's locale names the language. */
+    static String ssml(String voice, double speed, String text) {
         var matcher = VOICE_LOCALE.matcher(voice);
         String language = matcher.find() ? matcher.group(1) : "en-US";
-        String ssml = "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"" + escape(language) + "\">"
+        return "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"" + escape(language) + "\">"
                 + "<voice name=\"" + escape(voice) + "\"><prosody rate=\"" + String.format(Locale.ROOT, "%.2f", speed) + "\">"
                 + escape(text) + "</prosody></voice></speak>";
-        return HttpRequest.newBuilder(URI.create(endpoint + TTS_PATH)).timeout(timeout)
-                .header("Ocp-Apim-Subscription-Key", key).header("Content-Type", "application/ssml+xml")
-                .header("X-Microsoft-OutputFormat", OUTPUT_FORMAT).header("User-Agent", "MemoryOS")
-                .POST(HttpRequest.BodyPublishers.ofString(ssml, UTF_8)).build();
     }
 
     /** XML text and attribute escaping, so answer text cannot change the SSML document. */
