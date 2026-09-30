@@ -27,11 +27,12 @@ public class VoiceConnectionService {
     private final ProviderConnections admin;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
+    private final VoiceAdapterRegistry adapters;
 
     public VoiceConnectionService(VoiceConnectionRepository connections, ProviderConnections admin,
-                                  IamAuthorization authorization, TenantAccessResolver tenants) {
+                                  IamAuthorization authorization, TenantAccessResolver tenants, VoiceAdapterRegistry adapters) {
         this.connections = connections; this.admin = admin;
-        this.authorization = authorization; this.tenants = tenants;
+        this.authorization = authorization; this.tenants = tenants; this.adapters = adapters;
     }
 
     public record View(VoiceProvider provider, String endpoint, String sttModel, String ttsModel, String ttsVoice,
@@ -74,7 +75,7 @@ public class VoiceConnectionService {
             case REMOVE -> "";
             case KEEP -> existing.map(c -> admin.key(tenant, c.id(), c.credential())).orElse("");
         };
-        return new Probe(provider, provider.baseUrl(input.endpoint()), key);
+        return new Probe(provider, adapters.capabilities(provider).baseUrl(input.endpoint()), key);
     }
 
     @Transactional
@@ -121,7 +122,7 @@ public class VoiceConnectionService {
             audit(tenant, actor, null, "DISABLE_" + function.name(), null);
             return;
         }
-        if (function == VoiceFunction.TTS && !provider.speech())
+        if (function == VoiceFunction.TTS && !adapters.speaks(provider))
             throw VoiceException.invalid("This provider does not read text aloud.");
         var selected = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(VoiceException::unavailable);
         if (model != null) selected.useTtsModel(model);
@@ -135,7 +136,7 @@ public class VoiceConnectionService {
         var tenant = authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId().value();
         var connection = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(VoiceException::unavailable);
         if (!usable(connection)) throw VoiceException.providerUnavailable();
-        return new Probe(provider, provider.baseUrl(connection.endpoint()),
+        return new Probe(provider, adapters.capabilities(provider).baseUrl(connection.endpoint()),
                 admin.key(tenant, connection.id(), connection.credential()));
     }
 
@@ -199,14 +200,14 @@ public class VoiceConnectionService {
     }
 
     private boolean usable(VoiceConnectionEntity c) {
-        return admin.usable(c.provider().requiresKey(), c.credential());
+        return admin.usable(adapters.capabilities(c.provider()).requiresKey(), c.credential());
     }
 
     private boolean serves(VoiceConnectionEntity c, VoiceFunction function) {
         return usable(c) && (function == VoiceFunction.STT ? !c.sttModel().isEmpty() : !c.ttsModel().isEmpty() && !c.ttsVoice().isEmpty());
     }
 
-    private static void validate(VoiceProvider provider, Input input) {
+    private void validate(VoiceProvider provider, Input input) {
         if (provider == null || input == null || input.endpoint() == null || input.credential() == null
                 || input.credential().action() == null || !validIdentifier(input.sttModel())
                 || !validIdentifier(input.ttsModel()) || !validIdentifier(input.ttsVoice()))
@@ -216,9 +217,9 @@ public class VoiceConnectionService {
         if (replace ? credential.value() == null || credential.value().isBlank() || credential.value().length() > MAX_CREDENTIAL
                 : credential.value() != null)
             throw VoiceException.invalid("Invalid provider credential.");
-        if (!provider.speech() && (!input.ttsModel().isEmpty() || !input.ttsVoice().isEmpty()))
+        if (!adapters.speaks(provider) && (!input.ttsModel().isEmpty() || !input.ttsVoice().isEmpty()))
             throw VoiceException.invalid("This provider does not read text aloud.");
-        ProviderConnections.checkEndpoint(input.endpoint(), provider.requiresEndpoint(),
+        ProviderConnections.checkEndpoint(input.endpoint(), adapters.capabilities(provider).requiresEndpoint(),
                 () -> VoiceException.invalid("This provider requires its own endpoint."));
     }
 

@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 class VoiceProviderClientTest {
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-    private final VoiceProviderClient client = new VoiceProviderClient(meters);
+    private final VoiceProviderClient client = new VoiceProviderClient(VoiceAdapters.registry(), VoiceAdapters.observations(meters));
     private final AtomicReference<String> authorization = new AtomicReference<>("unset");
     private final AtomicInteger redirected = new AtomicInteger();
     private HttpServer server;

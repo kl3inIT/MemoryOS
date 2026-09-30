@@ -97,7 +97,7 @@ class BatchTranscriptionTest {
 
     @Test
     void openAiVerboseSegmentsBecomeOneSpeakerWithTimes() {
-        var segments = BatchTranscriptionService.segments(JSON.readTree("""
+        var segments = OpenAiAudio.segments(JSON.readTree("""
                 {"text":"toàn bộ","segments":[
                   {"start":1.25,"end":3.5,"text":" Chốt ngân sách quý 4.","avg_logprob":-0.2},
                   {"start":3.9,"end":5.0,"text":"  ","avg_logprob":-0.1},
@@ -115,7 +115,7 @@ class BatchTranscriptionTest {
 
     @Test
     void aServerWithoutVerboseSegmentsStillGivesOneUtterance() {
-        var segments = BatchTranscriptionService.segments(JSON.readTree("""
+        var segments = OpenAiAudio.segments(JSON.readTree("""
                 {"text":"  Cả buổi họp trong một câu.  "}
                 """));
         assertEquals(1, segments.size());
@@ -125,13 +125,16 @@ class BatchTranscriptionTest {
 
     @Test
     void onlySonioxSeparatesSpeakersAndOnlyOpenAiCapsTheFile() {
-        assertTrue(BatchTranscriptionService.diarizes(VoiceProvider.SONIOX));
-        assertFalse(BatchTranscriptionService.diarizes(VoiceProvider.OPENAI));
-        assertTrue(BatchTranscriptionService.supports(VoiceProvider.OPENAI_COMPATIBLE));
-        assertFalse(BatchTranscriptionService.supports(VoiceProvider.AZURE),
+        var adapters = VoiceAdapters.registry();
+        assertTrue(adapters.diarizesRecordings(VoiceProvider.SONIOX));
+        assertFalse(adapters.diarizesRecordings(VoiceProvider.OPENAI));
+        assertTrue(adapters.transcribesRecordings(VoiceProvider.OPENAI_COMPATIBLE));
+        assertFalse(adapters.transcribesRecordings(VoiceProvider.AZURE),
                 "Azure posts WAV under a fixed name; an uploaded container needs its own work");
-        assertFalse(BatchTranscriptionService.supports(VoiceProvider.ELEVENLABS));
-        assertEquals(25L * 1024 * 1024, BatchTranscriptionService.maxBytes(VoiceProvider.OPENAI));
-        assertTrue(BatchTranscriptionService.maxBytes(VoiceProvider.SONIOX) > 25L * 1024 * 1024);
+        assertFalse(adapters.transcribesRecordings(VoiceProvider.ELEVENLABS));
+        assertEquals(25L * 1024 * 1024, adapters.maxRecordingBytes(VoiceProvider.OPENAI));
+        assertTrue(adapters.maxRecordingBytes(VoiceProvider.SONIOX) > 25L * 1024 * 1024);
+        assertEquals(500L * 1024 * 1024, adapters.maxRecordingBytes(VoiceProvider.AZURE),
+                "a provider without uploads is bounded by what MemoryOS stores");
     }
 }

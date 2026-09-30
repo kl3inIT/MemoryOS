@@ -30,24 +30,24 @@ Each step is behavior-preserving and ends green on its own. Nothing is implement
 - [x] One `Observation` per provider call replaces the hand-written timer; same timer name and tags.
 - [x] Tests: `WebAdapterRegistryTest` (completeness, duplicates, functions and capabilities per provider); existing
   Web client, PDF, tool and API tests pass with only their construction changed.
-- [ ] `clean check` in CI.
+- [ ] `clean check` in CI (one PR for Web, Voice and Image, #402).
 
 ## 3. Voice
 
-- [ ] Confirm whether live transcription dispatches on `VoiceProvider`; record the answer in the design.
-- [ ] `VoiceConnectionCheckAdapter`, `SpeechTranscriptionAdapter`, `BatchTranscriptionAdapter`,
-  `SpeechSynthesisAdapter` and their registries.
-- [ ] Adapters under `voice.adapter`: `OpenAiVoiceAdapter` (both OpenAI constants), `ElevenLabsVoiceAdapter`,
-  `AzureVoiceAdapter`, `SonioxVoiceAdapter`, absorbing `AzureSpeech`, `ElevenLabsVoice`, `SonioxAsync`.
-- [ ] Replace the four `switch`es in `BatchTranscriptionService`, `VoiceProviderClient`, `VoiceSynthesisService` and
-  `VoiceTranscriptionService`.
-- [ ] Tests: registry completeness and "not offered" per function; existing Voice tests unchanged; `clean check`.
+- [x] Live transcription dispatches on `VoiceProvider` (Soniox's live protocol); it has `LiveTranscriptionAdapter`.
+- [x] `VoiceAdapter` with `RealtimeTranscriptionAdapter`, `LiveTranscriptionAdapter`, `BatchTranscriptionAdapter`,
+  `SpeechSynthesisAdapter`; one complete `VoiceAdapterRegistry`.
+- [x] Five adapters in `voice` (package-private), `OpenAiAudio`, `VoiceChecks`, `ProviderSpeech`.
+- [x] The `switch`es in `BatchTranscriptionService`, `VoiceProviderClient`, `VoiceSynthesisService`,
+  `VoiceTranscriptionService` and `LiveTranscriptionService` replaced; flags leave `VoiceProvider`.
+- [x] Verify and transcribe as observations; the read-aloud timer stays for a separate change.
+- [x] Tests: `VoiceAdapterRegistryTest`; existing Voice, meeting and API tests pass with only construction changed.
 
 ## 4. Image
 
-- [ ] `ImageGenerationAdapter`, `OpenAiImageAdapter`, `CloudflareWorkersAiImageAdapter`,
-  `ImageGenerationAdapterRegistry`; `ImageProviderClient` delegates.
-- [ ] Existing image tool and connection tests unchanged; `clean check`.
+- [x] `ImageGenerationAdapter`, `OpenAiImageAdapter`, `CloudflareWorkersAiImageAdapter`, `ImageAdapterRegistry`,
+  `ImageCall`, `ImageProviderCapabilities`; `ImageProviderClient` delegates and observes.
+- [x] Existing image client, tool and connection tests pass; `ImageProviderTest` covers the registry and catalog.
 
 ## 5. Consolidate
 

@@ -9,6 +9,7 @@ import io.memoryos.api.chat.contract.VoiceSelectionRequest;
 import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.voice.VoiceConnectionService;
 import io.memoryos.voice.VoiceProvider;
+import io.memoryos.voice.VoiceAdapterRegistry;
 import io.memoryos.voice.VoiceProviderClient;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,9 +48,10 @@ import org.springframework.web.bind.annotation.RestController;
 class VoiceConnectionController {
     private final VoiceConnectionService connections;
     private final VoiceProviderClient client;
+    private final VoiceAdapterRegistry adapters;
 
-    VoiceConnectionController(VoiceConnectionService connections, VoiceProviderClient client) {
-        this.connections = connections; this.client = client;
+    VoiceConnectionController(VoiceConnectionService connections, VoiceProviderClient client, VoiceAdapterRegistry adapters) {
+        this.connections = connections; this.client = client; this.adapters = adapters;
     }
 
     @GetMapping
@@ -65,7 +67,8 @@ class VoiceConnectionController {
     @Operation(operationId = "listChatVoiceProviders", summary = "List implemented voice providers with suggested models and voices")
     List<VoiceProviderResponse> providers(@CurrentActor IdentityContext identity) {
         connections.requireManager(identity.actorId());
-        return Arrays.stream(VoiceProvider.values()).map(VoiceProviderResponse::from).toList();
+        return Arrays.stream(VoiceProvider.values())
+                .map(provider -> VoiceProviderResponse.from(provider, adapters.capabilities(provider), adapters.speaks(provider))).toList();
     }
 
     @GetMapping("/connections")
@@ -84,7 +87,7 @@ class VoiceConnectionController {
                 new ProviderCredentials.Change(request.credentialAction(), request.credentialValue()), request.activate(), request.revision());
         var probe = connections.probe(identity.actorId(), provider, input);
         // Onyx parity: a credential the provider rejects is never stored. The request runs outside any transaction.
-        if (!provider.requiresKey() || !probe.key().isEmpty()) client.verify(probe);
+        if (!adapters.capabilities(provider).requiresKey() || !probe.key().isEmpty()) client.verify(probe);
         return VoiceConnectionResponse.from(connections.save(identity.actorId(), provider, input));
     }
 

@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.image.ImageProvider;
+import io.memoryos.chat.image.ImageProviderCapabilities;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
@@ -13,7 +13,7 @@ public record ImageKnownModelResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean edit,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean deprecated
 ) {
-    public static ImageKnownModelResponse from(ImageProvider.KnownModel value) {
+    public static ImageKnownModelResponse from(ImageProviderCapabilities.KnownModel value) {
         return new ImageKnownModelResponse(value.modelName(), value.displayName(), value.outputMediaType(),
                 value.sizes(), value.edit(), value.deprecated());
     }

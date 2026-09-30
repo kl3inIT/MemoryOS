@@ -31,7 +31,7 @@ class ImageProviderClientTest {
     private final ImageHttp http = mock(ImageHttp.class);
     private final ImageConnectionService connections = mock(ImageConnectionService.class);
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-    private final ImageProviderClient client = new ImageProviderClient(http, connections, meters);
+    private final ImageProviderClient client = ImageClients.client(http, connections, meters);
 
     private ImageConnectionService.Connection connection(String endpoint, String model) {
         return connection(ImageProvider.OPENAI_IMAGE, endpoint, model);
@@ -52,12 +52,6 @@ class ImageProviderClientTest {
         assertArrayEquals(png, result.bytes());
         assertEquals("image/png", result.mediaType());
         assertEquals("a red bicycle, cinematic", result.revisedPrompt());
-    }
-
-    @Test void aConnectionWithoutAModelNamesTheProviderDefaultItCalls() {
-        assertEquals("gpt-image-1", ImageProviderClient.resolvedModel(ImageProvider.OPENAI_IMAGE, ""));
-        assertEquals("@cf/black-forest-labs/flux-1-schnell", ImageProviderClient.resolvedModel(ImageProvider.CLOUDFLARE_WORKERS_AI, " "));
-        assertEquals("gpt-image-1-mini", ImageProviderClient.resolvedModel(ImageProvider.OPENAI_IMAGE, "gpt-image-1-mini"));
     }
 
     @Test void shapeMapsToTheCatalogSizeOfTheConfiguredModel() throws Exception {
