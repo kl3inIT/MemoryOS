@@ -7,5 +7,6 @@ Nothing is implemented yet.
 - [x] Extract `ResponsesStreamAssembler`; fixture tests green. `ResponsesMetadata` and
   `OpenAiResponsesException` are not built ([as delivered](design.md#as-delivered)).
 - [x] Unit tests per class; `clean check`.
-- [ ] Update the Chat Web and model specs; after merge move to `completed/` and reconcile the roadmap.
+- [x] No spec names the class; the Chat test matrix is updated.
+- [ ] After merge move to `completed/` and reconcile the roadmap.
 - [ ] Later, with Spring AI 2.1: replace with Spring AI's model and delete these classes.

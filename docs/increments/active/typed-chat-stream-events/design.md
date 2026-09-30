@@ -82,8 +82,10 @@ and `MessageAggregator` merges deltas per index.
   web transport, its test and the e2e chat fixture use the new names.
 - `ChatResearchEvent` does not disappear as the design first said: it stays the in-process activity event, and the
   writer turns each of its kinds into the matching stream record.
-- An event written under an earlier name decodes to `UnknownEvent`, so a reply that was streaming across the deploy
-  is read from history, and a browser tab still running the earlier web build ignores the new names until reloaded.
+- Across the deploy: an entry written under one of the six renamed types decodes to `UnknownEvent` and is skipped;
+  entries of the unchanged types still decode, because a record ignores components it does not know. A reply that
+  was streaming then may miss chunks in the live view; the saved message is complete. A browser tab still running the earlier web build
+  ignores the renamed events until it is reloaded.
 
 ## Verification
 
