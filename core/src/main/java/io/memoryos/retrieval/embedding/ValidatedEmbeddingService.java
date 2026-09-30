@@ -1,6 +1,7 @@
 package io.memoryos.retrieval.embedding;
 
 import io.memoryos.retrieval.SearchUnavailableException;
+import io.memoryos.shared.Tokenizers;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
@@ -18,7 +19,7 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingOptions;
 import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
+import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /**
  * Both ingestion and query paths use one generation's model space and response validation. Instruction-tuned models
@@ -32,7 +33,7 @@ public final class ValidatedEmbeddingService {
     private final int dimensions;
     private final int batchSize;
     private final Semaphore permits;
-    private final JTokkitTokenCountEstimator tokenizer = new JTokkitTokenCountEstimator();
+    private final TokenCountEstimator tokenizer = Tokenizers.cl100k();
     private final @Nullable AiUsageRecorder usage;
     private final String providerName;
     private final @Nullable Double inputPricePerMillion;

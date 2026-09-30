@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.TestDatabase;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
@@ -53,6 +52,7 @@ import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
+import io.memoryos.shared.Tokenizers;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -75,7 +75,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -641,7 +640,7 @@ class ChatPersistenceIntegrationTest {
                 "Question ".repeat(500), Duration.ofMinutes(2), 100));
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET instructions = 'Answer' WHERE id = :id").param("id", session.personaId()).update();
-        var tokens = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
+        var tokens = Tokenizers.o200k();
         var policy = ModelRequestPolicy.hosted(tokens, p -> p);
         var binding = new ModelBinding(new SpringAiLlmService("fixture", "fixture",
                 Mockito.mock(ChatModel.class)), p -> p, policy, 32000, 4096, false, false);
@@ -1285,7 +1284,7 @@ class ChatPersistenceIntegrationTest {
         var session = sessions.create(owner, "Persona");
         var binding = new ModelBinding(new SpringAiLlmService("fixture", "fixture",
                 Mockito.mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(
-                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, false, false);
+                Tokenizers.o200k(), p -> p), 32000, 4096, false, false);
 
         clearInvocations(authorization);
         statements.reset();

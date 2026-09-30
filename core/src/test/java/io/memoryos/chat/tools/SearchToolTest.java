@@ -21,6 +21,7 @@ import io.memoryos.retrieval.SearchQuery;
 import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchSection;
+import io.memoryos.shared.Tokenizers;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
@@ -55,7 +56,6 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import reactor.core.publisher.Mono;
 
 class SearchToolTest {
@@ -106,7 +106,7 @@ class SearchToolTest {
 
     /** A null allowlist is an agent that restricts nothing; an empty one restricts the turn to no Source at all. */
     private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters, @Nullable List<UUID> sourceIds) {
-        var tool = new SearchTool(search, scope.actor(), runner, new JTokkitTokenCountEstimator(),
+        var tool = new SearchTool(search, scope.actor(), runner, Tokenizers.cl100k(),
                 new ChatSearchProperties(30, 10, 6000, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
                 }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP), sourceIds);
@@ -333,7 +333,7 @@ class SearchToolTest {
             return new SearchTool.SemanticQuery("AX-7 onboarding");
         });
         when(runner.createObject(anyList(), eq(SearchTool.KeywordQueries.class))).thenReturn(new SearchTool.KeywordQueries(List.of("AX-7")));
-        try (var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
+        try (var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, Tokenizers.cl100k(),
                 new ChatSearchProperties(30, 10, 6000, Duration.ofSeconds(5), false, Duration.ofSeconds(1)), () -> {}, () -> 8000, events::add, Mono.never(),
                 List.of(new UserMessage("Tell me about AX-7"), new AssistantMessage("AX-7 is our internal system."),
                         new UserMessage("How do I set it up?")), new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP))) {
