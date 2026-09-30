@@ -11,8 +11,8 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
-import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
+import io.memoryos.connector.SourceType;
 import io.memoryos.connector.sync.persistence.SelectionOperations;
 import io.memoryos.iam.GroupId;
 import io.memoryos.shared.ActorId;
@@ -39,8 +39,7 @@ public class JdbcSharePointSelectionRepository {
 
     public JdbcSharePointSelectionRepository(JdbcClient jdbc) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
-        this.operations = new SelectionOperations(jdbc, "sharepoint_selection_operations",
-                SourceOperationType.VALIDATE_SHAREPOINT_SELECTION);
+        this.operations = new SelectionOperations(jdbc, SourceType.SHAREPOINT);
     }
 
     private Optional<SourceOperationView> find(TenantId tenant, SourceOperationId operation) {
@@ -62,29 +61,20 @@ public class JdbcSharePointSelectionRepository {
             CredentialId credential, long credentialRevision, long scopeRevision, Scope scope, @Nullable String name,
             @Nullable SourceAccess access, List<GroupId> groupIds, SelectionPolicy policy) {
         operations.supersedePending(tenant, source);
-        UUID id = UUID.randomUUID();
         var trace = SourceOperationTraceContext.current();
+        UUID id = operations.insert(tenant, actor, request, hash, source, credential.value(), credentialRevision,
+                scopeRevision, name, access == null ? null : access.name(),
+                groupIds.stream().map(group -> "\"" + group.value() + "\"").collect(Collectors.joining(",", "[", "]")),
+                new SelectionOperations.Budget(Math.min(100_000, policy.maxRootsPerSource() * 8 + 4096),
+                        policy.maxRootsPerSource(), policy.maxRequestBytes()),
+                trace == null ? null : trace.traceId(), trace == null ? null : trace.spanId());
         jdbc.sql("""
-                INSERT INTO sharepoint_selection_operations (id, tenant_id, source_id, actor_id, request_id,
-                    request_hash, credential_id, credential_revision, scope_revision, scope_mode, source_name,
-                    access_type, group_ids, include_documents, include_pages, sync_interval_minutes,
-                    prune_interval_hours, max_requests, max_roots, max_request_bytes, origin_trace_id, origin_span_id)
-                VALUES (:id, :tenant, :source, :actor, :request, :hash, :credential, :credentialRevision, :scope,
-                    :mode, :name, :access, CAST(:groups AS jsonb), :documents, :pages, :sync, :prune,
-                    :requests, :roots, :bytes, :trace, :span)
-                """).param("id", id).param("tenant", tenant.value()).param("source", source.value())
-                .param("actor", actor.value()).param("request", request).param("hash", hash)
-                .param("credential", credential.value()).param("credentialRevision", credentialRevision)
-                .param("scope", scopeRevision).param("mode", scope.scopeMode().name()).param("name", name)
-                .param("access", access == null ? null : access.name())
-                .param("groups", groupIds.stream().map(group -> "\"" + group.value() + "\"")
-                        .collect(Collectors.joining(",", "[", "]")))
+                INSERT INTO sharepoint_selection_details (tenant_id, operation_id, scope_mode, include_documents,
+                    include_pages, sync_interval_minutes, prune_interval_hours)
+                VALUES (:tenant, :operation, :mode, :documents, :pages, :sync, :prune)
+                """).param("tenant", tenant.value()).param("operation", id).param("mode", scope.scopeMode().name())
                 .param("documents", scope.includeDocuments()).param("pages", scope.includePages())
-                .param("sync", scope.syncIntervalMinutes()).param("prune", scope.pruneIntervalHours())
-                .param("requests", Math.min(100_000, policy.maxRootsPerSource() * 8 + 4096))
-                .param("roots", policy.maxRootsPerSource()).param("bytes", policy.maxRequestBytes())
-                .param("trace", trace == null ? null : trace.traceId())
-                .param("span", trace == null ? null : trace.spanId()).update();
+                .param("sync", scope.syncIntervalMinutes()).param("prune", scope.pruneIntervalHours()).update();
         insert(tenant, id, ROOT, scope.siteUrls());
         insert(tenant, id, EXCLUDED_SITE, scope.excludedSites());
         insert(tenant, id, EXCLUDED_PATH, scope.excludedPaths());
@@ -120,7 +110,13 @@ public class JdbcSharePointSelectionRepository {
     }
 
     public Intent intent(Work work) {
-        return jdbc.sql("SELECT * FROM sharepoint_selection_operations WHERE tenant_id = :tenant AND id = :id")
+        return jdbc.sql("""
+                SELECT o.*, d.scope_mode, d.include_documents, d.include_pages, d.sync_interval_minutes,
+                    d.prune_interval_hours
+                FROM source_selection_operations o
+                JOIN sharepoint_selection_details d ON d.tenant_id = o.tenant_id AND d.operation_id = o.id
+                WHERE o.tenant_id = :tenant AND o.id = :id
+                """)
                 .param("tenant", work.tenantId().value()).param("id", work.operationId().value())
                 .query((r, _) -> new Intent(new ActorId(r.getObject("actor_id", UUID.class)),
                         r.getObject("credential_id", UUID.class), r.getLong("credential_revision"),
@@ -133,7 +129,7 @@ public class JdbcSharePointSelectionRepository {
 
     private List<GroupId> groupIds(Work work) {
         return jdbc.sql("""
-                SELECT value FROM sharepoint_selection_operations,
+                SELECT value FROM source_selection_operations,
                   jsonb_array_elements_text(group_ids) AS selected(value)
                 WHERE tenant_id = :tenant AND id = :id ORDER BY value
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
@@ -165,7 +161,7 @@ public class JdbcSharePointSelectionRepository {
 
     public void reserveRequest(Work work) {
         if (jdbc.sql("""
-                UPDATE sharepoint_selection_operations SET request_count = request_count + 1
+                UPDATE source_selection_operations SET request_count = request_count + 1
                 WHERE tenant_id = :tenant AND id = :id AND claim_token = :token AND status = 'IN_PROGRESS'
                   AND lease_expires_at > CURRENT_TIMESTAMP AND request_count < max_requests AND elapsed_millis < 3600000
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())

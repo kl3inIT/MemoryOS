@@ -18,9 +18,7 @@ import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.SourceUploadReceipt;
-import io.memoryos.connector.googledrive.GoogleDriveConnectionService;
-import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
-import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
+import io.memoryos.connector.sync.SourceSyncAdapterRegistry;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
@@ -29,6 +27,7 @@ import io.memoryos.connector.source.persistence.JdbcSourceOperationQueryReposito
 import io.memoryos.connector.source.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceUploadRepository;
+import io.memoryos.connector.sync.persistence.JdbcSourceSelectionRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.Authority;
@@ -78,10 +77,9 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final SourceAccessPolicy sourceAccess;
     private final TransactionTemplate transactions;
     private final JdbcSourceSyncRepository sync;
-    private final JdbcGoogleDriveSyncRepository googleSync;
-    private final JdbcGoogleDriveSelectionRepository selections;
+    private final SourceSyncAdapterRegistry adapters;
+    private final JdbcSourceSelectionRepository selections;
     private final AuditTrail audit;
-    private final GoogleDriveConnectionService connections;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
@@ -97,9 +95,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
             GroupScopeService groupScopes,
             PlatformTransactionManager transactionManager,
             JdbcSourceSyncRepository sync,
-            JdbcGoogleDriveSyncRepository googleSync,
-            JdbcGoogleDriveSelectionRepository selections,
-            GoogleDriveConnectionService connections,
+            SourceSyncAdapterRegistry adapters,
+            JdbcSourceSelectionRepository selections,
             SourceAccessPolicy sourceAccess
     ,
             AuditTrail audit) {
@@ -116,9 +113,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
         this.groupScopes = Objects.requireNonNull(groupScopes, "groupScopes must not be null");
         this.sync = Objects.requireNonNull(sync);
-        this.googleSync = Objects.requireNonNull(googleSync);
+        this.adapters = Objects.requireNonNull(adapters);
         this.selections = Objects.requireNonNull(selections);
-        this.connections = Objects.requireNonNull(connections);
         this.sourceAccess = Objects.requireNonNull(sourceAccess);
         this.transactions = new TransactionTemplate(
                 Objects.requireNonNull(transactionManager, "transactionManager must not be null")
@@ -577,16 +573,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
         if (pair.status() == SourceStatus.PAUSED) {
             sources.clearPaused(access.tenantId(), requiredSourceId);
             attempts.requeuePaused(access.tenantId(), pair);
-            if (getSource(requiredActorId, requiredSourceId).type() == SourceType.GOOGLE_DRIVE) {
-                try {
-                    var state = connections.state(access.tenantId(), requiredSourceId);
-                    if (connections.current(access.tenantId(), requiredSourceId, state.credentialRevision())) {
-                        googleSync.enqueueResumed(access.tenantId(), requiredSourceId, state.credentialRevision(), requiredActorId);
-                    }
-                } catch (SourceException exception) {
-                    if (!"SOURCE_NOT_FOUND".equals(exception.code())) throw exception;
-                }
-            }
+            adapters.resumed(getSource(requiredActorId, requiredSourceId).type(), access.tenantId(),
+                    requiredSourceId, requiredActorId);
             sources.recomputeStatus(access.tenantId(), requiredSourceId, false);
             record(access.tenantId(), requiredActorId, AuditAction.SOURCE_RESUME, requiredSourceId, event -> event);
         }
@@ -629,7 +617,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
         }
         var mutablePair = requireMutable(pair);
         items.lockCurrentVersion(access.tenantId(), mutablePair, requiredItemId);
-        googleSync.exclude(access.tenantId(), requiredSourceId, requiredItemId);
+        adapters.itemRemoved(sources.type(access.tenantId(), requiredSourceId), access.tenantId(),
+                requiredSourceId, requiredItemId);
         items.markDeleting(access.tenantId(), mutablePair, requiredItemId);
         sourceDocuments.invalidateItem(access.tenantId(), requiredSourceId, requiredItemId);
         attempts.cancelForItem(access.tenantId(), requiredSourceId, requiredItemId);

@@ -2,7 +2,7 @@ package io.memoryos.connector.adapter.googledrive;
 
 import static io.memoryos.connector.GoogleDriveProviderException.Failure.*;
 
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
@@ -48,7 +48,7 @@ import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoCloseable {
+public final class RestGoogleDriveGateway implements GoogleDriveGateway, AutoCloseable {
     private static final String FILE_FIELDS = "id,name,mimeType,version,md5Checksum,modifiedTime,trashed,parents,driveId,shortcutDetails(targetId)";
     private static final String PERMISSION_FIELDS = "id,type,role,emailAddress,domain,expirationTime,allowFileDiscovery,deleted,pendingOwner,permissionDetails(permissionType,role,inheritedFrom,inherited),view,inheritedPermissionsDisabled";
     private static final String JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
@@ -63,7 +63,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
     private final ObjectReader reader;
     private final HttpClient client;
 
-    public RestGoogleDriveProvider(GoogleDriveProviderProperties properties, ObjectMapper mapper) {
+    public RestGoogleDriveGateway(GoogleDriveProviderProperties properties, ObjectMapper mapper) {
         this.properties = properties;
         this.mapper = mapper;
         reader = mapper.reader().with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY,

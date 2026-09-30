@@ -11,7 +11,7 @@ import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository.SourcePair;
-import io.memoryos.connector.sync.SyncTraversal.RunFailure;
+import io.memoryos.connector.sync.SourceSyncAdapter.RunFailure;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.sync.persistence.WorkLeases.RetryOutcome;
@@ -19,9 +19,6 @@ import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.shared.TenantId;
 import io.memoryos.connector.SourceOperationId;
 import java.time.Duration;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,7 +33,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * The synchronization engine every connector shares. It owns the attempt: claiming and renewing it, the
  * fences every write passes, acquisition and removal of items, item errors, and how the run ends. Each
- * provider's {@link SyncTraversal} walks its content.
+ * provider's {@link SourceSyncAdapter} walks its content.
  *
  * <p>Failures follow Onyx ({@code run_docfetching}): a failure isolated to one item is a run error and the
  * run continues, completing {@code COMPLETED_WITH_ERRORS}; the next run retries the item and resolves the
@@ -59,12 +56,12 @@ public class SourceSyncEngine implements ConnectorSyncPort {
     private final JdbcIndexAttemptRepository indexing;
     private final JdbcSourceDocumentRepository documents;
     private final ObjectWriteService writes;
-    private final Map<SourceType, SyncTraversal> traversals = new EnumMap<>(SourceType.class);
+    private final SourceSyncAdapterRegistry adapters;
     private final TransactionTemplate transactions;
 
     public SourceSyncEngine(JdbcSourceSyncRepository attempts, JdbcSourceRepository sources,
             JdbcSourceItemRepository items, JdbcIndexAttemptRepository indexing,
-            JdbcSourceDocumentRepository documents, ObjectWriteService writes, List<SyncTraversal> traversals,
+            JdbcSourceDocumentRepository documents, ObjectWriteService writes, SourceSyncAdapterRegistry adapters,
             PlatformTransactionManager manager) {
         this.attempts = attempts;
         this.sources = sources;
@@ -72,7 +69,7 @@ public class SourceSyncEngine implements ConnectorSyncPort {
         this.indexing = indexing;
         this.documents = documents;
         this.writes = writes;
-        traversals.forEach(traversal -> this.traversals.put(traversal.type(), traversal));
+        this.adapters = adapters;
         this.transactions = new TransactionTemplate(manager);
     }
 
@@ -89,35 +86,35 @@ public class SourceSyncEngine implements ConnectorSyncPort {
     @Override
     public int enqueueDue(int limit) {
         int count = 0;
-        for (var traversal : traversals.values()) {
-            for (var due : traversal.due(limit)) {
+        for (var adapter : adapters.all()) {
+            for (var due : adapter.due(limit)) {
                 try {
-                    if (Boolean.TRUE.equals(transactions.execute(_ -> enqueueScheduled(traversal, due)))) count++;
+                    if (Boolean.TRUE.equals(transactions.execute(_ -> enqueueScheduled(adapter, due)))) count++;
                 } catch (BusinessException exception) {
-                    transactions.executeWithoutResult(_ -> postpone(traversal, due));
+                    transactions.executeWithoutResult(_ -> postpone(adapter, due));
                 }
             }
         }
         return count;
     }
 
-    private boolean enqueueScheduled(SyncTraversal traversal, JdbcSourceSyncRepository.DueSource due) {
+    private boolean enqueueScheduled(SourceSyncAdapter adapter, JdbcSourceSyncRepository.DueSource due) {
         var pair = sources.lock(due.tenantId(), due.sourceId());
         if (pair.status() == SourceStatus.PAUSED) return false;
-        if (!attempts.automaticSyncEnabled(traversal.target(), due.tenantId(), due.sourceId())) return false;
-        long credential = traversal.credentialRevision(due.tenantId(), due.sourceId());
-        if (!traversal.credentialCurrent(due.tenantId(), due.sourceId(), credential)) {
-            postpone(traversal, due);
+        if (!attempts.automaticSyncEnabled(due.tenantId(), due.sourceId())) return false;
+        long credential = adapter.credentialRevision(due.tenantId(), due.sourceId());
+        if (!adapter.credentialCurrent(due.tenantId(), due.sourceId(), credential)) {
+            postpone(adapter, due);
             return false;
         }
-        attempts.enqueue(traversal.target(), due.tenantId(), due.sourceId(), credential,
+        attempts.enqueue(due.tenantId(), due.sourceId(), credential,
                 SourceRunTrigger.SCHEDULED, null);
         return true;
     }
 
-    private void postpone(SyncTraversal traversal, JdbcSourceSyncRepository.DueSource due) {
-        attempts.postpone(traversal.target(), due.tenantId(), due.sourceId());
-        traversal.postponed(due.tenantId(), due.sourceId());
+    private void postpone(SourceSyncAdapter adapter, JdbcSourceSyncRepository.DueSource due) {
+        attempts.postpone(due.tenantId(), due.sourceId());
+        adapter.postponed(due.tenantId(), due.sourceId());
     }
 
     @Override
@@ -130,86 +127,86 @@ public class SourceSyncEngine implements ConnectorSyncPort {
             if ("SOURCE_NOT_FOUND".equals(exception.code())) return Result.CANCELLED;
             throw exception;
         }
-        var traversal = Objects.requireNonNull(traversals.get(type), () -> "no synchronization for " + type);
-        var run = new SyncRun(work, traversal.target(), attempts, sources, items, indexing, documents, writes,
+        var adapter = adapters.require(type);
+        var run = new SyncRun(work, attempts, sources, items, indexing, documents, writes,
                 transactions);
-        SyncTraversal.Slice slice;
+        SourceSyncAdapter.Slice slice;
         try {
-            slice = traversal.walk(run);
+            slice = adapter.walk(run);
         } catch (RuntimeException exception) {
-            if (run.stopped()) return stopped(traversal, work);
-            return failed(traversal, work, exception);
+            if (run.stopped()) return stopped(adapter, work);
+            return failed(adapter, work, exception);
         }
-        if (run.stopped()) return stopped(traversal, work);
+        if (run.stopped()) return stopped(adapter, work);
         return switch (slice) {
             case COMPLETED -> Result.COMPLETED;
             case CONTINUE -> run.fenced(_ -> {
                 attempts.continuation(work);
                 return Result.CONTINUED;
-            }).orElseGet(() -> stopped(traversal, work));
-            case ABORTED -> aborted(traversal, work);
-            case STOPPED -> stopped(traversal, work);
+            }).orElseGet(() -> stopped(adapter, work));
+            case ABORTED -> aborted(adapter, work);
+            case STOPPED -> stopped(adapter, work);
         };
     }
 
     /** Item failures crossed the threshold: the attempt is retried, counting failures afresh. */
-    private Result aborted(SyncTraversal traversal, Work work) {
+    private Result aborted(SourceSyncAdapter adapter, Work work) {
         LOGGER.atWarn().addKeyValue("event", "source_sync.run.aborted")
                 .addKeyValue("source_id", work.sourceId().value())
-                .addKeyValue("source_type", traversal.type().name())
+                .addKeyValue("source_type", adapter.type().name())
                 .log("Synchronization run aborted after too many item failures; retrying");
         settle(work, pair -> {
             if (pair == null) return;
             attempts.restartFailureWindow(work);
-            retry(traversal, work, RunFailure.retry(ITEM_FAILURES_EXCEEDED, null),
+            retry(adapter, work, RunFailure.retry(ITEM_FAILURES_EXCEEDED, null),
                     "More than " + JdbcSourceSyncRepository.ITEM_FAILURE_FLOOR
                             + " items, and more than a tenth of those processed, failed.", null);
         });
         return Result.FAILED;
     }
 
-    private Result failed(SyncTraversal traversal, Work work, RuntimeException exception) {
-        var failure = traversal.classify(exception);
+    private Result failed(SourceSyncAdapter adapter, Work work, RuntimeException exception) {
+        var failure = adapter.classify(exception);
         String detail = FailureEvidence.detail(exception);
         switch (failure.kind()) {
             case RECONNECT -> {
-                traversal.authenticationFailed(work);
+                adapter.authenticationFailed(work);
                 settle(work, pair -> {
-                    if (pair != null && attempts.terminal(traversal.target(), work, "FAILED", failure.code(),
+                    if (pair != null && attempts.terminal(work, "FAILED", failure.code(),
                             exception.getMessage(), detail)) {
-                        traversal.ended(work, true, failure.code());
+                        adapter.ended(work, true, failure.code());
                     }
                 });
             }
             case FAIL -> settle(work, pair -> {
-                if (pair != null && attempts.terminal(traversal.target(), work, "FAILED", failure.code(),
+                if (pair != null && attempts.terminal(work, "FAILED", failure.code(),
                         exception.getMessage(), detail)) {
-                    traversal.ended(work, true, failure.code());
+                    adapter.ended(work, true, failure.code());
                 }
             });
             case RETRY -> {
                 LOGGER.atWarn().addKeyValue("event", "source_sync.run.failed")
                         .addKeyValue("source_id", work.sourceId().value())
-                        .addKeyValue("source_type", traversal.type().name())
+                        .addKeyValue("source_type", adapter.type().name())
                         .addKeyValue("error_code", failure.code())
                         .addKeyValue("error_type", exception.getClass().getName())
                         .log("Synchronization run failed; retrying");
                 settle(work, pair -> {
-                    if (pair != null) retry(traversal, work, failure, exception.getMessage(), detail);
+                    if (pair != null) retry(adapter, work, failure, exception.getMessage(), detail);
                 });
             }
         }
         return Result.FAILED;
     }
 
-    private void retry(SyncTraversal traversal, Work work, RunFailure failure, @Nullable String message,
+    private void retry(SourceSyncAdapter adapter, Work work, RunFailure failure, @Nullable String message,
             @Nullable String detail) {
         var backoff = failure.retryAfter() != null && failure.retryAfter().compareTo(BACKOFF) > 0
                 ? failure.retryAfter() : BACKOFF;
         var outcome = attempts.retry(work, failure.code(), message, detail, MAX_FAILURES, backoff);
         if (outcome == RetryOutcome.EXHAUSTED) {
-            attempts.recordFailure(traversal.target(), work, failure.code());
-            traversal.ended(work, true, failure.code());
+            attempts.recordFailure(work, failure.code());
+            adapter.ended(work, true, failure.code());
         }
     }
 
@@ -217,15 +214,15 @@ public class SourceSyncEngine implements ConnectorSyncPort {
      * The claim is no longer current. A paused or deleted Source cancels the run; anything else, such as a newer
      * scope, credential or claim, supersedes it.
      */
-    private Result stopped(SyncTraversal traversal, Work work) {
+    private Result stopped(SourceSyncAdapter adapter, Work work) {
         return Objects.requireNonNull(transactions.execute(_ -> {
             var pair = lock(work);
             if (pair == null) return Result.CANCELLED;
             String code = pair.status() == SourceStatus.PAUSED ? "SOURCE_PAUSED"
                     : pair.status() == SourceStatus.DELETING ? "SOURCE_DELETING" : null;
             String status = code == null ? "SUPERSEDED" : "CANCELLED";
-            if (attempts.terminal(traversal.target(), work, status, code, null, null)) {
-                traversal.ended(work, false, code);
+            if (attempts.terminal(work, status, code, null, null)) {
+                adapter.ended(work, false, code);
             }
             return code == null ? Result.SUPERSEDED : Result.CANCELLED;
         }));

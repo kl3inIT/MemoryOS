@@ -73,7 +73,8 @@ class DocumentShelfIntegrationTest {
         privateSource = source(1, "Finance files", "FILE", "PRIVATE");
         publicSource = source(2, "Handbooks", "FILE", "PUBLIC");
         driveSource = source(3, "Drive", "GOOGLE_DRIVE", "SYNC");
-        jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id) VALUES(:tenant,:source)")
+        jdbc.sql("WITH state AS (INSERT INTO source_sync_state (tenant_id, source_id) VALUES (:tenant, :source)) "
+                        + "INSERT INTO google_drive_sources(tenant_id,source_id) VALUES(:tenant,:source)")
                 .param("tenant", tenant.value()).param("source", driveSource).update();
         finance = group("Finance", privateSource, alice, inactive, withoutSearch);
         audit = group("Audit", privateSource, alice);

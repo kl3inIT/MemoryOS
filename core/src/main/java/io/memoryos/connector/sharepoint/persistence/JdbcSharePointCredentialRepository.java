@@ -5,7 +5,7 @@ import io.memoryos.connector.sharepoint.SharePointAuthentication;
 import io.memoryos.connector.sharepoint.SharePointCertificate;
 import io.memoryos.connector.SharePointCredentialService.CredentialView;
 import io.memoryos.connector.SharePointException;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.source.persistence.CredentialCipher;
@@ -28,8 +28,8 @@ public class JdbcSharePointCredentialRepository {
     static final String CLIENT_SECRET = "client-secret";
     static final String PRIVATE_KEY = "private-key";
     private static final String SELECT = """
-            SELECT sharepoint.*, credential.name, credential.owner_actor_id,
-                   credential.status AS credential_status, tenant.status AS tenant_status
+            SELECT sharepoint.*, credential.name, credential.owner_actor_id, credential.credential_revision,
+                   credential.payload_revision, credential.status AS credential_status, tenant.status AS tenant_status
             FROM credentials credential
             JOIN sharepoint_credentials sharepoint
               ON sharepoint.tenant_id = credential.tenant_id AND sharepoint.credential_id = credential.id
@@ -52,7 +52,7 @@ public class JdbcSharePointCredentialRepository {
     public void requireConfigured() { encryption.cipher(); }
 
     public CredentialId create(TenantId tenantId, ActorId owner, String name, UUID directoryId, UUID clientId,
-            SharePointProvider.Cloud cloud, SharePointAuthentication authentication, @Nullable String tenantHost) {
+            SharePointGateway.Cloud cloud, SharePointAuthentication authentication, @Nullable String tenantHost) {
         if (!sources.lockActiveTenant(tenantId)) throw SourceException.notFound();
         UUID credentialId = UUID.randomUUID();
         jdbc.sql("""
@@ -63,10 +63,10 @@ public class JdbcSharePointCredentialRepository {
         var envelope = encrypt(tenantId, credentialId, authentication);
         jdbc.sql("""
                 INSERT INTO sharepoint_credentials (tenant_id, credential_id, directory_id, client_id, cloud,
-                    auth_method, connection_status, secret_ciphertext, secret_nonce, secret_key_version,
+                    auth_method, secret_ciphertext, secret_nonce, secret_key_version,
                     private_key_ciphertext, private_key_nonce, private_key_version, certificate_der,
                     certificate_thumbprint, certificate_not_after, tenant_host)
-                VALUES (:tenant, :credential, :directory, :client, :cloud, :method, 'ACTIVE',
+                VALUES (:tenant, :credential, :directory, :client, :cloud, :method,
                     :secretCiphertext, :secretNonce, :secretVersion, :keyCiphertext, :keyNonce, :keyVersion,
                     :certificate, :thumbprint, :notAfter, :host)
                 """).param("tenant", tenantId.value()).param("credential", credentialId)
@@ -82,8 +82,8 @@ public class JdbcSharePointCredentialRepository {
 
     public List<CredentialView> list(TenantId tenantId, @Nullable ActorId owner) {
         return jdbc.sql("""
-                SELECT c.id, c.name, s.directory_id, s.client_id, s.cloud, s.auth_method, s.connection_status,
-                  s.certificate_thumbprint, s.certificate_not_after, s.tenant_host, s.credential_revision,
+                SELECT c.id, c.name, s.directory_id, s.client_id, s.cloud, s.auth_method, c.status AS connection_status,
+                  s.certificate_thumbprint, s.certificate_not_after, s.tenant_host, c.credential_revision,
                   c.created_at, c.updated_at,
                   (SELECT COUNT(*) FROM connector_credential_pairs p
                    WHERE p.tenant_id = c.tenant_id AND p.credential_id = c.id) AS source_count
@@ -120,20 +120,19 @@ public class JdbcSharePointCredentialRepository {
     }
 
     private Optional<Stored> read(TenantId tenantId, CredentialId credentialId, boolean lock) {
-        return jdbc.sql(SELECT + (lock ? " FOR UPDATE OF sharepoint" : ""))
+        return jdbc.sql(SELECT + (lock ? " FOR UPDATE OF sharepoint, credential" : ""))
                 .param("tenantId", tenantId.value()).param("credentialId", credentialId.value())
                 .query((r, _) -> new Stored(r.getObject("credential_id", UUID.class), r.getString("name"),
                         r.getObject("directory_id", UUID.class), r.getObject("client_id", UUID.class),
-                        SharePointProvider.Cloud.valueOf(r.getString("cloud")),
-                        SharePointProvider.AuthMethod.valueOf(r.getString("auth_method")),
-                        r.getString("connection_status"), r.getLong("credential_revision"), r.getLong("payload_revision"),
+                        SharePointGateway.Cloud.valueOf(r.getString("cloud")),
+                        SharePointGateway.AuthMethod.valueOf(r.getString("auth_method")),
+                        r.getString("credential_status"), r.getLong("credential_revision"), r.getLong("payload_revision"),
                         r.getBytes("secret_ciphertext"), r.getBytes("secret_nonce"), r.getString("secret_key_version"),
                         r.getBytes("private_key_ciphertext"), r.getBytes("private_key_nonce"), r.getString("private_key_version"),
                         r.getBytes("certificate_der"), r.getString("certificate_thumbprint"),
                         r.getTimestamp("certificate_not_after") == null ? null : r.getTimestamp("certificate_not_after").toInstant(),
                         r.getString("tenant_host"), r.getObject("owner_actor_id", UUID.class),
-                        "ACTIVE".equals(r.getString("connection_status")) && "ACTIVE".equals(r.getString("credential_status"))
-                                && "ACTIVE".equals(r.getString("tenant_status"))))
+                        "ACTIVE".equals(r.getString("credential_status")) && "ACTIVE".equals(r.getString("tenant_status"))))
                 .optional();
     }
 
@@ -153,12 +152,11 @@ public class JdbcSharePointCredentialRepository {
         requireRevision(row, expectedRevision);
         var envelope = encrypt(tenantId, row.credentialId(), authentication);
         jdbc.sql("""
-                UPDATE sharepoint_credentials SET auth_method = :method, connection_status = 'ACTIVE',
+                UPDATE sharepoint_credentials SET auth_method = :method,
                     secret_ciphertext = :secretCiphertext, secret_nonce = :secretNonce, secret_key_version = :secretVersion,
                     private_key_ciphertext = :keyCiphertext, private_key_nonce = :keyNonce, private_key_version = :keyVersion,
                     certificate_der = :certificate, certificate_thumbprint = :thumbprint, certificate_not_after = :notAfter,
-                    tenant_host = :host, credential_revision = credential_revision + 1,
-                    payload_revision = payload_revision + 1, updated_at = CURRENT_TIMESTAMP
+                    tenant_host = :host, updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND credential_id = :credential
                 """).param("method", authentication.authMethod().name())
                 .param("secretCiphertext", envelope.secretCiphertext()).param("secretNonce", envelope.secretNonce())
@@ -168,7 +166,9 @@ public class JdbcSharePointCredentialRepository {
                 .param("notAfter", envelope.notAfter()).param("host", tenantHost)
                 .param("tenant", tenantId.value()).param("credential", row.credentialId()).update();
         jdbc.sql("""
-                UPDATE credentials SET name = :name, status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP
+                UPDATE credentials SET name = :name, status = 'ACTIVE',
+                    credential_revision = credential_revision + 1, payload_revision = payload_revision + 1,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND id = :credential
                 """).param("name", name).param("tenant", tenantId.value())
                 .param("credential", credentialId.value()).update();
@@ -196,9 +196,11 @@ public class JdbcSharePointCredentialRepository {
     /** Records what a successful credential test learned; a stale revision simply loses the race. */
     public void recordTenantHost(TenantId tenantId, CredentialId credentialId, long expectedRevision, @Nullable String tenantHost) {
         jdbc.sql("""
-                UPDATE sharepoint_credentials SET tenant_host = :host, connection_status = 'ACTIVE',
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant AND credential_id = :credential AND credential_revision = :revision
+                UPDATE sharepoint_credentials sharepoint SET tenant_host = :host, updated_at = CURRENT_TIMESTAMP
+                FROM credentials credential
+                WHERE sharepoint.tenant_id = :tenant AND sharepoint.credential_id = :credential
+                  AND credential.tenant_id = sharepoint.tenant_id AND credential.id = sharepoint.credential_id
+                  AND credential.credential_revision = :revision
                 """).param("host", tenantHost).param("tenant", tenantId.value())
                 .param("credential", credentialId.value()).param("revision", expectedRevision).update();
     }
@@ -207,21 +209,17 @@ public class JdbcSharePointCredentialRepository {
         var row = lock(tenantId, credentialId).orElse(null);
         if (row == null || !row.usable() || row.revision() != expectedRevision) return false;
         jdbc.sql("""
-                UPDATE sharepoint_credentials SET connection_status = 'NEEDS_UPDATE',
-                    credential_revision = credential_revision + 1, updated_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant AND credential_id = :credential AND credential_revision = :revision
+                UPDATE credentials SET status = 'NEEDS_UPDATE', credential_revision = credential_revision + 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND id = :credential AND credential_revision = :revision
                 """).param("tenant", tenantId.value()).param("credential", credentialId.value())
                 .param("revision", expectedRevision).update();
-        jdbc.sql("""
-                UPDATE credentials SET status = 'NEEDS_UPDATE', updated_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant AND id = :credential
-                """).param("tenant", tenantId.value()).param("credential", credentialId.value()).update();
         return true;
     }
 
     /** Decrypts the stored payload. The caller closes the result. */
     public SharePointAuthentication authentication(TenantId tenantId, Stored row) {
-        if (row.authMethod() == SharePointProvider.AuthMethod.CLIENT_SECRET) {
+        if (row.authMethod() == SharePointGateway.AuthMethod.CLIENT_SECRET) {
             return SharePointAuthentication.clientSecret(decrypt(tenantId, row.credentialId(), CLIENT_SECRET,
                     row.secretCiphertext(), row.secretNonce(), row.secretKeyVersion()));
         }
@@ -247,7 +245,7 @@ public class JdbcSharePointCredentialRepository {
     }
 
     private Envelope encrypt(TenantId tenantId, UUID credentialId, SharePointAuthentication authentication) {
-        if (authentication.authMethod() == SharePointProvider.AuthMethod.CLIENT_SECRET) {
+        if (authentication.authMethod() == SharePointGateway.AuthMethod.CLIENT_SECRET) {
             byte[] secret = requirePayload(authentication.clientSecret());
             CredentialCipher.EncryptedCredential encrypted;
             try { encrypted = encryption.cipher().encrypt(tenantId, credentialId, CLIENT_SECRET, secret); }
@@ -282,7 +280,7 @@ public class JdbcSharePointCredentialRepository {
     }
 
     public record Stored(UUID credentialId, String name, UUID directoryId, UUID clientId,
-            SharePointProvider.Cloud cloud, SharePointProvider.AuthMethod authMethod, String status,
+            SharePointGateway.Cloud cloud, SharePointGateway.AuthMethod authMethod, String status,
             long revision, long payloadRevision,
             byte @Nullable [] secretCiphertext, byte @Nullable [] secretNonce, @Nullable String secretKeyVersion,
             byte @Nullable [] keyCiphertext, byte @Nullable [] keyNonce, @Nullable String keyKeyVersion,

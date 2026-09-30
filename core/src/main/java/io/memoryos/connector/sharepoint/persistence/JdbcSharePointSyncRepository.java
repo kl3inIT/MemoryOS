@@ -41,10 +41,11 @@ public class JdbcSharePointSyncRepository {
         return jdbc.sql("""
                 SELECT s.tenant_id, s.source_id
                 FROM sharepoint_sources s
+                JOIN source_sync_state y ON y.tenant_id = s.tenant_id AND y.source_id = s.source_id
                 JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
                 JOIN tenants t ON t.id = s.tenant_id
-                WHERE t.status = 'ACTIVE' AND p.status NOT IN ('DELETING', 'PAUSED') AND NOT s.sync_paused
-                  AND (s.next_sync_at <= CURRENT_TIMESTAMP
+                WHERE t.status = 'ACTIVE' AND p.status NOT IN ('DELETING', 'PAUSED') AND NOT y.sync_paused
+                  AND (y.next_sync_at <= CURRENT_TIMESTAMP
                        OR (s.prune_interval_hours > 0 AND s.next_prune_at <= CURRENT_TIMESTAMP))
                   AND (s.scope_mode = 'ALL_SITES'
                        OR EXISTS (SELECT 1 FROM sharepoint_roots r
@@ -52,7 +53,7 @@ public class JdbcSharePointSyncRepository {
                   AND NOT EXISTS (SELECT 1 FROM source_sync_attempts a
                       WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
                         AND a.status IN ('NOT_STARTED', 'IN_PROGRESS'))
-                ORDER BY LEAST(s.next_sync_at, s.next_prune_at), s.source_id LIMIT :limit
+                ORDER BY LEAST(y.next_sync_at, s.next_prune_at), s.source_id LIMIT :limit
                 """).param("limit", Math.clamp(limit, 1, 32))
                 .query((r, _) -> new DueSource(new TenantId(r.getObject("tenant_id", UUID.class)),
                         new SourceId(r.getObject("source_id", UUID.class)))).list();
@@ -61,10 +62,12 @@ public class JdbcSharePointSyncRepository {
     /** A due prune waits for the next refresh slot instead of being retried on every tick. */
     public void postponePrune(TenantId tenant, SourceId source) {
         jdbc.sql("""
-                UPDATE sharepoint_sources
+                UPDATE sharepoint_sources s
                 SET next_prune_at = CASE WHEN prune_interval_hours > 0 AND next_prune_at <= CURRENT_TIMESTAMP
-                        THEN CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute' ELSE next_prune_at END
-                WHERE tenant_id = :tenant AND source_id = :source
+                        THEN CURRENT_TIMESTAMP + y.sync_interval_minutes * INTERVAL '1 minute' ELSE next_prune_at END
+                FROM source_sync_state y
+                WHERE s.tenant_id = :tenant AND s.source_id = :source
+                  AND y.tenant_id = s.tenant_id AND y.source_id = s.source_id
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
     }
 

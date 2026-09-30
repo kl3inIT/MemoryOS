@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.GoogleDriveLinkReader;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveServiceAccountKey;
-import io.memoryos.connector.GoogleDriveProvider.Permission;
-import io.memoryos.connector.GoogleDriveProvider.PermissionDetail;
+import io.memoryos.connector.GoogleDriveGateway.Permission;
+import io.memoryos.connector.GoogleDriveGateway.PermissionDetail;
 import io.memoryos.connector.GoogleDriveProviderException.Failure;
 import io.memoryos.connector.SourceInputFormat;
 import java.io.ByteArrayInputStream;
@@ -33,7 +33,7 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
-class RestGoogleDriveProviderTest {
+class RestGoogleDriveGatewayTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
@@ -89,7 +89,7 @@ class RestGoogleDriveProviderTest {
                          {"permissionType":"member","role":"organizer","inheritedFrom":"shared-drive","inherited":true},
                          {"permissionType":"file","role":"commenter","inherited":false}]}]}
                     """);
-        }); var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
+        }); var provider = new RestGoogleDriveGateway(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
                 fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             var permissions = session.permissions("shared-file");
@@ -260,7 +260,7 @@ class RestGoogleDriveProviderTest {
         String first = "{\"nextPageToken\":\"next\",\"permissions\":[{\"id\":\"first\",\"type\":\"user\",\"role\":\"reader\"}]}";
         String second = "{\"permissions\":[{\"id\":\"second\",\"type\":\"user\",\"role\":\"reader\"}]}";
         try (var fixture = new Fixture(exchange -> ok(decodedQuery(exchange).contains("pageToken=next") ? second : first));
-             var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
+             var provider = new RestGoogleDriveGateway(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
                      fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
@@ -284,7 +284,7 @@ class RestGoogleDriveProviderTest {
             }
         }
         try (var fixture = new Fixture(exchange -> ok("{\"permissions\":[" + entry + "]}"));
-             var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
+             var provider = new RestGoogleDriveGateway(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
                      fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
@@ -463,7 +463,7 @@ class RestGoogleDriveProviderTest {
             var page = session.listFiles("folder", null);
             assertTrue(page.files().isEmpty());
             assertNull(page.nextPageToken());
-            var shortcut = new GoogleDriveProvider.FileMetadata("shortcut", "Shortcut",
+            var shortcut = new GoogleDriveGateway.FileMetadata("shortcut", "Shortcut",
                     "application/vnd.google-apps.shortcut", "1", null, null, false, List.of(), null, "target");
             assertEquals(Failure.UNSUPPORTED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.acquire(shortcut)).failure());
@@ -485,8 +485,8 @@ class RestGoogleDriveProviderTest {
     @Test
     void refreshUsesEachCredentialsAppWithoutCrossConnectionState() throws Exception {
         try (var fixture = new Fixture(exchange -> ok("{}")); var provider = provider(fixture, 0, 0);
-             var first = new GoogleDriveProvider.OAuthCredential("first.apps.googleusercontent.com", bytes("secret-one"), bytes("grant-one"));
-             var second = new GoogleDriveProvider.OAuthCredential("second.apps.googleusercontent.com", bytes("secret-two"), bytes("grant-two"))) {
+             var first = new GoogleDriveGateway.OAuthCredential("first.apps.googleusercontent.com", bytes("secret-one"), bytes("grant-one"));
+             var second = new GoogleDriveGateway.OAuthCredential("second.apps.googleusercontent.com", bytes("secret-two"), bytes("grant-two"))) {
             try (var ignored = provider.open(first)) { assertNotNull(ignored.rotatedRefreshToken()); }
             try (var ignored = provider.open(second)) { assertNotNull(ignored.rotatedRefreshToken()); }
             assertEquals(List.of(
@@ -508,7 +508,7 @@ class RestGoogleDriveProviderTest {
         try (var fixture = new Fixture(exchange -> "Bearer sa-access".equals(exchange.getRequestHeaders().getFirst("Authorization"))
                 ? ok("{\"files\":[]}") : new Response(401, new byte[0]));
              var provider = provider(fixture, 0, 0); var key = GoogleDriveServiceAccountKey.parse(keyJson);
-             var credential = new GoogleDriveProvider.ServiceAccountCredential(key, "admin@example.com")) {
+             var credential = new GoogleDriveGateway.ServiceAccountCredential(key, "admin@example.com")) {
             fixture.tokenResponse = ok("{\"access_token\":\"sa-access\",\"token_type\":\"Bearer\",\"expires_in\":3599}");
             try (var session = provider.open(credential)) {
                 assertNull(session.rotatedRefreshToken());
@@ -529,7 +529,7 @@ class RestGoogleDriveProviderTest {
             assertEquals("indexer@memoryos-prod.iam.gserviceaccount.com", claims.path("iss").asString());
             assertEquals("admin@example.com", claims.path("sub").asString());
             assertEquals(fixture.base.resolve("/token").toString(), claims.path("aud").asString());
-            assertEquals(String.join(" ", GoogleDriveProvider.SERVICE_ACCOUNT_SCOPES), claims.path("scope").asString());
+            assertEquals(String.join(" ", GoogleDriveGateway.SERVICE_ACCOUNT_SCOPES), claims.path("scope").asString());
             assertEquals(3600, claims.path("exp").asLong() - claims.path("iat").asLong());
             var signature = Signature.getInstance("SHA256withRSA");
             signature.initVerify(pair.getPublic());
@@ -602,13 +602,13 @@ class RestGoogleDriveProviderTest {
         }
     }
 
-    private RestGoogleDriveProvider provider(Fixture fixture, int binaryLimit, int requests) {
-        return new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
+    private RestGoogleDriveGateway provider(Fixture fixture, int binaryLimit, int requests) {
+        return new RestGoogleDriveGateway(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
                 fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0, null, null, null, null, null), mapper);
     }
 
-    private static GoogleDriveProvider.Credential credential() {
-        return new GoogleDriveProvider.OAuthCredential("client.apps.googleusercontent.com", bytes("secret"), bytes("refresh"));
+    private static GoogleDriveGateway.Credential credential() {
+        return new GoogleDriveGateway.OAuthCredential("client.apps.googleusercontent.com", bytes("secret"), bytes("refresh"));
     }
 
     private static byte[] bytes(String value) { return value.getBytes(StandardCharsets.UTF_8); }

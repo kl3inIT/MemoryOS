@@ -3,7 +3,7 @@ package io.memoryos.connector.sharepoint;
 import io.memoryos.BusinessException;
 import io.memoryos.FailureEvidence;
 import io.memoryos.connector.ConnectorSyncPort.Work;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SharePointProviderException.Failure;
 import io.memoryos.connector.SharePointSourceService.RootKind;
@@ -18,12 +18,12 @@ import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository.Retry;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository.Run;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository.Target;
+import io.memoryos.connector.sync.SourceProviderCapabilities;
 import io.memoryos.connector.sync.SyncRun;
-import io.memoryos.connector.sync.SyncTraversal;
+import io.memoryos.connector.sync.SourceSyncAdapter;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.DueSource;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.ItemFailure;
-import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.shared.TenantId;
 import java.time.Duration;
@@ -50,8 +50,8 @@ import org.springframework.stereotype.Component;
  * run covers are resolved once, when it starts.
  */
 @Component
-public class SharePointSyncTraversal implements SyncTraversal {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SharePointSyncTraversal.class);
+public class SharePointSyncAdapter implements SourceSyncAdapter {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SharePointSyncAdapter.class);
     private static final int MAX_STEPS = 16;
     private static final long EXECUTION_NANOS = Duration.ofSeconds(45).toNanos();
     private static final int MAX_CONTENT_BYTES = 100 * 1024 * 1024;
@@ -65,7 +65,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
     private final JdbcSourceSyncRepository attempts;
     private final SharePointConnectionService connections;
 
-    public SharePointSyncTraversal(JdbcSharePointSyncRepository runs, JdbcSharePointSourceRepository sharePoint,
+    public SharePointSyncAdapter(JdbcSharePointSyncRepository runs, JdbcSharePointSourceRepository sharePoint,
             JdbcSourceSyncRepository attempts, SharePointConnectionService connections) {
         this.runs = runs;
         this.sharePoint = sharePoint;
@@ -79,8 +79,8 @@ public class SharePointSyncTraversal implements SyncTraversal {
     }
 
     @Override
-    public SyncTarget target() {
-        return SyncTarget.SHAREPOINT;
+    public SourceProviderCapabilities capabilities() {
+        return new SourceProviderCapabilities(false);
     }
 
     @Override
@@ -155,7 +155,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
      * records them with the items an earlier run failed on. This is the only time a run asks Microsoft which
      * sites and libraries exist.
      */
-    private Optional<Run> resolveScope(SyncRun run, Run current, SharePointProvider.Session session,
+    private Optional<Run> resolveScope(SyncRun run, Run current, SharePointGateway.Session session,
             JdbcSharePointSyncRepository.SourceState state) {
         var work = run.work();
         var roots = run.fenced(_ -> sharePoint.resolvedRoots(work.tenantId(), work.sourceId()));
@@ -198,7 +198,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
         });
     }
 
-    private static void libraries(SharePointProvider.Session session, String siteId,
+    private static void libraries(SharePointGateway.Session session, String siteId,
             LinkedHashMap<String, Target> targets) {
         for (var library : session.libraries(siteId)) {
             targets.putIfAbsent(library.driveId(), new Target(library.driveId(), siteId, null));
@@ -221,12 +221,12 @@ public class SharePointSyncTraversal implements SyncTraversal {
         private final SyncRun run;
         private final Work work;
         private final Run current;
-        private final SharePointProvider.Session session;
+        private final SharePointGateway.Session session;
         private final String tenantHost;
         private final long deadline = System.nanoTime() + EXECUTION_NANOS;
         private int steps;
 
-        Walk(SyncRun run, Run current, SharePointProvider.Session session, String tenantHost) {
+        Walk(SyncRun run, Run current, SharePointGateway.Session session, String tenantHost) {
             this.run = run;
             this.work = run.work();
             this.current = current;
@@ -389,15 +389,15 @@ public class SharePointSyncTraversal implements SyncTraversal {
             return null;
         }
 
-        private void observePage(String siteId, SharePointProvider.SitePageMetadata metadata) {
+        private void observePage(String siteId, SharePointGateway.SitePageMetadata metadata) {
             runs.observe(work.tenantId(), work.sourceId(), metadata.pageId(), "PAGE", null, siteId,
                     metadata.title(), metadata.webUrl(), metadata.contentVersion(), metadata.eTag(), 0,
                     current.prune() ? current.id() : null);
             run.observed(metadata.pageId(), metadata.title());
         }
 
-        private void acquirePage(String siteId, SharePointProvider.SitePageMetadata metadata,
-                SharePointProvider.@Nullable PageContent read) {
+        private void acquirePage(String siteId, SharePointGateway.SitePageMetadata metadata,
+                SharePointGateway.@Nullable PageContent read) {
             try {
                 var page = read == null ? session.page(siteId, metadata.pageId()) : read;
                 var descriptor = new SourceInputDescriptor(SourceInputFormat.SHAREPOINT_PAGE, metadata.pageId(),
@@ -422,7 +422,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
          */
         private Listed page(Target target, @Nullable String folderId, @Nullable String link,
                 List<SharePointGlob> excludedPaths) {
-            List<SharePointProvider.DriveItem> page;
+            List<SharePointGateway.DriveItem> page;
             String next;
             var folders = new ArrayList<String>();
             if (folderId != null) {
@@ -431,7 +431,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
                 page = children.items();
                 next = children.nextLink();
             } else {
-                SharePointProvider.DeltaPage delta;
+                SharePointGateway.DeltaPage delta;
                 try {
                     delta = session.delta(target.driveId(), current.prune() ? null : token(), link);
                 } catch (SharePointProviderException exception) {
@@ -466,7 +466,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
          * A file: it is recorded, and recognised as the version already held, in one fence; only a changed file
          * is downloaded, and it is recognised or adopted in a second.
          */
-        private void file(Target target, SharePointProvider.DriveItem item, String path) {
+        private void file(Target target, SharePointGateway.DriveItem item, String path) {
             boolean done = run.fenced(_ -> {
                 observe(item, target.driveId(), target.siteId(), path);
                 if (current.prune()) return true;
@@ -479,14 +479,14 @@ public class SharePointSyncTraversal implements SyncTraversal {
             if (!done) acquire(item);
         }
 
-        private void observe(SharePointProvider.DriveItem item, @Nullable String driveId, @Nullable String siteId,
+        private void observe(SharePointGateway.DriveItem item, @Nullable String driveId, @Nullable String siteId,
                 String path) {
             runs.observe(work.tenantId(), work.sourceId(), item.id(), "FILE", driveId, siteId, item.name(), path,
                     item.contentVersion(), item.eTag(), item.size(), current.prune() ? current.id() : null);
             run.observed(item.id(), item.name());
         }
 
-        private void acquire(SharePointProvider.DriveItem item) {
+        private void acquire(SharePointGateway.DriveItem item) {
             try {
                 var read = session.item(item.driveId() == null ? "" : item.driveId(), item.id());
                 var content = session.content(read, tenantHost, MAX_CONTENT_BYTES);
@@ -571,7 +571,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
          * Only the children listing needs the window: the change log already reports what changed, and filtering
          * it again would drop an item that was moved into scope without its timestamp changing.
          */
-        private boolean insideWindow(SharePointProvider.DriveItem item) {
+        private boolean insideWindow(SharePointGateway.DriveItem item) {
             return insideWindow(item.lastModifiedAt() == null ? item.createdAt() : item.lastModifiedAt());
         }
 
@@ -586,7 +586,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
                 || exception.failure() == Failure.UNAVAILABLE;
     }
 
-    private static String path(SharePointProvider.DriveItem item) {
+    private static String path(SharePointGateway.DriveItem item) {
         String parent = item.parentPath() == null ? "" : item.parentPath();
         return parent + "/" + (item.name() == null ? item.id() : item.name());
     }

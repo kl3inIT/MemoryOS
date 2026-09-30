@@ -1,6 +1,6 @@
 package io.memoryos.connector.adapter.googledrive;
 
-import io.memoryos.connector.GoogleDriveProvider.FileMetadata;
+import io.memoryos.connector.GoogleDriveGateway.FileMetadata;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;

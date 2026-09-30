@@ -1,6 +1,6 @@
 package io.memoryos.connector.googledrive;
 
-import io.memoryos.connector.GoogleDriveProvider.FileMetadata;
+import io.memoryos.connector.GoogleDriveGateway.FileMetadata;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;

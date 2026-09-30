@@ -1,7 +1,7 @@
 package io.memoryos.connector.sharepoint;
 
 import io.memoryos.connector.CredentialId;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -21,18 +21,18 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class SharePointConnectionService {
     public record State(CredentialId credentialId, String name, String status, long credentialRevision,
                  @Nullable String tenantHost) {}
-    public record Connection(SharePointProvider.Session session, long credentialRevision,
+    public record Connection(SharePointGateway.Session session, long credentialRevision,
                       @Nullable String tenantHost) implements AutoCloseable {
         @Override public void close() { session.close(); }
     }
 
     private final JdbcSharePointCredentialRepository credentials;
     private final JdbcSharePointSourceRepository sources;
-    private final SharePointProvider provider;
+    private final SharePointGateway provider;
     private final TransactionTemplate transactions;
 
     public SharePointConnectionService(JdbcSharePointCredentialRepository credentials,
-            JdbcSharePointSourceRepository sources, SharePointProvider provider,
+            JdbcSharePointSourceRepository sources, SharePointGateway provider,
             PlatformTransactionManager transactionManager) {
         this.credentials = credentials;
         this.sources = sources;
@@ -54,7 +54,7 @@ public class SharePointConnectionService {
 
     public Connection openCredential(TenantId tenantId, CredentialId credentialId) {
         var stored = Objects.requireNonNull(transactions.execute(_ -> credentials.readUsable(tenantId, credentialId)));
-        SharePointProvider.Session session;
+        SharePointGateway.Session session;
         try (var authentication = credentials.authentication(tenantId, stored)) {
             try (var credential = authentication.credential(stored.cloud(), stored.directoryId().toString(),
                     stored.clientId().toString())) {

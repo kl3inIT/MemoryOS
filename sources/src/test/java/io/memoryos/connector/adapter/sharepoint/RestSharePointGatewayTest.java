@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SharePointProviderException.Failure;
 import io.memoryos.connector.SharePointProviderException.Reason;
@@ -22,7 +22,7 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
-class RestSharePointProviderTest {
+class RestSharePointGatewayTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
@@ -311,8 +311,8 @@ class RestSharePointProviderTest {
         }
     }
 
-    private static SharePointProvider.DriveItem item(String id, String downloadUrl) {
-        return new SharePointProvider.DriveItem(id, "bao-cao.xlsx", false, false, 12,
+    private static SharePointGateway.DriveItem item(String id, String downloadUrl) {
+        return new SharePointGateway.DriveItem(id, "bao-cao.xlsx", false, false, 12,
                 "application/vnd.ms-excel", "S7GCo=", "\"{A},1\"", null, null, "root-1", "/Baocao",
                 "https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/bao-cao.xlsx", downloadUrl, "drive-1");
     }
@@ -390,19 +390,19 @@ class RestSharePointProviderTest {
         assertEquals(Reason.UNCLASSIFIED, MsalSharePointTokenSource.classify(null));
     }
 
-    private RestSharePointProvider provider(Fixture fixture, int maxResponseBytes) {
+    private RestSharePointGateway provider(Fixture fixture, int maxResponseBytes) {
         return provider(fixture, maxResponseBytes, 0);
     }
 
-    private RestSharePointProvider provider(Fixture fixture, int maxResponseBytes, int maxContentBytes) {
+    private RestSharePointGateway provider(Fixture fixture, int maxResponseBytes, int maxContentBytes) {
         var properties = new SharePointProviderProperties(fixture.base, URI.create(fixture.base + "/v1.0"),
                 Duration.ofSeconds(1), Duration.ofSeconds(5), Duration.ofSeconds(10), 0, maxResponseBytes,
                 0, maxContentBytes == 0 ? 0 : maxContentBytes, null);
-        return new RestSharePointProvider(properties, mapper, _ -> "test-token");
+        return new RestSharePointGateway(properties, mapper, _ -> "test-token");
     }
 
-    private static SharePointProvider.Credential credential() {
-        return SharePointProvider.Credential.clientSecret(SharePointProvider.Cloud.GLOBAL,
+    private static SharePointGateway.Credential credential() {
+        return SharePointGateway.Credential.clientSecret(SharePointGateway.Cloud.GLOBAL,
                 UUID.randomUUID().toString(), UUID.randomUUID().toString(), "secret".getBytes(StandardCharsets.UTF_8));
     }
 

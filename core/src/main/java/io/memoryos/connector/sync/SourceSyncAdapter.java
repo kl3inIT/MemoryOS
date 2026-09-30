@@ -2,9 +2,10 @@ package io.memoryos.connector.sync;
 
 import io.memoryos.connector.ConnectorSyncPort.Work;
 import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.DueSource;
-import io.memoryos.connector.sync.persistence.SyncTarget;
+import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.util.List;
@@ -13,12 +14,12 @@ import org.jspecify.annotations.Nullable;
 /**
  * What one provider contributes to the {@link SourceSyncEngine}: which of its Sources are due, how it walks
  * its content, and how its failures are classified. The engine owns the attempt, its fences, acquisition,
- * removal and how the run ends.
+ * removal and how the run ends. One adapter per {@link SourceType}, held by the {@link SourceSyncAdapterRegistry}.
  */
-public interface SyncTraversal {
+public interface SourceSyncAdapter {
     SourceType type();
 
-    SyncTarget target();
+    SourceProviderCapabilities capabilities();
 
     /** Sources whose scheduled run is due, oldest schedule first. */
     List<DueSource> due(int limit);
@@ -34,6 +35,17 @@ public interface SyncTraversal {
      * any other schedule the provider keeps.
      */
     default void postponed(TenantId tenant, SourceId source) {
+    }
+
+    /**
+     * Inside the transaction that resumed a paused Source: continues what the pause interrupted, when the provider
+     * keeps a checkpoint worth continuing.
+     */
+    default void resumed(TenantId tenant, SourceId source, ActorId actor) {
+    }
+
+    /** Inside the transaction that removes one item from a Source: keeps later runs from acquiring it again. */
+    default void itemRemoved(TenantId tenant, SourceId source, SourceItemId item) {
     }
 
     /** Walks one execution slice of the run. */
@@ -56,7 +68,7 @@ public interface SyncTraversal {
     enum Slice {
         /** The run has more to do and continues in a later slice. */
         CONTINUE,
-        /** The run completed; the traversal called {@link SyncRun#complete()}. */
+        /** The run completed; the adapter called {@link SyncRun#complete()}. */
         COMPLETED,
         /** Item failures crossed the abort threshold. */
         ABORTED,

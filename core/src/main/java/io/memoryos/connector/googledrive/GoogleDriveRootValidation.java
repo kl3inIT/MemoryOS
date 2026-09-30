@@ -1,6 +1,6 @@
 package io.memoryos.connector.googledrive;
 
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import java.util.regex.Pattern;
 
@@ -9,13 +9,13 @@ public final class GoogleDriveRootValidation {
 
     private GoogleDriveRootValidation() {}
 
-    public static GoogleDriveProvider.FileMetadata resolveMyDriveRoot(GoogleDriveProvider.Session session) {
+    public static GoogleDriveGateway.FileMetadata resolveMyDriveRoot(GoogleDriveGateway.Session session) {
         var root = session.metadata("root");
         requireMyDriveRoot(root);
         return root;
     }
 
-    public static void requireMyDriveRoot(GoogleDriveProvider.FileMetadata root) {
+    public static void requireMyDriveRoot(GoogleDriveGateway.FileMetadata root) {
         if (root == null || root.id() == null || !FILE_ID.matcher(root.id()).matches() || "root".equals(root.id())
                 || root.name() == null || root.name().isBlank() || root.name().length() > 255
                 || root.version() == null || root.version().isBlank()) {

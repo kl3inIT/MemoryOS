@@ -1,7 +1,7 @@
 package io.memoryos.connector.googledrive;
 
-import io.memoryos.connector.GoogleDriveProvider;
-import io.memoryos.connector.GoogleDriveProvider.FileMetadata;
+import io.memoryos.connector.GoogleDriveGateway;
+import io.memoryos.connector.GoogleDriveGateway.FileMetadata;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveProviderException.Failure;
 import io.memoryos.connector.GoogleDriveSourceService.*;
@@ -44,7 +44,7 @@ final class GoogleDriveSelectionTree {
     private final String prefix;
     private final Position position;
     private final List<TreeEntry> top;
-    private GoogleDriveProvider.@Nullable Session session;
+    private GoogleDriveGateway.@Nullable Session session;
     private int operations;
 
     GoogleDriveSelectionTree(JdbcGoogleDriveSourceRepository drive, GoogleDriveMetadataCache cache,
@@ -80,7 +80,7 @@ final class GoogleDriveSelectionTree {
         return parentId != null || usable && top.stream().limit(size).anyMatch(this::needsCoverageCheck);
     }
 
-    Page read(GoogleDriveProvider.@Nullable Session session) {
+    Page read(GoogleDriveGateway.@Nullable Session session) {
         this.session = session;
         if (parentId == null) return linkedPage(top);
         if (!usable) throw SourceException.conflict("Google connection is unavailable");
@@ -256,7 +256,7 @@ final class GoogleDriveSelectionTree {
     private static boolean folder(Root root) { return folder(root.mimeType()); }
     private static boolean folder(String mimeType) { return "application/vnd.google-apps.folder".equals(mimeType); }
     private static boolean supported(String mimeType) { return GoogleDriveLinkedDiscovery.supported(mimeType); }
-    private static String fingerprint(GoogleDriveProvider.FilePage page) {
+    private static String fingerprint(GoogleDriveGateway.FilePage page) {
         var ids = new ByteArrayOutputStream();
         for (var file : page.files()) {
             ids.writeBytes(file.id().getBytes(StandardCharsets.UTF_8));

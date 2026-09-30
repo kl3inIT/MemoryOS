@@ -3,24 +3,27 @@ package io.memoryos.connector.googledrive;
 import io.memoryos.BusinessException;
 import io.memoryos.FailureEvidence;
 import io.memoryos.connector.ConnectorSyncPort.Work;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveProviderException.Failure;
 import io.memoryos.connector.GoogleDriveSourceService.ScopeMode;
+import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceInputFormat;
+import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceStorageFailure;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveAclRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository.Node;
+import io.memoryos.connector.sync.SourceProviderCapabilities;
 import io.memoryos.connector.sync.SyncRun;
-import io.memoryos.connector.sync.SyncTraversal;
+import io.memoryos.connector.sync.SourceSyncAdapter;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.DueSource;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.ItemFailure;
-import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.objectstorage.ObjectStorageException;
+import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -39,8 +42,8 @@ import org.springframework.stereotype.Component;
  * a listing that gave up on a node prunes nothing and releases only what it confirmed.
  */
 @Component
-public class GoogleDriveSyncTraversal implements SyncTraversal {
-    private static final Logger LOGGER = LoggerFactory.getLogger(GoogleDriveSyncTraversal.class);
+public class GoogleDriveSyncAdapter implements SourceSyncAdapter {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GoogleDriveSyncAdapter.class);
     private static final int MAX_STEPS = 16;
     private static final int MAX_ANCESTORS = 64;
     private static final String SERVICE_ACCOUNT = "SERVICE_ACCOUNT";
@@ -52,7 +55,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
     private final GoogleDriveConnectionService connections;
     private final GoogleGroupSynchronizer groups;
 
-    public GoogleDriveSyncTraversal(JdbcGoogleDriveSyncRepository google, JdbcGoogleDriveSourceRepository drive,
+    public GoogleDriveSyncAdapter(JdbcGoogleDriveSyncRepository google, JdbcGoogleDriveSourceRepository drive,
             JdbcGoogleDriveAclRepository acls, GoogleDriveConnectionService connections,
             GoogleGroupSynchronizer groups) {
         this.google = google;
@@ -68,13 +71,31 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
     }
 
     @Override
-    public SyncTarget target() {
-        return SyncTarget.GOOGLE_DRIVE;
+    public SourceProviderCapabilities capabilities() {
+        return new SourceProviderCapabilities(true);
     }
 
     @Override
     public List<DueSource> due(int limit) {
         return google.due(limit);
+    }
+
+    /** A run the pause cancelled continues from its retained frontier while scope and credential are unchanged. */
+    @Override
+    public void resumed(TenantId tenant, SourceId source, ActorId actor) {
+        try {
+            var state = connections.state(tenant, source);
+            if (connections.current(tenant, source, state.credentialRevision())) {
+                google.enqueueResumed(tenant, source, state.credentialRevision(), actor);
+            }
+        } catch (SourceException exception) {
+            if (!"SOURCE_NOT_FOUND".equals(exception.code())) throw exception;
+        }
+    }
+
+    @Override
+    public void itemRemoved(TenantId tenant, SourceId source, SourceItemId item) {
+        google.exclude(tenant, source, item);
     }
 
     @Override
@@ -132,7 +153,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
         return Slice.CONTINUE;
     }
 
-    private static String verifyGeneralRoot(GoogleDriveProvider.Session session, Set<String> roots) {
+    private static String verifyGeneralRoot(GoogleDriveGateway.Session session, Set<String> roots) {
         var current = GoogleDriveRootValidation.resolveMyDriveRoot(session);
         if (roots.size() != 1 || !roots.contains(current.id())) {
             throw new GoogleDriveProviderException(Failure.INCONSISTENT);
@@ -144,14 +165,14 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
     private final class Walk {
         private final SyncRun run;
         private final Work work;
-        private final GoogleDriveProvider.Session session;
+        private final GoogleDriveGateway.Session session;
         private final Set<String> roots;
         private final Set<String> approved;
         private final @Nullable String generalRoot;
         /** Whether the node being read already recorded its sharing settings, which a later failure keeps. */
         private boolean aclRecorded;
 
-        Walk(SyncRun run, GoogleDriveProvider.Session session, Set<String> roots, Set<String> approved,
+        Walk(SyncRun run, GoogleDriveGateway.Session session, Set<String> roots, Set<String> approved,
                 @Nullable String generalRoot) {
             this.run = run;
             this.work = run.work();
@@ -196,7 +217,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
         private void read(Node node) {
             boolean generalRootNode = node.fileId().equals(generalRoot);
             aclRecorded = false;
-            GoogleDriveProvider.FileMetadata file = null;
+            GoogleDriveGateway.FileMetadata file = null;
             try {
                 file = session.metadata(node.fileId());
                 if (generalRootNode) {
@@ -266,7 +287,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
         }
 
         /** One page of a folder's children, which join the frontier. */
-        private void list(Node node, GoogleDriveProvider.FileMetadata folder, String root) {
+        private void list(Node node, GoogleDriveGateway.FileMetadata folder, String root) {
             var page = session.listFiles(folder.id(), node.pageToken());
             if (page.nextPageToken() != null && page.nextPageToken().equals(node.pageToken()))
                 throw new GoogleDriveProviderException(Failure.MALFORMED);
@@ -285,7 +306,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
          * A file: its sharing settings and whether the held version is current are recorded in one fence; only
          * a changed file is downloaded, and it is recognised or adopted in a second.
          */
-        private void leaf(Node node, GoogleDriveProvider.FileMetadata file, String root) {
+        private void leaf(Node node, GoogleDriveGateway.FileMetadata file, String root) {
             var acl = sharing(file);
             boolean unchanged = run.fenced(_ -> {
                 run.observed(file.id(), file.name());
@@ -322,7 +343,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
          * Reads a file's sharing settings. A failure is recorded on the snapshot and the file is still read,
          * except that a revoked credential stops the run.
          */
-        private Acl sharing(GoogleDriveProvider.FileMetadata file) {
+        private Acl sharing(GoogleDriveGateway.FileMetadata file) {
             try {
                 var permissions = session.permissions(file.id());
                 if (!file.version().equals(session.metadata(file.id()).version()))
@@ -346,7 +367,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
         }
 
         /** The file is no longer part of the Source: trashed, gone, outside every root or excluded. */
-        private void absent(Node node, GoogleDriveProvider.@Nullable FileMetadata file, String errorCode) {
+        private void absent(Node node, GoogleDriveGateway.@Nullable FileMetadata file, String errorCode) {
             run.fenced(_ -> {
                 if (file != null && !file.folder()) run.observed(file.id(), file.name());
                 run.skipped(node.fileId());
@@ -358,7 +379,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
         }
 
         /** Counts a failed read; after its in-run retries the node becomes an item error of the run. */
-        private void failed(Node node, GoogleDriveProvider.@Nullable FileMetadata file, String code,
+        private void failed(Node node, GoogleDriveGateway.@Nullable FileMetadata file, String code,
                 boolean unsupported, boolean recordAcl, RuntimeException exception) {
             run.fenced(_ -> {
                 if (file != null && !file.folder()) run.observed(file.id(), file.name());
@@ -377,7 +398,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
          * The root a file belongs to, walking its ancestors. A folder this run already placed answers from the
          * membership it recorded, so Drive is asked only about ancestors the run has not listed.
          */
-        private @Nullable String membership(GoogleDriveProvider.FileMetadata file) {
+        private @Nullable String membership(GoogleDriveGateway.FileMetadata file) {
             if (roots.contains(file.id())) return file.id();
             var level = new ArrayList<>(file.parents());
             var visited = new HashSet<String>();
@@ -407,7 +428,7 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
     }
 
     /** A file's sharing settings as read, or why they could not be read. */
-    private record Acl(@Nullable List<GoogleDriveProvider.Permission> permissions,
+    private record Acl(@Nullable List<GoogleDriveGateway.Permission> permissions,
                        @Nullable GoogleDriveProviderException failure) {
         void record(Work work, String fileId, JdbcGoogleDriveAclRepository acls) {
             if (failure == null) acls.recordSuccess(work, fileId, Objects.requireNonNull(permissions));
@@ -422,10 +443,10 @@ public class GoogleDriveSyncTraversal implements SyncTraversal {
     private final class GroupSync {
         private final Work work;
         private final GoogleDriveConnectionService.State credential;
-        private final GoogleDriveProvider.Session session;
+        private final GoogleDriveGateway.Session session;
         private boolean pending;
 
-        GroupSync(Work work, GoogleDriveConnectionService.State credential, GoogleDriveProvider.Session session) {
+        GroupSync(Work work, GoogleDriveConnectionService.State credential, GoogleDriveGateway.Session session) {
             this.work = work;
             this.credential = credential;
             this.session = session;

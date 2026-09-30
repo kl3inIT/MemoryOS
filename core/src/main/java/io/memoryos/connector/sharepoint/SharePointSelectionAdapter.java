@@ -2,15 +2,17 @@ package io.memoryos.connector.sharepoint;
 
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointException;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
-import io.memoryos.connector.SharePointSelectionProcessor;
 import io.memoryos.connector.SharePointSourceService.RootKind;
 import io.memoryos.connector.SharePointSourceService.Scope;
 import io.memoryos.connector.SharePointSourceService.ScopeMode;
 import io.memoryos.connector.SourceException;
+import io.memoryos.connector.SourceSelectionProcessor.Result;
+import io.memoryos.connector.SourceSelectionProcessor.Work;
+import io.memoryos.connector.SourceType;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository;
-import io.memoryos.connector.sync.SelectionBatchProcessor;
+import io.memoryos.connector.sync.BatchedSelectionAdapter;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository.Entry;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository.Intent;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
@@ -26,19 +28,23 @@ import org.springframework.transaction.PlatformTransactionManager;
  * of its own URL rather than its display name, so a site in any language resolves.
  */
 @Service
-public class DefaultSharePointSelectionProcessor extends SelectionBatchProcessor
-        implements SharePointSelectionProcessor {
+public class SharePointSelectionAdapter extends BatchedSelectionAdapter {
     private final JdbcSharePointSelectionRepository selections;
     private final DefaultSharePointSourceService sources;
     private final SharePointConnectionService connections;
 
-    public DefaultSharePointSelectionProcessor(JdbcSharePointSelectionRepository selections,
+    public SharePointSelectionAdapter(JdbcSharePointSelectionRepository selections,
             DefaultSharePointSourceService sources, SharePointConnectionService connections,
             PlatformTransactionManager transactionManager) {
         super(selections.operations(), transactionManager);
         this.selections = selections;
         this.sources = sources;
         this.connections = connections;
+    }
+
+    @Override
+    public SourceType type() {
+        return SourceType.SHAREPOINT;
     }
 
     @Override
@@ -86,7 +92,7 @@ public class DefaultSharePointSelectionProcessor extends SelectionBatchProcessor
     }
 
     /** Resolves the roots that are still unverified, checkpointing each one as it succeeds. */
-    private void verify(Work work, Intent intent, SharePointProvider.Session session, long started) {
+    private void verify(Work work, Intent intent, SharePointGateway.Session session, long started) {
         for (Entry entry : selections.entries(work)) {
             if (!entry.root() || entry.verified()) continue;
             requireBatchTime(started);
@@ -121,7 +127,7 @@ public class DefaultSharePointSelectionProcessor extends SelectionBatchProcessor
     }
 
     /** Matches the library by the path of its URL, which stays the same whatever the site language is. */
-    private static SharePointProvider.Library library(SharePointProvider.Session session, String siteId,
+    private static SharePointGateway.Library library(SharePointGateway.Session session, String siteId,
             SharePointUrl url) {
         String wanted = url.sitePath() + "/" + Objects.requireNonNull(url.librarySegment());
         for (var library : session.libraries(siteId)) {

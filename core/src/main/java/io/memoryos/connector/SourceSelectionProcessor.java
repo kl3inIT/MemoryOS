@@ -8,7 +8,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Verifying an accepted scope request against its provider. Every connector that accepts a selection and
- * activates it asynchronously shares this shape, so one worker processor serves all of them.
+ * activates it asynchronously shares this shape, so one worker processor serves all of them; the request's
+ * provider adapter does the verification.
  */
 public interface SourceSelectionProcessor {
     Optional<Work> claim(TenantId tenant, SourceOperationId operation, UUID deliveryId);
@@ -18,7 +19,7 @@ public interface SourceSelectionProcessor {
     Result execute(Work work);
 
     record Work(TenantId tenantId, SourceId sourceId, SourceOperationId operationId, UUID claimToken,
-            @Nullable Duration initialQueueWait) {}
+            @Nullable Duration initialQueueWait, SourceType sourceType) {}
 
     enum Result { CONTINUED, COMPLETED, FAILED, SUPERSEDED }
 }

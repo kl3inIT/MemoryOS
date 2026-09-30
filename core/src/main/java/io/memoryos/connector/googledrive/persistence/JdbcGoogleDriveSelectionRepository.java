@@ -8,7 +8,6 @@ import io.memoryos.connector.sync.persistence.SelectionOperations;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.GroupId;
-import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -25,8 +24,7 @@ public class JdbcGoogleDriveSelectionRepository {
 
     public JdbcGoogleDriveSelectionRepository(JdbcClient jdbc) {
         this.jdbc = jdbc;
-        this.operations = new SelectionOperations(jdbc, "google_drive_selection_operations",
-                SourceOperationType.VALIDATE_GOOGLE_DRIVE_SELECTION);
+        this.operations = new SelectionOperations(jdbc, SourceType.GOOGLE_DRIVE);
     }
 
     public Optional<Boolean> ancestorCoverage(Work work,String id) {
@@ -57,8 +55,8 @@ public class JdbcGoogleDriveSelectionRepository {
                 """).param("tenant",work.tenantId().value()).param("operation",work.operationId().value())
                 .param("file",entry.id()).param("kind",entry.kind()).param("parent",parent).update();
         if (added>0 && jdbc.sql("""
-                UPDATE google_drive_selection_operations SET ancestor_count=ancestor_count+:added
-                WHERE tenant_id=:tenant AND id=:operation AND ancestor_count+:added<=200000
+                UPDATE google_drive_selection_details SET ancestor_count=ancestor_count+:added
+                WHERE tenant_id=:tenant AND operation_id=:operation AND ancestor_count+:added<=200000
                 """).param("tenant",work.tenantId().value()).param("operation",work.operationId().value()).param("added",added).update()!=1)
             throw SourceException.invalid("The selection exceeds the ancestor verification budget.",
                     "selection ancestor checkpoint budget exceeded");
@@ -81,10 +79,6 @@ public class JdbcGoogleDriveSelectionRepository {
                 .param("file",entry.id()).param("kind",entry.kind()).param("ancestor",ancestor).update();
     }
 
-    public void cancelForSource(TenantId tenant, SourceId source) {
-        operations.cancelForSource(tenant, source);
-    }
-
     public Optional<SourceOperationView> find(TenantId tenant, SourceOperationId operation) {
         return operations.find(tenant, operation);
     }
@@ -103,24 +97,19 @@ public class JdbcGoogleDriveSelectionRepository {
             ScopeMode mode, @Nullable String name, List<String> roots, List<LinkedDocument> approvals, SelectionPolicy policy,
             List<GroupId> groupIds, @Nullable SourceAccess access) {
         operations.supersedePending(tenant, source);
-        UUID id = UUID.randomUUID();
         var trace = SourceOperationTraceContext.current();
+        UUID id = operations.insert(tenant, actor, request, hash, source, credential.value(), credentialRevision,
+                scopeRevision, name, access == null ? null : access.name(),
+                groupIds.stream().map(idValue -> "\"" + idValue.value() + "\"").collect(Collectors.joining(",", "[", "]")),
+                new SelectionOperations.Budget(Math.min(100000, policy.maxExplicitRootsPerSource() * 64 + 4096),
+                        policy.maxExplicitRootsPerSource(), policy.maxRequestBytes()),
+                trace == null ? null : trace.traceId(), trace == null ? null : trace.spanId());
         jdbc.sql("""
-                INSERT INTO google_drive_selection_operations(id,tenant_id,source_id,actor_id,request_id,request_hash,
-                    credential_id,credential_revision,scope_revision,discovery_revision,scope_mode,source_name,
-                    max_requests,max_metadata,max_roots,max_request_bytes,origin_trace_id,origin_span_id,group_ids,access_type)
-                VALUES(:id,:tenant,:source,:actor,:request,:hash,:credential,:credentialRevision,:scope,:discovery,
-                    :mode,:name,:requests,:metadata,:roots,:bytes,:trace,:span,CAST(:groups AS jsonb),:access)
-                """).param("id",id).param("tenant",tenant.value()).param("source",source.value()).param("actor",actor.value())
-                .param("access", access == null ? null : access.name(), Types.VARCHAR)
-                .param("request",request).param("hash",hash).param("credential",credential.value())
-                .param("credentialRevision",credentialRevision).param("scope",scopeRevision).param("discovery",discoveryRevision)
-                .param("mode",mode.name()).param("name",name).param("requests",Math.min(100000,policy.maxExplicitRootsPerSource()*64+4096))
-                .param("metadata",Math.min(50000,policy.maxExplicitRootsPerSource()*32+4096))
-                .param("roots",policy.maxExplicitRootsPerSource()).param("bytes",policy.maxRequestBytes())
-                .param("groups", groupIds.stream().map(idValue -> "\"" + idValue.value() + "\"")
-                        .collect(Collectors.joining(",", "[", "]")))
-                .param("trace",trace == null ? null : trace.traceId()).param("span",trace == null ? null : trace.spanId()).update();
+                INSERT INTO google_drive_selection_details(tenant_id,operation_id,scope_mode,discovery_revision,max_metadata)
+                VALUES(:tenant,:operation,:mode,:discovery,:metadata)
+                """).param("tenant", tenant.value()).param("operation", id).param("mode", mode.name())
+                .param("discovery", discoveryRevision)
+                .param("metadata", Math.min(50000, policy.maxExplicitRootsPerSource() * 32 + 4096)).update();
         for (String root : mode == ScopeMode.GENERAL ? List.of("root") : roots)
             entry(tenant,id,root,"ROOT",false,null,null);
         for (var approval : approvals) entry(tenant,id,approval.id(),"APPROVAL",approval.selected(),approval.name(),approval.mimeType());
@@ -153,7 +142,11 @@ public class JdbcGoogleDriveSelectionRepository {
     }
 
     public Intent intent(Work work) {
-        return jdbc.sql("SELECT * FROM google_drive_selection_operations WHERE tenant_id=:tenant AND id=:id")
+        return jdbc.sql("""
+                SELECT o.*, d.scope_mode, d.discovery_revision FROM source_selection_operations o
+                JOIN google_drive_selection_details d ON d.tenant_id=o.tenant_id AND d.operation_id=o.id
+                WHERE o.tenant_id=:tenant AND o.id=:id
+                """)
                 .param("tenant",work.tenantId().value()).param("id",work.operationId().value()).query((r,_) -> new Intent(
                         new ActorId(r.getObject("actor_id",UUID.class)),r.getObject("credential_id",UUID.class),
                         r.getLong("credential_revision"),r.getLong("scope_revision"),r.getLong("discovery_revision"),
@@ -168,7 +161,7 @@ public class JdbcGoogleDriveSelectionRepository {
 
     private List<GroupId> groupIds(Work work) {
         return jdbc.sql("""
-                SELECT value FROM google_drive_selection_operations,
+                SELECT value FROM source_selection_operations,
                   jsonb_array_elements_text(group_ids) AS selected(value)
                 WHERE tenant_id=:tenant AND id=:id ORDER BY value
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
@@ -182,25 +175,26 @@ public class JdbcGoogleDriveSelectionRepository {
                         r.getBoolean("covered"),r.getString("status"),r.getString("name"),r.getString("mime_type"))).list();
     }
 
-    public Optional<GoogleDriveProvider.FileMetadata> metadata(Work work,String id) {
+    public Optional<GoogleDriveGateway.FileMetadata> metadata(Work work,String id) {
         return jdbc.sql("SELECT * FROM google_drive_selection_metadata WHERE tenant_id=:tenant AND operation_id=:operation AND lookup_id=:id")
                 .param("tenant",work.tenantId().value()).param("operation",work.operationId().value()).param("id",id)
-                .query((r,_) -> new GoogleDriveProvider.FileMetadata(r.getString("file_id"),r.getString("name"),r.getString("mime_type"),
+                .query((r,_) -> new GoogleDriveGateway.FileMetadata(r.getString("file_id"),r.getString("name"),r.getString("mime_type"),
                         r.getString("version"),null,null,r.getBoolean("trashed"),Arrays.asList((String[])r.getArray("parents").getArray()),
                         r.getString("drive_id"),r.getString("shortcut_target_id"))).optional();
     }
 
     public void reserveRequest(Work work) {
         if (jdbc.sql("""
-                UPDATE google_drive_selection_operations SET request_count=request_count+1
+                UPDATE source_selection_operations o SET request_count=request_count+1
                 WHERE tenant_id=:tenant AND id=:id AND claim_token=:token AND status='IN_PROGRESS'
                     AND lease_expires_at>CURRENT_TIMESTAMP AND request_count<max_requests AND elapsed_millis<3600000
-                    AND metadata_count<max_metadata
+                    AND EXISTS (SELECT 1 FROM google_drive_selection_details d
+                        WHERE d.tenant_id=o.tenant_id AND d.operation_id=o.id AND d.metadata_count<d.max_metadata)
                 """).param("tenant",work.tenantId().value()).param("id",work.operationId().value()).param("token",work.claimToken()).update()!=1)
             throw SourceException.invalid("The selection exceeds the verification budget.","selection operation budget exceeded");
     }
 
-    public void cache(Work work,String lookup,GoogleDriveProvider.FileMetadata file) {
+    public void cache(Work work,String lookup,GoogleDriveGateway.FileMetadata file) {
         int added=jdbc.sql("""
                 INSERT INTO google_drive_selection_metadata(tenant_id,operation_id,lookup_id,file_id,name,mime_type,version,
                     trashed,drive_id,shortcut_target_id,parents)
@@ -211,8 +205,8 @@ public class JdbcGoogleDriveSelectionRepository {
                 .param("trashed",file.trashed()).param("drive",file.driveId()).param("shortcut",file.shortcutTargetId())
                 .param("parents","{"+String.join(",",file.parents())+"}").update();
         if (added>0) jdbc.sql("""
-                UPDATE google_drive_selection_operations SET metadata_count=metadata_count+1
-                WHERE tenant_id=:tenant AND id=:id
+                UPDATE google_drive_selection_details SET metadata_count=metadata_count+1
+                WHERE tenant_id=:tenant AND operation_id=:id
                 """).param("tenant",work.tenantId().value()).param("id",work.operationId().value()).update();
     }
 

@@ -9,7 +9,7 @@ import static io.memoryos.connector.SharePointProviderException.Failure.QUOTA;
 import static io.memoryos.connector.SharePointProviderException.Failure.RESYNC_REQUIRED;
 import static io.memoryos.connector.SharePointProviderException.Failure.UNAVAILABLE;
 
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.adapter.RetryAfter;
 import io.memoryos.connector.adapter.sharepoint.SharePointProviderMetrics.Operation;
@@ -46,7 +46,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 
-public final class RestSharePointProvider implements SharePointProvider, AutoCloseable {
+public final class RestSharePointGateway implements SharePointGateway, AutoCloseable {
     static final String PAGE_SCHEMA = "memoryos-sharepoint-page-v1";
     private static final String PAGE_FIELDS = "id,name,title,description,webUrl,eTag,lastModifiedDateTime";
     private static final int MAX_WEB_PARTS = 200;
@@ -61,17 +61,17 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
     private final SharePointTokenSource tokens;
     private final SharePointProviderMetrics metrics;
 
-    public RestSharePointProvider(SharePointProviderProperties properties, ObjectMapper mapper,
+    public RestSharePointGateway(SharePointProviderProperties properties, ObjectMapper mapper,
             MeterRegistry registry) {
         this(properties, mapper, null, registry);
     }
 
-    RestSharePointProvider(SharePointProviderProperties properties, ObjectMapper mapper,
+    RestSharePointGateway(SharePointProviderProperties properties, ObjectMapper mapper,
             @Nullable SharePointTokenSource tokenSource) {
         this(properties, mapper, tokenSource, new SimpleMeterRegistry());
     }
 
-    RestSharePointProvider(SharePointProviderProperties properties, ObjectMapper mapper,
+    RestSharePointGateway(SharePointProviderProperties properties, ObjectMapper mapper,
             @Nullable SharePointTokenSource tokenSource, MeterRegistry registry) {
         this.properties = properties;
         this.mapper = mapper;
@@ -136,7 +136,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
 
         private Folder folder0(String driveId, List<String> folderSegments) {
             if (folderSegments.isEmpty()) throw new SharePointProviderException(MALFORMED);
-            String path = String.join("/", folderSegments.stream().map(RestSharePointProvider::encodePath).toList());
+            String path = String.join("/", folderSegments.stream().map(RestSharePointGateway::encodePath).toList());
             var node = get("/drives/" + encodePath(driveId) + "/root:/" + path + "?$select=id,name,folder", new Budget());
             if (node.path("folder").isMissingNode()) throw new SharePointProviderException(NOT_FOUND);
             return new Folder(required(node, "id"), required(node, "name"));

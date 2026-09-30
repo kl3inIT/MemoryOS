@@ -1,7 +1,6 @@
 package io.memoryos.ingestion;
 
-import io.memoryos.connector.GoogleDriveAclChanged;
-import io.memoryos.connector.GoogleDriveAclSnapshot;
+import io.memoryos.connector.SourceAclChanged;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.ingestion.application.SearchProjectionMaintenance;
 import io.memoryos.shared.Sha256;
@@ -345,8 +344,7 @@ class SearchIndexWorkIntegrationTest {
             var source = mapToFileSource(document);
             var maintenance = new SearchProjectionMaintenance(chunks, work, index,
                     new DataSourceTransactionManager(dataSource), 64);
-            var changed = new GoogleDriveAclChanged(tenant, source, "file", List.of(document), 2,
-                    GoogleDriveAclSnapshot.Status.SUCCEEDED, null);
+            var changed = new SourceAclChanged(tenant, source, "file", List.of(document), 2);
             tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
             assertEquals(0, count("search_index_operations WHERE action='ACCESS'"), "A Private Source ignores provider permissions");
 
@@ -354,8 +352,8 @@ class SearchIndexWorkIntegrationTest {
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='SYNC' WHERE id=:id").param("id", source.value()).update();
             tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
             tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
-            tx.executeWithoutResult(_ -> maintenance.aclChanged(new GoogleDriveAclChanged(tenant, source,
-                    "unmapped", List.of(), 1, GoogleDriveAclSnapshot.Status.SUCCEEDED, null)));
+            tx.executeWithoutResult(_ -> maintenance.aclChanged(new SourceAclChanged(tenant, source,
+                    "unmapped", List.of(), 1)));
             assertEquals(1, count("search_index_operations WHERE action='ACCESS' AND status='NOT_STARTED'"),
                     "Repeated permission changes collapse into one pending refresh");
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));

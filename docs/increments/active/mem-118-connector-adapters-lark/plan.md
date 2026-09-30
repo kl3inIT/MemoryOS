@@ -1,9 +1,9 @@
 # Implementation plan
 
 Builds on [ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) and the delivered
-[provider adapter registries](../../completed/provider-adapter-registries/plan.md). Steps 1 to 5 preserve behavior;
-each numbered step is its own pull request. The database comes first (owner decision 2026-09-30); Lark Suite is
-deferred.
+[provider adapter registries](../../completed/provider-adapter-registries/plan.md). Steps 1 to 5 preserve behavior
+and are one pull request (owner decision 2026-09-30); what was built is in the design's
+[as delivered](design.md#as-delivered). Lark Suite is deferred.
 
 ## 0. Scope and inventory
 
@@ -12,72 +12,63 @@ deferred.
 - [x] Owner decision 2026-09-30: the selection-verification queue merges into one `source_selection_operations`
   table with a details table per provider.
 - [x] Comparison of every provider table pair ([design](design.md#connector-database)), 2026-09-30.
-- [ ] Owner review of the two further splits (`source_sync_state`, credential state on `credentials`).
+- [x] Owner decision 2026-09-30: steps 1 to 5 are one pull request.
 
 ## 1. One selection queue table
 
-- [ ] Migration: create `source_selection_operations`, `google_drive_selection_details` and
-  `sharepoint_selection_details`; copy every row of both old tables; repoint the child tables' foreign keys;
-  replace the per-provider trigger functions with provider-neutral ones; drop the old tables.
-- [ ] `SelectionOperations` without a table name; the Drive and SharePoint selection repositories read and write the
-  header and their details table; `JdbcSourceOperationQueryRepository` reads one table and derives the operation
-  type from `source_type`.
-- [ ] `JdbcOperationDispatchRepository`: both existing workloads select from the one table by `source_type`, so the
-  streams and the Worker are untouched in this pull request.
-- [ ] Migration test on a database with rows of both providers in every status and with child rows; the trigger
-  behaviors (credential deleted or changed, Source deleting, membership revoked, Tenant inactive) re-verified;
-  existing selection tests unchanged; `OpenApiContractTest` unchanged; `clean check`.
+- [x] `V134`: `source_selection_operations`, `google_drive_selection_details` and
+  `sharepoint_selection_details`; every row of both old tables copied; the checkpoint tables reference the details
+  tables; the ten per-provider trigger functions replaced by four provider-neutral ones; the old tables dropped.
+- [x] `SelectionOperations` serves one `SourceType` of the shared table; the Drive and SharePoint selection
+  repositories write the header and their details row; `JdbcSourceOperationQueryRepository` reads one table and
+  derives the operation type from `source_type`.
+- [x] `ConnectorStandardizationMigrationTest`: rows of both providers in every status with their checkpoint rows;
+  credential changed, unusable or deleted, Source deleting or deleted, membership revoked and Tenant inactive
+  re-verified.
 
 ## 2. One sync state table
 
-- [ ] Migration: create `source_sync_state` (scope revision, generation, schedule revision, interval, next and last
-  sync, paused); copy from `google_drive_sources` and `sharepoint_sources`; repoint what reads those columns; drop
-  them from the provider tables.
-- [ ] `JdbcSourceSyncRepository` and the Drive and SharePoint source repositories read and write the neutral table;
-  `SyncTarget` loses its Source table and scope revision column.
-- [ ] Migration test with Sources of both providers in every sync state; existing sync and schedule tests unchanged;
-  `clean check`.
+- [x] `V134`: `source_sync_state`; rows copied from `google_drive_sources` and `sharepoint_sources`; the moved
+  columns dropped; a provider Source row requires its state row.
+- [x] `JdbcSourceSyncRepository`, the indexing and dispatch eligibility queries and the Drive and SharePoint source
+  repositories read and write the neutral table.
 
 ## 3. Credential state on `credentials`
 
-- [ ] Migration: add `connection_status`, `credential_revision`, `payload_revision` and `auth_method` to
-  `credentials`; copy from both provider credential tables; repoint the credential fences; drop the moved columns.
-- [ ] Repositories read the state from `credentials`; `SyncTarget` is deleted.
-- [ ] Migration test with credentials of both providers in every connection status; credential change and deletion
-  behaviors re-verified; `clean check`.
+- [x] `V134`: `credential_revision` and `payload_revision` on `credentials`; `credentials.status` reconciled with the
+  provider copies; SharePoint's copy dropped; Google Drive's copy held equal by a foreign key; the credential fence
+  moved to `credentials`.
+- [x] Repositories read and write the state on `credentials`; `SyncTarget` deleted.
 
-## 4. Registries, one workload and names (no schema change)
+## 4. Registries, one workload and names
 
-- [ ] `SyncTraversal` becomes `SourceSyncAdapter`; `SourceSyncAdapterRegistry` replaces the engine's map and fails
-  startup on a missing or duplicate adapter; `ProviderAuthorityService` removed.
-- [ ] `SourceCapabilities.permissionSync` replaces `type == GOOGLE_DRIVE` in `SourceAccessPolicy`; `resume` on the
-  adapter replaces the Drive-only branch in `DefaultSourceManagementService`.
-- [ ] `OperationWorkload.SELECTION_VALIDATION`; `SourceSelectionProcessor.type()`; processors in a registry keyed by
-  `SourceType`, complete except `FILE`; one candidate query.
-- [ ] Worker: one relay task, stream, group and property block. The old streams drain in this release and their
-  consumers are removed in the next; an undelivered operation is relayed again from PostgreSQL.
-- [ ] `GoogleDriveProvider`/`SharePointProvider` become `…Gateway`, with their `sources` implementations.
-- [ ] Registry tests; Worker started and a verification of each provider observed on the new stream; existing
-  connector tests unchanged; `clean check`.
+- [x] `SourceSyncAdapter` and `SourceSyncAdapterRegistry`; `ProviderAuthorityService` removed.
+- [x] `SourceProviderCapabilities.permissionSync` replaces `type == GOOGLE_DRIVE` in `SourceAccessPolicy`; `resumed`
+  and `itemRemoved` on the adapter replace the Drive-only calls in `DefaultSourceManagementService`.
+- [x] `OperationWorkload.SELECTION_VALIDATION`; `SourceSelectionAdapter` and `SourceSelectionAdapterRegistry`; one
+  candidate query; one relay task, stream and group.
+- [x] `GoogleDriveGateway`, `SharePointGateway` and their `sources` implementations.
+- [x] `SourceAdapterRegistryTest`; the connector, ingestion and boundary tests.
+- [ ] Worker started against the migrated database and a verification of each provider observed on the shared
+  stream.
 
-## 5. Deep links and permission-change event
+## 5. Permission-change event
 
-- [ ] `documentUrl` on the adapter replaces the Drive-only rule in `DocumentSourceMetadata`; first confirm what
-  SharePoint stores for a document's web URL and return it when present.
-- [ ] `SourceAclChanged` replaces `GoogleDriveAclChanged`.
-- [ ] Citation and projection tests; `clean check`.
+- [x] `SourceAclChanged` replaces `GoogleDriveAclChanged`.
 
-## 6. Hierarchy for readers
+## 6. Document links and hierarchy for readers
 
+- [ ] `documentUrl` on the adapter replaces the Drive-only rule in `DocumentSourceMetadata` and the Drive-only link
+  check in `ChatSource`; first confirm what SharePoint stores for a document's web URL and return it when present.
 - [ ] `SourceHierarchyAdapter` for Google Drive and SharePoint from stored provider state; endpoint under the
   Sources API; contract regenerated.
 - [ ] The tree on the library's Sources view; browser evidence and owner approval before merge.
 
 ## 7. Consolidate
 
-- [ ] `ARCHITECTURE.md`, the connector and ingestion specs and test matrices describe the neutral tables and the
+- [x] `ARCHITECTURE.md`, the connector and ingestion specs and test matrices describe the neutral tables and the
   registries.
-- [ ] Reconcile the roadmap; this increment stays active for Lark or is closed and Lark gets its own.
+- [ ] Reconcile the roadmap; this increment stays active for steps 6 and Lark or is closed and they get their own.
 
 ## Deferred: Lark Suite
 
