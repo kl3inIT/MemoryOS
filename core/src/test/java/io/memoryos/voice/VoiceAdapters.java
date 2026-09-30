@@ -11,7 +11,7 @@ final class VoiceAdapters {
 
     static List<VoiceAdapter> all() {
         return List.of(new OpenAiVoiceAdapter(), new OpenAiCompatibleVoiceAdapter(), new ElevenLabsVoiceAdapter(),
-                new AzureVoiceAdapter(), new SonioxVoiceAdapter());
+                new AzureVoiceAdapter(new FakeAzureSpeechGateway()), new SonioxVoiceAdapter());
     }
 
     static VoiceAdapterRegistry registry() { return new VoiceAdapterRegistry(all()); }

@@ -46,6 +46,11 @@ dependencies {
     implementation(libs.pdfbox)
     implementation(libs.poi.ooxml)
     implementation(libs.commons.csv)
+    // Published as an AAR; its JAR carries the Java API and the native libraries for Linux, Windows and macOS. azure-core
+    // comes with it: SpeechConfig's endpoint overloads name its TokenCredential.
+    implementation(libs.azure.speech) {
+        artifact { type = "jar" }
+    }
     implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.spring.security.crypto)

@@ -21,10 +21,13 @@ spring-ai = "2.0.1"
 embabel = "1.5.2"
 opensearch-java = "3.10.0"
 msal4j = "1.21.0"
+# MEM-137: realtime dictation and streamed read-aloud for Azure; the REST client stays for recordings.
+azure-speech = "1.52.0"
 # Aligned with the version spring-ai-mcp 2.0.1 (via Embabel) resolves; the Spring AI BOM does not manage it.
 mcp-sdk = "2.0.0"
 
 [libraries]
+azure-speech = { module = "com.microsoft.cognitiveservices.speech:client-sdk", version.ref = "azure-speech" }
 spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
 spring-ai-openai = { module = "org.springframework.ai:spring-ai-openai" }
 embabel-api = { module = "com.embabel.agent:embabel-agent-api", version.ref = "embabel" }
