@@ -4,13 +4,16 @@ import io.memoryos.chat.ChatCodeEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatResearchEvent;
-import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatMessage.Status;
+import io.memoryos.chat.ChatResearchEvent;
+import io.memoryos.chat.ChatToolEvent;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Objects;
 import org.springframework.dao.DataAccessException;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
+import tools.jackson.databind.ObjectWriter;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
@@ -22,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
+import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 
 import org.jspecify.annotations.Nullable;
@@ -47,9 +51,14 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 public final class StreamBufferWriter {
     private static final Logger LOG = LoggerFactory.getLogger(StreamBufferWriter.class);
     private static final ObjectMapper JSON = new ObjectMapper();
+    /** Written through the interface type, so every entry carries its {@code type}. */
+    private static final ObjectWriter EVENT_WRITER = JSON.writerFor(ChatStreamEvent.class);
+    private static final ObjectReader EVENT_READER = JSON.readerFor(ChatStreamEvent.class);
     static final String PREFIX = "memoryos:chat:stream:";
     private static final String TRUNCATED = "truncated";
-    private static final String OUTCOME = "outcome";
+
+    /** What a pending chunk of text becomes when it is published. */
+    private enum Pending { TEXT, REASONING, RESEARCH_PLAN, INTERMEDIATE_REPORT }
     /** A read that finds a reply no longer RUNNING waits this long for its outcome, written after the terminal commit. */
     private static final long FINAL_DRAIN_NANOS = TimeUnit.SECONDS.toNanos(2);
     /**
@@ -76,35 +85,7 @@ public final class StreamBufferWriter {
         this.millis = millis;
     }
 
-    public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                        @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
-                        @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
-                        @Nullable String parentToolCallId, @Nullable ChatCodeEvent code) {
-        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
-                     @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
-                     @Nullable String parentToolCallId) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, research, parentToolCallId, null);
-        }
-        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
-                     @Nullable ChatImageEvent image, boolean hasArtifacts) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, null, null, null);
-        }
-        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool, boolean hasArtifacts) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, tool, null, hasArtifacts);
-        }
-        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, tool, false);
-        }
-        public String id() {
-            return assistantMessageId + ":" + sequence;
-        }
-    }
-
-    public record Batch(List<Event> events, boolean done, @Nullable String reset) {
+    public record Batch(List<ChatStreamEvent> events, boolean done, @Nullable String reset) {
     }
 
     /** One entry waiting for Redis; {@code data} is null for the truncation marker. */
@@ -117,17 +98,17 @@ public final class StreamBufferWriter {
     }
 
     public void append(UUID id, String text) {
-        appendPending(id, "text-delta", null, text);
+        appendPending(id, Pending.TEXT, null, text);
     }
 
     /** Reasoning shares the answer's chunking; a change between text and reasoning flushes the pending chunk first. */
     public void reasoning(UUID id, String text) {
-        appendPending(id, "reasoning", null, text);
+        appendPending(id, Pending.REASONING, null, text);
     }
 
     /** Reasoning of a research agent chunks apart from the orchestrator's and from other agents'. */
     public void reasoning(UUID id, String text, @Nullable String parentToolCallId) {
-        appendPending(id, "reasoning", parentToolCallId, text);
+        appendPending(id, Pending.REASONING, parentToolCallId, text);
     }
 
     /**
@@ -136,30 +117,36 @@ public final class StreamBufferWriter {
      */
     public void research(UUID id, ChatResearchEvent event) {
         switch (event.kind()) {
-            case PLAN_DELTA -> appendPending(id, "research-plan", null, event.text());
-            case REPORT_DELTA -> appendPending(id, "intermediate-report", event.toolCallId(), event.text());
-            case BRANCHING -> publishNow(id, "top-level-branching", event);
-            case AGENT_START -> publishNow(id, "research-agent-start", event);
-            case REPORT_CITATIONS -> publishNow(id, "intermediate-report-citations", event);
+            case PLAN_DELTA -> appendPending(id, Pending.RESEARCH_PLAN, null, Objects.requireNonNull(event.text()));
+            case REPORT_DELTA -> appendPending(id, Pending.INTERMEDIATE_REPORT, event.toolCallId(),
+                    Objects.requireNonNull(event.text()));
+            case BRANCHING -> publishNow(id, sequence ->
+                    new TopLevelBranching(id, sequence, Objects.requireNonNull(event.branches())));
+            case AGENT_START -> publishNow(id, sequence -> new ResearchAgentStart(id, sequence,
+                    Objects.requireNonNull(event.toolCallId()), Objects.requireNonNull(event.tabIndex()),
+                    Objects.requireNonNull(event.text())));
+            case REPORT_CITATIONS -> publishNow(id, sequence -> new IntermediateReportCitations(id, sequence,
+                    Objects.requireNonNull(event.toolCallId()), event.citations()));
             // History carries the clarification flag; the question itself streams as answer text.
             case CLARIFICATION -> { }
         }
     }
 
-    private void publishNow(UUID id, String type, ChatResearchEvent event) {
+    /** Flushes the pending chunk, then publishes the event built for the next sequence. */
+    private void publishNow(UUID id, LongFunction<ChatStreamEvent> event) {
         var stream = require(id);
         synchronized (stream) {
             if (stream.done) return;
             chunk(stream);
-            publish(stream, new Event(id, stream.sequence + 1, type, null, null, null, null, null, false, event, null));
+            publish(stream, event.apply(stream.sequence + 1));
         }
     }
 
-    private void appendPending(UUID id, String type, @Nullable String key, String text) {
+    private void appendPending(UUID id, Pending type, @Nullable String key, String text) {
         var stream = require(id);
         synchronized (stream) {
             if (stream.done) return;
-            if (!stream.pendingType.equals(type) || !Objects.equals(stream.pendingKey, key)) {
+            if (stream.pendingType != type || !Objects.equals(stream.pendingKey, key)) {
                 chunk(stream);
                 stream.pendingType = type;
                 stream.pendingKey = key;
@@ -187,7 +174,7 @@ public final class StreamBufferWriter {
         synchronized (stream) {
             if (stream.done) return;
             chunk(stream);
-            publish(stream, new Event(id, stream.sequence + 1, OUTCOME, null, status, failure, null, hasArtifacts));
+            publish(stream, new Outcome(id, stream.sequence + 1, status, failure, hasArtifacts));
             stream.done = true;
             stream.finishedAt = millis.getAsLong();
         }
@@ -195,30 +182,15 @@ public final class StreamBufferWriter {
     }
 
     public void tool(UUID id, ChatToolEvent event) {
-        var stream = require(id);
-        synchronized (stream) {
-            if (stream.done) return;
-            chunk(stream);
-            publish(stream, new Event(id, stream.sequence + 1, "tool", null, null, null, event));
-        }
+        publishNow(id, sequence -> new ToolProgress(id, sequence, event));
     }
 
     public void image(UUID id, ChatImageEvent event) {
-        var stream = require(id);
-        synchronized (stream) {
-            if (stream.done) return;
-            chunk(stream);
-            publish(stream, new Event(id, stream.sequence + 1, "image", null, null, null, null, event, false));
-        }
+        publishNow(id, sequence -> new ImageProgress(id, sequence, event));
     }
 
     public void code(UUID id, ChatCodeEvent event) {
-        var stream = require(id);
-        synchronized (stream) {
-            if (stream.done) return;
-            chunk(stream);
-            publish(stream, new Event(id, stream.sequence + 1, "code", null, null, null, null, null, false, null, null, event));
-        }
+        publishNow(id, sequence -> new CodeRun(id, sequence, event));
     }
 
     /** The flush tick: publishes due pending chunks and writes queued entries; a reply leaves this process once written. */
@@ -307,18 +279,18 @@ public final class StreamBufferWriter {
         stream.flushedAt = millis.getAsLong();
         long sequence = stream.sequence + 1;
         publish(stream, switch (stream.pendingType) {
-            case "research-plan" -> new Event(stream.id, sequence, stream.pendingType, null, null, null, null, null, false,
-                    ChatResearchEvent.plan(text), null);
-            case "intermediate-report" -> new Event(stream.id, sequence, stream.pendingType, null, null, null, null, null, false,
-                    ChatResearchEvent.report(Objects.requireNonNull(stream.pendingKey), text), null);
-            default -> new Event(stream.id, sequence, stream.pendingType, text, null, null, null, null, false, null, stream.pendingKey);
+            case TEXT -> new TextDelta(stream.id, sequence, text);
+            case REASONING -> new Reasoning(stream.id, sequence, text, stream.pendingKey);
+            case RESEARCH_PLAN -> new ResearchPlan(stream.id, sequence, text);
+            case INTERMEDIATE_REPORT -> new IntermediateReport(stream.id, sequence,
+                    Objects.requireNonNull(stream.pendingKey), text);
         });
     }
 
     /** As Onyx: past the per-reply bound one marker is written and the reply stops appending; readers fall back to history. */
-    private void publish(Stream stream, Event event) {
+    private void publish(Stream stream, ChatStreamEvent event) {
         if (stream.truncated) return;
-        String data = JSON.writeValueAsString(event);
+        String data = EVENT_WRITER.writeValueAsString(event);
         int bytes = data.getBytes(StandardCharsets.UTF_8).length;
         stream.sequence = event.sequence();
         if (stream.bytes + bytes > limits.runBytes()) {
@@ -379,10 +351,10 @@ public final class StreamBufferWriter {
             Map<String, String> fields = entry.data() == null ? Map.of("type", entry.type())
                     : Map.of("type", entry.type(), "data", entry.data());
             strings.xAdd(StreamRecords.string(fields).withStreamKey(key).withId(RecordId.of(0, entry.sequence())));
-            terminal |= entry.type().equals(OUTCOME) || entry.type().equals(TRUNCATED);
+            terminal |= entry.type().equals(Outcome.TYPE) || entry.type().equals(TRUNCATED);
         }
         // Refreshed by every write, as Onyx; the outcome switches the reply to its completed retention.
-        strings.pExpire(key, (terminal && batch.getLast().type().equals(OUTCOME) ? limits.doneTtl() : limits.ttl()).toMillis());
+        strings.pExpire(key, (terminal && batch.getLast().type().equals(Outcome.TYPE) ? limits.doneTtl() : limits.ttl()).toMillis());
     }
 
     private static void acknowledge(Stream stream, long written) {
@@ -396,7 +368,7 @@ public final class StreamBufferWriter {
         final ArrayDeque<Entry> queue = new ArrayDeque<>();
         final StringBuilder pending = new StringBuilder();
         final ReentrantLock writing = new ReentrantLock();
-        String pendingType = "text-delta";
+        Pending pendingType = Pending.TEXT;
         @Nullable String pendingKey;
         int pendingBytes;
         long bytes;
@@ -465,7 +437,7 @@ public final class StreamBufferWriter {
             List<MapRecord<String, Object, Object>> records = redis.opsForStream().range(key(id),
                     Range.rightUnbounded(Range.Bound.inclusive("0-" + (after + 1))), Limit.limit().count(64));
             if (records == null || records.isEmpty()) return null;
-            var events = new ArrayList<Event>();
+            var events = new ArrayList<ChatStreamEvent>();
             int bytes = 0;
             for (var record : records) {
                 long sequence = record.getId().getSequence();
@@ -473,10 +445,10 @@ public final class StreamBufferWriter {
                 String type = String.valueOf(record.getValue().get("type"));
                 if (type.equals(TRUNCATED)) return events.isEmpty() ? end("BUFFER_GAP") : new Batch(List.copyOf(events), false, null);
                 String data = String.valueOf(record.getValue().get("data"));
-                var event = JSON.readValue(data, Event.class);
+                ChatStreamEvent event = EVENT_READER.readValue(data);
                 events.add(event);
                 after = sequence;
-                if (type.equals(OUTCOME)) {
+                if (type.equals(Outcome.TYPE)) {
                     close();
                     return new Batch(List.copyOf(events), true, null);
                 }

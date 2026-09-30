@@ -10,17 +10,28 @@ import io.memoryos.api.chat.contract.ResearchAgentStartEvent;
 import io.memoryos.api.chat.contract.ResearchCitation;
 import io.memoryos.api.chat.contract.ResearchPlanEvent;
 import io.memoryos.api.chat.contract.ResetEvent;
-import io.memoryos.api.chat.contract.TextDeltaEvent;
+import io.memoryos.api.chat.contract.TextEvent;
 import io.memoryos.api.chat.contract.ToolEvent;
 import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
 
-import io.memoryos.chat.streaming.StreamBufferWriter;
-import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.api.chat.contract.ChatSourceResponse;
+import io.memoryos.chat.streaming.ChatStreamEvent;
+import io.memoryos.chat.streaming.CodeRun;
+import io.memoryos.chat.streaming.ImageProgress;
+import io.memoryos.chat.streaming.IntermediateReport;
+import io.memoryos.chat.streaming.IntermediateReportCitations;
+import io.memoryos.chat.streaming.Outcome;
+import io.memoryos.chat.streaming.Reasoning;
+import io.memoryos.chat.streaming.ResearchAgentStart;
+import io.memoryos.chat.streaming.ResearchPlan;
+import io.memoryos.chat.streaming.StreamBufferWriter;
+import io.memoryos.chat.streaming.TextDelta;
+import io.memoryos.chat.streaming.ToolProgress;
+import io.memoryos.chat.streaming.TopLevelBranching;
+import io.memoryos.chat.streaming.UnknownEvent;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
-import java.util.Objects;
 import java.util.function.Supplier;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
@@ -52,46 +63,43 @@ final class ChatEventStream {
                 new ResetEvent(assistant, batch.reset())).event("reset").build());
         if (batch.events().isEmpty()) return batch.done() ? List.of()
                 : List.of(ServerSentEvent.builder().comment("heartbeat").build());
-        return batch.events().stream().map(event -> ServerSentEvent.builder(payload(event))
-                .event(event.type()).id(event.id()).build()).toList();
+        // An event this version does not know has no frame; the browser's cursor passes it with the next event.
+        return batch.events().stream().filter(event -> !(event instanceof UnknownEvent))
+                .map(event -> ServerSentEvent.builder(payload(event)).event(event.type()).id(event.id()).build()).toList();
     }
 
-    private static Object payload(StreamBufferWriter.Event event) {
-        return switch (event.type()) {
-            case "text-delta" -> new TextDeltaEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()));
-            case "reasoning" -> new ReasoningEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()), event.parentToolCallId());
-            case "research-plan" -> new ResearchPlanEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(research(event).text()));
-            case "top-level-branching" -> new TopLevelBranchingEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(research(event).branches()));
-            case "research-agent-start" -> new ResearchAgentStartEvent(event.assistantMessageId(), event.sequence(),
-                    Objects.requireNonNull(research(event).toolCallId()), Objects.requireNonNull(research(event).tabIndex()), Objects.requireNonNull(research(event).text()));
-            case "intermediate-report" -> new IntermediateReportEvent(event.assistantMessageId(), event.sequence(),
-                    Objects.requireNonNull(research(event).toolCallId()), Objects.requireNonNull(research(event).text()));
-            case "intermediate-report-citations" -> new IntermediateReportCitationsEvent(event.assistantMessageId(), event.sequence(),
-                    Objects.requireNonNull(research(event).toolCallId()),
-                    research(event).citations().stream().map(citation -> new ResearchCitation(citation.marker(), citation.citationId())).toList());
-            case "outcome" -> new OutcomeEvent(event.assistantMessageId(), event.sequence(),
-                    Objects.requireNonNull(event.status()).name(), event.failureCode(), event.hasArtifacts());
-            case "tool" -> {
-                var tool = Objects.requireNonNull(event.tool());
-                yield new ToolEvent(event.assistantMessageId(), event.sequence(), tool.toolCallId(), tool.toolName(), tool.stage(),
-                        tool.source() == null ? null : ChatSourceResponse.from(tool.source()), tool.search(), tool.documents(), tool.durationMs(),
-                        tool.parentToolCallId(), tool.tabIndex(), tool.failure());
+    private static Object payload(ChatStreamEvent event) {
+        UUID assistant = event.assistantMessageId();
+        long sequence = event.sequence();
+        return switch (event) {
+            case TextDelta text -> new TextEvent(assistant, sequence, text.text());
+            case Reasoning reasoning -> new ReasoningEvent(assistant, sequence, reasoning.text(), reasoning.parentToolCallId());
+            case ResearchPlan plan -> new ResearchPlanEvent(assistant, sequence, plan.text());
+            case TopLevelBranching branching -> new TopLevelBranchingEvent(assistant, sequence, branching.branches());
+            case ResearchAgentStart start -> new ResearchAgentStartEvent(assistant, sequence, start.toolCallId(),
+                    start.tabIndex(), start.task());
+            case IntermediateReport report -> new IntermediateReportEvent(assistant, sequence, report.toolCallId(), report.text());
+            case IntermediateReportCitations cited -> new IntermediateReportCitationsEvent(assistant, sequence, cited.toolCallId(),
+                    cited.citations().stream().map(citation -> new ResearchCitation(citation.marker(), citation.citationId())).toList());
+            case Outcome outcome -> new OutcomeEvent(assistant, sequence, outcome.status().name(), outcome.failureCode(),
+                    outcome.hasArtifacts());
+            case ToolProgress progress -> {
+                var tool = progress.tool();
+                yield new ToolEvent(assistant, sequence, tool.toolCallId(), tool.toolName(), tool.stage(),
+                        tool.source() == null ? null : ChatSourceResponse.from(tool.source()), tool.search(), tool.documents(),
+                        tool.durationMs(), tool.parentToolCallId(), tool.tabIndex(), tool.failure());
             }
-            case "image" -> {
-                var image = Objects.requireNonNull(event.image());
-                yield new ImageEvent(event.assistantMessageId(), event.sequence(), image.toolCallId(), image.stage(),
-                        image.artifactId(), image.mediaType(), image.revisedPrompt());
+            case ImageProgress progress -> {
+                var image = progress.image();
+                yield new ImageEvent(assistant, sequence, image.toolCallId(), image.stage(), image.artifactId(),
+                        image.mediaType(), image.revisedPrompt());
             }
-            case "code" -> {
-                var run = Objects.requireNonNull(event.code());
-                yield new CodeEvent(event.assistantMessageId(), event.sequence(), run.toolCallId(), run.stage(),
-                        run.code(), run.output(), run.files(), run.stream());
+            case CodeRun progress -> {
+                var run = progress.code();
+                yield new CodeEvent(assistant, sequence, run.toolCallId(), run.stage(), run.code(), run.output(), run.files(),
+                        run.stream());
             }
-            default -> throw new IllegalArgumentException("Unknown Chat event type");
+            case UnknownEvent _ -> throw new IllegalArgumentException("Unknown Chat event type");
         };
-    }
-
-    private static ChatResearchEvent research(StreamBufferWriter.Event event) {
-        return Objects.requireNonNull(event.research());
     }
 }

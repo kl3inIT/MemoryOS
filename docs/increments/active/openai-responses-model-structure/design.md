@@ -1,6 +1,6 @@
 # OpenAI Responses model, structured after Spring AI
 
-Status: **proposed 2026-09-30; not started.** No Linear issue yet. Related:
+Status: **implemented 2026-09-30.** Linear: [MEM-202](https://linear.app/memory-os/issue/MEM-202). Related:
 [Chat Web search](../chat-web-search/design.md), which introduced the model.
 
 ## Problem
@@ -53,6 +53,15 @@ In `ai.openai`, package-private:
 - Observation through the existing model call observation; no second metric.
 
 Behavior, the Chat Web contract and every existing SSE fixture test are unchanged.
+
+## As delivered
+
+- `OpenAiResponsesChatModel` routes and subscribes; `ResponsesRequestBuilder`, `ResponsesInputMapper` (input items
+  and the output-item echo, both directions in one place) and `ResponsesStreamAssembler` hold the rest.
+- Not built: `ResponsesMetadata` and `OpenAiResponsesException`. Failures already carry a stable code through
+  `TurnFailure`, and the response ID and usage are two values set in one place, so either type would have one use
+  ([change design](../../../conventions.md#change-design)). Spring AI's own classes arrive with the upgrade.
+- The model's two constructors that only tests called are removed; tests pass every flag.
 
 ## Verification
 

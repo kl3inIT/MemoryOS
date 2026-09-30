@@ -15498,8 +15498,8 @@ paths:
       tags:
       - Chat
       summary: Read or resume reply events; reset requires persisted history
-      description: "Events: text-delta, reasoning, tool, image, research-plan, top-level-branching,\
-        \ research-agent-start, intermediate-report, intermediate-report-citations,\
+      description: "Events: text, reasoning, tool, image, code, research_plan, top_level_branching,\
+        \ research_agent_start, intermediate_report, intermediate_report_citations,\
         \ outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
         \ confirms a committed terminal state. Heartbeats are comments. A reset has\
         \ no event id."
@@ -15560,7 +15560,7 @@ paths:
             text/event-stream:
               schema:
                 oneOf:
-                - $ref: "#/components/schemas/TextDeltaEvent"
+                - $ref: "#/components/schemas/TextEvent"
                 - $ref: "#/components/schemas/OutcomeEvent"
                 - $ref: "#/components/schemas/ResetEvent"
                 - $ref: "#/components/schemas/ToolEvent"
@@ -27471,7 +27471,7 @@ components:
         retrievedAt:
           type: string
           format: date-time
-    TextDeltaEvent:
+    TextEvent:
       type: object
       properties:
         assistantMessageId:

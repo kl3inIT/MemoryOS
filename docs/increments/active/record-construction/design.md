@@ -1,6 +1,8 @@
 # Record construction without telescoping constructors
 
-Status: **proposed 2026-09-30; not started.** No Linear issue yet. Applies the
+Status: **implemented 2026-09-30** with [typed Chat stream events](../typed-chat-stream-events/design.md) and the
+[Responses model structure](../openai-responses-model-structure/design.md) in one pull request.
+Linear: [MEM-202](https://linear.app/memory-os/issue/MEM-202). Applies the
 [construction rule](../../../conventions.md#java-and-gradle).
 
 ## Problem
@@ -32,6 +34,19 @@ Per the rule, the shape decides the tool:
   (the last two exist). The JSON of both stays the same because the canonical components do not change.
 - **Test data builders** only in `src/test` where a fixture needs many fields; no production constructor exists
   for tests.
+
+## As delivered
+
+- Builders: `ChatMessage`, `ChatCommand`, `ChatTurnSetup`, `TurnContext`, and from the sweep `ChatTurnOptions` and
+  `ai.ModelBinding` (its seven-argument constructor was called only by tests). `ChatTurnSetup` keeps its `with…`
+  methods for what a turn resolves after it is built.
+- Named factories: `ChatSource.document`, `file`, `web` and `described`; `ChatToolEvent.started`, `at`, `searching`,
+  `source`, beside `reading` and `finished`; `unplaced()` replaces a seven-argument copy in `ChatResearchRecorder`.
+- Removed without a replacement, because one caller remained and the canonical constructor serves it: the extra
+  constructors of `ChatSession` and `ChatResearch`.
+- `ChatResearchEvent` stays one record with its factories. It is the in-process activity event the research executor
+  publishes and the recorders read; the stream's own records no longer embed it.
+- A canonical constructor call with every component is left as it is (row mappers, `with…` methods).
 
 ## Verification
 

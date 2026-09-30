@@ -25,6 +25,7 @@ import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelClients;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.streaming.StreamEvents;
 import io.memoryos.chat.streaming.TestRedis;
 import io.memoryos.shared.Tokenizers;
 import java.util.Set;
@@ -240,8 +241,8 @@ class ChatTurnServiceTest {
                 service.maintain();
                 var committed = reader.read();
                 assertTrue(committed.done());
-                assertEquals(ChatMessage.Status.FAILED, committed.events().getLast().status());
-                assertEquals("CHAT_INTERRUPTED", committed.events().getLast().failureCode());
+                assertEquals(ChatMessage.Status.FAILED, StreamEvents.outcome(committed.events()).status());
+                assertEquals("CHAT_INTERRUPTED", StreamEvents.outcome(committed.events()).failureCode());
             }
         }
     }
@@ -442,7 +443,7 @@ class ChatTurnServiceTest {
             try (var reader = streams.subscribe(pair.assistantMessageId(), 0, () -> true)) {
                 var outcome = reader.read();
                 assertTrue(outcome.done());
-                assertEquals("CHAT_SETUP_FAILED", outcome.events().getLast().failureCode());
+                assertEquals("CHAT_SETUP_FAILED", StreamEvents.outcome(outcome.events()).failureCode());
             }
             when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
                     .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));

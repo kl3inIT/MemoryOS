@@ -122,7 +122,7 @@ class OpenAiResponsesChatModelTest {
                 event("response.output_text.delta", Map.of("item_id", "msg_1", "output_index", 1, "content_index", 0, "delta", "Twelve days.", "sequence_number", 5, "logprobs", List.of())),
                 completed(List.of(message("Twelve days.")))));
         var events = new ArrayList<ChatActivityEvent>();
-        var responses = new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, meters);
+        var responses = new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, false, meters);
         assertFalse(responses.nativeWebSearch());
         var model = responses.forTurn(ChatTurnListener.turn(new ChatEvidence(), events::add, false, () -> {}));
 
@@ -170,13 +170,13 @@ class OpenAiResponsesChatModelTest {
 
     @Test
     void chatCompletionsToolChoicesMapToTheResponsesShape() {
-        assertNull(OpenAiResponsesChatModel.toolChoice(null));
-        assertEquals("required", OpenAiResponsesChatModel.toolChoice("required"));
-        assertEquals("none", OpenAiResponsesChatModel.toolChoice("none"));
+        assertNull(ResponsesRequestBuilder.toolChoice(null));
+        assertEquals("required", ResponsesRequestBuilder.toolChoice("required"));
+        assertEquals("none", ResponsesRequestBuilder.toolChoice("none"));
         var named = Map.of("type", "function", "name", "generate_report");
-        assertEquals(named, OpenAiResponsesChatModel.toolChoice(Map.of("type", "function", "function", Map.of("name", "generate_report"))));
-        assertEquals(named, OpenAiResponsesChatModel.toolChoice("{\"type\":\"function\",\"function\":{\"name\":\"generate_report\"}}"));
-        assertThrows(IllegalArgumentException.class, () -> OpenAiResponsesChatModel.toolChoice("sometimes"));
+        assertEquals(named, ResponsesRequestBuilder.toolChoice(Map.of("type", "function", "function", Map.of("name", "generate_report"))));
+        assertEquals(named, ResponsesRequestBuilder.toolChoice("{\"type\":\"function\",\"function\":{\"name\":\"generate_report\"}}"));
+        assertThrows(IllegalArgumentException.class, () -> ResponsesRequestBuilder.toolChoice("sometimes"));
     }
 
     @Test
@@ -184,7 +184,7 @@ class OpenAiResponsesChatModelTest {
         var completions = mock(ChatModel.class);
         var prompt = new Prompt("Question", options(true));
         when(completions.stream(prompt)).thenReturn(Flux.empty());
-        new OpenAiResponsesChatModel(completions, client, true, true, false, meters)
+        new OpenAiResponsesChatModel(completions, client, true, true, false, false, meters)
                 .forTurn(ChatTurnListener.turn(new ChatEvidence(), ignored -> {}, false, () -> {}))
                 .stream(prompt).collectList().block();
         verify(completions).stream(prompt);
@@ -203,7 +203,7 @@ class OpenAiResponsesChatModelTest {
         var assistant = first.getResult().getOutput();
         assertEquals("tool_calls", first.getResult().getMetadata().getFinishReason());
         assertEquals("call_1", assistant.getToolCalls().getFirst().id());
-        assertTrue(assistant.getMetadata().containsKey(OpenAiResponsesChatModel.OUTPUT_ITEMS));
+        assertTrue(assistant.getMetadata().containsKey(ResponsesInputMapper.OUTPUT_ITEMS));
         assertEquals("reasoning.encrypted_content", requests.getFirst().path("include").get(0).asString());
 
         var toolOutput = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse("call_1", "search_knowledge", "Annual leave is twelve days."))).build();
@@ -281,7 +281,7 @@ class OpenAiResponsesChatModelTest {
         var completions = mock(ChatModel.class);
         var prompt = new Prompt("Helper", options(true));
         when(completions.stream(prompt)).thenReturn(Flux.empty());
-        var model = new OpenAiResponsesChatModel(completions, client, false, meters);
+        var model = new OpenAiResponsesChatModel(completions, client, false, true, false, false, meters);
 
         model.stream(prompt).collectList().block();
         model.call(prompt);
@@ -292,7 +292,7 @@ class OpenAiResponsesChatModelTest {
     }
 
     private ChatModel turnModel(ChatEvidence evidence, List<ChatActivityEvent> events, boolean reasoning) {
-        return new OpenAiResponsesChatModel(mock(ChatModel.class), client, reasoning, meters)
+        return new OpenAiResponsesChatModel(mock(ChatModel.class), client, reasoning, true, false, false, meters)
                 .forTurn(ChatTurnListener.turn(evidence, events::add, true, () -> {}));
     }
 

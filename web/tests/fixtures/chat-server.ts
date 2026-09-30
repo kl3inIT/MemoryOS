@@ -811,13 +811,13 @@ export async function handleChatFixture(
         state.messages.at(-1)!.content = content;
         if (state.mode === "grounded-split") {
           const split = content.indexOf("[1]") + 2;
-          emit(run, "text-delta", { text: content.slice(0, split) });
-          emit(run, "text-delta", { text: content.slice(split) });
-        } else emit(run, "text-delta", { text: content });
+          emit(run, "text", { text: content.slice(0, split) });
+          emit(run, "text", { text: content.slice(split) });
+        } else emit(run, "text", { text: content });
         if (state.mode === "long") {
           run.timer = setTimeout(() => {
             state.messages.at(-1)!.content += "\n\nThe final paragraph arrived.";
-            emit(run, "text-delta", { text: "\n\nThe final paragraph arrived." });
+            emit(run, "text", { text: "\n\nThe final paragraph arrived." });
             finish(state, run, "COMPLETED");
           }, 3000);
           return;
