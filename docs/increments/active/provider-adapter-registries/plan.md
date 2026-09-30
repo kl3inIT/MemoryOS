@@ -12,15 +12,13 @@ Each step is behavior-preserving and ends green on its own. Nothing is implement
 
 ## 1. Rename the existing registry
 
-- [ ] `ai.ProviderAdapters` becomes `ProviderAdapterRegistry`, keyed by a new `ModelAdapterType` enum (`OPENAI`,
-  stored and serialized as `"openai"`), with the same startup failure on a duplicate; update
-  `ChatModelCatalogConfiguration` and tests. No migration; same JSON value, regenerate the contract if its schema
-  changes.
-- [ ] Tokenizer profiles become adapter capabilities: each profile id resolves to its `TokenCountEstimator`
-  through the adapter instead of `TokenizerProfiles.validate`'s string comparison. Remove the second O200K
-  estimator in `ChatTurnSetup` (`Hosted.POLICY`); its only caller, `ChatTurnPersistence` when no model selection
-  exists yet, uses the adapter's default profile instead of a second vocabulary. Behavior unchanged: O200K stays the only profile. Measuring other models' tokenizers and a vLLM
-  `/tokenize` profile are not planned (owner decision 2026-09-30).
+- [ ] `ai.ProviderAdapters` becomes `ProviderAdapterRegistry`, keyed by the adapter's string type (open family; no
+  enum), with the same startup failure on a duplicate; update callers and tests. No migration, no API change.
+- [ ] `TokenizerProfiles` moves to the `ai` root: `estimator(profile)` resolves a model's profile to the one cached
+  O200K estimator, replacing the string check in `OpenAiProviderAdapter`; `ChatTurnSetup` uses it instead of a
+  second `JTokkitTokenCountEstimator`, including the no-selection path from `ChatTurnPersistence`. Behavior
+  unchanged. Measuring other models' tokenizers and a vLLM `/tokenize` profile are not planned (owner decision
+  2026-09-30).
 
 ## 2. Web
 

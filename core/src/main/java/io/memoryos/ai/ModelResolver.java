@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 public final class ModelResolver {
     private static final Logger LOG = LoggerFactory.getLogger(ModelResolver.class);
     private final ModelCatalogService catalog;
-    private final ProviderAdapters adapters;
+    private final ProviderAdapterRegistry adapters;
     private final ProviderCredentials credentials;
     private final ModelClients clients;
     private final Duration providerReadTimeout;
@@ -24,7 +24,7 @@ public final class ModelResolver {
      * {@code providerReadTimeout} bounds connecting and each read gap of a provider call; {@code costCapped} says the
      * deployment caps spending, so every model must carry its pricing.
      */
-    public ModelResolver(ModelCatalogService catalog, ProviderAdapters adapters, ProviderCredentials credentials,
+    public ModelResolver(ModelCatalogService catalog, ProviderAdapterRegistry adapters, ProviderCredentials credentials,
                              ModelClients clients, Duration providerReadTimeout, boolean costCapped) {
         this.catalog = catalog;
         this.adapters = adapters;

@@ -1,7 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.chat.PersonaProperties;
-import io.memoryos.ai.ProviderAdapters;
+import io.memoryos.ai.ProviderAdapterRegistry;
 import io.memoryos.ai.openai.KnownModels;
 import io.memoryos.ai.openai.OpenAiProviderAdapter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ChatModelCatalogConfigurationTest {
-    private static final ProviderAdapters ADAPTERS = new ProviderAdapters(List.of(
+    private static final ProviderAdapterRegistry ADAPTERS = new ProviderAdapterRegistry(List.of(
             new OpenAiProviderAdapter(ObservationRegistry.NOOP, new SimpleMeterRegistry())));
 
     @Test

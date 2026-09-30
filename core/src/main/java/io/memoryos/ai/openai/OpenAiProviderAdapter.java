@@ -2,6 +2,7 @@ package io.memoryos.ai.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.memoryos.ai.TokenizerProfiles;
 import io.memoryos.ai.ModelPricing;
 import io.memoryos.ai.AiException;
 import com.embabel.agent.openai.CapabilityAwareOpenAiOptionsConverter;
@@ -44,13 +45,13 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
     }
     @Override public String type() { return "openai"; }
     @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.REQUIRED; }
-    @Override public List<TokenizerProfile> tokenizerProfiles() { return TokenizerProfiles.METADATA; }
+    @Override public List<TokenizerProfile> tokenizerProfiles() { return TokenizerProfiles.HOSTED_METADATA; }
     @Override public List<KnownModel> knownModels() { return KnownModels.models(); }
     @Override public boolean nativeWebSearch() { return true; }
 
     @Override public void validate(String baseUrl, String modelName, ModelSettings settings) {
         ModelCatalogService.validateEndpoint(baseUrl);
-        TokenizerProfiles.validate(settings);
+        TokenizerProfiles.estimator(settings.tokenizerProfile());
         if (modelName == null || modelName.isBlank() || modelName.length() > 200 || !settings.capabilities().streaming())
             throw AiException.invalid("Invalid streaming model configuration.");
         var options = settings.options();
@@ -250,14 +251,14 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                                 .openAiClient(sync).openAiClientAsync(view)
                                 .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                 .observationRegistry(observations).meterRegistry(meters).build())));
-                return new Client(binding(modelName, settings, model, TokenizerProfiles.hostedTokens()),
+                return new Client(binding(modelName, settings, model, TokenizerProfiles.estimator(settings.tokenizerProfile())),
                         () -> { try { async.close(); } finally { sync.close(); } });
             } catch (RuntimeException | Error failure) { async.close(); throw failure; }
         } catch (RuntimeException | Error failure) { sync.close(); throw failure; }
     }
 
     public static ModelBinding binding(String name, ModelSettings settings, ChatModel model, TokenCountEstimator tokens) {
-        TokenizerProfiles.validate(settings);
+        TokenizerProfiles.estimator(settings.tokenizerProfile());
         boolean completionTokens = Boolean.TRUE.equals(settings.options().get("maxCompletionTokens"));
         var nativeConverter = new CapabilityAwareOpenAiOptionsConverter(completionTokens ? ModelCapabilities.GPT5_FAMILY : ModelCapabilities.DEFAULT);
         OptionsConverter converter = (options, modelName) -> {

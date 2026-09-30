@@ -19,7 +19,7 @@ import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ModelSettings;
-import io.memoryos.ai.openai.TokenizerProfiles;
+import io.memoryos.ai.TokenizerProfiles;
 import io.memoryos.ai.openai.OpenAiProviderAdapter;
 import io.memoryos.chat.execution.ChatModelGuard;
 import io.memoryos.chat.execution.ChatTurnSetup;

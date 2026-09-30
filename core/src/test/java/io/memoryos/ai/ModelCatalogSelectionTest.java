@@ -151,7 +151,7 @@ class ModelCatalogSelectionTest {
             when(tenants.findActiveMembership(actor)).thenReturn(Optional.of(membership));
             when(chats.usablePersona(new TenantId(tenant), actor, persona, false)).thenReturn(true);
             when(authorization.effectiveCapabilities(actor)).thenReturn(Set.of());
-            var adapters = mock(ProviderAdapters.class);
+            var adapters = mock(ProviderAdapterRegistry.class);
             var adapter = mock(ProviderAdapter.class);
             when(adapters.supports("test")).thenReturn(true);
             when(adapters.require("test")).thenReturn(adapter);

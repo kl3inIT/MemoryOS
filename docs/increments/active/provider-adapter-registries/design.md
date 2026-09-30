@@ -150,11 +150,14 @@ The model family is the reference, and already puts its catalog on the adapter: 
 `credentialRequirement()`, `tokenizerProfiles()`, `knownModels()` (from the bundled `chat/known-models.json`),
 `nativeWebSearch()` and `reportedModels(...)`. Two gaps remain:
 
-- **Identity is a string.** `ProviderAdapter.type()` returns `"openai"` and `llm_providers.adapter_type` stores it.
-  Step 1 adds a `ModelAdapterType` enum (today only `OPENAI`, persisted and serialized as `"openai"`, so no
-  migration and the same JSON value; `openapi.yml` and the web client regenerate if the schema gains the enum) and
-  keys `ProviderAdapterRegistry` by it. It is not named `<Family>Provider` because `LlmProvider` already names a
-  Tenant's configured model connection.
+- **Identity stays a string, by design.** `ProviderAdapter.type()` (`"openai"`) is persisted in
+  `llm_providers.adapter_type`, and the family is open: `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials`
+  registers a `fixture-local` adapter as a bean and nothing else changes. An enum would turn every new protocol into
+  an edit of `ai` and break that contract, so step 1 renames `ProviderAdapters` to `ProviderAdapterRegistry`, keeps
+  the string key and its startup failure on a duplicate type, and adds no enum (decided 2026-09-30 while
+  implementing; the convention now distinguishes closed and open families).
+- **Tokenizer profiles** resolve through `ai.TokenizerProfiles.estimator(profile)`, moved from `ai.openai` to the
+  module root so `chat` uses the same cached O200K estimator instead of loading a second vocabulary.
 - **Its capability methods are loose.** They stay as they are; grouping them into a `ModelProviderCapabilities`
   record is not worth the churn while one adapter exists, and is revisited when the Gemini or Anthropic adapter
   from [Chat Web search](../chat-web-search/plan.md) is added, which starts in this shape.

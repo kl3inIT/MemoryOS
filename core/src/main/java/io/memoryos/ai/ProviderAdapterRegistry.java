@@ -6,10 +6,14 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** Protocol dispatch only; product selection/access belongs to the catalog service. */
-public final class ProviderAdapters {
+/**
+ * Protocol dispatch only; product selection/access belongs to the catalog service. The model family is an open
+ * extension point: an adapter's stable {@link ProviderAdapter#type()} is its persisted identity, so a new protocol is
+ * a new bean, and two adapters declaring one type fail the application at startup.
+ */
+public final class ProviderAdapterRegistry {
     private final Map<String, ProviderAdapter> adapters;
-    public ProviderAdapters(List<ProviderAdapter> adapters) {
+    public ProviderAdapterRegistry(List<ProviderAdapter> adapters) {
         this.adapters = adapters.stream().collect(Collectors.toUnmodifiableMap(ProviderAdapter::type, Function.identity()));
     }
     public ProviderAdapter require(String type) {

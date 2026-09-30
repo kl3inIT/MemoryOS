@@ -3,6 +3,7 @@ package io.memoryos.ai.openai;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import io.memoryos.ai.TokenizerProfiles;
 import io.memoryos.ai.ModelCatalogService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;

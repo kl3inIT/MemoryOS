@@ -40,13 +40,13 @@ public class ModelCatalogService {
     private final ApplicationEventPublisher events;
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
-    private final ProviderAdapters adapters;
+    private final ProviderAdapterRegistry adapters;
     private final ProviderCredentials credentials;
     private final GroupScopeService groups;
     private final AuditTrail audit;
 
     public ModelCatalogService(ModelCatalogRepository catalog, AgentDirectory agents, ApplicationEventPublisher events,
-            TenantAccessResolver tenants, IamAuthorization authorization, ProviderAdapters adapters,
+            TenantAccessResolver tenants, IamAuthorization authorization, ProviderAdapterRegistry adapters,
             ProviderCredentials credentials, GroupScopeService groups, AuditTrail audit) {
         this.audit = audit;
         this.catalog = catalog;
@@ -455,7 +455,7 @@ public class ModelCatalogService {
     private void validateModel(LlmProvider provider, String name, ModelSettings settings) {
         validateModel(adapters, provider, name, settings);
     }
-    static void validateModel(ProviderAdapters adapters, LlmProvider provider, String name, ModelSettings settings) {
+    static void validateModel(ProviderAdapterRegistry adapters, LlmProvider provider, String name, ModelSettings settings) {
         if (settings == null || !settings.capabilities().streaming()) throw AiException.invalid("Chat requires a streaming model.");
         var adapter = adapters.require(provider.adapterType());
         if (adapter.tokenizerProfiles().stream().noneMatch(profile -> profile.id().equals(settings.tokenizerProfile())))
