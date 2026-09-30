@@ -49,8 +49,12 @@ and are one pull request (owner decision 2026-09-30); what was built is in the d
   candidate query; one relay task, stream and group.
 - [x] `GoogleDriveGateway`, `SharePointGateway` and their `sources` implementations.
 - [x] `SourceAdapterRegistryTest`; the connector, ingestion and boundary tests.
-- [ ] Worker started against the migrated database and a verification of each provider observed on the shared
-  stream.
+- [x] The shared workload exercised through the real dispatch and processor: `SourceApiIntegrationTest` claims
+  `SELECTION_VALIDATION` and runs a Google Drive verification through `SelectionValidationProcessor`;
+  `PostgresSharePointSelectionTest` runs the SharePoint adapter on the shared table; `ControlPlaneIntegrationTest` and
+  `RedisExecutionTopologyIntegrationTest` cover the relay task and the stream group.
+- [ ] A deployed Worker observed verifying a request of each provider on the shared stream. Not run for this pull
+  request: the development machine could not hold the Worker and its services in memory; CI is the runtime gate.
 
 ## 5. Permission-change event
 

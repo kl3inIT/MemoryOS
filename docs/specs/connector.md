@@ -189,7 +189,7 @@ What every provider shares is stored once, and a provider table holds only what 
 | `source_sync_state` | One row per synchronized Source: scope revision, generation, schedule revision, interval, pause, next and last run | `google_drive_sources` (scope mode, discovery); `sharepoint_sources` (scope mode, content kinds, prune schedule, tenant host, refresh window) |
 | `credentials` | Connection status, credential revision and payload revision of every credential | `google_drive_credentials` and `sharepoint_credentials`: the account and the encrypted secret envelope |
 
-- A request ID is an actor's idempotency key within one provider. The operation type the API reports is `VALIDATE_<source_type>_SELECTION`, so clients see the names they saw before.
+- A Source holds at most one pending or running request, whatever its provider. A request ID is an actor's idempotency key within one provider. The operation type the API reports is `VALIDATE_<source_type>_SELECTION`, so clients see the names they saw before.
 - The checkpoint rows of a verification reference their provider's details row, so they cannot attach to another provider's request; deleting a request removes them.
 - A provider Source row cannot exist without its `source_sync_state` row.
 - `credentials.status` is the one connection status the engine reads. `google_drive_credentials.connection_status` remains only because the secret envelope CHECK reads it (a revoked credential keeps no secret), and a foreign key holds it equal to `credentials.status`.
