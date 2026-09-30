@@ -1,6 +1,5 @@
 package io.memoryos.chat.execution;
 import com.embabel.chat.AssistantMessage;
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelRequestPolicy;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,6 +16,7 @@ import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import io.memoryos.chat.ChatArtifact;
 import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.ChatTurnOptions;
+import io.memoryos.shared.Tokenizers;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Test;
 import io.memoryos.library.UserFileContentService;
 import io.memoryos.library.UserFileService;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 
 class ChatTurnSetupTest {
     @Test
@@ -107,7 +106,7 @@ class ChatTurnSetupTest {
     private static ModelBinding binding() {
         return new ModelBinding(new SpringAiLlmService(
                 "binding-model", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(
-        new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, false, false);
+        Tokenizers.o200k(), p -> p), 32000, 4096, false, false);
     }
     @Test
     void contextLimitKeepsNewestQuestionAndDropsOrphanAssistant() {
