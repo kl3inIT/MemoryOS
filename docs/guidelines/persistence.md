@@ -25,16 +25,14 @@ A temporary runtime profile, command, or endpoint is not an acceptable substitut
 - Keep bounded IAM projections and explicit authorization locks in concrete JDBC repositories. JPA lifecycle writes and JDBC mechanics share the same DataSource and transaction manager. Flyway owns DDL, Hibernate validates it, and open-in-view/ORM permission caches are disabled. Source, Document, Object Storage and Ingestion persistence remain JDBC-first.
 - Defer Querydsl or jOOQ until measured dynamic-query or SQL type-safety pressure justifies the dependency and migration cost. Prefer Spring Data `JpaRepository` when it removes repeated `EntityManager` CRUD/query code. `@Query`, `@Lock` and `@Modifying` cover declarative queries and locking; use an EntityManager custom fragment only for a concrete unsupported operation such as refreshing an already-managed entity under a lock. The rule against single-implementation JDBC ports does not prohibit framework-implemented Spring Data interfaces. See [ADR 0010](../decisions/0010-spring-data-jpa-lifecycle-repositories.md).
 
-## Early-project schema evolution
+## Schema evolution
 
-Until MemoryOS holds external durable user data or a release milestone explicitly closes this policy:
+Schema changes preserve committed data ([ADR 0018](../decisions/0018-schema-changes-preserve-data.md), 2026-09-30). The early-project allowance for destructive resets ended when production began holding Tasco data.
 
-- Optimize for the clean target schema, not backward-compatible rollout machinery. Do not add expand/contract phases, dual reads or writes, shadow columns, compatibility views, backfill frameworks, or deprecated aliases solely to preserve disposable development data.
-- A genuinely additive capability uses the next small migration. MEM-12 adding an invitation table does not justify rebuilding unrelated identity or membership tables.
-- If an existing shape blocks the clean model, prefer one approved destructive reset over permanent compatibility code: create and verify a backup, recreate the MemoryOS database or affected schema, run Flyway from the selected baseline, rerun the real bootstrap, and reinsert only the minimal data still needed.
-- Data preservation is not an acceptance gate during this stage. Backup exists for rollback and evidence, not to force a complex in-place transformation.
-- A baseline squash/reset is a coordinated repository-and-database operation. Never edit historical migration checksums while retaining a database that has applied them.
-- Revisit this policy before onboarding external users or declaring durable customer data. From that point, migration and recovery plans must preserve committed data.
+- Migrations are forward-only and append-only; never edit an applied migration or its checksum.
+- Never reset, recreate or squash a database, schema or table to reach a cleaner model. A change to an existing shape transforms the existing rows in the migration (or a bounded, idempotent backfill) and states what is kept, converted or deliberately lost; losing user-created data needs a recorded owner decision.
+- A genuinely additive capability still uses the next small migration.
+- Call out a migration that the previous release cannot run against: rollback is then a database restore.
 
 ## Operations
 

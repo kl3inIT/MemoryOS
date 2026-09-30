@@ -18,6 +18,6 @@ Review tìm ra các lỗi hành vi mà bộ test lúc đó chưa bắt được.
 | Segment URL bị giải mã hai lần (`C++`, `%25`) | Tách raw path rồi giải mã một lần, `+` giữ nguyên | `SharePointUrlTest.decodesEachFolderSegmentOnce` |
 | Voice: slot TTS mất khi không đọc được key | Trả slot đúng một lần trên nhánh lỗi | `VoiceSynthesisServiceTest.aKeyThatCannotBeReadDoesNotKeepAStreamSlot` |
 
-Merge `main` cùng lúc: `main` đã dùng `V79__source_pause_resume.sql`, nên migration của nhánh chuyển sang V80–V83. Database local đã chạy V79–V82 của nhánh phải tạo lại theo [chính sách early-project](../../../guidelines/persistence.md#early-project-schema-evolution).
+Merge `main` cùng lúc: `main` đã dùng `V79__source_pause_resume.sql`, nên migration của nhánh chuyển sang V80–V83. Database local đã chạy V79–V82 của nhánh phải tạo lại theo [chính sách early-project](../../../guidelines/persistence.md#schema-evolution).
 
 Chưa chứng minh ở đây: chặng Document → Search, E2E trên app thật và nghiệm thu tenant thật (xem [plan](plan.md)).
