@@ -144,7 +144,14 @@ type Mock = {
   onPoll?: (mock: Mock) => void;
 };
 
+/**
+ * The day after the rebuild in these fixtures. Restore is offered only while an index is retained, so the browser's
+ * clock is fixed: with the real date, the retention dates below pass and the button stays disabled.
+ */
+const NOW = new Date("2026-09-24T03:00:00Z");
+
 async function install(page: Page, initial: Partial<SearchSettingsResponse> = {}) {
+  await page.clock.setFixedTime(NOW);
   const mock: Mock = {
     settings: { present, future: null, past: [], rebuild: null, ...initial },
     providers: [openAi, serving],
