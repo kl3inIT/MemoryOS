@@ -3,7 +3,7 @@
 Status: **proposed 2026-09-30; not started.** Linear: [MEM-118](https://linear.app/memory-os/issue/MEM-118), which
 absorbs MEM-128 (Lark Suite). It applies the
 [provider family convention](../../../conventions.md#change-design) to connectors, after the Web, Voice and Image
-families in [provider adapter registries](../provider-adapter-registries/design.md).
+families in [provider adapter registries](../../completed/provider-adapter-registries/design.md).
 
 ## Problem
 
@@ -139,5 +139,4 @@ issues and build on these adapters.
 ## ADR
 
 Step 2 replaces provider dispatch in `connector` and `ingestion` with registries inside `core`; no allowed module
-dependency changes, so no ADR is expected unless the inventory in step 1 finds one. The provider-family ADR from
-[provider adapter registries](../provider-adapter-registries/design.md#adr) covers the pattern itself.
+dependency changes, so no ADR is expected unless the inventory in step 1 finds one. [ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) covers the pattern itself.

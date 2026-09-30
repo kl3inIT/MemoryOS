@@ -1,14 +1,14 @@
 # Implementation plan
 
-Each step is behavior-preserving and ends green on its own. Nothing is implemented yet.
+Each step is behavior-preserving. Delivered 2026-09-30 in PRs #401 and #402.
 
 ## 0. Convention and scope
 
 - [x] Record the provider-family and naming rules in [conventions](../../../conventions.md#change-design) and point
   to them from the [backend guide](../../../guidelines/backend.md).
-- [ ] Owner review of [design](design.md); open a Linear issue and link it here and in the roadmap.
-- [ ] Record the ADR narrowing ADR 0015's single-implementation rule for provider families when step 2 starts.
-- [x] Connectors planned in [connector adapters and Lark](../mem-118-connector-adapters-lark/plan.md), after step 1.
+- [x] Owner go-ahead 2026-09-30; Linear [MEM-201](https://linear.app/memory-os/issue/MEM-201).
+- [x] [ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) narrows ADR 0015 for provider families.
+- [x] Connectors planned in [connector adapters and Lark](../../active/mem-118-connector-adapters-lark/plan.md), after step 1.
 
 ## 1. Rename the existing registry
 
@@ -30,7 +30,7 @@ Each step is behavior-preserving and ends green on its own. Nothing is implement
 - [x] One `Observation` per provider call replaces the hand-written timer; same timer name and tags.
 - [x] Tests: `WebAdapterRegistryTest` (completeness, duplicates, functions and capabilities per provider); existing
   Web client, PDF, tool and API tests pass with only their construction changed.
-- [ ] `clean check` in CI (one PR for Web, Voice and Image, #402).
+- [x] `clean check` in CI (one PR for Web, Voice and Image, #402), after MEM-199's shared token counters (#405).
 
 ## 3. Voice
 
@@ -51,6 +51,6 @@ Each step is behavior-preserving and ends green on its own. Nothing is implement
 
 ## 5. Consolidate
 
-- [ ] `ARCHITECTURE.md` and the affected specs describe the adapter registries; `docs/tests/` matrices updated.
-- [ ] Decide whether the provider-family rule needs its own ADR.
-- [ ] After merge, move this increment to `completed/` and reconcile the roadmap.
+- [x] `ARCHITECTURE.md`, the Chat and chat-models specs and the Chat test matrix describe the adapter registries.
+- [x] ADR 0019.
+- [x] Increment moved to `completed/`; roadmap reconciled.

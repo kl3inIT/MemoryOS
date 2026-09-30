@@ -1,6 +1,6 @@
 # Implementation plan
 
-Depends on step 1 of [provider adapter registries](../provider-adapter-registries/plan.md) (the registry base shape
+Depends on step 1 of [provider adapter registries](../../completed/provider-adapter-registries/plan.md) (the registry base shape
 and naming). Nothing is implemented yet.
 
 ## 0. Scope

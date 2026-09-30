@@ -1,7 +1,10 @@
 # Provider adapters behind a registry
 
-Status: **proposed 2026-09-30; not started.** No Linear issue yet. The convention change it follows is in
-[change design](../../../conventions.md#change-design).
+Status: **delivered 2026-09-30** in PRs #401 (chat models) and #402 (Web, Voice, Image).
+Linear: [MEM-201](https://linear.app/memory-os/issue/MEM-201). The rule is
+[ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) and
+[change design](../../../conventions.md#change-design). The sections below keep the design as proposed, with each
+family's "implemented as follows" note recording what was built.
 
 ## Problem
 
@@ -54,7 +57,7 @@ provider (`TavilySearchProvider`, `SerperSearchProvider`, `SearXNGSearchProvider
   module under Spring Modulith. Two deliberate exceptions keep the classes next to code that is not public: Voice
   adapters sit in `voice` itself, because its provider clients (`AzureSpeech`, `ElevenLabsVoice`, `SonioxAsync`, the
   realtime transcribers) are package-private by module design and tested there; connector adapters sit in their
-  provider feature package (see [MEM-118](../mem-118-connector-adapters-lark/design.md)).
+  provider feature package (see [MEM-118](../../active/mem-118-connector-adapters-lark/design.md)).
 - **One registry per family, complete.** Every constant has exactly one class; the constructor fails at startup on a
   missing or duplicate adapter. A function only some providers offer is its own interface extending the family's
   base, and the registry answers it by the interfaces the class implements (`Optional` lookups internally, boolean
@@ -172,12 +175,12 @@ The model family is the reference, and already puts its catalog on the adapter: 
   module root so `chat` uses the same cached O200K estimator instead of loading a second vocabulary.
 - **Its capability methods are loose.** They stay as they are; grouping them into a `ModelProviderCapabilities`
   record is not worth the churn while one adapter exists, and is revisited when the Gemini or Anthropic adapter
-  from [Chat Web search](../chat-web-search/plan.md) is added, which starts in this shape.
+  from [Chat Web search](../../active/chat-web-search/plan.md) is added, which starts in this shape.
 
 ### Families that start in this shape
 
-- Gemini and Anthropic model adapters ([Chat Web search](../chat-web-search/plan.md)).
-- Lark Suite and later Sources ([MEM-118](../mem-118-connector-adapters-lark/design.md)).
+- Gemini and Anthropic model adapters ([Chat Web search](../../active/chat-web-search/plan.md)).
+- Lark Suite and later Sources ([MEM-118](../../active/mem-118-connector-adapters-lark/design.md)).
 - The Trạm 1 classifier ([MEM-198](https://linear.app/memory-os/issue/MEM-198)): `GroundingClassificationAdapter`
   keyed by `GroundingClassifierType { LLM, SYSTEM_ONE }`, with one `SystemOneGateway` for every server speaking
   `/v1/systemone` (Laya, Kev, simple-jev, Jev hosted differ only in configuration), reused by MEM-129 and MEM-134.
@@ -191,7 +194,7 @@ Wrapping a `ChatModel` to fix one provider's behavior is already how `ai` works:
 ### Out of scope
 
 - **Connectors** are standardized in their own increment,
-  [connector adapters and Lark](../mem-118-connector-adapters-lark/design.md) (MEM-118), because their dispatch
+  [connector adapters and Lark](../../active/mem-118-connector-adapters-lark/design.md) (MEM-118), because their dispatch
   reaches operation kinds, provider tables and the sync and lease machinery. It builds on step 1 here.
 - **Automatic provider fallback** (MateClaw's `autoDetectOrder`). Today an administrator selects one Web provider;
   choosing another automatically changes product behavior and needs its own owner decision.
@@ -208,9 +211,5 @@ Wrapping a `ChatModel` to fix one provider's behavior is already how `ai` works:
 
 ## ADR
 
-The rule narrows [ADR 0015's layout inside a module](../../../decisions/0015-capability-module-map.md#layout-inside-a-module),
-which keeps an interface only when it is a published API with an internal implementation: a provider family keeps
-an internal interface even with one provider. It does not conflict with
-[ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md), since a registry with real adapters and a
-real selection is not speculative. ADRs are append-only, so a new ADR narrowing ADR 0015 is recorded when the Web
-step starts.
+[ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) records the rule and narrows
+ADR 0015's single-implementation rule for provider families.
