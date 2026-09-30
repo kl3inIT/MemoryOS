@@ -8,8 +8,8 @@ each step is its own pull request.
 
 - [x] MEM-118 absorbs MEM-128; Todo, assigned to the owner.
 - [x] Inventory of every place the engine names a provider ([design](design.md#inventory)), 2026-09-30.
-- [ ] Owner decision on the selection-verification queue: **A** neutral header table (recommended) or **B** union
-  of provider tables.
+- [x] Owner decision 2026-09-30: the selection-verification queue merges into one `source_selection_operations`
+  table with a details table per provider.
 - [ ] Owner review of [design](design.md).
 
 ## 1. Sync adapter registry and names (no schema change)
@@ -32,12 +32,29 @@ each step is its own pull request.
 
 ## 3. One selection-verification workload
 
-- [ ] Per the owner's choice: migration for the neutral header table (A) or the union query (B).
-- [ ] `OperationWorkload.SELECTION_VALIDATION`; processors in a registry keyed by `SourceType`; one candidate query.
-- [ ] Worker: one relay task, stream, group and property block; the old streams drain in this release and their
-  consumers are removed in the next.
-- [ ] Migration test with rows in every status; Worker started and a verification observed on the new stream;
-  `clean check`.
+Two pull requests, so the schema change is reviewed on its own.
+
+**3a. One table (schema and persistence; workloads unchanged)**
+
+- [ ] Migration: create `source_selection_operations`, `google_drive_selection_details` and
+  `sharepoint_selection_details`; copy every row of both old tables; repoint the child tables' foreign keys;
+  replace the per-provider trigger functions with provider-neutral ones; drop the old tables.
+- [ ] `SelectionOperations` without a table name; the Drive and SharePoint selection repositories read and write the
+  header and their details table; `JdbcSourceOperationQueryRepository` reads one table and derives the operation
+  type from `source_type`.
+- [ ] `JdbcOperationDispatchRepository`: both existing workloads select from the one table by `source_type`, so the
+  streams and the Worker are untouched in this pull request.
+- [ ] Migration test on a database with rows of both providers in every status and with child rows; the trigger
+  behaviors (credential deleted or changed, Source deleting, membership revoked, Tenant inactive) re-verified;
+  existing selection tests unchanged; `OpenApiContractTest` unchanged; `clean check`.
+
+**3b. One workload**
+
+- [ ] `OperationWorkload.SELECTION_VALIDATION`; `SourceSelectionProcessor.type()`; processors in a registry keyed by
+  `SourceType`, complete except `FILE`; one candidate query.
+- [ ] Worker: one relay task, stream, group and property block. The old streams drain in this release and their
+  consumers are removed in the next; an undelivered operation is relayed again from PostgreSQL.
+- [ ] Worker started and a verification of each provider observed on the new stream; `clean check`.
 
 ## 4. Hierarchy for readers
 
