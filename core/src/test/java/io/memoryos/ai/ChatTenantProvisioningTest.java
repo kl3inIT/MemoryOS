@@ -65,7 +65,7 @@ class ChatTenantProvisioningTest {
     private JdbcClient jdbc;
     private TestDatabase.JpaHarness jpa;
     private ModelCatalogRepository catalog;
-    private ProviderAdapters adapters;
+    private ProviderAdapterRegistry adapters;
     private AnnotationConfigApplicationContext context;
 
     @BeforeEach
@@ -75,7 +75,7 @@ class ChatTenantProvisioningTest {
         jpa = TestDatabase.jpa(dataSource);
         catalog = new ModelCatalogRepository(jdbc, jpa.repository(JpaLlmProviderRepository.class),
                 jpa.repository(JpaModelConfigurationRepository.class), jpa.repository(JpaChatModelDefaultRepository.class));
-        adapters = new ProviderAdapters(List.of(new OpenAiProviderAdapter(ObservationRegistry.NOOP, new SimpleMeterRegistry())));
+        adapters = new ProviderAdapterRegistry(List.of(new OpenAiProviderAdapter(ObservationRegistry.NOOP, new SimpleMeterRegistry())));
     }
 
     @AfterEach

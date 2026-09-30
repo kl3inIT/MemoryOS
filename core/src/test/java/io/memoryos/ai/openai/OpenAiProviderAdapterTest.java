@@ -1,6 +1,7 @@
 package io.memoryos.ai.openai;
 
 import com.sun.net.httpserver.HttpServer;
+import io.memoryos.ai.TokenizerProfiles;
 import io.memoryos.ai.AiException;
 import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ProviderAdapter;

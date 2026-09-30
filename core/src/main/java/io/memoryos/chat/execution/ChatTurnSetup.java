@@ -2,11 +2,11 @@ package io.memoryos.chat.execution;
 
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelRequestPolicy;
+import io.memoryos.ai.TokenizerProfiles;
 import com.embabel.chat.AssistantMessage;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.ImageMode;
 import io.memoryos.chat.WebSearchMode;
 import io.memoryos.chat.image.ImageConnectionService;
@@ -36,7 +36,6 @@ import java.util.IdentityHashMap;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -115,7 +114,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
 
     private static final class Hosted {
         private static final ModelRequestPolicy POLICY = ModelRequestPolicy.hosted(
-                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), prompt -> prompt);
+                TokenizerProfiles.hostedTokens(), prompt -> prompt);
     }
     private static final ObjectMapper JSON = new ObjectMapper();
 

@@ -1,7 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.security.CurrentActor;
-import io.memoryos.ai.ProviderAdapters;
+import io.memoryos.ai.ProviderAdapterRegistry;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.chat.ChatModelAccess;
@@ -65,11 +65,11 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 class ChatModelCatalogController {
     private final ModelCatalogService catalog;
-    private final ProviderAdapters adapters;
+    private final ProviderAdapterRegistry adapters;
     private final ModelValidation validation;
     private final ModelResolver models;
     private final ChatModelAccess access;
-    ChatModelCatalogController(ModelCatalogService catalog, ProviderAdapters adapters,
+    ChatModelCatalogController(ModelCatalogService catalog, ProviderAdapterRegistry adapters,
                                ModelValidation validation, ModelResolver models, ChatModelAccess access) {
         this.catalog = catalog;
         this.access = access;

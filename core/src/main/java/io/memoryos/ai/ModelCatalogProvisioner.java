@@ -23,10 +23,10 @@ class ModelCatalogProvisioner {
     private static final Logger LOG = LoggerFactory.getLogger(ModelCatalogProvisioner.class);
 
     private final ModelCatalogRepository catalog;
-    private final ProviderAdapters adapters;
+    private final ProviderAdapterRegistry adapters;
     private final ModelCatalogService.Deployment deployment;
 
-    ModelCatalogProvisioner(ModelCatalogRepository catalog, ProviderAdapters adapters, ModelCatalogService.Deployment deployment) {
+    ModelCatalogProvisioner(ModelCatalogRepository catalog, ProviderAdapterRegistry adapters, ModelCatalogService.Deployment deployment) {
         this.catalog = Objects.requireNonNull(catalog, "catalog must not be null");
         this.adapters = Objects.requireNonNull(adapters, "adapters must not be null");
         this.deployment = Objects.requireNonNull(deployment, "deployment must not be null");
