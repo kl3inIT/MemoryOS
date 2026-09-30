@@ -6,7 +6,7 @@ import io.memoryos.audit.AuditTrail;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepository;
@@ -37,7 +37,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
     private static final int CONCURRENT_VERIFICATIONS = 2;
 
     private final JdbcSharePointCredentialRepository credentials;
-    private final SharePointProvider provider;
+    private final SharePointGateway provider;
     private final IamAuthorization authorization;
     private final TransactionTemplate transactions;
     private final Clock clock;
@@ -45,13 +45,13 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
     private final Semaphore verifications = new Semaphore(CONCURRENT_VERIFICATIONS);
 
     @Autowired
-    public DefaultSharePointCredentialService(JdbcSharePointCredentialRepository credentials, SharePointProvider provider,
+    public DefaultSharePointCredentialService(JdbcSharePointCredentialRepository credentials, SharePointGateway provider,
             IamAuthorization authorization, PlatformTransactionManager transactionManager,
             AuditTrail audit) {
         this(credentials, provider, authorization, transactionManager, Clock.systemUTC(), audit);
     }
 
-    DefaultSharePointCredentialService(JdbcSharePointCredentialRepository credentials, SharePointProvider provider,
+    DefaultSharePointCredentialService(JdbcSharePointCredentialRepository credentials, SharePointGateway provider,
             IamAuthorization authorization, PlatformTransactionManager transactionManager, Clock clock,
             AuditTrail audit) {
         this.audit = audit;
@@ -171,7 +171,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
      * Asks Microsoft for a token and reads {@code /sites/root}. A rejected token means nothing is stored;
      * a token that cannot read the whole Tenant is still a working credential.
      */
-    private Verification verify(SharePointProvider.Cloud cloud, UUID directoryId, UUID clientId,
+    private Verification verify(SharePointGateway.Cloud cloud, UUID directoryId, UUID clientId,
             SharePointAuthentication authentication) {
         if (!verifications.tryAcquire()) throw SharePointException.unavailable();
         try (var credential = authentication.credential(cloud, directoryId.toString(), clientId.toString())) {
@@ -191,7 +191,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
     }
 
     private SharePointAuthentication authentication(Draft draft) {
-        if (draft.authMethod() == SharePointProvider.AuthMethod.CLIENT_SECRET) {
+        if (draft.authMethod() == SharePointGateway.AuthMethod.CLIENT_SECRET) {
             byte[] secret = draft.clientSecret();
             if (secret == null) throw SharePointException.invalidSecret();
             return SharePointAuthentication.clientSecret(secret);

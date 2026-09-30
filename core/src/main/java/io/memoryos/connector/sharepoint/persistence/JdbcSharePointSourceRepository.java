@@ -55,14 +55,19 @@ public class JdbcSharePointSourceRepository {
                 .param("actor", actor.value()).param("manager", managerActor == null ? null : managerActor.value())
                 .update();
         jdbc.sql("""
+                INSERT INTO source_sync_state (tenant_id, source_id, sync_interval_minutes)
+                VALUES (:tenant, :source, :sync)
+                """).param("tenant", tenant.value()).param("source", source.value())
+                .param("sync", scope.syncIntervalMinutes()).update();
+        jdbc.sql("""
                 INSERT INTO sharepoint_sources (tenant_id, source_id, scope_mode, include_documents, include_pages,
-                    sync_interval_minutes, prune_interval_hours, tenant_host, next_prune_at)
-                VALUES (:tenant, :source, :mode, :documents, :pages, :sync, :prune, :host,
+                    prune_interval_hours, tenant_host, next_prune_at)
+                VALUES (:tenant, :source, :mode, :documents, :pages, :prune, :host,
                     -- The first run is a refresh; a prune only makes sense once a window has been collected.
                     CURRENT_TIMESTAMP + GREATEST(:prune, 1) * INTERVAL '1 hour')
                 """).param("tenant", tenant.value()).param("source", source.value())
                 .param("mode", scope.scopeMode().name()).param("documents", scope.includeDocuments())
-                .param("pages", scope.includePages()).param("sync", scope.syncIntervalMinutes())
+                .param("pages", scope.includePages())
                 .param("prune", scope.pruneIntervalHours()).param("host", tenantHost).update();
         writeScope(tenant, source, scope, roots);
         return source;
@@ -72,20 +77,24 @@ public class JdbcSharePointSourceRepository {
     public void replaceScope(TenantId tenant, SourceId source, long expectedScopeRevision, Scope scope,
             List<ResolvedRoot> roots, @Nullable String tenantHost) {
         int changed = jdbc.sql("""
+                UPDATE source_sync_state SET scope_revision = scope_revision + 1, sync_interval_minutes = :sync,
+                    next_sync_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND source_id = :source AND scope_revision = :expected
+                """).param("sync", scope.syncIntervalMinutes()).param("tenant", tenant.value())
+                .param("source", source.value()).param("expected", expectedScopeRevision).update();
+        if (changed != 1) throw SourceException.conflict("SharePoint scope revision is stale");
+        jdbc.sql("""
                 UPDATE sharepoint_sources SET scope_mode = :mode, include_documents = :documents,
-                    include_pages = :pages, sync_interval_minutes = :sync, prune_interval_hours = :prune,
-                    tenant_host = COALESCE(:host, tenant_host), scope_revision = scope_revision + 1,
-                    next_sync_at = CURRENT_TIMESTAMP,
+                    include_pages = :pages, prune_interval_hours = :prune,
+                    tenant_host = COALESCE(:host, tenant_host),
                     -- Activation hides every document of the old scope, so the next refresh reads the whole new
                     -- scope instead of continuing the previous change window.
                     refresh_window_end = NULL
-                WHERE tenant_id = :tenant AND source_id = :source AND scope_revision = :expected
+                WHERE tenant_id = :tenant AND source_id = :source
                 """).param("mode", scope.scopeMode().name()).param("documents", scope.includeDocuments())
-                .param("pages", scope.includePages()).param("sync", scope.syncIntervalMinutes())
+                .param("pages", scope.includePages())
                 .param("prune", scope.pruneIntervalHours()).param("host", tenantHost)
-                .param("tenant", tenant.value()).param("source", source.value())
-                .param("expected", expectedScopeRevision).update();
-        if (changed != 1) throw SourceException.conflict("SharePoint scope revision is stale");
+                .param("tenant", tenant.value()).param("source", source.value()).update();
         jdbc.sql("UPDATE connector_credential_pairs SET sync_error_code = NULL WHERE tenant_id = :tenant AND id = :source")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
         writeScope(tenant, source, scope, roots);
@@ -127,13 +136,15 @@ public class JdbcSharePointSourceRepository {
 
     public ConfigurationRow configuration(TenantId tenant, SourceId source) {
         return jdbc.sql("""
-                SELECT s.*, pair.access_type, pair.sync_error_code AS error_code,
+                SELECT s.*, y.scope_revision, y.schedule_revision, y.sync_interval_minutes, y.sync_paused,
+                  y.last_synced_at, pair.access_type, pair.sync_error_code AS error_code,
                   (SELECT COUNT(*) FROM sharepoint_roots r
                     WHERE r.tenant_id = s.tenant_id AND r.source_id = s.source_id) AS root_count,
                   EXISTS (SELECT 1 FROM index_attempts a WHERE a.tenant_id = s.tenant_id
                     AND a.connector_credential_pair_id = s.source_id
                     AND a.status IN ('NOT_STARTED','IN_PROGRESS')) AS pending
                 FROM sharepoint_sources s
+                JOIN source_sync_state y ON y.tenant_id = s.tenant_id AND y.source_id = s.source_id
                 JOIN connector_credential_pairs pair ON pair.tenant_id = s.tenant_id AND pair.id = s.source_id
                 WHERE s.tenant_id = :tenant AND s.source_id = :source
                 """).param("tenant", tenant.value()).param("source", source.value())
@@ -189,22 +200,27 @@ public class JdbcSharePointSourceRepository {
     public long updateSchedule(TenantId tenant, SourceId source, long expectedScheduleRevision,
             int syncIntervalMinutes, int pruneIntervalHours) {
         int changed = jdbc.sql("""
-                UPDATE sharepoint_sources SET sync_interval_minutes = :sync, prune_interval_hours = :prune,
+                UPDATE source_sync_state SET sync_interval_minutes = :sync,
                     schedule_revision = schedule_revision + 1,
-                    next_sync_at = LEAST(next_sync_at, CURRENT_TIMESTAMP + make_interval(mins => :sync)),
-                    next_prune_at = CASE WHEN :prune = 0 THEN next_prune_at
-                        ELSE LEAST(next_prune_at, CURRENT_TIMESTAMP + make_interval(hours => :prune)) END
+                    next_sync_at = LEAST(next_sync_at, CURRENT_TIMESTAMP + make_interval(mins => :sync))
                 WHERE tenant_id = :tenant AND source_id = :source AND schedule_revision = :expected
-                """).param("sync", syncIntervalMinutes).param("prune", pruneIntervalHours)
+                """).param("sync", syncIntervalMinutes)
                 .param("tenant", tenant.value()).param("source", source.value())
                 .param("expected", expectedScheduleRevision).update();
         if (changed != 1) throw SourceException.conflict("SharePoint schedule revision is stale");
+        jdbc.sql("""
+                UPDATE sharepoint_sources SET prune_interval_hours = :prune,
+                    next_prune_at = CASE WHEN :prune = 0 THEN next_prune_at
+                        ELSE LEAST(next_prune_at, CURRENT_TIMESTAMP + make_interval(hours => :prune)) END
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("prune", pruneIntervalHours)
+                .param("tenant", tenant.value()).param("source", source.value()).update();
         return expectedScheduleRevision + 1;
     }
 
     public long setPaused(TenantId tenant, SourceId source, long expectedScheduleRevision, boolean paused) {
         int changed = jdbc.sql("""
-                UPDATE sharepoint_sources SET sync_paused = :paused, schedule_revision = schedule_revision + 1,
+                UPDATE source_sync_state SET sync_paused = :paused, schedule_revision = schedule_revision + 1,
                     next_sync_at = CASE WHEN :paused THEN next_sync_at ELSE CURRENT_TIMESTAMP END
                 WHERE tenant_id = :tenant AND source_id = :source AND schedule_revision = :expected
                 """).param("paused", paused).param("tenant", tenant.value()).param("source", source.value())
@@ -215,7 +231,7 @@ public class JdbcSharePointSourceRepository {
 
     public void requestSynchronization(TenantId tenant, SourceId source) {
         jdbc.sql("""
-                UPDATE sharepoint_sources SET next_sync_at = CURRENT_TIMESTAMP
+                UPDATE source_sync_state SET next_sync_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
     }

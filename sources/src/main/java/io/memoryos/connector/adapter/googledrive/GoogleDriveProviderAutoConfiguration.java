@@ -2,7 +2,7 @@ package io.memoryos.connector.adapter.googledrive;
 
 import io.memoryos.connector.GoogleDriveAccountClient;
 import io.memoryos.connector.GoogleDriveLinkReader;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -13,9 +13,9 @@ import tools.jackson.databind.ObjectMapper;
 @EnableConfigurationProperties(GoogleDriveProviderProperties.class)
 public class GoogleDriveProviderAutoConfiguration {
     @Bean(destroyMethod = "close")
-    @ConditionalOnMissingBean(GoogleDriveProvider.class)
-    RestGoogleDriveProvider googleDriveProvider(GoogleDriveProviderProperties properties, ObjectMapper mapper) {
-        return new RestGoogleDriveProvider(properties, mapper);
+    @ConditionalOnMissingBean(GoogleDriveGateway.class)
+    RestGoogleDriveGateway googleDriveProvider(GoogleDriveProviderProperties properties, ObjectMapper mapper) {
+        return new RestGoogleDriveGateway(properties, mapper);
     }
 
     @Bean

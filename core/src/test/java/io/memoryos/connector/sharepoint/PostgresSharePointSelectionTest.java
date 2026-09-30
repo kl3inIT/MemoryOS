@@ -7,8 +7,7 @@ import static org.mockito.Mockito.*;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.connector.SharePointProvider;
-import io.memoryos.connector.SharePointSelectionProcessor;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointSourceService;
 import io.memoryos.connector.SharePointSourceService.Scope;
 import io.memoryos.connector.SharePointSourceService.ScopeMode;
@@ -16,8 +15,9 @@ import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceSelectionProcessor;
 import io.memoryos.connector.source.SourceAccessPolicy;
-import io.memoryos.connector.sync.ProviderAuthorityService;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository;
@@ -62,9 +62,9 @@ class PostgresSharePointSelectionTest {
     private TenantId tenant;
     private ActorId owner;
     private CredentialId credential;
-    private SharePointProvider.Session session;
+    private SharePointGateway.Session session;
     private SharePointSourceService sources;
-    private SharePointSelectionProcessor processor;
+    private SharePointSelectionAdapter processor;
     private JdbcSharePointSelectionRepository selections;
     private JdbcSharePointSourceRepository sharePoint;
 
@@ -92,12 +92,12 @@ class PostgresSharePointSelectionTest {
         selections = new JdbcSharePointSelectionRepository(jdbc);
         sharePoint = new JdbcSharePointSourceRepository(jdbc, sourceRows);
         var access = new SourceAccessPolicy(authorization, sourceRows,
-                new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit());
+                new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry());
 
-        session = mock(SharePointProvider.Session.class);
-        when(session.root()).thenReturn(new SharePointProvider.RootSite("site-1", "https://contoso.sharepoint.com",
+        session = mock(SharePointGateway.Session.class);
+        when(session.root()).thenReturn(new SharePointGateway.RootSite("site-1", "https://contoso.sharepoint.com",
                 "contoso.sharepoint.com"));
-        when(session.site(any(), any())).thenReturn(new SharePointProvider.Site("site-1",
+        when(session.site(any(), any())).thenReturn(new SharePointGateway.Site("site-1",
                 "https://contoso.sharepoint.com/sites/Finance", "Finance", false));
         var connections = mock(SharePointConnectionService.class);
         when(connections.state(any(), any())).thenReturn(new SharePointConnectionService.State(credential,
@@ -109,23 +109,23 @@ class PostgresSharePointSelectionTest {
                 credentials, new JdbcSourceGroupRepository(jdbc, event -> { }), sourceRows,
                 new JdbcSourceSyncRepository(jdbc),
                 new JdbcIndexAttemptRepository(jdbc, sourceRows, documents,
-                        mock(ProviderAuthorityService.class)),
+                        SourceSyncAdapters.registry()),
                 documents, new SharePointSelectionPolicy(1000, 3_145_728), manager, TestDatabase.noAudit());
         sources = TestDatabase.transactionalProxy(service, SharePointSourceService.class, manager);
-        processor = new DefaultSharePointSelectionProcessor(selections, service, connections, manager);
+        processor = new SharePointSelectionAdapter(selections, service, connections, manager);
     }
 
     @Test
     void resolvedScopeCreatesTheSourceAndStartsItsFirstRun() {
         // The library is named in Vietnamese but its URL path is still the English one.
-        when(session.libraries("site-1")).thenReturn(List.of(new SharePointProvider.Library("drive-1", "Tài liệu",
+        when(session.libraries("site-1")).thenReturn(List.of(new SharePointGateway.Library("drive-1", "Tài liệu",
                 "/sites/Finance/Shared Documents")));
         var receipt = sources.create(owner, UUID.randomUUID(), "Finance", credential, scope(LIBRARY_URL),
                 SourceAccess.PUBLIC, List.of());
 
         var result = processor.execute(claim(receipt.operation().id()));
 
-        assertEquals(SharePointSelectionProcessor.Result.COMPLETED, result);
+        assertEquals(SourceSelectionProcessor.Result.COMPLETED, result);
         var configuration = sources.configuration(owner, receipt.sourceId());
         assertEquals(ScopeMode.SPECIFIC, configuration.scopeMode());
         assertEquals(1, configuration.rootCount());
@@ -141,26 +141,26 @@ class PostgresSharePointSelectionTest {
     @Test
     void aPrivateSourceCanBeRequestedAndCreated() {
         // V77 renamed RESTRICTED to PRIVATE; the selection intent must accept the current name.
-        when(session.libraries("site-1")).thenReturn(List.of(new SharePointProvider.Library("drive-1", "Documents",
+        when(session.libraries("site-1")).thenReturn(List.of(new SharePointGateway.Library("drive-1", "Documents",
                 "/sites/Finance/Shared Documents")));
         var receipt = sources.create(owner, UUID.randomUUID(), "Finance", credential, scope(LIBRARY_URL),
                 SourceAccess.PRIVATE, List.of());
 
-        assertEquals(SharePointSelectionProcessor.Result.COMPLETED, processor.execute(claim(receipt.operation().id())));
+        assertEquals(SourceSelectionProcessor.Result.COMPLETED, processor.execute(claim(receipt.operation().id())));
         assertEquals("PRIVATE", jdbc.sql("SELECT access_type FROM connector_credential_pairs WHERE id = :id")
                 .param("id", receipt.sourceId().value()).query(String.class).single());
     }
 
     @Test
     void aLibraryThatIsNotOnTheSiteFailsWithoutCreatingASource() {
-        when(session.libraries("site-1")).thenReturn(List.of(new SharePointProvider.Library("drive-9", "Policies",
+        when(session.libraries("site-1")).thenReturn(List.of(new SharePointGateway.Library("drive-9", "Policies",
                 "/sites/Finance/Policies")));
         var receipt = sources.create(owner, UUID.randomUUID(), "Finance", credential, scope(LIBRARY_URL),
                 SourceAccess.PUBLIC, List.of());
 
         var result = processor.execute(claim(receipt.operation().id()));
 
-        assertEquals(SharePointSelectionProcessor.Result.FAILED, result);
+        assertEquals(SourceSelectionProcessor.Result.FAILED, result);
         assertEquals("SOURCE_SHAREPOINT_ROOT_URL_INVALID", operationError(receipt.operation().id()));
         assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM sharepoint_sources WHERE tenant_id = :tenant")
                 .param("tenant", tenant.value()).query(Integer.class).single(), "nothing is stored");
@@ -169,21 +169,21 @@ class PostgresSharePointSelectionTest {
 
     @Test
     void repeatingARequestRecoversItsReceiptInsteadOfStartingAgain() {
-        when(session.libraries("site-1")).thenReturn(List.of(new SharePointProvider.Library("drive-1", "Tài liệu",
+        when(session.libraries("site-1")).thenReturn(List.of(new SharePointGateway.Library("drive-1", "Tài liệu",
                 "/sites/Finance/Shared Documents")));
         UUID requestId = UUID.randomUUID();
         var first = sources.create(owner, requestId, "Finance", credential, scope(LIBRARY_URL), SourceAccess.PUBLIC, List.of());
         var again = sources.create(owner, requestId, "Finance", credential, scope(LIBRARY_URL), SourceAccess.PUBLIC, List.of());
 
         assertEquals(first.operation().id(), again.operation().id());
-        assertEquals(1, jdbc.sql("SELECT COUNT(*) FROM sharepoint_selection_operations WHERE tenant_id = :tenant")
+        assertEquals(1, jdbc.sql("SELECT COUNT(*) FROM source_selection_operations WHERE tenant_id = :tenant")
                 .param("tenant", tenant.value()).query(Integer.class).single());
         assertEquals(first, sources.selectionRequest(owner, requestId));
     }
 
     @Test
     void replacingTheScopeNeedsTheCurrentRevisions() {
-        when(session.libraries("site-1")).thenReturn(List.of(new SharePointProvider.Library("drive-1", "Tài liệu",
+        when(session.libraries("site-1")).thenReturn(List.of(new SharePointGateway.Library("drive-1", "Tài liệu",
                 "/sites/Finance/Shared Documents")));
         var created = sources.create(owner, UUID.randomUUID(), "Finance", credential, scope(LIBRARY_URL),
                 SourceAccess.PUBLIC, List.of());
@@ -206,10 +206,10 @@ class PostgresSharePointSelectionTest {
     }
 
     /** Stands in for the relay, which stamps the delivery a worker then claims. */
-    private SharePointSelectionProcessor.Work claim(SourceOperationId operation) {
+    private SourceSelectionProcessor.Work claim(SourceOperationId operation) {
         UUID delivery = UUID.randomUUID();
         jdbc.sql("""
-                UPDATE sharepoint_selection_operations SET delivery_id = :delivery, dispatched_at = CURRENT_TIMESTAMP
+                UPDATE source_selection_operations SET delivery_id = :delivery, dispatched_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND id = :id
                 """).param("delivery", delivery).param("tenant", tenant.value())
                 .param("id", operation.value()).update();
@@ -222,12 +222,12 @@ class PostgresSharePointSelectionTest {
     }
 
     private String operationStatus(SourceOperationId operation) {
-        return jdbc.sql("SELECT status FROM sharepoint_selection_operations WHERE tenant_id = :tenant AND id = :id")
+        return jdbc.sql("SELECT status FROM source_selection_operations WHERE tenant_id = :tenant AND id = :id")
                 .param("tenant", tenant.value()).param("id", operation.value()).query(String.class).single();
     }
 
     private String operationError(SourceOperationId operation) {
-        return jdbc.sql("SELECT error_code FROM sharepoint_selection_operations WHERE tenant_id = :tenant AND id = :id")
+        return jdbc.sql("SELECT error_code FROM source_selection_operations WHERE tenant_id = :tenant AND id = :id")
                 .param("tenant", tenant.value()).param("id", operation.value()).query(String.class).single();
     }
 
@@ -255,8 +255,8 @@ class PostgresSharePointSelectionTest {
                 """).param("id", credential.value()).param("tenant", tenant.value()).param("actor", owner.value()).update();
         jdbc.sql("""
                 INSERT INTO sharepoint_credentials (tenant_id, credential_id, directory_id, client_id, cloud,
-                    auth_method, connection_status, secret_ciphertext, secret_nonce, secret_key_version)
-                VALUES (:tenant, :credential, :directory, :client, 'GLOBAL', 'CLIENT_SECRET', 'ACTIVE',
+                    auth_method, secret_ciphertext, secret_nonce, secret_key_version)
+                VALUES (:tenant, :credential, :directory, :client, 'GLOBAL', 'CLIENT_SECRET',
                     :ciphertext, :nonce, 'v1')
                 """).param("tenant", tenant.value()).param("credential", credential.value())
                 .param("directory", UUID.randomUUID()).param("client", UUID.randomUUID())

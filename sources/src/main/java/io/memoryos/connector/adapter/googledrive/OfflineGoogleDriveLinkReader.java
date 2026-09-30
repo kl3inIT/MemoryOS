@@ -3,7 +3,7 @@ package io.memoryos.connector.adapter.googledrive;
 import static io.memoryos.connector.GoogleDriveProviderException.Failure.*;
 
 import io.memoryos.connector.GoogleDriveLinkReader;
-import io.memoryos.connector.GoogleDriveProvider.AcquiredContent;
+import io.memoryos.connector.GoogleDriveGateway.AcquiredContent;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.document.ExtractionException;
@@ -124,7 +124,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
                     for (int c = 0; c < values.size(); c++) {
                         if (!coordinates.add((long) (firstRow + r) * columns + firstColumn + c)
                                 || !values.get(c).isObject()) throw failure(MALFORMED);
-                        String location = title + "!" + RestGoogleDriveProvider.columnName(firstColumn + c + 1) + (firstRow + r + 1);
+                        String location = title + "!" + RestGoogleDriveGateway.columnName(firstColumn + c + 1) + (firstRow + r + 1);
                         strings(values.get(c), location, links);
                     }
                 }
@@ -214,7 +214,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
             for (var record : records) {
                 if ((cells += record.size()) > StructuredContent.MAX_CELLS) throw failure(LIMIT_EXCEEDED);
                 for (int c = 0; c < record.size(); c++) links.text(record.get(c),
-                        RestGoogleDriveProvider.columnName(c + 1) + record.getRecordNumber());
+                        RestGoogleDriveGateway.columnName(c + 1) + record.getRecordNumber());
             }
         }
     }

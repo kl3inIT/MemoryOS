@@ -2,7 +2,7 @@ package io.memoryos.connector.adapter.googledrive;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import io.memoryos.connector.GoogleDriveProvider.FileMetadata;
+import io.memoryos.connector.GoogleDriveGateway.FileMetadata;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.document.DocumentContent;

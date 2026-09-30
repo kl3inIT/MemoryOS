@@ -1,7 +1,7 @@
 package io.memoryos.connector.googledrive;
 
 import io.memoryos.connector.CredentialId;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -18,15 +18,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class GoogleDriveConnectionService {
     public record State(CredentialId credentialId, String accountEmail, String status, long credentialRevision, boolean oauthClientConfigured,
             String authMethod) {}
-    public record Connection(GoogleDriveProvider.Session session, long credentialRevision) implements AutoCloseable {
+    public record Connection(GoogleDriveGateway.Session session, long credentialRevision) implements AutoCloseable {
         @Override public void close() { session.close(); }
     }
 
     private final JdbcGoogleDriveCredentialRepository credentials;
-    private final GoogleDriveProvider provider;
+    private final GoogleDriveGateway provider;
     private final TransactionTemplate transactions;
 
-    public GoogleDriveConnectionService(JdbcGoogleDriveCredentialRepository credentials, GoogleDriveProvider provider,
+    public GoogleDriveConnectionService(JdbcGoogleDriveCredentialRepository credentials, GoogleDriveGateway provider,
             PlatformTransactionManager transactionManager) {
         this.credentials = credentials;
         this.provider = provider;
@@ -51,7 +51,7 @@ public class GoogleDriveConnectionService {
 
     public Connection openCredential(TenantId tenantId, CredentialId credentialId) {
         var stored = credentials.readUsable(tenantId, credentialId);
-        GoogleDriveProvider.Session session;
+        GoogleDriveGateway.Session session;
         try {
             session = stored.serviceAccount() ? openServiceAccount(tenantId, stored) : openOAuth(tenantId, stored);
         } catch (GoogleDriveProviderException exception) {
@@ -81,12 +81,12 @@ public class GoogleDriveConnectionService {
         } finally { if (rotated != null) Arrays.fill(rotated, (byte) 0); }
     }
 
-    private GoogleDriveProvider.Session openOAuth(TenantId tenantId, JdbcGoogleDriveCredentialRepository.Stored stored) {
+    private GoogleDriveGateway.Session openOAuth(TenantId tenantId, JdbcGoogleDriveCredentialRepository.Stored stored) {
         byte[] token = credentials.decrypt(tenantId, stored);
         byte[] secret = null;
         try (var client = credentials.oauthClient(tenantId, stored)) {
             secret = client.clientSecret();
-            try (var grant = new GoogleDriveProvider.OAuthCredential(client.clientId(), secret, token)) {
+            try (var grant = new GoogleDriveGateway.OAuthCredential(client.clientId(), secret, token)) {
                 return provider.open(grant);
             }
         } finally {
@@ -96,8 +96,8 @@ public class GoogleDriveConnectionService {
     }
 
     /** A service account acts as its primary admin, the account recorded on the credential. */
-    private GoogleDriveProvider.Session openServiceAccount(TenantId tenantId, JdbcGoogleDriveCredentialRepository.Stored stored) {
-        try (var grant = new GoogleDriveProvider.ServiceAccountCredential(credentials.serviceAccountKey(tenantId, stored), stored.email())) {
+    private GoogleDriveGateway.Session openServiceAccount(TenantId tenantId, JdbcGoogleDriveCredentialRepository.Stored stored) {
+        try (var grant = new GoogleDriveGateway.ServiceAccountCredential(credentials.serviceAccountKey(tenantId, stored), stored.email())) {
             return provider.open(grant);
         }
     }

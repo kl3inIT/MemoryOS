@@ -10,7 +10,7 @@ import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveException;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveServiceAccountService;
 import io.memoryos.connector.SourceException;
@@ -20,6 +20,7 @@ import io.memoryos.connector.googledrive.persistence.JdbcGoogleGroupRepository;
 import io.memoryos.connector.source.SourceAccessPolicy;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.group.DefaultGroupScopeService;
@@ -53,14 +54,14 @@ class GoogleDriveServiceAccountCredentialTest {
     private JdbcClient jdbc;
     private TenantId tenant;
     private ActorId manager;
-    private GoogleDriveProvider provider;
-    private GoogleDriveProvider.Session session;
+    private GoogleDriveGateway provider;
+    private GoogleDriveGateway.Session session;
     private GoogleDriveServiceAccountService serviceAccounts;
     private GoogleDriveAuthorizationService authorizations;
     private GoogleDriveConnectionService connections;
     private JdbcGoogleGroupRepository groups;
     private DataSourceTransactionManager transactions;
-    private final List<GoogleDriveProvider.ServiceAccountCredential> opened = new ArrayList<>();
+    private final List<GoogleDriveGateway.ServiceAccountCredential> opened = new ArrayList<>();
 
     @BeforeEach
     void setup() throws Exception {
@@ -84,13 +85,13 @@ class GoogleDriveServiceAccountCredentialTest {
         var credentials = new JdbcGoogleDriveCredentialRepository(jdbc, sources,
                 new GoogleDriveCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test-v1"),
                 new JdbcSourceDocumentRepository(jdbc), new JdbcSourceSyncRepository(jdbc));
-        session = mock(GoogleDriveProvider.Session.class);
-        when(session.metadata("root")).thenReturn(new GoogleDriveProvider.FileMetadata("my-drive-root", "My Drive",
+        session = mock(GoogleDriveGateway.Session.class);
+        when(session.metadata("root")).thenReturn(new GoogleDriveGateway.FileMetadata("my-drive-root", "My Drive",
                 "application/vnd.google-apps.folder", "1", null, null, false, List.of(), null, null));
-        when(session.directoryUser(anyString())).thenReturn(new GoogleDriveProvider.DirectoryUser(ADMIN, true, false));
-        provider = mock(GoogleDriveProvider.class);
+        when(session.directoryUser(anyString())).thenReturn(new GoogleDriveGateway.DirectoryUser(ADMIN, true, false));
+        provider = mock(GoogleDriveGateway.class);
         when(provider.open(any())).thenAnswer(invocation -> {
-            var credential = (GoogleDriveProvider.ServiceAccountCredential) invocation.getArgument(0);
+            var credential = (GoogleDriveGateway.ServiceAccountCredential) invocation.getArgument(0);
             opened.add(credential);
             return session;
         });
@@ -100,7 +101,7 @@ class GoogleDriveServiceAccountCredentialTest {
         authorizations = TestDatabase.transactionalProxy(new DefaultGoogleDriveAuthorizationService(credentials, authorization,
                 new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(
                         new GroupInvariantRepository(jdbc),
-                        new GroupProjectionRepository(jdbc)), TestDatabase.noAudit()),
+                        new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()),
                         groups, TestDatabase.noAudit()),
                 GoogleDriveAuthorizationService.class, transactions);
     }
@@ -139,7 +140,7 @@ class GoogleDriveServiceAccountCredentialTest {
             assertEquals(1, connection.credentialRevision());
         }
         assertEquals(2, opened.size());
-        assertEquals(List.of(ADMIN, ADMIN), opened.stream().map(GoogleDriveProvider.ServiceAccountCredential::subject).toList());
+        assertEquals(List.of(ADMIN, ADMIN), opened.stream().map(GoogleDriveGateway.ServiceAccountCredential::subject).toList());
         assertThrows(SourceException.class, () -> authorizations.prepare(manager, "OAuth", credential, 1L, null));
     }
 
@@ -150,7 +151,7 @@ class GoogleDriveServiceAccountCredentialTest {
                 () -> serviceAccounts.create(manager, "Workspace", keyJson("1045"), ADMIN)).code());
 
         doReturn(session).when(provider).open(any());
-        when(session.directoryUser(anyString())).thenReturn(new GoogleDriveProvider.DirectoryUser(ADMIN, false, false));
+        when(session.directoryUser(anyString())).thenReturn(new GoogleDriveGateway.DirectoryUser(ADMIN, false, false));
         assertEquals("GOOGLE_DRIVE_SERVICE_ACCOUNT_ADMIN_REQUIRED", assertThrows(GoogleDriveException.class,
                 () -> serviceAccounts.create(manager, "Workspace", keyJson("1045"), ADMIN)).code());
 
@@ -190,14 +191,14 @@ class GoogleDriveServiceAccountCredentialTest {
     @Test
     void groupSyncReadsOnePagePerStepAndPromotesOnlyACompletedGeneration() throws Exception {
         var credential = serviceAccounts.create(manager, "Workspace", keyJson("1045"), ADMIN);
-        when(session.groups("example.com", null)).thenReturn(new GoogleDriveProvider.DirectoryPage(
+        when(session.groups("example.com", null)).thenReturn(new GoogleDriveGateway.DirectoryPage(
                 List.of("eng@example.com", "all@example.com"), "groups-2"));
-        when(session.groups("example.com", "groups-2")).thenReturn(new GoogleDriveProvider.DirectoryPage(
+        when(session.groups("example.com", "groups-2")).thenReturn(new GoogleDriveGateway.DirectoryPage(
                 List.of("gone@example.com"), null));
-        when(session.groupMembers("all@example.com", null)).thenReturn(new GoogleDriveProvider.MemberPage(List.of(), true, null));
-        when(session.groupMembers("eng@example.com", null)).thenReturn(new GoogleDriveProvider.MemberPage(
+        when(session.groupMembers("all@example.com", null)).thenReturn(new GoogleDriveGateway.MemberPage(List.of(), true, null));
+        when(session.groupMembers("eng@example.com", null)).thenReturn(new GoogleDriveGateway.MemberPage(
                 List.of("a@example.com"), false, "members-2"));
-        when(session.groupMembers("eng@example.com", "members-2")).thenReturn(new GoogleDriveProvider.MemberPage(
+        when(session.groupMembers("eng@example.com", "members-2")).thenReturn(new GoogleDriveGateway.MemberPage(
                 List.of("b@example.com"), false, null));
         when(session.groupMembers("gone@example.com", null))
                 .thenThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.NOT_FOUND));
@@ -221,8 +222,8 @@ class GoogleDriveServiceAccountCredentialTest {
     @Test
     void failedGroupSyncKeepsTheActiveGenerationAndRevocationForgetsIt() throws Exception {
         var credential = serviceAccounts.create(manager, "Workspace", keyJson("1045"), ADMIN);
-        when(session.groups("example.com", null)).thenReturn(new GoogleDriveProvider.DirectoryPage(List.of("eng@example.com"), null));
-        when(session.groupMembers("eng@example.com", null)).thenReturn(new GoogleDriveProvider.MemberPage(
+        when(session.groups("example.com", null)).thenReturn(new GoogleDriveGateway.DirectoryPage(List.of("eng@example.com"), null));
+        when(session.groupMembers("eng@example.com", null)).thenReturn(new GoogleDriveGateway.MemberPage(
                 List.of("a@example.com"), false, null));
         var synchronizer = new GoogleGroupSynchronizer(groups, connections, transactions, Duration.ofHours(1));
         while (synchronizer.advance(tenant, credential, 1, ADMIN, session)) { }

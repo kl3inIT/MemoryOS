@@ -5,26 +5,25 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
-import io.memoryos.connector.SourceType;
 import org.junit.jupiter.api.Test;
 
 class SourceAccessPolicyTest {
     @Test
-    void defaultsFollowTheSourceTypeAndAuthority() {
-        assertEquals(SourceAccess.PUBLIC, SourceAccessPolicy.access(SourceType.FILE, true, null));
-        assertEquals(SourceAccess.PRIVATE, SourceAccessPolicy.access(SourceType.FILE, false, null));
-        assertEquals(SourceAccess.SYNC, SourceAccessPolicy.access(SourceType.GOOGLE_DRIVE, true, null));
-        assertEquals(SourceAccess.SYNC, SourceAccessPolicy.access(SourceType.GOOGLE_DRIVE, false, null));
+    void defaultsFollowProviderPermissionsAndAuthority() {
+        assertEquals(SourceAccess.PUBLIC, SourceAccessPolicy.access(false, true, null));
+        assertEquals(SourceAccess.PRIVATE, SourceAccessPolicy.access(false, false, null));
+        assertEquals(SourceAccess.SYNC, SourceAccessPolicy.access(true, true, null));
+        assertEquals(SourceAccess.SYNC, SourceAccessPolicy.access(true, false, null));
     }
 
     @Test
-    void autoSyncNeedsGoogleDriveAndPublicNeedsGlobalAuthority() {
-        assertThrows(SourceException.class, () -> SourceAccessPolicy.access(SourceType.FILE, true, SourceAccess.SYNC));
-        for (var type : SourceType.values()) {
-            assertThrows(SourceException.class, () -> SourceAccessPolicy.access(type, false, SourceAccess.PUBLIC));
-            assertEquals(SourceAccess.PRIVATE, SourceAccessPolicy.access(type, false, SourceAccess.PRIVATE));
-            assertEquals(SourceAccess.PUBLIC, SourceAccessPolicy.access(type, true, SourceAccess.PUBLIC));
+    void autoSyncNeedsProviderPermissionsAndPublicNeedsGlobalAuthority() {
+        assertThrows(SourceException.class, () -> SourceAccessPolicy.access(false, true, SourceAccess.SYNC));
+        for (boolean permissionSync : new boolean[] {false, true}) {
+            assertThrows(SourceException.class, () -> SourceAccessPolicy.access(permissionSync, false, SourceAccess.PUBLIC));
+            assertEquals(SourceAccess.PRIVATE, SourceAccessPolicy.access(permissionSync, false, SourceAccess.PRIVATE));
+            assertEquals(SourceAccess.PUBLIC, SourceAccessPolicy.access(permissionSync, true, SourceAccess.PUBLIC));
         }
-        assertEquals(SourceAccess.SYNC, SourceAccessPolicy.access(SourceType.GOOGLE_DRIVE, false, SourceAccess.SYNC));
+        assertEquals(SourceAccess.SYNC, SourceAccessPolicy.access(true, false, SourceAccess.SYNC));
     }
 }

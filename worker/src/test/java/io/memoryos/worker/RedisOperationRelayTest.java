@@ -132,8 +132,7 @@ class RedisOperationRelayTest {
                 .containsOnly(
                         "ingestion",
                         "source_sync",
-                        "google_drive_selection_validation",
-                        "sharepoint_selection_validation",
+                        "selection_validation",
                         "cleanup",
                         "search",
                         "user_file",
@@ -180,7 +179,6 @@ class RedisOperationRelayTest {
                 new RedisExecutionProperties.Workload("search", "search-workers", 2),
                 new RedisExecutionProperties.Workload("sync", "sync-workers", 2),
                 new RedisExecutionProperties.Workload("selection", "selection-workers", 2),
-                new RedisExecutionProperties.Workload("sharepoint", "sharepoint-workers", 2),
                 new RedisExecutionProperties.Workload("files", "file-workers", 1)
         );
     }

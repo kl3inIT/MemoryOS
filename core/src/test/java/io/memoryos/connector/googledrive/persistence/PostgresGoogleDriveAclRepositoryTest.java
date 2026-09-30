@@ -12,8 +12,8 @@ import io.memoryos.connector.GoogleDriveAclSnapshot.ContextStatus;
 import io.memoryos.connector.GoogleDriveAclSnapshot.Status;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveOAuthClient;
-import io.memoryos.connector.GoogleDriveProvider.Permission;
-import io.memoryos.connector.GoogleDriveProvider.PermissionDetail;
+import io.memoryos.connector.GoogleDriveGateway.Permission;
+import io.memoryos.connector.GoogleDriveGateway.PermissionDetail;
 import io.memoryos.connector.GoogleDriveSourceService.Root;
 import io.memoryos.connector.GoogleDriveSourceService.ScopeMode;
 import io.memoryos.connector.SourceAccess;
@@ -23,7 +23,6 @@ import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
-import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -233,8 +232,8 @@ class PostgresGoogleDriveAclRepositoryTest {
     void renewedCredentialRevisionDoesNotMakeOldPermissionEvidenceCurrent() {
         success(fixture, List.of());
         jdbc.sql("""
-                UPDATE google_drive_credentials SET credential_revision = credential_revision + 1
-                WHERE tenant_id = :tenant AND credential_id = :credential
+                UPDATE credentials SET credential_revision = credential_revision + 1
+                WHERE tenant_id = :tenant AND id = :credential
                 """).param("tenant", fixture.tenant().value()).param("credential", fixture.credential().value()).update();
         var staleCredential = read(fixture);
         assertThat(staleCredential.currentContext().credentialActive()).isTrue();
@@ -367,7 +366,8 @@ class PostgresGoogleDriveAclRepositoryTest {
                 .param("tenant", tenant.value()).param("connector", pair.connectorId()).update();
         jdbc.sql("UPDATE connector_credential_pairs SET credential_id = :credential, access_type = 'PRIVATE' WHERE tenant_id = :tenant AND id = :source")
                 .param("credential", credential.value()).param("tenant", tenant.value()).param("source", pair.sourceId().value()).update();
-        jdbc.sql("INSERT INTO google_drive_sources (tenant_id, source_id) VALUES (:tenant, :source)")
+        jdbc.sql("WITH state AS (INSERT INTO source_sync_state (tenant_id, source_id) VALUES (:tenant, :source)) "
+                        + "INSERT INTO google_drive_sources (tenant_id, source_id) VALUES (:tenant, :source)")
                 .param("tenant", tenant.value()).param("source", pair.sourceId().value()).update();
         jdbc.sql("INSERT INTO google_drive_roots (tenant_id, source_id, file_id, name, mime_type) VALUES (:tenant, :source, :root, 'Folder', 'application/vnd.google-apps.folder')")
                 .param("tenant", tenant.value()).param("source", pair.sourceId().value()).param("root", ROOT).update();
@@ -386,7 +386,7 @@ class PostgresGoogleDriveAclRepositoryTest {
 
     private Work work(TenantId tenant, SourceId source) {
         return Objects.requireNonNull(tx.execute(_ -> {
-            var operation = sync.enqueue(SyncTarget.GOOGLE_DRIVE, tenant, source, 1, SourceRunTrigger.MANUAL, null);
+            var operation = sync.enqueue(tenant, source, 1, SourceRunTrigger.MANUAL, null);
             UUID delivery = UUID.randomUUID();
             jdbc.sql("UPDATE source_sync_attempts SET delivery_id = :delivery WHERE tenant_id = :tenant AND id = :operation")
                     .param("delivery", delivery).param("tenant", tenant.value()).param("operation", operation.id().value()).update();

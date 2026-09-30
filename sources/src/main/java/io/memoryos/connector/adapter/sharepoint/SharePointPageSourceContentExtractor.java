@@ -44,7 +44,7 @@ public final class SharePointPageSourceContentExtractor {
         } catch (JacksonException exception) {
             throw StructuredContent.failure(ExtractionFailure.MALFORMED);
         }
-        if (snapshot == null || !RestSharePointProvider.PAGE_SCHEMA.equals(snapshot.path("schema").asString(""))
+        if (snapshot == null || !RestSharePointGateway.PAGE_SCHEMA.equals(snapshot.path("schema").asString(""))
                 || !snapshot.path("content").isObject()
                 || input.providerFileId() == null || input.providerVersion() == null
                 || !input.providerFileId().equals(snapshot.path("source").path("id").asString(""))

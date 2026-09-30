@@ -1,8 +1,8 @@
 package io.memoryos.connector.googledrive;
 
 import io.memoryos.connector.GoogleDriveLinkReader;
-import io.memoryos.connector.GoogleDriveProvider;
-import io.memoryos.connector.GoogleDriveProvider.FileMetadata;
+import io.memoryos.connector.GoogleDriveGateway;
+import io.memoryos.connector.GoogleDriveGateway.FileMetadata;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveProviderException.Failure;
 import io.memoryos.connector.GoogleDriveSourceService.DiscoveryError;
@@ -31,7 +31,7 @@ final class GoogleDriveLinkedDiscovery {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "application/pdf", "text/plain", "text/markdown", "text/x-markdown");
-    private final GoogleDriveProvider.Session session;
+    private final GoogleDriveGateway.Session session;
     private final GoogleDriveLinkReader reader;
     private final long deadline = System.nanoTime() + Duration.ofSeconds(120).toNanos();
     private final Map<String, FileMetadata> metadata = new HashMap<>();
@@ -42,7 +42,7 @@ final class GoogleDriveLinkedDiscovery {
     private int operations;
     private int edges;
 
-    GoogleDriveLinkedDiscovery(GoogleDriveProvider.Session session, GoogleDriveLinkReader reader) {
+    GoogleDriveLinkedDiscovery(GoogleDriveGateway.Session session, GoogleDriveLinkReader reader) {
         this.session = session;
         this.reader = reader;
     }

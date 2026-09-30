@@ -14,7 +14,6 @@ import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.FileOutcome;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.ItemFailure;
-import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.objectstorage.ObjectWriteService;
 import java.util.HashSet;
 import java.util.Optional;
@@ -27,7 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * One execution slice of a synchronization attempt, as a traversal sees it. Every write happens inside
+ * One execution slice of a synchronization attempt, as an adapter sees it. Every write happens inside
  * {@link #fenced}, which locks the Source and checks that the claim is still current; once a fence finds it
  * stale the run is {@linkplain #stopped() stopped} and later fences write nothing. The methods documented as
  * running inside a fence must be called from within a {@link #fenced} action.
@@ -38,7 +37,6 @@ public final class SyncRun {
     private static final int UNRESOLVED_LIMIT = 10_000;
 
     private final Work work;
-    private final SyncTarget target;
     private final JdbcSourceSyncRepository attempts;
     private final JdbcSourceRepository sources;
     private final JdbcSourceItemRepository items;
@@ -50,11 +48,10 @@ public final class SyncRun {
     private boolean stopped;
     private boolean aborted;
 
-    SyncRun(Work work, SyncTarget target, JdbcSourceSyncRepository attempts, JdbcSourceRepository sources,
+    SyncRun(Work work, JdbcSourceSyncRepository attempts, JdbcSourceRepository sources,
             JdbcSourceItemRepository items, JdbcIndexAttemptRepository indexing,
             JdbcSourceDocumentRepository documents, ObjectWriteService writes, TransactionTemplate transactions) {
         this.work = work;
-        this.target = target;
         this.attempts = attempts;
         this.sources = sources;
         this.items = items;
@@ -78,10 +75,10 @@ public final class SyncRun {
         return aborted;
     }
 
-    /** Stops the run because the traversal found it stale outside a fence, for example a newer credential. */
-    public SyncTraversal.Slice stop() {
+    /** Stops the run because the adapter found it stale outside a fence, for example a newer credential. */
+    public SourceSyncAdapter.Slice stop() {
         stopped = true;
-        return SyncTraversal.Slice.STOPPED;
+        return SourceSyncAdapter.Slice.STOPPED;
     }
 
     /**
@@ -92,7 +89,7 @@ public final class SyncRun {
         if (stopped) return Optional.empty();
         return transactions.execute(_ -> {
             var pair = lock();
-            if (pair.isEmpty() || !attempts.current(target, work)) {
+            if (pair.isEmpty() || !attempts.current(work)) {
                 stopped = true;
                 return Optional.<T>empty();
             }
@@ -156,11 +153,11 @@ public final class SyncRun {
     }
 
     /**
-     * Inside a fence: completes the attempt, {@code COMPLETED_WITH_ERRORS} when any item failed. The traversal
+     * Inside a fence: completes the attempt, {@code COMPLETED_WITH_ERRORS} when any item failed. The adapter
      * writes its own completion state in the same fence.
      */
     public void complete() {
-        if (attempts.complete(target, work).isEmpty()) {
+        if (attempts.complete(work).isEmpty()) {
             stopped = true;
             return;
         }
@@ -226,7 +223,7 @@ public final class SyncRun {
     public record Content(SourceInputDescriptor descriptor, String filename, String mediaType, boolean text,
                           byte[] bytes) {}
 
-    /** What the traversal does inside the acquisition fence. */
+    /** What the adapter does inside the acquisition fence. */
     public interface AcquireHooks {
         /** Before anything is written: false when the item left the scope meanwhile. */
         default boolean inScope() {

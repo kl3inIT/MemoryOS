@@ -1,7 +1,7 @@
 package io.memoryos.connector.googledrive;
 
 import io.memoryos.connector.CredentialId;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleGroupRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleGroupRepository.Cursor;
@@ -44,7 +44,7 @@ public class GoogleGroupSynchronizer {
      * due, so the caller can stop asking during this execution.
      */
     public boolean advance(TenantId tenant, CredentialId credential, long credentialRevision, String adminEmail,
-            GoogleDriveProvider.Session session) {
+            GoogleDriveGateway.Session session) {
         var cursor = transactions.execute(_ -> {
             if (!connections.currentCredential(tenant, credential, credentialRevision)) return null;
             return groups.running(tenant, credential)
@@ -70,14 +70,14 @@ public class GoogleGroupSynchronizer {
         return true;
     }
 
-    private void readMembers(Cursor cursor, long credentialRevision, GoogleDriveProvider.Session session) {
-        GoogleDriveProvider.MemberPage page;
+    private void readMembers(Cursor cursor, long credentialRevision, GoogleDriveGateway.Session session) {
+        GoogleDriveGateway.MemberPage page;
         try {
             page = session.groupMembers(Objects.requireNonNull(cursor.groupEmail()), cursor.membersPageToken());
         } catch (GoogleDriveProviderException exception) {
             // A group deleted after it was listed simply has no members in this generation.
             if (exception.failure() != GoogleDriveProviderException.Failure.NOT_FOUND) throw exception;
-            page = new GoogleDriveProvider.MemberPage(List.of(), false, null);
+            page = new GoogleDriveGateway.MemberPage(List.of(), false, null);
         }
         var members = page;
         apply(cursor, credentialRevision, () -> groups.recordMembers(cursor, members.emails(), members.wholeDomain(),

@@ -11,7 +11,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.DocumentAccess;
 import io.memoryos.connector.DocumentSourceMetadata;
-import io.memoryos.connector.GoogleDriveProvider.Permission;
+import io.memoryos.connector.GoogleDriveGateway.Permission;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.source.DefaultSourceDocumentAccessResolver;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
@@ -68,7 +68,8 @@ class SourceSyncAccessTest {
         groupMember = member(null, false);
         readers = List.of(owner, mate, outsider, unverified, groupMember);
         drive = pair("GOOGLE_DRIVE", "SYNC");
-        jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id) VALUES(:tenant,:source)")
+        jdbc.sql("WITH state AS (INSERT INTO source_sync_state (tenant_id, source_id) VALUES (:tenant, :source)) "
+                        + "INSERT INTO google_drive_sources(tenant_id,source_id) VALUES(:tenant,:source)")
                 .param("tenant", tenant.value()).param("source", drive).update();
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES(:tenant,:id,'Readers')")
@@ -158,7 +159,7 @@ class SourceSyncAccessTest {
         var document = document("kept", List.of(user("owner@example.test", null, null)));
         var id = new DocumentId(document);
         failedAttempt("kept");
-        jdbc.sql("UPDATE google_drive_sources SET revision=revision+1,generation=generation+1 WHERE source_id=:source")
+        jdbc.sql("UPDATE source_sync_state SET scope_revision=scope_revision+1,generation=generation+1 WHERE source_id=:source")
                 .param("source", drive).update();
         assertTrue(access.canRead(owner, id), "A later failure and revision changes keep the last successful grants");
         assertEquals(Set.of("google_user:owner@example.test"), repository.documentAccess(tenant, document).tokens());
@@ -205,7 +206,8 @@ class SourceSyncAccessTest {
         generation(credential, 2, "RUNNING", Map.of("team@example.test", List.of("mate@example.test")), Set.of());
         assertEquals(Set.of(owner), readersOf(team), "A run in progress never replaces the active generation");
 
-        jdbc.sql("UPDATE google_drive_credentials SET connection_status='NEEDS_REAUTHORIZATION' WHERE credential_id=:id")
+        jdbc.sql("WITH credential AS (UPDATE credentials SET status='NEEDS_REAUTHORIZATION' WHERE id=:id) "
+                        + "UPDATE google_drive_credentials SET connection_status='NEEDS_REAUTHORIZATION' WHERE credential_id=:id")
                 .param("id", credential).update();
         assertEquals(Set.of(), readersOf(team), "A credential that lost its authority stops granting membership");
     }

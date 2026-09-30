@@ -103,13 +103,7 @@ class ControlPlaneConfiguration {
     @Bean
     RecurringTask<Void> selectionValidationRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
         return Tasks.recurring("memoryos-redis-selection-validation-relay-v1", FixedDelay.of(properties.relayInterval()))
-                .execute((_, _) -> relay.relay(OperationWorkload.GOOGLE_DRIVE_SELECTION_VALIDATION));
-    }
-
-    @Bean
-    RecurringTask<Void> sharePointSelectionValidationRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
-        return Tasks.recurring("memoryos-redis-sharepoint-selection-relay-v1", FixedDelay.of(properties.relayInterval()))
-                .execute((_, _) -> relay.relay(OperationWorkload.SHAREPOINT_SELECTION_VALIDATION));
+                .execute((_, _) -> relay.relay(OperationWorkload.SELECTION_VALIDATION));
     }
 
     @Bean

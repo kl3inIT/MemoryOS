@@ -4,8 +4,8 @@ import static io.memoryos.connector.GoogleDriveProviderException.Failure.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.connector.GoogleDriveLinkReader.Link;
-import io.memoryos.connector.GoogleDriveProvider.AcquiredContent;
-import io.memoryos.connector.GoogleDriveProvider.FileMetadata;
+import io.memoryos.connector.GoogleDriveGateway.AcquiredContent;
+import io.memoryos.connector.GoogleDriveGateway.FileMetadata;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;

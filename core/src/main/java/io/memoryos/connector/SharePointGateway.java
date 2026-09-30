@@ -7,7 +7,7 @@ import java.util.Objects;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-public interface SharePointProvider {
+public interface SharePointGateway {
     Session open(Credential credential);
 
     interface Session extends AutoCloseable {

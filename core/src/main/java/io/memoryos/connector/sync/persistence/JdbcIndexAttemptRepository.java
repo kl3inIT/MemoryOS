@@ -17,7 +17,7 @@ import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.source.persistence.SourceHistoryCursor;
-import io.memoryos.connector.sync.ProviderAuthorityService;
+import io.memoryos.connector.sync.SourceSyncAdapterRegistry;
 import io.memoryos.connector.SourceType;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;
@@ -47,13 +47,13 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     private final JdbcClient jdbcClient;
     private final JdbcSourceRepository sources;
     private final JdbcSourceDocumentRepository sourceDocuments;
-    private final ProviderAuthorityService authorities;
+    private final SourceSyncAdapterRegistry authorities;
 
     public JdbcIndexAttemptRepository(
             JdbcClient jdbcClient,
             JdbcSourceRepository sources,
             JdbcSourceDocumentRepository sourceDocuments,
-            ProviderAuthorityService authorities
+            SourceSyncAdapterRegistry authorities
     ) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
@@ -65,21 +65,20 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
         return jdbcClient.sql("""
                 SELECT v.provider_file_id, v.credential_revision, c.connector_type,
                   CASE c.connector_type
-                    WHEN 'GOOGLE_DRIVE' THEN v.scope_revision = s.revision AND m.eligible AND NOT m.excluded
-                    WHEN 'SHAREPOINT' THEN v.scope_revision = sp.scope_revision
+                    WHEN 'GOOGLE_DRIVE' THEN v.scope_revision = s.scope_revision AND m.eligible AND NOT m.excluded
+                    WHEN 'SHAREPOINT' THEN v.scope_revision = s.scope_revision
                     ELSE FALSE
                   END AS eligible
                 FROM connector_item_versions v
                 JOIN connector_credential_pairs p ON p.tenant_id = v.tenant_id AND p.connector_id = v.connector_id
                 JOIN connectors c ON c.tenant_id = v.tenant_id AND c.id = v.connector_id
-                LEFT JOIN google_drive_sources s ON s.tenant_id = p.tenant_id AND s.source_id = p.id
+                LEFT JOIN source_sync_state s ON s.tenant_id = p.tenant_id AND s.source_id = p.id
                 LEFT JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
                   AND m.file_id = v.provider_file_id
-                LEFT JOIN sharepoint_sources sp ON sp.tenant_id = p.tenant_id AND sp.source_id = p.id
                 WHERE v.tenant_id = :tenant AND v.id = :version AND p.id = :source
                 """).param("tenant", tenant.value()).param("version", version).param("source", source.value())
                 .query((r, _) -> r.getString("provider_file_id") == null
-                        || (r.getBoolean("eligible") && authorities.current(SourceType.valueOf(r.getString("connector_type")),
+                        || (r.getBoolean("eligible") && authorities.credentialCurrent(SourceType.valueOf(r.getString("connector_type")),
                                 tenant, source, r.getLong("credential_revision"))))
                 .optional().orElse(false);
     }
@@ -567,24 +566,22 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                     SELECT c.connector_type, v.credential_revision FROM index_attempts a
                     JOIN connector_item_versions v ON v.tenant_id = a.tenant_id AND v.id = a.connector_item_version_id
                     JOIN connectors c ON c.tenant_id = a.tenant_id AND c.id = a.connector_id
-                    LEFT JOIN google_drive_sources s ON c.connector_type = 'GOOGLE_DRIVE'
-                      AND s.tenant_id = a.tenant_id AND s.source_id = a.connector_credential_pair_id
+                    LEFT JOIN source_sync_state s
+                      ON s.tenant_id = a.tenant_id AND s.source_id = a.connector_credential_pair_id
                     LEFT JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
                       AND m.file_id = v.provider_file_id
-                    LEFT JOIN sharepoint_sources sp ON c.connector_type = 'SHAREPOINT'
-                      AND sp.tenant_id = a.tenant_id AND sp.source_id = a.connector_credential_pair_id
                     WHERE a.tenant_id = :tenant AND a.id = :id
                       AND CASE c.connector_type
-                        WHEN 'GOOGLE_DRIVE' THEN v.scope_revision = s.revision
+                        WHEN 'GOOGLE_DRIVE' THEN v.scope_revision = s.scope_revision
                           AND (:ignoreEligibility OR m.eligible) AND NOT m.excluded AND m.root_id IS NOT NULL
-                        WHEN 'SHAREPOINT' THEN v.scope_revision = sp.scope_revision
+                        WHEN 'SHAREPOINT' THEN v.scope_revision = s.scope_revision
                         ELSE FALSE
                       END
                     """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
                     .param("ignoreEligibility", !requireEligibility)
                     .query((r, _) -> new Authority(SourceType.valueOf(r.getString("connector_type")),
                             r.getLong("credential_revision"))).optional();
-            if (authority.isEmpty() || !authorities.current(authority.get().sourceType(), work.tenantId(),
+            if (authority.isEmpty() || !authorities.credentialCurrent(authority.get().sourceType(), work.tenantId(),
                     work.sourceId(), authority.get().credentialRevision())) return false;
         }
         return jdbcClient.sql("""

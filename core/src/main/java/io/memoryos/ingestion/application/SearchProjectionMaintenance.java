@@ -1,6 +1,6 @@
 package io.memoryos.ingestion.application;
 
-import io.memoryos.connector.GoogleDriveAclChanged;
+import io.memoryos.connector.SourceAclChanged;
 import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunkPort;
@@ -57,7 +57,7 @@ public class SearchProjectionMaintenance {
 
     /** Runs in the permission snapshot transaction; only SYNC Sources index provider permissions. */
     @EventListener
-    public void aclChanged(GoogleDriveAclChanged event) {
+    public void aclChanged(SourceAclChanged event) {
         for (String identity : index.identities()) {
             work.enqueueDocumentAccess(event.tenantId(), event.sourceId(), event.documentIds(), identity);
         }

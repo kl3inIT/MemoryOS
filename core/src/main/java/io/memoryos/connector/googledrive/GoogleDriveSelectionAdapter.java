@@ -2,8 +2,10 @@ package io.memoryos.connector.googledrive;
 
 import io.memoryos.connector.*;
 import io.memoryos.connector.GoogleDriveSourceService.*;
+import io.memoryos.connector.SourceSelectionProcessor.Result;
+import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
-import io.memoryos.connector.sync.SelectionBatchProcessor;
+import io.memoryos.connector.sync.BatchedSelectionAdapter;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository.Entry;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository.Intent;
 import java.util.ArrayList;
@@ -15,7 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Service
-public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcessor implements GoogleDriveSelectionProcessor {
+public class GoogleDriveSelectionAdapter extends BatchedSelectionAdapter {
     /** Drive metadata requests one batch makes before handing the work back. */
     private static final int BATCH_REQUESTS = 32;
 
@@ -23,12 +25,14 @@ public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcesso
     private final DefaultGoogleDriveSourceService sources;
     private final GoogleDriveConnectionService connections;
 
-    public DefaultGoogleDriveSelectionProcessor(JdbcGoogleDriveSelectionRepository selections,
+    public GoogleDriveSelectionAdapter(JdbcGoogleDriveSelectionRepository selections,
             DefaultGoogleDriveSourceService sources, GoogleDriveConnectionService connections,
             PlatformTransactionManager transactionManager) {
         super(selections.operations(), transactionManager);
         this.selections=selections; this.sources=sources; this.connections=connections;
     }
+
+    @Override public SourceType type() { return SourceType.GOOGLE_DRIVE; }
 
     @Override protected Result verify(Work work, long started) {
         var intent=selections.intent(work);
@@ -70,13 +74,13 @@ public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcesso
     private final class Batch {
         private final Work work;
         private final Intent intent;
-        private final GoogleDriveProvider.Session session;
+        private final GoogleDriveGateway.Session session;
         private final long started;
         private int calls;
         private final Set<String> roots;
         private final List<Entry> entries;
 
-        Batch(Work work,Intent intent,GoogleDriveProvider.Session session,long started) {
+        Batch(Work work,Intent intent,GoogleDriveGateway.Session session,long started) {
             this.work=work; this.intent=intent; this.session=session; this.started=started;
             entries=selections.entries(work);
             roots=new HashSet<>();
@@ -102,7 +106,7 @@ public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcesso
             }
         }
 
-        private void verifyRoot(Entry entry,GoogleDriveProvider.FileMetadata file) {
+        private void verifyRoot(Entry entry,GoogleDriveGateway.FileMetadata file) {
             if (intent.scopeMode()==ScopeMode.GENERAL) GoogleDriveRootValidation.requireMyDriveRoot(file);
             else {
                 requireSupported(file);
@@ -114,7 +118,7 @@ public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcesso
             checkpoint(entry,file.name(),file.mimeType(),false,LinkedDocumentStatus.AVAILABLE);
         }
 
-        private void verifyApproval(Entry entry,GoogleDriveProvider.FileMetadata file) {
+        private void verifyApproval(Entry entry,GoogleDriveGateway.FileMetadata file) {
             boolean supported=GoogleDriveLinkedDiscovery.supported(file);
             if (!entry.wasSelected() && (!supported || file.trashed()))
                 throw SourceException.invalid("Select only available linked documents.","linked document became unavailable");
@@ -122,7 +126,7 @@ public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcesso
                     supported?LinkedDocumentStatus.AVAILABLE:LinkedDocumentStatus.UNSUPPORTED);
         }
 
-        private boolean covered(Entry entry,GoogleDriveProvider.FileMetadata file,boolean includeSelf) {
+        private boolean covered(Entry entry,GoogleDriveGateway.FileMetadata file,boolean includeSelf) {
             if (includeSelf && roots.contains(file.id())) return true;
             boolean known=true;
             for (String parent:file.parents()) {
@@ -167,7 +171,7 @@ public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcesso
             }
         }
 
-        private GoogleDriveProvider.FileMetadata metadata(String id) {
+        private GoogleDriveGateway.FileMetadata metadata(String id) {
             transactions.executeWithoutResult(_ -> sources.requireIntent(work,intent));
             var cached=selections.metadata(work,id);
             if (cached.isPresent()) return cached.get();
@@ -197,7 +201,7 @@ public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcesso
         }
     }
 
-    private static void requireSupported(GoogleDriveProvider.FileMetadata file) {
+    private static void requireSupported(GoogleDriveGateway.FileMetadata file) {
         if (file.trashed() || file.shortcutTargetId()!=null || "application/vnd.google-apps.shortcut".equals(file.mimeType()))
             throw SourceException.unsupportedRoot();
     }

@@ -25,10 +25,8 @@ import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveOAuthClient;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
-import io.memoryos.connector.GoogleDriveSelectionProcessor;
-import io.memoryos.connector.SharePointSelectionProcessor;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
@@ -38,6 +36,7 @@ import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.SourceManagementService;
+import io.memoryos.connector.SourceSelectionProcessor;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.ExtractionArtifactPort;
@@ -170,7 +169,7 @@ class SourceApiIntegrationTest {
     private ConnectorSyncPort sourceSync;
 
     @Autowired
-    private GoogleDriveSelectionProcessor selections;
+    private SourceSelectionProcessor selections;
 
     @Autowired
     private ExtractionArtifactPort extractionArtifacts;
@@ -188,8 +187,8 @@ class SourceApiIntegrationTest {
     private GoogleDriveAuthorizationService googleAuthorizations;
 
     @MockitoBean
-    private GoogleDriveProvider googleProvider;
-    private GoogleDriveProvider.Session googleSession;
+    private GoogleDriveGateway googleProvider;
+    private GoogleDriveGateway.Session googleSession;
 
     private ActorAuthenticationToken owner;
     private ActorAuthenticationToken member;
@@ -332,6 +331,10 @@ class SourceApiIntegrationTest {
         jdbcClient.sql("""
                 UPDATE connectors SET connector_type = 'GOOGLE_DRIVE'
                 WHERE id = (SELECT connector_id FROM connector_credential_pairs WHERE id = :source)
+                """).param("source", source.id().value()).update();
+        jdbcClient.sql("""
+                INSERT INTO source_sync_state (tenant_id, source_id)
+                SELECT tenant_id, id FROM connector_credential_pairs WHERE id = :source
                 """).param("source", source.id().value()).update();
         jdbcClient.sql("""
                 INSERT INTO google_drive_sources (tenant_id, source_id, scope_mode)
@@ -763,7 +766,7 @@ class SourceApiIntegrationTest {
     void serviceAccountsAreVerifiedAsTheirAdminAndNeverEchoTheKey() throws Exception {
         googleCredential("Session fixture");
         when(googleSession.directoryUser(anyString()))
-                .thenReturn(new GoogleDriveProvider.DirectoryUser("admin@example.com", true, false));
+                .thenReturn(new GoogleDriveGateway.DirectoryUser("admin@example.com", true, false));
         String keyJson = serviceAccountKeyJson();
         String body = Json.mapper().writeValueAsString(Map.of(
                 "name", "Workspace", "serviceAccountKeyJson", keyJson, "adminEmail", "Admin@Example.com"));
@@ -793,7 +796,7 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.credentialRevision").value(2));
 
         when(googleSession.directoryUser(anyString()))
-                .thenReturn(new GoogleDriveProvider.DirectoryUser("admin@example.com", false, false));
+                .thenReturn(new GoogleDriveGateway.DirectoryUser("admin@example.com", false, false));
         mockMvc.perform(post("/api/credentials/google-drive/service-account").with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
@@ -1034,8 +1037,8 @@ class SourceApiIntegrationTest {
         String source = createGoogleSource(googleCredential("Linked documents"), "Linked source", "linked-root");
         when(googleSession.acquire(any())).thenAnswer(invocation -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            GoogleDriveProvider.FileMetadata file = invocation.getArgument(0);
-            return new GoogleDriveProvider.AcquiredContent(file.name() + ".txt", "text/plain",
+            GoogleDriveGateway.FileMetadata file = invocation.getArgument(0);
+            return new GoogleDriveGateway.AcquiredContent(file.name() + ".txt", "text/plain",
                     "References https://drive.google.com/file/d/linked-target/view".getBytes(UTF_8),
                     new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(),
                             "https://drive.google.com/file/d/" + file.id() + "/view"));
@@ -1159,19 +1162,19 @@ class SourceApiIntegrationTest {
     @Test
     void selectionTreeExpandsActualFoldersWithoutLinksAndKeepsOwnerAndProviderErrorBoundaries() throws Exception {
         var credential = googleCredential("Tree account");
-        var folder = new GoogleDriveProvider.FileMetadata("tree-folder", "Selected folder", "application/vnd.google-apps.folder",
+        var folder = new GoogleDriveGateway.FileMetadata("tree-folder", "Selected folder", "application/vnd.google-apps.folder",
                 "1", null, null, false, List.of("my-drive-root"), null, null);
-        var nested = new GoogleDriveProvider.FileMetadata("tree-nested", "Nested folder", "application/vnd.google-apps.folder",
+        var nested = new GoogleDriveGateway.FileMetadata("tree-nested", "Nested folder", "application/vnd.google-apps.folder",
                 "1", null, null, false, List.of("tree-folder"), null, null);
-        var file = new GoogleDriveProvider.FileMetadata("tree-file", "A file without links", "text/plain",
+        var file = new GoogleDriveGateway.FileMetadata("tree-file", "A file without links", "text/plain",
                 "1", null, null, false, List.of("tree-nested"), null, null);
         when(googleSession.metadata("tree-folder")).thenReturn(folder);
         when(googleSession.metadata("tree-nested")).thenReturn(nested);
         when(googleSession.metadata("tree-file")).thenReturn(file);
-        when(googleSession.listFiles("tree-folder", null)).thenReturn(new GoogleDriveProvider.FilePage(List.of(nested), null));
+        when(googleSession.listFiles("tree-folder", null)).thenReturn(new GoogleDriveGateway.FilePage(List.of(nested), null));
         when(googleSession.listFiles("tree-nested", null)).thenAnswer(_ -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            return new GoogleDriveProvider.FilePage(List.of(file), null);
+            return new GoogleDriveGateway.FilePage(List.of(file), null);
         });
         String source = createGoogleSource(credential, "Nested tree", "tree-folder");
         clearInvocations(googleSession, googleProvider);
@@ -1223,15 +1226,15 @@ class SourceApiIntegrationTest {
     private CredentialId googleCredential(String name) {
         var scopes = new HashSet<>(GoogleDriveAuthorizationService.REQUIRED_SCOPES);
         scopes.add("email");
-        var providerSession = mock(GoogleDriveProvider.Session.class);
+        var providerSession = mock(GoogleDriveGateway.Session.class);
         googleSession = providerSession;
         when(googleProvider.open(any())).thenReturn(providerSession);
         when(providerSession.metadata(anyString())).thenAnswer(invocation -> {
             String id = invocation.getArgument(0);
             return "root".equals(id)
-                    ? new GoogleDriveProvider.FileMetadata("my-drive-root", "My Drive", "application/vnd.google-apps.folder",
+                    ? new GoogleDriveGateway.FileMetadata("my-drive-root", "My Drive", "application/vnd.google-apps.folder",
                             "1", null, null, false, List.of(), null, null)
-                    : new GoogleDriveProvider.FileMetadata(id, "Document", "text/plain", "1", null, null, false, List.of(), null, null);
+                    : new GoogleDriveGateway.FileMetadata(id, "Document", "text/plain", "1", null, null, false, List.of(), null, null);
         });
         try (var client = new GoogleDriveOAuthClient("api-client.apps.googleusercontent.com", "api-client-secret".getBytes(UTF_8));
                 var grant = new GoogleDriveAuthorizationService.Grant("google-api-owner", "owner@example.com",
@@ -1272,10 +1275,9 @@ class SourceApiIntegrationTest {
         var receipt = Json.mapper().readTree(receiptBody);
         var metrics = new SimpleMeterRegistry();
         try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
-            var processor = new SelectionValidationProcessor(selections,
-                    Mockito.mock(SharePointSelectionProcessor.class), scheduler, metrics);
+            var processor = new SelectionValidationProcessor(selections, scheduler, metrics);
             for (int batch = 0; batch < 256; batch++) {
-                var claims = operationDispatch.claim(OperationWorkload.GOOGLE_DRIVE_SELECTION_VALIDATION, 8);
+                var claims = operationDispatch.claim(OperationWorkload.SELECTION_VALIDATION, 8);
                 if (claims.isEmpty()) break;
                 claims.forEach(claim -> processor.process(claim.delivery()));
             }
@@ -1749,8 +1751,7 @@ class SourceApiIntegrationTest {
                     extractionArtifacts,
                     metrics,
                     new SourceSyncProcessor(sourceSync, leaseScheduler, metrics),
-                    new SelectionValidationProcessor(selections,
-                            Mockito.mock(SharePointSelectionProcessor.class), leaseScheduler, metrics)
+                    new SelectionValidationProcessor(selections, leaseScheduler, metrics)
             );
             for (OperationWorkload workload : List.of(OperationWorkload.INGESTION, OperationWorkload.CLEANUP)) {
                 operationDispatch.claim(workload, 8)

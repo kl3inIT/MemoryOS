@@ -68,18 +68,11 @@ public class JdbcSourceOperationQueryRepository {
                             WHERE sync.tenant_id = :tenantId AND sync.id = :operationId
                             UNION ALL
                             SELECT selection.id, selection.tenant_id, selection.source_id,
-                                   'VALIDATE_GOOGLE_DRIVE_SELECTION' AS operation, selection.status,
-                                   selection.created_at, selection.completed_at, selection.error_code,
-                                   selection.actor_id AS scope_owner_actor_id
-                            FROM google_drive_selection_operations selection
+                                   'VALIDATE_' || selection.source_type || '_SELECTION' AS operation,
+                                   selection.status, selection.created_at, selection.completed_at,
+                                   selection.error_code, selection.actor_id AS scope_owner_actor_id
+                            FROM source_selection_operations selection
                             WHERE selection.tenant_id = :tenantId AND selection.id = :operationId
-                            UNION ALL
-                            SELECT sharepoint.id, sharepoint.tenant_id, sharepoint.source_id,
-                                   'VALIDATE_SHAREPOINT_SELECTION' AS operation, sharepoint.status,
-                                   sharepoint.created_at, sharepoint.completed_at, sharepoint.error_code,
-                                   sharepoint.actor_id AS scope_owner_actor_id
-                            FROM sharepoint_selection_operations sharepoint
-                            WHERE sharepoint.tenant_id = :tenantId AND sharepoint.id = :operationId
                         ) operation_row
                         WHERE EXISTS (
                             SELECT 1

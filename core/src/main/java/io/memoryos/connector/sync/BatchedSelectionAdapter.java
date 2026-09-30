@@ -3,7 +3,8 @@ package io.memoryos.connector.sync;
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
 import io.memoryos.connector.SourceOperationId;
-import io.memoryos.connector.SourceSelectionProcessor;
+import io.memoryos.connector.SourceSelectionProcessor.Result;
+import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.sync.persistence.SelectionOperations;
 import io.memoryos.shared.TenantId;
 import java.util.Objects;
@@ -18,14 +19,14 @@ import org.springframework.transaction.support.TransactionTemplate;
  * once it has run for {@link #BATCH_MILLIS} or made its share of provider requests, so one claim never holds a
  * worker; a business failure ends the request, superseded when newer authority replaced it.
  */
-public abstract class SelectionBatchProcessor implements SourceSelectionProcessor {
+public abstract class BatchedSelectionAdapter implements SourceSelectionAdapter {
     /** A batch hands the work back when it has run this long. */
     protected static final long BATCH_MILLIS = 30_000;
 
     protected final TransactionTemplate transactions;
     private final SelectionOperations operations;
 
-    protected SelectionBatchProcessor(SelectionOperations operations, PlatformTransactionManager transactionManager) {
+    protected BatchedSelectionAdapter(SelectionOperations operations, PlatformTransactionManager transactionManager) {
         this.operations = operations;
         this.transactions = new TransactionTemplate(transactionManager);
     }

@@ -1,6 +1,7 @@
 # Connector adapters and the Lark Suite connector
 
-Status: **inventory done 2026-09-30; implementation not started.** Linear:
+Status: **connector standardization implemented 2026-09-30 in one pull request ([as delivered](#as-delivered));
+document links, the reader hierarchy and Lark Suite remain.** Linear:
 [MEM-118](https://linear.app/memory-os/issue/MEM-118), which absorbs MEM-128 (Lark Suite). It applies
 [ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) to connectors, after the Web,
 Voice and Image families in [provider adapter registries](../../completed/provider-adapter-registries/design.md).
@@ -16,6 +17,37 @@ shows how far the connector already is from that and where it is not.
 1. MEM-118 and MEM-128 are one issue: standardize connectors, then build Lark on the standard.
 2. Everything is standardized now, before production; no family is left on the old shape.
 3. The connector database is standardized first; Lark Suite waits until that is done and gets its own go-ahead.
+4. The standardization is one pull request, not one per step.
+
+## As delivered
+
+One migration, `V134__connector_standardization.sql`, and the code that reads it. The sections under
+[Design](#design) are the reasoning; where the delivery differs, this section is what was built.
+
+| Design section | Delivered | Differs from the design |
+| --- | --- | --- |
+| Connector database: one selection queue | `source_selection_operations` with `google_drive_selection_details` and `sharepoint_selection_details` | `scope_mode` lives in the details tables, because its values are each provider's vocabulary. A request ID is unique per provider, as it was with two tables. A Source holds one pending request whatever its provider; two tables allowed one per provider, which a Source of one type never used. Checkpoint rows reference the details row, so they cannot attach to another provider's request |
+| Connector database: one sync state | `source_sync_state`; a provider Source row requires it | As designed |
+| Connector database: credential state | `credential_revision` and `payload_revision` on `credentials`; `credentials.status` is the connection status | `auth_method` stays on the provider tables: its values are provider vocabulary and only the secret envelope reads it. SharePoint's `connection_status` is dropped as a duplicate. Google Drive's stays, because its envelope CHECK reads it (a revoked credential keeps no secret) and a CHECK cannot read another table; a foreign key now holds it equal to `credentials.status` |
+| 1. One workload | `OperationWorkload.SELECTION_VALIDATION`, one relay and stream; `SourceSelectionAdapterRegistry` | The existing `selection-validation` stream serves every provider, so nothing drains: the SharePoint stream and relay are removed, a request already published there is rediscovered from PostgreSQL after the rediscovery delay, and a message published before the upgrade is discarded as invalid and rediscovered the same way. The old SharePoint stream and its group stay in Redis of an existing deployment until deleted; nothing reads them |
+| 2. The sync adapter | `SourceSyncAdapter`, `SourceSyncAdapterRegistry`, `SourceProviderCapabilities.permissionSync`, `resumed` and `itemRemoved` hooks; `ProviderAuthorityService` and `SyncTarget` deleted | `itemRemoved` was not in the inventory: item removal called the Google Drive exclusion for every Source type |
+| 3. Permission changes | `SourceAclChanged` | The document link is not delivered here (below) |
+| 4. Names | `GoogleDriveGateway`, `SharePointGateway` and their `Rest…Gateway` implementations; `…SyncAdapter`, `…SelectionAdapter`, `BatchedSelectionAdapter` | As designed |
+
+**One property is given up.** Each connector's verification had its own stream, so one connector's backlog could not
+delay another's. They now share one queue, delivered oldest first; requests of one credential are still verified one
+at a time and a busy one is handed back. Verification is started by a person and is rare, and a stream per provider
+would grow the Worker configuration with every connector.
+
+**Still naming a provider, on purpose.** `JdbcSourceRepository.updateAccess` lets `FILE` and Google Drive Sources
+change access and not SharePoint; that is a product rule to settle with SharePoint permissions, not a storage
+detail. The indexing eligibility rule keeps a Google Drive branch for selection membership.
+
+**Not in this pull request.**
+
+- The document link (`documentUrl`, inventory 7). Returning a SharePoint link changes what readers see and what
+  `ChatSource` accepts as a stored link, so it goes with the reader hierarchy and its browser review.
+- The reader hierarchy (section 5) and Lark Suite (section 6).
 
 ## Inventory
 
