@@ -1,6 +1,6 @@
 # Azure Speech through the Speech SDK
 
-Status: **implemented 2026-09-30** on `dathip04/mem-137-azure-speech-sdk`, on top of the Voice adapters of
+Status: **delivered 2026-09-30** in PR #406 (merge `13bf8e5f`), on top of the Voice adapters of
 [provider adapter registries](../provider-adapter-registries/design.md). Linear:
 [MEM-137](https://linear.app/memory-os/issue/MEM-137). One PR (owner decision 2026-09-30).
 
@@ -68,5 +68,5 @@ Azure's own silence detection can end utterances, which the chunked path cannot.
   segments and stop.
 - Native load on Windows: `SpeechConfig.fromEndpoint` and `fromSubscription` created from the real SDK (scratch
   test, not committed).
-- CI `backend-images` builds the API image with the library asserts.
+- CI `backend-images` built the API image with the library asserts (PR #406).
 - No live-key acceptance: the owner waived it on 2026-09-30.

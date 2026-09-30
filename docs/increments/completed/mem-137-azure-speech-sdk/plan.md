@@ -7,5 +7,5 @@
 - [x] Tests through `FakeAzureSpeechGateway`; native load checked locally; Voice tests green.
 - [x] Chat spec and architecture describe Azure on the SDK.
 - [x] Owner accepted the SDK license; SDK telemetry disabled by default.
-- [ ] CI green, including the image build.
-- [x] No live-key acceptance (owner decision 2026-09-30); after merge, move this increment to `completed/`.
+- [x] CI green, including the image build (PR #406).
+- [x] No live-key acceptance (owner decision 2026-09-30); increment moved to `completed/`.
