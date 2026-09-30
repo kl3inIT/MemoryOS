@@ -1,114 +1,141 @@
 # Connector adapters and the Lark Suite connector
 
-Status: **proposed 2026-09-30; not started.** Linear: [MEM-118](https://linear.app/memory-os/issue/MEM-118), which
-absorbs MEM-128 (Lark Suite). It applies the
-[provider family convention](../../../conventions.md#change-design) to connectors, after the Web, Voice and Image
-families in [provider adapter registries](../../completed/provider-adapter-registries/design.md).
+Status: **inventory done 2026-09-30; implementation not started.** Linear:
+[MEM-118](https://linear.app/memory-os/issue/MEM-118), which absorbs MEM-128 (Lark Suite). It applies
+[ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) to connectors, after the Web,
+Voice and Image families in [provider adapter registries](../../completed/provider-adapter-registries/design.md).
 
 ## Problem
 
-The Source lifecycle is already provider-neutral: Sources, operations, runs, leases and the `ConnectorSyncPort`,
-`ConnectorIndexingPort` and `ConnectorCleanupPort`. What is not neutral is how that lifecycle reaches a provider:
-
-- The engine chooses a provider with `switch` or `==` on `SourceType` or on per-provider operation kinds:
-  `ProviderAuthorityService`, `SelectionValidationProcessor`, `DefaultIngestionCoordinator`,
-  `JdbcOperationDispatchRepository` (which also picks per-provider table names), `SourceAccessPolicy`,
-  `DefaultSourceManagementService` and `DocumentSourceMetadata`.
-- Google Drive and SharePoint are two parallel vertical stacks: gateway (`GoogleDriveProvider`,
-  `SharePointProvider`), source service, selection processor, credential service, sync traversal, persistence and
-  controllers, each named its own way.
-- The two provider gateways are named `…Provider`, which the naming convention now reserves for the vendor enum.
-
-Lark Suite is the next Source, and Tasco's everyday workspace. Added today it would be a third copy of every `switch`
-and a third naming scheme. The product is not yet in real production, so this is the cheapest moment to fix the
-shape.
+Lark Suite is the next Source and Tasco's everyday workspace. Before adding it, the connector must be in the shape of
+ADR 0019, so a third provider adds classes and touches no engine code. The inventory below (`main` at `58a3243f`)
+shows how far the connector already is from that and where it is not.
 
 ## Owner decisions (2026-09-30)
 
 1. MEM-118 and MEM-128 are one issue: standardize connectors, then build Lark on the standard.
 2. Everything is standardized now, before production; no family is left on the old shape.
 
+## Inventory
+
+**Already in the shape.** Synchronization is one engine with one class per provider: `SourceSyncEngine` holds an
+`EnumMap<SourceType, SyncTraversal>` built from the beans, and `GoogleDriveSyncTraversal` and
+`SharePointSyncTraversal` implement `SyncTraversal` (`due`, `credentialRevision`, `credentialCurrent`, `walk`,
+`classify`, `authenticationFailed`, `ended`). Selection verification has one contract, `SourceSelectionProcessor`,
+one shared base (`SelectionBatchProcessor`) and one shared persistence helper (`SelectionOperations`, given its table
+name). Indexing and cleanup (`ConnectorIndexingPort`, `ConnectorCleanupPort`) never name a provider. The first
+version of this design assumed two unrelated stacks and six new function interfaces; the code does not need them.
+
+**Where the engine still names a provider.**
+
+| # | Site | What it does | Cost of a third provider today |
+| --- | --- | --- | --- |
+| 1 | `ingestion.OperationWorkload`: `GOOGLE_DRIVE_SELECTION_VALIDATION`, `SHAREPOINT_SELECTION_VALIDATION`; `SelectionValidationProcessor` (`switch`), `DefaultIngestionCoordinator`, `JdbcOperationDispatchRepository.table`/`candidateSql`; Worker `ControlPlaneConfiguration` (one relay task each), `RedisExecutionProperties`, `application.yaml` (one Redis stream and group each), `WorkerConfiguration` | One workload, relay task, Redis stream and candidate query **per provider** for the same kind of work | A new enum constant, stream, relay task, property block, candidate SQL and `switch` arm |
+| 2 | `connector.sync.ProviderAuthorityService` | `switch (SourceType)` to ask whether a credential is current, the question `SyncTraversal.credentialCurrent` already answers | A new `case` and constructor argument |
+| 3 | `connector.sync.persistence.SyncTarget` (enum of provider table names) | Names each provider's Source and credential tables for the engine's SQL | A new constant in an engine enum |
+| 4 | `SourceSyncEngine`'s map | No startup check: a `SourceType` without a traversal fails at the first run | Silent until a Source is due |
+| 5 | `connector.source.SourceAccessPolicy.access` | `type == GOOGLE_DRIVE` decides that only Drive offers Auto Sync (provider permissions) and defaults to it | Lark syncs permissions too (MEM-128): another `==` |
+| 6 | `DefaultSourceManagementService` (resume) | `type() == GOOGLE_DRIVE` re-queues a resumed Drive Source through Drive's own service | SharePoint and Lark resume differently or not at all |
+| 7 | `connector.DocumentSourceMetadata.providerUrl` | Builds the citation deep link only for Drive file IDs | No deep link for other providers |
+| 8 | `ingestion.SearchProjectionMaintenance` listens to `GoogleDriveAclChanged` | Re-projects chunk ACLs when Drive permissions change | A second event type and listener |
+| 9 | Gateways `GoogleDriveProvider`, `SharePointProvider` (`connector` root, implemented in `sources`) | The HTTP seam to each provider | Named `…Provider`, which the naming convention keeps for the vendor enum |
+
+**Per provider by nature, and staying so.** Credentials, scope selection and their forms: the root APIs
+(`GoogleDriveSourceService`, `SharePointSourceService`, credential and authorization services), their controllers
+(`GoogleDrive*Controller`, `SharePoint*Controller`), the web screens under `features/sources/<provider>`, and the
+provider state tables (17 `google_*`, 9 `sharepoint_*`). A Drive selection (folders, files, linked documents) and a
+SharePoint scope (sites, libraries, exclusions) are different product surfaces, as Onyx's per-connector forms are.
+
+**Not there at all.** A Source's folder hierarchy for readers (Tasco's request of 2026-09-24): Drive has a selection
+tree for administrators, SharePoint has roots; nothing neutral exists.
+
 ## Reference
 
-Onyx at `40eb240df`, `backend/onyx/connectors/`:
-
-- `interfaces.py` splits a connector into function interfaces a class implements as it can: `LoadConnector` (full
-  load), `PollConnector` (changes in a time window), `CheckpointedConnector` (resumable), `SlimConnector` and
-  `SlimConnectorWithPermSync` (ids and permissions only, for pruning and ACL sync), `OAuthConnector`,
-  `CredentialsConnector`, `HierarchyConnector` (folder tree), `EventConnector`.
-- `registry.py` maps `DocumentSource` to the connector class; `factory.py` instantiates it and validates that the
-  class supports the requested input type.
-- `capabilities.py` and `source_operations.py` declare per-source capabilities and operations.
+Onyx at `40eb240df`, `backend/onyx/connectors/`: `interfaces.py` splits a connector into function interfaces a class
+implements as it can (`CheckpointedConnector`, `SlimConnectorWithPermSync`, `HierarchyConnector`, `OAuthConnector`);
+`registry.py` maps `DocumentSource` to the connector class and `factory.py` validates what it supports.
 
 | | |
 | --- | --- |
 | Requirement | Owner decisions above; Lark is the third provider; Tasco needs each Source's folder hierarchy shown |
 | Reference strengths | The engine calls functions, never providers; a new connector adds classes and one registry entry |
-| Proposed difference | Java interfaces and Spring beans keyed by `SourceType`, checked complete at startup, instead of lazy import by module path; MemoryOS's durable operations, leases and PostgreSQL authority stay as they are |
-| Benefit | Lark, and every later Source, touches no engine code; one vocabulary across providers |
-| Costs | A large rename and reshaping inside `core`'s `connector` and `ingestion` and a gateway rename in `sources`; the API and web client regenerate if a contract name changes |
-| Simpler baseline | Add Lark with a third `case` everywhere. Rejected by the owner decisions |
+| Proposed difference | MemoryOS keeps its own engine, durable operations, leases and PostgreSQL authority, which already give resumable runs (Drive's frontier, SharePoint's delta link); only the remaining provider-named sites change |
+| Benefit | Lark, and every later Source, touches no engine code |
+| Costs | One data-preserving migration and a Redis stream change for selection verification; renames in `connector`, `ingestion`, `worker` and `sources` |
+| Simpler baseline | Add Lark with a third `case`, workload and stream. Rejected by the owner decisions |
 
 ## Design
 
-### Function interfaces the engine calls
+### 1. One selection-verification workload (inventory 1)
 
-Each is an interface in `connector`'s root API, collected into a `<Function>AdapterRegistry` keyed by `SourceType`.
-The Onyx counterpart is named for orientation.
+The largest gap. Selection verification is the same work for every provider, so it becomes one workload:
 
-**Where the code lives.** Traversal, selection, ACL and provider state are in `core` today
-(`connector.googledrive`, `connector.sharepoint`, each with its `persistence` package), and `sources` holds only the
-HTTP gateways and extractors ([ADR 0016](../../../decisions/0016-integration-bundle-named-sources.md); `sources`
-never imports `persistence`). So the adapters that implement these interfaces are `core` classes in the existing
-feature packages, `connector.googledrive.GoogleDriveSourceAdapter`, `connector.sharepoint.SharePointSourceAdapter`
-and later `connector.lark.LarkSourceAdapter`, next to the persistence they use. This is the one deliberate
-exception to the convention's `adapter` subpackage: `io.memoryos.connector.adapter.*` already belongs to `sources`,
-and one package must not be split across two Gradle modules. `sources` keeps the gateway implementations
-(`RestGoogleDriveProvider` becomes `RestGoogleDriveGateway`, and so on, plus `RestLarkGateway`). `ingestion` already
-depends on `connector`, so no module dependency changes.
+- `OperationWorkload.SELECTION_VALIDATION` replaces the two per-provider constants: one Redis stream and group, one
+  relay task, one property block.
+- `SourceSelectionProcessor` gains `SourceType type()`, and `SelectionValidationProcessor` takes the processors as a
+  registry keyed by `SourceType` (every type except `FILE`, checked at startup) instead of two constructor arguments
+  and a `switch`.
+- **The queue the relay reads is the open decision.** The two operation tables share their queue columns (`id`,
+  `tenant_id`, `source_id`, status, and the claim and dispatch columns `SelectionOperations` already handles) and
+  differ in the payload (Drive discovery counters, SharePoint access and schedule).
+  - **A (recommended).** A neutral header table `source_selection_operations` (`id`, `tenant_id`, `source_id`,
+    `source_type`, status, claim, dispatch), with each provider keeping its payload table keyed by the operation id.
+    One candidate query; the delivery finds its processor by `source_type`; a new provider adds a payload table
+    only. Needs a data-preserving migration ([ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md)):
+    copy the queue columns of both tables, keep the payload.
+  - **B.** Keep both tables as they are; each processor names its table and the dispatch repository unions the
+    candidates of every registered table. No migration, but the relay's SQL is built from adapter-supplied table
+    names and a delivery must probe each processor to find its owner.
+- The old streams drain before removal: the relay stops publishing to them in the release that starts the new
+  stream, and their consumers go in the following one. Operations are PostgreSQL-authoritative, so an undelivered one
+  is relayed again on the new stream.
 
-| Interface | What the engine asks | Onyx | Registry |
-| --- | --- | --- | --- |
-| `SourceAuthorityAdapter` | Is the stored credential current and allowed | `validate_connector_settings` | Complete |
-| `SourceSelectionAdapter` | Validate and resolve a scope selection | `normalize_url`, settings validation | Complete |
-| `SourceSyncAdapter` | Next page of changes from a checkpoint | `CheckpointedConnector`, `PollConnector` | Complete |
-| `SourceContentAdapter` | Bytes and metadata of one document for extraction | raw file callback | Complete |
-| `SourcePermissionAdapter` | Who may read a document, for chunk ACLs | `SlimConnectorWithPermSync` | Partial |
-| `SourceHierarchyAdapter` | Folder tree of the Source, for the Sources page | `HierarchyConnector` | Partial |
+### 2. The sync adapter carries what the engine asks a provider (inventory 2 to 6)
 
-**Checkpoint.** `SourceSyncAdapter` is resumable, as Onyx's `CheckpointedConnector` is: the engine passes the last
-checkpoint and receives a page of changes plus the next checkpoint, and persists it inside the operation's lease.
-Each provider declares its checkpoint as a record (Google Drive's traversal frontier, SharePoint's delta link,
-Lark's page token and last modified time), so a crash or lease loss resumes at the last committed page rather than
-restarting the Source. Step 1 maps today's frontier and delta state onto these records.
+`SyncTraversal` is already the provider's sync adapter. It is renamed `SourceSyncAdapter` and gains the questions the
+engine still answers by `switch` or `==`:
 
-"Complete" covers every provider except `FILE`, which has no remote side; the registry declares that exclusion.
+- `ProviderAuthorityService` is removed; its callers ask the registry for `credentialCurrent` (`FILE` answers false).
+- `SyncTarget` stops being an enum: each adapter returns its `SyncTarget` record (Source table, scope revision
+  column, credential table). The identifier check that guards the spliced names stays in the record.
+- `SourceSyncAdapterRegistry` replaces the engine's private map and fails startup when a `SourceType` other than
+  `FILE` has no adapter or has two.
+- `SourceCapabilities` from the adapter: `permissionSync` (today only Drive) replaces `type == GOOGLE_DRIVE` in
+  `SourceAccessPolicy`, and `resume(...)` on the adapter replaces the Drive-only branch in
+  `DefaultSourceManagementService`.
 
-### What stays per provider
+### 3. Deep links and permission changes (inventory 7 and 8)
 
-- **Configuration and scope forms.** A Drive selection (folders, files, linked documents) and a SharePoint scope
-  (sites, libraries, exclusions) are different product surfaces, as Onyx's per-connector forms are. Their services,
-  controllers and tables stay per provider, renamed to the convention.
-- **Provider state tables** (`google_drive_*`, `sharepoint_*`, later `lark_*`) stay per provider; the adapter owns
-  them through its own `persistence` package. `JdbcOperationDispatchRepository` stops choosing tables by provider
-  and asks the adapter.
-- Whether any per-provider table (selection operations, credentials) should merge into a neutral one is decided in
-  step 1 from the inventory, with a data-preserving migration ([ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md)).
+- `SourceSyncAdapter.documentUrl(providerFileId)` (nullable) replaces the Drive-only rule in
+  `DocumentSourceMetadata.providerUrl`, so SharePoint and Lark citations get a deep link through the same path.
+- `GoogleDriveAclChanged` becomes the provider-neutral `SourceAclChanged`; Drive publishes it as today, and
+  `SearchProjectionMaintenance` listens to the one event.
 
-### Names
+### 4. Names (inventory 9)
 
-| Today | After |
-| --- | --- |
-| `GoogleDriveProvider`, `SharePointProvider` (gateway interfaces) | `GoogleDriveGateway`, `SharePointGateway`, as `IdentityProviderGateway` |
-| Engine `switch` on `SourceType` | `SourceSyncAdapterRegistry.require(type)` and the other registries |
-| New | `GoogleDriveSourceAdapter`, `SharePointSourceAdapter`, `LarkSourceAdapter` (each implements the functions it offers; `<Vendor><Family>Adapter`) |
-
-Vendor spelling: `GoogleDrive`, `SharePoint`, `Lark` (the international Lark Suite; Feishu, if ever needed, is the
+`GoogleDriveProvider` and `SharePointProvider` become `GoogleDriveGateway` and `SharePointGateway` (as
+`IdentityProviderGateway`), with `RestGoogleDriveGateway` and `RestSharePointGateway` in `sources`. The per-provider
+root services keep their names. Vendor spelling: `GoogleDrive`, `SharePoint`, `Lark` (Feishu, if ever needed, is the
 same protocol on another domain and a configuration value, not a class name).
 
-### Lark Suite
+**Where the code lives.** Traversal, selection, ACL and provider state are `core` classes in `connector.googledrive`
+and `connector.sharepoint`, each with its `persistence`; `sources` holds only the HTTP gateways and extractors
+([ADR 0016](../../../decisions/0016-integration-bundle-named-sources.md)) and never imports `persistence`. The
+adapters therefore stay where they are, and Lark's go in `connector.lark`. `ingestion` already depends on
+`connector`, so no module dependency changes and no ADR is expected.
 
-Built on the adapters above, scope from MEM-128:
+### 5. Hierarchy for readers
+
+`SourceHierarchyAdapter` (a provider implements it when it has folders): children of a node a reader may see, from
+the provider state MemoryOS already stores (Drive ancestors, SharePoint items), never a live provider call. One
+endpoint under the Sources API and the tree on the library's Sources view. This is a product feature with UI; its
+screens need the owner's review before merge.
+
+### 6. Lark Suite
+
+Built on the shape above, scope from MEM-128. Lark adds `LarkGateway` and `RestLarkGateway` (`sources`),
+`connector.lark` with its `SourceSyncAdapter`, `SourceSelectionProcessor`, credential and scope services and
+`lark_*` tables, one `SourceType` constant and its CHECK, its controllers and web screens, and no engine change.
 
 1. Lark Drive files through the existing readers and OCR.
 2. Lark Docs and Sheets read natively, tables as structured artifacts as Google Docs and Sheets are.
@@ -116,8 +143,8 @@ Built on the adapters above, scope from MEM-128:
 4. Out of the first slice: Messenger, Base, Calendar.
 
 Requirements: Tenant credential stored encrypted as Google Drive's is; scope selection; first and incremental sync
-with delete, rename and move; Lark Open API rate limits; permission sync into chunk ACLs; deep links in citations;
-sync history and errors on the Sources page; the folder hierarchy through `SourceHierarchyAdapter`.
+with delete, rename and move; Lark Open API rate limits; permission sync into chunk ACLs (`permissionSync`); deep
+links in citations; sync history and errors on the Sources page; the folder hierarchy.
 
 Open, from MEM-128: Lark international or Feishu, plan tier, whether an internal (tenant) app is allowed or OAuth per
 user, which Lark spaces hold the demo data, and the customer's approval of the integration flow.
@@ -125,18 +152,16 @@ user, which Lark spaces hold the demo data, and the customer's approval of the i
 ### Out of scope
 
 The other Sources MEM-118 listed (OneDrive, Teams, Confluence, Jira, Slack, Notion, Gmail/Outlook) get their own
-issues and build on these adapters.
+issues and build on this shape.
 
 ## Verification
 
-- Registry tests: completeness and duplicates per function; `FILE` excluded where declared.
-- The Google Drive and SharePoint sync, selection, ACL and cleanup tests pass unchanged after step 2; they are the
-  proof the refactor preserved behavior.
-- `ModulithArchitectureTest`, `CoreDependencyRulesTest`, `SourcesDependencyRulesTest`, `OpenApiContractTest`.
-- Lark: adapter tests against recorded Lark Open API responses, then an owner-run acceptance on the customer's
-  tenant.
-
-## ADR
-
-Step 2 replaces provider dispatch in `connector` and `ingestion` with registries inside `core`; no allowed module
-dependency changes, so no ADR is expected unless the inventory in step 1 finds one. [ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) covers the pattern itself.
+- Registry tests: every `SourceType` except `FILE` has exactly one sync adapter and one selection processor, or
+  startup fails.
+- The Google Drive and SharePoint sync, selection, ACL and cleanup tests pass unchanged after steps 1 to 4; they are
+  the proof the refactor preserved behavior. The migration test covers both operation tables with rows in every
+  status.
+- `ModulithArchitectureTest`, `CoreDependencyRulesTest`, `SourcesDependencyRulesTest`, `OpenApiContractTest`; the
+  Worker is started and a selection verification is observed on the new stream.
+- Hierarchy: browser evidence and owner approval.
+- Lark: adapter tests against recorded Lark Open API responses.
