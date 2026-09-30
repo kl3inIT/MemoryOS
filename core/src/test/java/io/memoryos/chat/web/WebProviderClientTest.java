@@ -28,7 +28,7 @@ class WebProviderClientTest {
     private final WebHttp http = mock(WebHttp.class);
     private final WebConnectionService connections = mock(WebConnectionService.class);
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-    private final WebProviderClient client = new WebProviderClient(http, connections, meters);
+    private final WebProviderClient client = WebClients.client(http, connections, meters);
     private WebConnectionService.Connection connection(WebProvider provider) {
         var c = new WebConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(), provider, "http://search.internal", "engine", "encrypted", 1);
         when(connections.key(c)).thenReturn("test-secret"); return c;
@@ -102,7 +102,7 @@ class WebProviderClientTest {
                 {"object":"list","data":[{"id":"brave-search","owned_by":"brave-search"},{"id":"web","kind":"webSearch"},
                 {"id":"reader","kind":"webFetch"},{"id":"brave-search"},{"id":""}]}"""));
         assertEquals(List.of("brave-search", "web"),
-                client.nineRouterEngines("https://gateway.example.com/v1/search", "typed-key"));
+                client.engines(WebProvider.NINEROUTER, "https://gateway.example.com/v1/search", "typed-key"));
         verify(http).provider(eq("GET"), argThat(uri -> uri.toString().equals("https://gateway.example.com/v1/models/web")),
                 anyMap(), isNull());
     }

@@ -111,13 +111,26 @@ The repository already uses *provider* for the vendor identity (`WebProvider`, `
 
 ### Web
 
-- `WebSearchAdapter` (search) and `WebContentAdapter` (read) are separate interfaces: Firecrawl only reads, and five
-  providers only search. Tavily and Exa implement both.
-- The flags on `WebProvider` (`search`, `content`, `requiresKey`, `requiresEngine`, `requiresEndpoint`,
-  `supportsSiteFilter`) move into `WebProviderCapabilities`; search and read support follow from which registries
-  hold the provider. `WebConnectionService.save` and the settings descriptor read them from the registries. If a
-  descriptor's JSON changes, `openapi.yml` and the Hey API client are regenerated in the same change.
-- 9Router's engine listing (`nineRouterEngines`) moves into `NineRouterWebSearchAdapter`.
+Implemented as follows (step 2):
+
+- `WebAdapter` (`provider()`, `capabilities()`) is extended by one interface per function: `WebSearchAdapter`,
+  `WebContentAdapter` and `WebEngineListAdapter` (9Router's engine list). A provider class implements the functions
+  it offers; Tavily and Exa implement search and read, 9Router search and engine listing.
+- One `WebAdapterRegistry` rather than one per function: every `WebProvider` has exactly one class, so the registry
+  holds one adapter per constant, fails at startup on a missing or duplicate one, and answers `searches`, `reads`
+  and the per-function lookups by the interfaces the class implements.
+- `WebProvider` keeps only its constants. `WebProviderCapabilities` (`requiresKey`, `requiresEndpoint`,
+  `requiresEngine`, `siteFilter`) replaces the enum's flags in `WebConnectionService`, `ChatModelExecutor` and
+  `WebConnectionController`. The Web settings API has no provider descriptor (the web client knows the providers),
+  so `openapi.yml` does not change.
+- `WebCall` holds what every adapter shares: the HTTP call and JSON parsing with the injected `ObjectMapper`, the
+  "Web provider request failed" rule, result URL validation, the twenty-result and clipping bounds.
+- `WebProviderClient` keeps the credential lookup, the built-in reader and one `Observation`
+  (`memoryos.chat.web.request`, keys `provider`, `operation`, `outcome`) per provider call; Boot's meter handler
+  turns it into the same timer the Chat & AI dashboard reads, now with a span and an `error` tag.
+- Provider failures stay `IOException` inside the client: `WebTools` keeps partial results per failed request and
+  the controller maps them to `ChatException.providerUnavailable()`, which is already the typed boundary. The
+  nested `WebProviderClient.Result` keeps its name, as `WebTools` and `WebPdfReader` use it.
 
 ### Voice
 
