@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Objects;
 import org.springframework.dao.DataAccessException;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.ObjectWriter;
@@ -445,7 +446,9 @@ public final class StreamBufferWriter {
                 String type = String.valueOf(record.getValue().get("type"));
                 if (type.equals(TRUNCATED)) return events.isEmpty() ? end("BUFFER_GAP") : new Batch(List.copyOf(events), false, null);
                 String data = String.valueOf(record.getValue().get("data"));
-                ChatStreamEvent event = EVENT_READER.readValue(data);
+                ChatStreamEvent event = decode(data);
+                // The browser reads history instead, as it does for a truncated reply.
+                if (event == null) return events.isEmpty() ? end("BUFFER_GAP") : new Batch(List.copyOf(events), false, null);
                 events.add(event);
                 after = sequence;
                 if (type.equals(Outcome.TYPE)) {
@@ -456,6 +459,17 @@ public final class StreamBufferWriter {
                 if (bytes >= limits.readBytes()) break;
             }
             return new Batch(List.copyOf(events), false, null);
+        }
+
+        /** Null for an entry without readable data: one that lost its payload or whose shape this version cannot build. */
+        private @Nullable ChatStreamEvent decode(String data) {
+            try {
+                return EVENT_READER.readValue(data);
+            } catch (JacksonException unreadable) {
+                LOG.atWarn().addKeyValue("event", "chat.stream.entry_unreadable").addKeyValue("message_id", id)
+                        .addKeyValue("error_type", unreadable.getClass().getName()).log("Chat stream entry cannot be decoded");
+                return null;
+            }
         }
 
         private boolean exists() {

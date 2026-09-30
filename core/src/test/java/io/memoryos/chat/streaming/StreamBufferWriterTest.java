@@ -276,6 +276,37 @@ class StreamBufferWriterTest {
     }
 
     @Test
+    void anEntryThatCannotBeDecodedEndsTheReplayWithAResetInsteadOfFailingIt() throws Exception {
+        var writer = new StreamBufferWriter(redis, limits);
+        var id = UUID.randomUUID();
+        String key = StreamBufferWriter.key(id);
+        String readable = "{\"assistantMessageId\":\"" + id + "\",\"sequence\":1,\"type\":\"text\",\"text\":\"a\"}";
+        redis.opsForStream().add(StreamRecords.string(Map.of("type", "text", "data", readable))
+                .withStreamKey(key).withId(RecordId.of(0, 1)));
+        // A known type without the component this version requires, an entry that is not JSON, and one without data.
+        redis.opsForStream().add(StreamRecords.string(Map.of("type", "text", "data",
+                "{\"assistantMessageId\":\"" + id + "\",\"sequence\":2,\"type\":\"text\"}"))
+                .withStreamKey(key).withId(RecordId.of(0, 2)));
+
+        try (var reader = writer.subscribe(id, 0, () -> false)) {
+            var first = reader.read();
+            assertEquals("a", StreamEvents.text(first.events()));
+            assertFalse(first.done());
+            var second = reader.read();
+            assertTrue(second.done());
+            assertEquals("BUFFER_GAP", second.reset());
+        }
+        for (String data : List.of("not json", "null")) {
+            var other = UUID.randomUUID();
+            redis.opsForStream().add(StreamRecords.string(Map.of("type", "text", "data", data))
+                    .withStreamKey(StreamBufferWriter.key(other)).withId(RecordId.of(0, 1)));
+            try (var reader = writer.subscribe(other, 0, () -> false)) {
+                assertEquals("BUFFER_GAP", reader.read().reset());
+            }
+        }
+    }
+
+    @Test
     void writesAlreadyInRedisAreAcknowledgedAndTheRestRetried() throws Exception {
         var writer = new StreamBufferWriter(redis, limits);
         var id = UUID.randomUUID();

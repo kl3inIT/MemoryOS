@@ -151,16 +151,20 @@ final class ResponsesStreamAssembler {
                 .flatMap(call -> call.status()).map(status -> status.asString()).filter("completed"::equals).isPresent());
     }
 
-    /** {@code incompleteReason} is null for a completed response; an incomplete one never runs a cut-off tool call. */
+    /**
+     * {@code incompleteReason} is null for a completed response. An incomplete one neither runs a cut-off tool call
+     * nor echoes it: the next request is stateless and would replay the call without a matching output, which the
+     * API refuses.
+     */
     private void finish(Response response, @Nullable String incompleteReason) {
         var mapper = ObjectMappers.jsonMapper();
         var calls = new ArrayList<AssistantMessage.ToolCall>();
         var echoed = new ArrayList<>();
         for (var item : response.output()) {
-            item.functionCall().ifPresent(call -> {
-                if (incompleteReason == null || call.status().map(status -> status.asString()).filter("completed"::equals).isPresent())
-                    calls.add(new AssistantMessage.ToolCall(call.callId(), "function", call.name(), call.arguments()));
-            });
+            var call = item.functionCall().orElse(null);
+            if (call != null && incompleteReason != null
+                    && call.status().map(status -> status.asString()).filter("completed"::equals).isEmpty()) continue;
+            if (call != null) calls.add(new AssistantMessage.ToolCall(call.callId(), "function", call.name(), call.arguments()));
             echoed.add(mapper.convertValue(item, Map.class));
         }
         var properties = new LinkedHashMap<String, Object>();

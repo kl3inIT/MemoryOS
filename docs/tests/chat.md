@@ -15,6 +15,8 @@ Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUse
 | A Responses request: default medium effort and summaries for a reasoning model, the turn's own effort, no reasoning options for a model that does not reason, function tools with hosted search and the tool choice | `ResponsesRequestBuilderTest` |
 | Messages map to input items; an echoed assistant message replays its output items exactly | `ResponsesInputMapperTest` |
 | Hosted search, summaries, continuation, incomplete and failed responses behave as before through the split classes | `OpenAiResponsesChatModelTest` (fixtures unchanged) |
+| An entry that cannot be decoded (a known type missing a component, invalid JSON, no data) ends the replay with a `BUFFER_GAP` reset instead of failing the stream | `StreamBufferWriterTest.anEntryThatCannotBeDecodedEndsTheReplayWithAResetInsteadOfFailingIt` |
+| An incomplete response with a completed and a cut-off tool call runs the completed one and does not replay the cut-off one on the next stateless request | `OpenAiResponsesChatModelTest.aCutOffToolCallBesideACompletedOneIsNotReplayedOnTheNextRequest` |
 | Builders and named factories construct the same records as the removed constructors | Existing Chat tests, migrated to `builder(…)`, `ChatSource.document/file/web` and `ChatToolEvent.started/at/searching/source` |
 
 ## Edit/navigation and Sources presentation

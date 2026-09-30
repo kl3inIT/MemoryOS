@@ -62,6 +62,9 @@ Behavior, the Chat Web contract and every existing SSE fixture test are unchange
   `TurnFailure`, and the response ID and usage are two values set in one place, so either type would have one use
   ([change design](../../../conventions.md#change-design)). Spring AI's own classes arrive with the upgrade.
 - The model's two constructors that only tests called are removed; tests pass every flag.
+- One defect found in review is fixed here: an incomplete response that held a completed and a cut-off function call
+  echoed both, so the next stateless request replayed the cut-off call without an output. It is now neither run nor
+  echoed.
 
 ## Verification
 

@@ -26,6 +26,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -258,6 +259,33 @@ class OpenAiResponsesChatModelTest {
         var last = responses.getLast().getResult();
         assertEquals("length", last.getMetadata().getFinishReason());
         assertTrue(last.getOutput().getToolCalls().isEmpty());
+    }
+
+    @Test
+    void aCutOffToolCallBesideACompletedOneIsNotReplayedOnTheNextRequest() {
+        var done = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "search_knowledge",
+                "arguments", "{\"queries\":[\"leave\"]}", "status", "completed");
+        var cut = Map.<String, Object>of("type", "function_call", "id", "fc_2", "call_id", "call_2", "name", "search_knowledge",
+                "arguments", "{\"queries\":[\"le", "status", "incomplete");
+        bodies.add(sse(event("response.incomplete", Map.of("sequence_number", 1, "response", Map.of("id", "resp_1",
+                "object", "response", "status", "incomplete", "incomplete_details", Map.of("reason", "max_output_tokens"),
+                "output", List.of(done, cut))))));
+        bodies.add(sse(completed(List.of(message("Twelve days.")))));
+        var model = turnModel(new ChatEvidence(), new ArrayList<>(), true);
+
+        var first = model.stream(new Prompt(List.of(new UserMessage("Leave?")), options(true))).collectList().block().getLast();
+        var assistant = first.getResult().getOutput();
+        assertEquals(List.of("call_1"), assistant.getToolCalls().stream().map(AssistantMessage.ToolCall::id).toList());
+
+        var toolOutput = ToolResponseMessage.builder().responses(List.of(
+                new ToolResponseMessage.ToolResponse("call_1", "search_knowledge", "Annual leave is twelve days."))).build();
+        model.stream(new Prompt(List.of(new UserMessage("Leave?"), assistant, toolOutput), options(true))).collectList().block();
+
+        // A replayed call without its output would be refused; only the call that ran is sent back.
+        var input = requests.get(1).path("input");
+        assertEquals(List.of("message", "function_call", "function_call_output"), types(input));
+        assertEquals("call_1", input.get(1).path("call_id").asString());
+        assertEquals("call_1", input.get(2).path("call_id").asString());
     }
 
     @Test
