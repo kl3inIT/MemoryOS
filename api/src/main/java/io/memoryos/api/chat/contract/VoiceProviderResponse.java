@@ -1,6 +1,7 @@
 package io.memoryos.api.chat.contract;
 
 import io.memoryos.voice.VoiceProvider;
+import io.memoryos.voice.VoiceProviderCapabilities;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
@@ -12,8 +13,8 @@ public record VoiceProviderResponse(@Schema(requiredMode = Schema.RequiredMode.R
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<String> sttModels,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<String> ttsModels,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<String> voices) {
-    public static VoiceProviderResponse from(VoiceProvider provider) {
-        return new VoiceProviderResponse(provider, provider.requiresKey(), provider.requiresEndpoint(), provider.defaultEndpoint(), provider.speech(),
-                provider.sttModels(), provider.ttsModels(), provider.voices());
+    public static VoiceProviderResponse from(VoiceProvider provider, VoiceProviderCapabilities capabilities, boolean speech) {
+        return new VoiceProviderResponse(provider, capabilities.requiresKey(), capabilities.requiresEndpoint(),
+                capabilities.defaultEndpoint(), speech, capabilities.sttModels(), capabilities.ttsModels(), capabilities.voices());
     }
 }

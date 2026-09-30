@@ -32,15 +32,17 @@ public class LiveTranscriptionService {
     private final VoiceConnectionService connections;
     private final VoiceTranscriptionService transcription;
     private final MeterRegistry meters;
+    private final VoiceAdapterRegistry adapters;
     private final @Nullable AiUsageRecorder usage;
     private final Semaphore streams = new Semaphore(MAX_STREAMS);
     private final Map<ActorId, Integer> perActor = new ConcurrentHashMap<>();
 
     public LiveTranscriptionService(VoiceConnectionService connections, VoiceTranscriptionService transcription,
-                                    MeterRegistry meters, ObjectProvider<AiUsageRecorder> usage) {
+                                    MeterRegistry meters, VoiceAdapterRegistry adapters, ObjectProvider<AiUsageRecorder> usage) {
         this.connections = connections;
         this.transcription = transcription;
         this.meters = meters;
+        this.adapters = adapters;
         this.usage = usage.getIfAvailable();
     }
 
@@ -65,14 +67,14 @@ public class LiveTranscriptionService {
             }
         };
         try {
-            boolean soniox = connection.provider() == VoiceProvider.SONIOX;
-            LiveTranscription stream = soniox
-                    ? SonioxLiveTranscription.open(connection.provider().baseUrl(connection.endpoint()), key,
-                            connection.sttModel(), options, offsetMs, listener)
+            // A provider with its own live protocol can separate speakers; the others transcribe consecutive chunks.
+            var live = adapters.live(connection.provider());
+            LiveTranscription stream = live.isPresent()
+                    ? live.get().openLive(connection, key, options, offsetMs, listener)
                     : new ChunkedLiveTranscription(wav -> transcription.transcribe(connection, key, options.language(), wav),
                             offsetMs, listener);
             return new Opened(metered(stream, connection, actor, release), connection.provider().name(),
-                    connection.sttModel(), soniox && options.diarize());
+                    connection.sttModel(), live.isPresent() && options.diarize());
         } catch (RuntimeException unavailable) {
             release.run();
             meters.counter("memoryos.chat.voice.live.unavailable", "provider", connection.provider().name()).increment();

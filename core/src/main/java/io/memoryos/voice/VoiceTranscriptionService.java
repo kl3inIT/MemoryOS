@@ -1,10 +1,5 @@
 package io.memoryos.voice;
 
-import com.openai.client.OpenAIClient;
-import com.openai.client.OpenAIClientAsync;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
-import com.openai.client.okhttp.OpenAIOkHttpClientAsync;
-import com.openai.models.audio.AudioResponseFormat;
 import io.memoryos.BusinessException;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
@@ -13,6 +8,7 @@ import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -21,7 +17,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -29,12 +24,8 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
-import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
-import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
 
 /** Speech-to-text sessions for voice input. Provider requests run on each session's worker, outside transactions. */
@@ -43,18 +34,17 @@ public class VoiceTranscriptionService {
     private static final Logger LOG = LoggerFactory.getLogger(VoiceTranscriptionService.class);
     /** Onyx limit per connection: about fourteen minutes of 24 kHz PCM16 audio. */
     public static final int MAX_RECORDING_BYTES = 25 * 1024 * 1024;
-    private static final Duration PROVIDER_TIMEOUT = Duration.ofSeconds(60);
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     /** One client for every REST call; the request carries its own timeout. */
     private static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
             .connectTimeout(CONNECT_TIMEOUT).build();
     private static final int MAX_SESSIONS = 16;
     private static final Set<String> LANGUAGES = Set.of("vi", "en");
-    /** OpenAI-protocol servers without authentication still receive a syntactically valid bearer value. */
-    static final String NO_CREDENTIAL = "memoryos-no-credential";
     private final VoiceConnectionService connections;
     private final IamAuthorization authorization;
     private final MeterRegistry meters;
+    private final VoiceAdapterRegistry adapters;
+    private final ObservationRegistry observations;
     private final Semaphore sessions = new Semaphore(MAX_SESSIONS);
     private final Set<ActorId> active = ConcurrentHashMap.newKeySet();
 
@@ -62,15 +52,19 @@ public class VoiceTranscriptionService {
 
     @Autowired
     public VoiceTranscriptionService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters,
+                                     VoiceAdapterRegistry adapters, ObservationRegistry observations,
                                      ObjectProvider<AiUsageRecorder> usage) {
-        this(connections, authorization, meters);
+        this(connections, authorization, meters, adapters, observations);
         this.usage = usage.getIfAvailable();
     }
 
-    public VoiceTranscriptionService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters) {
+    public VoiceTranscriptionService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters,
+                                     VoiceAdapterRegistry adapters, ObservationRegistry observations) {
         this.connections = connections;
         this.authorization = authorization;
         this.meters = meters;
+        this.adapters = adapters;
+        this.observations = observations;
     }
 
     /** Voice input serves the Chat composer and Search, so either capability authorizes it. */
@@ -99,20 +93,14 @@ public class VoiceTranscriptionService {
             active.remove(actor);
         };
         Function<byte[], String> batch = wav -> transcribe(connection, key, language, wav);
-        if (connection.provider() == VoiceProvider.OPENAI && connection.endpoint().isEmpty()) {
+        var realtime = adapters.realtime(connection.provider());
+        if (realtime.isPresent()) {
             try {
-                return metered(OpenAiRealtimeTranscriber.open(connection.provider().baseUrl(connection.endpoint()), key, language,
-                        actor.value().toString(), batch, listener, release, meters), connection, actor);
+                var session = realtime.get().openRealtime(connection, key, language, actor.value().toString(), batch, listener,
+                        release, meters);
+                if (session.isPresent()) return metered(session.get(), connection, actor);
             } catch (RuntimeException unavailable) {
-                meters.counter("memoryos.chat.voice.realtime.fallback", "provider", VoiceProvider.OPENAI.name()).increment();
-            }
-        }
-        if (connection.provider() == VoiceProvider.SONIOX) {
-            try {
-                return metered(SonioxRealtimeTranscriber.open(connection.provider().baseUrl(connection.endpoint()), key,
-                        connection.sttModel(), language, batch, listener, release, meters), connection, actor);
-            } catch (RuntimeException unavailable) {
-                meters.counter("memoryos.chat.voice.realtime.fallback", "provider", VoiceProvider.SONIOX.name()).increment();
+                meters.counter("memoryos.chat.voice.realtime.fallback", "provider", connection.provider().name()).increment();
             }
         }
         return metered(new ChunkedTranscriber(batch, listener, release), connection, actor);
@@ -146,77 +134,25 @@ public class VoiceTranscriptionService {
         };
     }
 
-    /** Transcribes one 24 kHz WAV upload with the connection's provider. */
+    /** Transcribes one 24 kHz WAV upload with the connection's provider, as one provider-call observation. */
     String transcribe(VoiceConnectionService.Connection connection, String key, @Nullable String language, byte[] wav) {
-        long start = System.nanoTime();
+        var observation = VoiceObservations.start(observations, connection.provider(), "transcribe");
         String outcome = "failed";
-        String base = connection.provider().baseUrl(connection.endpoint());
-        try {
-            String text = switch (connection.provider()) {
-                case OPENAI, OPENAI_COMPATIBLE -> openAi(connection, base, key, language, wav);
-                case ELEVENLABS -> http(client -> ElevenLabsVoice.transcribe(client, base, key, connection.sttModel(), language,
-                        wav, PROVIDER_TIMEOUT));
-                case AZURE -> http(client -> AzureSpeech.transcribe(client, base, key, language, wav, Pcm16.WAV_HEADER_BYTES,
-                        wav.length - Pcm16.WAV_HEADER_BYTES, PROVIDER_TIMEOUT));
-                case SONIOX -> http(client -> SonioxAsync.transcribe(client, base, key, connection.sttModel(), language, wav,
-                        PROVIDER_TIMEOUT));
-            };
+        try (var _ = observation.openScope()) {
+            String text = adapters.adapter(connection.provider()).transcribe(HTTP, connection, key, language, wav);
             outcome = "succeeded";
             return text;
-        } catch (RuntimeException failed) {
-            // Provider payloads may carry account detail; report unavailability instead.
-            throw VoiceException.providerUnavailable();
-        } finally {
-            meters.timer("memoryos.chat.voice.request", "provider", connection.provider().name(), "operation", "transcribe",
-                    "outcome", outcome).record(System.nanoTime() - start, TimeUnit.NANOSECONDS);
-        }
-    }
-
-    private static String openAi(VoiceConnectionService.Connection connection, String base, String key, @Nullable String language,
-            byte[] wav) {
-        String credential = key.isEmpty() ? NO_CREDENTIAL : key;
-        OpenAIClient client = OpenAIOkHttpClient.builder().baseUrl(base).apiKey(credential)
-                .maxRetries(0).timeout(PROVIDER_TIMEOUT).build();
-        OpenAIClientAsync async = OpenAIOkHttpClientAsync.builder().baseUrl(base).apiKey(credential)
-                .maxRetries(0).timeout(PROVIDER_TIMEOUT).build();
-        try {
-            var options = OpenAiAudioTranscriptionOptions.builder().model(connection.sttModel())
-                    .responseFormat(AudioResponseFormat.JSON);
-            if (language != null) options.language(language);
-            var model = OpenAiAudioTranscriptionModel.builder().openAiClient(client).openAiClientAsync(async)
-                    .options(options.build()).build();
-            return model.call(new AudioTranscriptionPrompt(new NamedAudio(wav))).getResult().getOutput();
-        } finally {
-            try { async.close(); } finally { client.close(); }
-        }
-    }
-
-    @FunctionalInterface
-    private interface HttpCall {
-        String run(HttpClient client) throws IOException, InterruptedException;
-    }
-
-    /** REST providers use the JDK client without redirects, so a credential never follows a redirect elsewhere. */
-    private static String http(HttpCall call) {
-        try {
-            return call.run(HTTP);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            VoiceObservations.error(observation, interrupted);
             throw VoiceException.providerUnavailable();
-        } catch (IOException failed) {
+        } catch (IOException | RuntimeException failed) {
+            // Provider payloads may carry account detail; report unavailability instead.
+            VoiceObservations.error(observation, failed);
             throw VoiceException.providerUnavailable();
+        } finally {
+            VoiceObservations.stop(observation, outcome);
         }
     }
 
-    /** Spring AI derives the upload format from the resource file name. */
-    private static final class NamedAudio extends ByteArrayResource {
-        NamedAudio(byte[] wav) {
-            super(wav);
-        }
-
-        @Override
-        public String getFilename() {
-            return "audio.wav";
-        }
-    }
 }

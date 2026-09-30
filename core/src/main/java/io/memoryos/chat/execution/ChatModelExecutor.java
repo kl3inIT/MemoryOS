@@ -271,7 +271,8 @@ public final class ChatModelExecutor {
                 var webTools = new WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
                         fileWork, events::accept, guard::availableContextTokens, selected.policy().tokens(), activity);
                 runner = runner.withTools(Tool.fromInstance(webTools));
-                guard.webSiteFilter(setup.webAccess().search() != null && setup.webAccess().search().provider().supportsSiteFilter());
+                guard.webSiteFilter(web != null && setup.webAccess().search() != null
+                && web.capabilities(setup.webAccess().search().provider()).siteFilter());
             }
             if (selected.toolCalling() && !setup.fileIds().isEmpty()) {
                 runner = runner.withTools(Tool.fromInstance(new FileReaderTool(files, setup.actor(), setup.tenant(),

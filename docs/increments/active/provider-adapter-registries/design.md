@@ -47,26 +47,18 @@ provider (`TavilySearchProvider`, `SerperSearchProvider`, `SearXNGSearchProvider
 
 - **The enum stays the identity.** `WebProvider`, `VoiceProvider` and `ImageProvider` are persisted and appear in
   the OpenAPI contract, so they keep their constants and names. Strings never select a provider.
-- **One interface per function** in the family's package, `providers()` returning the enum constants the class
-  serves (one, or two when constants share a protocol, as `OPENAI` and `OPENAI_COMPATIBLE` do).
-- **One class per provider** in an `adapter` subpackage (`chat.web.adapter`, `voice.adapter`,
-  `chat.image.adapter`), as `connector.adapter.<provider>` already is ([ADR 0016](../../../decisions/0016-integration-bundle-named-sources.md)),
-  internal to the module under Spring Modulith, each a Spring bean.
-- **One registry class per function** built from `List<…Adapter>` into an `EnumMap`, indexing each adapter under
-  every constant it serves. The constructor always throws when a constant is served twice. A **complete** registry
-  (every provider must offer the function) also throws when a constant is missing, so a missing adapter fails the
-  application at startup, not a request; its lookup is `require(provider)`. A **partial** registry (only some
-  providers offer the function) instead declares the constants it expects, fails at startup when one of those is
-  missing, and looks up with `find(provider)` returning `Optional`.
-
-  | Registry | Kind |
-  | --- | --- |
-  | `WebSearchAdapterRegistry` | Partial: every provider except Firecrawl |
-  | `WebContentAdapterRegistry` | Partial: Tavily, Exa, Firecrawl |
-  | `VoiceConnectionCheckAdapterRegistry`, `SpeechTranscriptionAdapterRegistry` | Complete |
-  | `BatchTranscriptionAdapterRegistry` | Partial: OpenAI, OpenAI-compatible, Soniox |
-  | `SpeechSynthesisAdapterRegistry` | Partial: every provider except Soniox |
-  | `ImageGenerationAdapterRegistry` | Complete |
+- **One class per provider**, each a Spring bean, returning its enum constant from `provider()`. Where two constants
+  share a wire protocol but not behavior (Voice `OPENAI` and `OPENAI_COMPATIBLE`), each has its own thin class over
+  a shared package-private protocol helper, so no adapter branches on its own provider.
+- **Where the classes live.** In an `adapter` subpackage (`chat.web.adapter`, `chat.image.adapter`), internal to the
+  module under Spring Modulith. Two deliberate exceptions keep the classes next to code that is not public: Voice
+  adapters sit in `voice` itself, because its provider clients (`AzureSpeech`, `ElevenLabsVoice`, `SonioxAsync`, the
+  realtime transcribers) are package-private by module design and tested there; connector adapters sit in their
+  provider feature package (see [MEM-118](../mem-118-connector-adapters-lark/design.md)).
+- **One registry per family, complete.** Every constant has exactly one class; the constructor fails at startup on a
+  missing or duplicate adapter. A function only some providers offer is its own interface extending the family's
+  base, and the registry answers it by the interfaces the class implements (`Optional` lookups internally, boolean
+  questions such as `speaks` or `reads` publicly). "Not offered" keeps the exception the old `switch` threw.
 - **What a provider supports and offers is a record**, `<Family>ProviderCapabilities`, returned by the adapter:
   flags, default endpoint and catalog (known models, sizes, voices), read from a bundled resource when large. The
   enum keeps only its constants.
@@ -94,10 +86,10 @@ The repository already uses *provider* for the vendor identity (`WebProvider`, `
 | Role | Pattern | Examples |
 | --- | --- | --- |
 | Vendor identity (persisted, in the API) | `<Family>Provider` enum | `WebProvider`, `VoiceProvider`, `ImageProvider` (unchanged) |
-| Function contract | `<Function>Adapter` interface | `WebSearchAdapter`, `WebContentAdapter`, `SpeechTranscriptionAdapter`, `BatchTranscriptionAdapter`, `SpeechSynthesisAdapter`, `VoiceConnectionCheckAdapter`, `ImageGenerationAdapter` |
+| Function contract | `<Function>Adapter` interface | `WebSearchAdapter`, `WebContentAdapter`, `RealtimeTranscriptionAdapter`, `BatchTranscriptionAdapter`, `SpeechSynthesisAdapter`, `ImageGenerationAdapter` |
 | Implementation of one function | `<Vendor><Function>Adapter` | `BraveWebSearchAdapter`, `FirecrawlWebContentAdapter`, `SonioxBatchTranscriptionAdapter` |
 | Implementation of several functions of a family | `<Vendor><Family>Adapter` | `TavilyWebAdapter` (search and read), `ElevenLabsVoiceAdapter`, `OpenAiImageAdapter` |
-| Lookup | `<Function>AdapterRegistry` | `WebSearchAdapterRegistry`, `SpeechSynthesisAdapterRegistry`; `ai.ProviderAdapters` becomes `ProviderAdapterRegistry` |
+| Lookup | `<Family>AdapterRegistry`, one per family | `WebAdapterRegistry`, `VoiceAdapterRegistry`, `ImageAdapterRegistry`; `ai.ProviderAdapters` becomes `ProviderAdapterRegistry` |
 | What a provider supports | `<Family>ProviderCapabilities` record | `WebProviderCapabilities` |
 | Call data | `<Function>Request` / `<Function>Result` records | `WebSearchRequest`, `WebSearchResult` (replacing the nested `WebProviderClient.Result`) |
 
@@ -111,38 +103,58 @@ The repository already uses *provider* for the vendor identity (`WebProvider`, `
 
 ### Web
 
-- `WebSearchAdapter` (search) and `WebContentAdapter` (read) are separate interfaces: Firecrawl only reads, and five
-  providers only search. Tavily and Exa implement both.
-- The flags on `WebProvider` (`search`, `content`, `requiresKey`, `requiresEngine`, `requiresEndpoint`,
-  `supportsSiteFilter`) move into `WebProviderCapabilities`; search and read support follow from which registries
-  hold the provider. `WebConnectionService.save` and the settings descriptor read them from the registries. If a
-  descriptor's JSON changes, `openapi.yml` and the Hey API client are regenerated in the same change.
-- 9Router's engine listing (`nineRouterEngines`) moves into `NineRouterWebSearchAdapter`.
+Implemented as follows (step 2):
+
+- `WebAdapter` (`provider()`, `capabilities()`) is extended by one interface per function: `WebSearchAdapter`,
+  `WebContentAdapter` and `WebEngineListAdapter` (9Router's engine list). A provider class implements the functions
+  it offers; Tavily and Exa implement search and read, 9Router search and engine listing.
+- One `WebAdapterRegistry` rather than one per function: every `WebProvider` has exactly one class, so the registry
+  holds one adapter per constant, fails at startup on a missing or duplicate one, and answers `searches`, `reads`
+  and the per-function lookups by the interfaces the class implements.
+- `WebProvider` keeps only its constants. `WebProviderCapabilities` (`requiresKey`, `requiresEndpoint`,
+  `requiresEngine`, `siteFilter`) replaces the enum's flags in `WebConnectionService`, `ChatModelExecutor` and
+  `WebConnectionController`. The Web settings API has no provider descriptor (the web client knows the providers),
+  so `openapi.yml` does not change.
+- `WebCall` holds what every adapter shares: the HTTP call and JSON parsing with the injected `ObjectMapper`, the
+  "Web provider request failed" rule, result URL validation, the twenty-result and clipping bounds.
+- `WebProviderClient` keeps the credential lookup, the built-in reader and one `Observation`
+  (`memoryos.chat.web.request`, keys `provider`, `operation`, `outcome`) per provider call; Boot's meter handler
+  turns it into the same timer the Chat & AI dashboard reads, now with a span and an `error` tag.
+- Provider failures stay `IOException` inside the client: `WebTools` keeps partial results per failed request and
+  the controller maps them to `ChatException.providerUnavailable()`, which is already the typed boundary. The
+  nested `WebProviderClient.Result` keeps its name, as `WebTools` and `WebPdfReader` use it.
 
 ### Voice
 
-Voice providers do not all offer the same functions (Soniox is transcription only; ElevenLabs and Azure have no
-batch transcription). The family therefore has one interface per function, not one interface with unsupported
-methods:
+Implemented as follows (same PR as Web and Image):
 
-- `VoiceConnectionCheckAdapter` (`verify`), `SpeechTranscriptionAdapter` (short dictation),
-  `BatchTranscriptionAdapter` (recordings), `SpeechSynthesisAdapter` (read-aloud), each with its own registry keyed
-  by `VoiceProvider`.
-- A registry for an optional function holds only the providers that offer it; "not offered" is
-  `VoiceException.providerUnavailable()`, as the `switch`es throw today.
-- `OPENAI` and `OPENAI_COMPATIBLE` share one adapter whose `providers()` returns both constants.
-- The existing `AzureSpeech`, `ElevenLabsVoice` and `SonioxAsync` become the adapters' internals.
-- Everything `VoiceProvider` carries besides its name moves into `VoiceProviderCapabilities` on the adapters: flags
-  (`requiresKey`, `requiresEndpoint`, `speech`), `baseUrl(...)`, default endpoint, suggested STT and TTS models and
-  voices. The enum keeps only its constants.
-- Live transcription (`LiveTranscriptionService`, the realtime transcribers) is included only if it dispatches on
-  `VoiceProvider`; the implementation step records which.
+- `VoiceAdapter` (package-private) carries what every provider does: `verify` and short `transcribe`. Function
+  interfaces extend it: `RealtimeTranscriptionAdapter` (OpenAI on its own endpoint, Soniox), `LiveTranscriptionAdapter`
+  (Soniox), `BatchTranscriptionAdapter` (OpenAI, OpenAI-compatible, Soniox; with `diarizes` and `maxBytes`) and
+  `SpeechSynthesisAdapter` (all but Soniox).
+- Five classes in `voice`: `OpenAiVoiceAdapter`, `OpenAiCompatibleVoiceAdapter`, `ElevenLabsVoiceAdapter`,
+  `AzureVoiceAdapter`, `SonioxVoiceAdapter`. `OpenAiAudio` holds the OpenAI protocol both OpenAI classes share
+  (SDK transcription, verbose-JSON recordings, SDK speech, `NO_CREDENTIAL`); `VoiceChecks` the listing checks;
+  `ProviderSpeech` the read-aloud stream both REST and SDK speech return.
+- `VoiceAdapterRegistry` is public for the API and `meeting`: `capabilities`, `speaks`, `transcribesRecordings`,
+  `diarizesRecordings`, `maxRecordingBytes`. `BatchTranscriptionService.supports/diarizes/maxBytes` became instance
+  methods; `MeetingRecordingService` calls them on its injected service.
+- `VoiceProvider` keeps only its constants; `VoiceProviderCapabilities` holds the flags, `baseUrl(...)`, default
+  endpoint and suggested models and voices. `VoiceProviderResponse` reads them, so the API JSON is unchanged.
+- Verification and dictation transcription are one `Observation` each (`memoryos.chat.voice.request`). The
+  read-aloud timer is still recorded directly: it measures a stream's lifetime, closed from another thread, and
+  moving it to an observation is left to a separate change.
+- Azure stays on REST (MEM-91 Q1). Moving it to the Speech SDK is [MEM-137](https://linear.app/memory-os/issue/MEM-137);
+  with the adapter in place it replaces `AzureVoiceAdapter`'s internals and adds realtime and streaming speech.
 
 ### Image
 
-`ImageGenerationAdapter` with `generate` and `edit`: `OpenAiImageAdapter` and `CloudflareWorkersAiImageAdapter`.
-Known models, sizes and `sizeFor` move from `ImageProvider` into `ImageProviderCapabilities` on each adapter; the
-enum keeps only its constants.
+Implemented as follows: `ImageGenerationAdapter` (`generate`, `edit`, `resolvedModel`, `usageModel`,
+`normalizeEndpoint`) with `OpenAiImageAdapter` and `CloudflareWorkersAiImageAdapter` in `chat.image.adapter`;
+`ImageAdapterRegistry` complete; `ImageCall` for the shared HTTP, JSON and image decoding. Known models, sizes,
+`sizeFor`, the edit model and Cloudflare's account-ID expansion move from `ImageProvider` into
+`ImageProviderCapabilities` and the adapters; `ImageConnectionService.providers` returns each provider with its
+capabilities for the API. One `Observation` per call replaces the image timer (same name and keys).
 
 ### Chat models (`ai`)
 

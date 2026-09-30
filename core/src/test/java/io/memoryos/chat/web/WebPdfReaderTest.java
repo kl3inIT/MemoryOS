@@ -45,7 +45,7 @@ class WebPdfReaderTest {
         when(http.page(anyString(), any())).thenReturn(new WebHttp.Response(200, "application/pdf", pdf(1, "Revenue 42 million"), null));
         var meters = new SimpleMeterRegistry();
         try {
-            var result = new WebProviderClient(http, connections, meters).read(null, "https://example.com/report.pdf", () -> {});
+            var result = WebClients.client(http, connections, meters).read(null, "https://example.com/report.pdf", () -> {});
             assertEquals("Public report", result.title());
             assertTrue(result.text().contains("Revenue 42 million"));
             assertFalse(result.text().contains("truncated"));
