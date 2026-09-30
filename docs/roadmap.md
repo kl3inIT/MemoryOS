@@ -157,6 +157,24 @@ Chat Web search is implemented locally for the external-provider vertical slice,
 | Server secrets are files on the server | Every server secret is a file generated on the machine and the launcher reads any `<NAME>_FILE`; the staging bootstrap credential cleanup remains | [Design](increments/active/server-secrets-as-files/design.md) · [Plan](increments/active/server-secrets-as-files/plan.md) |
 | Audit quality fixes | Defects and local fixes from the 2026-09-24 whole-repository audit (PR #363); the remaining owner decisions are listed in its `owner-decisions.md` | [Design](increments/active/audit-quality-fixes/design.md) · [Plan](increments/active/audit-quality-fixes/plan.md) |
 | Phase 5 — frontend structure, correctness and tooling | Wave 1 merged (PR #381): the shell as a layout route, the administration table, zod search params and URL filters, React root error handlers, one preview kit, the bundle budget and `@shadcn/lint` installed. Wave 2 (data layer, tables, forms, lint to zero) is in flight | [Design](increments/active/phase5-frontend/design.md) · [Plan](increments/active/phase5-frontend/plan.md) |
+| Provider adapter registries | Web (8), Voice (5) and Image (2) providers each become one adapter class behind a per-function adapter registry keyed by the provider enum, with role-based names; behavior unchanged. Proposed 2026-09-30, not started | [Design](increments/active/provider-adapter-registries/design.md) · [Plan](increments/active/provider-adapter-registries/plan.md) |
+| [MEM-118](https://linear.app/memory-os/issue/MEM-118) Connector adapters and Lark Suite | Google Drive and SharePoint move behind connector function adapters and registries keyed by `SourceType` (Onyx's connector interfaces as reference), then Lark Suite (Drive, Docs, Sheets, Wiki) is built on them; absorbs MEM-128. Proposed 2026-09-30, not started | [Design](increments/active/mem-118-connector-adapters-lark/design.md) · [Plan](increments/active/mem-118-connector-adapters-lark/plan.md) |
+| Typed Chat stream events | The twelve-component `StreamBufferWriter.Event` with a `String type` becomes a sealed `ChatStreamEvent` with one record per event, following Spring AI 2.1's `MessagePart`; Redis and SSE JSON unchanged. Proposed 2026-09-30, not started | [Design](increments/active/typed-chat-stream-events/design.md) · [Plan](increments/active/typed-chat-stream-events/plan.md) |
+| Record construction | Telescoping constructors in `ChatMessage`, `ChatCommand`, `ChatTurnSetup`, `TurnContext`, `ChatSource` and `ChatToolEvent` become builders or named factories per the construction rule. Proposed 2026-09-30, not started | [Design](increments/active/record-construction/design.md) · [Plan](increments/active/record-construction/plan.md) |
+| OpenAI Responses model structure | MemoryOS's `OpenAiResponsesChatModel` splits into request builder, input mapper, stream assembler, metadata and typed exception after Spring AI 2.1's implementation, until it can be replaced by it. Proposed 2026-09-30, not started | [Design](increments/active/openai-responses-model-structure/design.md) · [Plan](increments/active/openai-responses-model-structure/plan.md) |
+
+### Pre-production standardization (owner decision 2026-09-30)
+
+Everything is brought to the [change design](conventions.md#change-design) and [Java](conventions.md#java-and-gradle) rules before real production. Each increment is behavior-preserving except Lark. Order and dependencies:
+
+1. Conventions, backend guide and these increments (documentation only).
+2. [Provider adapter registries](increments/active/provider-adapter-registries/plan.md) step 1: `ProviderAdapterRegistry`. Unblocks 5.
+3. Chat lane, in order: [record construction](increments/active/record-construction/plan.md), then [typed Chat stream events](increments/active/typed-chat-stream-events/plan.md) (both touch `ChatToolEvent`), then [OpenAI Responses model structure](increments/active/openai-responses-model-structure/plan.md).
+4. Provider lane: [provider adapter registries](increments/active/provider-adapter-registries/plan.md) Web, Voice, Image, each with one provider-call `Observation`.
+5. Connector lane, the customer priority: [MEM-118](increments/active/mem-118-connector-adapters-lark/plan.md) inventory, Google Drive and SharePoint adapters with checkpoints, Source hierarchy, then Lark Suite.
+6. Later: the Spring AI 2.1 upgrade below replaces the Responses model from 3.
+
+Lanes 3, 4 and 5 can run in parallel after 2; each ends with `clean check`.
 
 ## Timeline
 
@@ -242,6 +260,7 @@ MEM-36 and MEM-68 are Done. MEM-25 is Done. MEM-55 and MEM-69 are In Progress wi
 
 ## Other tracked work
 
+- **Spring AI 2.1 upgrade (candidate, 2026-09-30).** Spring AI `2.1.0-M1` ships `OpenAiResponsesChatModel` and the sealed `MessagePart` model, which could replace MemoryOS's own Responses model and reasoning echo in `ai.openai`. It requires Spring Boot `4.2.0-M2`, while MemoryOS runs Boot 4.1.1 and Embabel 1.5.2 (built on Spring AI 2.0.1 and Boot 4.1). Upgrade when Spring AI 2.1 and Boot 4.2 are GA and an Embabel release supports them; until then MemoryOS follows their code in its own types.
 - [MEM-74](https://linear.app/memory-os/issue/MEM-74), Vietnamese/English UI localization, is Todo with `dathip04`.
 - [MEM-77](https://linear.app/memory-os/issue/MEM-77) is Done in Linear: the [backend foundation](increments/completed/mem-77-provider-backend/design.md) is merged through PR #88; the increment was closed on 2026-09-27 by owner decision; the catalog administration UI and local OpenAI-compatible provider items it did not run are listed at the top of its plan.
 - [MEM-83](https://linear.app/memory-os/issue/MEM-83) is In Review for the latest `vadan.app` presentation work; MEM-82 is Done.
