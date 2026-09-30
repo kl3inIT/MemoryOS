@@ -19,13 +19,12 @@ import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
 import com.embabel.common.ai.model.LlmOptions;
-import com.knuddels.jtokkit.api.EncodingType;
+import io.memoryos.shared.Tokenizers;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.beans.factory.ObjectProvider;
 
 class ModelCallsTest {
@@ -68,7 +67,7 @@ class ModelCallsTest {
     }
 
     private static ModelBinding binding() {
-        var policy = ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), prompt -> prompt);
+        var policy = ModelRequestPolicy.hosted(Tokenizers.o200k(), prompt -> prompt);
         return new ModelBinding(new SpringAiLlmService("fixture", "fixture", mock(ChatModel.class)), prompt -> prompt,
                 policy, 32000, 4096, false, false);
     }
