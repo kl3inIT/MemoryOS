@@ -228,13 +228,13 @@ Ba thứ không ai ghi lại, và script không tự làm, nên đều làm hỏ
 
 ## Phase 1.7 — Đóng chính sách schema giai đoạn đầu (bắt buộc, không được bỏ qua)
 
-[Chính sách persistence](../../../guidelines/persistence.md#early-project-schema-evolution) hiện đang mở: *"Optimize for the clean target schema, not backward-compatible rollout machinery. Do not add expand/contract phases..."*, và nó tự nêu điều kiện kết thúc: *"Until MemoryOS holds external durable user data or a release milestone explicitly closes this policy"*, cộng *"Revisit this policy before onboarding external users or declaring durable customer data. From that point, migration and recovery plans must preserve committed data."*
+[Chính sách persistence](../../../guidelines/persistence.md#schema-evolution) hiện đang mở: *"Optimize for the clean target schema, not backward-compatible rollout machinery. Do not add expand/contract phases..."*, và nó tự nêu điều kiện kết thúc: *"Until MemoryOS holds external durable user data or a release milestone explicitly closes this policy"*, cộng *"Revisit this policy before onboarding external users or declaring durable customer data. From that point, migration and recovery plans must preserve committed data."*
 
 **MEM-171 chính là cái mốc đó.** Đưa hệ thống lên môi trường khách hàng nghĩa là từ thời điểm đó dữ liệu không còn disposable, và mọi điều khoản đang cho phép reset phá huỷ, bỏ qua bảo toàn dữ liệu và cấm expand/contract đều trở thành nguy hiểm. Chính sách phải được đóng **tường minh bằng một thay đổi tài liệu cộng ADR**, không phải ngầm hiểu là ai cũng biết.
 
 Nội dung đóng:
 
-* Viết lại mục `Early-project schema evolution` trong `docs/guidelines/persistence.md`: nêu rõ mốc đóng, ngày, và issue đóng nó.
+* Viết lại mục `Early-project schema evolution` trong `docs/guidelines/persistence.md`: nêu rõ mốc đóng, ngày, và issue đóng nó. **Đã làm 2026-09-30:** [ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md) đóng chính sách; mục trong `persistence.md` thành "Schema evolution".
 * Từ mốc đó: mọi thay đổi schema tách hai nhịp. Nhịp một chỉ thêm (cột nullable, bảng, index) và code phiên bản trước vẫn chạy được trên schema mới; nhịp hai xoá phần cũ, ở một release sau.
 * Bỏ hẳn quyền "một lần reset phá huỷ được phê duyệt" đối với production.
 * Ghi ADR: đây là quyết định đã áp dụng, không phải đề xuất.
