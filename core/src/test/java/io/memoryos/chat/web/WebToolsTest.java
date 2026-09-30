@@ -24,6 +24,7 @@ import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.WebSearchMode;
 import io.memoryos.chat.tools.WebTools;
 import io.memoryos.retrieval.SearchTasks;
+import io.memoryos.shared.Tokenizers;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -38,7 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 
 class WebToolsTest {
     @Test void queryBatchRunsInParallelKeepsPartialEvidenceAndDoesNotRepeatDuplicates() throws Exception {
@@ -55,7 +55,7 @@ class WebToolsTest {
         var events = new ArrayList<ChatToolEvent>();
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(connection, null), evidence, () -> {}, scope,
-                    events::add, () -> 5000, new JTokkitTokenCountEstimator());
+                    events::add, () -> 5000, Tokenizers.cl100k());
             String result = tools.webSearch(List.of("news", "unavailable", "news"));
             assertTrue(result.contains("Verified excerpt"));
             assertTrue(result.contains("1 request(s) failed"));
@@ -74,7 +74,7 @@ class WebToolsTest {
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var evidence = new ChatEvidence();
             var tools = new WebTools(client, new WebConnectionService.Access(null, null), evidence, () -> {}, scope,
-                    ignored -> {}, () -> 5000, new JTokkitTokenCountEstimator());
+                    ignored -> {}, () -> 5000, Tokenizers.cl100k());
             assertTrue(tools.openUrl(List.of()).contains("one to five"));
             assertTrue(tools.openUrl(Collections.nCopies(6, "https://example.com")).contains("one to five"));
             verifyNoInteractions(client);
@@ -95,7 +95,7 @@ class WebToolsTest {
         var events = new ArrayList<ChatToolEvent>(); evidence.publishTo(events::add);
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(connection, null), evidence, () -> {}, scope,
-                    events::add, () -> 5000, new JTokkitTokenCountEstimator());
+                    events::add, () -> 5000, Tokenizers.cl100k());
             assertTrue(tools.webSearch(List.of("news")).contains("[2]"));
             assertTrue(tools.webSearch(List.of("news")).contains("already attempted"));
             verify(client, times(1)).search(connection, "news");
@@ -117,7 +117,7 @@ class WebToolsTest {
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(null, null), new ChatEvidence(),
                     () -> { throw new CancellationException(); }, scope, ignored -> {},
-                    () -> 5000, new JTokkitTokenCountEstimator());
+                    () -> 5000, Tokenizers.cl100k());
             assertThrows(CancellationException.class, () -> tools.openUrl(List.of("https://example.com")));
             verifyNoInteractions(client);
         }
@@ -127,7 +127,7 @@ class WebToolsTest {
         when(client.read(isNull(), eq("https://example.com/article"), any())).thenReturn(
                 new WebProviderClient.Result("https://example.com/article", "Article", "quoted \"text\"\n".repeat(10000)));
         var evidence = new ChatEvidence();
-        var estimator = new JTokkitTokenCountEstimator();
+        var estimator = Tokenizers.cl100k();
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(null, null), evidence, () -> {}, scope,
                     ignored -> {}, () -> 300, estimator);

@@ -15,7 +15,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
@@ -34,10 +33,12 @@ import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.streaming.TestRedis;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import io.memoryos.shared.Tokenizers;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -46,7 +47,6 @@ import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 
 /** MEM-195: a grounded turn answers only with a citation, and a blocked question never reaches the answer model. */
 class ChatGroundedTurnTest {
@@ -69,7 +69,7 @@ class ChatGroundedTurnTest {
 
     private void prepare(boolean toolCalling, ChatSettingsService.TurnPolicy policy, ChatGuardrailCheck.Kind kind) {
         var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
-                ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, toolCalling, false);
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false);
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
@@ -83,7 +83,7 @@ class ChatGroundedTurnTest {
         var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
                 "Vợ bác Hồ là ai?", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
         when(persistence.loadContext(any(), any(), any())).thenReturn(new ChatTurnPersistence.TurnContext(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question), grounded, java.util.Map.of(), List.of(), null));
+                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question), grounded, Map.of(), List.of(), null));
         when(settings.turnPolicy(any())).thenReturn(policy);
         when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), 0));
         when(guardrails.check(any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,

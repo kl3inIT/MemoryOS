@@ -53,6 +53,7 @@ import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.retrieval.SearchQuery;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.opensearch.LiveSearchCorpus;
+import io.memoryos.shared.Tokenizers;
 import io.memoryos.usage.report.UsageReportService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.awt.Color;
@@ -153,8 +154,6 @@ import com.embabel.common.ai.model.PricingModel;
 import com.embabel.chat.UserMessage;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelRequestPolicy;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.shared.TenantId;
@@ -311,7 +310,7 @@ class ChatSessionApiIntegrationTest {
         when(sourceSearch.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, SourceType.FILE)));
         doAnswer(call -> new ProviderAdapter.Client(OpenAiProviderAdapter.binding(
-                call.getArgument(1), call.getArgument(2), model, new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)), () -> {}))
+                call.getArgument(1), call.getArgument(2), model, Tokenizers.o200k()), () -> {}))
                 .when(providerAdapter).create(any(), any(), any(), any());
         actor = actor();
         other = actor();
@@ -2054,7 +2053,7 @@ class ChatSessionApiIntegrationTest {
         var service = new SpringAiLlmService("fixture-model", "fixture-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 null, List.of(), PricingModel.usdPer1MTokens(1, 2));
-        var binding = new ModelBinding(service, prompt -> prompt, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
+        var binding = new ModelBinding(service, prompt -> prompt, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false);
         for (int turn = 0; turn < 2; turn++) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
@@ -3048,7 +3047,7 @@ class ChatSessionApiIntegrationTest {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
                     };
-                    return new Client(new ModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
+                    return new Client(new ModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
                 }
             };
         }
@@ -4745,8 +4744,8 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(jsonPath("$.topics[1].message").value("Không trả lời câu hỏi về lãnh tụ."))
                 .andExpect(jsonPath("$.blockedPhrases.length()").value(1)).andExpect(jsonPath("$.blockedPhrases[0]").value("Dự án Phoenix"))
                 .andExpect(jsonPath("$.revision").value(1));
-        String tooMany = java.util.stream.IntStream.range(0, 21).mapToObj(i -> "\"phrase " + i + "\"")
-                .collect(java.util.stream.Collectors.joining(","));
+        String tooMany = IntStream.range(0, 21).mapToObj(i -> "\"phrase " + i + "\"")
+                .collect(Collectors.joining(","));
         mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[],\"blockedPhrases\":[" + tooMany + "],\"revision\":1}"))
                 .andExpect(status().isBadRequest());

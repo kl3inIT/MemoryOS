@@ -1,9 +1,8 @@
 package io.memoryos.ai;
 
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.ProviderAdapter.TokenizerProfile;
+import io.memoryos.shared.Tokenizers;
 import java.util.List;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /**
@@ -18,7 +17,7 @@ public final class TokenizerProfiles {
     private TokenizerProfiles() {}
 
     private static final class Hosted {
-        private static final TokenCountEstimator TOKENS = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
+        private static final TokenCountEstimator TOKENS = Tokenizers.o200k();
     }
 
     /** The baseline estimator, also used for a turn that has no selected model yet. */

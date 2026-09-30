@@ -1,6 +1,5 @@
 package io.memoryos.chat.execution;
 
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.TurnFailureException;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.ModelAdmissionLedger;
@@ -22,6 +21,7 @@ import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.Budget;
 import com.embabel.agent.core.EarlyTermination;
 import com.embabel.common.ai.model.LlmMetadata;
+import io.memoryos.shared.Tokenizers;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -37,7 +37,6 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.content.Media;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
@@ -54,7 +53,7 @@ class ChatModelGuardTest {
     private final ChatModel provider = mock(ChatModel.class);
     private final AgentProcess process = mock(AgentProcess.class);
     private final Budget budget = mock(Budget.class, RETURNS_DEEP_STUBS);
-    private final ModelRequestPolicy policy = ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(), p -> p);
+    private final ModelRequestPolicy policy = ModelRequestPolicy.hosted(Tokenizers.cl100k(), p -> p);
     private final ChatModelGuard guard = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 1, () -> {}, policy, 32000,
             request -> new Prompt(request.getInstructions(), assertInstanceOf(OpenAiChatOptions.class, request.getOptions()).mutate()
                     .toolCallbacks(List.of()).toolChoice(null).build()));
@@ -203,7 +202,7 @@ class ChatModelGuardTest {
 
     @Test
     void budgetPolicyRejectsExpandedContinuationBeforeAnotherProviderCall() {
-        var tokens = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
+        var tokens = Tokenizers.o200k();
         var policy = ModelRequestPolicy.hosted(tokens, p -> p);
         var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {},
                 policy, 64, p -> p);

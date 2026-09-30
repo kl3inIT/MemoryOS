@@ -8,11 +8,12 @@ import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.Kind;
 import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.shared.Sha256;
+import io.memoryos.shared.Tokenizers;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.TreeMap;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
+import org.springframework.ai.tokenizer.TokenCountEstimator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -24,7 +25,7 @@ public final class StructuredDocumentChunker {
     public static final int MAX_TOKENS = 768;
     private static final int MAX_CHUNKS = 10_000;
     private final ObjectMapper mapper;
-    private final JTokkitTokenCountEstimator tokens = new JTokkitTokenCountEstimator();
+    private final TokenCountEstimator tokens = Tokenizers.cl100k();
 
     public StructuredDocumentChunker(ObjectMapper mapper) {
         this.mapper = mapper;
