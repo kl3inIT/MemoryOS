@@ -93,10 +93,10 @@ class WebConnectionController {
             summary = "List the search engines a 9Router gateway offers, with the typed key or the saved one for the same endpoint")
     WebEnginesResponse engines(@CurrentActor IdentityContext identity,
             @PathVariable WebProvider provider, @Valid @RequestBody WebEnginesRequest request) {
-        if (provider != WebProvider.NINEROUTER) throw ChatException.invalid("This provider has no engine list.");
+        if (!client.listsEngines(provider)) throw ChatException.invalid("This provider has no engine list.");
         String key = connections.discoveryKey(identity.actorId(), provider, request.endpoint(), request.key());
         try {
-            return new WebEnginesResponse(client.nineRouterEngines(request.endpoint(), key));
+            return new WebEnginesResponse(client.engines(provider, request.endpoint(), key));
         } catch (IOException | RuntimeException failed) {
             throw ChatException.providerUnavailable();
         }
@@ -108,7 +108,7 @@ class WebConnectionController {
     void test(@CurrentActor IdentityContext identity,
             @PathVariable WebProvider provider, @Valid @RequestBody WebTestRequest request) {
         var connection = connections.forTest(identity.actorId(), provider);
-        if (!(request.search() ? provider.search() : provider.content())) throw ChatException.invalid("Unsupported Web connection test.");
+        if (!(request.search() ? client.searches(provider) : client.reads(provider))) throw ChatException.invalid("Unsupported Web connection test.");
         try {
             if (request.search()) {
                 if (client.search(connection, "example.com").isEmpty()) throw new IOException("No usable test results");

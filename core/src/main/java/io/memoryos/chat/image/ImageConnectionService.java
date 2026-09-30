@@ -12,6 +12,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.TenantAccessResolver;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.NonNull;
@@ -27,11 +28,12 @@ public class ImageConnectionService {
     private final ProviderConnections admin;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
+    private final ImageAdapterRegistry adapters;
 
     public ImageConnectionService(ImageConnectionRepository connections, ProviderConnections admin,
-                                  IamAuthorization authorization, TenantAccessResolver tenants) {
+                                  IamAuthorization authorization, TenantAccessResolver tenants, ImageAdapterRegistry adapters) {
         this.connections = connections; this.admin = admin;
-        this.authorization = authorization; this.tenants = tenants;
+        this.authorization = authorization; this.tenants = tenants; this.adapters = adapters;
     }
     public record View(ImageProvider provider, String endpoint, String model, boolean credentialConfigured,
                        boolean active, long revision) {}
@@ -51,12 +53,14 @@ public class ImageConnectionService {
         @Override public @NonNull String toString() { return "ImageConnectionProbe[redacted]"; }
     }
     public record Access(@Nullable Connection generate) {}
+    /** An installed protocol and what its adapter needs and serves. */
+    public record Installed(ImageProvider provider, ImageProviderCapabilities capabilities) {}
 
     /** Installed protocols and their published models; model managers only. */
     @Transactional(readOnly = true)
-    public List<ImageProvider> providers(ActorId actor) {
+    public List<Installed> providers(ActorId actor) {
         authorization.require(actor, IamCapability.MODELS_MANAGE, false);
-        return List.of(ImageProvider.values());
+        return Arrays.stream(ImageProvider.values()).map(p -> new Installed(p, adapters.capabilities(p))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -76,7 +80,7 @@ public class ImageConnectionService {
         String credential = admin.reconfigure(tenant, entity.id(), entity.revision(), input.revision(),
                 entity.credential(), input.credential(), ChatException::conflict);
         entity.configure(endpoint, input.model(), credential);
-        if (!admin.usable(provider.requiresKey(), credential)) entity.select(false);
+        if (!admin.usable(adapters.capabilities(provider).requiresKey(), credential)) entity.select(false);
         var saved = connections.saveAndFlush(entity);
         audit(tenant, actor, provider, "CONFIGURE", ProviderConnections.credentialChange(input.credential()));
         return view(saved);
@@ -114,7 +118,7 @@ public class ImageConnectionService {
         String key = input.credentialValue();
         boolean override = key != null && !key.isBlank();
         if (override && key.length() > 8192) throw ChatException.invalid("Invalid provider credential.");
-        if (!override && provider.requiresKey() && (stored == null || !admin.configured(stored.credential())))
+        if (!override && adapters.capabilities(provider).requiresKey() && (stored == null || !admin.configured(stored.credential())))
             throw ChatException.invalid("An API key is required to test this provider.");
         var connection = new Connection(stored == null ? null : stored.id(), tenant, provider, endpoint,
                 input.model(), override || stored == null ? null : stored.credential(), stored == null ? 0 : stored.revision());
@@ -130,9 +134,9 @@ public class ImageConnectionService {
     public String key(Connection connection) {
         return admin.key(connection.tenantId(), connection.id(), connection.encryptedCredential());
     }
-    private static String endpoint(ImageProvider provider, String input) {
-        var endpoint = provider.normalizeEndpoint(input);
-        ProviderConnections.checkEndpoint(endpoint, provider.endpointRequired(),
+    private String endpoint(ImageProvider provider, String input) {
+        var endpoint = adapters.normalizeEndpoint(provider, input);
+        ProviderConnections.checkEndpoint(endpoint, adapters.capabilities(provider).endpointRequired(),
                 () -> ChatException.invalid("This image provider requires an endpoint."));
         return endpoint;
     }
@@ -140,7 +144,7 @@ public class ImageConnectionService {
         admin.audit(AuditAction.IMAGE_CONNECTION_CHANGE, "IMAGE_CONNECTION", tenant, actor,
                 provider == null ? null : provider.name(), change, credential);
     }
-    private boolean usable(ImageConnectionEntity c) { return admin.usable(c.provider().requiresKey(), c.credential()); }
+    private boolean usable(ImageConnectionEntity c) { return admin.usable(adapters.capabilities(c.provider()).requiresKey(), c.credential()); }
     private View view(ImageConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.model(), admin.configured(c.credential()), c.active(), c.revision()); }
     private Connection snapshot(ImageConnectionEntity c) { return new Connection(c.id(), c.tenantId(), c.provider(), c.endpoint(), c.model(), c.credential(), c.revision()); }
 }

@@ -290,9 +290,9 @@ public class MeetingRecordingService {
         return type;
     }
 
-    private static long size(long sizeBytes, @Nullable VoiceProvider provider) {
+    private long size(long sizeBytes, @Nullable VoiceProvider provider) {
         long limit = provider == null ? ObjectUploadPurpose.MEETING_AUDIO.maximumBytes()
-                : Math.min(BatchTranscriptionService.maxBytes(provider), ObjectUploadPurpose.MEETING_AUDIO.maximumBytes());
+                : Math.min(transcription.maxBytes(provider), ObjectUploadPurpose.MEETING_AUDIO.maximumBytes());
         if (sizeBytes < 1 || sizeBytes > limit)
             throw MeetingException.invalid("The recording is larger than this provider accepts.");
         return sizeBytes;

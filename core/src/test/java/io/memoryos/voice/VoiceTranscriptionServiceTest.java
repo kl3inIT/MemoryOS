@@ -30,7 +30,8 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 class VoiceTranscriptionServiceTest {
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final VoiceTranscriptionService service = new VoiceTranscriptionService(
-            mock(VoiceConnectionService.class), mock(IamAuthorization.class), meters);
+            mock(VoiceConnectionService.class), mock(IamAuthorization.class), meters, VoiceAdapters.registry(),
+            VoiceAdapters.observations(meters));
     private final AtomicReference<String> body = new AtomicReference<>();
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private HttpServer server;
@@ -66,7 +67,7 @@ class VoiceTranscriptionServiceTest {
         var recorder = mock(AiUsageRecorder.class);
         var factory = new StaticListableBeanFactory(Map.of("usage", recorder));
         var metered = new VoiceTranscriptionService(connections, mock(IamAuthorization.class), meters,
-                factory.getBeanProvider(AiUsageRecorder.class));
+                VoiceAdapters.registry(), VoiceAdapters.observations(meters), factory.getBeanProvider(AiUsageRecorder.class));
         var actor = new ActorId(UUID.randomUUID());
         var connection = connection();
         Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(connection, null));

@@ -12,48 +12,42 @@ Each step is behavior-preserving and ends green on its own. Nothing is implement
 
 ## 1. Rename the existing registry
 
-- [ ] `ai.ProviderAdapters` becomes `ProviderAdapterRegistry`, keyed by the adapter's string type (open family; no
-  enum), with the same startup failure on a duplicate; update callers and tests. No migration, no API change.
-- [ ] `TokenizerProfiles` moves to the `ai` root: `estimator(profile)` resolves a model's profile to the one cached
-  O200K estimator, replacing the string check in `OpenAiProviderAdapter`; `ChatTurnSetup` uses it instead of a
-  second `JTokkitTokenCountEstimator`, including the no-selection path from `ChatTurnPersistence`. Behavior
-  unchanged. Measuring other models' tokenizers and a vLLM `/tokenize` profile are not planned (owner decision
-  2026-09-30).
+- [x] `ai.ProviderAdapters` becomes `ProviderAdapterRegistry`, keyed by the adapter's string type (open family; no
+  enum), with the same startup failure on a duplicate. PR #401.
+- [x] `TokenizerProfiles` moves to the `ai` root; `estimator(profile)` resolves a model's profile; `ChatTurnSetup`
+  shares the one O200K estimator. Measuring other models' tokenizers and a vLLM `/tokenize` profile are not planned
+  (owner decision 2026-09-30). PR #401.
 
 ## 2. Web
 
-- [ ] One `Observation` per provider call replaces `WebProviderClient.measured`; the same for Image and Voice in
-  their steps. Check the timer names and tags the dashboards read before and after.
-
-- [ ] `WebSearchAdapter`, `WebContentAdapter`, `WebProviderCapabilities`, `WebSearchRequest`, `WebSearchResult`.
-- [ ] Eight adapters under `chat.web.adapter`: Brave, Serper, GooglePse, Searxng, NineRouter (search); Firecrawl
-  (read); Tavily, Exa (both).
-- [ ] `WebSearchAdapterRegistry` and `WebContentAdapterRegistry` (`EnumMap`, fail at startup on a missing or
-  duplicate provider).
-- [ ] `WebProviderClient` keeps `measured`, `WebHttp`, clipping and result validation and delegates the request and
-  response mapping; the injected `ObjectMapper` replaces the static one; failures become typed `ChatException`s.
-- [ ] Flags leave `WebProvider`; `WebConnectionService` and the settings descriptor read `WebProviderCapabilities`.
-- [ ] Tests: registry completeness; one test per adapter's request and mapping; existing Web tool and connection
-  tests unchanged.
-- [ ] Regenerate `openapi.yml` and the Hey API client only if the descriptor changed; `pnpm --dir web check` then.
-- [ ] `clean check`.
+- [x] `WebAdapter` with `WebSearchAdapter`, `WebContentAdapter`, `WebEngineListAdapter`; `WebProviderCapabilities`;
+  `WebCall` for shared transport and bounds.
+- [x] Eight adapters under `chat.web.adapter`: Brave, Serper, GooglePse, Searxng (search); Firecrawl (read); Tavily,
+  Exa (search and read); NineRouter (search and engines).
+- [x] One `WebAdapterRegistry` (`EnumMap`, fails at startup on a missing or duplicate provider).
+- [x] Flags leave `WebProvider`; `WebConnectionService`, `ChatModelExecutor` and `WebConnectionController` read the
+  registry. No API change.
+- [x] One `Observation` per provider call replaces the hand-written timer; same timer name and tags.
+- [x] Tests: `WebAdapterRegistryTest` (completeness, duplicates, functions and capabilities per provider); existing
+  Web client, PDF, tool and API tests pass with only their construction changed.
+- [ ] `clean check` in CI (one PR for Web, Voice and Image, #402).
 
 ## 3. Voice
 
-- [ ] Confirm whether live transcription dispatches on `VoiceProvider`; record the answer in the design.
-- [ ] `VoiceConnectionCheckAdapter`, `SpeechTranscriptionAdapter`, `BatchTranscriptionAdapter`,
-  `SpeechSynthesisAdapter` and their registries.
-- [ ] Adapters under `voice.adapter`: `OpenAiVoiceAdapter` (both OpenAI constants), `ElevenLabsVoiceAdapter`,
-  `AzureVoiceAdapter`, `SonioxVoiceAdapter`, absorbing `AzureSpeech`, `ElevenLabsVoice`, `SonioxAsync`.
-- [ ] Replace the four `switch`es in `BatchTranscriptionService`, `VoiceProviderClient`, `VoiceSynthesisService` and
-  `VoiceTranscriptionService`.
-- [ ] Tests: registry completeness and "not offered" per function; existing Voice tests unchanged; `clean check`.
+- [x] Live transcription dispatches on `VoiceProvider` (Soniox's live protocol); it has `LiveTranscriptionAdapter`.
+- [x] `VoiceAdapter` with `RealtimeTranscriptionAdapter`, `LiveTranscriptionAdapter`, `BatchTranscriptionAdapter`,
+  `SpeechSynthesisAdapter`; one complete `VoiceAdapterRegistry`.
+- [x] Five adapters in `voice` (package-private), `OpenAiAudio`, `VoiceChecks`, `ProviderSpeech`.
+- [x] The `switch`es in `BatchTranscriptionService`, `VoiceProviderClient`, `VoiceSynthesisService`,
+  `VoiceTranscriptionService` and `LiveTranscriptionService` replaced; flags leave `VoiceProvider`.
+- [x] Verify and transcribe as observations; the read-aloud timer stays for a separate change.
+- [x] Tests: `VoiceAdapterRegistryTest`; existing Voice, meeting and API tests pass with only construction changed.
 
 ## 4. Image
 
-- [ ] `ImageGenerationAdapter`, `OpenAiImageAdapter`, `CloudflareWorkersAiImageAdapter`,
-  `ImageGenerationAdapterRegistry`; `ImageProviderClient` delegates.
-- [ ] Existing image tool and connection tests unchanged; `clean check`.
+- [x] `ImageGenerationAdapter`, `OpenAiImageAdapter`, `CloudflareWorkersAiImageAdapter`, `ImageAdapterRegistry`,
+  `ImageCall`, `ImageProviderCapabilities`; `ImageProviderClient` delegates and observes.
+- [x] Existing image client, tool and connection tests pass; `ImageProviderTest` covers the registry and catalog.
 
 ## 5. Consolidate
 

@@ -28,11 +28,12 @@ public class WebConnectionService {
     private final ProviderConnections admin;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
+    private final WebAdapterRegistry adapters;
 
     public WebConnectionService(WebConnectionRepository connections, ProviderConnections admin,
-                                IamAuthorization authorization, TenantAccessResolver tenants) {
+                                IamAuthorization authorization, TenantAccessResolver tenants, WebAdapterRegistry adapters) {
         this.connections = connections; this.admin = admin;
-        this.authorization = authorization; this.tenants = tenants;
+        this.authorization = authorization; this.tenants = tenants; this.adapters = adapters;
     }
     public record View(WebProvider provider, String endpoint, String engineId, boolean credentialConfigured,
                        boolean searchActive, boolean contentActive, long revision) {}
@@ -56,15 +57,16 @@ public class WebConnectionService {
         var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE).tenantId().value();
         if (input == null || input.endpoint() == null || input.engineId() == null || input.engineId().length() > 200)
             throw ChatException.invalid("Invalid Web connection.");
-        ProviderConnections.checkEndpoint(input.endpoint(), provider.requiresEndpoint(),
+        var capabilities = adapters.capabilities(provider);
+        ProviderConnections.checkEndpoint(input.endpoint(), capabilities.requiresEndpoint(),
                 () -> ChatException.invalid("This provider requires its own endpoint."));
-        if (provider.requiresEngine() && input.engineId().isBlank()) throw ChatException.invalid("Search engine identity is required.");
-        if (!provider.requiresEngine() && !input.engineId().isEmpty()) throw ChatException.invalid("This provider does not use a search engine identity.");
+        if (capabilities.requiresEngine() && input.engineId().isBlank()) throw ChatException.invalid("Search engine identity is required.");
+        if (!capabilities.requiresEngine() && !input.engineId().isEmpty()) throw ChatException.invalid("This provider does not use a search engine identity.");
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseGet(() -> new WebConnectionEntity(tenant, provider));
         String credential = admin.reconfigure(tenant, entity.id(), entity.revision(), input.revision(),
                 entity.credential(), input.credential(), ChatException::conflict);
         entity.configure(input.endpoint(), input.engineId(), credential);
-        if (!admin.usable(provider.requiresKey(), credential)) {
+        if (!admin.usable(capabilities.requiresKey(), credential)) {
             entity.selectSearch(false); entity.selectContent(false);
         }
         var saved = connections.saveAndFlush(entity);
@@ -80,7 +82,7 @@ public class WebConnectionService {
         WebConnectionEntity selected = null;
         if (provider != null) {
             selected = all.stream().filter(c -> c.provider() == provider).findFirst().orElseThrow(ChatException::unavailable);
-            if (!(search ? provider.search() : provider.content()) || !usable(selected)) throw ChatException.providerUnavailable();
+            if (!(search ? adapters.searches(provider) : adapters.reads(provider)) || !usable(selected)) throw ChatException.providerUnavailable();
         }
         ProviderConnections.selectOnly(all, selected,
                 search ? WebConnectionEntity::selectSearch : WebConnectionEntity::selectContent, connections::flush);
@@ -126,7 +128,7 @@ public class WebConnectionService {
         admin.audit(AuditAction.WEB_CONNECTION_CHANGE, "WEB_CONNECTION", tenant, actor,
                 provider == null ? null : provider.name(), change, credential);
     }
-    private boolean usable(WebConnectionEntity c) { return admin.usable(c.provider().requiresKey(), c.credential()); }
+    private boolean usable(WebConnectionEntity c) { return admin.usable(adapters.capabilities(c.provider()).requiresKey(), c.credential()); }
     private View view(WebConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.engineId(), admin.configured(c.credential()), c.searchActive(), c.contentActive(), c.revision()); }
     private Connection snapshot(WebConnectionEntity c) { return new Connection(c.id(), c.tenantId(), c.provider(), c.endpoint(), c.engineId(), c.credential(), c.revision()); }
 }
