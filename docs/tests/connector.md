@@ -2,6 +2,14 @@
 
 This matrix combines historical upstream and local evidence. Focused checks for the merge with main `3e4e318` are recorded in [Basic Access merge verification](../increments/completed/basic-access-capabilities/verification.md#main-refresh-to-3e4e318), not a full-suite or live-provider acceptance claim. Current schema has 48 migrations: published main V1–V42 stay unchanged, while historical local Basic/scoped-source V37–V42 map to V43–V48. Existing databases with old feature V37–V42 must not run the merged layout until deliberate data-preserving history/schema reconciliation; no automatic reset or Flyway repair is authorized.
 
+## Provider dates (MEM-114) — 2026-10-02
+
+| Test | Count | Proves |
+| --- | --- | --- |
+| `PostgresGoogleDriveSyncTest.driveModificationTimeIsRecordedAndAnUnchangedFileGainingOneRefreshesItsSearchFields` | 1 | Drive's `modifiedTime` is recorded when the file is acquired; an item that has no date gains it on the next run without a download and publishes one `SourceMetadataChanged` naming its Document; an unchanged date publishes nothing |
+| `SearchIndexWorkIntegrationTest.newProviderDatesRefreshTheSearchFieldsOfTheDocumentsWhateverTheAccessMode` | 1 | The event queues one ACCESS refresh for a Private Source's Document, collapsing repeats; it rewrites the fields without indexing again or hiding the Document |
+| Existing `PostgresSharePointSyncTest`, `PostgresSourceRunHistoryTest` | 23, 13 | SharePoint acquisition and unchanged items, and run history, are unchanged by the recorded dates |
+
 ## Connector database standardization — 2026-09-30
 
 | Test | Count | Proves |
