@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -191,6 +192,25 @@ public class DocumentSearchService {
     /** Search reader: requires SEARCH_READ plus current document eligibility. */
     public SearchDocument document(ActorId actor, UUID id, UUID generation, int from) {
         return read(actor, IamCapability.SEARCH_READ, id, generation, from);
+    }
+
+    /**
+     * MEM-114 reader for a caller that holds only a Document id: the Document's current generation, under the same
+     * checks as {@link #document}. A Document without a ready generation is as unavailable as one the actor may not read.
+     */
+    public SearchDocument currentDocument(ActorId actor, UUID id, int from) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        var generation = documents.currentGenerations(tenant, List.of(id), search.identity()).get(id);
+        if (generation == null) throw new SearchDocumentUnavailableException();
+        return document(actor, id, generation, from);
+    }
+
+    /** Where the actor opens the Document in its provider, from the Source mappings they may read; empty for uploads. */
+    public Optional<String> providerUrl(ActorId actor, UUID id) {
+        tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        authorization.require(actor, IamCapability.SEARCH_READ, false);
+        var origins = sourceSearch.readableMetadata(sourceSearch.scope(actor), List.of(id)).getOrDefault(id, List.of());
+        return Optional.ofNullable(DocumentSourceMetadata.providerUrl(origins));
     }
 
     /** Chat citation reader: Basic access (active membership) plus current document eligibility; no capability token. */

@@ -5496,6 +5496,116 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/endpoint:
+    get:
+      tags:
+      - MCP
+      summary: Read whether the MemoryOS MCP endpoint is configured and on for the Tenant
+      operationId: getMcpEndpointSettings
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: MCP management, Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: This deployment has no MCP endpoint URL
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: MCP endpoint setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - MCP
+      summary: Turn the MemoryOS MCP endpoint on or off for the Tenant
+      operationId: updateMcpEndpointSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpEndpointSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: MCP management, Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: This deployment has no MCP endpoint URL
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved MCP endpoint setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/interpreter:
     get:
       tags:
@@ -22525,6 +22635,39 @@ components:
       required:
       - modelConfigurationId
       - revision
+    McpEndpointSettingsRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - enabled
+      - revision
+    McpEndpointSettingsResponse:
+      type: object
+      properties:
+        configured:
+          type: boolean
+          description: Whether this deployment configured an MCP endpoint URL; without one the switch stays off
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+        url:
+          type:
+          - string
+          - "null"
+          description: The URL people add to Claude or ChatGPT; present when configured
+      required:
+      - configured
+      - enabled
+      - revision
+      - url
     InterpreterSettingsRequest:
       type: object
       properties:

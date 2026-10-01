@@ -1109,6 +1109,18 @@ export const zDefault = z.object({
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
+export const zMcpEndpointSettingsRequest = z.object({
+    enabled: z.boolean(),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zMcpEndpointSettingsResponse = z.object({
+    configured: z.boolean(),
+    enabled: z.boolean(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    url: z.string().nullable()
+});
+
 export const zInterpreterSettingsRequest = z.object({
     enabled: z.boolean(),
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
@@ -4734,6 +4746,18 @@ export const zStarChatLibraryEntryPath = z.object({
  * Starred
  */
 export const zStarChatLibraryEntryResponse = z.void();
+
+/**
+ * MCP endpoint setting
+ */
+export const zGetMcpEndpointSettingsResponse = zMcpEndpointSettingsResponse;
+
+export const zUpdateMcpEndpointSettingsBody = zMcpEndpointSettingsRequest;
+
+/**
+ * Saved MCP endpoint setting
+ */
+export const zUpdateMcpEndpointSettingsResponse = zMcpEndpointSettingsResponse;
 
 /**
  * Code Interpreter setting
