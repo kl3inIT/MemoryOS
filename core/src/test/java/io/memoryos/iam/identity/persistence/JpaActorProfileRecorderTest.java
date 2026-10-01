@@ -18,6 +18,8 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -126,6 +128,19 @@ class JpaActorProfileRecorderTest {
                 .param("subject", IDENTITY_B.subject())
                 .update();
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM actor_profiles").query(Long.class).single());
+    }
+
+    @Test
+    void listsEveryIdentityBoundToAnActorAndNoOtherActorsIdentity() {
+        ActorId actorA = transaction.execute(_ -> identities.resolveOrCreate(IDENTITY_A));
+        ActorId actorB = transaction.execute(_ -> identities.resolveOrCreate(IDENTITY_B));
+        var second = new ExternalIdentity("https://issuer-c.example", "subject-c");
+        jdbcClient.sql("INSERT INTO external_identity_bindings(issuer, subject, actor_id) VALUES (?, ?, ?)")
+                .params(second.issuer(), second.subject(), actorA.value()).update();
+
+        assertEquals(List.of(IDENTITY_A, second), transaction.execute(_ -> identities.identities(actorA)));
+        assertEquals(List.of(IDENTITY_B), transaction.execute(_ -> identities.identities(actorB)));
+        assertEquals(List.of(), transaction.execute(_ -> identities.identities(new ActorId(UUID.randomUUID()))));
     }
 
     @Test

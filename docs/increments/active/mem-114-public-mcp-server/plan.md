@@ -206,13 +206,37 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
   Not adopted: Onyx's own auth server and API-key fallback, its per-call database session, resources, and a
   configurable result count.
 
-## 4. Web, grants and consent (pull request 3)
+## 4. Grants, reads and web (pull requests 3a and 3b)
 
-- [ ] **Grants.** `iam` reads and deletes the member's consents to MCP clients through the Keycloak admin API; API
-  routes and generated client.
-- [ ] **`/admin/mcp`.** *MemoryOS MCP endpoint* section with the switch, URL and copy.
-- [ ] **`/settings/connections`.** URL, Claude and ChatGPT tabs, grants table with Revoke.
-- [ ] **Document link.** `/search?doc=<id>` opens the document dialog.
+Split in two so CI checks the Keycloak side before the screens are built on its generated client.
+
+**3a: backend and contract.**
+
+- [x] **Grants.** `iam` lists and revokes the member's consents to MCP clients through the Keycloak admin API.
+  - A grant is a consent whose granted scopes include `knowledge:read`. That scope is one constant in `iam`, which the
+    endpoint's security chain also uses.
+  - The member's Keycloak user is their binding under the realm's issuer.
+  - Revoking accepts only a client from that list; the client ID travels as a query parameter, because Claude's is a
+    URL.
+  - Probed on Keycloak 26.8 on 2026-10-01 with a URL client ID: `GET …/users/{id}/consents` lists the client, scopes,
+    dates and offline token. `DELETE …/consents/{encoded client ID}` answers 204, and the next refresh fails with
+    "Offline user session not found".
+- [x] **ChatGPT client for administrators.** The API reads `MEMORYOS_MCP_CHATGPT_CLIENT_SECRET` (Compose mounts it as the
+  `mcp_chatgpt_client_secret` secret file; every server needs the file before this release deploys);
+  `GET /api/mcp/endpoint` returns the client ID and secret, null without one.
+- [x] **Member read.** Whether the endpoint is available and its URL, under `SEARCH_READ`.
+- [x] **Document read without a generation.** `GET /api/search/documents/{id}` resolves the current generation when
+  none is given, so a link carrying only the id can open the document.
+- [x] **Contract.** `openapi.yml`, `OpenApiContractTest` paths and the regenerated web client.
+
+**3b: web.**
+
+- [ ] **`/admin/mcp-endpoint`.** *MemoryOS MCP* page next to *Máy chủ MCP*: switch, URL, ChatGPT client ID and
+  masked secret.
+- [ ] **`/settings/mcp`.** *MemoryOS MCP* settings item next to *Connections*: URL, Claude and ChatGPT tabs,
+  authorized apps with Thu hồi. A status line replaces the URL and tabs while the endpoint is off.
+- [ ] **Document link.** The Search page accepts `?doc=<id>` and opens that document's dialog.
+- [ ] **Audit label.** `mcp_endpoint.change` in the audit page's action list, in both languages.
 - [x] **Keycloak consent page.** Delivered in pull request 1.
 - [ ] **Copy.** Vietnamese and English for every string; no explanatory copy under controls.
 - [ ] **Checks.** `pnpm --dir web check`; screenshots with realistic data, reviewed and fixed.
@@ -221,7 +245,8 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
 
 - [ ] **Staging.** Switch on, with a test member who reads only test Documents.
 - [ ] **Probes.** The curl probes in the design.
-- [ ] **Clients.** Claude web, Claude Code, ChatGPT web; revoke; switch off. If ChatGPT fails, open its own issue and
+- [ ] **Clients.** Claude web, Claude Code, ChatGPT web; revoke; switch off. Confirm that Claude, whose client comes
+  from a metadata document, appears in the authorized apps list. If ChatGPT fails, open its own issue and
   record why.
 - [ ] **Evidence.** `verification.md`.
 - [ ] **Documents.**

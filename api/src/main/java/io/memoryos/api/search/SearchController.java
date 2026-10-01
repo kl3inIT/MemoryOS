@@ -82,8 +82,14 @@ class SearchController {
 
     @GetMapping("/documents/{documentId}")
     @Operation(operationId = "getSearchDocument", summary = "Read current document passages around a search result")
-    SearchDocumentResponse document(@CurrentActor IdentityContext identity,
-            @PathVariable UUID documentId, @RequestParam UUID generation, @RequestParam(defaultValue = "0") int from) {
-        return SearchDocumentResponse.from(service.document(identity.actorId(), documentId, generation, from));
+    SearchDocumentResponse document(@CurrentActor IdentityContext identity, @PathVariable UUID documentId,
+            @Parameter(description = "The generation a search result named; without one, the current generation, as a "
+                    + "link that carries only the document opens it")
+            @RequestParam(required = false) @Nullable UUID generation,
+            @RequestParam(defaultValue = "0") int from) {
+        var actor = identity.actorId();
+        return SearchDocumentResponse.from(generation == null
+                ? service.currentDocument(actor, documentId, from)
+                : service.document(actor, documentId, generation, from));
     }
 }

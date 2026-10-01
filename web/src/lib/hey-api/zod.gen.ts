@@ -1115,11 +1115,36 @@ export const zMcpEndpointSettingsRequest = z.object({
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
+/**
+ * What a ChatGPT workspace administrator enters once to add MemoryOS
+ */
+export const zMcpEndpointChatGptClientResponse = z.object({
+    clientId: z.string(),
+    clientSecret: z.string()
+});
+
 export const zMcpEndpointSettingsResponse = z.object({
     configured: z.boolean(),
     enabled: z.boolean(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    url: z.string().nullable(),
+    chatGpt: zMcpEndpointChatGptClientResponse.nullable()
+});
+
+export const zMcpEndpointConnectionResponse = z.object({
+    available: z.boolean(),
     url: z.string().nullable()
+});
+
+export const zMcpClientGrantResponse = z.object({
+    clientId: z.string(),
+    client: z.enum([
+        'CLAUDE',
+        'CHATGPT',
+        'OTHER'
+    ]),
+    name: z.string(),
+    grantedAt: z.iso.datetime()
 });
 
 export const zInterpreterSettingsRequest = z.object({
@@ -4763,6 +4788,25 @@ export const zUpdateMcpEndpointSettingsBody = zMcpEndpointSettingsRequest;
 export const zUpdateMcpEndpointSettingsResponse = zMcpEndpointSettingsResponse;
 
 /**
+ * Whether the endpoint answers, and its URL
+ */
+export const zGetMcpEndpointConnectionResponse = zMcpEndpointConnectionResponse;
+
+export const zRevokeMcpClientGrantQuery = z.object({
+    clientId: z.string().min(1).max(2048)
+});
+
+/**
+ * Grant revoked
+ */
+export const zRevokeMcpClientGrantResponse = z.void();
+
+/**
+ * Clients the User allowed, newest first
+ */
+export const zListMcpClientGrantsResponse = z.array(zMcpClientGrantResponse);
+
+/**
  * Code Interpreter setting
  */
 export const zGetChatInterpreterSettingsResponse = zInterpreterSettingsResponse;
@@ -6473,7 +6517,7 @@ export const zGetSearchDocumentPath = z.object({
 });
 
 export const zGetSearchDocumentQuery = z.object({
-    generation: z.uuid(),
+    generation: z.uuid().optional(),
     from: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0)
 });
 

@@ -4,6 +4,7 @@ import io.memoryos.api.mcp.endpoint.McpEndpointGateFilter;
 import io.memoryos.api.mcp.endpoint.McpEndpointLimits;
 import io.memoryos.api.mcp.endpoint.McpEndpointRequestFilter;
 import io.memoryos.iam.ExternalIdentityResolver;
+import io.memoryos.iam.McpClientGrants;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.mcp.McpEndpointProperties;
 import io.memoryos.mcp.McpEndpointService;
@@ -44,7 +45,7 @@ import org.springframework.security.web.session.DisableEncodeUrlFilter;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(McpEndpointLimits.class)
 class McpEndpointSecurityConfiguration {
-    static final String SCOPE = "knowledge:read";
+    static final String SCOPE = McpClientGrants.KNOWLEDGE_READ_SCOPE;
     /** The audience of a deployment without an endpoint; no token carries it, and the gate answers 404 first anyway. */
     private static final String NO_ENDPOINT = "urn:memoryos:mcp-endpoint:not-configured";
 

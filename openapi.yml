@@ -5607,6 +5607,116 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/endpoint/connection:
+    get:
+      tags:
+      - MCP
+      summary: "Read whether the signed-in User can connect Claude or ChatGPT to MemoryOS, and the URL to use"
+      operationId: getMcpEndpointConnection
+      responses:
+        "401":
+          description: Authentication required
+        "403":
+          description: Search use or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Whether the endpoint answers, and its URL"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/grants:
+    get:
+      tags:
+      - MCP
+      summary: List the outside assistants the signed-in User allowed to read MemoryOS
+      operationId: listMcpClientGrants
+      responses:
+        "401":
+          description: Authentication required
+        "503":
+          description: Keycloak unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Clients the User allowed, newest first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpClientGrantResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Revoke the signed-in User's grant to one outside assistant and end its offline session
+      operationId: revokeMcpClientGrant
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: clientId
+        in: query
+        description: The clientId of a listed grant
+        required: true
+        schema:
+          type: string
+          maxLength: 2048
+          minLength: 1
+      responses:
+        "401":
+          description: Authentication required
+        "400":
+          description: Invalid client ID
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: The User has no grant to this client
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Keycloak unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Grant revoked
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/interpreter:
     get:
       tags:
@@ -14554,7 +14664,8 @@ paths:
           format: uuid
       - name: generation
         in: query
-        required: true
+        description: "The generation a search result named; without one, the current generation, as a link that carries only the document opens it"
+        required: false
         schema:
           type: string
           format: uuid
@@ -22665,11 +22776,63 @@ components:
           - string
           - "null"
           description: The URL people add to Claude or ChatGPT; present when configured
+        chatGpt:
+          oneOf:
+          - $ref: "#/components/schemas/McpEndpointChatGptClientResponse"
+          - type: "null"
       required:
+      - chatGpt
       - configured
       - enabled
       - revision
       - url
+    McpEndpointChatGptClientResponse:
+      type: object
+      description: What a ChatGPT workspace administrator enters once to add MemoryOS
+      properties:
+        clientId:
+          type: string
+        clientSecret:
+          type: string
+      required:
+      - clientId
+      - clientSecret
+    McpEndpointConnectionResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+          description: Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint now
+        url:
+          type:
+          - string
+          - "null"
+          description: The URL to add to Claude or ChatGPT; present while available
+      required:
+      - available
+      - url
+    McpClientGrantResponse:
+      type: object
+      properties:
+        clientId:
+          type: string
+          description: Keycloak's client ID; Claude's is the URL of its client metadata document
+        client:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+        name:
+          type: string
+        grantedAt:
+          type: string
+          format: date-time
+      required:
+      - client
+      - clientId
+      - grantedAt
+      - name
     InterpreterSettingsRequest:
       type: object
       properties:
