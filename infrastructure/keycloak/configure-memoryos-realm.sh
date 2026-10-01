@@ -834,8 +834,12 @@ configure_mcp_endpoint() {
     # A client Keycloak builds from a metadata document receives the realm's default scopes and may
     # request its optional ones. The endpoint needs only `sub`, so roles, profile, e-mail and web origins
     # stay out of MCP tokens and off the consent page; the script's own clients pinned theirs at creation.
-    "$KCADM" update "realms/$TARGET_REALM/default-optional-client-scopes/$SCOPE_UUID" \
-        --config "$CONFIG_FILE" >/dev/null
+    # Keycloak answers a repeated assignment with 409, so assign only what is missing.
+    if ! "$KCADM" get "realms/$TARGET_REALM/default-optional-client-scopes" --config "$CONFIG_FILE" |
+        jq -e --arg id "$SCOPE_UUID" 'any(.[]; .id == $id)' >/dev/null; then
+        "$KCADM" update "realms/$TARGET_REALM/default-optional-client-scopes/$SCOPE_UUID" \
+            --config "$CONFIG_FILE" >/dev/null
+    fi
     for trimmed in profile email roles web-origins; do
         trimmed_id=$("$KCADM" get "realms/$TARGET_REALM/default-default-client-scopes" --config "$CONFIG_FILE" |
             jq -r --arg name "$trimmed" '.[] | select(.name == $name) | .id')

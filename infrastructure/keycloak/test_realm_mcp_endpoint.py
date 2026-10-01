@@ -66,6 +66,10 @@ class McpEndpointTokenTest(unittest.TestCase):
             SCRIPT)
         self.assertIn(".defaultClientScopes //= $default | .optionalClientScopes //= $optional", SCRIPT)
 
+    def test_a_rerun_does_not_reassign_the_realm_optional_scope(self):
+        # Keycloak answers a repeated assignment with 409; the end-to-end rerun stopped there once.
+        self.assertIn("""jq -e --arg id "$SCOPE_UUID" 'any(.[]; .id == $id)'""", SCRIPT)
+
     def test_a_grant_lapses_after_thirty_days_without_use(self):
         self.assertIn("offlineSessionIdleTimeout: 2592000", SCRIPT)
 
