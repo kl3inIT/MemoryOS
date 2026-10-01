@@ -65,7 +65,9 @@ discovery=$(curl --silent --fail --header 'Host: localhost:8080' "$base/realms/m
 grep -q '"client_id_metadata_document_supported":true' <<< "$discovery" ||
   { echo 'The image does not advertise Client ID Metadata Documents; was it built with KC_FEATURES=cimd?' >&2; exit 1; }
 # ChatGPT's document needs the image's lenient executor; the realm's client policy names it by this id.
-kcadm get serverinfo | grep -q '"memoryos-client-id-metadata-document"' ||
+# Captured first: grep -q stops reading early, and under pipefail the writer's broken pipe fails the check.
+serverinfo=$(kcadm get serverinfo)
+grep -q '"memoryos-client-id-metadata-document"' <<< "$serverinfo" ||
   { echo 'The image lacks the memoryos-client-id-metadata-document executor' >&2; exit 1; }
 # The admin console client demands PKCE; any well-formed challenge renders the login page.
 challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
