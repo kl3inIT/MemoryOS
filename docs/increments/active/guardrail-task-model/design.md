@@ -18,7 +18,7 @@ The check is a task model, `ModelFlow.CHAT_GUARDRAIL`, beside conversation namin
   output reliably runs the check while the Chat model keeps answering.
 - `ChatTurnService` resolves it once per checked turn with `ChatModelSelector.resolveFlow`, which falls back to the
   conversation's model when the task has none or it is no longer usable. A task never fails because of its model.
-- V135 adds it for every Tenant with the Tenant's Chat model, as V121 did for every task, so what the page shows is
+- V136 adds it for every Tenant with the Tenant's Chat model, as V121 did for every task, so what the page shows is
   what runs. New Tenants get it from `initializeFlows`, which seeds every flow.
 - Its usage stays part of the turn's Chat cost (`AiUsageFlow.CHAT`), recorded against the model that ran it.
 
