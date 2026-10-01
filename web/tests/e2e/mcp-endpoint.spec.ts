@@ -81,7 +81,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.getByRole("heading", { name: "MemoryOS MCP", level: 1 })).toBeVisible({
         timeout: 30_000,
       });
-      await expect(page.getByLabel("Địa chỉ MCP")).toHaveValue(settings.url ?? "");
+      await expect(page.getByLabel("Địa chỉ MCP", { exact: true })).toHaveValue(settings.url ?? "");
       await page.screenshot({ path: `${OUTPUT}/admin-${theme}-${width}.png`, fullPage: true });
 
       await page.goto("/settings/mcp");
@@ -118,7 +118,7 @@ test("A member revokes Claude by its URL client ID and sees one status line whil
   });
 
   await page.goto("/settings/mcp");
-  await expect(page.getByLabel("Địa chỉ MCP")).toHaveValue(connection.url ?? "");
+  await expect(page.getByLabel("Địa chỉ MCP", { exact: true })).toHaveValue(connection.url ?? "");
   await page.getByRole("button", { name: "Thu hồi" }).first().click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Thu hồi" }).click();
   await expect.poll(() => revoked).toEqual(["https://claude.ai/oauth/mcp-oauth-client-metadata"]);
@@ -126,6 +126,6 @@ test("A member revokes Claude by its URL client ID and sees one status line whil
   await stub(page, { on: false });
   await page.goto("/settings/mcp");
   await expect(page.getByText("Quản trị viên chưa bật MemoryOS MCP.")).toBeVisible();
-  await expect(page.getByLabel("Địa chỉ MCP")).toHaveCount(0);
+  await expect(page.getByLabel("Địa chỉ MCP", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Thu hồi" })).toHaveCount(2);
 });
