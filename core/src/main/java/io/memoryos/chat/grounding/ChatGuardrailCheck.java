@@ -4,6 +4,7 @@ import java.util.UUID;
 import io.memoryos.shared.TenantId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.ai.ModelAccounting;
+import io.memoryos.ai.ModelBinding;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
@@ -39,13 +40,17 @@ public final class ChatGuardrailCheck {
         return setup.options().grounded() || policy.guardrails().active();
     }
 
-    /** @param question the text the person wrote in this turn, without attachments */
-    public Result check(ChatTurnSetup setup, String question, ChatSettingsService.TurnPolicy policy, Consumer<ModelAccounting> accounting) {
+    /**
+     * @param binding  the model that classifies: the Tenant's guardrail task model, else the conversation model
+     * @param question the text the person wrote in this turn, without attachments
+     */
+    public Result check(ModelBinding binding, ChatTurnSetup setup, String question, ChatSettingsService.TurnPolicy policy,
+            Consumer<ModelAccounting> accounting) {
         var guardrails = policy.guardrails();
         String phrase = guardrails.blockedPhraseIn(question);
         if (phrase != null) return new Result(Kind.BLOCKED, guardrails.blockedPhraseMessage(), null, phrase);
         var topics = guardrails.enabledTopics();
-        var verdict = classifier.classify(setup.binding(), question, setup.options().grounded(), topics, accounting);
+        var verdict = classifier.classify(binding, question, setup.options().grounded(), topics, accounting);
         return switch (verdict.kind()) {
             case CONVERSATIONAL -> Result.CONVERSATIONAL;
             case QUESTION -> Result.QUESTION;

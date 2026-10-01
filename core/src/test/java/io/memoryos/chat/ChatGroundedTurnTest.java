@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
@@ -20,6 +21,7 @@ import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.ai.ModelClients;
+import io.memoryos.ai.ModelFlow;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.chat.execution.ChatModelExecutor;
@@ -71,6 +73,9 @@ class ChatGroundedTurnTest {
                 ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false).build();
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
+        // The guardrail task model; a test that needs its own model replaces this.
+        when(models.resolveFlow(any(), any(), eq(ModelFlow.CHAT_GUARDRAIL)))
+                .thenAnswer(call -> new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
@@ -91,7 +96,7 @@ class ChatGroundedTurnTest {
                 .build());
         when(settings.turnPolicy(any())).thenReturn(policy);
         when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), 0));
-        when(guardrails.check(any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
+        when(guardrails.check(any(), any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
                 kind == ChatGuardrailCheck.Kind.BLOCKED ? "Trợ lý không trả lời câu hỏi về lãnh tụ." : null,
                 kind == ChatGuardrailCheck.Kind.BLOCKED ? ChatGuardrails.Topic.LEADERS : null, null));
     }
@@ -116,6 +121,27 @@ class ChatGroundedTurnTest {
         verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq(content),
                 isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), any(), any(), eq(ChatResearch.EMPTY),
                 refusal == null ? isNull() : eq(refusal), any());
+    }
+
+    @Test
+    void theGuardrailCheckRunsOnItsOwnTaskModelWhileTheConversationModelAnswers() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var checker = ModelBinding.builder(new SpringAiLlmService("gpt-5-nano", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false).build();
+        var checkerLease = mock(ModelClients.Lease.class);
+        when(checkerLease.binding()).thenReturn(checker);
+        UUID checkerModel = UUID.randomUUID();
+        when(models.resolveFlow(any(), any(), eq(ModelFlow.CHAT_GUARDRAIL)))
+                .thenReturn(new ModelResolver.Resolved(checkerModel, null, checkerLease));
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verify(guardrails).check(eq(checker), any(), any(), any(), any());
+            verify(model).execute(argThat(setup -> setup.binding() != checker), any(), any(), any(), any(), any(), any(), any(), any());
+            verify(checkerLease).close();
+        }
     }
 
     @Test
