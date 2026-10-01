@@ -37,7 +37,9 @@ export function GroupSourcesSection({ draft }: { draft: GroupSourcesDraft }) {
       (!normalizedSearch || source.name.toLocaleLowerCase().includes(normalizedSearch)),
   );
   const unselectedCandidates = candidates.filter((source) => !selectedIds.has(source.id));
-  const selectedSources = (allSources.data ?? []).filter((source) => selectedIds.has(source.id));
+  const selectedSources = canManage
+    ? (allSources.data ?? []).filter((source) => selectedIds.has(source.id))
+    : sources;
   const isLocked = (source: SourceSummary) =>
     draft.savedIds.has(source.id) && !draft.removableIds.has(source.id);
   const lockReason = (source: SourceSummary) =>

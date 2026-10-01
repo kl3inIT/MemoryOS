@@ -1,10 +1,9 @@
 import { createContext, use } from "react";
 import { adminEntryPage, adminPages } from "@/components/app-shell/admin-pages";
 import type { CurrentIdentity, CurrentTenant } from "@/lib/hey-api/types.gen";
-
 export type ApplicationCapability = CurrentIdentity["capabilities"][number];
+
 export type ApplicationSession = CurrentIdentity & {
-  displayName?: string | null;
   tenant: CurrentTenant;
 };
 

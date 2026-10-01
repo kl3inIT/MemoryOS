@@ -13,6 +13,7 @@ const BOARD = "d4b8e2a6-7c19-4f35-b0d8-6e2a4c81f593";
 
 const SESSION: ApplicationSession = {
   actorId: "0f2f5e6e-4e6c-4d55-9c07-6b0b1d4b39a4",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Tasco", role: "OWNER" },

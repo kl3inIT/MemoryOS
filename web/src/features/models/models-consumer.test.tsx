@@ -57,6 +57,7 @@ const model: ManagedModel = {
 };
 const session: CurrentIdentity = {
   actorId: "00000000-0000-0000-0000-000000000008",
+  displayName: null,
   authorizationVersion: 1,
   capabilities: ["MODELS_MANAGE"],
   scopedCapabilities: [],

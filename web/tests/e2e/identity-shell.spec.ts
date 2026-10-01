@@ -5,6 +5,7 @@ import { expectNoSeriousA11yViolations } from "./axe";
 const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
 const OWNER_SESSION = {
   actorId: ACTOR_ID,
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: {
@@ -90,7 +91,7 @@ test("renders the authenticated application shell", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("hides owner UI and blocks member administration deep links without requests", async ({
+test("shows a member's Groups entry while blocking unrelated administration deep links", async ({
   page,
 }) => {
   let userRequests = 0;
@@ -115,7 +116,10 @@ test("hides owner UI and blocks member administration deep links without request
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("button", { name: "Tenant member" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
+    "href",
+    "/admin/groups",
+  );
 
   await page.goto("/admin/users?status=ACTIVE");
   await expect(page).toHaveURL(/\/admin\/users\?status=ACTIVE/);

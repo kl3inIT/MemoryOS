@@ -65,6 +65,7 @@ const source: SourceSummary = {
 };
 const globalSession: ApplicationSession = {
   actorId: "actor",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },
@@ -239,15 +240,16 @@ describe("ordinary Source associations", () => {
     ).toBeInTheDocument();
   });
 
-  it("hides source associations outside a scoped manager's target group", async () => {
+  it("shows source associations to a member of the target group without edit controls", async () => {
     const targetGroup = {
       ...group,
       permissions: { ...group.permissions, manageSources: false },
     };
     setup(<DeferredGroupSources targetGroup={targetGroup} />, scopedSession);
-    await waitFor(() =>
-      expect(screen.queryByRole("heading", { name: "Sources" })).not.toBeInTheDocument(),
-    );
+
+    expect(await screen.findByRole("heading", { name: "Sources" })).toBeVisible();
+    expect(await screen.findByText(source.name)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Remove Team knowledge" })).not.toBeInTheDocument();
   });
 
   it("allows a global manager to remove the last association from Group detail", async () => {
