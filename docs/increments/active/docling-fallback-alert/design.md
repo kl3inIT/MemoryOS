@@ -34,12 +34,17 @@ PaddleOCR-VL reads the rendered page, so it can misread a digit that the text la
 
 The measurement also shows why Docling failed on staging for long reports: the worker allows 60 minutes, but Docling stops every document at 300 seconds and returns `partial_success`, which the worker treats as `MALFORMED` and sends to Tika. The staging fix is to raise `DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT` to 3600 and `DOCLING_SERVE_MAX_SYNC_WAIT` to 3610 to match the worker, as the [ingestion contract](../../../specs/ingestion.md) already lists for the sixty-minute selection. Lowering the worker to five minutes would leave this report failing. This is a server change with a manual Docling recreation, because the deployment never recreates Docling.
 
+## Cause of the staging failures (found 2026-10-01)
+
+Staging's `.env.staging` had set `MEMORYOS_EXTRACTION_DOCLING_ENDPOINT` to the remote OCR service of the superseded [MEM-79](../../superseded/mem-79-rancher-ocr/design.md) Rancher deployment, reached over the host's VPN, since at least 2026-09-23. Each deployment snapshot used it. Every worker request went there instead of the local `docling` container, which logged none of them. That service answered 404 and 503, and its ingress refused a 16 MiB body with 413. Pointing the worker at the local container by hand (editing the accepted snapshot and recreating the worker) lasted only until the next deployment, which read `.env.staging` again.
+
+The line was removed from `.env.staging`, so the worker uses Compose's default `http://docling:5001`. Docling's limits were raised to 3600 and 3610 seconds, and the worker's 60-minute timeout was kept. Staging was redeployed (run 36859042559) and Docling recreated from the accepted record. The worker now runs with `http://docling:5001`, `60m` and the image's digest as engine revision, and Docling with 3600 seconds.
+
 ## Not in scope
 
 - Changing which failures fall back. Failing on HTTP 4xx instead of falling back was considered and rejected by the product owner on 2026-10-01: users keep searchable text while Docling is broken, and the alert is what was missing.
 - A notification destination. Prometheus evaluates the repository rules and Grafana shows firing alerts; no contact point is configured ([observability README](../../../../infrastructure/observability/README.md)). Paging is a separate decision.
 - Automatic reindex of fallback Documents. They keep `fallback_from=docling` in their metadata and are reindexed by a Source manager.
-- The cause of the staging 404/413/503 responses, which is investigated separately.
 
 ## Placement
 
