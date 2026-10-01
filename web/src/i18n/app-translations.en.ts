@@ -1491,13 +1491,16 @@ export const vietnameseUi: Record<string, string> = {
     "The conversation exceeds the model's context window. Start a new conversation or pick a model with a larger context.",
   "Mô hình này không chạy được Deep research: cần gọi công cụ và ngữ cảnh từ 50.000 token.":
     "This model cannot run Deep research: it needs tool calling and at least 50,000 tokens of context.",
-  "Provider từ chối API key của model này.": "The provider rejected this model's API key.",
+  "Provider từ chối API key": "The provider rejected the API key",
   "Cập nhật API key": "Update the API key",
-  "Model này đang không dùng được. Hãy chọn model khác hoặc báo quản trị viên.":
-    "This model is unavailable right now. Choose another model or tell an administrator.",
-  "Không tạo được câu trả lời. Hãy thử lại.": "No answer could be generated. Try again.",
-  "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
-    "The answer was interrupted. Content received so far is preserved.",
+  "Model không dùng được": "Model unavailable",
+  "Hãy chọn model khác hoặc báo quản trị viên.": "Choose another model or tell an administrator.",
+  "Câu trả lời bị gián đoạn": "The answer was interrupted",
+  "Nội dung đã nhận được giữ lại.": "What was received is kept.",
+  "Không tạo được câu trả lời": "No answer was generated",
+  "Hãy thử lại.": "Try again.",
+  "Chạm giới hạn output": "Output limit reached",
+  "Vượt cửa sổ ngữ cảnh": "Context window exceeded",
   "Sao chép câu trả lời": "Copy answer",
   "Đang tải nội dung tài liệu…": "Loading document content…",
   "Tài liệu không còn khả dụng hoặc đã thay đổi. Hãy tìm lại phiên bản hiện tại.":

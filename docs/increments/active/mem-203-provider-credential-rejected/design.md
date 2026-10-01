@@ -31,6 +31,10 @@ rule. No provider message is read or logged.
 link to `/admin/models`; anyone else reads that the model is unavailable and to choose another or tell an
 administrator. No key or provider detail reaches either.
 
+**Shown as an error.** Owner decision 2026-10-01: the failure sits inside the answer as a red alert with a short
+title and a detail, as Onyx's `ErrorBanner` does, instead of a line of muted text. The unconfirmed notice above the
+composer stays for a connection whose outcome is unknown.
+
 **Only true sentences.** "Interrupted, content kept" is shown only when the failed answer kept text; otherwise the
 answer says no answer could be generated. A turn the server committed as FAILED ends its stream with a known error
 (`COMMITTED_FAILURE`), and the runtime no longer reads it as an unconfirmed reply, so the composer shows no notice.

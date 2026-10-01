@@ -9,9 +9,10 @@ import {
   groupPartByType,
   useAuiState,
 } from "@assistant-ui/react";
-import { Copy, FileX, ShieldAlert } from "lucide-react";
+import { CircleAlert, Copy, FileX, ShieldAlert } from "lucide-react";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { IconButton } from "@/components/ui/icon-button";
 import {
   ChatMarkdownLink,
@@ -85,34 +86,38 @@ function ChatFailureNotice({ code }: { code?: string }) {
   const answered = useAuiState((state) =>
     state.message.parts.some((part) => part.type === "text" && part.text.trim().length > 0),
   );
-  let notice: ReactNode;
-  if (code === "CHAT_MODEL_OUTPUT_LIMIT")
-    notice = ui(
+  let title: string;
+  let detail: ReactNode;
+  if (code === "CHAT_MODEL_OUTPUT_LIMIT") {
+    title = ui("Chạm giới hạn output");
+    detail = ui(
       "Mô hình đã dừng vì chạm giới hạn độ dài output trong cấu hình mô hình. Hãy tăng giới hạn output của mô hình hoặc chọn mô hình khác.",
     );
-  else if (code === "CHAT_CONTEXT_LIMIT")
-    notice = ui(
+  } else if (code === "CHAT_CONTEXT_LIMIT") {
+    title = ui("Vượt cửa sổ ngữ cảnh");
+    detail = ui(
       "Hội thoại vượt quá cửa sổ ngữ cảnh của mô hình. Hãy bắt đầu hội thoại mới hoặc chọn mô hình có ngữ cảnh lớn hơn.",
     );
-  else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED")
-    notice = manager ? (
-      <>
-        {ui("Provider từ chối API key của model này.")}{" "}
-        <Link to="/admin/models" className="underline underline-offset-2">
-          {ui("Cập nhật API key")}
-        </Link>
-      </>
-    ) : (
-      ui("Model này đang không dùng được. Hãy chọn model khác hoặc báo quản trị viên.")
-    );
-  else
-    notice = answered
-      ? ui("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.")
-      : ui("Không tạo được câu trả lời. Hãy thử lại.");
+  } else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED" && manager) {
+    title = ui("Provider từ chối API key");
+    detail = <Link to="/admin/models">{ui("Cập nhật API key")}</Link>;
+  } else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED") {
+    title = ui("Model không dùng được");
+    detail = ui("Hãy chọn model khác hoặc báo quản trị viên.");
+  } else if (answered) {
+    title = ui("Câu trả lời bị gián đoạn");
+    detail = ui("Nội dung đã nhận được giữ lại.");
+  } else {
+    title = ui("Không tạo được câu trả lời");
+    detail = ui("Hãy thử lại.");
+  }
+  // Onyx ErrorBanner: a failed answer carries its error inside the message, titled by its kind.
   return (
-    <p role="status" className="mt-2 font-secondary-body text-content-secondary">
-      {notice}
-    </p>
+    <Alert variant="destructive" className="mt-3">
+      <CircleAlert aria-hidden="true" />
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{detail}</AlertDescription>
+    </Alert>
   );
 }
 
