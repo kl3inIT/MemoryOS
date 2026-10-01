@@ -3,6 +3,7 @@ package io.memoryos.ai;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -18,7 +19,8 @@ import org.jspecify.annotations.Nullable;
 public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
                                ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
                                UnaryOperator<Prompt> requiredTools,
-                               BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling) {
+                               BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling,
+                               Predicate<Throwable> credentialRejection) {
     /** A binding that leaves tool requests unchanged and has no per-turn sampling. */
     public static Builder builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
                                   int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
@@ -35,6 +37,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         private final boolean vision;
         private UnaryOperator<Prompt> requiredTools = UnaryOperator.identity();
         private BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling = (llmService, ignored) -> llmService;
+        private Predicate<Throwable> credentialRejection = failure -> false;
 
         private Builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
                         int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
@@ -49,10 +52,11 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
 
         public Builder requiredTools(UnaryOperator<Prompt> value) { requiredTools = value; return this; }
         public Builder sampling(BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> value) { sampling = value; return this; }
+        public Builder credentialRejection(Predicate<Throwable> value) { credentialRejection = value; return this; }
 
         public ModelBinding build() {
             return new ModelBinding(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
-                    requiredTools, sampling);
+                    requiredTools, sampling, credentialRejection);
         }
     }
 
@@ -81,13 +85,20 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
                 turnSampling.isEmpty() ? service : sampling.apply(service, turnSampling),
                 finalRequest, policy, contextWindow,
                 outputTokenLimit == null ? maxOutputTokens : Integer.valueOf(outputAtMost(outputTokenLimit)),
-                toolCalling, vision, requiredTools, sampling);
+                toolCalling, vision, requiredTools, sampling, credentialRejection);
     }
+
+    /** Whether a failure of a call through this binding means the provider refused its credential (the adapter's rule). */
+    public boolean credentialRejected(Throwable failure) {
+        return credentialRejection.test(failure);
+    }
+
     public ModelBinding {
         Objects.requireNonNull(service);
         Objects.requireNonNull(finalRequest);
         Objects.requireNonNull(requiredTools);
         Objects.requireNonNull(sampling);
+        Objects.requireNonNull(credentialRejection);
         Objects.requireNonNull(policy);
         if (maxOutputTokens != null && (maxOutputTokens < 1 || contextWindow <= maxOutputTokens))
             throw new IllegalArgumentException("Invalid model limits");

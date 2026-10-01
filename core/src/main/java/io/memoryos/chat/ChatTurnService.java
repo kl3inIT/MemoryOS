@@ -5,6 +5,7 @@ import io.memoryos.ai.TurnFailure;
 import io.memoryos.ai.TurnFailureException;
 import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ModelAccounting;
+import io.memoryos.ai.ModelBinding;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.session.ChatTurnPersistence;
@@ -434,7 +435,8 @@ public final class ChatTurnService implements AutoCloseable {
             run.finish(ChatMessage.Status.COMPLETED, null);
         } catch (RuntimeException failure) {
             boolean userStop = run.stopReason.get() == StopReason.USER;
-            String code = run.stopReason.get() == StopReason.INTERRUPTED ? "CHAT_INTERRUPTED" : failureCode(failure);
+            String code = run.stopReason.get() == StopReason.INTERRUPTED ? "CHAT_INTERRUPTED"
+                    : failureCode(failure, run.setup.binding());
             run.finish(userStop ? ChatMessage.Status.CANCELED : ChatMessage.Status.FAILED,
                     userStop ? null : code);
             // Provider exceptions may contain prompts/credentials. Never log their payload or stack here.
@@ -492,7 +494,8 @@ public final class ChatTurnService implements AutoCloseable {
             // Fail closed: a turn whose question could not be checked is not answered.
             LOG.atWarn().addKeyValue("event", "chat.guardrail.unavailable").addKeyValue("message_id", run.setup.assistantMessageId())
                     .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail check unavailable");
-            throw TurnFailure.PROVIDER_UNAVAILABLE.exception();
+            throw (run.setup.binding().credentialRejected(failure) ? TurnFailure.PROVIDER_CREDENTIAL_REJECTED
+                    : TurnFailure.PROVIDER_UNAVAILABLE).exception();
         }
         run.check();
         if (result.kind() == ChatGuardrailCheck.Kind.BLOCKED) {
@@ -663,9 +666,12 @@ public final class ChatTurnService implements AutoCloseable {
         }
     }
 
-    private static String failureCode(Throwable failure) {
-        // Only a typed turn failure names the code: arbitrary provider messages can contain private content.
-        return TurnFailureException.reportedIn(failure).map(TurnFailure::code).orElse("CHAT_EXECUTION_FAILED");
+    private static String failureCode(Throwable failure, ModelBinding binding) {
+        // Only a typed turn failure or the adapter's reading of its own failure names the code: arbitrary provider
+        // messages can contain private content.
+        return TurnFailureException.reportedIn(failure).map(TurnFailure::code)
+                .orElse(binding.credentialRejected(failure) ? TurnFailure.PROVIDER_CREDENTIAL_REJECTED.code()
+                        : "CHAT_EXECUTION_FAILED");
     }
 
     private enum StopReason { USER, INTERRUPTED }

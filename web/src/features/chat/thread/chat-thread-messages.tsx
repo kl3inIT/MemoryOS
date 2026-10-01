@@ -1,4 +1,7 @@
+import { use, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { ApplicationSessionContext } from "@/features/identity/application-session-context";
 import {
   ActionBarPrimitive,
   AuiIf,
@@ -74,6 +77,45 @@ function ChatPendingIndicator() {
   return <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />;
 }
 
+/** Why a committed turn failed, in words the reader can act on; a model manager is sent to fix the credential. */
+function ChatFailureNotice({ code }: { code?: string }) {
+  const ui = useAppTranslation();
+  // A shared conversation renders outside the signed-in session.
+  const manager = use(ApplicationSessionContext)?.capabilities.includes("MODELS_MANAGE") ?? false;
+  const answered = useAuiState((state) =>
+    state.message.parts.some((part) => part.type === "text" && part.text.trim().length > 0),
+  );
+  let notice: ReactNode;
+  if (code === "CHAT_MODEL_OUTPUT_LIMIT")
+    notice = ui(
+      "Mô hình đã dừng vì chạm giới hạn độ dài output trong cấu hình mô hình. Hãy tăng giới hạn output của mô hình hoặc chọn mô hình khác.",
+    );
+  else if (code === "CHAT_CONTEXT_LIMIT")
+    notice = ui(
+      "Hội thoại vượt quá cửa sổ ngữ cảnh của mô hình. Hãy bắt đầu hội thoại mới hoặc chọn mô hình có ngữ cảnh lớn hơn.",
+    );
+  else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED")
+    notice = manager ? (
+      <>
+        {ui("Provider từ chối API key của model này.")}{" "}
+        <Link to="/admin/models" className="underline underline-offset-2">
+          {ui("Cập nhật API key")}
+        </Link>
+      </>
+    ) : (
+      ui("Model này đang không dùng được. Hãy chọn model khác hoặc báo quản trị viên.")
+    );
+  else
+    notice = answered
+      ? ui("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.")
+      : ui("Không tạo được câu trả lời. Hãy thử lại.");
+  return (
+    <p role="status" className="mt-2 font-secondary-body text-content-secondary">
+      {notice}
+    </p>
+  );
+}
+
 export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
   const ui = useAppTranslation();
 
@@ -143,19 +185,7 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         {(serverStatus === "CANCELED" || canceled) && (
           <p className="mt-2 font-secondary-body text-content-muted">{ui("Đã dừng")}</p>
         )}
-        {serverStatus === "FAILED" && (
-          <p role="status" className="mt-2 font-secondary-body text-content-secondary">
-            {failureCode === "CHAT_MODEL_OUTPUT_LIMIT"
-              ? ui(
-                  "Mô hình đã dừng vì chạm giới hạn độ dài output trong cấu hình mô hình. Hãy tăng giới hạn output của mô hình hoặc chọn mô hình khác.",
-                )
-              : failureCode === "CHAT_CONTEXT_LIMIT"
-                ? ui(
-                    "Hội thoại vượt quá cửa sổ ngữ cảnh của mô hình. Hãy bắt đầu hội thoại mới hoặc chọn mô hình có ngữ cảnh lớn hơn.",
-                  )
-                : ui("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.")}
-          </p>
-        )}
+        {serverStatus === "FAILED" && <ChatFailureNotice code={failureCode} />}
         <ActionBarPrimitive.Root hideWhenRunning className="mt-3 flex flex-wrap items-center gap-1">
           <AuiIf
             condition={(state) =>

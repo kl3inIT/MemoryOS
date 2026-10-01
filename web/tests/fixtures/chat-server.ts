@@ -300,7 +300,12 @@ function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FA
   emit(run, "outcome", {
     status,
     hasArtifacts: message.artifacts.length > 0,
-    failureCode: status === "FAILED" ? "CHAT_PROVIDER_FAILED" : null,
+    failureCode:
+      status !== "FAILED"
+        ? null
+        : state.mode === "rejected"
+          ? "CHAT_PROVIDER_CREDENTIAL_REJECTED"
+          : "CHAT_PROVIDER_FAILED",
   });
   for (const listener of run.listeners) listener.end();
   run.listeners.clear();
@@ -807,6 +812,11 @@ export async function handleChatFixture(
           const tool = { toolCallId: "search-1", toolName: "search_knowledge" };
           emit(run, "tool", { ...tool, stage: "SOURCE", source: fixtureSource });
           emit(run, "tool", { ...tool, stage: "COMPLETED", source: null, durationMs: 1200 });
+        }
+        if (state.mode === "rejected") {
+          // The provider refused the credential before any text: the turn fails with nothing to keep.
+          finish(state, run, "FAILED");
+          return;
         }
         state.messages.at(-1)!.content = content;
         if (state.mode === "grounded-split") {

@@ -602,6 +602,54 @@ for (const mode of ["slow", "disconnect", "gap", "failed"]) {
   });
 }
 
+for (const manager of [false, true]) {
+  test(`names a refused provider credential without the unconfirmed notice ${manager ? "for a model manager" : "for a member"}`, async ({
+    page,
+  }) => {
+    await page.route("**/api/identity/me", (route) =>
+      route.fulfill({
+        json: {
+          ...identity,
+          capabilities: manager
+            ? [...identity.capabilities, "MODELS_MANAGE"]
+            : identity.capabilities,
+        },
+      }),
+    );
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", {
+        data: { title: "Rejected key", mode: "rejected" },
+      })
+    ).json();
+    await page.goto(`/chat/${session.id}`);
+    await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("VETC có những ai");
+    await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
+    if (manager) {
+      await expect(page.getByText("Provider từ chối API key của model này.")).toBeVisible();
+      await expect(page.getByRole("link", { name: "Cập nhật API key" })).toHaveAttribute(
+        "href",
+        "/admin/models",
+      );
+    } else {
+      await expect(
+        page.getByText(
+          "Model này đang không dùng được. Hãy chọn model khác hoặc báo quản trị viên.",
+        ),
+      ).toBeVisible();
+      await expect(page.getByRole("link", { name: "Cập nhật API key" })).toHaveCount(0);
+    }
+    await expect(
+      page.getByText("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại."),
+    ).toHaveCount(0);
+    await expect(page.getByText("Chưa xác nhận được trạng thái câu trả lời")).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
+    if (process.env.MEMORYOS_PREVIEW_SHOTS)
+      await page.screenshot({
+        path: `${process.env.MEMORYOS_PREVIEW_SHOTS}/rejected-${manager ? "manager" : "member"}.png`,
+      });
+  });
+}
+
 test("mobile drawer, Search navigation, and leaving a running chat only closes the reader", async ({
   page,
 }) => {
