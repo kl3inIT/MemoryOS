@@ -2014,6 +2014,7 @@ Object.assign(englishUi, {
   "Changed MCP tools": "Đã đổi công cụ MCP",
   "Changed an MCP OAuth client": "Đã đổi OAuth client của MCP",
   "Changed an MCP shared connection": "Đã đổi kết nối dùng chung của MCP",
+  "Turned the MemoryOS MCP endpoint on or off": "Đã bật hoặc tắt MemoryOS MCP",
   "Added a sign-in provider": "Đã thêm nhà cung cấp đăng nhập",
   "Updated a sign-in provider": "Đã sửa nhà cung cấp đăng nhập",
   "Deleted a sign-in provider": "Đã xoá nhà cung cấp đăng nhập",

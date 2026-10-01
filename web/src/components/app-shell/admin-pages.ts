@@ -3,6 +3,7 @@ import {
   AudioLines,
   Blocks,
   Bot,
+  Cable,
   CloudUpload,
   Globe,
   ImageIcon,
@@ -39,6 +40,7 @@ export type AdminPage =
   | "models"
   | "searchSettings"
   | "mcp"
+  | "mcpEndpoint"
   | "agents"
   | "costs"
   | "audit";
@@ -143,6 +145,15 @@ export const adminPages: readonly AdminPageEntry[] = [
     label: appText("Máy chủ MCP"),
     title: appText("Máy chủ MCP"),
     icon: Blocks,
+    group: "agents",
+    visible: (authority) => authority.canManageMcp,
+  },
+  {
+    id: "mcpEndpoint",
+    to: "/admin/mcp-endpoint",
+    label: appText("MemoryOS MCP"),
+    title: appText("MemoryOS MCP"),
+    icon: Cable,
     group: "agents",
     visible: (authority) => authority.canManageMcp,
   },

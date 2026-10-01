@@ -42,6 +42,7 @@ const actionLabels: Record<string, AppCopy> = {
   "mcp_tool.change": "Changed MCP tools",
   "mcp_oauth_client.change": "Changed an MCP OAuth client",
   "mcp_connection.change": "Changed an MCP shared connection",
+  "mcp_endpoint.change": "Turned the MemoryOS MCP endpoint on or off",
   "identity_provider.create": "Added a sign-in provider",
   "identity_provider.update": "Updated a sign-in provider",
   "identity_provider.delete": "Deleted a sign-in provider",
