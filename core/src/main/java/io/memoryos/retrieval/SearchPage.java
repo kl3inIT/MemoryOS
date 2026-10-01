@@ -1,7 +1,9 @@
 package io.memoryos.retrieval;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceType;
@@ -31,8 +33,11 @@ public record SearchPage(List<Result> results, int page, boolean hasMore, int to
                 Instant updatedAt, double score, List<Section> sections) {
             this(documentId, generation, title, mediaType, updatedAt, score, sections, List.of(), List.of(), null);
         }
+        /** {@code updatedAt} becomes the newest provider update date of these origins, when one carries it. */
         public Result withOrigins(List<DocumentSourceMetadata> origins) {
-            return new Result(documentId, generation, title, mediaType, updatedAt, score, sections,
+            var changed = origins.stream().map(DocumentSourceMetadata::updatedAt).filter(Objects::nonNull)
+                    .max(Comparator.naturalOrder()).orElse(updatedAt);
+            return new Result(documentId, generation, title, mediaType, changed, score, sections,
                     origins.stream().map(DocumentSourceMetadata::type).distinct().toList(),
                     origins.stream().flatMap(origin -> origin.authors().stream()).distinct().limit(5).toList(),
                     DocumentSourceMetadata.providerUrl(origins));

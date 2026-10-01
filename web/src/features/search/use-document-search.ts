@@ -10,7 +10,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SearchRequest } from "@/lib/hey-api/types.gen";
 import { clearRecentSearches, readRecentSearches, rememberRecentSearch } from "./recent-searches";
-import { updatedSinceForTimeRange, type SearchTimeRange } from "./search-options";
+import { updatedWindow, type SearchTimeRange } from "./search-options";
 import { MAX_SEARCH_PAGES, type SearchPageSearch } from "./search-params";
 
 export const PAGE_SIZE = 10;
@@ -40,13 +40,22 @@ export function useDocumentSearch() {
             query: search.q,
             mediaTypes: search.type ? [search.type] : [],
             sourceTypes: search.source ? [search.source] : [],
-            updatedSince: updatedSinceForTimeRange(search.time ?? "all"),
+            ...updatedWindow(search.time ?? "all", search.from, search.to),
             documentSetIds: search.set ? [search.set] : [],
             page: search.page ?? 0,
             pageSize: PAGE_SIZE,
           }
         : null,
-    [search.q, search.type, search.source, search.time, search.set, search.page],
+    [
+      search.q,
+      search.type,
+      search.source,
+      search.time,
+      search.from,
+      search.to,
+      search.set,
+      search.page,
+    ],
   );
   // The filter offers every set the member may use. The listing has no name search, so the menu is the complete
   // list, read page by page under the key Agents reads it with; a change to a set refreshes it by prefix.
@@ -86,11 +95,26 @@ export function useDocumentSearch() {
     sourceType,
     timeRange,
     documentSetId,
-    hasFilters: Boolean(mediaType || sourceType || documentSetId || timeRange !== "all"),
+    updatedFrom: search.from,
+    updatedTo: search.to,
+    hasFilters: Boolean(
+      mediaType || sourceType || documentSetId || timeRange !== "all" || search.from,
+    ),
     currentPage: request?.page ?? 0,
     setFilter,
+    /** A preset replaces a picked range, and a range replaces a preset. */
+    setUpdated: (preset: SearchTimeRange) =>
+      setFilter({ time: preset === "all" ? undefined : preset, from: undefined, to: undefined }),
+    setUpdatedRange: (from: string, to: string) => setFilter({ time: undefined, from, to }),
     clearFilters: () =>
-      setFilter({ type: undefined, source: undefined, time: undefined, set: undefined }),
+      setFilter({
+        type: undefined,
+        source: undefined,
+        time: undefined,
+        from: undefined,
+        to: undefined,
+        set: undefined,
+      }),
     showPage: (page: number) => show((current) => ({ ...current, page: page || undefined }), false),
     /** Asks `text`; asking the question on screen again reads it again instead of adding a history entry. */
     submit: (text: string) => {

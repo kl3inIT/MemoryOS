@@ -33,13 +33,25 @@ export const TIME_RANGE_OPTIONS: readonly SearchFilterOption[] = [
 
 export type SearchTimeRange = "all" | "7d" | "30d" | "365d";
 
-export function updatedSinceForTimeRange(timeRange: SearchTimeRange): string | undefined {
-  if (timeRange === "all") return undefined;
+/**
+ * The request's update window, read against the date each document's provider reports: a preset counts whole UTC days
+ * back from today, and a picked range covers its first to its last UTC day, as the MCP tool reads its dates.
+ */
+export function updatedWindow(
+  timeRange: SearchTimeRange,
+  from: string | undefined,
+  to: string | undefined,
+): Pick<SearchRequest, "updatedFrom" | "updatedTo"> {
+  if (from) {
+    const [first, last] = [from, to ?? from].sort();
+    return { updatedFrom: `${first}T00:00:00.000Z`, updatedTo: `${last}T23:59:59.999Z` };
+  }
+  if (timeRange === "all") return {};
   const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 365;
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - days);
-  return since.toISOString();
+  return { updatedFrom: since.toISOString() };
 }
 
 /** The fixed filters plus every media type on this page (and the selected one), so every result type is selectable. */

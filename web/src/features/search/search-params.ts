@@ -4,10 +4,12 @@ import { z } from "zod";
 export const MAX_SEARCH_PAGES = 50;
 
 const optional = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 /**
  * The Search page's address: the submitted question, its filters and the result page. Defaults are left out, so a
- * plain search reads `/search?q=…` and a reload or a shared link shows the same results. `doc` opens one document's
+ * plain search reads `/search?q=…` and a reload or a shared link shows the same results. `from` and `to` are the first
+ * and last day of a picked update range, which replaces the `time` preset. `doc` opens one document's
  * current text, the link MemoryOS MCP gives Claude and ChatGPT for a document without a provider link.
  */
 export const searchPageSearchSchema = z.object({
@@ -15,6 +17,8 @@ export const searchPageSearchSchema = z.object({
   type: optional(z.string().min(1).max(255)),
   source: optional(z.enum(["FILE", "GOOGLE_DRIVE", "SHAREPOINT"])),
   time: optional(z.enum(["7d", "30d", "365d"])),
+  from: optional(day),
+  to: optional(day),
   set: optional(z.string().min(1).max(64)),
   doc: optional(z.string().uuid()),
   page: optional(

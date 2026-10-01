@@ -1413,7 +1413,8 @@ export const zCreateFileSourceRequest = z.object({
 export const zSearchRequest = z.object({
     query: z.string().optional(),
     mediaTypes: z.array(z.string()).optional(),
-    updatedSince: z.iso.datetime().optional(),
+    updatedFrom: z.iso.datetime().optional(),
+    updatedTo: z.iso.datetime().optional(),
     page: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional(),
     pageSize: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional(),
     sourceTypes: z.array(z.enum([
