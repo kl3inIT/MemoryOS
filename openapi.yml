@@ -17527,6 +17527,12 @@ paths:
           - NEGATIVE
           - MIXED
           - NONE
+      - name: blocked
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
       - name: cursor
         in: query
         required: false
@@ -17656,6 +17662,12 @@ paths:
           - NEGATIVE
           - MIXED
           - NONE
+      - name: blocked
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
         "400":
           description: "Invalid filter, cursor or page size"

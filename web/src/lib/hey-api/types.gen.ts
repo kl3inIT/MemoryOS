@@ -16311,6 +16311,7 @@ export type ListChatHistoryData = {
         q?: string;
         actorId?: string;
         feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
+        blocked?: boolean;
         cursor?: string;
         size?: number;
     };
@@ -16395,6 +16396,7 @@ export type ExportChatHistoryData = {
         q?: string;
         actorId?: string;
         feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
+        blocked?: boolean;
     };
     url: '/api/chat/history/export';
 };

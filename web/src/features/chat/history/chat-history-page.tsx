@@ -6,7 +6,15 @@ import {
   useTable,
   type PaginationState,
 } from "@tanstack/react-table";
-import { CircleAlert, Download, MessagesSquare, Search, ThumbsDown, ThumbsUp } from "lucide-react";
+import {
+  CircleAlert,
+  Download,
+  MessagesSquare,
+  Search,
+  ShieldAlert,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
 import { createContext, use, useMemo, useState } from "react";
 import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
 import { EmptyState } from "@/components/composites/empty-state";
@@ -25,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { Toggle } from "@/components/ui/toggle";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { appText } from "@/i18n/app-text";
 import { formatUiDate } from "@/i18n/format";
@@ -49,6 +58,8 @@ const feedbacks = Object.keys(feedbackLabels) as ChatHistoryEntry["feedback"][];
 type Filters = {
   period: HistoryPeriod;
   feedback: ChatHistoryEntry["feedback"] | typeof ALL;
+  /** Only conversations with a reply the guardrails stopped. */
+  blocked: boolean;
 };
 
 /** Opens a conversation's transcript; the question cell reads it. */
@@ -180,7 +191,7 @@ function useHistory(query: NonNullable<ListChatHistoryData["query"]>) {
  */
 export function ChatHistoryPage() {
   const ui = useAppTranslation();
-  const [filters, setFilters] = useState<Filters>({ period: "7d", feedback: ALL });
+  const [filters, setFilters] = useState<Filters>({ period: "7d", feedback: ALL, blocked: false });
   const [text, setText] = useState("");
   const typed = useDebouncedValue(text.trim(), 300);
   const [open, setOpen] = useState<ChatHistoryEntry | null>(null);
@@ -191,6 +202,7 @@ export function ChatHistoryPage() {
       from: periodStart(filters.period),
       q: typed || undefined,
       feedback: filters.feedback === ALL ? undefined : filters.feedback,
+      blocked: filters.blocked || undefined,
       size: PAGE_SIZE,
     }),
     [filters, typed],
@@ -198,8 +210,8 @@ export function ChatHistoryPage() {
   const history = useHistory(query);
   const totals = history.data?.pages[0];
   const exportHref = `/api/chat/history/export?${new URLSearchParams(
-    Object.entries({ ...query, size: undefined }).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
+    Object.entries({ ...query, size: undefined }).flatMap(([key, value]) =>
+      typeof value === "string" || value === true ? [[key, String(value)]] : [],
     ),
   ).toString()}`;
 
@@ -280,6 +292,14 @@ export function ChatHistoryPage() {
             </SelectGroup>
           </SelectContent>
         </Select>
+        <Toggle
+          variant="outline"
+          pressed={filters.blocked}
+          onPressedChange={(blocked) => setFilters({ ...filters, blocked })}
+        >
+          <ShieldAlert data-icon="inline-start" aria-hidden="true" />
+          {ui("Blocked")}
+        </Toggle>
         <InputGroup className="min-w-56 flex-1">
           <InputGroupAddon>
             <Search aria-hidden="true" />

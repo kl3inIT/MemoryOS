@@ -73,6 +73,8 @@ public class JdbcChatHistoryRepository {
                    OR p.display_name ILIKE :text OR p.email ILIKE :text)
               AND (CAST(:feedback AS varchar) IS NULL OR (SELECT\s""" + FEEDBACK + """
                    FROM chat_feedback f WHERE f.session_id = s.id) = :feedback)
+              AND (NOT :blocked OR EXISTS (SELECT 1 FROM chat_message m
+                   WHERE m.session_id = s.id AND m.refusal_reason = 'blocked_topic'))
               AND (CAST(:cursorAt AS timestamptz) IS NULL
                    OR (s.updated_at, s.id) < (:cursorAt, CAST(:cursorId AS uuid)))
             ORDER BY s.updated_at DESC, s.id DESC
@@ -102,7 +104,7 @@ public class JdbcChatHistoryRepository {
     /** One conversation, whether or not its owner deleted it, so the detail view can say which it is. */
     public Optional<Entry> conversation(UUID tenant, UUID session) {
         return bind(jdbc.sql(PAGE.replace("ORDER BY s.updated_at DESC, s.id DESC", "AND s.id = :session ORDER BY s.updated_at DESC, s.id DESC")
-                        .replace("LIMIT :limit", "")), tenant, new ChatHistoryQuery(null, null, null, null, null))
+                        .replace("LIMIT :limit", "")), tenant, ChatHistoryQuery.ALL)
                 .param("cursorAt", null, Types.TIMESTAMP).param("cursorId", null, Types.OTHER)
                 .param("session", session)
                 .query(JdbcChatHistoryRepository::entry).optional();
@@ -139,7 +141,8 @@ public class JdbcChatHistoryRepository {
                 .param("to", query.to() == null ? null : Timestamp.from(query.to()), Types.TIMESTAMP)
                 .param("actor", query.actorId(), Types.OTHER)
                 .param("text", query.text() == null ? null : LikePattern.containing(query.text()), Types.VARCHAR)
-                .param("feedback", query.feedback() == null ? null : query.feedback().name(), Types.VARCHAR);
+                .param("feedback", query.feedback() == null ? null : query.feedback().name(), Types.VARCHAR)
+                .param("blocked", query.blocked());
     }
 
     private static Entry entry(ResultSet row, int ignored) throws SQLException {

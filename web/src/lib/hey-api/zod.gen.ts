@@ -7038,6 +7038,7 @@ export const zListChatHistoryQuery = z.object({
         'MIXED',
         'NONE'
     ]).optional(),
+    blocked: z.boolean().optional().default(false),
     cursor: z.string().optional(),
     size: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(30)
 });
@@ -7066,7 +7067,8 @@ export const zExportChatHistoryQuery = z.object({
         'NEGATIVE',
         'MIXED',
         'NONE'
-    ]).optional()
+    ]).optional(),
+    blocked: z.boolean().optional().default(false)
 });
 
 /**

@@ -124,6 +124,18 @@ describe("conversation history", () => {
     await vi.waitFor(() => expect(requested.at(-1)!.searchParams.get("feedback")).toBe("NEGATIVE"));
   });
 
+  it("filters to conversations the guardrails stopped through the server, and exports the same", async () => {
+    const requested = mount([entry]);
+    await screen.findByText("Tôi còn bao nhiêu ngày phép?");
+    expect(requested.at(-1)!.searchParams.has("blocked")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Blocked" }));
+    await vi.waitFor(() => expect(requested.at(-1)!.searchParams.get("blocked")).toBe("true"));
+    const link = screen.getByRole("link", { name: "Export CSV" });
+    expect(
+      new URL(link.getAttribute("href")!, "http://memoryos.test").searchParams.get("blocked"),
+    ).toBe("true");
+  });
+
   it("explains an empty period instead of an empty table", async () => {
     mount([], { conversations: 0, positive: 0, negative: 0 });
     expect(await screen.findByText("No conversation in this period.")).toBeVisible();
