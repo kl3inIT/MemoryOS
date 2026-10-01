@@ -1144,6 +1144,24 @@ export type Default = {
     revision: number;
 };
 
+export type McpEndpointSettingsRequest = {
+    enabled: boolean;
+    revision: number;
+};
+
+export type McpEndpointSettingsResponse = {
+    /**
+     * Whether this deployment configured an MCP endpoint URL; without one the switch stays off
+     */
+    configured: boolean;
+    enabled: boolean;
+    revision: number;
+    /**
+     * The URL people add to Claude or ChatGPT; present when configured
+     */
+    url: string | null;
+};
+
 export type InterpreterSettingsRequest = {
     enabled: boolean;
     revision: number;
@@ -7556,6 +7574,96 @@ export type StarChatLibraryEntryResponses = {
 };
 
 export type StarChatLibraryEntryResponse = StarChatLibraryEntryResponses[keyof StarChatLibraryEntryResponses];
+
+export type GetMcpEndpointSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint';
+};
+
+export type GetMcpEndpointSettingsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL
+     */
+    503: ApiProblem;
+};
+
+export type GetMcpEndpointSettingsError = GetMcpEndpointSettingsErrors[keyof GetMcpEndpointSettingsErrors];
+
+export type GetMcpEndpointSettingsResponses = {
+    /**
+     * MCP endpoint setting
+     */
+    200: McpEndpointSettingsResponse;
+};
+
+export type GetMcpEndpointSettingsResponse = GetMcpEndpointSettingsResponses[keyof GetMcpEndpointSettingsResponses];
+
+export type UpdateMcpEndpointSettingsData = {
+    body: McpEndpointSettingsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint';
+};
+
+export type UpdateMcpEndpointSettingsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL
+     */
+    503: ApiProblem;
+};
+
+export type UpdateMcpEndpointSettingsError = UpdateMcpEndpointSettingsErrors[keyof UpdateMcpEndpointSettingsErrors];
+
+export type UpdateMcpEndpointSettingsResponses = {
+    /**
+     * Saved MCP endpoint setting
+     */
+    200: McpEndpointSettingsResponse;
+};
+
+export type UpdateMcpEndpointSettingsResponse = UpdateMcpEndpointSettingsResponses[keyof UpdateMcpEndpointSettingsResponses];
 
 export type GetChatInterpreterSettingsData = {
     body?: never;

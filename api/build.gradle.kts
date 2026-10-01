@@ -20,6 +20,11 @@ dependencies {
     implementation(libs.embabel.platform)
     implementation(libs.embabel.openai)
     implementation(libs.spring.ai.model.tool)
+    // MEM-114 MCP endpoint: Spring AI's stateless server on the SDK version the catalog pins, and its rate limit.
+    implementation(libs.spring.ai.starter.mcp.server.webmvc)
+    implementation(libs.mcp)
+    implementation(libs.bucket4j.core)
+    implementation(libs.caffeine)
     implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))
     implementation(libs.arconia.multitenancy.web)
