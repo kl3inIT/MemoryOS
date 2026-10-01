@@ -34,13 +34,14 @@ search and read a Tenant's knowledge through MemoryOS, as the signed-in person a
 ## Domain story
 
 1. An administrator with `MCP_MANAGE` turns the MemoryOS MCP endpoint on for the Tenant and copies its URL.
-2. A member pastes the URL into Claude ("Add custom connector") or ChatGPT (developer mode). The client calls the
-   endpoint and receives 401 with the protected-resource metadata address.
+2. A member pastes the URL into Claude ("Add custom connector"). For ChatGPT, a workspace administrator adds
+   MemoryOS once with the URL, client ID and secret from *Quản trị › MemoryOS MCP*, and members connect it from
+   ChatGPT's apps. The client calls the endpoint and receives 401 with the protected-resource metadata address.
 3. The client discovers Keycloak, opens the browser, and the member signs in with their normal MemoryOS sign-in. The
    member then allows the client on the consent page.
 4. The member asks a question. The client calls `search`, and MemoryOS returns only passages the member may read now.
    The client may call `fetch` to read a whole Document. The client writes the answer and cites the passages.
-5. The member removes the client in *Cài đặt › Kết nối*, or the administrator turns the endpoint off. From then on the
+5. The member revokes the client in *Cài đặt › MemoryOS MCP*, or the administrator turns the endpoint off. From then on the
    client is refused.
 
 Failure paths:
@@ -224,7 +225,10 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
   The single exact callback, PKCE and the consent page carry the grant.
   - Someone could start a flow from their own ChatGPT connector and trick a member into consenting. The same holds
     for any client shared by all users, Claude's metadata document included.
-  - Revoking in *Cài đặt › Kết nối* ends such a grant.
+  - Revoking in *Cài đặt › MemoryOS MCP* ends such a grant.
+- **Where the secret is shown.** The API reads the same `MEMORYOS_MCP_CHATGPT_CLIENT_SECRET` as the realm script and
+  shows the client ID and secret only on the administration page, to a holder of `MCP_MANAGE`. A ChatGPT Business or
+  Enterprise administrator adds the app once for the workspace, so members never need the secret.
 
 **Lifetime.**
 
@@ -359,7 +363,7 @@ server.
 
 ### Grants and revocation
 
-*Cài đặt › Kết nối* lists the member's grants to external clients: client name, granted date and scope.
+*Cài đặt › MemoryOS MCP* lists the member's grants to external clients: client name, granted date and scope.
 
 - **Data source.** The Keycloak admin API through `iam`, reading the member's user consents filtered to the MCP clients.
 - **Revoke.** Deletes the consent and its offline session.
@@ -416,14 +420,29 @@ not narrow. The endpoint therefore needs its own narrowing when MEM-134 lands, a
 
 Screens and the references they follow are in [ui-references.md](ui-references.md).
 
-**Administration (`/admin/mcp`).** A *MemoryOS MCP endpoint* section with the switch, the URL and copy. It is locked
-when the deployment is not configured.
+Each direction of MCP has its own page, as Notion and Descript separate "Connections" from their MCP page. The existing
+*Máy chủ MCP* and *Connections* pages stay the direction in which Chat uses outside tools; the pages below are the
+direction in which outside assistants use MemoryOS. Mixing them would put two opposite Disconnect and Revoke actions
+on one screen.
 
-**Settings (`/settings/connections`).**
+**Administration › MemoryOS MCP (`/admin/mcp-endpoint`, `MCP_MANAGE`).** A page of its own next to *Máy chủ MCP*:
 
-- The URL with copy.
-- Claude and ChatGPT tabs, each with two or three short steps; the ChatGPT tab shows the client ID.
-- The grants table with Revoke.
+- the switch, locked when the deployment is not configured;
+- the URL with copy;
+- for ChatGPT, the client ID and the secret (masked, with reveal and copy) when the deployment set it.
+
+**Settings › MemoryOS MCP (`/settings/mcp`, `SEARCH_READ`).** A settings item next to *Connections*:
+
+- the URL with copy;
+- Claude and ChatGPT tabs, each with two or three numbered steps. ChatGPT's steps send the member to the app their
+  workspace administrator added;
+- the authorized apps: logo, name, "Đọc tri thức · Cấp ngày …" and Thu hồi with a confirmation.
+
+While the endpoint is off or not configured, the URL and tabs give way to one status line. The authorized apps stay,
+so a member can still revoke.
+
+**Reads behind the pages.** The administration read (`GET /api/mcp/endpoint`) gains the ChatGPT client ID and secret,
+null when the deployment has no secret. A member read returns only whether the endpoint is available and its URL.
 
 **Keycloak consent page.** Under the `memoryos` theme, in Vietnamese and English.
 

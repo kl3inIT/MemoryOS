@@ -210,8 +210,13 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
 
 - [ ] **Grants.** `iam` reads and deletes the member's consents to MCP clients through the Keycloak admin API; API
   routes and generated client.
-- [ ] **`/admin/mcp`.** *MemoryOS MCP endpoint* section with the switch, URL and copy.
-- [ ] **`/settings/connections`.** URL, Claude and ChatGPT tabs, grants table with Revoke.
+- [ ] **ChatGPT client for administrators.** The API reads `MEMORYOS_MCP_CHATGPT_CLIENT_SECRET` (compose passes it to
+  the API); `GET /api/mcp/endpoint` returns the client ID and secret, null without one.
+- [ ] **Member read.** Whether the endpoint is available and its URL, under `SEARCH_READ`.
+- [ ] **`/admin/mcp-endpoint`.** *MemoryOS MCP* page next to *Máy chủ MCP*: switch, URL, ChatGPT client ID and
+  masked secret.
+- [ ] **`/settings/mcp`.** *MemoryOS MCP* settings item next to *Connections*: URL, Claude and ChatGPT tabs,
+  authorized apps with Thu hồi. A status line replaces the URL and tabs while the endpoint is off.
 - [ ] **Document link.** `/search?doc=<id>` opens the document dialog.
 - [x] **Keycloak consent page.** Delivered in pull request 1.
 - [ ] **Copy.** Vietnamese and English for every string; no explanatory copy under controls.
