@@ -67,6 +67,12 @@ type Callbacks = {
 };
 
 /** Adapts the Java wire contract. AI SDK owns message content and tool state. */
+/**
+ * The error that ends a stream whose turn the server committed as FAILED. The answer itself says why, so the runtime
+ * must not read it as an unconfirmed reply.
+ */
+export const COMMITTED_FAILURE = "The reply could not finish. Any saved partial answer is shown.";
+
 export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   webSearch: WebSearchMode = "off";
   selectWeb(mode: WebSearchMode) {
@@ -565,10 +571,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         return;
       }
       if (outcome === "FAILED") {
-        yield {
-          type: "error",
-          errorText: "The reply could not finish. Any saved partial answer is shown.",
-        };
+        yield { type: "error", errorText: COMMITTED_FAILURE };
       } else yield { type: "finish", finishReason: "stop" };
     } catch (error) {
       if (!signal.aborted) {

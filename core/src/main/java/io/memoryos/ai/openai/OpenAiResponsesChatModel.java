@@ -83,7 +83,8 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
                     try { assembler.accept(event); } catch (RuntimeException failure) { sink.error(failure); }
                 }
                 @Override public void onComplete(Optional<Throwable> error) {
-                    if (error.isPresent()) sink.error(TurnFailure.PROVIDER_UNAVAILABLE.exception());
+                    if (error.isPresent()) sink.error((OpenAiFailures.credentialRejected(error.get())
+                            ? TurnFailure.PROVIDER_CREDENTIAL_REJECTED : TurnFailure.PROVIDER_UNAVAILABLE).exception());
                     else if (!assembler.finished()) sink.error(TurnFailure.INCOMPLETE_RESPONSE.exception());
                 }
             });

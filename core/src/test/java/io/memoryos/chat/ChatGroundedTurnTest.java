@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -68,9 +69,17 @@ class ChatGroundedTurnTest {
     private final UUID parent = UUID.randomUUID();
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
+    /** What the fixture binding's adapter reads as a refused credential. */
+    private static final class Refused extends RuntimeException {
+        Refused() {
+            super("Incorrect API key provided: sk-fixture");
+        }
+    }
+
     private void prepare(boolean toolCalling, ChatSettingsService.TurnPolicy policy, ChatGuardrailCheck.Kind kind) {
         var binding = ModelBinding.builder(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
-                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false).build();
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false)
+                .credentialRejection(failure -> failure instanceof Refused || failure.getCause() instanceof Refused).build();
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         // The guardrail task model; a test that needs its own model replaces this.
@@ -121,6 +130,49 @@ class ChatGroundedTurnTest {
         verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq(content),
                 isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), any(), any(), eq(ChatResearch.EMPTY),
                 refusal == null ? isNull() : eq(refusal), any());
+    }
+
+    private void verifyFailed(String code) {
+        verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), anyString(),
+                eq(code), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aCredentialTheProviderRefusesAtTheGuardrailCheckFailsTheTurnWithItsOwnCode() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException(new Refused()));
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verifyFailed("CHAT_PROVIDER_CREDENTIAL_REJECTED");
+            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Test
+    void aCredentialTheProviderRefusesWhileAnsweringFailsTheTurnWithItsOwnCode() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        doThrow(new Refused()).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verifyFailed("CHAT_PROVIDER_CREDENTIAL_REJECTED");
+        }
+    }
+
+    @Test
+    void aGuardrailCheckThatCannotClassifyTheQuestionFailsTheTurnWithItsOwnCode() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("format"));
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verifyFailed("CHAT_GUARDRAIL_UNAVAILABLE");
+            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        }
     }
 
     @Test

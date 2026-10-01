@@ -44,6 +44,7 @@ class OpenAiResponsesChatModelTest {
     private final List<JsonNode> requests = new CopyOnWriteArrayList<>();
     private final List<String> bodies = new CopyOnWriteArrayList<>();
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    private volatile int status = 200;
     private HttpServer server;
     private OpenAIClientAsync client;
 
@@ -53,8 +54,8 @@ class OpenAiResponsesChatModelTest {
         server.createContext("/v1/responses", exchange -> {
             requests.add(JSON.readTree(exchange.getRequestBody().readAllBytes()));
             byte[] body = bodies.get(requests.size() - 1).getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
-            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseHeaders().set("Content-Type", status == 200 ? "text/event-stream" : "application/json");
+            exchange.sendResponseHeaders(status, body.length);
             try (var output = exchange.getResponseBody()) { output.write(body); }
         });
         server.start();
@@ -237,6 +238,19 @@ class OpenAiResponsesChatModelTest {
                 () -> model.stream(new Prompt(List.of(new UserMessage("Hi")), options(true))).collectList().block());
 
         assertEquals("CHAT_INCOMPLETE_RESPONSE", failure.code());
+    }
+
+    @Test
+    void aRefusedCredentialEndsTheStreamWithItsOwnFailureAndNoProviderDetail() {
+        status = 401;
+        bodies.add("{\"error\":{\"message\":\"Incorrect API key provided: sk-fixture\",\"type\":\"invalid_request_error\"}}");
+        var model = turnModel(new ChatEvidence(), new ArrayList<>(), false);
+
+        var failure = assertThrows(TurnFailureException.class,
+                () -> model.stream(new Prompt(List.of(new UserMessage("Hi")), options(true))).collectList().block());
+
+        assertEquals("CHAT_PROVIDER_CREDENTIAL_REJECTED", failure.code());
+        assertFalse(failure.getMessage().contains("sk-fixture"));
     }
 
     @Test
