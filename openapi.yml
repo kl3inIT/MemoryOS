@@ -5189,6 +5189,7 @@ paths:
           type: string
           enum:
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - MEETING_MINUTES
           - MEETING_CORRECTION
       - name: modelConfigurationId
@@ -22492,6 +22493,7 @@ components:
           type: string
           enum:
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - MEETING_MINUTES
           - MEETING_CORRECTION
         modelConfigurationId:

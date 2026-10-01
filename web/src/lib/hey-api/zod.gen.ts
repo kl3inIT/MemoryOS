@@ -1096,6 +1096,7 @@ export const zModel = z.object({
 export const zModelFlow = z.object({
     flow: z.enum([
         'CHAT_NAMING',
+        'CHAT_GUARDRAIL',
         'MEETING_MINUTES',
         'MEETING_CORRECTION'
     ]),
@@ -4672,6 +4673,7 @@ export const zUpdateChatModelResponse = zModel;
 export const zSetChatModelFlowPath = z.object({
     flow: z.enum([
         'CHAT_NAMING',
+        'CHAT_GUARDRAIL',
         'MEETING_MINUTES',
         'MEETING_CORRECTION'
     ])
