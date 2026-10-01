@@ -5568,7 +5568,8 @@ class ChatSessionApiIntegrationTest {
             runMcpTurn(serverId, "Thử lại lần ba.");
             String afterRejection = prompts.getLast();
             assertTrue(afterRejection.contains("reconnect"));
-            assertFalse(afterRejection.contains("401"));
+            // A whole-word status only: the random server slug ("fail" and five digits) can contain 401.
+            assertFalse(afterRejection.matches("(?s).*\\b401\\b.*"));
         }
     }
 

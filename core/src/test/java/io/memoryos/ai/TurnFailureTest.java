@@ -26,6 +26,7 @@ class TurnFailureTest {
         expected.put(TurnFailure.EMPTY_RESPONSE, Map.entry("CHAT_EMPTY_RESPONSE", true));
         expected.put(TurnFailure.CONTEXT_LIMIT, Map.entry("CHAT_CONTEXT_LIMIT", true));
         expected.put(TurnFailure.MODEL_OUTPUT_LIMIT, Map.entry("CHAT_MODEL_OUTPUT_LIMIT", true));
+        expected.put(TurnFailure.PROVIDER_CREDENTIAL_REJECTED, Map.entry("CHAT_PROVIDER_CREDENTIAL_REJECTED", true));
         expected.put(TurnFailure.DEADLINE, Map.entry("CHAT_DEADLINE", false));
         expected.put(TurnFailure.PROVIDER_UNAVAILABLE, Map.entry("CHAT_PROVIDER_UNAVAILABLE", false));
 
