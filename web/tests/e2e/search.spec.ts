@@ -273,6 +273,8 @@ test("picks a range of update days on the calendar beside the presets", async ({
   await page.locator('td[data-day="2026-09-03"]:not([data-outside]) button').click();
   await page.locator('td[data-day="2026-09-18"]:not([data-outside]) button').click();
   await expect(page.locator('[data-slot="popover-content"]')).toHaveCSS("opacity", "1");
+  // The picked day eases into its colours over 150 ms; capture what the person then sees.
+  await page.waitForTimeout(250);
   await page.screenshot({ path: "test-results/screens/search-updated-range-desktop.png" });
   await apply.click();
 

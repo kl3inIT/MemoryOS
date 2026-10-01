@@ -256,7 +256,9 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
 - [x] **MCP.** `search_with_filters`, the `search` description's pointer to it, and the server instructions.
 - [x] **Tests.** `SearchRequestTest`, `DocumentSearchServiceTest`, `PostgresGoogleDriveSyncTest`,
   `SearchIndexWorkIntegrationTest`, `McpEndpointIntegrationTest`, `OpenApiContractTest`, `search-page.test.tsx`,
-  `search.spec.ts` with captures at 1280 and 390 px, reviewed: a day after today no longer looks selected.
+  `search.spec.ts` with captures at 1280 and 390 px in both themes, reviewed. Fixed from the review: a day after
+  today no longer looks selected; the range band and today's mark use the sunken surface, which `muted` was not
+  distinct from in the dark theme; a picked day keeps readable colours under the pointer in the dark theme.
 - [ ] **CI**, including `OpenSearchRetrievalIntegrationTest`, which needs more memory than the workstation had.
 - [ ] **After deployment.** Until each Drive and SharePoint Source runs once, its items have no date: a recent window
   or one with an end leaves them out. Items synchronized before V35 carry their ingestion time until that run.
