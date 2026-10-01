@@ -26,6 +26,22 @@ components, and deviations are recorded in the design.
 
 ## Keycloak consent page
 
+- The starting point: [Keycloak 26.8's stock consent page](spike-consent.png), captured in the spike for Claude Code's
+  CIMD client. It shows the scope's Vietnamese consent text and the client's hostname. It also lists the realm default
+  scopes (roles, profile, email).
+- Delivered in pull request 1, from the end-to-end run on Keycloak 26.8. No template is overridden: only theme
+  messages, CSS, the realm's locales, the scopes' `gui.order`, and ChatGPT's `logoUri`.
+  - [Claude, Vietnamese](consent-claude-vi.png), [ChatGPT, Vietnamese](consent-chatgpt-vi.png),
+    [ChatGPT at 390 px](consent-chatgpt-vi-mobile.png), [sign-in, English](login-en.png).
+  - **Icon.** As Slack, Zoom and Google do (Mobbin: Cursor in Slack, Descript in Zoom, Perplexity in Google), the
+    requesting app's icon sits above the title when the client has one. ChatGPT's comes from the web app's
+    `/provider-logos/openai.svg`. Claude's metadata documents publish no `logo_uri`, so Claude shows its name only.
+  - **Order.** The main permission comes first and staying connected second. The client's own line is last, as a
+    muted note: Keycloak's fixed English "The client's hostname is claude.ai", or "Ứng dụng từ chatgpt.com".
+  - **Language switcher.** It sits small under the card, as Google places it. The page follows the browser's
+    language, Vietnamese first.
+  - **Not done, because it needs a template override.** The two-icon "app ⇄ MemoryOS" header (GitHub) and a
+    "signed in as" line (Google, X).
 - [Craft, OAuth consent](https://mobbin.com/screens/66cc3ac5-605a-4f26-a14e-a07291d9f6e9). This is the target shape for
   a read-only grant:
   - the client name;

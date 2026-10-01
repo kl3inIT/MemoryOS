@@ -305,7 +305,7 @@ Operating constraints:
 
 ## Keycloak runtime
 
-Each release builds `memoryos-keycloak` from `infrastructure/keycloak/Dockerfile`: Keycloak 26.7.0 pinned by digest and optimized for PostgreSQL with health and metrics on, plus the `memoryos` login theme copied into the image. CI starts the image against a throwaway PostgreSQL and fails unless a login page uses the theme and every image the stylesheet names is served (`infrastructure/keycloak/smoke-test-image.sh`). Keycloak does not fail on a missing theme. It logs `Failed to find LOGIN theme memoryos` and shows its built-in page, so a healthy container proves nothing about the theme.
+Each release builds `memoryos-keycloak` from `infrastructure/keycloak/Dockerfile`: Keycloak 26.8.0 pinned by digest and optimized for PostgreSQL with health, metrics and the `cimd` feature on (MEM-114), plus the `memoryos` login theme copied into the image. CI starts the image against a throwaway PostgreSQL and fails unless the server advertises Client ID Metadata Documents, a login page uses the theme and every image the stylesheet names is served (`infrastructure/keycloak/smoke-test-image.sh`). Keycloak does not fail on a missing theme. It logs `Failed to find LOGIN theme memoryos` and shows its built-in page, so a healthy container proves nothing about the theme.
 
 The theme is not mounted. A release directory is root-only (`deploy.sh` runs under `umask 077`), and Keycloak runs as uid 1000, so a theme mounted from the release can never be read.
 
