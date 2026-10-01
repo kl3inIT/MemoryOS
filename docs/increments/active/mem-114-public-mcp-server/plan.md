@@ -125,6 +125,16 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
 - [x] **Runbook.** [mcp-endpoint.md](../../../runbooks/mcp-endpoint.md): production upgrades with the next release
   (database dumped first); the shared staging Keycloak needs the OrgMemory image rebuilt on 26.8 with `cimd`; realm
   variables and expected output; removal.
+- [x] **Consent page** (moved here from pull request 3 by owner decision, 2026-10-01):
+  - the `memoryos` realm speaks Vietnamese first and English;
+  - the theme words the consent page in both languages;
+  - the permissions are ordered by `gui.order`;
+  - the client's own line reads as a note;
+  - the language switcher sits under the card;
+  - `memoryos-chatgpt` carries its logo.
+
+  Screenshots and the reasoning are in [ui-references.md](ui-references.md#keycloak-consent-page). Re-verified end to
+  end on the staging host the same way.
 - [ ] **Server actions.** Staging image rebuild and recreate, realm replay, production promotion: each only after the
   owner approves that step.
 
@@ -168,7 +178,7 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
 - [ ] **`/admin/mcp`.** *MemoryOS MCP endpoint* section with the switch, URL and copy.
 - [ ] **`/settings/connections`.** URL, Claude and ChatGPT tabs, grants table with Revoke.
 - [ ] **Document link.** `/search?doc=<id>` opens the document dialog.
-- [ ] **Keycloak consent page.** Checked under the `memoryos` theme in Vietnamese and English.
+- [x] **Keycloak consent page.** Delivered in pull request 1.
 - [ ] **Copy.** Vietnamese and English for every string; no explanatory copy under controls.
 - [ ] **Checks.** `pnpm --dir web check`; screenshots with realistic data, reviewed and fixed.
 

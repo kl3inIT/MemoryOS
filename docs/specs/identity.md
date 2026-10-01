@@ -160,7 +160,7 @@ The action email returns to the additional exact `/invite/activate` browser URI 
 
 ## Keycloak browser theme
 
-The `memoryos` realm uses the repository-owned `memoryos` login theme for sign-in, password recovery, required password update, email verification, informational completion, and action-token error pages. It extends the pinned Keycloak 26.8 `keycloak.v2` theme using CSS, messages, and local images only; it does not copy or replace FreeMarker templates. Keycloak therefore remains authoritative for form targets, session and action-token state, validation, password visibility, provider-specific controls, and accessibility semantics.
+The `memoryos` realm uses the repository-owned `memoryos` login theme for sign-in, password recovery, required password update, email verification, informational completion, and action-token error pages. It extends the pinned Keycloak 26.8 `keycloak.v2` theme using CSS, messages, and local images only; it does not copy or replace FreeMarker templates. The realm offers Vietnamese (the default) and English: the theme carries both message files, and the language switcher Keycloak adds sits small under the card. For an MCP client the theme also words the consent page (MEM-114). Keycloak therefore remains authoritative for form targets, session and action-token state, validation, password visibility, provider-specific controls, and accessibility semantics.
 
 The shared runtime mounts this theme read-only. Reconciliation fails unless the running server advertises the theme and the realm converges to `loginTheme=memoryos`. This selection applies only to the `memoryos` realm and changes no issuer, subject, client, callback, or application-authorization contract.
 
