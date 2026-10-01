@@ -18,6 +18,22 @@ Keep the fallback exactly as it is: the same failures fall back, the same densit
 2. **Alert** `MemoryOSDoclingFallback` in `infrastructure/observability/alerts.yaml`: any increase of the counter in the last 15 minutes. It fires on the first fallback and resolves 15 minutes after the last one. Its summary tells the operator that Documents are being published without tables or boxes and must be reindexed once Docling is fixed.
 3. **Panel** "Docling fallbacks" on the overview dashboard, by `reason` and `outcome`.
 
+## Text PDFs stay with Docling (measured 2026-10-01)
+
+The product owner asked whether PaddleOCR-VL should read text PDFs first, with Docling as its fallback. One real text PDF from staging was read by both services: a 94-page English annual report, 12.1 MiB, every page with a text layer (at least 111 non-whitespace characters per page). Both used the worker's options: PaddleOCR-VL through `ocr.vadan.app` with the worker's request body, Docling 1.34 on staging with `do_ocr=false` and accurate tables. The reference is the PDF's own text layer read with pdfium. pdfplumber reverses text drawn with a rotated matrix and was not used. The copies were deleted from the staging host afterwards.
+
+| | PaddleOCR-VL (production GPU) | Docling (staging CPU) |
+| --- | --- | --- |
+| Whole document | 173.5 s, 94 pages, 99 tables | Stopped by `DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT=300`: 68 of 94 pages, `partial_success` |
+| Financial pages 66–94 alone | — | Stopped at 300 s after 12 of 29 pages, about 25 s a page |
+| Numbers of the text layer, 12 financial pages Docling finished (659) | 649 found (98.5%); 6 numbers not in the layer, digit errors such as `26,737,053,276` read as `26,373,053,276` and `21,291,177,282` as `21,291,772,882` | 659 found (100%); none outside the layer |
+| Numbers placed in a table cell, same pages | 572 of 659 | 574 of 659 |
+| Tables, same pages | 19 | 22 |
+
+PaddleOCR-VL reads the rendered page, so it can misread a digit that the text layer states exactly. Docling takes the characters from the text layer and only adds layout and table structure. For financial reports a wrong digit is worse than a slow conversion, so routing stays as [MEM-192](../../completed/mem-192-ocr-gpu/design.md) decided: scans and images to PaddleOCR-VL, text PDFs, DOCX and PPTX to Docling.
+
+The measurement also shows why Docling failed on staging for long reports: the worker allows 60 minutes, but Docling stops every document at 300 seconds and returns `partial_success`, which the worker treats as `MALFORMED` and sends to Tika. The staging fix is to raise `DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT` to 3600 and `DOCLING_SERVE_MAX_SYNC_WAIT` to 3610 to match the worker, as the [ingestion contract](../../../specs/ingestion.md) already lists for the sixty-minute selection. Lowering the worker to five minutes would leave this report failing. This is a server change with a manual Docling recreation, because the deployment never recreates Docling.
+
 ## Not in scope
 
 - Changing which failures fall back. Failing on HTTP 4xx instead of falling back was considered and rejected by the product owner on 2026-10-01: users keep searchable text while Docling is broken, and the alert is what was missing.

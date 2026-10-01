@@ -12,6 +12,9 @@ Scope approved by the product owner on 2026-10-01: keep the fallback, add an ale
 - [x] Panel "Docling fallbacks" on `staging.json`.
 - [x] Documents: ingestion spec (fallback paragraph), observability guideline (extraction metric), ingestion and observability test matrices, roadmap row.
 
+- [x] Measure PaddleOCR-VL against Docling on a real text PDF; routing unchanged ([design](design.md#text-pdfs-stay-with-docling-measured-2026-10-01)).
+- [ ] Staging server, owner action: raise `DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT` to 3600 and `DOCLING_SERVE_MAX_SYNC_WAIT` to 3610, remove the stale `MEMORYOS_EXTRACTION_DOCLING_ENGINE_REVISION`, recreate Docling, then reindex the 14 Documents whose parser is `tika`.
+
 ## Verification
 
 - `:sources:compileTestJava` (every constructor call site), then `:sources:test` for the changed test classes.
