@@ -78,38 +78,6 @@ function ChatPendingIndicator() {
   return <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />;
 }
 
-/**
- * Why a completed answer declined. A question the guardrail could not check is not an error: the answer says which
- * topics are restricted, and a model manager is pointed at the model that runs the check.
- */
-function ChatRefusalLabel({ reason }: { reason: string }) {
-  const ui = useAppTranslation();
-  // A shared conversation renders outside the signed-in session.
-  const manager = use(ApplicationSessionContext)?.capabilities.includes("MODELS_MANAGE") ?? false;
-  const guardrail = reason === "blocked_topic" || reason === "unchecked";
-  return (
-    <p className="mt-2 flex flex-wrap items-center gap-1.5 font-secondary-body text-content-muted">
-      {guardrail ? (
-        <ShieldAlert className="size-4" aria-hidden />
-      ) : (
-        <FileX className="size-4" aria-hidden />
-      )}
-      <span>
-        {reason === "blocked_topic"
-          ? ui("Chủ đề bị hạn chế")
-          : reason === "unchecked"
-            ? ui("Chưa kiểm tra được câu hỏi")
-            : ui("Không có trong tài liệu của tổ chức")}
-      </span>
-      {reason === "unchecked" && manager ? (
-        <Link to="/admin/models" className="underline underline-offset-2">
-          {ui("Chọn model cho Kiểm tra câu hỏi")}
-        </Link>
-      ) : null}
-    </p>
-  );
-}
-
 /** Why a committed turn failed, in words the reader can act on; a model manager is sent to fix the credential. */
 function ChatFailureNotice({ code }: { code?: string }) {
   const ui = useAppTranslation();
@@ -202,7 +170,18 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         <ChatArtifactCards />
         <ChatImages />
         <ChatGeneratedFiles />
-        {refusalReason && <ChatRefusalLabel reason={refusalReason} />}
+        {refusalReason && (
+          <p className="mt-2 flex items-center gap-1.5 font-secondary-body text-content-muted">
+            {refusalReason === "blocked_topic" ? (
+              <ShieldAlert className="size-4" aria-hidden />
+            ) : (
+              <FileX className="size-4" aria-hidden />
+            )}
+            {refusalReason === "blocked_topic"
+              ? ui("Chủ đề bị hạn chế")
+              : ui("Không có trong tài liệu của tổ chức")}
+          </p>
+        )}
         {(serverStatus === "CANCELED" || canceled) && (
           <p className="mt-2 font-secondary-body text-content-muted">{ui("Đã dừng")}</p>
         )}

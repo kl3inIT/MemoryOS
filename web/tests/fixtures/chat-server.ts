@@ -820,16 +820,6 @@ export async function handleChatFixture(
           finish(state, run, "FAILED");
           return;
         }
-        if (state.mode === "unchecked") {
-          // The guardrail check could not run: the turn completes with a reply that says so, never an error.
-          const reply =
-            "Tổ chức giới hạn các chủ đề: chính trị, lãnh tụ và lãnh đạo. Trợ lý chưa xác định được câu hỏi này có thuộc các chủ đề đó không nên chưa trả lời. Hãy thử lại.";
-          state.messages.at(-1)!.content = reply;
-          state.messages.at(-1)!.refusalReason = "unchecked";
-          emit(run, "text", { text: reply });
-          finish(state, run, "COMPLETED");
-          return;
-        }
         state.messages.at(-1)!.content = content;
         if (state.mode === "grounded-split") {
           const split = content.indexOf("[1]") + 2;

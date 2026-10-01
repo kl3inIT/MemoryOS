@@ -650,51 +650,6 @@ for (const manager of [false, true]) {
   });
 }
 
-for (const manager of [false, true]) {
-  test(`answers a question the guardrail could not check with the reason, not an error, ${manager ? "for a model manager" : "for a member"}`, async ({
-    page,
-  }) => {
-    await page.route("**/api/identity/me", (route) =>
-      route.fulfill({
-        json: {
-          ...identity,
-          capabilities: manager
-            ? [...identity.capabilities, "MODELS_MANAGE"]
-            : identity.capabilities,
-        },
-      }),
-    );
-    const session = await (
-      await page.request.post("/api/chat/test-fixture", {
-        data: { title: "Unchecked question", mode: "unchecked" },
-      })
-    ).json();
-    await page.goto(`/chat/${session.id}`);
-    await page
-      .getByRole("textbox", { name: "Câu hỏi", exact: true })
-      .fill("vợ của Nhữ Đình Nhật là ai ?");
-    await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-    await expect(
-      page.getByText("Tổ chức giới hạn các chủ đề: chính trị, lãnh tụ và lãnh đạo.", {
-        exact: false,
-      }),
-    ).toBeVisible();
-    // A guardrail is never a technical error.
-    await expect(page.getByRole("alert")).toHaveCount(0);
-    await expect(page.getByText("Chưa xác nhận được trạng thái câu trả lời")).toHaveCount(0);
-    // The stream carries the reply; its reason label comes with the stored message, as for a blocked topic.
-    await page.reload();
-    await expect(page.getByText("Chưa kiểm tra được câu hỏi", { exact: true })).toBeVisible();
-    const link = page.getByRole("link", { name: "Chọn model cho Kiểm tra câu hỏi" });
-    if (manager) await expect(link).toHaveAttribute("href", "/admin/models");
-    else await expect(link).toHaveCount(0);
-    if (process.env.MEMORYOS_PREVIEW_SHOTS)
-      await page.screenshot({
-        path: `${process.env.MEMORYOS_PREVIEW_SHOTS}/unchecked-${manager ? "manager" : "member"}.png`,
-      });
-  });
-}
-
 test("mobile drawer, Search navigation, and leaving a running chat only closes the reader", async ({
   page,
 }) => {

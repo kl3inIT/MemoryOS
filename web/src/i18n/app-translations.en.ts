@@ -1494,8 +1494,6 @@ export const vietnameseUi: Record<string, string> = {
   "Provider từ chối API key": "The provider rejected the API key",
   "Cập nhật API key": "Update the API key",
   "Model không dùng được": "Model unavailable",
-  "Chưa kiểm tra được câu hỏi": "The question could not be checked",
-  "Chọn model cho Kiểm tra câu hỏi": "Choose a model for the question check",
   "Hãy chọn model khác hoặc báo quản trị viên.": "Choose another model or tell an administrator.",
   "Câu trả lời bị gián đoạn": "The answer was interrupted",
   "Nội dung đã nhận được giữ lại.": "What was received is kept.",

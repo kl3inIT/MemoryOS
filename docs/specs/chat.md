@@ -440,11 +440,14 @@ grounded turn always offers `search_knowledge`, whatever the agent's search tool
 Check 1 runs for grounded turns and, when a topic or phrase is enabled, for every turn. A guardrail is never a
 technical error for the person (2026-10-01; on staging about one checked turn in five had failed because the model
 did not return the structured verdict). A check that fails on the task model, whether an unreadable reply, a provider
-error or a refused credential, is asked again on the conversation model. When neither returns a verdict:
-
-- with no topic to block, the turn is answered as a question, since there is nothing to hold back;
-- with a topic enabled, the turn completes with a reply that lists the restricted topics and says the question was
-  not answered (`refusalReason = unchecked`, V137; `ChatRefusals.unchecked`), and the answer model does not run.
+error or a refused credential, is asked again on the conversation model. When neither returns a verdict, the turn is
+answered and the person is not told about the check: the answer model carries the enabled topics itself, as a system
+instruction on every inference (`ChatGuardrailCheck.rulesForTheAnswerModel`, `ChatTurnOptions.topicRules`), each with
+its description and the Tenant's reply, so it declines a blocked topic with that reply and answers anything else, as
+assistants that keep their rules in the system prompt do. A turn the check classified carries no such instruction.
+With no topic enabled there is nothing to add. In this rare case blocking depends on the answer model following its
+instruction, and a reply it declines that way stores no `refusalReason` and no audit record; blocked phrases, matched
+in code on the question and on the answer, are unaffected.
 
 Only a reported turn failure inside the check, such as a spent budget, still ends the turn with its own code. A blocked question is completed with the Tenant's message and
 `refusalReason = blocked_topic`, never reaches the answer model, and records `chat_guardrail.block` with the rule
@@ -480,7 +483,7 @@ holds released text.
 
 The phrase list itself stays out of the audit stream.
 
-**History and browser.** History returns `refusalReason` on completed replies; the stream does not carry it, so the label under a declined reply (restricted topic, not in the documents, question not checked) appears when the stored message is read, while the reply's own text streams as usual. An `unchecked` reply also offers a model manager a link to choose the question check's model. The `/admin/chat` page (Onyx Chat
+**History and browser.** History returns `refusalReason` on completed replies; the stream does not carry it, so the label under a declined reply (restricted topic, not in the documents) appears when the stored message is read, while the reply's own text streams as usual. The `/admin/chat` page (Onyx Chat
 Preferences) holds Deep research, conversation-history visibility, answers from documents and the sensitive topics.
 The agent editor has the grounded switch. In a grounded conversation the composer hides Deep research and disallowed
 Web search. A declined reply shows why.

@@ -3,6 +3,7 @@ package io.memoryos.chat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -186,17 +187,22 @@ class ChatGroundedTurnTest {
     }
 
     @Test
-    void withTopicsToBlockAQuestionNobodyCouldCheckIsDeclinedWithTheReasonInsteadOfFailing() {
+    void withTopicsToBlockAQuestionNobodyCouldCheckIsAnsweredByAModelThatCarriesTheTopicRules() {
         prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
         when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
-            verifyStored("Tổ chức giới hạn các chủ đề: chính trị, lãnh tụ và lãnh đạo. Trợ lý chưa xác định được câu hỏi này "
-                    + "có thuộc các chủ đề đó không nên chưa trả lời. Hãy thử lại.", ChatMessage.UNCHECKED);
             verify(guardrails, times(2)).check(any(), any(), any(), any(), any());
-            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            // The person is not told about the failed check: the answer model runs with the blocked topics as its own
+            // instruction, so it declines one with the Tenant's message and answers anything else.
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            String rules = setup.getValue().options().topicRules();
+            assertTrue(rules.contains("Trợ lý không trả lời câu hỏi về chính trị."));
+            assertTrue(rules.contains("Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo."));
             assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "unchecked").timer().count());
         }
     }
@@ -210,9 +216,25 @@ class ChatGroundedTurnTest {
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
-            verify(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals("", setup.getValue().options().topicRules());
             // The turn stays grounded, so its uncited answer is still replaced by the documents refusal.
             verifyStored("Tài liệu của tổ chức chưa có thông tin để trả lời câu hỏi này.", ChatMessage.NO_EVIDENCE);
+        }
+    }
+
+    @Test
+    void aTurnTheCheckClassifiedCarriesNoTopicRules() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Chính sách nghỉ phép năm nay?", null);
+            queued.get().run();
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals("", setup.getValue().options().topicRules());
         }
     }
 

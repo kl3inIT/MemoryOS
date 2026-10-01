@@ -508,14 +508,11 @@ public final class ChatTurnService implements AutoCloseable {
         run.check();
         if (result == null) {
             if (metrics != null) metrics.guardrail("unchecked", System.nanoTime() - started);
-            var topics = run.policy.guardrails().enabledTopics();
-            // A guardrail never becomes a technical error. With a topic to block, the person is told which topics
-            // are restricted and that this question was not answered; with none, there is nothing to hold back.
-            if (!topics.isEmpty()) {
-                refuse(run, ChatMessage.UNCHECKED, ChatRefusals.unchecked(run.uiLanguage, topics));
-                run.finish(ChatMessage.Status.COMPLETED, null);
-                return false;
-            }
+            // A guardrail never becomes a technical error, and the person is not told about one: the turn is answered,
+            // and the model that answers carries the blocked topics itself, so it declines one with the Tenant's
+            // message and answers anything else.
+            run.setup = run.setup.withOptions(run.setup.options()
+                    .withTopicRules(ChatGuardrailCheck.rulesForTheAnswerModel(run.policy)));
         } else if (metrics != null) {
             metrics.guardrail(result.kind().name().toLowerCase(Locale.ROOT), System.nanoTime() - started);
         }

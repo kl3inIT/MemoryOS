@@ -15,7 +15,7 @@ never logged, so the change does not depend on it.
 
 ## Decision
 
-**The person always gets a reply.** A guardrail may decline, with its reason, but it is never a technical error.
+**A guardrail is never a technical error, and the person is not told about one.**
 
 1. **A verdict that is easy to return.** The classifier asks for one label (`QUESTION`, `CONVERSATIONAL`,
    `BLOCKED_TOPIC:<key>`) with up to 1,024 output tokens. `GroundingClassifier.verdict` reads the last kind the
@@ -23,23 +23,26 @@ never logged, so the change does not depend on it.
    names no verdict is not guessed.
 2. **A second model.** A check that fails on the `CHAT_GUARDRAIL` task model (#424), for any reason including a
    refused credential, runs once more on the conversation model. Usage is recorded against the model that ran.
-3. **No verdict from either.**
-   - No topic enabled: the turn is answered as a question. The check then only told conversation from questions, so
-     nothing is held back, and a grounded turn keeps its citation gate.
-   - A topic enabled: the turn completes with a reply that lists the restricted topics and says the question was not
-     answered, `refusalReason = unchecked` (V137). The answer model does not run, so a blocked topic cannot slip
-     through while the check is down. The sentence is fixed text because no model is left to write it; the topic
-     list comes from the Tenant's settings.
+3. **No verdict from either: the answer model carries the rules.** The turn is answered. Its options take the
+   enabled topics as an instruction (`ChatGuardrailCheck.rulesForTheAnswerModel`), sent as a system message of every
+   inference: each topic's description and the Tenant's reply, to be given word for word for a message about that
+   topic, with every other message answered as usual and the rules never mentioned. This is how assistants that keep
+   their rules in the system prompt behave: an ordinary question is answered, a blocked one is declined in the
+   Tenant's words. With no topic enabled nothing is added.
 4. A reported turn failure inside the check, such as a spent budget, still ends the turn with its own code.
 
 `CHAT_GUARDRAIL_UNAVAILABLE` (#422, never deployed) is removed with its notice.
 
-**Why not answer anyway when topics are enabled.** Azure OpenAI completes a request without filtering when its
-filter is down. Here the Tenant enabled topics precisely so that those questions are never answered, and the check's
-model failing is the case where that would silently stop holding.
+**What was tried first, and why it went.** The first version of this change completed such a turn with a fixed reply
+that listed the restricted topics and said the question had not been answered (`refusalReason = unchecked`, V137).
+The owner rejected it on the screenshot (2026-10-01): a person who asked an ordinary question was told about politics
+and about the product's own failure, and still had no answer. It never merged.
+
+**The trade-off.** In this rare case blocking depends on the answer model following its instruction rather than on a
+separate check, and a reply declined that way stores no `refusalReason` and no audit record. Azure OpenAI makes the
+same choice for its filter: a request completes without filtering when the filter cannot run. Blocked phrases are
+matched in code and are unaffected.
 
 ## Open
 
-- The stream does not carry `refusalReason`, so the label under a declined reply appears when the stored message is
-  read. The reply's text, which states the reason, streams as usual.
 - The token-budget explanation above is unverified; staging will show whether unreadable verdicts stop.
