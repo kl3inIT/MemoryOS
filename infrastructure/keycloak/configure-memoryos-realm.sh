@@ -416,6 +416,7 @@ provision_initial_owner() {
 # narrows the realm's default scopes for clients Keycloak builds from metadata documents, and the
 # clients below must keep what they were always given. An existing client's scopes are never touched.
 SCRIPT_CLIENT_DEFAULT_SCOPES='["acr","basic","email","profile","roles","web-origins"]'
+SCRIPT_CLIENT_OPTIONAL_SCOPES='["address","microprofile-jwt","offline_access","organization","phone"]'
 
 upsert_client() {
     CLIENT_ID=$1
@@ -423,7 +424,8 @@ upsert_client() {
     CLIENT_UUID=$(find_client_uuid)
 
     if [ -z "$CLIENT_UUID" ]; then
-        jq --argjson scopes "$SCRIPT_CLIENT_DEFAULT_SCOPES" '.defaultClientScopes //= $scopes' "$CLIENT_FILE" |
+        jq --argjson default "$SCRIPT_CLIENT_DEFAULT_SCOPES" --argjson optional "$SCRIPT_CLIENT_OPTIONAL_SCOPES" \
+            '.defaultClientScopes //= $default | .optionalClientScopes //= $optional' "$CLIENT_FILE" |
             "$KCADM" create clients \
                 --config "$CONFIG_FILE" \
                 -r "$TARGET_REALM" \

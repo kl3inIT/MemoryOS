@@ -58,9 +58,13 @@ class McpEndpointTokenTest(unittest.TestCase):
 
     def test_clients_the_script_creates_keep_their_scopes(self):
         # Trimming the realm defaults must not change what memoryos-web and the other clients receive.
+        # Naming the default scopes stops Keycloak assigning the realm's optional ones, so both are pinned.
         self.assertIn(
             """SCRIPT_CLIENT_DEFAULT_SCOPES='["acr","basic","email","profile","roles","web-origins"]'""", SCRIPT)
-        self.assertIn(".defaultClientScopes //= $scopes", SCRIPT)
+        self.assertIn(
+            """SCRIPT_CLIENT_OPTIONAL_SCOPES='["address","microprofile-jwt","offline_access","organization","phone"]'""",
+            SCRIPT)
+        self.assertIn(".defaultClientScopes //= $default | .optionalClientScopes //= $optional", SCRIPT)
 
     def test_a_grant_lapses_after_thirty_days_without_use(self):
         self.assertIn("offlineSessionIdleTimeout: 2592000", SCRIPT)
