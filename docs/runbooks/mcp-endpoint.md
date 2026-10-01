@@ -17,7 +17,7 @@ What the realm reconciliation does with `MEMORYOS_MCP_ENDPOINT_URL`:
 
 - **Scope.** Client scope `knowledge:read` with the endpoint audience.
 - **Claude.** A client policy admitting metadata documents from `claude.ai` and `claude.com`. Redirects may also go to
-  loopback for Claude Code. Resource indicators are limited to the endpoint, and a separate policy requires S256 PKCE from these public clients.
+  loopback for Claude Code. Resource indicators are limited to the endpoint, and a separate policy requires S256 PKCE from every public client of the realm, these included.
 - **Narrowed default scopes.** The realm's default client scopes lose `profile`, `email`, `roles` and `web-origins`.
 - **Grant lifetime.** Offline sessions lapse after 30 days without use.
 

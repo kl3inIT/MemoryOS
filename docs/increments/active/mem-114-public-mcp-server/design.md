@@ -198,10 +198,18 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
 - The resource allow list holds the endpoint URL.
 - Consent is required. The spike showed Keycloak stores each metadata document as one public, consent-required client
   shared by every user.
-- The consent page in the spike also listed the realm's default scopes (roles, profile, email) next to
-  `knowledge:read` and Offline Access. Pull request 1 decides whether MCP clients keep them. The endpoint needs only
-  `sub`, which the `basic` scope carries.
-- PKCE S256 enforced through a separate policy for public clients (Keycloak #52795).
+- Default scopes.
+  - The spike's consent page also listed the realm's default scopes (roles, profile, email). The endpoint needs only
+    `sub`, which the `basic` scope carries.
+  - The reconciliation therefore removes `profile`, `email`, `roles` and `web-origins` from the realm's default client
+    scopes. A client built from a metadata document is created with only `acr` and `basic` by default.
+  - Clients the script creates pin the classic default and optional sets, and existing clients keep theirs.
+  - The end-to-end consent page lists only the scope text, Offline Access and the client's hostname.
+- PKCE S256 enforced through a separate policy for every public client of the realm (Keycloak #52795).
+  - That policy uses the condition `client-access-type: public`, not `client-id-uri`. The latter votes only on the
+    pre-authorization event, while the enforcer acts on the authorization and token requests; the end-to-end run
+    proved a `client-id-uri` PKCE policy never enforced.
+  - The realm's other public clients (`memoryos-integration` and the built-in consoles) already use S256.
 
 **ChatGPT client `memoryos-chatgpt`.**
 

@@ -19,7 +19,7 @@
     },
     {
       "name": "memoryos-mcp-cimd-pkce",
-      "description": "MEM-114: S256 PKCE for the public clients built from metadata documents",
+      "description": "MEM-114: S256 PKCE for public clients, including those built from metadata documents",
       "executors": [
         {
           "executor": "pkce-enforcer",
@@ -48,14 +48,13 @@
     },
     {
       "name": "memoryos-mcp-cimd-pkce",
-      "description": "MEM-114: a policy of its own, because PKCE enforcement inside the metadata policy misfires (Keycloak #52795)",
+      "description": "MEM-114: S256 PKCE for every public client of the realm. The client-id-uri condition votes only on the pre-authorization event, so it cannot carry PKCE enforcement (Keycloak #52795)",
       "enabled": true,
       "conditions": [
         {
-          "condition": "client-id-uri",
+          "condition": "client-access-type",
           "configuration": {
-            "client-id-uri-scheme": ["https"],
-            "client-id-uri-allow-permitted-domains": ["claude.ai", "claude.com"]
+            "type": ["public"]
           }
         }
       ],

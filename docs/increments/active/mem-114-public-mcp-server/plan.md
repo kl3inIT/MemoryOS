@@ -89,8 +89,36 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
 
   Contract tests: `test_realm_mcp_endpoint.py`. Every new `jq` expression was run against sample data in a `jq` 1.8.1
   container.
-- [ ] **End to end.** Run the script, twice, against a throwaway Keycloak built from this Dockerfile, then repeat
-  Claude Code's CIMD flow against it.
+- [x] **End to end** (2026-10-01). On the staging host, a throwaway PostgreSQL and the image built from this
+  Dockerfile (loopback only, removed afterwards). The shared Keycloak was not touched.
+  - **Image.** `start --optimized` advertises `client_id_metadata_document_supported`, so the build-stage
+    `KC_FEATURES` is enough.
+  - **Runs.** The script ran first without the endpoint, the way staging and production run it today, then three
+    times with it.
+  - **Two defects found and fixed.**
+    - Naming default scopes at creation left the script's clients with no optional scopes, so the optional set is now
+      pinned too.
+    - Reassigning the realm's optional scope answers 409, so the rerun now checks before assigning.
+  - **Realm state after the runs.**
+    - The realm's default scopes no longer include `profile`, `email`, `roles` or `web-origins`.
+    - `memoryos-web`, `memoryos-integration` and `memoryos-user-provisioner` keep the classic default and optional
+      sets.
+    - `memoryos-chatgpt` has exactly `acr`, `basic`, `knowledge:read` plus optional `offline_access`, one callback,
+      consent required.
+    - Audience, resource allow list and 30-day offline idle as designed.
+  - **PKCE.** A PKCE policy keyed on `client-id-uri` never enforced: that condition votes only on the
+    pre-authorization event, and the enforcer acts on the authorization and token requests. Keyed on
+    `client-access-type: public`, a metadata-document request without `code_challenge` is refused with
+    `invalid_request` ("Missing parameter: code_challenge_method"). `memoryos-integration` keeps working with S256.
+  - **Claude Code.** Its metadata document flow with a member shows a consent page listing only the scope text,
+    Offline Access and the client's hostname. The token carries `acr, aud, auth_time, azp, exp, iat, iss, jti, scope,
+    sid, sub, typ` and no profile or e-mail claim. `aud` is the endpoint.
+  - **ChatGPT client.** The flow asked only for `offline_access` and still received `knowledge:read`, a default
+    scope there.
+    - The consent page shows "Grant Access to ChatGPT" with the scope text and Offline Access.
+    - The callback carries `iss`, and the secret plus PKCE code exchange returns a token with `aud` equal to the
+      endpoint.
+    - Another `chatgpt.com` callback is refused.
 - [x] **nginx.** One exact-path location sends `/mcp`, `/.well-known/oauth-protected-resource/mcp` and MEM-112's
   `/mcp/oauth/client-metadata.json` to the API with a 256 KiB body limit. Before this, MEM-112's metadata document
   fell to the web app's `index.html`. Covered in `nginx-config.test.mjs`.

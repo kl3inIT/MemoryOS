@@ -101,9 +101,11 @@ class McpClientRegistrationTest(unittest.TestCase):
         config = load("memoryos-mcp-client-policies.json")
         pkce = next(p for p in config["profiles"] if p["executors"][0]["executor"] == "pkce-enforcer")
         self.assertTrue(pkce["executors"][0]["configuration"]["auto-configure"])
-        # A policy of its own (Keycloak #52795), matching the same metadata documents.
+        # client-id-uri votes only on the pre-authorization event, so enforcement keys on public clients
+        # instead; the end-to-end run showed a metadata-document policy never enforcing (Keycloak #52795).
         policy = next(p for p in config["policies"] if p["profiles"] == [pkce["name"]])
-        self.assertEqual(config["policies"][0]["conditions"], policy["conditions"])
+        self.assertEqual([{"condition": "client-access-type", "configuration": {"type": ["public"]}}],
+                         policy["conditions"])
 
     def test_other_client_policies_of_the_realm_survive(self):
         self.assertRegex(SCRIPT, re.compile(r"merge_client_policies profiles\s+merge_client_policies policies"))
