@@ -297,15 +297,17 @@ function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FA
   clearTimeout(run.timer);
   message.status = status;
   message.finishedAt = new Date().toISOString();
+  // History serves the same code the stream announced, as the server stores it.
+  message.failureCode =
+    status !== "FAILED"
+      ? null
+      : state.mode === "rejected"
+        ? "CHAT_PROVIDER_CREDENTIAL_REJECTED"
+        : "CHAT_PROVIDER_FAILED";
   emit(run, "outcome", {
     status,
     hasArtifacts: message.artifacts.length > 0,
-    failureCode:
-      status !== "FAILED"
-        ? null
-        : state.mode === "rejected"
-          ? "CHAT_PROVIDER_CREDENTIAL_REJECTED"
-          : "CHAT_PROVIDER_FAILED",
+    failureCode: message.failureCode,
   });
   for (const listener of run.listeners) listener.end();
   run.listeners.clear();

@@ -638,6 +638,11 @@ for (const manager of [false, true]) {
     await expect(page.getByText("Câu trả lời bị gián đoạn")).toHaveCount(0);
     await expect(page.getByText("Chưa xác nhận được trạng thái câu trả lời")).toHaveCount(0);
     await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
+    // Reloaded from history, the answer still names the cause: the server status drives the notice.
+    await page.reload();
+    await expect(page.getByRole("alert")).toContainText(
+      manager ? "Provider từ chối API key" : "Model không dùng được",
+    );
     if (process.env.MEMORYOS_PREVIEW_SHOTS)
       await page.screenshot({
         path: `${process.env.MEMORYOS_PREVIEW_SHOTS}/rejected-${manager ? "manager" : "member"}.png`,
