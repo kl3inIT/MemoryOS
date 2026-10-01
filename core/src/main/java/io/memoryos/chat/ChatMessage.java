@@ -13,6 +13,8 @@ public record ChatMessage(UUID id, UUID sessionId, @Nullable UUID parentMessageI
     public static final String NO_EVIDENCE = "no_evidence";
     public static final String UNCITED = "uncited";
     public static final String BLOCKED_TOPIC = "blocked_topic";
+    /** The guardrail check could not tell whether the question is about a blocked topic, so it was not answered. */
+    public static final String UNCHECKED = "unchecked";
     public ChatMessage {
         sources = List.copyOf(sources); files = List.copyOf(files); artifacts = List.copyOf(artifacts);
         if (activity == null) activity = ChatActivity.EMPTY;

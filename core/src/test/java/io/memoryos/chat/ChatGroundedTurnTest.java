@@ -13,6 +13,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,7 @@ import io.memoryos.ai.ModelClients;
 import io.memoryos.ai.ModelFlow;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.TurnFailure;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.grounding.ChatGuardrailCheck;
@@ -138,19 +140,6 @@ class ChatGroundedTurnTest {
     }
 
     @Test
-    void aCredentialTheProviderRefusesAtTheGuardrailCheckFailsTheTurnWithItsOwnCode() {
-        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
-        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException(new Refused()));
-        var queued = new AtomicReference<Runnable>();
-        try (var service = service(queued)) {
-            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
-            queued.get().run();
-            verifyFailed("CHAT_PROVIDER_CREDENTIAL_REJECTED");
-            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
-        }
-    }
-
-    @Test
     void aCredentialTheProviderRefusesWhileAnsweringFailsTheTurnWithItsOwnCode() {
         prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
         doThrow(new Refused()).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
@@ -162,16 +151,81 @@ class ChatGroundedTurnTest {
         }
     }
 
+    private static final ChatSettingsService.TurnPolicy TOPICS = new ChatSettingsService.TurnPolicy(true, false,
+            new ChatGuardrails(List.of(new ChatGuardrails.TopicSetting(ChatGuardrails.Topic.POLITICS, true, null),
+                    new ChatGuardrails.TopicSetting(ChatGuardrails.Topic.LEADERS, true, null)), List.of(), null));
+
+    /** The guardrail task runs on its own model, so a test can fail it apart from the conversation model. */
+    private ModelBinding taskModel() {
+        var checker = ModelBinding.builder(new SpringAiLlmService("gpt-5-nano", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false).build();
+        var checkerLease = mock(ModelClients.Lease.class);
+        when(checkerLease.binding()).thenReturn(checker);
+        when(models.resolveFlow(any(), any(), eq(ModelFlow.CHAT_GUARDRAIL)))
+                .thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, checkerLease));
+        return checker;
+    }
+
     @Test
-    void aGuardrailCheckThatCannotClassifyTheQuestionFailsTheTurnWithItsOwnCode() {
-        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
-        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("format"));
+    void aCheckThatFailsOnItsTaskModelIsAskedAgainOnTheConversationModel() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.BLOCKED);
+        var checker = taskModel();
+        var blocked = new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED,
+                "Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo.", ChatGuardrails.Topic.LEADERS, null);
+        when(guardrails.check(any(), any(), any(), any(), any())).thenReturn(blocked);
+        when(guardrails.check(eq(checker), any(), any(), any(), any())).thenThrow(new IllegalStateException(new Refused()));
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
-            verifyFailed("CHAT_GUARDRAIL_UNAVAILABLE");
+            // The person still gets the topic's own message, not an error.
+            verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo.", ChatMessage.BLOCKED_TOPIC);
+            verify(guardrails).check(eq(checker), any(), any(), any(), any());
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Test
+    void withTopicsToBlockAQuestionNobodyCouldCheckIsDeclinedWithTheReasonInsteadOfFailing() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verifyStored("Tổ chức giới hạn các chủ đề: chính trị, lãnh tụ và lãnh đạo. Trợ lý chưa xác định được câu hỏi này "
+                    + "có thuộc các chủ đề đó không nên chưa trả lời. Hãy thử lại.", ChatMessage.UNCHECKED);
+            verify(guardrails, times(2)).check(any(), any(), any(), any(), any());
+            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "unchecked").timer().count());
+        }
+    }
+
+    @Test
+    void withNoTopicToBlockAQuestionNobodyCouldCheckIsAnsweredFromDocuments() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verify(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            // The turn stays grounded, so its uncited answer is still replaced by the documents refusal.
+            verifyStored("Tài liệu của tổ chức chưa có thông tin để trả lời câu hỏi này.", ChatMessage.NO_EVIDENCE);
+        }
+    }
+
+    @Test
+    void aSpentBudgetAtTheCheckStillEndsTheTurnWithItsOwnCode() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(TurnFailure.BUDGET_EXCEEDED.exception());
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verifyFailed("CHAT_BUDGET_EXCEEDED");
+            verify(guardrails).check(any(), any(), any(), any(), any());
         }
     }
 

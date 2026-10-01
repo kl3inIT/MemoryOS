@@ -303,9 +303,7 @@ function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FA
       ? null
       : state.mode === "rejected"
         ? "CHAT_PROVIDER_CREDENTIAL_REJECTED"
-        : state.mode === "unchecked"
-          ? "CHAT_GUARDRAIL_UNAVAILABLE"
-          : "CHAT_PROVIDER_FAILED";
+        : "CHAT_PROVIDER_FAILED";
   emit(run, "outcome", {
     status,
     hasArtifacts: message.artifacts.length > 0,
@@ -817,9 +815,19 @@ export async function handleChatFixture(
           emit(run, "tool", { ...tool, stage: "SOURCE", source: fixtureSource });
           emit(run, "tool", { ...tool, stage: "COMPLETED", source: null, durationMs: 1200 });
         }
-        if (state.mode === "rejected" || state.mode === "unchecked") {
+        if (state.mode === "rejected") {
           // The provider refused the credential before any text: the turn fails with nothing to keep.
           finish(state, run, "FAILED");
+          return;
+        }
+        if (state.mode === "unchecked") {
+          // The guardrail check could not run: the turn completes with a reply that says so, never an error.
+          const reply =
+            "Tổ chức giới hạn các chủ đề: chính trị, lãnh tụ và lãnh đạo. Trợ lý chưa xác định được câu hỏi này có thuộc các chủ đề đó không nên chưa trả lời. Hãy thử lại.";
+          state.messages.at(-1)!.content = reply;
+          state.messages.at(-1)!.refusalReason = "unchecked";
+          emit(run, "text", { text: reply });
+          finish(state, run, "COMPLETED");
           return;
         }
         state.messages.at(-1)!.content = content;

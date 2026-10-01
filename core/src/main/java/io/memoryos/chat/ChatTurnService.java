@@ -482,34 +482,51 @@ public final class ChatTurnService implements AutoCloseable {
      */
     private boolean checkGuardrails(Active run) {
         if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
-        ChatGuardrailCheck.Result result;
         long started = System.nanoTime();
-        // The check's own task model when the Tenant set one that is still usable, otherwise the conversation model.
-        ModelBinding checker = run.setup.binding();
+        // The check's own task model when the Tenant set one that is still usable, then the conversation model: a
+        // model that cannot return a verdict must not decide whether the person gets an answer.
+        ChatGuardrailCheck.Result result = null;
         try (var selected = models.resolveFlow(run.setup.actor(), run.setup.sessionId(), ModelFlow.CHAT_GUARDRAIL)) {
-            checker = selected.binding();
-            result = guardrails.check(checker, run.setup, run.question, run.policy,
-                    accounting -> recordCheck(run, selected, accounting));
-            if (metrics != null) metrics.guardrail(result.kind().name().toLowerCase(Locale.ROOT), System.nanoTime() - started);
+            result = guardrails.check(selected.binding(), run.setup, run.question, run.policy, accounting -> recordCheck(run,
+                    selected.modelConfigurationId(), selected.provenance(), selected.binding().service().getName(), accounting));
         } catch (CancellationException stopped) {
             throw stopped;
         } catch (RuntimeException failure) {
-            if (metrics != null) metrics.guardrail("unavailable", System.nanoTime() - started);
-            // Fail closed: a turn whose question could not be checked is not answered.
-            LOG.atWarn().addKeyValue("event", "chat.guardrail.unavailable").addKeyValue("message_id", run.setup.assistantMessageId())
-                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail check unavailable");
-            throw (checker.credentialRejected(failure) ? TurnFailure.PROVIDER_CREDENTIAL_REJECTED
-                    : TurnFailure.GUARDRAIL_UNAVAILABLE).exception();
+            checkFailed(run, failure, "task_model");
+        }
+        if (result == null) {
+            run.check();
+            try {
+                result = guardrails.check(run.setup.binding(), run.setup, run.question, run.policy, accounting -> recordCheck(run,
+                        run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), accounting));
+            } catch (CancellationException stopped) {
+                throw stopped;
+            } catch (RuntimeException failure) {
+                checkFailed(run, failure, "conversation_model");
+            }
         }
         run.check();
-        if (result.kind() == ChatGuardrailCheck.Kind.BLOCKED) {
+        if (result == null) {
+            if (metrics != null) metrics.guardrail("unchecked", System.nanoTime() - started);
+            var topics = run.policy.guardrails().enabledTopics();
+            // A guardrail never becomes a technical error. With a topic to block, the person is told which topics
+            // are restricted and that this question was not answered; with none, there is nothing to hold back.
+            if (!topics.isEmpty()) {
+                refuse(run, ChatMessage.UNCHECKED, ChatRefusals.unchecked(run.uiLanguage, topics));
+                run.finish(ChatMessage.Status.COMPLETED, null);
+                return false;
+            }
+        } else if (metrics != null) {
+            metrics.guardrail(result.kind().name().toLowerCase(Locale.ROOT), System.nanoTime() - started);
+        }
+        if (result != null && result.kind() == ChatGuardrailCheck.Kind.BLOCKED) {
             guardrails.recordBlock(run.setup.tenant(), run.setup.actor(), run.setup.sessionId(), result, null);
             refuse(run, ChatMessage.BLOCKED_TOPIC, Objects.requireNonNull(result.message()));
             run.finish(ChatMessage.Status.COMPLETED, null);
             return false;
         }
         var options = run.setup.options();
-        if (result.kind() == ChatGuardrailCheck.Kind.CONVERSATIONAL && options.grounded())
+        if (result != null && result.kind() == ChatGuardrailCheck.Kind.CONVERSATIONAL && options.grounded())
             run.setup = run.setup.withOptions(options.withGrounded(false));
         boolean grounded = run.setup.options().grounded();
         var rules = run.policy.guardrails();
@@ -540,11 +557,24 @@ public final class ChatTurnService implements AutoCloseable {
         firstText(run);
     }
 
+    /**
+     * One attempt of the check failed. A spent budget or another reported turn failure still ends the turn; anything
+     * else, a refused credential or an unreadable verdict included, is logged and leaves the next attempt to decide.
+     */
+    private void checkFailed(Active run, RuntimeException failure, String attempt) {
+        var reported = TurnFailureException.reportedIn(failure);
+        if (reported.isPresent()) throw reported.get().exception();
+        LOG.atWarn().addKeyValue("event", "chat.guardrail.unavailable").addKeyValue("message_id", run.setup.assistantMessageId())
+                .addKeyValue("attempt", attempt).addKeyValue("error_type", failure.getClass().getName())
+                .log("Chat guardrail check unavailable");
+    }
+
     /** The check is part of the turn's cost, recorded against the model that ran it. */
-    private void recordCheck(Active run, ModelResolver.Resolved checker, ModelAccounting accounting) {
+    private void recordCheck(Active run, UUID modelConfigurationId, ModelResolver.Provenance provenance, String modelName,
+            ModelAccounting accounting) {
         try {
             persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT,
-                    checker.modelConfigurationId(), checker.provenance(), checker.binding().service().getName(), accounting));
+                    modelConfigurationId, provenance, modelName, accounting));
         } catch (RuntimeException failure) {
             LOG.atWarn().addKeyValue("event", "chat.guardrail.usage_not_recorded")
                     .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail usage not recorded");
