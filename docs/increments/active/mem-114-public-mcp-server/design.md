@@ -226,8 +226,9 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
   - Someone could start a flow from their own ChatGPT connector and trick a member into consenting. The same holds
     for any client shared by all users, Claude's metadata document included.
   - Revoking in *Cài đặt › MemoryOS MCP* ends such a grant.
-- **Where the secret is shown.** The API reads the same `MEMORYOS_MCP_CHATGPT_CLIENT_SECRET` as the realm script and
-  shows the client ID and secret only on the administration page, to a holder of `MCP_MANAGE`. A ChatGPT Business or
+- **Where the secret is shown.** The API reads the same value as the realm script, from the secret file Compose mounts
+  (`mcp_chatgpt_client_secret`), and shows the client ID and secret only on the administration page, to a holder of
+  `MCP_MANAGE`. As with every server secret, the file must exist before a release deploys. A ChatGPT Business or
   Enterprise administrator adds the app once for the workspace, so members never need the secret.
 
 **Lifetime.**

@@ -1160,6 +1160,36 @@ export type McpEndpointSettingsResponse = {
      * The URL people add to Claude or ChatGPT; present when configured
      */
     url: string | null;
+    chatGpt: McpEndpointChatGptClientResponse | null;
+};
+
+/**
+ * What a ChatGPT workspace administrator enters once to add MemoryOS
+ */
+export type McpEndpointChatGptClientResponse = {
+    clientId: string;
+    clientSecret: string;
+};
+
+export type McpEndpointConnectionResponse = {
+    /**
+     * Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint now
+     */
+    available: boolean;
+    /**
+     * The URL to add to Claude or ChatGPT; present while available
+     */
+    url: string | null;
+};
+
+export type McpClientGrantResponse = {
+    /**
+     * Keycloak's client ID; Claude's is the URL of its client metadata document
+     */
+    clientId: string;
+    client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+    name: string;
+    grantedAt: string;
 };
 
 export type InterpreterSettingsRequest = {
@@ -7665,6 +7695,114 @@ export type UpdateMcpEndpointSettingsResponses = {
 
 export type UpdateMcpEndpointSettingsResponse = UpdateMcpEndpointSettingsResponses[keyof UpdateMcpEndpointSettingsResponses];
 
+export type GetMcpEndpointConnectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint/connection';
+};
+
+export type GetMcpEndpointConnectionErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Search use or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+};
+
+export type GetMcpEndpointConnectionError = GetMcpEndpointConnectionErrors[keyof GetMcpEndpointConnectionErrors];
+
+export type GetMcpEndpointConnectionResponses = {
+    /**
+     * Whether the endpoint answers, and its URL
+     */
+    200: McpEndpointConnectionResponse;
+};
+
+export type GetMcpEndpointConnectionResponse = GetMcpEndpointConnectionResponses[keyof GetMcpEndpointConnectionResponses];
+
+export type RevokeMcpClientGrantData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The clientId of a listed grant
+         */
+        clientId: string;
+    };
+    url: '/api/mcp/grants';
+};
+
+export type RevokeMcpClientGrantErrors = {
+    /**
+     * Invalid client ID
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * The User has no grant to this client
+     */
+    404: ApiProblem;
+    /**
+     * Keycloak unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RevokeMcpClientGrantError = RevokeMcpClientGrantErrors[keyof RevokeMcpClientGrantErrors];
+
+export type RevokeMcpClientGrantResponses = {
+    /**
+     * Grant revoked
+     */
+    204: void;
+};
+
+export type RevokeMcpClientGrantResponse = RevokeMcpClientGrantResponses[keyof RevokeMcpClientGrantResponses];
+
+export type ListMcpClientGrantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/grants';
+};
+
+export type ListMcpClientGrantsErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Keycloak unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpClientGrantsError = ListMcpClientGrantsErrors[keyof ListMcpClientGrantsErrors];
+
+export type ListMcpClientGrantsResponses = {
+    /**
+     * Clients the User allowed, newest first
+     */
+    200: Array<McpClientGrantResponse>;
+};
+
+export type ListMcpClientGrantsResponse = ListMcpClientGrantsResponses[keyof ListMcpClientGrantsResponses];
+
 export type GetChatInterpreterSettingsData = {
     body?: never;
     path?: never;
@@ -13928,8 +14066,11 @@ export type GetSearchDocumentData = {
     path: {
         documentId: string;
     };
-    query: {
-        generation: string;
+    query?: {
+        /**
+         * The generation a search result named; without one, the current generation, as a link that carries only the document opens it
+         */
+        generation?: string;
         from?: number;
     };
     url: '/api/search/documents/{documentId}';

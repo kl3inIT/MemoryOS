@@ -11,6 +11,7 @@ browser origin, sign the member in through Keycloak and receive a token whose au
 | Keycloak 26.8 built with `cimd` | `infrastructure/keycloak/Dockerfile` | The realm advertises `client_id_metadata_document_supported`, so Claude identifies itself by its metadata document instead of registering a client per connection |
 | Realm reconciliation with `MEMORYOS_MCP_ENDPOINT_URL` | `infrastructure/keycloak/configure-memoryos-realm.sh` | Scope, audience, Claude policy, narrowed default scopes, 30-day grants (see below) |
 | Optional `MEMORYOS_MCP_CHATGPT_CLIENT_SECRET` | the same script | The confidential `memoryos-chatgpt` client |
+| Secret file `mcp_chatgpt_client_secret` | `infrastructure/deployment/compose.base.yaml`, mounted into the API | The same value, which *Quản trị › MemoryOS MCP* shows a ChatGPT workspace administrator |
 | Exact `location` for the three paths | `web/nginx.conf` | `/mcp`, `/.well-known/oauth-protected-resource/mcp` and `/mcp/oauth/client-metadata.json` reach the API; anything else under `/mcp` stays with the web app |
 
 What the realm reconciliation does with `MEMORYOS_MCP_ENDPOINT_URL`:
@@ -66,6 +67,14 @@ MEMORYOS_MCP_CHATGPT_CLIENT_SECRET # optional; creates memoryos-chatgpt. Needs M
 ```sh
 umask 077
 openssl rand -hex 32 > /apps/memoryos/secrets/keycloak/mcp-chatgpt-client-secret.txt
+```
+
+Every server needs this file, with or without an endpoint: Compose mounts it into the API as
+`mcp_chatgpt_client_secret`, and `deploy.sh` refuses a release whose secret files are missing. The API shows it only
+beside an endpoint URL. Pass the same value to the script, so Keycloak and the administration page agree:
+
+```sh
+MEMORYOS_MCP_CHATGPT_CLIENT_SECRET="$(cat /apps/memoryos/secrets/keycloak/mcp-chatgpt-client-secret.txt)"
 ```
 
 **Run the script.** The endpoint lines of its output are:

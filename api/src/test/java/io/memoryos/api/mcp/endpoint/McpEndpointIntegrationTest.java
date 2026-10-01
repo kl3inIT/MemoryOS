@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -20,6 +23,10 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.BrowserMutation;
+import io.memoryos.iam.McpClientGrant;
+import io.memoryos.iam.McpClientGrantException;
+import io.memoryos.iam.McpClientGrantFailureReason;
+import io.memoryos.iam.McpClientGrants;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchPage;
 import io.swagger.v3.core.util.Json;
@@ -27,6 +34,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -71,6 +79,8 @@ class McpEndpointIntegrationTest {
     @LocalServerPort private int port;
     @Autowired private JdbcClient jdbc;
     @MockitoBean private DocumentSearchService documents;
+    /** Keycloak's consents are the iam adapter's contract; here only what the API passes and returns is checked. */
+    @MockitoBean private McpClientGrants grants;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -95,6 +105,7 @@ class McpEndpointIntegrationTest {
         registry.add("memoryos.initial-tenant.display-name", () -> "Test");
         registry.add("memoryos.initial-tenant.change-reference", () -> "TEST-MCP-ENDPOINT");
         registry.add("memoryos.mcp.endpoint.url", () -> ENDPOINT);
+        registry.add("memoryos.mcp.endpoint.chatgpt-client-secret", () -> "chatgpt-test-secret");
         registry.add("memoryos.mcp.endpoint.caller-calls-per-minute", () -> CALLER_CALLS_PER_MINUTE);
     }
 
@@ -250,18 +261,18 @@ class McpEndpointIntegrationTest {
     void anAdministratorTurnsTheEndpointOnAndOffAndEachChangeIsAudited() throws Exception {
         jdbc.sql("DELETE FROM mcp_endpoint_setting").update();
         String owner = token(OWNER, API_AUDIENCE, "openid", "memoryos-web");
-        var settings = json(api(owner, "GET", null).body());
+        var settings = json(api(owner, "GET", "/api/mcp/endpoint", null).body());
         assertTrue(settings.path("configured").asBoolean());
         assertFalse(settings.path("enabled").asBoolean());
         assertEquals(ENDPOINT, settings.path("url").asText());
         assertEquals(0, settings.path("revision").asLong());
 
-        assertEquals(409, api(owner, "PUT", "{\"enabled\":true,\"revision\":7}").statusCode());
-        var on = json(api(owner, "PUT", "{\"enabled\":true,\"revision\":0}").body());
+        assertEquals(409, api(owner, "PUT", "/api/mcp/endpoint", "{\"enabled\":true,\"revision\":7}").statusCode());
+        var on = json(api(owner, "PUT", "/api/mcp/endpoint", "{\"enabled\":true,\"revision\":0}").body());
         assertTrue(on.path("enabled").asBoolean());
         assertEquals(200, post(endpointToken(), initialize(), null).statusCode());
 
-        api(owner, "PUT", "{\"enabled\":false,\"revision\":" + on.path("revision").asLong() + "}");
+        api(owner, "PUT", "/api/mcp/endpoint", "{\"enabled\":false,\"revision\":" + on.path("revision").asLong() + "}");
         assertEquals(404, post(endpointToken(), initialize(), null).statusCode());
         assertEquals(2L, jdbc.sql("SELECT count(*) FROM audit_event WHERE action = 'mcp_endpoint.change'")
                 .query(Long.class).single());
@@ -271,9 +282,51 @@ class McpEndpointIntegrationTest {
         assertEquals(401, HTTP.send(api, HttpResponse.BodyHandlers.ofString()).statusCode());
     }
 
-    private HttpResponse<String> api(String bearer, String method, @Nullable String body)
+    @Test
+    void onlyTheAdministratorIsGivenTheChatGptClientAndAMemberIsGivenTheUrlWhileItAnswers() throws Exception {
+        String owner = token(OWNER, API_AUDIENCE, "openid", "memoryos-web");
+        var chatGpt = json(api(owner, "GET", "/api/mcp/endpoint", null).body()).path("chatGpt");
+        assertEquals("memoryos-chatgpt", chatGpt.path("clientId").asText());
+        assertEquals("chatgpt-test-secret", chatGpt.path("clientSecret").asText());
+
+        var connection = json(api(owner, "GET", "/api/mcp/endpoint/connection", null).body());
+        assertTrue(connection.path("available").asBoolean());
+        assertEquals(ENDPOINT, connection.path("url").asText());
+        assertFalse(connection.toString().contains("chatgpt-test-secret"), connection.toString());
+
+        endpoint(false);
+        var off = json(api(owner, "GET", "/api/mcp/endpoint/connection", null).body());
+        assertFalse(off.path("available").asBoolean());
+        assertTrue(off.path("url").isNull(), off.toString());
+    }
+
+    @Test
+    void aMemberListsTheirGrantsAndRevokesOneByItsUrlClientId() throws Exception {
+        String claude = "https://claude.ai/oauth/mcp-oauth-client-metadata";
+        when(grants.list(any())).thenReturn(List.of(new McpClientGrant(claude, McpClientGrant.Client.CLAUDE, "Claude",
+                Instant.parse("2026-10-01T09:30:00Z"))));
+        String owner = token(OWNER, API_AUDIENCE, "openid", "memoryos-web");
+
+        var listed = json(api(owner, "GET", "/api/mcp/grants", null).body());
+        assertEquals(1, listed.size(), listed.toString());
+        assertEquals(claude, listed.get(0).path("clientId").asText());
+        assertEquals("CLAUDE", listed.get(0).path("client").asText());
+        assertEquals("2026-10-01T09:30:00Z", listed.get(0).path("grantedAt").asText());
+
+        String query = "/api/mcp/grants?clientId=" + URLEncoder.encode(claude, StandardCharsets.UTF_8);
+        assertEquals(204, api(owner, "DELETE", query, "").statusCode());
+        verify(grants).revoke(any(), eq(claude));
+
+        doThrow(new McpClientGrantException(McpClientGrantFailureReason.NOT_FOUND, "no such grant"))
+                .when(grants).revoke(any(), eq("memoryos-web"));
+        var unknown = api(owner, "DELETE", "/api/mcp/grants?clientId=memoryos-web", "");
+        assertEquals(404, unknown.statusCode());
+        assertEquals("MCP_CLIENT_GRANT_NOT_FOUND", json(unknown.body()).path("code").asText(), unknown.body());
+    }
+
+    private HttpResponse<String> api(String bearer, String method, String path, @Nullable String body)
             throws IOException, InterruptedException {
-        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/mcp/endpoint"))
+        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .timeout(Duration.ofSeconds(5)).header("Authorization", "Bearer " + bearer);
         if (body == null) {
             builder.GET();

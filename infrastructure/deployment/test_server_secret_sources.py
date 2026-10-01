@@ -22,6 +22,7 @@ MOUNTED = {
     "MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE": "chat_catalog_encryption_key",
     "MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE": "google_drive_credential_encryption_key",
     "MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE": "mcp_credential_encryption_key",
+    "MEMORYOS_MCP_CHATGPT_CLIENT_SECRET_FILE": "mcp_chatgpt_client_secret",
     "MEMORYOS_CHAT_API_KEY_FILE": "model_api_key",
     "MEMORYOS_EMBEDDING_API_KEY_FILE": "model_api_key",
 }

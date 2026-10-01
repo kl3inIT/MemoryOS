@@ -281,6 +281,8 @@ class OpenApiContractTest {
             "/api/mcp/connections/{serverId}/authorization",
             "/api/mcp/connections/{serverId}/connection",
             "/api/mcp/endpoint",
+            "/api/mcp/endpoint/connection",
+            "/api/mcp/grants",
             "/api/mcp/group-options",
             "/api/mcp/servers",
             "/api/mcp/servers/{serverId}",
