@@ -268,7 +268,9 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   - [x] The sign-in page's 26.8 strings in Vietnamese ("hoặc", the Tasco button without "Sign in with") and the
     language menu with its caret inside the control.
   - [ ] Staging: deploy, rerun the realm script, connect a personal ChatGPT plugin.
-  - [ ] Then remove `memoryos-chatgpt`, its secret file and the administration page's ChatGPT fields.
+  - [ ] Removing `memoryos-chatgpt`, its secret file and the administration page's ChatGPT fields moved to
+    [MEM-207](https://linear.app/memory-os/issue/MEM-207), with the administrator's list of trusted apps (metadata
+    document domains, and Dynamic Client Registration limited to named redirect hosts for Gemini).
 - [ ] **Staging.** Switch on, with a test member who reads only test Documents.
 - [ ] **Probes.** The curl probes in the design.
 - [ ] **Clients.** Claude web, Claude Code, ChatGPT web; revoke; switch off. Confirm that Claude, whose client comes

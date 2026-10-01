@@ -223,7 +223,8 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
 
 **ChatGPT client `memoryos-chatgpt`.** Built before ChatGPT's document could be read, for a ChatGPT that is given a
 client ID by hand. With the lenient executor ChatGPT uses its document instead, and nobody needs this client; it is
-removed once ChatGPT has connected through its document on staging.
+removed once ChatGPT has connected through its document on staging, in
+[MEM-207](https://linear.app/memory-os/issue/MEM-207).
 
 - Confidential: `client_secret_basic` or `_post`.
 - Redirects `https://chatgpt.com/connector_platform_oauth_redirect` and the per-connector
