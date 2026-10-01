@@ -140,6 +140,7 @@ Chat Web search is implemented locally for the external-provider vertical slice,
 
 | Increment | Outcome | Evidence |
 | --- | --- | --- |
+| [MEM-114 Public MCP endpoint](https://linear.app/memory-os/issue/MEM-114) | Claude and ChatGPT search and read a Tenant's knowledge through `/mcp` with the signed-in member's own access: two read-only tools (`search`, `fetch`) in `api`, Keycloak 26.8 with CIMD for Claude and a pre-registered ChatGPT client, a per-Tenant switch that is off by default and stays off in production until MEM-134. Designed 2026-10-01; implementation starting | [Design](increments/active/mem-114-public-mcp-server/design.md) · [Plan](increments/active/mem-114-public-mcp-server/plan.md) |
 | [MEM-134 External data gate](https://linear.app/memory-os/issue/MEM-134) | First slice designed: keep a confidential Source away from an external model, ask the person once per conversation before anything goes out, and record it. Design only; implementation has not started | [Design](increments/active/mem-134-external-data-gate/design.md) · [Plan](increments/active/mem-134-external-data-gate/plan.md) |
 | Observability dashboards | Production exported no telemetry since its first promotion (every switch named the `staging` profile); it now exports under `staging \| production` with `MEMORYOS_ENVIRONMENT` naming each environment. Service, Chat & AI and Traces dashboards, Chat turn and guardrail metrics, histogram buckets for the model, Chat and search timers, Tempo span metrics and two alerts. Open: updating both observability stacks after merge, and confirming production telemetry after its next promotion | [Design](increments/active/observability-dashboards/design.md) · [Plan](increments/active/observability-dashboards/plan.md) |
 | Chat limits belong to the person | The per-person library ceiling is deployment configuration (`MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES`) instead of a Tenant setting with exceptions; a person sees their storage at `/settings/storage` and sets their own retention window in Chat settings; a purged image or generated file keeps its card on the answer | [Design](increments/active/chat-limits-for-the-person/design.md) · [Plan](increments/active/chat-limits-for-the-person/plan.md) · [Spec](specs/chat.md) |
@@ -195,7 +196,7 @@ Planning snapshot of 2026-09-15 ([MEM-115](https://linear.app/memory-os/issue/ME
 | Kết nối nguồn dữ liệu mới | Planned | 2026-10 → 2026-11 | MEM-118 (one or two sources before SEP490); MEM-126 SharePoint |
 | Giọng nói và cuộc họp | Planned | 2026-10 → 2026-12 | MEM-91, MEM-92 |
 | Giao diện và trải nghiệm | Planned | 2026-10 → 2026-11 | MEM-23, MEM-26, MEM-39, MEM-78, MEM-106 |
-| Tích hợp hệ thống ngoài (MCP, API) | Candidate | Not scheduled before SEP490 | MEM-112, MEM-114, MEM-121 |
+| Tích hợp hệ thống ngoài (MCP, API) | In progress | 2026-10 | MEM-112 delivered; MEM-114 active from 2026-10-01; MEM-121 candidate |
 
 SEP490 milestones follow the stage order of the [R2 template](academic/sep490/README.md#giai-đoạn-tham-khảo-từ-mẫu-r2): R1/R2 v1.0/R3 v0.9 (2026-09-27, behind the template's week 3), R4 SDS v1.0 with test plan and R3 v1.0 (2026-10-11), three iteration packages (2026-10-25, 2026-11-08, 2026-11-22), verification and validation with R6 (2026-12-06), and R7 with the defense (2026-12-21).
 
@@ -232,7 +233,7 @@ Known blocking relations recorded in Linear:
 - MEM-91 speech-to-text blocks MEM-92 meeting task extraction.
 - MEM-110 interpreter blocks MEM-111 artifacts, MEM-120 skills and MEM-122 Craft; MEM-111 also blocks MEM-122.
 - MEM-98 usage recording carried MEM-123 quotas, which are delivered.
-- MEM-124 API keys and personal access tokens block MEM-114 public MCP server.
+- MEM-124 personal access tokens are related to, not blocking, MEM-114: the MCP endpoint is OAuth only (owner decision 2026-10-01), and a token for clients without OAuth arrives with MEM-124.
 
 Candidates are recorded so they can be prioritized, not as commitments. Promote one into a committed window only with an issue, an active increment and a confirmed owner.
 
