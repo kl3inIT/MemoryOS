@@ -9,7 +9,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { getChatWebAvailabilityOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
 import { menuRow } from "@/components/composites/menu-row";
-import type { WebSearchMode } from "./chat-web-preference";
+import { webUsableOn, type WebSearchMode } from "./chat-web-preference";
 
 type WebOptionsProps = {
   value: WebSearchMode;
@@ -30,13 +30,7 @@ function useWebSupport(sessionId?: string, modelId?: string) {
   // Provider-hosted search belongs to the model itself and needs no external search connection.
   const nativeSearch = !!(selectedModel && available.data?.nativeModelIds?.includes(selectedModel));
   const supported = (mode: WebSearchMode) =>
-    mode === "off" ||
-    nativeSearch ||
-    !!(
-      available.data?.searchAvailable &&
-      selectedModel &&
-      available.data.automaticModelIds?.includes(selectedModel)
-    );
+    mode === "off" || webUsableOn(available.data, selectedModel);
   return {
     available,
     nativeSearch,
