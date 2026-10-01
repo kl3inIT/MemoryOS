@@ -22,6 +22,7 @@ import { VoiceAdminPage } from "./voice-admin-page";
 
 const manager: ApplicationSession = {
   actorId: "5d0c6c57-4a3f-4d0e-9d62-0b7d0f8c1f11",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Fixture", role: "MEMBER" },

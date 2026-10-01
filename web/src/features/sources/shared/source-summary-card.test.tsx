@@ -14,6 +14,7 @@ import { SourceSummaryCard } from "./source-summary-card";
 
 const session: ApplicationSession = {
   actorId: "actor",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },

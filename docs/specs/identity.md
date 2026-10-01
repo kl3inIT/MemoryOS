@@ -38,6 +38,7 @@ The browser application treats a `401` from `GET /api/identity/me` as signed out
 ```json
 {
   "actorId": "<uuid>",
+  "displayName": "Nhữ Nhật",
   "uiLanguage": "en",
   "tenant": {
     "displayName": "Tasco",
@@ -48,6 +49,8 @@ The browser application treats a `401` from `GET /api/identity/me` as signed out
   "authorizationVersion": 7
 }
 ```
+
+`displayName` is the latest nullable person name observed at successful browser admission, not the Tenant display name. It carries the IdP `name` claim when available, otherwise the ordered nonblank `given_name` and `family_name` claims. The account menu uses it for the signed-in person and falls back to the Tenant name only for older or otherwise profile-less sessions.
 
 Capabilities come from current Group grants, not membership role. A Basic-only active member has global `SYSTEM_BASIC` and its five derived child tokens, with no scoped or administrative capabilities. Reserved future tokens describe permission vocabulary, not feature availability. A bound Actor without active membership receives `tenant: null`, empty global/scoped sets and revision `0`; ordinary browser admission still requires active Tenant authority. The projection suppresses forbidden UI but never authorizes a server operation. Every implemented protected API resolves durable authority for the operation. Sessions retain no capabilities, Group edges or revision.
 
@@ -73,7 +76,7 @@ Code-defined capabilities include SYSTEM_BASIC, SYSTEM_ADMIN, five assignable ad
 
 Every Tenant has protected Admin and Basic system Groups storing exactly SYSTEM_ADMIN and SYSTEM_BASIC. The owner belongs to both; invitation acceptance and trusted JIT add only a non-manager Basic edge. Ordinary Groups carry explicit administrative grants and a per-membership manager flag. Tenant-qualified keys prevent cross-Tenant associations. V43 seeds Basic and advances affected revisions; V44 renames system grants while preserving existing model grants. Published main V1–V42 are not rewritten.
 
-V45 revokes standalone GROUPS_READ without upgrading it to GROUPS_MANAGE. Group reads remain derived from Manage groups/Admin or scoped to managed groups. Basic and USERS_MANAGE do not gain global Group reads. Source selection uses its SOURCES_MANAGE-authorized identity projection; Users membership editing remains SYSTEM_ADMIN-only and Group-filter options require current read authority.
+V45 revokes standalone GROUPS_READ without upgrading it to GROUPS_MANAGE. Group reads remain global for Manage groups/Admin and scoped to managed groups; every active member may additionally read only Groups they directly belong to. Basic and USERS_MANAGE do not gain global Group reads. Source selection uses its SOURCES_MANAGE-authorized identity projection; Users membership editing remains SYSTEM_ADMIN-only and Group-filter options require current read authority.
 
 AGENTS_CREATE authorizes creating a custom agent. Using one is resource policy, not a capability: the builtin agent, its owner or a member of its owner Group, a public agent, a direct share or a share to one of the actor's Groups. Editing takes ownership, an EDITOR share or a public EDITOR agent; a Group manager edits a private agent whose share Groups they all manage. AGENTS_MANAGE edits any agent and alone controls listing, featuring, display priority, undelete, label administration and public prompt shortcuts. An agent with no owner Group whose owner Actor has no active membership is vacant, and only AGENTS_MANAGE transfers it; revoking membership never deletes an agent. Share Groups must be ordinary Groups ([MEM-119](../increments/completed/mem-119-custom-agents/design.md)).
 
@@ -81,7 +84,7 @@ V46 makes Manage Sources the only Source switch, covering global read/create/con
 
 The capability registry supplies labels, descriptions, editability and implications for every enum value, including noneditable derived capabilities. Reserved future permissions are described as such rather than advertised as implemented features. Admin implication metadata includes all other capabilities, excluding itself. Group detail uses an Onyx-style collapsible permission card. System Admin displays exactly one disabled Administrator access (SYSTEM_ADMIN) switch; Basic displays exactly one disabled Basic access (SYSTEM_BASIC) switch. Checked state reflects the persisted explicit grant, not implications or the Group name. No other administrative, Source or derived rows appear for system Groups; ordinary Groups expose editable grants only. Browser labels/descriptions use account-language copy keyed by stable capability IDs; user-provided Group names are not translated and system behavior is keyed by `systemKey`.
 
-The Groups list keeps protected defaults before ordinary Groups, separated visually, with truthful member counts and detail navigation. Its Onyx-aligned layout uses a centered 840px column, scoped light/dark surfaces, an information banner, debounced server search and compact cards. Pagination remains server-driven when needed. Creation appears only with the corresponding authority and inline rename only with the Group's `manage` permission; rename retains the same-origin request guard. No connector, document-set or agent counts are invented from missing API data.
+The Groups list keeps protected defaults before ordinary Groups, separated visually, with truthful member counts and detail navigation. Active members see only their direct memberships unless they have global Group read or manage a Group; member-only detail is read-only but includes its member list and ordinary-Group Source summaries. Its Onyx-aligned layout uses a centered 840px column, scoped light/dark surfaces, an information banner, debounced server search and compact cards. Pagination remains server-driven when needed. Creation appears only with the corresponding authority and inline rename only with the Group's `manage` permission; rename retains the same-origin request guard. No connector, document-set or agent counts are invented from missing API data.
 
 System detail follows Onyx's Edit Group layout: users icon/header, Cancel and settings Save Changes, blue System group notice, readonly Group Name and compact Name/Account Type member table with search, authorized Add/removal and bounded pagination. System Groups do not mount Source-sharing controls or issue their queries. Every mutable Group-detail control is browser-local until the page-level Save Changes action: membership additions/removals, manager status, ordinary-Group name/direct grants, and Source associations commit only from that action. Cancel discards every draft. Existing owner/final-admin protection and ordinary-Group manager operations remain enforced.
 
@@ -98,7 +101,7 @@ The member section has mutually exclusive browse/add modes, one shared search to
 | Operation | Required authority |
 | --- | --- |
 | Users, invitations, member activation/deactivation | Global `USERS_MANAGE`; protected owner/final-active-`STANDARD`-admin guards still apply |
-| Group list/detail/member reads | Global `GROUPS_READ` or own managed ordinary Group |
+| Group list/detail/member reads | Global `GROUPS_READ`, own managed ordinary Group, or own direct Group membership |
 | Create/rename/delete ordinary Groups | Global `GROUPS_MANAGE`; system Groups remain protected |
 | Add/remove ordinary Group members | Global `GROUPS_MANAGE` or own managed Group, subject to delegation and protected-membership checks |
 | Assign/remove an ordinary Group's manager flag | Global `GROUPS_MANAGE` or own managed Group; a scoped manager cannot remove their own manager flag |
@@ -108,6 +111,8 @@ The member section has mutually exclusive browse/add modes, one shared search to
 | Search and document passage reads | Global `SEARCH_READ`, followed by existing Source/document eligibility checks; this does not grant Source administration or universal document access |
 
 A scoped manager may delegate and revoke manager status and remove another manager's membership in a Group they manage, but cannot remove their own manager flag or their own membership. Group commands revalidate delegation under the authority lock. Protected Groups cannot be deleted or renamed, the configured owner cannot lose protected authority, and the final active `STANDARD` administrator cannot be removed or deactivated.
+
+An active direct Group member receives no global or scoped administrative capability. They may view only their own Group summaries and members, plus source summaries associated with an ordinary Group they belong to; they cannot open the Source catalogue/detail, inspect items or history, or mutate a Group or Source association.
 
 Permission mutations serialize on the Tenant row using an exclusive lock and advance `authorization_version` in the same transaction. Protected resource writes take the corresponding shared lock, then reauthorize scope before committing. Provider IO occurs outside the lock and is followed by reauthorization. JPA lifecycle writes and concrete JDBC projections/locks share one transaction manager and DataSource; Flyway owns DDL, Hibernate validates, open-in-view and ORM caches are disabled.
 

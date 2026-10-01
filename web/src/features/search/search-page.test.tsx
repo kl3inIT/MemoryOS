@@ -59,6 +59,7 @@ vi.mock("@/features/voice/voice-dictation", async (importOriginal) => ({
 
 const OWNER_SESSION: ApplicationSession = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: {
@@ -645,7 +646,7 @@ describe("SearchPage", () => {
     expect(screen.queryByRole("region", { name: "Recent searches" })).not.toBeInTheDocument();
   });
 
-  it("removes owner administration affordances for a member", async () => {
+  it("keeps the Groups administration affordance for a member", async () => {
     await renderNewSession({
       ...OWNER_SESSION,
       tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
@@ -661,7 +662,10 @@ describe("SearchPage", () => {
     });
 
     expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
+      "href",
+      "/admin/groups",
+    );
   });
 
   it("denies Search without global SEARCH_READ and sends no Search or reader requests", async () => {

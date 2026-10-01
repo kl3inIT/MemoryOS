@@ -22,6 +22,7 @@ import { AdminChatSettings } from "./admin-chat-settings";
 
 const SESSION: ApplicationSession = {
   actorId: "0f2f5e6e-4e6c-4d55-9c07-6b0b1d4b39a4",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Tasco", role: "OWNER" },

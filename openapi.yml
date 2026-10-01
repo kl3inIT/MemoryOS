@@ -26649,6 +26649,11 @@ components:
           type: string
           format: uuid
           description: Stable internal MemoryOS actor identifier.
+        displayName:
+          description: Latest display name observed from the authenticated actor's identity provider.
+          type:
+          - string
+          - "null"
         tenant:
           description: "Active Tenant context, or null when the actor has no active\
             \ Tenant membership."
@@ -26722,6 +26727,7 @@ components:
       - actorId
       - authorizationVersion
       - capabilities
+      - displayName
       - scopedCapabilities
       - tenant
       - uiLanguage

@@ -5,6 +5,7 @@ import io.memoryos.api.identity.contract.LanguagePreference;
 import io.memoryos.api.identity.contract.PrincipalOptionsResponse;
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.iam.ActorLanguageService;
+import io.memoryos.iam.ActorProfileReader;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IdentityContext;
@@ -47,17 +48,20 @@ class IdentityController {
     private final TenantAccessResolver tenantAccessResolver;
     private final IamAuthorization authorization;
     private final ActorLanguageService languages;
+    private final ActorProfileReader profiles;
     private final PrincipalSearch principals;
 
     IdentityController(
             TenantAccessResolver tenantAccessResolver,
             IamAuthorization authorization,
             ActorLanguageService languages,
+            ActorProfileReader profiles,
             PrincipalSearch principals
     ) {
         this.tenantAccessResolver = tenantAccessResolver;
         this.authorization = authorization;
         this.languages = languages;
+        this.profiles = profiles;
         this.principals = principals;
     }
 
@@ -89,10 +93,12 @@ class IdentityController {
     CurrentIdentityResponse currentIdentity(
             @CurrentActor IdentityContext identityContext
     ) {
+        var profile = profiles.read(identityContext.actorId());
         TenantMembership membership = tenantAccessResolver.findActiveMembership(identityContext.actorId()).orElse(null);
         if (membership == null) {
             return CurrentIdentityResponse.from(
                     identityContext.actorId().value(),
+                    profile.displayName(),
                     null,
                     Set.of(),
                     Set.of(),
@@ -104,6 +110,7 @@ class IdentityController {
         Set<IamCapability> scopedCapabilities = authorization.scopedCapabilities(identityContext.actorId());
         return CurrentIdentityResponse.from(
                 identityContext.actorId().value(),
+                profile.displayName(),
                 membership,
                 capabilities,
                 scopedCapabilities,

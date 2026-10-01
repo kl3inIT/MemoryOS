@@ -13,6 +13,7 @@ import io.memoryos.iam.GroupId;
 import io.memoryos.iam.IamAccess;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;
@@ -57,6 +58,7 @@ class DefaultGroupServiceAuthorizationTest {
         GroupAdministrationGuard administrationGuard = mock(GroupAdministrationGuard.class);
         var service = new DefaultGroupService(
                 authorization,
+                mock(TenantAccessResolver.class),
                 groups,
                 memberships,
                 grants,
@@ -90,6 +92,7 @@ class DefaultGroupServiceAuthorizationTest {
     void publicGrantMutationRejectsSystemBundlesAndAllDerivedCapabilities() {
         var service = new DefaultGroupService(
                 mock(IamAuthorization.class),
+                mock(TenantAccessResolver.class),
                 mock(GroupRepository.class),
                 mock(GroupMembershipRepository.class),
                 mock(GroupCapabilityGrantRepository.class),
@@ -115,6 +118,7 @@ class DefaultGroupServiceAuthorizationTest {
     void capabilityRegistryDescribesEveryCapabilityOnceWithOnlyOrdinaryGrantsEditable() {
         var service = new DefaultGroupService(
                 mock(IamAuthorization.class),
+                mock(TenantAccessResolver.class),
                 mock(GroupRepository.class),
                 mock(GroupMembershipRepository.class),
                 mock(GroupCapabilityGrantRepository.class),

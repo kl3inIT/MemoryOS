@@ -52,6 +52,7 @@ const candidate: GroupMember = {
 };
 const session: ApplicationSession = {
   actorId: "owner",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },
