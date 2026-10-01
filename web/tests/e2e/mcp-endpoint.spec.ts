@@ -94,6 +94,8 @@ for (const theme of ["light", "dark"] as const) {
 
       await page.getByRole("tab", { name: "ChatGPT" }).click();
       await expect(page.getByText("Trong ChatGPT, mở Settings › Apps")).toBeVisible();
+      // The selected tab's pill fades in; a capture taken at once shows it half drawn.
+      await page.waitForTimeout(400);
       await page.screenshot({
         path: `${OUTPUT}/settings-chatgpt-${theme}-${width}.png`,
         fullPage: true,

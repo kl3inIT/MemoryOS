@@ -33,7 +33,8 @@ export const vietnameseUi: Record<string, string> = {
   "Ứng dụng đã cấp quyền": "Authorized apps",
   "Không tải được ứng dụng đã cấp quyền.": "Could not load the authorized apps.",
   "Chưa có ứng dụng nào được cấp quyền.": "No apps are authorized yet.",
-  "Đọc tri thức · Cấp ngày {{date}}": "Reads knowledge · Authorized {{date}}",
+  "Đọc tri thức": "Reads knowledge",
+  "Cấp ngày {{date}}": "Authorized {{date}}",
   "Thu hồi": "Revoke",
   "Thu hồi quyền của {{name}}?": "Revoke access for {{name}}?",
   "{{name}} sẽ không đọc được tài liệu của bạn nữa.":

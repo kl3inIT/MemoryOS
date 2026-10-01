@@ -149,9 +149,20 @@ function GrantsSection() {
               key={grant.clientId}
               icon={<GrantMark client={grant.client} />}
               title={grant.name}
-              description={ui("Đọc tri thức · Cấp ngày {{date}}", {
-                date: formatUiDate(grant.grantedAt, { dateStyle: "medium" }),
-              })}
+              description={
+                // One line with a separator where it fits; on a phone, two lines and no dangling separator.
+                <>
+                  <span className="block sm:inline">{ui("Đọc tri thức")}</span>
+                  <span aria-hidden="true" className="hidden sm:inline">
+                    {" · "}
+                  </span>
+                  <span className="block whitespace-nowrap sm:inline">
+                    {ui("Cấp ngày {{date}}", {
+                      date: formatUiDate(grant.grantedAt, { dateStyle: "medium" }),
+                    })}
+                  </span>
+                </>
+              }
               control={
                 <ConfirmDialog
                   trigger={<Button prominence="secondary">{ui("Thu hồi")}</Button>}

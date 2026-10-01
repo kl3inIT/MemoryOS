@@ -231,15 +231,17 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
 
 **3b: web.**
 
-- [ ] **`/admin/mcp-endpoint`.** *MemoryOS MCP* page next to *Máy chủ MCP*: switch, URL, ChatGPT client ID and
+- [x] **`/admin/mcp-endpoint`.** *MemoryOS MCP* page next to *Máy chủ MCP*: switch, URL, ChatGPT client ID and
   masked secret.
-- [ ] **`/settings/mcp`.** *MemoryOS MCP* settings item next to *Connections*: URL, Claude and ChatGPT tabs,
+- [x] **`/settings/mcp`.** *MemoryOS MCP* settings item next to *Connections*: URL, Claude and ChatGPT tabs,
   authorized apps with Thu hồi. A status line replaces the URL and tabs while the endpoint is off.
-- [ ] **Document link.** The Search page accepts `?doc=<id>` and opens that document's dialog.
-- [ ] **Audit label.** `mcp_endpoint.change` in the audit page's action list, in both languages.
+- [x] **Document link.** The Search page accepts `?doc=<id>` and opens that document's dialog.
+- [x] **Audit label.** `mcp_endpoint.change` in the audit page's action list, in both languages.
 - [x] **Keycloak consent page.** Delivered in pull request 1.
-- [ ] **Copy.** Vietnamese and English for every string; no explanatory copy under controls.
-- [ ] **Checks.** `pnpm --dir web check`; screenshots with realistic data, reviewed and fixed.
+- [x] **Copy.** Vietnamese and English for every string; no explanatory copy under controls.
+- [x] **Checks.** `pnpm --dir web check` on CI; sixteen captures (both pages, both themes, 1280 and 390 px) from
+  `tests/e2e/mcp-endpoint.spec.ts` with a Tenant's realistic values, reviewed. Fixed from the review: the grant date no
+  longer breaks mid-date on a phone, and a capture waits for the selected tab to finish drawing.
 
 ## 5. Acceptance and documentation (pull request 4)
 
