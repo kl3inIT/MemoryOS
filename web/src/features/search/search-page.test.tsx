@@ -20,6 +20,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HttpResponse } from "msw";
 import {
   handleGetChatVoiceAvailability,
+  handleGetSearchDocument,
   handleListChatPersonaPins,
   handleListChatProjects,
   handleListChatSessions,
@@ -167,6 +168,60 @@ describe("SearchPage", () => {
     await waitFor(() =>
       expect(renderedRouter?.state.location.href).toBe("/search?q=budget&source=FILE&time=30d"),
     );
+  });
+
+  it("opens the document a doc link names at its current generation and leaves the link on close", async () => {
+    const user = userEvent.setup();
+    const documentId = "3f2b8c1e-7a4d-4e9b-9c11-5d6e7f8a9b0c";
+    const asked: URL[] = [];
+    server.use(
+      handleGetSearchDocument(({ request }) => {
+        asked.push(new URL(request.url));
+        return HttpResponse.json({
+          documentId,
+          generation: "8a1c2e3f-4b5d-4c6e-8f70-112233445566",
+          title: "Quy chế nghỉ phép 2026",
+          passages: [
+            { ordinal: 0, content: "Nhân viên mới có 12 ngày phép năm.", provenanceJson: "{}" },
+          ],
+          firstOrdinal: 0,
+          totalChunks: 1,
+          hasMore: false,
+        });
+      }),
+    );
+    await renderNewSession(OWNER_SESSION, `/search?doc=${documentId}`);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Nhân viên mới có 12 ngày phép năm.")).toBeVisible();
+    expect(within(dialog).getAllByText("Quy chế nghỉ phép 2026")[0]).toBeVisible();
+    expect(asked[0]?.pathname).toBe(`/api/search/documents/${documentId}`);
+    expect(asked[0]?.searchParams.has("generation")).toBe(false);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(renderedRouter?.state.location.href).toBe("/search"));
+  });
+
+  it("says so when a doc link names a document the reader cannot read", async () => {
+    server.use(
+      handleGetSearchDocument(() =>
+        HttpResponse.json(
+          {
+            type: "about:blank",
+            title: "Not Found",
+            status: 404,
+            code: "SEARCH_DOCUMENT_UNAVAILABLE",
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    await renderNewSession(OWNER_SESSION, "/search?doc=3f2b8c1e-7a4d-4e9b-9c11-5d6e7f8a9b0c");
+
+    expect(
+      await screen.findByText("This document is not among the documents you can read."),
+    ).toBeVisible();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("renders Search inside the authenticated application shell", async () => {

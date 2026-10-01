@@ -447,7 +447,9 @@ null when the deployment has no secret. A member read returns only whether the e
 
 **Keycloak consent page.** Under the `memoryos` theme, in Vietnamese and English.
 
-**Document link.** `/search?doc=<id>` opens the document dialog.
+**Document link.** `/search?doc=<id>` opens the document dialog on the document's text, read at its current
+generation. The viewer of the stored original needs the media type, which the document read does not return, so a
+linked document does not open on its original file.
 
 ## Scope
 

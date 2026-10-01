@@ -3,6 +3,7 @@ import { Link, useMatch, useMatchRoute, type LinkProps } from "@tanstack/react-r
 import {
   ArrowLeft,
   Blocks,
+  Cable,
   ChartColumn,
   HardDrive,
   Menu,
@@ -57,7 +58,7 @@ import { MeetingsTab } from "@/features/meetings/meetings-tab";
 
 type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */
-type SettingsPage = "general" | "chat" | "storage" | "connections" | "usage";
+type SettingsPage = "general" | "chat" | "storage" | "connections" | "mcp" | "usage";
 
 type SettingsEntry = { id: SettingsPage; to: LinkProps["to"]; label: AppText; icon: LucideIcon };
 
@@ -73,6 +74,7 @@ const settingsPages: readonly SettingsEntry[] = [
   { id: "chat", to: "/settings/chat", label: appText("Chat"), icon: MessageSquare },
   { id: "storage", to: "/settings/storage", label: appText("Bộ nhớ lưu trữ"), icon: HardDrive },
   { id: "connections", to: "/settings/connections", label: appText("Connections"), icon: Blocks },
+  { id: "mcp", to: "/settings/mcp", label: appText("MemoryOS MCP"), icon: Cable },
   { id: "usage", to: "/settings/usage", label: appText("Usage"), icon: ChartColumn },
 ];
 
