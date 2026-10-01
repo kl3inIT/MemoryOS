@@ -56,14 +56,21 @@ final class OpenAiRequestPolicy {
         if (helper) return converted;
         var configured = settings.options();
         var builder = options.mutate();
-        if (sampling.temperature() != null && !settings.capabilities().reasoning()
-                && !configured.containsKey("temperature")
-                && !Boolean.TRUE.equals(configured.get("maxCompletionTokens")))
-            builder.temperature(sampling.temperature());
+        if (sampling.temperature() != null && takesTemperature(settings)) builder.temperature(sampling.temperature());
         if (sampling.reasoningEffort() != null && settings.capabilities().reasoning()
                 && (sampling.pinnedReasoning() || !configured.containsKey("reasoningEffort")))
             builder.reasoningEffort(sampling.reasoningEffort().providerValue());
         return builder.build();
+    }
+
+    /**
+     * Whether a call may set this model's sampling temperature: not a reasoning model, not one on the GPT-5 options
+     * family (both reject it), and not one whose configuration pins a temperature the administrator chose.
+     */
+    static boolean takesTemperature(ModelSettings settings) {
+        var configured = settings.options();
+        return !settings.capabilities().reasoning() && !configured.containsKey("temperature")
+                && !Boolean.TRUE.equals(configured.get("maxCompletionTokens"));
     }
 
     static Prompt withoutTools(Prompt prompt) {
