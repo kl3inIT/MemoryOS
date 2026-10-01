@@ -283,13 +283,23 @@ public final class ChatPrompts {
         return forInference(original, hasEvidence, lastCycle, siteFilter, taskPrompt, false);
     }
 
-    /** The agent task prompt leads the final reminder of every inference (Onyx {@code llm_loop.py} reminder). */
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt,
                                       boolean grounded) {
+        return forInference(original, hasEvidence, lastCycle, siteFilter, taskPrompt, grounded, "");
+    }
+
+    /**
+     * The agent task prompt leads the final reminder of every inference (Onyx {@code llm_loop.py} reminder).
+     *
+     * @param topicRules the blocked topics the answer model applies itself, when the guardrail check gave no verdict
+     */
+    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt,
+                                      boolean grounded, String topicRules) {
         boolean task = taskPrompt != null && !taskPrompt.isBlank();
         var tools = lastCycle ? Set.<String>of() : availableTools(original);
         String guidance = toolGuidance(tools, siteFilter);
         if (grounded) guidance = guidance.isEmpty() ? GROUNDED_GUIDANCE : guidance + "\n" + GROUNDED_GUIDANCE;
+        if (!topicRules.isEmpty()) guidance = guidance.isEmpty() ? topicRules : guidance + "\n" + topicRules;
         boolean openPages = !lastCycle && tools.contains("open_url") && justSearchedWeb(original);
         if (!hasEvidence && !lastCycle && !openPages && !task && guidance.isEmpty()) return original;
         var messages = new ArrayList<>(original.getInstructions());

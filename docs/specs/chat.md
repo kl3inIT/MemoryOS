@@ -374,11 +374,10 @@ The API connects to Redis through `spring.data.redis` (`MEMORYOS_REDIS_*`, TLS t
 
 Configuration: MEMORYOS_CHAT_API_KEY (fallback SPRING_AI_OPENAI_API_KEY) and optional MEMORYOS_CHAT_BASE_URL supply server-side provider access. Missing credentials reject a new send before reservation while history/cancel and other capabilities remain available. The OpenAI adapter takes an explicit options family; it does not require a GPT-5 model name. gpt-5-mini remains the live baseline, not certification of every compatible or local model. Execution defaults are concurrency 8, no total deadline, six cycles (Onyx `MAX_LLM_CYCLES`), a 1024-token answer reserve (`max-output-tokens`, Onyx `GEN_AI_NUM_RESERVED_OUTPUT_TOKENS`), no deployment context cap (input follows the model window with a 5% margin; see [model binding](chat-models.md)) and 1000000 answer characters. As Onyx `llm_loop` passes no `max_tokens`, the answer request is bounded only by the selected model's catalog `maxOutputTokens`; `max-output-tokens` only reserves room for the answer when the input budget is computed, because reasoning tokens count toward the request limit and a small cap cut long tool calls off. An OpenAI Responses stream that ends `response.incomplete` ends the turn like Onyx (LiteLLM finish reason `length` for `max_output_tokens`): the streamed text is kept, a cut-off function call is not run, and the reason is logged; `response.failed` and error events still fail with `CHAT_INCOMPLETE_RESPONSE`. Token and cost budgets are unset by default, meaning no cap; setting `memoryos.chat.execution.token-budget` or `cost-budget-usd` applies it through native Budget, and a monetary cap requires configured input/output pricing. Basic pricing does not certify cached-token billing parity. Provider transport has automatic retries disabled.
 
-A nonblank provider finish reason, including length, ends an answer normally when text exists; empty answers fail with CHAT_EMPTY_RESPONSE. EOF without terminal metadata fails and keeps partial text. Incomplete tool arguments at a length boundary must not execute. Safe failure codes and exception class names provide diagnostics; prompt/provider exception payloads are never logged. A turn stops with a typed `TurnFailureException` carrying a `TurnFailure` (`io.memoryos.ai`), never a code in an exception message: the stored answer keeps the first reported failure in the cause chain (`CHAT_OUTPUT_LIMIT`, `CHAT_CYCLE_LIMIT`, `CHAT_BUDGET_EXCEEDED`, `CHAT_MODEL_UNAVAILABLE`, `CHAT_INCOMPLETE_RESPONSE`, `CHAT_LAST_CYCLE_TOOL_CALL`, `CHAT_UNSUPPORTED_OPTIONS`, `CHAT_EMPTY_RESPONSE`, `CHAT_CONTEXT_LIMIT`, `CHAT_MODEL_OUTPUT_LIMIT`, `CHAT_PROVIDER_CREDENTIAL_REJECTED`, `CHAT_GUARDRAIL_UNAVAILABLE`); `CHAT_DEADLINE`, a streamed provider error and every other failure are stored as `CHAT_EXECUTION_FAILED`. `CHAT_PROVIDER_CREDENTIAL_REJECTED` means the provider refused the model's credential (HTTP 401 or 403) in any call of the turn, the guardrail check included. Which failures mean that is the provider adapter's rule, carried by `ModelBinding.credentialRejected` (the OpenAI adapter reads the SDK's status code through the cause chain), so the turn never parses a provider message. Send returns stable message IDs, and history carries the authoritative status used for reload.
+A nonblank provider finish reason, including length, ends an answer normally when text exists; empty answers fail with CHAT_EMPTY_RESPONSE. EOF without terminal metadata fails and keeps partial text. Incomplete tool arguments at a length boundary must not execute. Safe failure codes and exception class names provide diagnostics; prompt/provider exception payloads are never logged. A turn stops with a typed `TurnFailureException` carrying a `TurnFailure` (`io.memoryos.ai`), never a code in an exception message: the stored answer keeps the first reported failure in the cause chain (`CHAT_OUTPUT_LIMIT`, `CHAT_CYCLE_LIMIT`, `CHAT_BUDGET_EXCEEDED`, `CHAT_MODEL_UNAVAILABLE`, `CHAT_INCOMPLETE_RESPONSE`, `CHAT_LAST_CYCLE_TOOL_CALL`, `CHAT_UNSUPPORTED_OPTIONS`, `CHAT_EMPTY_RESPONSE`, `CHAT_CONTEXT_LIMIT`, `CHAT_MODEL_OUTPUT_LIMIT`, `CHAT_PROVIDER_CREDENTIAL_REJECTED`); `CHAT_DEADLINE`, a streamed provider error and every other failure are stored as `CHAT_EXECUTION_FAILED`. `CHAT_PROVIDER_CREDENTIAL_REJECTED` means the provider refused the model's credential (HTTP 401 or 403) in a call the turn cannot do without; the guardrail check is not one ([below](#grounded-chat--phase-31)). Which failures mean that is the provider adapter's rule, carried by `ModelBinding.credentialRejected` (the OpenAI adapter reads the SDK's status code through the cause chain), so the turn never parses a provider message. Send returns stable message IDs, and history carries the authoritative status used for reload.
 
 A failed answer carries its error inside the message, below what it kept, in the assistant-ui Error state element (`ErrorState`, the registry's quiet red banner in the status danger tokens) with a title and a detail, as Onyx's `ErrorBanner` does. The server status drives it rather than `MessagePrimitive.Error`, which reads the runtime's error status and so shows nothing for a failed answer reloaded from history:
 - `CHAT_PROVIDER_CREDENTIAL_REJECTED`: a model manager (`MODELS_MANAGE`) reads that the provider rejected the model's API key, with a link to `/admin/models`; everyone else reads that the model is unavailable and to choose another or tell an administrator.
-- `CHAT_GUARDRAIL_UNAVAILABLE`: everyone reads that the question could not be checked; a model manager gets a link to choose the question check's task model, anyone else is told to try again later or tell an administrator.
 - The output and context limits keep their own sentences.
 - Any other failure says the answer was interrupted and its content kept when text was kept, and that no answer could be generated otherwise.
 
@@ -429,15 +428,28 @@ grounded turn always offers `search_knowledge`, whatever the agent's search tool
 **Check 1.** Before the answer model, in the turn's background execution, `ChatGuardrailCheck`:
 1. matches the Tenant's blocked phrases in code;
 2. sends greetings and thanks to the answer model without a classifier call;
-3. otherwise asks one structured classifier call on the Tenant's `CHAT_GUARDRAIL` task model, or the conversation
+3. otherwise asks one classifier call on the Tenant's `CHAT_GUARDRAIL` task model, or the conversation
    model when that task has no usable model ([task models](chat-models.md); V135 seeds it with the Chat model)
    (`ModelCalls`, so it keeps the turn's budget,
    deadline and usage recording) whether the question is `CONVERSATIONAL`, a `QUESTION` or a `BLOCKED_TOPIC`, with
-   each enabled topic's description and examples.
+   each enabled topic's description and examples. The model answers with one label (`QUESTION`, `CONVERSATIONAL`,
+   `BLOCKED_TOPIC:<key>`) and up to 1,024 output tokens, not a JSON object: `GroundingClassifier.verdict` reads the
+   last kind the reply names from whatever surrounds it (markdown, a JSON object, a sentence), and a reply that names
+   no verdict is not guessed.
 
-Check 1 runs for grounded turns and, when a topic or phrase is enabled, for every turn. A failed check fails the turn
-closed: with `CHAT_PROVIDER_CREDENTIAL_REJECTED` when the check's model's provider refused the credential, otherwise
-with `CHAT_GUARDRAIL_UNAVAILABLE`, for instance when the model returned the verdict in the wrong shape. A blocked question is completed with the Tenant's message and
+Check 1 runs for grounded turns and, when a topic or phrase is enabled, for every turn. A guardrail is never a
+technical error for the person (2026-10-01; on staging about one checked turn in five had failed because the model
+did not return the structured verdict). A check that fails on the task model, whether an unreadable reply, a provider
+error or a refused credential, is asked again on the conversation model. When neither returns a verdict, the turn is
+answered and the person is not told about the check: the answer model carries the enabled topics itself, as a system
+instruction on every inference (`ChatGuardrailCheck.rulesForTheAnswerModel`, `ChatTurnOptions.topicRules`), each with
+its description and the Tenant's reply, so it declines a blocked topic with that reply and answers anything else, as
+assistants that keep their rules in the system prompt do. A turn the check classified carries no such instruction.
+With no topic enabled there is nothing to add. In this rare case blocking depends on the answer model following its
+instruction, and a reply it declines that way stores no `refusalReason` and no audit record; blocked phrases, matched
+in code on the question and on the answer, are unaffected.
+
+Only a reported turn failure inside the check, such as a spent budget, still ends the turn with its own code. A blocked question is completed with the Tenant's message and
 `refusalReason = blocked_topic`, never reaches the answer model, and records `chat_guardrail.block` with the rule
 kind, topic and session. A conversational message in grounded mode is answered as an ungrounded turn.
 
@@ -471,7 +483,7 @@ holds released text.
 
 The phrase list itself stays out of the audit stream.
 
-**History and browser.** History returns `refusalReason` on completed replies. The `/admin/chat` page (Onyx Chat
+**History and browser.** History returns `refusalReason` on completed replies; the stream does not carry it, so the label under a declined reply (restricted topic, not in the documents) appears when the stored message is read, while the reply's own text streams as usual. The `/admin/chat` page (Onyx Chat
 Preferences) holds Deep research, conversation-history visibility, answers from documents and the sensitive topics.
 The agent editor has the grounded switch. In a grounded conversation the composer hides Deep research and disallowed
 Web search. A declined reply shows why.

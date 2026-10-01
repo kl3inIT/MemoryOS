@@ -226,6 +226,7 @@ public final class ChatModelExecutor {
         // Onyx bounds tool work only by MAX_LLM_CYCLES: search helpers have no count of their own.
         guard.synchronousLimit(ChatModelGuard.UNBOUNDED_HELPERS);
         guard.taskPrompt(setup.options().taskPrompt());
+        guard.topicRules(setup.options().topicRules());
         if (setup.options().grounded()) {
             // MEM-195: the first inference may only call search_knowledge, so the answer starts from the documents.
             guard.grounded(true);
