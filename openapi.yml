@@ -6773,7 +6773,7 @@ paths:
     post:
       tags:
       - Sources
-      summary: Update Source access; SYNC requires a Google Drive source
+      summary: Update Source access; SYNC needs provider permissions
       operationId: updateSourceAccess
       parameters:
       - name: X-MemoryOS-CSRF
@@ -23222,7 +23222,7 @@ components:
           type:
           - string
           - "null"
-          description: PUBLIC or PRIVATE; SYNC requires a Google Drive source.
+          description: PUBLIC or PRIVATE; a file Source cannot use SYNC.
           enum:
           - PUBLIC
           - PRIVATE

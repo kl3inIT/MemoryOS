@@ -395,6 +395,17 @@ class PostgresSourceLifecycleTest {
             assertEquals(mode.name(), jdbcClient.sql("SELECT access_type FROM connector_credential_pairs WHERE id=:source")
                     .param("source", shared.id().value()).query(String.class).single());
         }
+
+        // A provider without synchronized permissions changes like an upload: PUBLIC or PRIVATE, never SYNC.
+        jdbcClient.sql("""
+                UPDATE connectors SET connector_type='SHAREPOINT'
+                WHERE id=(SELECT connector_id FROM connector_credential_pairs WHERE id=:source)
+                """).param("source", shared.id().value()).update();
+        for (var mode : List.of(SourceAccess.PUBLIC, SourceAccess.PRIVATE)) {
+            assertEquals(mode, service.updateSourceAccess(owner, shared.id(), mode).access());
+        }
+        assertThrows(SourceException.class, () -> service.updateSourceAccess(owner, shared.id(), SourceAccess.SYNC));
+        assertEquals(SourceAccess.PRIVATE, service.getSource(owner, shared.id()).access());
     }
 
     @Test

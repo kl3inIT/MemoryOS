@@ -120,12 +120,19 @@ public class SourceAccessPolicy {
                 : permissionSync ? SourceAccess.SYNC
                 : global ? SourceAccess.PUBLIC : SourceAccess.PRIVATE;
         if (access == SourceAccess.SYNC && !permissionSync) {
-            throw SourceException.invalid("Auto Sync requires a Google Drive source.", "sync access without provider permissions");
+            throw SourceException.invalid("Auto Sync requires a source whose provider permissions are synchronized.",
+                    "sync access without provider permissions");
         }
         if (!global && access == SourceAccess.PUBLIC) {
             throw SourceException.invalid("Managed sources cannot be public.", "scoped source publication denied");
         }
         return access;
+    }
+
+    /** The access a Source changes to, under the rule of its type at creation. */
+    public SourceAccess change(IamAccess authority, SourceType type, SourceAccess requested) {
+        return access(adapters.permissionSync(type), authority.authority() == Authority.GLOBAL,
+                Objects.requireNonNull(requested, "access must not be null"));
     }
 
     private Creation resolve(IamAccess authority, ActorId actorId, SourceType type, @Nullable SourceAccess requestedAccess,

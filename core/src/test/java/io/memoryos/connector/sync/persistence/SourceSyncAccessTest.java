@@ -19,6 +19,7 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -82,7 +83,7 @@ class SourceSyncAccessTest {
         var tenants = mock(TenantAccessResolver.class);
         when(tenants.findActiveTenant(any())).thenReturn(Optional.of(tenant));
         access = new DefaultSourceDocumentAccessResolver(tenants, repository);
-        search = new SourceSearchService(tenants, repository);
+        search = new SourceSearchService(tenants, repository, SourceSyncAdapters.registry());
     }
 
     @AfterEach

@@ -8,6 +8,8 @@ import io.memoryos.shared.TenantId;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Registries for tests that wire the connector by hand. The adapters a test passes are kept; every other external
@@ -29,7 +31,7 @@ public final class SourceSyncAdapters {
 
     /**
      * An adapter that only answers whether a credential still serves a Source. Google Drive is the provider whose
-     * permissions are synchronized.
+     * permissions are synchronized; an item with a provider file ID opens at {@code https://<type>.test/<file ID>}.
      */
     public static SourceSyncAdapter credentials(SourceType type, CredentialCheck check) {
         return new SourceSyncAdapter() {
@@ -56,6 +58,12 @@ public final class SourceSyncAdapters {
             @Override
             public boolean credentialCurrent(TenantId tenant, SourceId source, long credentialRevision) {
                 return check.current(tenant, source, credentialRevision);
+            }
+
+            @Override
+            public @Nullable String documentUrl(@Nullable String providerFileId, @Nullable String sourceUrl) {
+                return providerFileId == null ? null
+                        : "https://" + type.name().toLowerCase(Locale.ROOT) + ".test/" + providerFileId;
             }
 
             @Override

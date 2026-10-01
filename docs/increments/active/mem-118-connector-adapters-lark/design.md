@@ -1,7 +1,8 @@
 # Connector adapters and the Lark Suite connector
 
 Status: **connector standardization implemented 2026-09-30 in one pull request ([as delivered](#as-delivered));
-document links, the reader hierarchy and Lark Suite remain.** Linear:
+document links and the access change rule implemented 2026-10-01 ([document links and access](#document-links-and-access));
+the reader hierarchy and Lark Suite remain.** Linear:
 [MEM-118](https://linear.app/memory-os/issue/MEM-118), which absorbs MEM-128 (Lark Suite). It applies
 [ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) to connectors, after the Web,
 Voice and Image families in [provider adapter registries](../../completed/provider-adapter-registries/design.md).
@@ -39,15 +40,45 @@ delay another's. They now share one queue, delivered oldest first; requests of o
 at a time and a busy one is handed back. Verification is started by a person and is rare, and a stream per provider
 would grow the Worker configuration with every connector.
 
-**Still naming a provider, on purpose.** `JdbcSourceRepository.updateAccess` lets `FILE` and Google Drive Sources
-change access and not SharePoint; that is a product rule to settle with SharePoint permissions, not a storage
-detail. The indexing eligibility rule keeps a Google Drive branch for selection membership.
+**Still naming a provider, on purpose.** The indexing eligibility rule keeps a Google Drive branch for selection
+membership; a rule shared by every provider waits for a third one (Lark). The access change rule and the document
+link were delivered next ([document links and access](#document-links-and-access)).
 
 **Not in this pull request.**
 
-- The document link (`documentUrl`, inventory 7). Returning a SharePoint link changes what readers see and what
-  `ChatSource` accepts as a stored link, so it goes with the reader hierarchy and its browser review.
+- The document link (`documentUrl`, inventory 7) and the access change rule.
 - The reader hierarchy (section 5) and Lark Suite (section 6).
+
+## Document links and access
+
+Owner decision 2026-10-01: both are delivered before the reader hierarchy, in their own pull request.
+
+**Access change.** `JdbcSourceRepository.updateAccess` allowed only `FILE` and Google Drive Sources. That predates
+SharePoint (MEM-105, 2026-09-15) rather than deciding anything about it: SharePoint creation already takes `access`,
+and the visibility dialog already offered it Public and Private, which the API then refused with `409`. A change now
+follows the creation rule, `SourceAccessPolicy.access(permissionSync, global, requested)`: every Source may be Public
+or Private, and Auto Sync needs `SourceProviderCapabilities.permissionSync`. Requesting Auto Sync for a provider
+without it is `400 SOURCE_INVALID_REQUEST`, as at creation (it was `409`). The repository stores what the policy
+allowed and names no provider. Onyx sets a connector's access only at creation and never changes it; MemoryOS keeps
+the change it already had and applies one rule to it.
+
+**Document links.** Onyx stores a `link` per document that each connector sets (`webViewLink` for Drive, `webUrl`
+for SharePoint). MemoryOS already records the address the provider returned in `connector_item_versions.source_url`,
+but chat and search built a Drive link from the file ID alone, and the library showed the recorded address unchecked,
+including an upload's. Now `SourceSyncAdapter.documentUrl(providerFileId, sourceUrl)` builds the link and is the only
+place that knows a provider's addresses:
+
+- Google Drive keeps its universal open URL built from the file ID, so the recorded media type never selects an
+  editor path.
+- SharePoint returns the recorded `webUrl` only when it is `https`, carries no credentials and is on a
+  `*.sharepoint.com` host.
+- An upload has no provider and no link.
+
+`SourceSearchService` passes `SourceSyncAdapterRegistry::documentUrl` to the repository for metadata, search and the
+library, so all three show the same link. The approved design took only the file ID, which cannot produce a
+SharePoint address. `ChatSource` and the browser accept any `https` address without credentials up to 2,048
+characters instead of the Drive shape only, as they already do for Web citations; which hosts a link may name is the
+adapter's rule.
 
 ## Inventory
 

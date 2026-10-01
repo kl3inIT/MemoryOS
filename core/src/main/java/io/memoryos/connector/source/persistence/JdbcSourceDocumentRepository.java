@@ -151,7 +151,7 @@ public class JdbcSourceDocumentRepository {
                 SELECT DISTINCT ON (m.document_id) m.document_id, p.id AS source_id, p.source_name, p.connector_type,
                     p.access_type, v.filename, d.title,
                     COALESCE(d.media_type, o.declared_media_type, 'application/octet-stream') AS media_type, v.size_bytes,
-                    COALESCE(i.source_updated_at, i.updated_at) AS updated_at, v.source_url,
+                    COALESCE(i.source_updated_at, i.updated_at) AS updated_at, i.provider_file_id, v.source_url,
                     CASE WHEN d.search_index_identity=:identity THEN d.searchable_generation END AS generation
                 FROM readable_pairs p
                 JOIN documents_by_connector_credential_pair m ON m.tenant_id=p.tenant_id AND m.connector_credential_pair_id=p.id
@@ -201,6 +201,12 @@ public class JdbcSourceDocumentRepository {
             READER_GROUP_NAMES.formatted("entry.id", "entry.access_type"));
 
     private final JdbcClient jdbcClient;
+
+    /** How a stored item becomes the link a reader opens it at in its provider; the connector's adapters build it. */
+    @FunctionalInterface
+    public interface DocumentLinks {
+        @Nullable String url(SourceType type, @Nullable String providerFileId, @Nullable String sourceUrl);
+    }
 
     public JdbcSourceDocumentRepository(JdbcClient jdbcClient) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
@@ -347,32 +353,35 @@ public class JdbcSourceDocumentRepository {
     }
 
     public Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids,
-            @Nullable ActorId actor, @Nullable UUID generation) {
-        return sourceMetadata(tenant, ids, actor, generation, null);
+            @Nullable ActorId actor, @Nullable UUID generation, DocumentLinks links) {
+        return sourceMetadata(tenant, ids, actor, generation, null, links);
     }
 
     /**
      * Index metadata of several documents in one read, each for its own generation (the content or the served one),
      * exactly as {@link #sourceMetadata} gives it for one document and generation.
      */
-    public Map<UUID, List<DocumentSourceMetadata>> indexMetadata(TenantId tenant, Map<UUID, UUID> generations) {
-        return sourceMetadata(tenant, List.copyOf(generations.keySet()), null, null, generations);
+    public Map<UUID, List<DocumentSourceMetadata>> indexMetadata(TenantId tenant, Map<UUID, UUID> generations,
+            DocumentLinks links) {
+        return sourceMetadata(tenant, List.copyOf(generations.keySet()), null, null, generations, links);
     }
 
     private Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids,
-            @Nullable ActorId actor, @Nullable UUID generation, @Nullable Map<UUID, UUID> generations) {
+            @Nullable ActorId actor, @Nullable UUID generation, @Nullable Map<UUID, UUID> generations,
+            DocumentLinks links) {
         if (ids.isEmpty()) return Map.of();
         if (ids.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var result = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
         // Keep each source/item/date tuple together, including when a document has multiple mappings.
         jdbcClient.sql("""
                 SELECT m.document_id,p.id AS source_id,i.id AS item_id,c.connector_type,
-                    i.source_created_at,i.source_updated_at,i.provider_file_id,d.metadata_json,
+                    i.source_created_at,i.source_updated_at,i.provider_file_id,v.source_url,d.metadata_json,
                     d.content_generation,d.searchable_generation
                 FROM documents_by_connector_credential_pair m
                 JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
+                LEFT JOIN connector_item_versions v ON v.tenant_id=i.tenant_id AND v.id=i.current_version_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
                     AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation OR d.searchable_generation=:generation)
@@ -391,10 +400,12 @@ public class JdbcSourceDocumentRepository {
                     }
                     var created = rs.getTimestamp("source_created_at");
                     var updated = rs.getTimestamp("source_updated_at");
+                    var type = SourceType.valueOf(rs.getString("connector_type"));
                     var metadata = new DocumentSourceMetadata(rs.getObject("source_id", UUID.class),
-                            rs.getObject("item_id", UUID.class), SourceType.valueOf(rs.getString("connector_type")),
+                            rs.getObject("item_id", UUID.class), type,
                             created == null ? null : created.toInstant(), updated == null ? null : updated.toInstant(),
-                            authors(rs.getString("metadata_json")), rs.getString("provider_file_id"));
+                            authors(rs.getString("metadata_json")),
+                            links.url(type, rs.getString("provider_file_id"), rs.getString("source_url")));
                     result.computeIfAbsent(document, _ -> new ArrayList<>()).add(metadata);
                     return true;
                 }).list();
@@ -440,7 +451,8 @@ public class JdbcSourceDocumentRepository {
      * narrowed by their own read scope first, then every mapping is rechecked with {@link #DOCUMENT_READ_SCOPE}, the
      * rule Search and {@link #readableDocuments} apply, so a browse can never list what a search would refuse.
      */
-    public List<SourceDocumentEntry> browse(TenantId tenant, ActorId actor, String indexIdentity, SourceDocumentBrowse browse) {
+    public List<SourceDocumentEntry> browse(TenantId tenant, ActorId actor, String indexIdentity, SourceDocumentBrowse browse,
+            DocumentLinks links) {
         var after = browse.after();
         String keyset = after == null ? "" : browse.byName()
                 ? "AND (lower(entry.filename), entry.document_id) > (lower(:afterName), :afterId)"
@@ -462,18 +474,19 @@ public class JdbcSourceDocumentRepository {
             statement = statement.param("afterTime", after.updatedAt().atOffset(ZoneOffset.UTC))
                     .param("afterName", after.filename()).param("afterId", after.documentId());
         }
-        return bindBrowse(statement, tenant, actor, indexIdentity).query(JdbcSourceDocumentRepository::entry).list();
+        return bindBrowse(statement, tenant, actor, indexIdentity).query((rs, _) -> entry(rs, links)).list();
     }
 
     /** The listed entries of those Documents the actor may read now, as {@link #browse} lists them; any order. */
-    public List<SourceDocumentEntry> entries(TenantId tenant, ActorId actor, String indexIdentity, Collection<UUID> documents) {
+    public List<SourceDocumentEntry> entries(TenantId tenant, ActorId actor, String indexIdentity, Collection<UUID> documents,
+            DocumentLinks links) {
         if (documents.isEmpty()) return List.of();
         if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var statement = jdbcClient.sql(BROWSE.formatted(SEARCHABLE_SOURCE, SOURCE_READ_SCOPE, "AND m.document_id IN (:documents)",
                         DOCUMENT_READ_SCOPE, FileCategorySql.caseExpression("mapped.media_type", "mapped.filename"), "", "entry.document_id"))
                 .param("allSources", true).param("sources", Set.of(new UUID(0, 0)))
                 .param("documents", Set.copyOf(documents));
-        return bindBrowse(statement, tenant, actor, indexIdentity).query(JdbcSourceDocumentRepository::entry).list();
+        return bindBrowse(statement, tenant, actor, indexIdentity).query((rs, _) -> entry(rs, links)).list();
     }
 
     private static JdbcClient.StatementSpec bindBrowse(JdbcClient.StatementSpec statement, TenantId tenant, ActorId actor,
@@ -504,13 +517,14 @@ public class JdbcSourceDocumentRepository {
                 }).list();
     }
 
-    private static SourceDocumentEntry entry(ResultSet rs, int row) throws SQLException {
+    private static SourceDocumentEntry entry(ResultSet rs, DocumentLinks links) throws SQLException {
         var groups = rs.getArray("group_names");
         try {
+            var type = SourceType.valueOf(rs.getString("connector_type"));
             return new SourceDocumentEntry(rs.getObject("document_id", UUID.class), rs.getObject("generation", UUID.class),
                     rs.getString("filename"), rs.getString("title"), rs.getString("media_type"), rs.getLong("size_bytes"),
                     rs.getString("category"), rs.getTimestamp("updated_at").toInstant(), rs.getObject("source_id", UUID.class),
-                    rs.getString("source_name"), SourceType.valueOf(rs.getString("connector_type")), rs.getString("source_url"),
+                    rs.getString("source_name"), type, links.url(type, rs.getString("provider_file_id"), rs.getString("source_url")),
                     SourceAccess.valueOf(rs.getString("access_type")), List.of((String[]) groups.getArray()));
         } finally {
             groups.free();

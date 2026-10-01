@@ -161,10 +161,11 @@ public class DefaultSourceManagementService implements SourceManagementService {
         Objects.requireNonNull(requestedAccess, "access must not be null");
         IamAccess access = authorization.lockAndRequireExclusive(actorId, IamCapability.SOURCES_MANAGE);
         requireMutable(sources.lock(access.tenantId(), sourceId));
+        SourceAccess granted = sourceAccess.change(access, sources.type(access.tenantId(), sourceId), requestedAccess);
         String before = sources.auditView(access.tenantId(), sourceId).map(JdbcSourceRepository.AuditView::access).orElse(null);
-        sources.updateAccess(access.tenantId(), sourceId, requestedAccess);
-        if (!requestedAccess.name().equals(before)) record(access.tenantId(), actorId, AuditAction.SOURCE_ACCESS_CHANGE,
-                sourceId, event -> event.detail("before", before).detail("after", requestedAccess.name()));
+        sources.updateAccess(access.tenantId(), sourceId, granted);
+        if (!granted.name().equals(before)) record(access.tenantId(), actorId, AuditAction.SOURCE_ACCESS_CHANGE,
+                sourceId, event -> event.detail("before", before).detail("after", granted.name()));
         return getSource(actorId, sourceId);
     }
 

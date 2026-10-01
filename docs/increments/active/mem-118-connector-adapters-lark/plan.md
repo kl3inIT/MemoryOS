@@ -62,8 +62,10 @@ and are one pull request (owner decision 2026-09-30); what was built is in the d
 
 ## 6. Document links and hierarchy for readers
 
-- [ ] `documentUrl` on the adapter replaces the Drive-only rule in `DocumentSourceMetadata` and the Drive-only link
-  check in `ChatSource`; first confirm what SharePoint stores for a document's web URL and return it when present.
+- [x] `documentUrl(providerFileId, sourceUrl)` on the adapter replaces the Drive-only rule in
+  `DocumentSourceMetadata` and the Drive-only link check in `ChatSource`; SharePoint returns the recorded `webUrl`
+  on a SharePoint host; the library uses the same link (owner decision 2026-10-01: before the hierarchy).
+- [x] Access changes follow the creation rule for every provider; SharePoint may change between Public and Private.
 - [ ] `SourceHierarchyAdapter` for Google Drive and SharePoint from stored provider state; endpoint under the
   Sources API; contract regenerated.
 - [ ] The tree on the library's Sources view; browser evidence and owner approval before merge.

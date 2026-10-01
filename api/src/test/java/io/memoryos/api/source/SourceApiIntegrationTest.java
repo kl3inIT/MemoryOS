@@ -1507,7 +1507,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(post("/api/sources/{sourceId}/access", managedSourceId)
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"access\":\"SYNC\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
 
         // Other tests share this Tenant and add their own "Scoped" Groups, so search for this one by its unique name.
         mockMvc.perform(get("/api/sources/group-options").param("search", managedGroupId.toString())

@@ -1408,7 +1408,7 @@ export type CreateFileSourceRequest = {
      */
     groupIds?: Array<string> | null;
     /**
-     * PUBLIC or PRIVATE; SYNC requires a Google Drive source.
+     * PUBLIC or PRIVATE; a file Source cannot use SYNC.
      */
     access?: 'PUBLIC' | 'PRIVATE' | 'SYNC';
 };

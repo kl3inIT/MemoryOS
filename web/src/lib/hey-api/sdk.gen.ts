@@ -1864,7 +1864,7 @@ export const deleteSource = <ThrowOnError extends boolean = true>(options: Optio
 });
 
 /**
- * Update Source access; SYNC requires a Google Drive source
+ * Update Source access; SYNC needs provider permissions
  */
 export const updateSourceAccess = <ThrowOnError extends boolean = true>(options: Options<UpdateSourceAccessData, ThrowOnError>): RequestResult<UpdateSourceAccessResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateSourceAccessResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

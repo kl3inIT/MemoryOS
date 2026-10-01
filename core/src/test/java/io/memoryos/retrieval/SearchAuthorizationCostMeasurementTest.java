@@ -19,6 +19,7 @@ import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -67,7 +68,7 @@ class SearchAuthorizationCostMeasurementTest {
             var authorization = TestDatabase.transactionalProxy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), locks),
                     IamAuthorization.class, jpa.transactionManager());
             var sourceDocuments = new JdbcSourceDocumentRepository(jdbc);
-            var sources = new SourceSearchService(tenants, sourceDocuments);
+            var sources = new SourceSearchService(tenants, sourceDocuments, SourceSyncAdapters.registry());
             var access = new DefaultSourceDocumentAccessResolver(tenants, sourceDocuments);
             var chunks = new JdbcDocumentChunkRepository(jdbc, new ObjectMapper());
 
