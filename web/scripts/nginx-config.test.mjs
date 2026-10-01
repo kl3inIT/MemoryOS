@@ -75,6 +75,29 @@ describe("nginx WebSocket routes", () => {
 });
 
 /**
+ * MEM-114: Claude and ChatGPT call `/mcp` and read its protected-resource metadata; MEM-112's MCP client serves its
+ * Client ID Metadata Document beside it. Without a location these fall to the web app and answer `index.html`.
+ */
+describe("nginx MCP routes", () => {
+  it.each(["/mcp", "/.well-known/oauth-protected-resource/mcp", "/mcp/oauth/client-metadata.json"])(
+    "sends %s to the API with a bounded body",
+    (path) => {
+      const block = chosen(path);
+      expect(block, `no location in nginx.conf matches ${path}`).toBeDefined();
+      expect(block.body).toMatch(/proxy_pass\s+\$memoryos_api\s*;/);
+      expect(block.body).toMatch(/client_max_body_size\s+256k\s*;/);
+    },
+  );
+
+  it.each(["/mcp/", "/mcp/settings", "/mcpx", "/.well-known/oauth-protected-resource"])(
+    "leaves %s with the web app",
+    (path) => {
+      expect(chosen(path).selector).toBe("/");
+    },
+  );
+});
+
+/**
  * Nginx inherits `add_header` into a location only when that location declares none of its own, so one
  * `add_header` in a location silently strips the policy headers from every response it serves.
  */

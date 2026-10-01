@@ -2289,6 +2289,10 @@ Object.assign(englishUi, {
   "Names new conversations. A small, fast model keeps the chat model free.":
     "Đặt tên cho cuộc trò chuyện mới. Chọn mô hình nhỏ, nhanh để mô hình chat vẫn rảnh trả lời.",
   "Conversation naming model": "Mô hình đặt tên cuộc trò chuyện",
+  "Question check": "Kiểm tra câu hỏi",
+  "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.":
+    "Phân loại câu hỏi trước khi trả lời: câu xã giao, câu hỏi hay chủ đề bị chặn. Cần model trả đúng định dạng.",
+  "Question check model": "Model kiểm tra câu hỏi",
   "No model chosen; {{model}} is used.": "Chưa chọn mô hình; đang dùng {{model}}.",
   "Unavailable; {{model}} is used instead.": "Không khả dụng; đang dùng {{model}}.",
   "Unavailable; the Chat model is used instead.": "Không khả dụng; đang dùng mô hình Chat.",

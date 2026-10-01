@@ -1130,7 +1130,7 @@ export type Pricing = {
  * Tenant model for one task; no model uses the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -7329,7 +7329,7 @@ export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatM
 export type SetChatModelFlowData = {
     body?: never;
     path: {
-        flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
         modelConfigurationId?: string;

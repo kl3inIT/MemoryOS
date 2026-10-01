@@ -484,8 +484,10 @@ public final class ChatTurnService implements AutoCloseable {
         if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
         ChatGuardrailCheck.Result result;
         long started = System.nanoTime();
-        try {
-            result = guardrails.check(run.setup, run.question, run.policy, accounting -> recordCheck(run, accounting));
+        // The check's own task model when the Tenant set one that is still usable, otherwise the conversation model.
+        try (var selected = models.resolveFlow(run.setup.actor(), run.setup.sessionId(), ModelFlow.CHAT_GUARDRAIL)) {
+            result = guardrails.check(selected.binding(), run.setup, run.question, run.policy,
+                    accounting -> recordCheck(run, selected, accounting));
             if (metrics != null) metrics.guardrail(result.kind().name().toLowerCase(Locale.ROOT), System.nanoTime() - started);
         } catch (CancellationException stopped) {
             throw stopped;
@@ -536,10 +538,11 @@ public final class ChatTurnService implements AutoCloseable {
         firstText(run);
     }
 
-    private void recordCheck(Active run, ModelAccounting accounting) {
+    /** The check is part of the turn's cost, recorded against the model that ran it. */
+    private void recordCheck(Active run, ModelResolver.Resolved checker, ModelAccounting accounting) {
         try {
             persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT,
-                    run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), accounting));
+                    checker.modelConfigurationId(), checker.provenance(), checker.binding().service().getName(), accounting));
         } catch (RuntimeException failure) {
             LOG.atWarn().addKeyValue("event", "chat.guardrail.usage_not_recorded")
                     .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail usage not recorded");

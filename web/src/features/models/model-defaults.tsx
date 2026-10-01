@@ -319,6 +319,13 @@ export function TaskModels(catalog: Catalog) {
       description: ui("Names new conversations. A small, fast model keeps the chat model free."),
       ariaLabel: ui("Conversation naming model"),
     },
+    CHAT_GUARDRAIL: {
+      title: ui("Question check"),
+      description: ui(
+        "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.",
+      ),
+      ariaLabel: ui("Question check model"),
+    },
     MEETING_MINUTES: {
       title: ui("Meeting minutes"),
       description: ui("Writes the summary, decisions and action items of a recorded meeting."),

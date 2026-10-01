@@ -2623,8 +2623,9 @@ class ChatSessionApiIntegrationTest {
         flows.forEach(flow -> listed.add(flow.path("flow").asText()));
         assertEquals(Arrays.stream(ModelFlow.values())
                 .map(Enum::name).collect(Collectors.toCollection(TreeSet::new)), listed);
-        var naming = flows.get(0);
-        assertEquals("CHAT_NAMING", naming.path("flow").asText());
+        JsonNode naming = null;
+        for (var flow : flows) if ("CHAT_NAMING".equals(flow.path("flow").asText())) naming = flow;
+        assertNotNull(naming);
         String chatModel = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-default")
                 .with(authentication(actor))).andReturn().getResponse().getContentAsString())
                 .path("modelConfigurationId").asText();

@@ -1,0 +1,11 @@
+{
+  "name": "knowledge:read",
+  "description": "MEM-114: search and read the knowledge the user may access through the MemoryOS MCP endpoint",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "true",
+    "consent.screen.text": "${knowledgeReadScopeConsentText}",
+    "gui.order": "10"
+  }
+}
