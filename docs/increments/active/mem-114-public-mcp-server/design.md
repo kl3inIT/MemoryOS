@@ -156,7 +156,11 @@ bounded reads. Moving out later is the [MEM-133](https://linear.app/memory-os/is
 - Its own `JwtDecoder`: Keycloak JWKS, exact issuer, audience equal to the endpoint URL, non-blank `sub`.
   - A token with audience `memoryos-api` is refused here.
   - A token with the endpoint audience is refused on `/api/**`.
-- Scope `knowledge:read` is required. Without it: 403 with `error="insufficient_scope"` and `scope`.
+- Scope `knowledge:read` is required.
+  - The endpoint audience comes only from that scope's mapper, so a token without the scope also lacks the audience
+    and gets 401 (spike, 2026-10-01).
+  - The scope check stays as defense in depth: a token with the audience but without the scope gets 403 with
+    `error="insufficient_scope"` and `scope`.
 - The actor is resolved by the existing `JwtToActorAuthenticationConverter`: exact `(iss, sub)`, never provisioned.
   IAM is re-read on every call.
 
@@ -192,7 +196,11 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
 - Trusted domains `claude.ai`, `localhost`, `127.0.0.1`, and "restrict same domain" off.
 - "Accept Public Client with Confidential-only Grant Types" on, because Claude's document declares a `jwt-bearer` grant.
 - The resource allow list holds the endpoint URL.
-- Consent is required.
+- Consent is required. The spike showed Keycloak stores each metadata document as one public, consent-required client
+  shared by every user.
+- The consent page in the spike also listed the realm's default scopes (roles, profile, email) next to
+  `knowledge:read` and Offline Access. Pull request 1 decides whether MCP clients keep them. The endpoint needs only
+  `sub`, which the `basic` scope carries.
 - PKCE S256 enforced through a separate policy for public clients (Keycloak #52795).
 
 **ChatGPT client `memoryos-chatgpt`.**
@@ -422,16 +430,20 @@ Out:
 - a separate deployable and token exchange (MEM-133);
 - per-call audit.
 
-## Risks to settle in the spike
+## Risks
 
-- Whether adding `spring-ai-starter-mcp-server-webmvc` to `api` conflicts with the MCP client auto-configuration
-  Embabel brings.
-- Whether the SYNC stateless tool sees the `SecurityContext` on the request thread.
-- Whether Keycloak 26.8 with `cimd` admits Claude's metadata document end to end. Open issue #51236 rejects documents
-  with unknown properties.
-- Whether ChatGPT falls back after the 400. This is measured at staging acceptance; if it does not, ChatGPT moves to
-  its own issue.
-- Whether an offline refresh keeps the endpoint audience on 26.8 without `resource-indicators`.
+The spike of 2026-10-01 settled most of these; evidence is in the [plan](plan.md#1-spike-not-committed).
+
+- **Settled.**
+  - The SYNC stateless tool sees the `SecurityContext`.
+  - Keycloak 26.8 with `cimd` admits Claude Code's metadata document end to end. Claude web's document has not been
+    tried; open issue #51236 rejects documents with unknown properties.
+  - An offline refresh keeps the endpoint audience without `resource-indicators`.
+- **Open.**
+  - Whether adding `spring-ai-starter-mcp-server-webmvc` to `api` conflicts with the MCP client auto-configuration
+    Embabel brings. Pull request 2's integration tests show it.
+  - Whether ChatGPT falls back after the 400. This is measured at staging acceptance; if it does not, ChatGPT moves to
+    its own issue.
 
 ## Acceptance
 

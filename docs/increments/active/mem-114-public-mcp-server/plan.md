@@ -15,16 +15,56 @@ reopen it after each intermediate merge.
   - decisions comment on MEM-114;
   - Gemini Enterprise issue [MEM-205](https://linear.app/memory-os/issue/MEM-205).
 
-## 1. Spike, local and not committed
+## 1. Spike, not committed
 
-- [ ] **Starter in `api`.** Add `spring-ai-starter-mcp-server-webmvc` and confirm:
-  - no conflict with the MCP client auto-configuration from Embabel;
-  - `spring.ai.mcp.server.streamable-http.mcp-endpoint` binds;
-  - a SYNC stateless tool reads the actor from `SecurityContextHolder`;
-  - `generateOutputSchema` returns `structuredContent` plus text.
-- [ ] **Keycloak.** Keycloak 26.8.0 locally with `--features=cimd` and the CIMD policy; Claude Code completes sign-in
-  through CIMD.
-- [ ] **Record.** Write the results here. Raise any deviation from the design before continuing.
+Run on 2026-10-01 on the staging host as throwaway containers bound to loopback, reached through an SSH tunnel, and
+removed afterwards.
+
+- A standalone Spring Boot 4.1.1 app with Spring AI 2.0.1 `spring-ai-starter-mcp-server-webmvc`, MCP SDK 2.0.1 and the
+  design's security chain, protocol-version filter and two stub tools.
+- A throwaway Keycloak 26.8.0 (`start-dev --features=cimd`) with the design's scope, audience mapper and CIMD policy.
+
+Not the MemoryOS `api` itself; the shared Keycloak was not touched.
+
+- [x] **Transport and tools.**
+  - SDK 2.0.1 runs under Spring AI 2.0.1's stateless WebMVC transport.
+  - `initialize` negotiates `2025-11-25` and returns the instructions.
+  - `tools/list` shows `title`, the four hints as set, and object input and output schemas.
+  - `tools/call` returns `structuredContent` plus the JSON text.
+  - `resources/list` answers JSON-RPC `-32601` instead of 500.
+- [x] **Actor.** The SYNC stateless tool read `sub` and `azp` from `SecurityContextHolder` on the request thread.
+- [x] **Protocol-version filter.** ChatGPT's exact `server/discover` probe got 400 with the `-32000` body. The
+  anonymous probe still got the 401, so the filter runs after security.
+- [x] **Resource server.**
+  - Anonymous calls get 401 with `resource_metadata`.
+  - The RFC 9728 document carries the fixed `resource`, the issuer and `scopes_supported`.
+  - A token without `knowledge:read` also lacks the endpoint audience, so it gets 401 for `aud`, not 403. See the
+    design.
+- [x] **Keycloak discovery.**
+  - 26.8.0 with `cimd` advertises `client_id_metadata_document_supported`, `none` and
+    `authorization_response_iss_parameter_supported`.
+  - It serves both the RFC 8414 path-inserted and the OIDC metadata paths.
+- [x] **Claude Code's flow through CIMD**, reproduced by hand: `client_id`
+  `https://claude.ai/oauth/claude-code-client-metadata`, loopback redirect `http://localhost:53682/callback`, PKCE
+  S256, `resource`, scope `knowledge:read offline_access`, and a public-client code exchange.
+  - Keycloak admitted the document and accepted the loopback port the document does not list.
+  - It showed a consent page titled "Grant Access to Claude Code" with the scope's Vietnamese text.
+  - It returned `iss` on the callback.
+  - The access token has `aud` equal to the endpoint, `azp` equal to the document URL, and a 300 s lifetime.
+  - The refresh token is an offline token with a 30-day lifetime.
+  - The tool call succeeded with that token.
+- [x] **Offline refresh** keeps `aud` equal to the endpoint without `resource-indicators` (Keycloak #53261 does not
+  apply to this path).
+- [x] **Revocation.** Deleting the user's consent through the admin API removed the offline session: the next refresh
+  got `invalid_grant` ("Offline user session not found"). An access token already issued kept working until it
+  expired, as designed.
+- [x] **One client per document.** Keycloak stores the document as one public, consent-required client shared by
+  every user, not one per connection.
+- [ ] **Not covered.**
+  - Starting the server and client auto-configurations in the MemoryOS `api` context, which pull request 2's
+    integration tests cover.
+  - Claude Code's and Claude web's own user interface.
+  - ChatGPT, which needs a public HTTPS endpoint; it is checked at staging acceptance.
 - [x] **Dependency check** (2026-10-01). The `api` runtime classpath already resolves, through Embabel:
   - `spring-ai-starter-mcp-client` 2.0.1;
   - `spring-ai-mcp-annotations` 2.0.1;

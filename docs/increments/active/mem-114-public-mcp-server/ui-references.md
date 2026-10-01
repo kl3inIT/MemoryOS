@@ -26,6 +26,9 @@ components, and deviations are recorded in the design.
 
 ## Keycloak consent page
 
+- The starting point: [Keycloak 26.8's stock consent page](spike-consent.png), captured in the spike for Claude Code's
+  CIMD client. It shows the scope's Vietnamese consent text and the client's hostname. It also lists the realm default
+  scopes (roles, profile, email), which pull request 1 may drop for MCP clients.
 - [Craft, OAuth consent](https://mobbin.com/screens/66cc3ac5-605a-4f26-a14e-a07291d9f6e9). This is the target shape for
   a read-only grant:
   - the client name;
