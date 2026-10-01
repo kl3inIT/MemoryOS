@@ -59,7 +59,7 @@ export function GroupSourcesSection({ draft }: { draft: GroupSourcesDraft }) {
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [dropdownOpen]);
-  if (!draft.ordinaryGroup || (!canOpenSources && !canManage)) return null;
+  if (!draft.ordinaryGroup) return null;
 
   return (
     <section

@@ -3,7 +3,10 @@ import { adminEntryPage, adminPages } from "@/components/app-shell/admin-pages";
 import type { CurrentIdentity, CurrentTenant } from "@/lib/hey-api/types.gen";
 
 export type ApplicationCapability = CurrentIdentity["capabilities"][number];
-export type ApplicationSession = CurrentIdentity & { tenant: CurrentTenant };
+export type ApplicationSession = CurrentIdentity & {
+  displayName?: string | null;
+  tenant: CurrentTenant;
+};
 
 export const ApplicationSessionContext = createContext<ApplicationSession | null>(null);
 
@@ -48,7 +51,7 @@ export function adminAuthorityOf(
     global(capability) || identity.scopedCapabilities.includes(capability);
   return {
     canManageUsers: global("USERS_MANAGE"),
-    canReadGroups: any("GROUPS_READ"),
+    canReadGroups: true,
     canReadSources: any("SOURCES_READ"),
     canManageModels: global("MODELS_MANAGE"),
     canManageProviders: global("SYSTEM_ADMIN"),

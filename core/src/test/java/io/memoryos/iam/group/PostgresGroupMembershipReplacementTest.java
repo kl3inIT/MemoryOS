@@ -9,8 +9,10 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.GroupId;
 import io.memoryos.iam.GroupPermissions;
+import io.memoryos.iam.GroupQuery;
 import io.memoryos.iam.GroupService;
 import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;
@@ -22,6 +24,8 @@ import io.memoryos.iam.group.persistence.GroupProjectionRepository;
 import io.memoryos.iam.group.persistence.GroupRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
+import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
+import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
 import java.sql.Types;
 import java.util.List;
@@ -64,6 +68,11 @@ class PostgresGroupMembershipReplacementTest {
                 IamAuthorization.class,
                 transactionManager
         );
+        TenantAccessResolver tenants = TestDatabase.transactionalProxy(
+                new JpaTenantAccessResolver(new JpaTenantRepository(entityManager), locks),
+                TenantAccessResolver.class,
+                transactionManager
+        );
         GroupAdministrationGuard administrationGuard = TestDatabase.transactionalProxy(
                 new GroupAdministrationGuard(new GroupInvariantRepository(jdbc)),
                 GroupAdministrationGuard.class,
@@ -71,6 +80,7 @@ class PostgresGroupMembershipReplacementTest {
         );
         GroupService target = new DefaultGroupService(
                 authorization,
+                tenants,
                 new GroupRepository(entityManager),
                 new GroupMembershipRepository(entityManager),
                 new GroupCapabilityGrantRepository(entityManager),
@@ -115,13 +125,16 @@ class PostgresGroupMembershipReplacementTest {
         persistMembership(new GroupId(GroupEntity.BASIC_ID), peer, false);
         groups.addMembers(MEMBER, RETAINED, Set.of(peer));
 
-        assertEquals("IAM_ACCESS_DENIED",
-                assertThrows(IamException.class, () -> groups.get(peer, RETAINED)).code());
+        assertEquals(RETAINED, groups.get(peer, RETAINED).id());
+        assertEquals(2L, groups.members(peer, RETAINED, new GroupQuery(null, 0, 20)).totalItems());
+        assertEquals(
+                Set.of(new GroupId(GroupEntity.BASIC_ID), RETAINED),
+                groups.list(peer, new GroupQuery(null, 0, 20)).items().stream().map(group -> group.id()).collect(java.util.stream.Collectors.toSet())
+        );
         groups.assignManager(MEMBER, RETAINED, peer);
         assertEquals(RETAINED, groups.get(peer, RETAINED).id());
         groups.removeManager(MEMBER, RETAINED, peer);
-        assertEquals("IAM_ACCESS_DENIED",
-                assertThrows(IamException.class, () -> groups.get(peer, RETAINED)).code());
+        assertEquals(RETAINED, groups.get(peer, RETAINED).id());
         groups.assignManager(MEMBER, RETAINED, peer);
         groups.removeMember(MEMBER, RETAINED, peer);
         assertEquals(0L, membershipCount(RETAINED, peer));

@@ -39,6 +39,7 @@ import io.memoryos.iam.GroupScopeService;
 import io.memoryos.iam.IamAccess;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectUploadAuthorization;
 import io.memoryos.objectstorage.ObjectUploadId;
@@ -74,6 +75,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final JdbcSourceUploadRepository sourceUploads;
     private final ObjectUploadService objectUploads;
     private final IamAuthorization authorization;
+    private final TenantAccessResolver tenants;
     private final GroupScopeService groupScopes;
     private final SourceAccessPolicy sourceAccess;
     private final TransactionTemplate transactions;
@@ -94,6 +96,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
             JdbcSourceUploadRepository sourceUploads,
             ObjectUploadService objectUploads,
             IamAuthorization authorization,
+            TenantAccessResolver tenants,
             GroupScopeService groupScopes,
             PlatformTransactionManager transactionManager,
             JdbcSourceSyncRepository sync,
@@ -114,6 +117,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.sourceUploads = Objects.requireNonNull(sourceUploads, "sourceUploads must not be null");
         this.objectUploads = Objects.requireNonNull(objectUploads, "objectUploads must not be null");
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
+        this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
         this.groupScopes = Objects.requireNonNull(groupScopes, "groupScopes must not be null");
         this.sync = Objects.requireNonNull(sync);
         this.googleSync = Objects.requireNonNull(googleSync);
@@ -307,31 +311,37 @@ public class DefaultSourceManagementService implements SourceManagementService {
     public GroupSources listGroupSources(ActorId actorId, GroupId groupId) {
         ActorId requiredActorId = requireActorId(actorId);
         GroupId requiredGroupId = Objects.requireNonNull(groupId, "groupId must not be null");
-        SourceReadAuthority permissions = readPermissions(requiredActorId);
-        groupScopes.validateGroupIds(permissions.tenantId(), List.of(requiredGroupId));
-        boolean managedGroup = groupScopes.isManagedBy(permissions.tenantId(), requiredActorId, requiredGroupId);
-        if (!permissions.globalRead() && !managedGroup) {
+        TenantId tenantId = tenants.findActiveTenant(requiredActorId).orElseThrow(SourceException::notFound);
+        Set<IamCapability> capabilities = authorization.effectiveCapabilities(requiredActorId);
+        boolean globalRead = capabilities.contains(IamCapability.SOURCES_READ);
+        boolean globalManage = capabilities.contains(IamCapability.SOURCES_MANAGE);
+        boolean globalDelete = capabilities.contains(IamCapability.SOURCES_DELETE);
+        groupScopes.validateGroupIds(tenantId, List.of(requiredGroupId));
+        boolean managedGroup = groupScopes.isManagedBy(tenantId, requiredActorId, requiredGroupId);
+        boolean memberGroup = groupScopes.isMember(tenantId, requiredActorId, requiredGroupId);
+        if (!globalRead && !managedGroup && !memberGroup) {
             throw SourceException.notFound();
         }
         List<SourceSummary> associated = queries.listForGroup(
-                permissions.tenantId(),
+                tenantId,
                 requiredActorId,
                 requiredGroupId,
-                permissions.globalRead(),
-                permissions.globalManage(),
-                permissions.globalDelete()
+                globalRead,
+                globalManage,
+                globalDelete,
+                memberGroup
         );
-        boolean manages = permissions.globalManage()
+        boolean manages = globalManage
                 || (managedGroup && authorization.scopedCapabilities(requiredActorId)
                         .contains(IamCapability.SOURCES_MANAGE));
         if (!manages) {
             return new GroupSources(associated, Set.of());
         }
         Set<SourceId> removable = new LinkedHashSet<>(sourceGroups.removableFromGroup(
-                permissions.tenantId(),
+                tenantId,
                 requiredActorId,
                 requiredGroupId,
-                permissions.globalManage()
+                globalManage
         ));
         removable.retainAll(associated.stream().map(SourceSummary::id).toList());
         return new GroupSources(associated, removable);

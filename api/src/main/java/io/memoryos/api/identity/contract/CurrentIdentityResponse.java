@@ -20,6 +20,12 @@ public record CurrentIdentityResponse(
         )
         UUID actorId,
         @Schema(
+                description = "Latest display name observed from the authenticated actor's identity provider.",
+                requiredMode = Schema.RequiredMode.REQUIRED,
+                nullable = true
+        )
+        @Nullable String displayName,
+        @Schema(
                 description = "Active Tenant context, or null when the actor has no active Tenant membership.",
                 requiredMode = Schema.RequiredMode.REQUIRED,
                 nullable = true
@@ -48,6 +54,7 @@ public record CurrentIdentityResponse(
 
     public static CurrentIdentityResponse from(
             UUID actorId,
+            @Nullable String displayName,
             @Nullable TenantMembership membership,
             Set<IamCapability> capabilities,
             Set<IamCapability> scopedCapabilities,
@@ -56,6 +63,7 @@ public record CurrentIdentityResponse(
     ) {
         return new CurrentIdentityResponse(
                 actorId,
+                displayName,
                 membership == null ? null : CurrentTenantResponse.from(membership),
                 sorted(capabilities),
                 sorted(scopedCapabilities),

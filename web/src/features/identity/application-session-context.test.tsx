@@ -16,13 +16,13 @@ function adminAccess(capabilities: ApplicationCapability[]) {
   return renderHook(() => useAdminAccess(), { wrapper }).result.current;
 }
 
-it("sends a person who may only read chat history to the chat history page", () => {
-  expect(adminAccess(["CHAT_HISTORY_READ"])).toMatchObject({
+it("sends every authenticated member to their groups", () => {
+  expect(adminAccess([])).toMatchObject({
     canAccessAdmin: true,
-    adminEntryPath: "/admin/chat-history",
+    adminEntryPath: "/admin/groups",
   });
 });
 
-it("keeps the audit page as the entry when audit is readable too", () => {
-  expect(adminAccess(["CHAT_HISTORY_READ", "AUDIT_READ"]).adminEntryPath).toBe("/admin/audit");
+it("keeps groups as the administration entry when privileged pages are readable too", () => {
+  expect(adminAccess(["CHAT_HISTORY_READ", "AUDIT_READ"]).adminEntryPath).toBe("/admin/groups");
 });

@@ -52,6 +52,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.GroupId;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IamException;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.DefaultGroupScopeService;
 import io.memoryos.iam.group.DefaultIamAuthorization;
@@ -92,6 +93,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -648,6 +650,28 @@ class PostgresSourceLifecycleTest {
         assertThat(service.listSourceGroups(owner, unmanaged.id())).isEmpty();
         assertThat(service.listSourceGroups(owner, managed.id()))
                 .extracting(GroupIdentity::id).containsExactly(sharedGroup);
+    }
+
+    @Test
+    void directGroupMemberViewsAssociatedSourcesWithoutSourceAdministration() {
+        GroupId groupId = new GroupId(UUID.randomUUID());
+        ActorId member = addScopedManager(groupId);
+        jdbcClient.sql("""
+                        UPDATE iam_group_memberships
+                        SET is_manager = FALSE
+                        WHERE tenant_id = :tenantId AND group_id = :groupId AND actor_id = :actorId
+                        """)
+                .param("tenantId", tenantId)
+                .param("groupId", groupId.value())
+                .param("actorId", member.value())
+                .update();
+        var source = service.createFileSource(owner, "Member-visible", List.of(groupId), SourceAccess.PRIVATE);
+
+        assertThat(service.listGroupSources(member, groupId).sources())
+                .extracting(SourceSummary::id)
+                .containsExactly(source.id());
+        assertThat(service.listGroupSources(member, groupId).removableSourceIds()).isEmpty();
+        assertThrows(IamException.class, () -> service.getSource(member, source.id()));
     }
 
     @Test
@@ -1357,6 +1381,8 @@ class PostgresSourceLifecycleTest {
 
     private SourceManagementService service(JdbcSourceRepository sourceRepository) {
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
+        TenantAccessResolver tenants = Mockito.mock(TenantAccessResolver.class);
+        Mockito.when(tenants.findActiveTenant(Mockito.any())).thenReturn(Optional.of(new TenantId(tenantId)));
         var target = new DefaultSourceManagementService(
                 sourceRepository,
                 new JdbcSourceItemRepository(jdbcClient),
@@ -1372,6 +1398,7 @@ class PostgresSourceLifecycleTest {
                         new IamAuthorizationRepository(jdbcClient),
                         new IamLockRepository(jdbcClient)
                 ),
+                tenants,
                 new DefaultGroupScopeService(
                         new GroupInvariantRepository(jdbcClient),
                         new GroupProjectionRepository(jdbcClient)

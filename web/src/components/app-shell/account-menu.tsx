@@ -25,10 +25,11 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation("common");
   const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
-  const { tenant } = useApplicationSession();
+  const { displayName, tenant } = useApplicationSession();
   const { canAccessAdmin, adminEntryPath } = useAdminAccess();
   const membershipLabel = t(tenant.role === "OWNER" ? "owner" : "member");
-  const initials = tenant.displayName
+  const accountDisplayName = displayName ?? tenant.displayName;
+  const initials = accountDisplayName
     .trim()
     .split(/\s+/)
     .slice(0, 2)
@@ -80,7 +81,7 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
       >
         <DropdownMenuLabel className="flex flex-col">
           <span className="font-main-ui-body break-words text-content-primary">
-            {tenant.displayName}
+            {accountDisplayName}
           </span>
           <span className="font-secondary-body text-content-muted">{membershipLabel}</span>
         </DropdownMenuLabel>
