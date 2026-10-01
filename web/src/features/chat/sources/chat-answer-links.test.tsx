@@ -43,6 +43,33 @@ describe("links in an answer body", () => {
     }
   });
 
+  it("shows a generated file linked under an image name as the image, which opens the preview", () => {
+    const previewed: unknown[] = [];
+    render(
+      <ChatPanelContext
+        value={{
+          open: () => {},
+          previewFile: (target) => previewed.push(target),
+          openArtifact: () => {},
+          close: () => {},
+        }}
+      >
+        <ChatMarkdownLink href={file}>Doanh thu Q3.png</ChatMarkdownLink>
+      </ChatPanelContext>,
+    );
+
+    const image = screen.getByRole("img", { name: "Doanh thu Q3.png" });
+    expect(image).toHaveAttribute("src", file);
+    fireEvent.click(screen.getByRole("button", { name: "Preview Doanh thu Q3.png" }));
+    expect(previewed).toEqual([
+      {
+        source: "generated",
+        id: "00000000-0000-0000-0000-000000000000",
+        filename: "Doanh thu Q3.png",
+      },
+    ]);
+  });
+
   it("drops the sandbox: prefix models put on a generated file's link instead of blocking it", async () => {
     const plugins = [remarkSandboxLinks];
     const components = { a: ChatMarkdownLink };
