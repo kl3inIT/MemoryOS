@@ -112,7 +112,7 @@ const bgePast: SearchGenerationResponse = {
   dimensions: 1024,
   documentCount: 11_402,
   activatedAt: "2026-09-10T02:00:00Z",
-  retainedUntil: "2026-09-29T02:00:00Z",
+  retainedUntil: "2027-09-29T02:00:00Z",
 };
 /** A retired index whose deletion failed three times: shown with a warning until cleanup succeeds. */
 const blockedPast: SearchGenerationResponse = {

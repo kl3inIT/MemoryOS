@@ -133,7 +133,8 @@ class PostgresGroupMembershipReplacementTest {
         groups.assignManager(MEMBER, RETAINED, peer);
         assertEquals(RETAINED, groups.get(peer, RETAINED).id());
         groups.removeManager(MEMBER, RETAINED, peer);
-        assertEquals(RETAINED, groups.get(peer, RETAINED).id());
+        assertEquals("IAM_GROUP_NOT_FOUND",
+                assertThrows(IamException.class, () -> groups.get(peer, RETAINED)).code());
         groups.assignManager(MEMBER, RETAINED, peer);
         groups.removeMember(MEMBER, RETAINED, peer);
         assertEquals(0L, membershipCount(RETAINED, peer));
