@@ -11,7 +11,6 @@ Scope approved by the product owner on 2026-10-01: keep the fallback, add an ale
 - [x] Alert `MemoryOSDoclingFallback` in `infrastructure/observability/alerts.yaml`.
 - [x] Panel "Docling fallbacks" on `staging.json`.
 - [x] Documents: ingestion spec (fallback paragraph), observability guideline (extraction metric), ingestion and observability test matrices, roadmap row.
-
 - [x] Measure PaddleOCR-VL against Docling on a real text PDF; routing unchanged ([design](design.md#text-pdfs-stay-with-docling-measured-2026-10-01)).
 - [x] Staging server, 2026-10-01: removed the remote `MEMORYOS_EXTRACTION_DOCLING_ENDPOINT` and the stale `MEMORYOS_EXTRACTION_DOCLING_ENGINE_REVISION`, raised `DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT` to 3600 and `DOCLING_SERVE_MAX_SYNC_WAIT` to 3610, kept the worker at `60m`, redeployed and recreated Docling ([cause](design.md#cause-of-the-staging-failures-found-2026-10-01)).
 - [ ] Reindex the 14 staging Documents whose parser is `tika`.
