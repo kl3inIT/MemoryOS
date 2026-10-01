@@ -245,6 +245,19 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
 
 ## 5. Acceptance and documentation (pull request 4)
 
+- [ ] **Staging Keycloak from the release.** Staging ran the 26.7 image it once shared with OrgMemory, which has no
+  `cimd`. OrgMemory is retired, so staging takes the release's `memoryos-keycloak` like production.
+  - [x] Repository: `deploy.sh` no longer lets an environment file name a Keycloak image; the staging overlay drops
+    the mounted theme and the `orgmemory-keycloak`, `shared-keycloak` and `memoryos-shared-keycloak` aliases. Checked
+    on the host on 2026-10-01: no running container's environment or command names them, and only the proxy host of
+    `auth.kl3in.tech` forwards to `orgmemory-keycloak`.
+  - [ ] Host, before the merge: point that proxy host at `memoryos-keycloak`.
+  - [ ] Host, with the deployment: `MEMORYOS_MCP_ENDPOINT_URL` in `.env.staging`, so one deployment recreates
+    Keycloak and gives the API its endpoint. Keep the deployment's `keycloak.dump`.
+  - [ ] Realm script with the endpoint URL and the ChatGPT secret; the realm then advertises metadata documents.
+  - [ ] Remove what OrgMemory left on the host: the `orgmemory` realm once its clients are confirmed unused, the
+    `orgmemory-docs` project, its volumes and network, `/apps/orgmemory*`, the old Keycloak image and the proxy hosts
+    of `om.kl3in.tech` and `docs.kl3in.tech`. `zeromail-postgres` runs an image named after OrgMemory and stays.
 - [ ] **Staging.** Switch on, with a test member who reads only test Documents.
 - [ ] **Probes.** The curl probes in the design.
 - [ ] **Clients.** Claude web, Claude Code, ChatGPT web; revoke; switch off. Confirm that Claude, whose client comes

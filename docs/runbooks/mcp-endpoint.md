@@ -27,31 +27,35 @@ What the realm reconciliation does with `MEMORYOS_MCP_ENDPOINT_URL`:
 `cimd` is a build option. An image built without it starts normally and advertises nothing, which is why
 `smoke-test-image.sh` fails such an image in CI.
 
-**Production** owns Keycloak through the release ([CI and staging runbook](ci-cd.md#keycloak-runtime)).
+Every host gets Keycloak from the release ([CI and staging runbook](ci-cd.md#keycloak-runtime)).
 
-- The first promotion after this change upgrades Keycloak from 26.7.0 to 26.8.0. The deployment dumps the `keycloak`
+- The first deployment after this change upgrades Keycloak from 26.7.0 to 26.8.0. The deployment dumps the `keycloak`
   database before the rollout, and Keycloak migrates its schema on start.
-- That migration is one way. Rolling back to the 26.7 image needs the dump restored as well, not only the previous
+- That migration is one way. Rolling back to a 26.7 image needs the dump restored as well, not only the previous
   image.
 - Sign-in is down for about a minute, as on every deployment.
 
-**Staging** runs the shared OrgMemory Keycloak image, named by `MEMORYOS_KEYCLOAK_IMAGE` in `.env.staging`, so a
-release does not change it. Each step below needs the owner's approval when it is run.
+**Staging** ran the Keycloak image it once shared with OrgMemory, pinned by `MEMORYOS_KEYCLOAK_IMAGE` in
+`.env.staging`, until the release took it over. For that takeover:
 
-1. **Rebuild the image.** Build the OrgMemory Keycloak image on `quay.io/keycloak/keycloak:26.8.0` with
-   `KC_FEATURES=cimd` in its build stage, as this repository's Dockerfile does. Publish it and pin its digest in
-   `.env.staging`.
-2. **Back up.** Dump the shared `keycloak` database. Both the `memoryos` and `orgmemory` realms live in it.
-3. **Recreate Keycloak.**
-   ```sh
-   docker compose -f infrastructure/deployment/compose.base.yaml -f infrastructure/deployment/compose.staging.yaml \
-     up -d --no-deps --force-recreate --wait keycloak
-   ```
-   Sign-in to both products is down until it is ready.
-4. **Check it.**
-   - Confirm `https://auth.kl3in.tech/realms/memoryos/.well-known/openid-configuration` contains
+1. **Proxy first.** `auth.kl3in.tech` must forward to `memoryos-keycloak`, an alias every deployment gives the
+   container. The older `orgmemory-keycloak` alias no longer exists once this release is deployed.
+2. **Deploy.** The release dumps the `keycloak` database into its transaction directory and recreates Keycloak from
+   `memoryos-keycloak`. A leftover `MEMORYOS_KEYCLOAK_IMAGE` line in `.env.staging` has no effect and can be removed.
+3. **Check it.**
+   - `https://auth.kl3in.tech/realms/memoryos/.well-known/openid-configuration` contains
      `"client_id_metadata_document_supported":true`.
-   - Sign in to MemoryOS and to OrgMemory.
+   - Sign in to MemoryOS.
+4. **Keep the dump.** Copy `keycloak.dump` from the transaction directory to `/apps/memoryos-backups`; transaction
+   directories are pruned.
+
+**If the new Keycloak does not become healthy on that first deployment,** the deployment's rollback restores the api,
+worker and web but not Keycloak, which it had not captured. Recover by hand:
+
+1. Start the previous image again with the accepted configuration, naming it for this one command:
+   `MEMORYOS_KEYCLOAK_IMAGE=<previous image> docker compose … up -d --no-deps --force-recreate --wait keycloak`.
+   An image without the `memoryos` theme signs people in with Keycloak's own look until the release image returns.
+2. If the 26.8 server had already migrated the schema, restore `keycloak.dump` into the `keycloak` database first.
 
 ## Realm reconciliation for the endpoint
 

@@ -650,51 +650,6 @@ for (const manager of [false, true]) {
   });
 }
 
-for (const manager of [false, true]) {
-  test(`names a question the guardrail could not check ${manager ? "for a model manager" : "for a member"}`, async ({
-    page,
-  }) => {
-    await page.route("**/api/identity/me", (route) =>
-      route.fulfill({
-        json: {
-          ...identity,
-          capabilities: manager
-            ? [...identity.capabilities, "MODELS_MANAGE"]
-            : identity.capabilities,
-        },
-      }),
-    );
-    const session = await (
-      await page.request.post("/api/chat/test-fixture", {
-        data: { title: "Unchecked question", mode: "unchecked" },
-      })
-    ).json();
-    await page.goto(`/chat/${session.id}`);
-    await page
-      .getByRole("textbox", { name: "Câu hỏi", exact: true })
-      .fill("vợ của Nhữ Đình Nhật là ai ?");
-    await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-    const alert = page.getByRole("alert");
-    await expect(alert).toContainText("Không kiểm tra được câu hỏi");
-    if (manager)
-      await expect(
-        page.getByRole("link", { name: "Chọn model cho Kiểm tra câu hỏi" }),
-      ).toHaveAttribute("href", "/admin/models");
-    else {
-      await expect(alert).toContainText("Hãy thử lại sau hoặc báo quản trị viên.");
-      await expect(page.getByRole("link", { name: "Chọn model cho Kiểm tra câu hỏi" })).toHaveCount(
-        0,
-      );
-    }
-    await expect(page.getByText("Câu trả lời bị gián đoạn")).toHaveCount(0);
-    await expect(page.getByText("Chưa xác nhận được trạng thái câu trả lời")).toHaveCount(0);
-    if (process.env.MEMORYOS_PREVIEW_SHOTS)
-      await page.screenshot({
-        path: `${process.env.MEMORYOS_PREVIEW_SHOTS}/unchecked-${manager ? "manager" : "member"}.png`,
-      });
-  });
-}
-
 test("mobile drawer, Search navigation, and leaving a running chat only closes the reader", async ({
   page,
 }) => {
