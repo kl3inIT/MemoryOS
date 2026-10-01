@@ -262,7 +262,11 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
         boolean completionTokens = Boolean.TRUE.equals(settings.options().get("maxCompletionTokens"));
         var nativeConverter = new CapabilityAwareOpenAiOptionsConverter(completionTokens ? ModelCapabilities.GPT5_FAMILY : ModelCapabilities.DEFAULT);
         OptionsConverter converter = (options, modelName) -> {
-            var effective = options.withTemperature(null);
+            // A helper call may name its own temperature (the guardrail check asks for 0); an answer's comes from the
+            // configuration and the turn's creativity, and a model that takes no temperature gets none.
+            boolean helper = options.getThinking() != null && !options.getThinking().getEnabled();
+            var effective = options.withTemperature(
+                    helper && OpenAiRequestPolicy.takesTemperature(settings) ? options.getTemperature() : null);
             var configured = settings.options();
             if (configured.get("temperature") instanceof Number value) effective = effective.withTemperature(value.doubleValue());
             if (configured.get("topP") instanceof Number value) effective = effective.withTopP(value.doubleValue());

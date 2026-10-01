@@ -9,8 +9,10 @@ import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatGuardrails;
+import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSettingsService;
 import io.memoryos.chat.execution.ChatTurnSetup;
+import java.util.List;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
@@ -43,14 +45,16 @@ public final class ChatGuardrailCheck {
     /**
      * @param binding  the model that classifies: the Tenant's guardrail task model, else the conversation model
      * @param question the text the person wrote in this turn, without attachments
+     * @param earlier  the conversation's messages before it, oldest first, which the classifier reads as context;
+     *                 blocked phrases are matched in the question only
      */
-    public Result check(ModelBinding binding, ChatTurnSetup setup, String question, ChatSettingsService.TurnPolicy policy,
-            Consumer<ModelAccounting> accounting) {
+    public Result check(ModelBinding binding, ChatTurnSetup setup, String question, List<ChatMessage> earlier,
+            ChatSettingsService.TurnPolicy policy, Consumer<ModelAccounting> accounting) {
         var guardrails = policy.guardrails();
         String phrase = guardrails.blockedPhraseIn(question);
         if (phrase != null) return new Result(Kind.BLOCKED, guardrails.blockedPhraseMessage(), null, phrase);
         var topics = guardrails.enabledTopics();
-        var verdict = classifier.classify(binding, question, setup.options().grounded(), topics, accounting);
+        var verdict = classifier.classify(binding, question, earlier, setup.options().grounded(), topics, accounting);
         return switch (verdict.kind()) {
             case CONVERSATIONAL -> Result.CONVERSATIONAL;
             case QUESTION -> Result.QUESTION;

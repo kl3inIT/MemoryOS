@@ -462,11 +462,26 @@ grounded turn always offers `search_knowledge`, whatever the agent's search tool
    last kind the reply names from whatever surrounds it (markdown, a JSON object, a sentence), and a reply that names
    no verdict is not guessed.
 
+The classifier reads the conversation, not the message alone (MEM-206), laid out as Llama Guard lays out its own: the
+task, the labels and the blocked topics each between markers in the system message, and the conversation in the user
+message as `Person:` and `Assistant:` lines between `<BEGIN CONVERSATION>` and `<END CONVERSATION>`, the message being
+checked last. It judges only that last message ("classify ONLY THE LAST Person message", Llama Guard's wording), so a
+follow-up that names no one, such as "and his family?" after a question about a leader, keeps the earlier topic, while
+an earlier blocked message does not block an unrelated one. It reads the six most recent earlier messages with
+content, each clipped to 1,000 characters, and the checked message whole; the markers are removed from every message.
+Blocked phrases are matched in the checked message only. The call runs at temperature 0, as NeMo (0.01) and LiteLLM's
+judge (0) run theirs (`ModelCalls.generateObject` with a temperature): the OpenAI adapter sends a helper call's own
+temperature only to a model that takes one, so a reasoning model, a GPT-5 options family model and a model whose
+configuration names a temperature keep theirs, and an answer's temperature still comes only from its configuration
+and the person's creativity.
+
 Check 1 runs for grounded turns and, when a topic or phrase is enabled, for every turn. A guardrail is never a
 technical error for the person (2026-10-01; on staging about one checked turn in five had failed because the model
-did not return the structured verdict). A check that fails on the task model, whether an unreadable reply, a provider
-error or a refused credential, is asked again on the conversation model. When neither returns a verdict, the turn is
-answered and the person is not told about the check: the answer model carries the enabled topics itself, as a system
+did not return the structured verdict). The check runs once, on the task model, and is not asked again on another
+model, as none of the guardrail projects compared for MEM-206 falls back to a second classifier. When it returns no
+verdict, whether from an unreadable reply, a provider error or a refused credential, the turn fails open: it is
+answered and the person is not told about the check, as Azure OpenAI completes a request its filter could not check
+and LiteLLM's `fail_open` lets one through, and the answer model carries the enabled topics itself, as a system
 instruction on every inference (`ChatGuardrailCheck.rulesForTheAnswerModel`, `ChatTurnOptions.topicRules`), each with
 its description and the Tenant's reply, so it declines a blocked topic with that reply and answers anything else, as
 assistants that keep their rules in the system prompt do. A turn the check classified carries no such instruction.

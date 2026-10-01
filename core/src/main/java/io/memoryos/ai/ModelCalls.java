@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
@@ -44,6 +45,17 @@ public final class ModelCalls {
      */
     public <T> T generateObject(ModelBinding selected, String instructions, String input, Class<T> shape,
                                 Duration timeout, int maxOutputTokens, Consumer<ModelAccounting> accounting) {
+        return generateObject(selected, instructions, input, shape, timeout, maxOutputTokens, null, accounting);
+    }
+
+    /**
+     * The same call at a sampling {@code temperature} of its own, such as 0 for a classifier that wants the most likely
+     * label. The provider adapter sends it only to a model that takes one: a reasoning model, a model that rejects a
+     * temperature and a model whose configuration names one keep their own.
+     */
+    public <T> T generateObject(ModelBinding selected, String instructions, String input, Class<T> shape,
+                                Duration timeout, int maxOutputTokens, @Nullable Double temperature,
+                                Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         var deadline = Instant.now().plus(timeout);
@@ -59,6 +71,7 @@ public final class ModelCalls {
             admitted = guard;
             var runner = context.ai().withLlmService(selected.withModel(guard));
             var llm = Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(output).withTimeout(timeout);
+            if (temperature != null) llm = llm.withTemperature(temperature);
             return runner.withLlm(llm).createObject(List.of(new SystemMessage(instructions), new UserMessage(input)), shape);
         } finally {
             try { accounting.accept(admitted == null ? ModelAccounting.NONE : ModelAccounting.of(List.of(admitted), process, selected.service())); }

@@ -96,6 +96,25 @@ class OpenAiProviderAdapterTest {
     }
 
     @Test
+    void aHelperCallKeepsTheTemperatureItAsksForOnlyWhereTheModelTakesOne() {
+        var helper = new LlmOptions().withMaxTokens(100).withoutThinking().withTemperature(0.0);
+        var plain = OpenAiProviderAdapter.binding("plain", settings(Map.of(), false), mock(ChatModel.class),
+                TokenizerProfiles.hostedTokens());
+        assertEquals(0.0, ((OpenAiChatOptions) plain.service().convertOptions(helper)).getTemperature());
+        // An answer's temperature comes from the configuration and the turn, never from the call.
+        assertNull(((OpenAiChatOptions) plain.service().convertOptions(new LlmOptions().withMaxTokens(100).withTemperature(0.9)))
+                .getTemperature());
+        // A reasoning model, a GPT-5 options family model and a configured temperature keep their own.
+        for (var settings : List.of(settings(Map.of(), true), settings(Map.of("maxCompletionTokens", true), false))) {
+            var binding = OpenAiProviderAdapter.binding("m", settings, mock(ChatModel.class), TokenizerProfiles.hostedTokens());
+            assertNull(((OpenAiChatOptions) binding.service().convertOptions(helper)).getTemperature());
+        }
+        var configured = OpenAiProviderAdapter.binding("m", settings(Map.of("temperature", 0.3), false), mock(ChatModel.class),
+                TokenizerProfiles.hostedTokens());
+        assertEquals(0.3, ((OpenAiChatOptions) configured.service().convertOptions(helper)).getTemperature());
+    }
+
+    @Test
     void rejectsUnknownOrMalformedOptionsBeforeAnyProviderRequest() {
         var meters = new SimpleMeterRegistry();
         var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);

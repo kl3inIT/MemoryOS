@@ -23,6 +23,8 @@ never logged, so the change does not depend on it.
    names no verdict is not guessed.
 2. **A second model.** A check that fails on the `CHAT_GUARDRAIL` task model (#424), for any reason including a
    refused credential, runs once more on the conversation model. Usage is recorded against the model that ran.
+   Removed by MEM-206 the same week: no guardrail project falls back to a second classifier, and point 3 already
+   gives the answer model the rules ([MEM-206](../mem-206-guardrail-conversation-context/design.md)).
 3. **No verdict from either: the answer model carries the rules.** The turn is answered. Its options take the
    enabled topics as an instruction (`ChatGuardrailCheck.rulesForTheAnswerModel`), sent as a system message of every
    inference: each topic's description and the Tenant's reply, to be given word for word for a message about that

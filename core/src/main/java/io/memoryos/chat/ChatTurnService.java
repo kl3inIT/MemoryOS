@@ -13,6 +13,7 @@ import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.grounding.ChatGuardrailCheck;
 import io.memoryos.chat.grounding.CitationGate;
+import io.memoryos.chat.grounding.GroundingClassifier;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelFlow;
 import io.memoryos.chat.web.WebConnectionService;
@@ -312,7 +313,7 @@ public final class ChatTurnService implements AutoCloseable {
             if (command.deepResearch()) setup = setup.withResearch(researchState(context, setup));
             // Check 1 fails closed: a turn that needs it is not started without it.
             if (ChatGuardrailCheck.applies(setup, policy) && guardrails == null) throw ChatException.providerUnavailable();
-            var run = new Active(setup, resolved, policy, question(context), context.uiLanguage());
+            var run = new Active(setup, resolved, policy, question(context), earlier(context), context.uiLanguage());
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
             transferred = true;
@@ -483,27 +484,18 @@ public final class ChatTurnService implements AutoCloseable {
     private boolean checkGuardrails(Active run) {
         if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
         long started = System.nanoTime();
-        // The check's own task model when the Tenant set one that is still usable, then the conversation model: a
-        // model that cannot return a verdict must not decide whether the person gets an answer.
+        // One call, on the check's own task model, else the conversation's model. It is not asked again on another
+        // model: when it gives no verdict, the answer model below carries the same rules, as no guardrail project
+        // falls back to a second classifier either.
         ChatGuardrailCheck.Result result = null;
         try (var selected = models.resolveFlow(run.setup.actor(), run.setup.sessionId(), ModelFlow.CHAT_GUARDRAIL)) {
-            result = guardrails.check(selected.binding(), run.setup, run.question, run.policy, accounting -> recordCheck(run,
-                    selected.modelConfigurationId(), selected.provenance(), selected.binding().service().getName(), accounting));
+            result = guardrails.check(selected.binding(), run.setup, run.question, run.earlier, run.policy,
+                    accounting -> recordCheck(run, selected.modelConfigurationId(), selected.provenance(),
+                            selected.binding().service().getName(), accounting));
         } catch (CancellationException stopped) {
             throw stopped;
         } catch (RuntimeException failure) {
-            checkFailed(run, failure, "task_model");
-        }
-        if (result == null) {
-            run.check();
-            try {
-                result = guardrails.check(run.setup.binding(), run.setup, run.question, run.policy, accounting -> recordCheck(run,
-                        run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), accounting));
-            } catch (CancellationException stopped) {
-                throw stopped;
-            } catch (RuntimeException failure) {
-                checkFailed(run, failure, "conversation_model");
-            }
+            checkFailed(run, failure);
         }
         run.check();
         if (result == null) {
@@ -555,14 +547,14 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     /**
-     * One attempt of the check failed. A spent budget or another reported turn failure still ends the turn; anything
-     * else, a refused credential or an unreadable verdict included, is logged and leaves the next attempt to decide.
+     * The check failed. A spent budget or another reported turn failure still ends the turn; anything else, a refused
+     * credential or an unreadable verdict included, is logged and the turn fails open with the rules in the answer.
      */
-    private void checkFailed(Active run, RuntimeException failure, String attempt) {
+    private void checkFailed(Active run, RuntimeException failure) {
         var reported = TurnFailureException.reportedIn(failure);
         if (reported.isPresent()) throw reported.get().exception();
         LOG.atWarn().addKeyValue("event", "chat.guardrail.unavailable").addKeyValue("message_id", run.setup.assistantMessageId())
-                .addKeyValue("attempt", attempt).addKeyValue("error_type", failure.getClass().getName())
+                .addKeyValue("error_type", failure.getClass().getName())
                 .log("Chat guardrail check unavailable");
     }
 
@@ -582,6 +574,22 @@ public final class ChatTurnService implements AutoCloseable {
     private static String question(ChatTurnPersistence.TurnContext context) {
         return context.newestFirst().stream().filter(message -> message.role() == ChatMessage.Role.USER).findFirst()
                 .map(ChatMessage::content).orElse("");
+    }
+
+    /** The messages before this turn's question, oldest first, that the guardrail check reads as context (MEM-206). */
+    private static List<ChatMessage> earlier(ChatTurnPersistence.TurnContext context) {
+        var before = new ArrayList<ChatMessage>();
+        boolean past = false;
+        for (var message : context.newestFirst()) {
+            if (!past) {
+                past = message.role() == ChatMessage.Role.USER;
+                continue;
+            }
+            if (message.content() == null || message.content().isBlank()) continue;
+            before.addFirst(message);
+            if (before.size() == GroundingClassifier.EARLIER_MESSAGES) break;
+        }
+        return before;
     }
 
     private void retireWhenDrained(Active run) {
@@ -716,6 +724,7 @@ public final class ChatTurnService implements AutoCloseable {
         final ModelResolver.Resolved resolved;
         final ChatSettingsService.TurnPolicy policy;
         final String question;
+        final List<ChatMessage> earlier;
         final @Nullable String uiLanguage;
         /** MEM-195: set before the answer model runs, when the turn is grounded or blocks phrases. */
         volatile @Nullable CitationGate gate;
@@ -743,8 +752,9 @@ public final class ChatTurnService implements AutoCloseable {
         final boolean grounded;
         final AtomicBoolean firstTextShown = new AtomicBoolean();
         Active(ChatTurnSetup setup, ModelResolver.Resolved resolved, ChatSettingsService.TurnPolicy policy, String question,
-               @Nullable String uiLanguage) {
-            this.setup = setup; this.resolved = resolved; this.policy = policy; this.question = question; this.uiLanguage = uiLanguage;
+               List<ChatMessage> earlier, @Nullable String uiLanguage) {
+            this.setup = setup; this.resolved = resolved; this.policy = policy; this.question = question;
+            this.earlier = List.copyOf(earlier); this.uiLanguage = uiLanguage;
             this.grounded = setup.options().grounded();
         }
         synchronized int sourceCount() { return sources.size(); }

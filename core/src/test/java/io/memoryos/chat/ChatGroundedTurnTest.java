@@ -14,7 +14,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +48,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ChatModel;
@@ -79,6 +79,9 @@ class ChatGroundedTurnTest {
         }
     }
 
+    /** Messages before the question in the context, newest first, as the conversation's history holds them. */
+    private List<ChatMessage> earlierNewestFirst = List.of();
+
     private void prepare(boolean toolCalling, ChatSettingsService.TurnPolicy policy, ChatGuardrailCheck.Kind kind) {
         var binding = ModelBinding.builder(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
                 ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false)
@@ -103,12 +106,13 @@ class ChatGroundedTurnTest {
                 .finishedAt(Instant.now())
                 .build();
         when(persistence.loadContext(any(), any(), any())).thenReturn(ChatTurnPersistence.TurnContext.builder(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question))
+                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer",
+                Stream.concat(Stream.of(question), earlierNewestFirst.stream()).toList())
                 .options(grounded)
                 .build());
         when(settings.turnPolicy(any())).thenReturn(policy);
         when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), 0));
-        when(guardrails.check(any(), any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
+        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
                 kind == ChatGuardrailCheck.Kind.BLOCKED ? "Trợ lý không trả lời câu hỏi về lãnh tụ." : null,
                 kind == ChatGuardrailCheck.Kind.BLOCKED ? ChatGuardrails.Topic.LEADERS : null, null));
     }
@@ -168,34 +172,50 @@ class ChatGroundedTurnTest {
     }
 
     @Test
-    void aCheckThatFailsOnItsTaskModelIsAskedAgainOnTheConversationModel() {
-        prepare(true, TOPICS, ChatGuardrailCheck.Kind.BLOCKED);
+    void aCheckThatFailsIsNotAskedAgainOnAnotherModel() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
         var checker = taskModel();
-        var blocked = new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED,
-                "Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo.", ChatGuardrails.Topic.LEADERS, null);
-        when(guardrails.check(any(), any(), any(), any(), any())).thenReturn(blocked);
-        when(guardrails.check(eq(checker), any(), any(), any(), any())).thenThrow(new IllegalStateException(new Refused()));
+        when(guardrails.check(eq(checker), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException(new Refused()));
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
-            // The person still gets the topic's own message, not an error.
-            verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo.", ChatMessage.BLOCKED_TOPIC);
-            verify(guardrails).check(eq(checker), any(), any(), any(), any());
-            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            // As no guardrail project falls back to a second classifier: the answer model carries the rules instead.
+            verify(guardrails).check(any(), any(), any(), any(), any(), any());
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertTrue(setup.getValue().options().topicRules().contains("Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo."));
+        }
+    }
+
+    @Test
+    void theCheckReadsTheConversationBeforeTheQuestion() {
+        var asked = ChatMessage.builder(UUID.randomUUID(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .content("Chủ tịch nước hiện nay là ai?").build();
+        var declined = ChatMessage.builder(UUID.randomUUID(), session, ChatMessage.Role.ASSISTANT, ChatMessage.Status.COMPLETED,
+                Instant.now()).content("Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo.").build();
+        earlierNewestFirst = List.of(declined, asked);
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.BLOCKED);
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verify(guardrails).check(any(), any(), eq("Vợ bác Hồ là ai?"), eq(List.of(asked, declined)), any(), any());
+            verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ.", ChatMessage.BLOCKED_TOPIC);
         }
     }
 
     @Test
     void withTopicsToBlockAQuestionNobodyCouldCheckIsAnsweredByAModelThatCarriesTheTopicRules() {
         prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
-        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
+        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
         answers("Việt Nam hiện có 34 tỉnh, thành phố.");
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
-            verify(guardrails, times(2)).check(any(), any(), any(), any(), any());
+            verify(guardrails).check(any(), any(), any(), any(), any(), any());
             // The person is not told about the failed check: the answer model runs with the blocked topics as its own
             // instruction, so it declines one with the Tenant's message and answers anything else.
             var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
@@ -210,7 +230,7 @@ class ChatGroundedTurnTest {
     @Test
     void withNoTopicToBlockAQuestionNobodyCouldCheckIsAnsweredFromDocuments() {
         prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
-        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
+        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
         answers("Việt Nam hiện có 34 tỉnh, thành phố.");
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
@@ -241,13 +261,13 @@ class ChatGroundedTurnTest {
     @Test
     void aSpentBudgetAtTheCheckStillEndsTheTurnWithItsOwnCode() {
         prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
-        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(TurnFailure.BUDGET_EXCEEDED.exception());
+        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenThrow(TurnFailure.BUDGET_EXCEEDED.exception());
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
             verifyFailed("CHAT_BUDGET_EXCEEDED");
-            verify(guardrails).check(any(), any(), any(), any(), any());
+            verify(guardrails).check(any(), any(), any(), any(), any(), any());
         }
     }
 
@@ -266,7 +286,7 @@ class ChatGroundedTurnTest {
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
-            verify(guardrails).check(eq(checker), any(), any(), any(), any());
+            verify(guardrails).check(eq(checker), any(), any(), any(), any(), any());
             verify(model).execute(argThat(setup -> setup.binding() != checker), any(), any(), any(), any(), any(), any(), any(), any());
             verify(checkerLease).close();
         }
