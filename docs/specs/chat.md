@@ -421,7 +421,9 @@ grounded turn always offers `search_knowledge`, whatever the agent's search tool
 **Check 1.** Before the answer model, in the turn's background execution, `ChatGuardrailCheck`:
 1. matches the Tenant's blocked phrases in code;
 2. sends greetings and thanks to the answer model without a classifier call;
-3. otherwise asks one structured classifier call on the turn's model (`ModelCalls`, so it keeps the turn's budget,
+3. otherwise asks one structured classifier call on the Tenant's `CHAT_GUARDRAIL` task model, or the conversation
+   model when that task has no usable model ([task models](chat-models.md); V135 seeds it with the Chat model)
+   (`ModelCalls`, so it keeps the turn's budget,
    deadline and usage recording) whether the question is `CONVERSATIONAL`, a `QUESTION` or a `BLOCKED_TOPIC`, with
    each enabled topic's description and examples.
 
