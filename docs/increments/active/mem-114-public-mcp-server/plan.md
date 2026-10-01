@@ -140,36 +140,61 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
 
 ## 3. Endpoint (pull request 2)
 
-- [ ] **Versions.** `mcp-sdk` 2.0.1. `api` adds the MCP server starter, `bucket4j` and `caffeine`.
-- [ ] **Transport configuration.** Stateless and SYNC, `/mcp`, tool capability only, instructions.
-- [ ] **Security chain.**
-  - Endpoint-audience decoder, `knowledge:read`.
-  - Protected-resource metadata with a fixed `resource`.
-  - 401 and 403 challenges, Origin check, `JwtToActorAuthenticationConverter`.
-- [ ] **Protocol-version filter.** After security; 400 with `-32000` for an unsupported `MCP-Protocol-Version`.
-- [ ] **`search` and `fetch`.**
-  - Shapes, caps, `sourceNumber`, `url`, annotations and output schemas.
-  - The current-generation read on `DocumentSearchService`.
-- [ ] **Endpoint switch.**
-  - `mcp` settings row and migration.
+- [x] **Versions.** `mcp-sdk` 2.0.1. `api` adds the MCP server starter, `bucket4j` 8.20.0 and `caffeine`.
+- [x] **Transport configuration.** Stateless and SYNC at `/mcp`, tool capability only, server instructions.
+  `spring.ai.mcp.server.tool-callback-converter` is off: Spring AI otherwise publishes every `ToolCallback` bean of the
+  application, Chat's own tools included, through the endpoint.
+- [x] **Security chain** (`McpEndpointSecurityConfiguration`, order 0, exactly `/mcp` and its metadata path).
+  - Decoder with the exact issuer, the endpoint URL as audience and a non-blank subject; it is not a bean, so the API's
+    decoder stays unambiguous.
+  - `knowledge:read` and an active Tenant membership required.
+  - RFC 9728 metadata with a fixed `resource`.
+  - The 401 names the metadata document and the scope.
+  - `JwtToActorAuthenticationConverter` reused.
+  - First in the chain, a gate answers 404 while the endpoint is off and 403 for a foreign `Origin`.
+- [x] **Protocol-version filter.** A servlet filter after security; 400 with `-32000` for an unsupported
+  `MCP-Protocol-Version`.
+- [x] **`search` and `fetch`** (`McpEndpointTools`).
+  - At most 10 results, with text cut at 2,000 characters per result and 100,000 for `fetch`.
+  - `sourceNumber`; `url` is the provider link or `/search?doc=<id>`.
+  - Four hints and object output schemas.
+  - `DocumentSearchService.currentDocument` reads by Document id at its current generation; `providerUrl` comes from
+    the Source mappings the actor may read.
+- [x] **Endpoint switch.**
+  - `mcp_endpoint_setting` (V135).
   - `McpEndpointService` with revision fencing and `MCP_MANAGE`.
-  - `AuditAction.MCP_ENDPOINT_CHANGE`.
-  - `MEMORYOS_MCP_ENDPOINT_URL`.
-  - 404 when off.
-- [ ] **Administration API.** The switch, then the OpenAPI snapshot and Hey API client regenerated.
-- [ ] **Limits.** Rate limit on `tools/call` per caller and globally, request size limit, failure boundary.
-- [ ] **Observability.** `memoryos.mcp.endpoint.call` and the log events.
-- [ ] **Tests.**
-  - Annotations and object output schemas.
-  - Token validation: issuer, audience, expiry, scope, cross-use with `/api/**`.
-  - Readability through PUBLIC, PRIVATE and SYNC.
-  - The switch off.
-  - The protocol-version filter.
-  - 429 and 413.
-  - The error surface.
-  - Single-document YAML.
-- [ ] **Gates.** `ModulithArchitectureTest`, `CoreDependencyRulesTest`, `OpenApiContractTest`, then `clean check` (CI
-  when local memory is short).
+  - `AuditAction.MCP_ENDPOINT_CHANGE` (`mcp_endpoint.change`).
+  - `MEMORYOS_MCP_ENDPOINT_URL` through Compose and the environment examples.
+  - 404 while off.
+- [x] **Administration API.** `GET`/`PUT /api/mcp/endpoint`.
+  - `openapi.yml` was edited by hand to springdoc's shape for the two operations and two schemas: this host lacked the
+    memory to run the contract test with the write flag. CI's `OpenApiContractTest` checks it.
+  - The Hey API client is regenerated.
+- [x] **Limits** (`McpEndpointRequestFilter`, after bearer authentication).
+  - 413 above 256 KiB, declared or chunked.
+  - `tools/call` costs one token per caller (person and client) and one from the endpoint. Defaults are 60 and 600 per
+    minute; an empty bucket answers 429 with `Retry-After`.
+  - Failures reach the client as fixed sentences without a cause.
+- [x] **Observability.**
+  - Timer `memoryos.mcp.endpoint.call` with `tool` and `outcome`.
+  - Log events `mcp_endpoint.tool.refused` (with `error_code`), `mcp_endpoint.tool.failed` and
+    `mcp_endpoint.rate_limited`.
+- [ ] **Tests** (`McpEndpointIntegrationTest`: the real filter chains and signed tokens; search itself is replaced).
+  - Off switch.
+  - The 401 challenge and the metadata.
+  - Audience and scope, and an endpoint token refused on `/api`.
+  - Exactly two read-only tools with object schemas.
+  - Search evidence and its link.
+  - A cause-free failure.
+  - ChatGPT's probe.
+  - Foreign origin, 413 and 429 per caller.
+  - The switch through the API, with its audit.
+
+  Readability through PUBLIC, PRIVATE and SYNC is `DocumentSearchService`'s own tested contract. A duplicated YAML key
+  already fails every context test, so there is no separate YAML test. Running the tests is left to CI.
+- [ ] **Gates.** `ModulithArchitectureTest`, `CoreDependencyRulesTest`, `OpenApiContractTest`, then `clean check` on CI.
+- [ ] **Onyx's MCP server**, studied from `.tmp/onyx` (40eb240df): its instructions and tool descriptions are compared
+  before the pull request.
 
 ## 4. Web, grants and consent (pull request 3)
 
