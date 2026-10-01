@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Starts a Keycloak image against a throwaway PostgreSQL and proves the MemoryOS login theme renders.
+# Starts a Keycloak image against a throwaway PostgreSQL and proves the MemoryOS login theme renders
+# and Client ID Metadata Documents are on.
 #
 # Keycloak does not fail when a realm names a theme it cannot find: it logs an error and draws the
 # built-in page. So "the container is healthy" proves nothing about the theme; this asks for a login
@@ -57,6 +58,12 @@ kcadm update realms/master -s loginTheme=memoryos
 
 port=$(docker port "$run-keycloak" 8080/tcp | head -n 1 | sed 's/.*://')
 base="http://127.0.0.1:$port"
+
+# MEM-114: Claude reaches the MCP endpoint through a Client ID Metadata Document. A feature is a build
+# option, so an image built without `cimd` starts fine and silently falls back to nothing.
+discovery=$(curl --silent --fail --header 'Host: localhost:8080' "$base/realms/master/.well-known/openid-configuration")
+grep -q '"client_id_metadata_document_supported":true' <<< "$discovery" ||
+  { echo 'The image does not advertise Client ID Metadata Documents; was it built with KC_FEATURES=cimd?' >&2; exit 1; }
 # The admin console client demands PKCE; any well-formed challenge renders the login page.
 challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
 page=$(curl --silent --fail --header 'Host: localhost:8080' \

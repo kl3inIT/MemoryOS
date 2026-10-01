@@ -1,0 +1,26 @@
+{
+  "clientId": "memoryos-chatgpt",
+  "name": "ChatGPT",
+  "description": "MEM-114: pre-registered client for ChatGPT connectors to the MemoryOS MCP endpoint",
+  "enabled": true,
+  "protocol": "openid-connect",
+  "publicClient": false,
+  "clientAuthenticatorType": "client-secret",
+  "bearerOnly": false,
+  "consentRequired": true,
+  "fullScopeAllowed": false,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": false,
+  "frontchannelLogout": false,
+  "redirectUris": ["https://chatgpt.com/connector_platform_oauth_redirect"],
+  "webOrigins": [],
+  "defaultClientScopes": ["acr", "basic", "knowledge:read"],
+  "optionalClientScopes": ["offline_access"],
+  "attributes": {
+    "pkce.code.challenge.method": "S256",
+    "display.on.consent.screen": "true",
+    "consent.screen.text": "${chatgptClientConsentText}"
+  }
+}

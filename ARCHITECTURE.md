@@ -288,7 +288,7 @@ Source associations contain ordinary Groups only: global managers may save `[]`,
 
 Google authorization is a separate Connector credential flow. Its callback cannot replace the signed-in Actor or infer identity from email. Provider tokens are encrypted or transient and do not become application-session authority.
 
-The shared runtime mounts the repository-owned `memoryos` login theme read-only and selects it only for the `memoryos` realm. The theme extends Keycloak 26.7's `keycloak.v2` theme with local CSS, messages, and SVG assets; it copies no FreeMarker templates, so Keycloak retains ownership of login, password recovery, required actions, action-token errors, form submission, and accessibility semantics. Realm reconciliation verifies both server-side theme discovery and the persisted `loginTheme` value. The master and OrgMemory realms remain outside MemoryOS theme reconciliation.
+The shared runtime mounts the repository-owned `memoryos` login theme read-only and selects it only for the `memoryos` realm. The theme extends Keycloak 26.8's `keycloak.v2` theme with local CSS, messages, and SVG assets; it copies no FreeMarker templates, so Keycloak retains ownership of login, password recovery, required actions, action-token errors, form submission, and accessibility semantics. Realm reconciliation verifies both server-side theme discovery and the persisted `loginTheme` value. The master and OrgMemory realms remain outside MemoryOS theme reconciliation.
 
 ## Data ownership and consistency
 
