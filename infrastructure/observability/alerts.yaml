@@ -21,6 +21,11 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: Worker telemetry is missing; inspect worker and collector health
+      - alert: MemoryOSDoclingFallback
+        expr: sum by (reason, outcome) (increase(memoryos_extraction_docling_fallback_total[15m])) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: Docling is failing; documents are published from Tika without tables or boxes. Fix Docling, then reindex Documents whose parser is tika
       - alert: MemoryOSHttpErrors
         expr: sum(rate(http_server_requests_milliseconds_count{status=~"5.."}[5m])) / clamp_min(sum(rate(http_server_requests_milliseconds_count[5m])), 0.01) > 0.05
         for: 5m

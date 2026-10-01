@@ -421,6 +421,36 @@
         "overrides": []
       },
       "options": {}
+    },
+    {
+      "id": 15,
+      "title": "Docling fallbacks",
+      "description": "Docling failures that reached the native fallback, per 15 minutes. read: published from Tika without tables or boxes, reindex once Docling works. refused or failed: the attempt failed with Docling's error. Anything above zero means Docling is not converting.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "memoryos-prometheus",
+        "type": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (reason, outcome) (increase(memoryos_extraction_docling_fallback_total[15m]))",
+          "legendFormat": "{{reason}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
     }
   ],
   "description": "Landing page: HTTP, JVM, pools, workers, ingestion, errors and alert state. Linked to the service, Chat & AI and traces dashboards.",
