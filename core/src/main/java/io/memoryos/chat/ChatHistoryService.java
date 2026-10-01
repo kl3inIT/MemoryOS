@@ -80,7 +80,7 @@ public class ChatHistoryService {
      */
     @Transactional(readOnly = true)
     public Transcript transcript(ActorId reader, UUID sessionId) {
-        var access = readable(reader, new ChatHistoryQuery(null, null, null, null, null));
+        var access = readable(reader, ChatHistoryQuery.ALL);
         var entry = history.conversation(access.tenant().value(), sessionId).orElseThrow(ChatException::unavailable);
         var messages = history.transcript(sessionId, entry.rootMessageId(), MAX_TRANSCRIPT);
         recordRead(access, reader, entry, messages.size());

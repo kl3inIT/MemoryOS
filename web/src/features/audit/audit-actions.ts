@@ -36,6 +36,7 @@ const actionLabels: Record<string, AppCopy> = {
   "image_connection.change": "Changed image generation",
   "interpreter.change": "Changed Code Interpreter",
   "chat_settings.change": "Changed Chat settings",
+  "chat_guardrail.block": "Question blocked",
   "mcp_server.create": "Added an MCP server",
   "mcp_server.update": "Updated an MCP server",
   "mcp_server.delete": "Deleted an MCP server",
@@ -97,6 +98,7 @@ const fieldLabels: Record<string, AppCopy> = {
   adapter: "Adapter",
   added: "Added",
   admission: "Admission",
+  agent: "Agent",
   alias: "Alias",
   authentication: "Authentication",
   baseUrl: "Endpoint",
@@ -125,10 +127,13 @@ const fieldLabels: Record<string, AppCopy> = {
   public: "Available to everyone",
   reason: "Reason",
   removed: "Removed",
+  rule: "Blocked by",
   rows: "Rows",
   scope: "Scope",
+  session: "Conversation",
   tenantWide: "Available to everyone",
   tools: "Tools",
+  topic: "Topic",
   url: "Endpoint",
 };
 
@@ -143,6 +148,12 @@ const valueLabels: Record<string, AppCopy> = {
   PUBLIC: "Public",
   PRIVATE: "Private",
   SYNC: "Auto Sync",
+  // A guardrail block: what stopped the question, and which built-in topic.
+  topic: "Sensitive topic",
+  phrase: "Blocked phrase",
+  POLITICS: "Chính trị",
+  LEADERS: "Lãnh tụ và lãnh đạo",
+  RELIGION: "Tôn giáo",
 };
 
 type Translate = (copy: AppCopy) => string;

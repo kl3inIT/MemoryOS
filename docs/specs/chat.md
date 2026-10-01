@@ -365,7 +365,7 @@ What the read covers:
 
 | Method and path | Contract |
 | --- | --- |
-| `GET /api/chat/history` | A page of conversations, newest first, on an opaque `(updated_at, id)` cursor. Filters: `from`, `to`, `q` (asker or title; `%` and `_` are literal), `actorId`, `feedback` (`POSITIVE`, `NEGATIVE`, `MIXED`, `NONE`). `size` is 1–100, default 30. Each page also carries the period's counts |
+| `GET /api/chat/history` | A page of conversations, newest first, on an opaque `(updated_at, id)` cursor. Filters: `from`, `to`, `q` (asker or title; `%` and `_` are literal), `actorId`, `feedback` (`POSITIVE`, `NEGATIVE`, `MIXED`, `NONE`), `blocked` (only conversations with a reply the guardrails stopped, `refusal_reason = blocked_topic`: a topic or a blocked phrase, on the question or the answer). `size` is 1–100, default 30. Each page also carries the period's counts |
 | `GET /api/chat/history/{sessionId}` | One conversation's transcript on its selected branch, with each message's feedback and cited titles |
 | `GET /api/chat/history/export` | The filtered conversations as CSV, at most 50,000 rows, with a byte-order mark and formula prefixes neutralized |
 | `PUT /api/chat/settings/history-visibility` | Chooses the mode; requires `MODELS_MANAGE` |
@@ -376,8 +376,10 @@ no message body beyond the first question and answer, and at chat volume it woul
 nothing at all here.
 
 Admin › Monitoring › Conversation history (`/admin/chat-history`, vi "Theo dõi › Lịch sử hội thoại") shows the
-period's counts, one row of filters, the shared table and pager, a conversation in a centred dialog, and an export
-link carrying the filters on screen.
+period's counts, one row of filters (period, feedback, a *Bị chặn* toggle for blocked questions, search), the shared
+table and pager, a conversation in a centred dialog, and an export link carrying the filters on screen. A blocked
+question is reviewed here, where the transcript shows what was asked; its `chat_guardrail.block` audit record names
+the rule, the topic and the conversation but never the question, and the audit log shows it as *Câu hỏi bị chặn*.
 
 ## Conversation lifecycle
 
