@@ -19,7 +19,7 @@ search and read a Tenant's knowledge through MemoryOS, as the signed-in person a
 - **Acceptance clients.**
   - Claude web and ChatGPT web. Claude Code comes free through CIMD with loopback redirects.
   - If ChatGPT fails acceptance, it moves to its own issue.
-  - Gemini Enterprise has its own issue. Cursor is out.
+  - Gemini Enterprise has its own issue, [MEM-205](https://linear.app/memory-os/issue/MEM-205). Cursor is out.
 - **OAuth only.** Personal access tokens stay with [MEM-124](https://linear.app/memory-os/issue/MEM-124), which is now
   related rather than blocking.
 - **No Tenant choice.** A deployment has exactly one Tenant ([tenant spec](../../../specs/tenant.md)), so the issue's

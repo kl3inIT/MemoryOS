@@ -9,11 +9,11 @@ reopen it after each intermediate merge.
 
 - [x] Owner decisions recorded 2026-10-01 (see design).
 - [x] Increment, roadmap entry and the MEM-134 egress note.
-- [ ] Linear:
+- [x] Linear:
   - MEM-114 In Progress;
   - MEM-124 changed from blocking to related;
   - decisions comment on MEM-114;
-  - a Gemini Enterprise issue.
+  - Gemini Enterprise issue [MEM-205](https://linear.app/memory-os/issue/MEM-205).
 
 ## 1. Spike, local and not committed
 
