@@ -258,6 +258,17 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   - [ ] Remove what OrgMemory left on the host: the `orgmemory` realm once its clients are confirmed unused, the
     `orgmemory-docs` project, its volumes and network, `/apps/orgmemory*`, the old Keycloak image and the proxy hosts
     of `om.kl3in.tech` and `docs.kl3in.tech`. `zeromail-postgres` runs an image named after OrgMemory and stays.
+- [x] **Staging Keycloak takeover done** on 2026-10-01: proxy repointed, release deployed (26.8 with `cimd`), realm
+  script run, `keycloak.dump` kept in `/apps/memoryos-backups`. Claude web connected and called both tools.
+- [ ] **ChatGPT through its metadata document.** ChatGPT's personal plugin was refused (`client_not_found`): the
+  policy did not trust `chatgpt.com`, and Keycloak 26.8 cannot read its document anyway (#51236).
+  - [x] The image's `memoryos-client-id-metadata-document` executor (upstream fix #51235); `chatgpt.com` and
+    `persistent.oaistatic.com` trusted; the smoke test requires the executor.
+  - [x] The ChatGPT tab of *Cài đặt › MemoryOS MCP* gives a personal plugin's steps.
+  - [x] The sign-in page's 26.8 strings in Vietnamese ("hoặc", the Tasco button without "Sign in with") and the
+    language menu with its caret inside the control.
+  - [ ] Staging: deploy, rerun the realm script, connect a personal ChatGPT plugin.
+  - [ ] Then remove `memoryos-chatgpt`, its secret file and the administration page's ChatGPT fields.
 - [ ] **Staging.** Switch on, with a test member who reads only test Documents.
 - [ ] **Probes.** The curl probes in the design.
 - [ ] **Clients.** Claude web, Claude Code, ChatGPT web; revoke; switch off. Confirm that Claude, whose client comes

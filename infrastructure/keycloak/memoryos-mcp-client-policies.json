@@ -5,12 +5,12 @@
       "description": "MEM-114: external MCP clients identified by a Client ID Metadata Document",
       "executors": [
         {
-          "executor": "client-id-metadata-document",
+          "executor": "memoryos-client-id-metadata-document",
           "configuration": {
             "cimd-allow-http-scheme": false,
             "only-allow-confidential-client": false,
             "accept-public-client-with-confidential-client-only-grant": true,
-            "cimd-allow-permitted-domains": ["claude.ai", "claude.com", "localhost", "127.0.0.1"],
+            "cimd-allow-permitted-domains": ["claude.ai", "claude.com", "localhost", "127.0.0.1", "chatgpt.com", "persistent.oaistatic.com"],
             "cimd-restrict-same-domain": false,
             "cimd-resource-indicator-allow-list": []
           }
@@ -40,7 +40,7 @@
           "condition": "client-id-uri",
           "configuration": {
             "client-id-uri-scheme": ["https"],
-            "client-id-uri-allow-permitted-domains": ["claude.ai", "claude.com"]
+            "client-id-uri-allow-permitted-domains": ["claude.ai", "claude.com", "chatgpt.com"]
           }
         }
       ],

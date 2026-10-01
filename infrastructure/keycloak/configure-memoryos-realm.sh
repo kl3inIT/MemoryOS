@@ -884,9 +884,10 @@ configure_mcp_endpoint() {
             --config "$CONFIG_FILE" \
             -f - >/dev/null
 
-    # Claude identifies itself by a metadata document on claude.ai. Keycloak stores one client per
-    # document, so nothing is registered per connection. The executor exists only in an image built
-    # with the `cimd` feature; without it this update fails and the script stops.
+    # Claude and ChatGPT identify themselves by a metadata document on claude.ai or chatgpt.com. Keycloak
+    # stores one client per document, so nothing is registered per connection. The executor is the image's
+    # memoryos-client-id-metadata-document, which needs the `cimd` feature; without either this update fails
+    # and the script stops.
     jq --arg resource "$MEMORYOS_MCP_ENDPOINT_URL" \
         '.profiles[0].executors[0].configuration["cimd-resource-indicator-allow-list"] = [$resource]' \
         "$SCRIPT_DIR/memoryos-mcp-client-policies.json" >"$MCP_POLICIES_FILE"

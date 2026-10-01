@@ -97,9 +97,9 @@ function ConnectSection() {
         <TabsContent value="chatgpt">
           <Steps
             steps={[
-              ui("Quản trị viên ChatGPT của tổ chức thêm MemoryOS vào workspace một lần."),
-              ui("Trong ChatGPT, mở Settings › Apps, chọn MemoryOS và bấm Connect."),
-              ui("Đăng nhập MemoryOS và chọn Cho phép."),
+              ui("Trong ChatGPT, mở Plugin và chọn Plugin mới."),
+              ui("Dán địa chỉ MCP ở trên, giữ Xác thực là OAuth rồi bấm Tạo."),
+              ui("Bấm Connect, đăng nhập MemoryOS và chọn Cho phép."),
             ]}
           />
         </TabsContent>

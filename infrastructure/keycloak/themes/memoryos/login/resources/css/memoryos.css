@@ -211,31 +211,12 @@
   }
 }
 
-/* Identity providers: "Or continue with" divider, then one full-width button per provider, so any
+/* Identity providers: Keycloak's "or" divider, then one full-width button per provider, so any
    configured display name stays readable. */
 
-.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers) {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  margin: 1.5rem 0 1rem;
-  padding: 0;
-  border: 0;
-}
-
-.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers)::before,
-.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers)::after {
-  flex: 1;
-  height: 1px;
-  background: #e7e9ee;
-  content: "";
-}
-
-.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers) .pf-v5-c-login__main-footer-band-item {
+.kc-login-divider span {
   color: var(--memoryos-muted);
   font-size: 0.8125rem;
-  white-space: nowrap;
 }
 
 #kc-social-providers {
@@ -276,7 +257,9 @@
   white-space: nowrap;
 }
 
-#kc-social-providers svg {
+#kc-social-providers svg,
+#kc-social-providers a > img,
+#kc-social-providers a > picture {
   flex: none;
   width: 1rem;
   height: 1rem;
@@ -290,8 +273,11 @@
 /* Tasco: the logo follows the display name configured in Keycloak (for example "Đăng nhập với").
    It sits inline on the text baseline at cap height so it lines up with the letters, painted in the
    button text colour (dark at rest, white on hover). Keyed to the `tasco` identity-provider alias;
-   other providers keep the default icon and their display name. */
-#social-tasco > svg {
+   other providers keep the default icon and their display name. Keycloak 26.8 draws that icon as an
+   image rather than an inline SVG. */
+#social-tasco > svg,
+#social-tasco > img,
+#social-tasco > picture {
   display: none;
 }
 
@@ -326,9 +312,12 @@
   --pf-v5-c-form-control--before--BorderRightColor: transparent;
   --pf-v5-c-form-control--before--BorderBottomColor: transparent;
   --pf-v5-c-form-control--before--BorderLeftColor: transparent;
+  --pf-v5-c-form-control--after--BorderBottomColor: transparent;
+  --pf-v5-c-form-control--hover--after--BorderBottomColor: transparent;
+  --pf-v5-c-form-control--focus--after--BorderBottomColor: transparent;
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
   width: auto;
   min-height: 0;
   background: transparent;
@@ -337,23 +326,67 @@
 .pf-v5-c-login__main-header-utilities select {
   field-sizing: content;
   width: auto;
-  padding: 0.25rem 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0.3125rem 1.625rem 0.3125rem 0.625rem;
+  border-radius: 999px;
   background: transparent;
   color: var(--memoryos-muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.pf-v5-c-login__main-header-utilities select:hover {
+  background: #e9edf3;
+  color: var(--memoryos-text);
+}
+
+.pf-v5-c-login__main-header-utilities select:focus-visible {
+  outline: 2px solid var(--memoryos-blue);
+  outline-offset: 2px;
+  color: var(--memoryos-text);
 }
 
 .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control__utilities {
-  position: static;
-  align-self: center;
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0.625rem;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: auto;
   padding: 0;
   color: var(--memoryos-muted);
   pointer-events: none;
 }
 
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control:hover .pf-v5-c-form-control__utilities,
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control:focus-within .pf-v5-c-form-control__utilities {
+  color: var(--memoryos-text);
+}
+
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control__toggle-icon {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+}
+
+/* PatternFly sets its icons on the text baseline; as a block the caret centres on the label. */
 .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control__toggle-icon svg {
-  width: 0.625rem;
-  height: 0.625rem;
+  display: block;
+  width: 0.5rem;
+  height: 0.5rem;
+  vertical-align: initial;
+  fill: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-v5-c-login__main-header-utilities select {
+    transition: none;
+  }
 }
 
 /* MEM-114 consent for an MCP client. A client registered with a logo (ChatGPT) shows it above the

@@ -8,7 +8,7 @@ browser origin, sign the member in through Keycloak and receive a token whose au
 
 | Piece | Where | Effect |
 | --- | --- | --- |
-| Keycloak 26.8 built with `cimd` | `infrastructure/keycloak/Dockerfile` | The realm advertises `client_id_metadata_document_supported`, so Claude identifies itself by its metadata document instead of registering a client per connection |
+| Keycloak 26.8 built with `cimd` and the `memoryos-client-id-metadata-document` executor | `infrastructure/keycloak/Dockerfile` | The realm advertises `client_id_metadata_document_supported`, so Claude and ChatGPT each identify themselves by a metadata document instead of registering a client per connection |
 | Realm reconciliation with `MEMORYOS_MCP_ENDPOINT_URL` | `infrastructure/keycloak/configure-memoryos-realm.sh` | Scope, audience, Claude policy, narrowed default scopes, 30-day grants (see below) |
 | Optional `MEMORYOS_MCP_CHATGPT_CLIENT_SECRET` | the same script | The confidential `memoryos-chatgpt` client |
 | Secret file `mcp_chatgpt_client_secret` | `infrastructure/deployment/compose.base.yaml`, mounted into the API | The same value, which *Quản trị › MemoryOS MCP* shows a ChatGPT workspace administrator |
@@ -17,8 +17,11 @@ browser origin, sign the member in through Keycloak and receive a token whose au
 What the realm reconciliation does with `MEMORYOS_MCP_ENDPOINT_URL`:
 
 - **Scope.** Client scope `knowledge:read` with the endpoint audience.
-- **Claude.** A client policy admitting metadata documents from `claude.ai` and `claude.com`. Redirects may also go to
-  loopback for Claude Code. Resource indicators are limited to the endpoint, and a separate policy requires S256 PKCE from every public client of the realm, these included.
+- **Claude and ChatGPT.** A client policy admitting metadata documents from `claude.ai`, `claude.com` and
+  `chatgpt.com`, read by the image's `memoryos-client-id-metadata-document` executor, which ignores the property in
+  ChatGPT's document that Keycloak 26.8's own executor rejects (keycloak/keycloak#51236). Redirects may also go to
+  loopback for Claude Code. Resource indicators are limited to the endpoint, and a separate policy requires S256 PKCE
+  from every public client of the realm, these included.
 - **Narrowed default scopes.** The realm's default client scopes lose `profile`, `email`, `roles` and `web-origins`.
 - **Grant lifetime.** Offline sessions lapse after 30 days without use.
 
