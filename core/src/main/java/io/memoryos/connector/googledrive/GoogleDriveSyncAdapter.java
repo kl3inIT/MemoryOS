@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +49,7 @@ public class GoogleDriveSyncAdapter implements SourceSyncAdapter {
     private static final int MAX_ANCESTORS = 64;
     private static final String SERVICE_ACCOUNT = "SERVICE_ACCOUNT";
     private static final long EXECUTION_NANOS = Duration.ofSeconds(45).toNanos();
+    private static final Pattern FILE_ID = Pattern.compile("[A-Za-z0-9_-]{10,256}");
 
     private final JdbcGoogleDriveSyncRepository google;
     private final JdbcGoogleDriveSourceRepository drive;
@@ -78,6 +80,16 @@ public class GoogleDriveSyncAdapter implements SourceSyncAdapter {
     @Override
     public List<DueSource> due(int limit) {
         return google.due(limit);
+    }
+
+    /**
+     * Drive's universal open URL, valid for native Docs, Sheets and Slides and stored binary files alike, so the
+     * recorded media type (Slides are stored as exported PPTX) never selects an editor path.
+     */
+    @Override
+    public @Nullable String documentUrl(@Nullable String providerFileId, @Nullable String sourceUrl) {
+        return providerFileId != null && FILE_ID.matcher(providerFileId).matches()
+                ? "https://drive.google.com/open?id=" + providerFileId : null;
     }
 
     /** A run the pause cancelled continues from its retained frontier while scope and credential are unchanged. */

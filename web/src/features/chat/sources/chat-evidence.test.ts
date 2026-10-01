@@ -3,6 +3,59 @@ import { describe, expect, it } from "vitest";
 
 import { remarkCitations, sourcesSchema } from "./chat-evidence";
 
+const document = {
+  citationId: 1,
+  documentId: "00000000-0000-4000-8000-000000000001",
+  generation: "00000000-0000-4000-8000-000000000002",
+  title: "Leave policy",
+  startOrdinal: 0,
+  endOrdinal: 0,
+  provenance: [{ ordinal: 0, provenanceJson: "{}" }],
+};
+
+describe("provider links", () => {
+  it("keeps an https link of any provider", () => {
+    for (const providerUrl of [
+      "https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp",
+      "https://contoso.sharepoint.com/sites/HR/Shared%20Documents/Leave.docx",
+    ]) {
+      expect(sourcesSchema.parse([{ ...document, providerUrl }])[0]).toMatchObject({ providerUrl });
+    }
+  });
+
+  it("rejects a link that is not https, carries credentials or is not a URL at all", () => {
+    for (const providerUrl of [
+      "not-a-url",
+      "http://contoso.sharepoint.com/a.docx",
+      "javascript:alert(1)",
+      "https://user:secret@contoso.sharepoint.com/a.docx",
+    ]) {
+      expect(sourcesSchema.safeParse([{ ...document, providerUrl }]).success).toBe(false);
+    }
+  });
+});
+
+describe("web citations", () => {
+  it("fail validation for a malformed page URL instead of throwing", () => {
+    const web = {
+      citationId: 1,
+      documentId: null,
+      generation: null,
+      fileId: null,
+      title: "Page",
+      startOrdinal: 0,
+      endOrdinal: 0,
+      provenance: [],
+      web: { url: "not-a-url", excerpt: "", retrievedAt: "2026-10-01T00:00:00Z" },
+    };
+    expect(sourcesSchema.safeParse([web]).success).toBe(false);
+    expect(
+      sourcesSchema.safeParse([{ ...web, web: { ...web.web, url: "https://example.com/a" } }])
+        .success,
+    ).toBe(true);
+  });
+});
+
 describe("citations without a count cap", () => {
   it("accepts more than 24 sources", () => {
     const sources = Array.from({ length: 30 }, (_, index) => ({

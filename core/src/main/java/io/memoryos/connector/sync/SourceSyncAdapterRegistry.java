@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -44,6 +45,12 @@ public final class SourceSyncAdapterRegistry {
     public boolean permissionSync(SourceType type) {
         var adapter = adapters.get(type);
         return adapter != null && adapter.capabilities().permissionSync();
+    }
+
+    /** Where a reader opens a provider item, as its provider builds it; an uploaded file has no provider link. */
+    public @Nullable String documentUrl(SourceType type, @Nullable String providerFileId, @Nullable String sourceUrl) {
+        var adapter = adapters.get(type);
+        return adapter == null ? null : adapter.documentUrl(providerFileId, sourceUrl);
     }
 
     /** Inside the transaction that resumed a paused Source. */

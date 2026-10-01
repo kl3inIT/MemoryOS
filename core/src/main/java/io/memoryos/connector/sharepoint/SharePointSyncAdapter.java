@@ -26,6 +26,8 @@ import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.DueSource
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.ItemFailure;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.shared.TenantId;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -35,6 +37,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -86,6 +89,20 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
     @Override
     public List<DueSource> due(int limit) {
         return runs.due(limit);
+    }
+
+    /** The {@code webUrl} Microsoft Graph returned for the file or page when it was acquired, on a SharePoint host. */
+    @Override
+    public @Nullable String documentUrl(@Nullable String providerFileId, @Nullable String sourceUrl) {
+        if (sourceUrl == null || sourceUrl.length() > 2048) return null;
+        try {
+            var uri = new URI(sourceUrl);
+            String host = uri.getHost();
+            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getRawUserInfo() == null && host != null
+                    && host.toLowerCase(Locale.ROOT).endsWith(".sharepoint.com") ? sourceUrl : null;
+        } catch (URISyntaxException malformed) {
+            return null;
+        }
     }
 
     @Override

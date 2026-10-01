@@ -2,8 +2,11 @@ package io.memoryos.chat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.memoryos.connector.SourceType;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -22,5 +25,19 @@ class ChatSourceLegacyJsonTest {
         assertEquals(List.of(), source.sourceTypes());
         assertNull(source.providerUrl());
         assertEquals("HR", source.title());
+    }
+
+    @Test
+    void aProviderLinkIsAnHttpsAddressOfAnyProviderWithoutCredentials() {
+        var cited = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 0, 0,
+                List.of(new ChatSource.Provenance(0, "{}")));
+        for (String link : List.of("https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp",
+                "https://contoso.sharepoint.com/sites/HR/Shared%20Documents/Leave.docx")) {
+            assertEquals(link, cited.described(null, List.of(SourceType.SHAREPOINT), link).providerUrl());
+        }
+        for (String link : List.of("http://contoso.sharepoint.com/a.docx", "javascript:alert(1)",
+                "https://user:secret@contoso.sharepoint.com/a.docx", "https://" + "a".repeat(2048) + ".test/")) {
+            assertThrows(IllegalArgumentException.class, () -> cited.described(null, List.of(), link), link);
+        }
     }
 }

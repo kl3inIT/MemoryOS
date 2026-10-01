@@ -13,6 +13,7 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +54,7 @@ class SourceSearchMetadataMigrationTest {
             var repository = new JdbcSourceDocumentRepository(jdbc);
             var tenants = mock(TenantAccessResolver.class);
             when(tenants.findActiveTenant(any())).thenReturn(Optional.of(tenant));
-            var service = new SourceSearchService(tenants, repository);
+            var service = new SourceSearchService(tenants, repository, SourceSyncAdapters.registry());
             var scope = service.scope(actor);
             assertEquals(Map.of(file, SourceType.FILE), scope.sources());
             var visible = service.readableMetadata(scope, List.of(document)).get(document);
@@ -99,7 +100,7 @@ class SourceSearchMetadataMigrationTest {
             }
             var tenants = mock(TenantAccessResolver.class);
             when(tenants.findActiveTenant(any())).thenReturn(Optional.of(tenant));
-            var service = new SourceSearchService(tenants, new JdbcSourceDocumentRepository(jdbc));
+            var service = new SourceSearchService(tenants, new JdbcSourceDocumentRepository(jdbc), SourceSyncAdapters.registry());
             var visible = service.readableMetadata(service.scope(actor), documents);
             assertEquals(4, visible.size());
             for (int i = 0; i < documents.size(); i++) {
@@ -155,7 +156,7 @@ class SourceSearchMetadataMigrationTest {
             var repository = new JdbcSourceDocumentRepository(jdbc);
             var tenants = mock(TenantAccessResolver.class);
             when(tenants.findActiveTenant(any())).thenReturn(Optional.of(tenant));
-            var search = new SourceSearchService(tenants, repository);
+            var search = new SourceSearchService(tenants, repository, SourceSyncAdapters.registry());
             var access = new DefaultSourceDocumentAccessResolver(tenants, repository);
             var ids = List.of(mixed, privateDoc, driveDoc, orphanDoc);
             assertEquals(Set.of(mixed, privateDoc, driveDoc), access.readableDocuments(member, ids));

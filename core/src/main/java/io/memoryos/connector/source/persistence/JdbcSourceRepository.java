@@ -194,19 +194,14 @@ public class JdbcSourceRepository {
                 .param("name", name).update();
     }
 
-    /** FILE and Google Drive Sources change access; only Google Drive has provider permissions for SYNC. */
+    /** Stores access the caller has checked against the rule of the Source's type ({@code SourceAccessPolicy}). */
     public void updateAccess(TenantId tenantId, SourceId sourceId, SourceAccess access) {
         int updated = jdbcClient.sql("""
-                UPDATE connector_credential_pairs pair
-                SET access_type = :access, updated_at = CURRENT_TIMESTAMP
-                WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
-                  AND EXISTS (SELECT 1 FROM connectors connector
-                    WHERE connector.tenant_id = pair.tenant_id AND connector.id = pair.connector_id
-                      AND (connector.connector_type = 'GOOGLE_DRIVE'
-                        OR (connector.connector_type = 'FILE' AND :access <> 'SYNC')))
+                UPDATE connector_credential_pairs SET access_type = :access, updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenantId AND id = :pairId
                 """).param("tenantId", tenantId.value()).param("pairId", sourceId.value())
                 .param("access", access.name()).update();
-        if (updated != 1) throw SourceException.conflict("Auto Sync requires a Google Drive source");
+        if (updated != 1) throw SourceException.notFound();
         events.publishEvent(new SourceAccessChanged(tenantId, sourceId));
     }
 

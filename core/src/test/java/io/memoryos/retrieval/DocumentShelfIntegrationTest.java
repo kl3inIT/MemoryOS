@@ -27,6 +27,7 @@ import io.memoryos.retrieval.ShelfQuery.Sort;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -91,7 +92,7 @@ class DocumentShelfIntegrationTest {
         var index = mock(OpenSearchIndexService.class);
         when(index.identity()).thenReturn(LIVE_INDEX);
         shelf = new DocumentShelfService(tenants, authorization,
-                new SourceSearchService(tenants, new JdbcSourceDocumentRepository(jdbc)), index);
+                new SourceSearchService(tenants, new JdbcSourceDocumentRepository(jdbc), SourceSyncAdapters.registry()), index);
     }
 
     @AfterEach
@@ -113,6 +114,7 @@ class DocumentShelfIntegrationTest {
         var forAlice = all(alice, Sort.NEWEST);
         assertEquals(List.of(granted, shared, budget, handbook), ids(forAlice));
         assertEquals(Access.PROVIDER, forAlice.get(0).access());
+        assertEquals("https://google_drive.test/roadmap.pdf", forAlice.get(0).providerUrl(), "the provider builds its link");
         assertEquals(List.of(), forAlice.get(0).groups());
         // A document mapped by two Sources is listed once, under the first one the reader may read.
         assertEquals(privateSource, forAlice.get(1).sourceId());
@@ -126,7 +128,7 @@ class DocumentShelfIntegrationTest {
         assertEquals("DOCUMENT", first.category());
         assertEquals("Handbooks", first.sourceName());
         assertEquals(SourceType.FILE, first.sourceType());
-        assertEquals("https://files.test/handbook.pdf", first.providerUrl());
+        assertNull(first.providerUrl(), "an upload has no provider link, whatever address was recorded");
         assertEquals(64L, first.sizeBytes());
         assertEquals(BASE, first.updatedAt());
         assertEquals("SPREADSHEET", forAlice.get(2).category());

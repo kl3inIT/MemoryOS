@@ -31,6 +31,13 @@ public interface SourceSyncAdapter {
     boolean credentialCurrent(TenantId tenant, SourceId source, long credentialRevision);
 
     /**
+     * Where a reader opens an acquired item in the provider, or null: built from the provider's file ID or from the
+     * address recorded when the item was acquired ({@code sourceUrl}), and only ever an address of this provider.
+     * It grants no access; the provider enforces its own permissions when the link is opened.
+     */
+    @Nullable String documentUrl(@Nullable String providerFileId, @Nullable String sourceUrl);
+
+    /**
      * After the engine moved the Source's next scheduled run one interval ahead because it could not be queued:
      * any other schedule the provider keeps.
      */
