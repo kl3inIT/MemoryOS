@@ -485,8 +485,10 @@ public final class ChatTurnService implements AutoCloseable {
         ChatGuardrailCheck.Result result;
         long started = System.nanoTime();
         // The check's own task model when the Tenant set one that is still usable, otherwise the conversation model.
+        ModelBinding checker = run.setup.binding();
         try (var selected = models.resolveFlow(run.setup.actor(), run.setup.sessionId(), ModelFlow.CHAT_GUARDRAIL)) {
-            result = guardrails.check(selected.binding(), run.setup, run.question, run.policy,
+            checker = selected.binding();
+            result = guardrails.check(checker, run.setup, run.question, run.policy,
                     accounting -> recordCheck(run, selected, accounting));
             if (metrics != null) metrics.guardrail(result.kind().name().toLowerCase(Locale.ROOT), System.nanoTime() - started);
         } catch (CancellationException stopped) {
@@ -496,8 +498,8 @@ public final class ChatTurnService implements AutoCloseable {
             // Fail closed: a turn whose question could not be checked is not answered.
             LOG.atWarn().addKeyValue("event", "chat.guardrail.unavailable").addKeyValue("message_id", run.setup.assistantMessageId())
                     .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail check unavailable");
-            throw (run.setup.binding().credentialRejected(failure) ? TurnFailure.PROVIDER_CREDENTIAL_REJECTED
-                    : TurnFailure.PROVIDER_UNAVAILABLE).exception();
+            throw (checker.credentialRejected(failure) ? TurnFailure.PROVIDER_CREDENTIAL_REJECTED
+                    : TurnFailure.GUARDRAIL_UNAVAILABLE).exception();
         }
         run.check();
         if (result.kind() == ChatGuardrailCheck.Kind.BLOCKED) {

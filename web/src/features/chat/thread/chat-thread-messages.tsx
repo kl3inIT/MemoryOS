@@ -104,6 +104,13 @@ function ChatFailureNotice({ code }: { code?: string }) {
   } else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED") {
     title = ui("Model không dùng được");
     detail = ui("Hãy chọn model khác hoặc báo quản trị viên.");
+  } else if (code === "CHAT_GUARDRAIL_UNAVAILABLE") {
+    title = ui("Không kiểm tra được câu hỏi");
+    detail = manager ? (
+      <Link to="/admin/models">{ui("Chọn model cho Kiểm tra câu hỏi")}</Link>
+    ) : (
+      ui("Hãy thử lại sau hoặc báo quản trị viên.")
+    );
   } else if (answered) {
     title = ui("Câu trả lời bị gián đoạn");
     detail = ui("Nội dung đã nhận được giữ lại.");

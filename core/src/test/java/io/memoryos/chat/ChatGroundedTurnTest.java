@@ -140,7 +140,7 @@ class ChatGroundedTurnTest {
     @Test
     void aCredentialTheProviderRefusesAtTheGuardrailCheckFailsTheTurnWithItsOwnCode() {
         prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
-        when(guardrails.check(any(), any(), any(), any())).thenThrow(new IllegalStateException(new Refused()));
+        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException(new Refused()));
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
@@ -163,14 +163,15 @@ class ChatGroundedTurnTest {
     }
 
     @Test
-    void anyOtherGuardrailFailureStaysTheGenericFailure() {
+    void aGuardrailCheckThatCannotClassifyTheQuestionFailsTheTurnWithItsOwnCode() {
         prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
-        when(guardrails.check(any(), any(), any(), any())).thenThrow(new IllegalStateException("format"));
+        when(guardrails.check(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("format"));
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
-            verifyFailed("CHAT_EXECUTION_FAILED");
+            verifyFailed("CHAT_GUARDRAIL_UNAVAILABLE");
+            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
         }
     }
 

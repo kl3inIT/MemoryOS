@@ -43,6 +43,12 @@ composer stays for a connection whose outcome is unknown.
 answer says no answer could be generated. A turn the server committed as FAILED ends its stream with a known error
 (`COMMITTED_FAILURE`), and the runtime no longer reads it as an unconfirmed reply, so the composer shows no notice.
 
+**A question the guardrail could not check.** Owner decision 2026-10-01: a guardrail check that fails for any other
+reason, such as a verdict in the wrong shape (`InvalidLlmReturnFormatException`, seen with a 9Router model the same
+day), stores `CHAT_GUARDRAIL_UNAVAILABLE` instead of the generic code. Everyone reads "Không kiểm tra được câu hỏi";
+a model manager gets a link to choose the question check's task model (#424), anyone else is told to try again later
+or tell an administrator. The credential check reads the binding of the model that ran the check, which since #424
+can differ from the conversation model.
+
 **Not in scope.** Marking a provider whose key was refused on the Models page (item 4 of the issue) waits for an
-owner decision. A guardrail answer in the wrong format (`InvalidLlmReturnFormatException`, seen with a 9Router model
-the same day) stays `CHAT_EXECUTION_FAILED`.
+owner decision.
