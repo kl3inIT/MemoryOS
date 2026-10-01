@@ -9,10 +9,10 @@ import {
   groupPartByType,
   useAuiState,
 } from "@assistant-ui/react";
-import { CircleAlert, Copy, FileX, ShieldAlert } from "lucide-react";
+import { Copy, FileX, ShieldAlert } from "lucide-react";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ErrorState } from "@/components/assistant-ui/elements/error-state";
 import { IconButton } from "@/components/ui/icon-button";
 import {
   ChatMarkdownLink,
@@ -111,14 +111,9 @@ function ChatFailureNotice({ code }: { code?: string }) {
     title = ui("Không tạo được câu trả lời");
     detail = ui("Hãy thử lại.");
   }
-  // Onyx ErrorBanner: a failed answer carries its error inside the message, titled by its kind.
-  return (
-    <Alert variant="destructive" className="mt-3">
-      <CircleAlert aria-hidden="true" />
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription>{detail}</AlertDescription>
-    </Alert>
-  );
+  // The assistant-ui Error state element where the answer would have been, titled by the failure's kind (Onyx
+  // ErrorBanner). The server status drives it, so a failed answer reloaded from history shows it too.
+  return <ErrorState className="mt-3" title={title} detail={detail} />;
 }
 
 export function AssistantMessage({ readOnly }: { readOnly: boolean }) {

@@ -31,8 +31,12 @@ rule. No provider message is read or logged.
 link to `/admin/models`; anyone else reads that the model is unavailable and to choose another or tell an
 administrator. No key or provider detail reaches either.
 
-**Shown as an error.** Owner decision 2026-10-01: the failure sits inside the answer as a red alert with a short
-title and a detail, as Onyx's `ErrorBanner` does, instead of a line of muted text. The unconfirmed notice above the
+**Shown as an error.** Owner decision 2026-10-01: the failure sits inside the answer as a red banner with a short
+title and a detail, as Onyx's `ErrorBanner` does, instead of a line of muted text. It is assistant-ui's Error state
+element (`ErrorState`), which the project already adapted, now tinted red as the registry ships it, through the status
+danger tokens; its other uses (form dialogs, the file reader, artifacts, the composer notice) are errors as well.
+`MessagePrimitive.Error` is not used: it renders only while the runtime holds an error status, so a failed answer
+reloaded from history would show nothing. The unconfirmed notice above the
 composer stays for a connection whose outcome is unknown.
 
 **Only true sentences.** "Interrupted, content kept" is shown only when the failed answer kept text; otherwise the
