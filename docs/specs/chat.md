@@ -30,7 +30,30 @@ The built-in reader accepts public HTML/XHTML/plain text and text-based PDFs. PD
 
 Web evidence shares the existing 24-source citation namespace and sources JSONB. A source has `web: {url, excerpt, retrievedAt}` and null Document/file identity; it is not an indexed internal Document. The current source panel shows the bounded excerpt and original-page link, with a mobile dialog. Repeated URLs retain the first registered citation/excerpt for that answer. Historical source links do not trigger an automatic page fetch.
 
-The composer reuses its installed Popover/Command controls on the attachment/model action row. The assistant-ui Web Search element renders actual query/progress/results inside the Web tool step of the activity timeline; existing InlineCitation, Sources and reader-panel selection remain the navigation path. Labels are vi/en. Web intent stays in the active transport and each persisted command. Browser-local actor/session preference restores the control after reload, defaults new chats to off, and fails safely if storage is unavailable; it does not grant authority or synchronize between devices. Request timers use bounded provider/operation/outcome dimensions; call counts are not a billing or native-token usage estimate. Provider-specific `site:` guidance is included only when search is callable: Exa is instructed not to use the operator. See [increment verification](../increments/active/chat-web-search/verification.md).
+The composer reuses its installed Popover/Command controls on the attachment/model action row. The assistant-ui Web Search element renders actual query/progress/results inside the Web tool step of the activity timeline; existing InlineCitation, Sources and reader-panel selection remain the navigation path. Labels are vi/en. Web intent stays in the active transport and each persisted command. [Tools on by default](#tools-on-by-default) decides what a turn sends while the person has chosen nothing. Request timers use bounded provider/operation/outcome dimensions; call counts are not a billing or native-token usage estimate. Provider-specific `site:` guidance is included only when search is callable: Exa is instructed not to use the operator. See [increment verification](../increments/active/chat-web-search/verification.md).
+
+## Tools on by default
+
+As Onyx, where an agent's tools are on until the person turns one off, and as ChatGPT, which decides when to search,
+a conversation sends Web search `auto`, image generation `auto` and its usable MCP servers while the person has chosen
+nothing for it (`chatToolDefaults`, `web/src/features/chat/chat-tool-defaults.ts`). The model still decides whether to
+call a tool. A default is on only where the tool can run, because the API refuses a turn that asks for a tool it
+cannot offer:
+
+- the turn's model is known and calls tools. The browser resolves it as `ModelCatalogService.select` does: the chosen
+  model, else the agent's, else the person's default model, and the Tenant default when that one is no longer offered;
+  until the person's preferences are read, no default is on;
+- the agent allows the tool, and the conversation does not answer from documents only (there every tool stays off
+  until the person turns one on);
+- Web: the model hosts search, or the Tenant has a search connection (Deep research needs the connection);
+- image: a provider connection is active and the person holds `IMAGE_GENERATE`;
+- MCP: each server is connected for the person and has enabled tools, at most eight.
+
+A choice the person makes, on or off, is kept per actor and conversation in browser storage
+(`memoryos:{web,image,mcp}:<owner>:<session>`) and wins over the default; a new conversation keeps the choices made
+before it existed. Storage grants no authority, does not synchronize between devices and fails safely when unavailable.
+The menu rows show each tool's state; a chip beside the menu marks only a tool turned on against its default. Edit and
+Regenerate send the Web choice, as before.
 
 ## MCP tools
 
@@ -495,7 +518,7 @@ Image generation is a per-tenant provider connection that mirrors the Web search
 
 `GET /api/chat/images/providers` returns the backend-declared catalog for model managers: per provider the credential requirement, default/required endpoint, the fixed edit model when the provider has one (Cloudflare), and the known models with display name, output media type, declared sizes, edit support and deprecation. Catalog entries cover only models the adapter serves end to end; a model outside the catalog can still be typed manually. Saving a connection rejects a blank endpoint when the provider requires one, and a bare 32-hex Cloudflare account ID expands to its account endpoint before validation. The `/admin/image-generation` page renders this catalog for `MODELS_MANAGE`: the in-use provider, per-provider cards for disconnected/connected/in-use states, endpoint and KEEP/REPLACE key entry, catalog or manual model choice, connection testing, selection, disabling generation, and disconnecting a provider with an optional replacement. The test sends the dialog's unsaved endpoint/model/key to `POST /api/chat/images/connections/{provider}/test`, which validates and generates one real provider request without persisting anything; a blank key falls back to the stored credential, and a bodyless call tests the saved connection. Disabling generation also disables editing because both share the active connection.
 
-A turn carries an image mode (`off`/`auto`/`required`, browser preference only; the API re-authorizes every command). When it is not `off` and the selected model supports tool calling and an active connection resolves, the model gets a `generate_image` tool; the tool takes `prompt` and an optional `shape` (`square`, `portrait`, `landscape`) that the backend resolves to a catalog-declared size of the configured model — an unknown shape is refused before any provider call, and a model without declared sizes ignores it. The tool generates one image, stages it through `ObjectWriteService` (stage → adopt) into a `chat_image_artifact` row on the assistant message, and streams a `ChatImageEvent` (`GENERATING` → `COMPLETED` with the artifact `id`, or `FAILED`). Generated images serve owner-authorized bytes at `GET /api/chat/image-artifacts/{id}/content` (PNG/JPEG/WebP) and are returned on history messages as `images`. The composer keeps the image toggle row disabled with a notice while `GET /api/chat/images` reports no available connection; the active image state shows as a chip that toggles off when clicked. The assistant message renders each image with a develop reveal (clip + unblur) and a fullscreen viewer.
+A turn carries an image mode (`off`/`auto`/`required`, `auto` by default where generation can run, see [tools on by default](#tools-on-by-default); the API re-authorizes every command). When it is not `off` and the selected model supports tool calling and an active connection resolves, the model gets a `generate_image` tool; the tool takes `prompt` and an optional `shape` (`square`, `portrait`, `landscape`) that the backend resolves to a catalog-declared size of the configured model — an unknown shape is refused before any provider call, and a model without declared sizes ignores it. The tool generates one image, stages it through `ObjectWriteService` (stage → adopt) into a `chat_image_artifact` row on the assistant message, and streams a `ChatImageEvent` (`GENERATING` → `COMPLETED` with the artifact `id`, or `FAILED`). Generated images serve owner-authorized bytes at `GET /api/chat/image-artifacts/{id}/content` (PNG/JPEG/WebP) and are returned on history messages as `images`. The composer keeps the image toggle row disabled with a notice while `GET /api/chat/images` reports no available connection; the active image state shows as a chip that toggles off when clicked. The assistant message renders each image with a develop reveal (clip + unblur) and a fullscreen viewer.
 
 ### Image editing
 

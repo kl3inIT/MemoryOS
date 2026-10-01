@@ -22,6 +22,7 @@ import {
   type GeneratedImage,
   type ImageMode,
 } from "@/features/chat/image/chat-image";
+import { readMcpPreference, writeMcpPreference } from "@/features/chat/mcp/chat-mcp-preference";
 import {
   parseGeneratedFiles,
   type CodeRun,
@@ -73,8 +74,20 @@ type Callbacks = {
  */
 export const COMMITTED_FAILURE = "The reply could not finish. Any saved partial answer is shown.";
 
+/** What a turn sends for a tool the person has not chosen: on where the tool is usable, off otherwise. */
+export type ToolDefaults = { web: WebSearchMode; image: ImageMode; mcpServerIds: string[] };
+
 export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
-  webSearch: WebSearchMode = "off";
+  /**
+   * As Onyx, an agent's tools are on until the person turns one off. Each choice below is the person's own for this
+   * conversation, undefined while they have made none; {@link toolDefaults} then decides, and stays off until the
+   * conversation knows the tool can be used, so a turn never carries a tool the server would refuse.
+   */
+  toolDefaults: ToolDefaults = { web: "off", image: "off", mcpServerIds: [] };
+  defaultTools(defaults: ToolDefaults) {
+    this.toolDefaults = defaults;
+  }
+  webSearch: WebSearchMode | undefined;
   selectWeb(mode: WebSearchMode) {
     this.webSearch = mode;
     writeWebPreference(this.preferenceOwner, this.session?.id, mode);
@@ -87,10 +100,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   selectTemporary(temporary: boolean) {
     this.temporary = temporary;
   }
-  /** MCP servers chosen for the next turn; per-turn, like Web and image, and never persisted. */
-  mcpServerIds: string[] = [];
+  /** MCP servers the person chose for this conversation. */
+  mcpServerIds: string[] | undefined;
   selectMcpServers(ids: string[]) {
     this.mcpServerIds = ids;
+    writeMcpPreference(this.preferenceOwner, this.session?.id, ids);
   }
   /** Tools the conversation's agent allows; commands never carry a disallowed tool (Onyx per-agent tools). */
   allowedTools: { web: boolean; image: boolean; mcpServerIds: string[] | null } | undefined;
@@ -99,7 +113,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   ) {
     this.allowedTools = allowed;
   }
-  image: ImageMode = "off";
+  image: ImageMode | undefined;
   selectImage(mode: ImageMode) {
     this.image = mode;
     writeImagePreference(this.preferenceOwner, this.session?.id, mode);
@@ -159,6 +173,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.session = session;
     this.webSearch = readWebPreference(preferenceOwner, session?.id);
     this.image = readImagePreference(preferenceOwner, session?.id);
+    this.mcpServerIds = readMcpPreference(preferenceOwner, session?.id);
     this.runId = runningMessage?.id;
     this.runParentId = runningMessage?.parentMessageId ?? undefined;
     this.runCreatedAt = runningMessage?.createdAt;
@@ -181,6 +196,12 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   }
 
   restore(session: ChatSession, messages: ChatMessage[]) {
+    // A conversation opened from history gets back the tool choices the person made in it.
+    if (this.session?.id !== session.id) {
+      this.webSearch = readWebPreference(this.preferenceOwner, session.id);
+      this.image = readImagePreference(this.preferenceOwner, session.id);
+      this.mcpServerIds = readMcpPreference(this.preferenceOwner, session.id);
+    }
     this.session = session;
     const running = messages.find((message) => message.status === "RUNNING");
     this.runId = running?.id;
@@ -192,9 +213,9 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     // Capture selection before any await; later UI changes affect the next turn.
     const modelConfigurationId = this.modelConfigurationId;
     const allowed = this.allowedTools;
-    const webSearch = allowed?.web === false ? "off" : this.webSearch;
-    const image = allowed?.image === false ? "off" : this.image;
-    const mcpServerIds = this.mcpServerIds.filter(
+    const webSearch = allowed?.web === false ? "off" : (this.webSearch ?? this.toolDefaults.web);
+    const image = allowed?.image === false ? "off" : (this.image ?? this.toolDefaults.image);
+    const mcpServerIds = (this.mcpServerIds ?? this.toolDefaults.mcpServerIds).filter(
       (id) => !allowed?.mcpServerIds || allowed.mcpServerIds.includes(id),
     );
     const deepResearch = this.deepResearch;
@@ -255,8 +276,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         );
         this.onSessionCreated?.(this.session);
       }
+      // A conversation created by this turn keeps the choices made before it existed.
       writeWebPreference(this.preferenceOwner, this.session.id, this.webSearch);
       writeImagePreference(this.preferenceOwner, this.session.id, this.image);
+      writeMcpPreference(this.preferenceOwner, this.session.id, this.mcpServerIds);
       const body = {
         parentMessageId: options.messages.at(-2)?.id ?? this.session.rootMessageId,
         clientRequestId: message.id,

@@ -133,22 +133,65 @@ async function collect(stream: ReadableStream<UIMessageChunk>) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
-  it("captures Web intent for one send and keeps missing intent off", async () => {
+  async function submitted(fetch: ReturnType<typeof fixture>) {
+    const requests = fetch.mock.calls.map(([input, init]) =>
+      input instanceof Request ? input : new Request(input, init),
+    );
+    const request = requests.findLast(
+      (candidate) =>
+        candidate.method === "POST" && new URL(candidate.url).pathname.endsWith("/messages"),
+    );
+    expect(request).toBeDefined();
+    return (await request!.clone().json()) as Record<string, unknown>;
+  }
+  it("captures Web intent for one send and makes no choice of its own", async () => {
     const fetch = fixture(() => sse(delta + terminal()));
     const transport = new MemoryOsChatTransport(session);
     transport.selectWeb("auto");
     const pending = send(transport);
     transport.selectWeb("off");
     await collect(await pending);
-    const requests = fetch.mock.calls.map(([input, init]) =>
-      input instanceof Request ? input : new Request(input, init),
-    );
-    const submitted = requests.find(
-      (request) => request.method === "POST" && new URL(request.url).pathname.endsWith("/messages"),
-    );
-    expect(submitted).toBeDefined();
-    expect(await submitted!.clone().json()).toMatchObject({ webSearch: "auto" });
-    expect(new MemoryOsChatTransport(session).webSearch).toBe("off");
+    expect(await submitted(fetch)).toMatchObject({ webSearch: "auto" });
+    expect(new MemoryOsChatTransport(session).webSearch).toBeUndefined();
+  });
+  it("sends every tool off until the conversation says which tools can be used", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    await collect(await send(new MemoryOsChatTransport(session)));
+    expect(await submitted(fetch)).toMatchObject({
+      webSearch: "off",
+      image: "off",
+      mcpServerIds: [],
+    });
+  });
+  it("sends the conversation's defaults for the tools the person has not chosen", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const server = crypto.randomUUID();
+    const transport = new MemoryOsChatTransport(session);
+    transport.defaultTools({ web: "auto", image: "auto", mcpServerIds: [server] });
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({
+      webSearch: "auto",
+      image: "auto",
+      mcpServerIds: [server],
+    });
+  });
+  it("keeps a tool the person turned off against the default, and never sends one the agent forbids", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const [allowed, forbidden] = [crypto.randomUUID(), crypto.randomUUID()];
+    const transport = new MemoryOsChatTransport(session);
+    transport.defaultTools({ web: "auto", image: "auto", mcpServerIds: [allowed, forbidden] });
+    transport.restrictTools({ web: true, image: false, mcpServerIds: [allowed] });
+    transport.selectWeb("off");
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({
+      webSearch: "off",
+      image: "off",
+      mcpServerIds: [allowed],
+    });
+    // Turning every server off is a choice too: the default does not bring them back.
+    transport.selectMcpServers([]);
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({ mcpServerIds: [] });
   });
   it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
     const artifacts = [
