@@ -84,17 +84,19 @@ class McpEndpointTokenTest(unittest.TestCase):
 
 
 class McpClientRegistrationTest(unittest.TestCase):
-    def test_claude_is_admitted_by_its_metadata_document(self):
+    def test_claude_and_chatgpt_are_admitted_by_their_metadata_documents(self):
         config = load("memoryos-mcp-client-policies.json")
         executor = config["profiles"][0]["executors"][0]
-        self.assertEqual("client-id-metadata-document", executor["executor"])
+        # The image's lenient executor: ChatGPT's document has a property Keycloak 26.8 rejects (#51236).
+        self.assertEqual("memoryos-client-id-metadata-document", executor["executor"])
         options = executor["configuration"]
         self.assertFalse(options["cimd-allow-http-scheme"])
         self.assertFalse(options["only-allow-confidential-client"])
         # Claude's document declares a jwt-bearer grant beside its public client (Keycloak #50362).
         self.assertTrue(options["accept-public-client-with-confidential-client-only-grant"])
-        # Claude Code redirects to loopback; the hosted apps to claude.ai.
-        self.assertEqual({"claude.ai", "claude.com", "localhost", "127.0.0.1"},
+        # Claude Code redirects to loopback; the hosted apps to claude.ai and chatgpt.com, and ChatGPT's
+        # document names its logo on persistent.oaistatic.com. Each host is matched exactly.
+        self.assertEqual({"claude.ai", "claude.com", "localhost", "127.0.0.1", "chatgpt.com", "persistent.oaistatic.com"},
                          set(options["cimd-allow-permitted-domains"]))
         # The resource allow list is filled with the endpoint at run time.
         self.assertIn('["cimd-resource-indicator-allow-list"] = [$resource]', SCRIPT)
@@ -102,8 +104,8 @@ class McpClientRegistrationTest(unittest.TestCase):
         condition = config["policies"][0]["conditions"][0]
         self.assertEqual("client-id-uri", condition["condition"])
         self.assertEqual(["https"], condition["configuration"]["client-id-uri-scheme"])
-        # ChatGPT's document is one Keycloak cannot read; it must not be tried.
-        self.assertNotIn("chatgpt.com", condition["configuration"]["client-id-uri-allow-permitted-domains"])
+        self.assertEqual({"claude.ai", "claude.com", "chatgpt.com"},
+                         set(condition["configuration"]["client-id-uri-allow-permitted-domains"]))
         self.assertEqual(config["profiles"][0]["name"], config["policies"][0]["profiles"][0])
 
     def test_clients_built_from_metadata_documents_must_use_pkce(self):
@@ -163,10 +165,18 @@ class ConsentPageLanguageTest(unittest.TestCase):
 class KeycloakImageTest(unittest.TestCase):
     def test_the_image_is_built_with_client_id_metadata_documents(self):
         dockerfile = (KEYCLOAK / "Dockerfile").read_text(encoding="utf-8")
-        build_stage = dockerfile.split("FROM ${KEYCLOAK_IMAGE} AS build", 1)[1].split("RUN /opt/keycloak/bin/kc.sh build", 1)[0]
+        build_stage = dockerfile.split("FROM keycloak AS build", 1)[1].split("RUN /opt/keycloak/bin/kc.sh build", 1)[0]
         self.assertIn("KC_FEATURES=cimd", build_stage)
+        # The lenient executor is compiled against the same Keycloak and built into the server.
+        self.assertIn("COPY --from=cimd-provider /memoryos-cimd.jar /opt/keycloak/providers/", build_stage)
+        self.assertIn("FROM ${KEYCLOAK_IMAGE} AS keycloak", dockerfile)
         smoke = (KEYCLOAK / "smoke-test-image.sh").read_text(encoding="utf-8")
         self.assertIn('"client_id_metadata_document_supported":true', smoke)
+        self.assertIn('"memoryos-client-id-metadata-document"', smoke)
+        factory = (KEYCLOAK / "providers/memoryos-cimd/src/main/resources/META-INF/services"
+                   / "org.keycloak.services.clientpolicy.executor.ClientPolicyExecutorProviderFactory")
+        self.assertEqual("io.memoryos.keycloak.cimd.LenientClientIdMetadataDocumentExecutorFactory",
+                         factory.read_text(encoding="utf-8").strip())
 
 
 if __name__ == "__main__":

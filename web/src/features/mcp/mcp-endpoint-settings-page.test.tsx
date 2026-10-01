@@ -58,7 +58,7 @@ it("gives the URL with each client's steps and revokes Claude by its URL client 
   await user.click(screen.getByRole("tab", { name: "ChatGPT" }));
   expect(
     await screen.findByText(
-      "In ChatGPT, open Settings › Apps, choose MemoryOS and choose Connect.",
+      "Paste the MCP URL above, keep Authentication as OAuth and choose Create.",
     ),
   ).toBeVisible();
 

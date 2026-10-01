@@ -36,6 +36,19 @@ function keycloakMarkup(options: { pageId?: string; title?: string } = {}) {
             <main class="pf-v5-c-login__main">
               <div class="pf-v5-c-login__main-header">
                 <h1 class="pf-v5-c-title pf-m-3xl" id="kc-page-title">${title}</h1>
+                <div class="pf-v5-c-login__main-header-utilities">
+                  <div class="pf-v5-c-form-control">
+                    <select aria-label="Ngôn ngữ" id="login-select-toggle">
+                      <option value="en">Tiếng Anh (English)</option>
+                      <option value="vi" selected>Tiếng Việt</option>
+                    </select>
+                    <span class="pf-v5-c-form-control__utilities">
+                      <span class="pf-v5-c-form-control__toggle-icon">
+                        <svg class="pf-v5-svg" viewBox="0 0 320 512" aria-hidden="true"><path d="M31.3 192h257.3c17.8 0 26.7 21.5 14.1 34.1L174.1 354.8c-7.8 7.8-20.5 7.8-28.3 0L17.2 226.1C4.6 213.5 13.5 192 31.3 192z"></path></svg>
+                      </span>
+                    </span>
+                  </div>
+                </div>
               </div>
               <div class="pf-v5-c-login__main-body">
                 <div id="kc-form"><div id="kc-form-wrapper">
@@ -65,12 +78,14 @@ function keycloakMarkup(options: { pageId?: string; title?: string } = {}) {
                     </div>
                   </form>
                 </div></div>
-                <div id="kc-social-providers" class="pf-v5-c-login__main-footer-band">
-                  <hr>
-                  <h2>Or continue with</h2>
-                  <ul class="pf-v5-c-login__main-footer-links">
-                    <li><a id="social-tasco" class="pf-v5-c-button pf-m-control" href="#">
-                      <svg></svg><span class="kc-social-provider-name">Đăng nhập với</span>
+                <div class="kc-login-divider">
+                  <span class="pf-v5-u-font-size-sm pf-v5-u-color-200">hoặc</span>
+                </div>
+                <div id="kc-social-providers">
+                  <ul class="pf-v5-c-login__main-body pf-v5-u-pl-0 pf-v5-u-pr-0 pf-v5-u-pb-lg">
+                    <li class="pf-v5-u-pb-sm"><a id="social-tasco" aria-label="Đăng nhập bằng" href="#"
+                        class="pf-v5-c-button pf-m-tertiary pf-m-block pf-v5-u-display-flex pf-v5-u-align-items-center pf-v5-u-justify-content-space-between">
+                      <img src="default.svg" aria-hidden="true" alt=""><span class="pf-v5-u-m-auto">Đăng nhập bằng</span>
                     </a></li>
                   </ul>
                 </div>
@@ -108,13 +123,34 @@ test("keeps the identity provider button on one line with its wordmark", async (
 
   const button = page.locator("#social-tasco");
   await expect(button).toBeVisible();
-  // The provider's own icon is replaced by the wordmark that follows the button's text.
+  // The provider's own icon, an image since Keycloak 26.8, is replaced by the wordmark that follows the button's text.
   const marks = await page.evaluate(() => {
     const element = document.querySelector("#social-tasco")!;
-    const svg = getComputedStyle(element.querySelector("svg")!);
+    const icon = getComputedStyle(element.querySelector("img")!);
     const after = getComputedStyle(element.querySelector("span")!, "::after");
-    return { svgDisplay: svg.display, afterMask: after.maskImage || after.webkitMaskImage };
+    return { iconDisplay: icon.display, afterMask: after.maskImage || after.webkitMaskImage };
   });
-  expect(marks.svgDisplay).toBe("none");
+  expect(marks.iconDisplay).toBe("none");
   expect(marks.afterMask).toContain("tasco-logo.png");
+});
+
+test("keeps the language caret inside the menu it opens, centred on the label", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setContent(keycloakMarkup());
+
+  const geometry = await page.evaluate(() => {
+    const select = document.querySelector("#login-select-toggle")!.getBoundingClientRect();
+    const caret = document
+      .querySelector(".pf-v5-c-login__main-header-utilities svg")!
+      .getBoundingClientRect();
+    return {
+      inside: caret.left >= select.left && caret.right <= select.right,
+      offset: Math.abs(caret.top + caret.height / 2 - (select.top + select.height / 2)),
+    };
+  });
+  // Clicking anywhere on the label, the caret included, opens the menu; the caret lines up with the text.
+  expect(geometry.inside).toBe(true);
+  expect(geometry.offset).toBeLessThanOrEqual(1);
 });

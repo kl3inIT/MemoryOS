@@ -25,11 +25,9 @@ export const vietnameseUi: Record<string, string> = {
   "Dán địa chỉ MCP ở trên rồi bấm Add.": "Paste the MCP URL above and choose Add.",
   "Bấm Connect, đăng nhập MemoryOS và chọn Cho phép.":
     "Choose Connect, sign in to MemoryOS and choose Allow.",
-  "Quản trị viên ChatGPT của tổ chức thêm MemoryOS vào workspace một lần.":
-    "Your organization's ChatGPT administrator adds MemoryOS to the workspace once.",
-  "Trong ChatGPT, mở Settings › Apps, chọn MemoryOS và bấm Connect.":
-    "In ChatGPT, open Settings › Apps, choose MemoryOS and choose Connect.",
-  "Đăng nhập MemoryOS và chọn Cho phép.": "Sign in to MemoryOS and choose Allow.",
+  "Trong ChatGPT, mở Plugin và chọn Plugin mới.": "In ChatGPT, open Plugins and choose New plugin.",
+  "Dán địa chỉ MCP ở trên, giữ Xác thực là OAuth rồi bấm Tạo.":
+    "Paste the MCP URL above, keep Authentication as OAuth and choose Create.",
   "Ứng dụng đã cấp quyền": "Authorized apps",
   "Không tải được ứng dụng đã cấp quyền.": "Could not load the authorized apps.",
   "Chưa có ứng dụng nào được cấp quyền.": "No apps are authorized yet.",

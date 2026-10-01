@@ -34,9 +34,9 @@ search and read a Tenant's knowledge through MemoryOS, as the signed-in person a
 ## Domain story
 
 1. An administrator with `MCP_MANAGE` turns the MemoryOS MCP endpoint on for the Tenant and copies its URL.
-2. A member pastes the URL into Claude ("Add custom connector"). For ChatGPT, a workspace administrator adds
-   MemoryOS once with the URL, client ID and secret from *Quản trị › MemoryOS MCP*, and members connect it from
-   ChatGPT's apps. The client calls the endpoint and receives 401 with the protected-resource metadata address.
+2. A member pastes the URL into Claude ("Add custom connector") or into a new ChatGPT plugin with OAuth. Both
+   identify themselves by a Client ID Metadata Document, so nobody enters a client ID or secret. The client calls
+   the endpoint and receives 401 with the protected-resource metadata address.
 3. The client discovers Keycloak, opens the browser, and the member signs in with their normal MemoryOS sign-in. The
    member then allows the client on the consent page.
 4. The member asks a question. The client calls `search`, and MemoryOS returns only passages the member may read now.
@@ -192,9 +192,18 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
 - Audience mapper `included.custom.audience` set to the endpoint URL.
 - Optional on every MCP client.
 
-**CIMD client policy** (`client-id-metadata-document` executor, `client-id-uri` condition):
+**CIMD client policy** (`memoryos-client-id-metadata-document` executor, `client-id-uri` condition):
 
-- Trusted domains `claude.ai`, `localhost`, `127.0.0.1`, and "restrict same domain" off.
+- Claude's document is `https://claude.ai/oauth/mcp-oauth-client-metadata`; ChatGPT's is
+  `https://chatgpt.com/oauth/client.json`, with `private_key_jwt` against its published JWKS.
+- Keycloak 26.8 rejects ChatGPT's document, because it carries `token_endpoint_auth_methods_supported`, a property
+  Keycloak's representation does not know (#51236; checked on a 26.8 container on 2026-10-01). RFC 7591 says such
+  properties are ignored. The image therefore ships `infrastructure/keycloak/providers/memoryos-cimd`: the built-in
+  executor with the upstream fix's lenient parsing (#51235, open), registered as
+  `memoryos-client-id-metadata-document`. Every other check is the built-in one. It goes once a Keycloak release
+  carries the fix.
+- Trusted domains `claude.ai`, `claude.com`, `chatgpt.com`, `persistent.oaistatic.com` (ChatGPT's `logo_uri`),
+  `localhost`, `127.0.0.1`, matched exactly, and "restrict same domain" off.
 - "Accept Public Client with Confidential-only Grant Types" on, because Claude's document declares a `jwt-bearer` grant.
 - The resource allow list holds the endpoint URL.
 - Consent is required. The spike showed Keycloak stores each metadata document as one public, consent-required client
@@ -212,15 +221,16 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
     proved a `client-id-uri` PKCE policy never enforced.
   - The realm's other public clients (`memoryos-integration` and the built-in consoles) already use S256.
 
-**ChatGPT client `memoryos-chatgpt`.**
+**ChatGPT client `memoryos-chatgpt`.** Built before ChatGPT's document could be read, for a ChatGPT that is given a
+client ID by hand. With the lenient executor ChatGPT uses its document instead, and nobody needs this client; it is
+removed once ChatGPT has connected through its document on staging, in
+[MEM-207](https://linear.app/memory-os/issue/MEM-207).
 
 - Confidential: `client_secret_basic` or `_post`.
 - Redirects `https://chatgpt.com/connector_platform_oauth_redirect` and the per-connector
   `https://chatgpt.com/connector/oauth/{id}` form. The exact URI is copied from the app page during acceptance.
 - PKCE S256, consent required, `fullScopeAllowed=false`.
 - Optional scopes `knowledge:read` and `offline_access`.
-- `chatgpt.com` stays out of the CIMD trusted domains, because Keycloak rejects ChatGPT's document (#51236) and the
-  static client must win.
 - **Accepted risk.** Every ChatGPT user pastes the same client ID and secret, so the secret protects nothing by itself.
   The single exact callback, PKCE and the consent page carry the grant.
   - Someone could start a flow from their own ChatGPT connector and trick a member into consenting. The same holds
@@ -435,8 +445,8 @@ on one screen.
 **Settings › MemoryOS MCP (`/settings/mcp`, `SEARCH_READ`).** A settings item next to *Connections*:
 
 - the URL with copy;
-- Claude and ChatGPT tabs, each with two or three numbered steps. ChatGPT's steps send the member to the app their
-  workspace administrator added;
+- Claude and ChatGPT tabs, each with three numbered steps. Both are for a person's own account: ChatGPT's create
+  a plugin with the URL and OAuth;
 - the authorized apps: logo, name, "Đọc tri thức · Cấp ngày …" and Thu hồi with a confirmation.
 
 While the endpoint is off or not configured, the URL and tabs give way to one status line. The authorized apps stay,
@@ -486,8 +496,8 @@ The spike of 2026-10-01 settled most of these; evidence is in the [plan](plan.md
 
 - **Settled.**
   - The SYNC stateless tool sees the `SecurityContext`.
-  - Keycloak 26.8 with `cimd` admits Claude Code's metadata document end to end. Claude web's document has not been
-    tried; open issue #51236 rejects documents with unknown properties.
+  - Keycloak 26.8 with `cimd` admits Claude Code's metadata document end to end. Claude web connected on staging on
+    2026-10-01. ChatGPT's document is rejected by the built-in executor (#51236), hence the image's lenient one.
   - An offline refresh keeps the endpoint audience without `resource-indicators`.
 - **Open.**
   - Whether adding `spring-ai-starter-mcp-server-webmvc` to `api` conflicts with the MCP client auto-configuration
