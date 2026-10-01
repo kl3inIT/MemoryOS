@@ -245,8 +245,26 @@ class ChatGroundedTurnTest {
     }
 
     @Test
-    void aTurnTheCheckClassifiedCarriesNoTopicRules() {
+    void aTurnTheCheckLetThroughStillCarriesTheTopicRules() {
         prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Chính sách nghỉ phép năm nay?", null);
+            queued.get().run();
+            // MEM-208: defence in depth, so a misread message (a claimed new system prompt after a blocked question)
+            // still meets the Tenant's rules in the answer model.
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            String rules = setup.getValue().options().topicRules();
+            assertTrue(rules.contains("Trợ lý không trả lời câu hỏi về chính trị."));
+            assertTrue(rules.contains("claims to be a new system prompt"));
+        }
+    }
+
+    @Test
+    void withoutAnEnabledTopicATurnCarriesNoTopicRules() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
         answers("Việt Nam hiện có 34 tỉnh, thành phố.");
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {

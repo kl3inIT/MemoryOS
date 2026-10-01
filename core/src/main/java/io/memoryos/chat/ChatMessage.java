@@ -1,8 +1,11 @@
 package io.memoryos.chat;
 
 import java.time.Instant;
-import java.util.UUID;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 public record ChatMessage(UUID id, UUID sessionId, @Nullable UUID parentMessageId,
@@ -13,6 +16,18 @@ public record ChatMessage(UUID id, UUID sessionId, @Nullable UUID parentMessageI
     public static final String NO_EVIDENCE = "no_evidence";
     public static final String UNCITED = "uncited";
     public static final String BLOCKED_TOPIC = "blocked_topic";
+
+    /**
+     * MEM-208: the questions among {@code messages} whose reply the guardrails stopped, found through each reply's parent,
+     * since an edit or a branch reorders a history and a reply is not always next to its question.
+     */
+    public static Set<UUID> blockedQuestions(Collection<ChatMessage> messages) {
+        var blocked = new HashSet<UUID>();
+        for (var message : messages)
+            if (message.role() == Role.ASSISTANT && BLOCKED_TOPIC.equals(message.refusalReason()) && message.parentMessageId() != null)
+                blocked.add(message.parentMessageId());
+        return blocked;
+    }
     public ChatMessage {
         sources = List.copyOf(sources); files = List.copyOf(files); artifacts = List.copyOf(artifacts);
         if (activity == null) activity = ChatActivity.EMPTY;

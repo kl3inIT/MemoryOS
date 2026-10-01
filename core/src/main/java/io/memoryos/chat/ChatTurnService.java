@@ -485,7 +485,7 @@ public final class ChatTurnService implements AutoCloseable {
         if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
         long started = System.nanoTime();
         // One call, on the check's own task model, else the conversation's model. It is not asked again on another
-        // model: when it gives no verdict, the answer model below carries the same rules, as no guardrail project
+        // model: when it gives no verdict, the answer model below still carries the rules, as no guardrail project
         // falls back to a second classifier either.
         ChatGuardrailCheck.Result result = null;
         try (var selected = models.resolveFlow(run.setup.actor(), run.setup.sessionId(), ModelFlow.CHAT_GUARDRAIL)) {
@@ -498,16 +498,14 @@ public final class ChatTurnService implements AutoCloseable {
             checkFailed(run, failure);
         }
         run.check();
-        if (result == null) {
-            if (metrics != null) metrics.guardrail("unchecked", System.nanoTime() - started);
-            // A guardrail never becomes a technical error, and the person is not told about one: the turn is answered,
-            // and the model that answers carries the blocked topics itself, so it declines one with the Tenant's
-            // message and answers anything else.
-            run.setup = run.setup.withOptions(run.setup.options()
-                    .withTopicRules(ChatGuardrailCheck.rulesForTheAnswerModel(run.policy)));
-        } else if (metrics != null) {
-            metrics.guardrail(result.kind().name().toLowerCase(Locale.ROOT), System.nanoTime() - started);
-        }
+        // A guardrail never becomes a technical error, and the person is not told about one: a turn without a verdict
+        // is answered. Whatever the verdict, the model that answers carries the blocked topics itself (MEM-208), so it
+        // declines one with the Tenant's message even when this check misread the message or was not reached.
+        if (metrics != null)
+            metrics.guardrail(result == null ? "unchecked" : result.kind().name().toLowerCase(Locale.ROOT),
+                    System.nanoTime() - started);
+        run.setup = run.setup.withOptions(run.setup.options()
+                .withTopicRules(ChatGuardrailCheck.rulesForTheAnswerModel(run.policy)));
         if (result != null && result.kind() == ChatGuardrailCheck.Kind.BLOCKED) {
             guardrails.recordBlock(run.setup.tenant(), run.setup.actor(), run.setup.sessionId(), result, null);
             refuse(run, ChatMessage.BLOCKED_TOPIC, Objects.requireNonNull(result.message()));
