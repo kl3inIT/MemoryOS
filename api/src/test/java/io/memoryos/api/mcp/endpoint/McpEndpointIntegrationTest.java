@@ -174,6 +174,7 @@ class McpEndpointIntegrationTest {
         assertEquals(1, first.path("sourceNumber").asInt());
         assertEquals("Annual leave is 12 days.", first.path("text").asText());
         assertEquals("http://localhost/search?doc=" + document, first.path("url").asText());
+        assertTrue(first.path("sources").isArray(), first.toString());
         assertFalse(result.path("content").isEmpty(), "the same result also travels as text");
     }
 
@@ -184,6 +185,22 @@ class McpEndpointIntegrationTest {
         assertFalse(body.contains("10.0.0.5"), body);
         assertFalse(body.contains("IllegalStateException"), body);
         assertTrue(body.contains(McpEndpointTools.ToolFailure.FAILED), body);
+    }
+
+    @Test
+    void aClientThatAcceptsOnlyJsonIsServedRatherThanRefused() throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/mcp"))
+                .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/json")
+                .header("Accept", "application/json").header("Authorization", "Bearer " + endpointToken())
+                .POST(HttpRequest.BodyPublishers.ofString(initialize())).build();
+        assertEquals(200, HTTP.send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
+    }
+
+    @Test
+    void aRefusedCallTellsTheClientWhatToChange() throws Exception {
+        String body = post(endpointToken(), call("fetch", Map.of("id", "not-an-id")), "2025-11-25").body();
+        assertTrue(body.contains(McpEndpointTools.INVALID_ID), body);
+        assertTrue(json(body).path("result").path("isError").asBoolean(), body);
     }
 
     @Test

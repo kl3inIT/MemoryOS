@@ -301,10 +301,16 @@ server.
   - reader tokens are resolved per call;
   - every hit is re-checked for readability and current generation.
 - It does not use Chat's `SearchTool`, which calls models. No second answer is generated.
-- Output: `{ "results": [ { "id", "title", "url", "sourceNumber", "text", "updatedAt" } ] }`, at most 10 results.
+- Output: `{ "results": [ { "id", "title", "url", "sourceNumber", "text", "updatedAt", "sources" } ] }`, at most 10
+  results.
   - `text` is the matching sections, at most about 2,000 characters per result.
   - `sourceNumber` counts from 1 in rank order.
   - `id` is the Document UUID.
+  - `sources` names the provider kinds the Document comes from, as far as the person may see.
+- The description says when to call it (anything specific to the person or their organization), what it returns, how
+  to cite, and gives one example call, as Onyx's server does.
+- A refused call returns a sentence that says what to change, such as the query bound or "pass the id exactly as
+  search returned it", so the client retries correctly.
 
 **`fetch`.**
 
@@ -368,6 +374,9 @@ server.
 - Search embeds the query, so this is also the cost bound.
 
 **Request size.** 256 KiB, enforced by `Content-Length` and while reading chunked bodies; 413 beyond.
+
+**`Accept`.** The transport refuses a POST whose `Accept` lacks `application/json` or `text/event-stream`. Some clients
+send only one, so the filter completes the header instead, as Onyx does.
 
 **Failures.**
 

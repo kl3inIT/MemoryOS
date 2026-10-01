@@ -19,6 +19,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -36,12 +40,16 @@ import tools.jackson.databind.json.JsonMapper;
  * bucket (person and client) and one from the endpoint's; an empty bucket answers 429 with {@code Retry-After}.
  * Discovery, {@code initialize} and listing cost nothing, because ChatGPT repeats them before every call.
  *
+ * <p>The transport refuses a request whose {@code Accept} lacks either {@code application/json} or
+ * {@code text/event-stream}; as Onyx does, a client that sends less is given both rather than a 400.
+ *
  * <p>Runs inside the endpoint's security chain after bearer authentication, so the caller is known.
  */
 public final class McpEndpointRequestFilter extends OncePerRequestFilter {
     private static final Logger LOGGER = LoggerFactory.getLogger(McpEndpointRequestFilter.class);
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final Duration WINDOW = Duration.ofMinutes(1);
+    private static final String ACCEPT = "application/json, text/event-stream";
 
     private final McpEndpointLimits limits;
     private final Bucket endpoint;
@@ -131,9 +139,33 @@ public final class McpEndpointRequestFilter extends OncePerRequestFilter {
     private static final class BufferedBodyRequest extends HttpServletRequestWrapper {
         private final byte[] body;
 
+        private final boolean acceptsBoth;
+
         BufferedBodyRequest(HttpServletRequest request, byte[] body) {
             super(request);
             this.body = body;
+            String accept = request.getHeader(HttpHeaders.ACCEPT);
+            this.acceptsBoth = accept != null && accept.contains(MediaType.APPLICATION_JSON_VALUE)
+                    && accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE);
+        }
+
+        @Override
+        public @Nullable String getHeader(String name) {
+            return !acceptsBoth && HttpHeaders.ACCEPT.equalsIgnoreCase(name) ? ACCEPT : super.getHeader(name);
+        }
+
+        @Override
+        public Enumeration<String> getHeaders(String name) {
+            return !acceptsBoth && HttpHeaders.ACCEPT.equalsIgnoreCase(name)
+                    ? Collections.enumeration(List.of(ACCEPT)) : super.getHeaders(name);
+        }
+
+        @Override
+        public Enumeration<String> getHeaderNames() {
+            if (acceptsBoth) return super.getHeaderNames();
+            var names = new LinkedHashSet<>(Collections.list(super.getHeaderNames()));
+            names.add(HttpHeaders.ACCEPT);
+            return Collections.enumeration(names);
         }
 
         @Override

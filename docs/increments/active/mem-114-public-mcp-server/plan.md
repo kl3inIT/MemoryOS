@@ -185,7 +185,8 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
   - Audience and scope, and an endpoint token refused on `/api`.
   - Exactly two read-only tools with object schemas.
   - Search evidence and its link.
-  - A cause-free failure.
+  - A cause-free failure, and a refused call that says what to change.
+  - A client that accepts only JSON is served.
   - ChatGPT's probe.
   - Foreign origin, 413 and 429 per caller.
   - The switch through the API, with its audit.
@@ -193,8 +194,15 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
   Readability through PUBLIC, PRIVATE and SYNC is `DocumentSearchService`'s own tested contract. A duplicated YAML key
   already fails every context test, so there is no separate YAML test. Running the tests is left to CI.
 - [ ] **Gates.** `ModulithArchitectureTest`, `CoreDependencyRulesTest`, `OpenApiContractTest`, then `clean check` on CI.
-- [ ] **Onyx's MCP server**, studied from `.tmp/onyx` (40eb240df): its instructions and tool descriptions are compared
-  before the pull request.
+- [x] **Onyx's MCP server**, studied from `.tmp/onyx` (40eb240df). Adopted:
+  - tool descriptions that say when to call the tool, what it returns and one example call;
+  - parameter descriptions that state their limits;
+  - a refused call that tells the client what to change, per tool;
+  - each search result names its sources;
+  - an `Accept` header lacking JSON or event stream is completed rather than refused.
+
+  Not adopted: Onyx's own auth server and API-key fallback, its per-call database session, resources, and a
+  configurable result count.
 
 ## 4. Web, grants and consent (pull request 3)
 

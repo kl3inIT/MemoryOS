@@ -40,6 +40,8 @@ public class McpEndpointTools {
     /** Below the roughly 150,000 characters a Claude connector accepts for one result. */
     static final int FETCH_TEXT_CHARS = 100_000;
     private static final int LAST_ORDINAL = 9_999;
+    static final String INVALID_QUERY = "The query must be 1 to 1,000 characters. Shorten or rephrase it and search again.";
+    static final String INVALID_ID = "Pass the id of a search result exactly as search returned it.";
 
     private final DocumentSearchService documents;
     private final McpEndpointProperties endpoint;
@@ -52,33 +54,51 @@ public class McpEndpointTools {
     }
 
     @McpTool(name = "search", title = "Search organization knowledge", generateOutputSchema = true,
-            description = "Searches the organization's documents the signed-in person may read and returns up to "
-                    + SEARCH_RESULTS + " ranked results with matching text. Cite each claim with the result's "
-                    + "sourceNumber as [n]. Use fetch with a result's id to read the whole document.",
+            description = """
+                    Searches the organization's documents in MemoryOS that the signed-in person may read: contracts, \
+                    policies, reports, meeting minutes and files from Google Drive, SharePoint and uploads. Use it for \
+                    anything that is not public knowledge and is specific to the person, their team, their work or \
+                    their organization.
+
+                    Returns {"results": [{id, title, url, sourceNumber, text, updatedAt, sources}]}, at most 10, \
+                    best first. text holds the passages that matched, cut at 2,000 characters. Cite each claim with \
+                    the result's sourceNumber as [n]. Call fetch with a result's id to read the whole document when \
+                    the passages are not enough. An empty list means nothing the person can read matched; say so \
+                    rather than guessing.
+
+                    Example: {"query": "annual leave policy for new employees"}""",
             annotations = @McpTool.McpAnnotations(title = "Search organization knowledge", readOnlyHint = true,
                     destructiveHint = false, idempotentHint = true, openWorldHint = false))
-    public SearchResults search(@McpToolParam(description = "What to look for, in the person's own words", required = true)
-                                String query) {
-        return timed("search", () -> {
+    public SearchResults search(@McpToolParam(required = true, description = "What to look for, in the person's own "
+            + "words and language, 1 to 1,000 characters") String query) {
+        return timed("search", INVALID_QUERY, () -> {
             var page = documents.search(actor(),
                     new SearchRequest(query, List.of(), null, 0, SEARCH_RESULTS, List.of(), List.of()));
             var results = new ArrayList<SearchResult>(page.results().size());
             for (var result : page.results()) {
                 results.add(new SearchResult(result.documentId().toString(), result.title(),
                         url(result.documentId(), result.providerUrl()), results.size() + 1,
-                        excerpt(result.sections()), result.updatedAt().toString()));
+                        excerpt(result.sections()), result.updatedAt().toString(),
+                        result.sourceTypes().stream().map(Enum::name).toList()));
             }
             return new SearchResults(results);
         });
     }
 
     @McpTool(name = "fetch", title = "Read a document", generateOutputSchema = true,
-            description = "Reads the full text of one document returned by search, by its id, if the signed-in person "
-                    + "may still read it. Very long documents are cut and say so.",
+            description = """
+                    Reads the full text of one document found by search, by the result's id, if the signed-in person \
+                    may still read it. Use it when the passages search returned do not answer the question.
+
+                    Returns {id, title, text, url, metadata}. A document longer than 100,000 characters is cut and \
+                    the text ends by saying how many of its passages were shown.
+
+                    Example: {"id": "<the id of a search result>"}""",
             annotations = @McpTool.McpAnnotations(title = "Read a document", readOnlyHint = true,
                     destructiveHint = false, idempotentHint = true, openWorldHint = false))
-    public FetchedDocument fetch(@McpToolParam(description = "The id of a search result", required = true) String id) {
-        return timed("fetch", () -> {
+    public FetchedDocument fetch(@McpToolParam(required = true, description = "The id of a search result, exactly as "
+            + "search returned it") String id) {
+        return timed("fetch", INVALID_ID, () -> {
             var actor = actor();
             var documentId = documentId(id);
             var text = new StringBuilder();
@@ -131,7 +151,7 @@ public class McpEndpointTools {
         try {
             return UUID.fromString(id.strip());
         } catch (IllegalArgumentException invalid) {
-            throw new ToolFailure(ToolFailure.UNAVAILABLE);
+            throw new ToolFailure(INVALID_ID);
         }
     }
 
@@ -145,9 +165,10 @@ public class McpEndpointTools {
 
     /**
      * Records the call and turns every failure into a fixed message without a cause. Spring AI returns an exception's
-     * message, and its causes' messages, to the client, so nothing internal may travel in one.
+     * message, and its causes' messages, to the client, so nothing internal may travel in one. A refused call says
+     * what to change, as Onyx's tools do, so the client can call again correctly instead of giving up.
      */
-    private <T> T timed(String tool, Supplier<T> call) {
+    private <T> T timed(String tool, String invalid, Supplier<T> call) {
         long started = System.nanoTime();
         String outcome = "failed";
         try {
@@ -162,7 +183,7 @@ public class McpEndpointTools {
             LOGGER.atInfo().addKeyValue("event", "mcp_endpoint.tool.refused").addKeyValue("tool", tool)
                     .addKeyValue("error_type", refused.getClass().getName()).addKeyValue("error_code", refused.code())
                     .log("MCP endpoint tool call refused");
-            throw new ToolFailure(refused.category() == FailureCategory.VALIDATION ? ToolFailure.INVALID : ToolFailure.UNAVAILABLE);
+            throw new ToolFailure(refused.category() == FailureCategory.VALIDATION ? invalid : ToolFailure.UNAVAILABLE);
         } catch (RuntimeException failure) {
             LOGGER.atWarn().addKeyValue("event", "mcp_endpoint.tool.failed").addKeyValue("tool", tool)
                     .addKeyValue("error_type", failure.getClass().getName()).setCause(failure)
@@ -176,8 +197,8 @@ public class McpEndpointTools {
 
     /** A tool failure the client may see: a fixed sentence, no cause and no stack. */
     static final class ToolFailure extends RuntimeException {
-        static final String INVALID = "The request is not valid. Check the query or the id and try again.";
-        static final String UNAVAILABLE = "Not found in the documents this person can access.";
+        static final String UNAVAILABLE = "Not found in the documents this person can access. Search again rather "
+                + "than guessing.";
         static final String FAILED = "MemoryOS could not complete the request. Try again shortly.";
 
         ToolFailure(String message) {
@@ -187,8 +208,12 @@ public class McpEndpointTools {
 
     public record SearchResults(List<SearchResult> results) {}
 
-    /** {@code sourceNumber} counts from 1 in rank order; {@code text} is the matching passages. */
-    public record SearchResult(String id, String title, String url, int sourceNumber, String text, String updatedAt) {}
+    /**
+     * {@code sourceNumber} counts from 1 in rank order; {@code text} is the matching passages; {@code sources} names
+     * where the document comes from (GOOGLE_DRIVE, SHAREPOINT, FILE), as far as the person may see.
+     */
+    public record SearchResult(String id, String title, String url, int sourceNumber, String text, String updatedAt,
+                               List<String> sources) {}
 
     public record FetchedDocument(String id, String title, String text, String url, Map<String, String> metadata) {}
 }
