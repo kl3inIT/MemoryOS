@@ -114,7 +114,7 @@ class ChatGroundedTurnTest {
         when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), 0));
         when(guardrails.check(any(), any(), any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
                 kind == ChatGuardrailCheck.Kind.BLOCKED ? "Trợ lý không trả lời câu hỏi về lãnh tụ." : null,
-                kind == ChatGuardrailCheck.Kind.BLOCKED ? ChatGuardrails.Topic.LEADERS : null, null));
+                kind == ChatGuardrailCheck.Kind.BLOCKED ? ChatGuardrails.BUILT_IN.get(1) : null, null));
     }
 
     private ChatTurnService service(AtomicReference<Runnable> queued) {
@@ -157,8 +157,8 @@ class ChatGroundedTurnTest {
     }
 
     private static final ChatSettingsService.TurnPolicy TOPICS = new ChatSettingsService.TurnPolicy(true, false,
-            new ChatGuardrails(List.of(new ChatGuardrails.TopicSetting(ChatGuardrails.Topic.POLITICS, true, null),
-                    new ChatGuardrails.TopicSetting(ChatGuardrails.Topic.LEADERS, true, null)), List.of(), null));
+            new ChatGuardrails(ChatGuardrails.BUILT_IN.subList(0, 2).stream().map(topic -> new ChatGuardrails.Topic(topic.id(),
+                    topic.name(), topic.description(), topic.examples(), topic.message(), true)).toList(), List.of(), null));
 
     /** The guardrail task runs on its own model, so a test can fail it apart from the conversation model. */
     private ModelBinding taskModel() {
@@ -402,7 +402,7 @@ class ChatGroundedTurnTest {
         var audit = mock(AuditTrail.class);
         var check = new ChatGuardrailCheck(mock(GroundingClassifier.class), audit);
         check.recordBlock(new TenantId(UUID.randomUUID()), actor, session,
-                new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, "Không trả lời.", ChatGuardrails.Topic.LEADERS, null), null);
+                new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, "Không trả lời.", ChatGuardrails.BUILT_IN.get(1), null), null);
         var event = ArgumentCaptor.forClass(AuditRecord.class);
         verify(audit).recordSeparately(event.capture());
         verify(audit, never()).record(any());

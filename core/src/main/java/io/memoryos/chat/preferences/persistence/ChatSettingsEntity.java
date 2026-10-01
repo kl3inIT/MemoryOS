@@ -29,8 +29,9 @@ public class ChatSettingsEntity {
     @Column(name = "blocked_phrase_message") private @Nullable String blockedPhraseMessage;
     @Version private @Nullable Long revision;
 
-    /** A built-in topic as stored: its key, whether it applies and the Tenant's message. */
-    public record StoredTopic(String topic, boolean enabled, @Nullable String message) {}
+    /** A topic as stored (MEM-208, V137): the Tenant's own name, description, examples, reply and switch. */
+    public record StoredTopic(UUID id, String name, String description, List<String> examples, String message,
+                              boolean enabled) {}
 
     protected ChatSettingsEntity() {}
     public ChatSettingsEntity(UUID tenant) { tenantId = tenant; }

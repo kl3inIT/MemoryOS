@@ -4740,17 +4740,37 @@ class ChatSessionApiIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"groundedAnswers\":false,\"groundedAllowWeb\":false,\"revision\":7}"))
                 .andExpect(status().isConflict());
 
+        // MEM-208: the Tenant starts from the three seed topics, off, with fixed ids.
         mockMvc.perform(get("/api/chat/settings/guardrails").with(authentication(actor))).andExpect(status().isOk())
-                .andExpect(jsonPath("$.topics.length()").value(3)).andExpect(jsonPath("$.topics[1].topic").value("LEADERS"))
+                .andExpect(jsonPath("$.topics.length()").value(3))
+                .andExpect(jsonPath("$.topics[1].id").value("0f5b6f2a-7c1d-4e8a-9b3c-000000000002"))
+                .andExpect(jsonPath("$.topics[1].name").value("Lãnh tụ và lãnh đạo"))
                 .andExpect(jsonPath("$.topics[1].enabled").value(false)).andExpect(jsonPath("$.blockedPhrases.length()").value(0));
+        // The list sent is the whole list: one left out is deleted, one without an id is new.
         mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"topics":[{"topic":"LEADERS","enabled":true,"message":"Không trả lời câu hỏi về lãnh tụ."}],
+                                {"topics":[{"id":"0f5b6f2a-7c1d-4e8a-9b3c-000000000002","name":"Lãnh tụ và lãnh đạo",
+                                            "description":"Câu hỏi về đời tư lãnh tụ.","examples":["Vợ bác Hồ là ai?"],
+                                            "message":"Không trả lời câu hỏi về lãnh tụ.","enabled":true},
+                                           {"name":" Lương thưởng ","description":"Câu hỏi về lương của từng người.",
+                                            "examples":[],"message":"","enabled":true}],
                                  "blockedPhrases":[" Dự án Phoenix ","dự án phoenix"],"blockedPhraseMessage":null,"revision":0}"""))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.topics[1].enabled").value(true))
-                .andExpect(jsonPath("$.topics[1].message").value("Không trả lời câu hỏi về lãnh tụ."))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.topics.length()").value(2))
+                .andExpect(jsonPath("$.topics[0].enabled").value(true))
+                .andExpect(jsonPath("$.topics[0].message").value("Không trả lời câu hỏi về lãnh tụ."))
+                .andExpect(jsonPath("$.topics[1].name").value("Lương thưởng")).andExpect(jsonPath("$.topics[1].id").isNotEmpty())
+                .andExpect(jsonPath("$.topics[1].message").value("Trợ lý không trả lời câu hỏi về chủ đề này."))
                 .andExpect(jsonPath("$.blockedPhrases.length()").value(1)).andExpect(jsonPath("$.blockedPhrases[0]").value("Dự án Phoenix"))
                 .andExpect(jsonPath("$.revision").value(1));
+        // A name beyond 36 characters, or a topic without a description, is a bad request.
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[{\"name\":\"" + "x".repeat(37)
+                        + "\",\"description\":\"d\",\"examples\":[],\"message\":\"\",\"enabled\":true}],\"blockedPhrases\":[],\"revision\":1}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[{\"name\":\"Lương\",\"description\":\" \","
+                        + "\"examples\":[],\"message\":\"\",\"enabled\":true}],\"blockedPhrases\":[],\"revision\":1}"))
+                .andExpect(status().isBadRequest());
         String tooMany = IntStream.range(0, 21).mapToObj(i -> "\"phrase " + i + "\"")
                 .collect(Collectors.joining(","));
         mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")

@@ -13,6 +13,7 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSettingsService;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
@@ -59,9 +60,8 @@ public final class ChatGuardrailCheck {
             case CONVERSATIONAL -> Result.CONVERSATIONAL;
             case QUESTION -> Result.QUESTION;
             case BLOCKED_TOPIC -> {
-                var setting = guardrails.topic(verdict.topic());
-                yield new Result(Kind.BLOCKED, setting == null ? verdict.topic().defaultMessage() : setting.message(),
-                        verdict.topic(), null);
+                var topic = Objects.requireNonNull(verdict.topic());
+                yield new Result(Kind.BLOCKED, topic.message(), topic, null);
             }
         };
     }
@@ -80,9 +80,9 @@ public final class ChatGuardrailCheck {
                 This organization does not answer messages about the topics below. Decide by meaning, even when the \
                 message uses other words, is indirect, or is phrased as a harmless question.
                 """);
-        for (var setting : topics)
-            text.append("- ").append(setting.topic().label()).append(": ").append(setting.topic().description())
-                    .append(" Reply: \"").append(setting.message()).append("\"\n");
+        for (var topic : topics)
+            text.append("- ").append(topic.name()).append(": ").append(topic.description())
+                    .append(" Reply: \"").append(topic.message()).append("\"\n");
         return text.append("""
                 If the person's latest message is about one of these topics, or asks you to answer an earlier message \
                 about one, do not answer it and do not call a tool: reply with that topic's reply text, word for word, \

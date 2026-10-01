@@ -671,17 +671,16 @@ export const zChatHistoryVisibilityRequest = z.object({
 });
 
 export const zChatGuardrailTopic = z.object({
-    topic: z.enum([
-        'POLITICS',
-        'LEADERS',
-        'RELIGION'
-    ]),
-    enabled: z.boolean(),
-    message: z.string().min(0).max(500)
+    id: z.uuid().optional(),
+    name: z.string().min(0).max(36),
+    description: z.string().min(0).max(350),
+    examples: z.array(z.string().min(0).max(200)).min(0).max(5),
+    message: z.string().min(0).max(500),
+    enabled: z.boolean()
 });
 
 export const zChatGuardrailsRequest = z.object({
-    topics: z.array(zChatGuardrailTopic).min(0).max(10),
+    topics: z.array(zChatGuardrailTopic).min(0).max(30),
     blockedPhrases: z.array(z.string().min(0).max(100)).min(0).max(20),
     blockedPhraseMessage: z.string().min(0).max(500).optional(),
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()

@@ -82,7 +82,7 @@ class ChatSettingsController {
     @Operation(operationId = "saveChatGuardrails", summary = "Change the sensitive topics and blocked phrases; requires model management")
     ChatGuardrailsResponse saveGuardrails(@CurrentActor IdentityContext identity, @Valid @RequestBody ChatGuardrailsRequest request) {
         return ChatGuardrailsResponse.from(settings.saveGuardrails(identity.actorId(),
-                request.topics().stream().map(ChatGuardrailTopic::setting).toList(), request.blockedPhrases(),
+                request.topics().stream().map(ChatGuardrailTopic::topic).toList(), request.blockedPhrases(),
                 request.blockedPhraseMessage(), request.revision()));
     }
 

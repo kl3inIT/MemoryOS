@@ -531,12 +531,23 @@ holds released text.
 - A citation proves that the answer names a document, not that the document supports each sentence. Per-claim checks
   are a later phase.
 
-**Sensitive topics.** Model managers read and change the guardrails at `GET`/`PUT /api/chat/settings/guardrails`:
-- the three built-in topics `POLITICS`, `LEADERS` and `RELIGION`, each with a switch and a message; their
-  descriptions and example questions live in `ChatGuardrails`;
+**Sensitive topics.** Model managers read and change the guardrails at `GET`/`PUT /api/chat/settings/guardrails`, one
+document with the settings revision:
+- the Tenant's own topics (MEM-208, after Amazon Q Business topic controls and Bedrock denied topics), at most 30, each
+  `{id, name, description, examples, message, enabled}`: a unique name of at most 36 characters, a description of at
+  most 350 (what the model classifies by; whitespace and line breaks are folded to single spaces before it reaches a
+  prompt), at most 5 examples of at most 200 characters, and a reply of at most 500 (blank means "Trợ lý không trả
+  lời câu hỏi về chủ đề này."). The list sent is the whole list: a topic left out is deleted, one without an id is new;
 - at most 20 blocked phrases, with one message.
 
-The phrase list itself stays out of the audit stream.
+Topics are stored as the `chat_settings.guardrail_topics` JSONB list (bounded at 30 by a check constraint, V137). The
+three built-in topics, Chính trị, Lãnh tụ và lãnh đạo and Tôn giáo, are seed data with fixed ids
+(`ChatGuardrails.BUILT_IN`), off until the Tenant turns them on, and as editable and deletable as any other; a Tenant
+without a settings row reads them, and its first row starts from them, while an empty list means it deleted every
+topic. V137 turned each stored `{topic, enabled, message}` into the seed topic with that switch and reply. A request
+labels the enabled topics `TOPIC_1`…`TOPIC_n` in their order, so a name never has to be an identifier. The audit
+record of a change names the enabled topics; the phrase list itself stays out of the audit stream. A block record's
+`topic` is the topic's name; records written before V137 hold the built-in key.
 
 **History and browser.** History returns `refusalReason` on completed replies; the stream does not carry it, so the label under a declined reply (restricted topic, not in the documents) appears when the stored message is read, while the reply's own text streams as usual. The `/admin/chat` page (Onyx Chat
 Preferences) holds Deep research, conversation-history visibility, answers from documents and the sensitive topics.
