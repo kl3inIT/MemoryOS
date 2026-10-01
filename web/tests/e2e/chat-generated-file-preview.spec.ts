@@ -43,6 +43,31 @@ for (const [label, viewport, colorScheme] of [
   ["desktop-dark", { width: 1440, height: 900 }, "dark"],
   ["mobile", { width: 390, height: 844 }, "light"],
 ] as const) {
+  test(`shows a generated image the answer links to inside the answer on ${label}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ colorScheme });
+    await openFiles(page);
+    const image = page.getByRole("img", { name: "Biểu đồ doanh thu theo miền.png" });
+    await image.scrollIntoViewIfNeeded();
+    await expect(image).toBeVisible();
+    await expect
+      .poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth))
+      .toBeGreaterThan(0);
+    await shot(page, `${label}-inline-image`);
+    await preview(page, "Biểu đồ doanh thu theo miền.png");
+    await expect(
+      page.getByRole("dialog", { name: "Biểu đồ doanh thu theo miền.png" }),
+    ).toBeVisible();
+  });
+}
+
+for (const [label, viewport, colorScheme] of [
+  ["desktop", { width: 1440, height: 900 }, "light"],
+  ["desktop-dark", { width: 1440, height: 900 }, "dark"],
+  ["mobile", { width: 390, height: 844 }, "light"],
+] as const) {
   test(`previews every generated file kind on ${label}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.emulateMedia({ colorScheme });
