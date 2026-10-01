@@ -61,6 +61,13 @@ After Amazon Q Business topic controls and Bedrock denied topics.
 7. The Deep Research card no longer repeats its section title.
 8. Descriptions wrap on a phone instead of being cut off.
 
+## Open
+
+- Naming a new conversation reads its first exchange as stored, so a first question the guardrails stopped can still
+  shape the conversation's title. Nothing is answered that way, and the title is shown only to the person who asked.
+- Staging: replay the four pairs from 2026-10-01 and an ordinary follow-up after a blocked question; confirm V137
+  converted the Tenant's row (topics on, replies kept, phrases intact); create a topic end to end.
+
 ## Out of scope
 
 System One for the check ([MEM-198](https://linear.app/memory-os/issue/MEM-198)) follows this change.
