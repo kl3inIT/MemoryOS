@@ -9,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { appText, type AppText } from "@/i18n/app-text";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ApiError } from "@/lib/api";
@@ -89,18 +88,18 @@ function ConnectSection() {
         <TabsContent value="claude">
           <Steps
             steps={[
-              appText("Trong Claude, mở Settings › Connectors và chọn Add custom connector."),
-              appText("Dán địa chỉ MCP ở trên rồi bấm Add."),
-              appText("Bấm Connect, đăng nhập MemoryOS và chọn Cho phép."),
+              ui("Trong Claude, mở Settings › Connectors và chọn Add custom connector."),
+              ui("Dán địa chỉ MCP ở trên rồi bấm Add."),
+              ui("Bấm Connect, đăng nhập MemoryOS và chọn Cho phép."),
             ]}
           />
         </TabsContent>
         <TabsContent value="chatgpt">
           <Steps
             steps={[
-              appText("Quản trị viên ChatGPT của tổ chức thêm MemoryOS vào workspace một lần."),
-              appText("Trong ChatGPT, mở Settings › Apps, chọn MemoryOS và bấm Connect."),
-              appText("Đăng nhập MemoryOS và chọn Cho phép."),
+              ui("Quản trị viên ChatGPT của tổ chức thêm MemoryOS vào workspace một lần."),
+              ui("Trong ChatGPT, mở Settings › Apps, chọn MemoryOS và bấm Connect."),
+              ui("Đăng nhập MemoryOS và chọn Cho phép."),
             ]}
           />
         </TabsContent>
@@ -109,12 +108,12 @@ function ConnectSection() {
   );
 }
 
-function Steps({ steps }: { steps: readonly AppText[] }) {
-  const ui = useAppTranslation();
+/** The steps arrive translated; each is its own sentence, so it is also its key. */
+function Steps({ steps }: { steps: readonly string[] }) {
   return (
     <ol className="flex list-decimal flex-col gap-2 pt-3 pl-5 font-main-ui-body text-content-primary marker:text-content-muted">
       {steps.map((step) => (
-        <li key={step}>{ui(step)}</li>
+        <li key={step}>{step}</li>
       ))}
     </ol>
   );

@@ -15,15 +15,18 @@ import { server } from "@/test/msw";
 import { McpEndpointSettingsPage } from "./mcp-endpoint-settings-page";
 
 const CLAUDE = "https://claude.ai/oauth/mcp-oauth-client-metadata";
-const grants: McpClientGrantResponse[] = [
-  { clientId: CLAUDE, client: "CLAUDE", name: "Claude", grantedAt: "2026-10-01T09:30:00Z" },
-  {
-    clientId: "memoryos-chatgpt",
-    client: "CHATGPT",
-    name: "ChatGPT",
-    grantedAt: "2026-09-28T02:15:00Z",
-  },
-];
+const claude: McpClientGrantResponse = {
+  clientId: CLAUDE,
+  client: "CLAUDE",
+  name: "Claude",
+  grantedAt: "2026-10-01T09:30:00Z",
+};
+const chatGpt: McpClientGrantResponse = {
+  clientId: "memoryos-chatgpt",
+  client: "CHATGPT",
+  name: "ChatGPT",
+  grantedAt: "2026-09-28T02:15:00Z",
+};
 
 function renderPage() {
   render(
@@ -41,7 +44,7 @@ it("gives the URL with each client's steps and revokes Claude by its URL client 
     handleGetMcpEndpointConnection({
       body: { available: true, url: "https://memoryos.example.vn/mcp" },
     }),
-    handleListMcpClientGrants({ body: grants }),
+    handleListMcpClientGrants({ body: [claude] }),
     handleRevokeMcpClientGrant(({ request }) => {
       revoked.push(new URL(request.url).searchParams.get("clientId"));
       return new HttpResponse(null, { status: 204 });
@@ -61,8 +64,7 @@ it("gives the URL with each client's steps and revokes Claude by its URL client 
 
   const apps = screen.getByRole("region", { name: "Authorized apps" });
   expect(within(apps).getByText("Claude")).toBeVisible();
-  expect(within(apps).getByText("ChatGPT")).toBeVisible();
-  await user.click(within(apps).getAllByRole("button", { name: "Revoke" })[0]);
+  await user.click(within(apps).getByRole("button", { name: "Revoke" }));
   const dialog = await screen.findByRole("alertdialog");
   await user.click(within(dialog).getByRole("button", { name: "Revoke" }));
   await waitFor(() => expect(revoked).toEqual([CLAUDE]));
@@ -71,7 +73,7 @@ it("gives the URL with each client's steps and revokes Claude by its URL client 
 it("shows one status line while the endpoint is off and still lists what can be revoked", async () => {
   server.use(
     handleGetMcpEndpointConnection({ body: { available: false, url: null } }),
-    handleListMcpClientGrants({ body: [grants[1]] }),
+    handleListMcpClientGrants({ body: [chatGpt] }),
   );
   renderPage();
 
