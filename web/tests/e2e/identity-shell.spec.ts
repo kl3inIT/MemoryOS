@@ -91,10 +91,11 @@ test("renders the authenticated application shell", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("shows a member's Groups entry while blocking unrelated administration deep links", async ({
+test("hides administration entry points and blocks employee deep links without requests", async ({
   page,
 }) => {
   let userRequests = 0;
+  let groupRequests = 0;
   let sourceRequests = 0;
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -107,6 +108,10 @@ test("shows a member's Groups entry while blocking unrelated administration deep
     userRequests += 1;
     await route.fulfill({ status: 403 });
   });
+  await page.route("**/api/groups**", async (route) => {
+    groupRequests += 1;
+    await route.fulfill({ status: 403 });
+  });
   await page.route("**/api/sources**", async (route) => {
     sourceRequests += 1;
     await route.fulfill({ status: 403 });
@@ -116,10 +121,7 @@ test("shows a member's Groups entry while blocking unrelated administration deep
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("button", { name: "Tenant member" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
-    "href",
-    "/admin/groups",
-  );
+  await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveCount(0);
 
   await page.goto("/admin/users?status=ACTIVE");
   await expect(page).toHaveURL(/\/admin\/users\?status=ACTIVE/);
@@ -127,6 +129,12 @@ test("shows a member's Groups entry while blocking unrelated administration deep
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();
   expect(userRequests).toBe(0);
+
+  await page.goto("/admin/groups/15f8cb72-2628-4d75-bcf1-8f6cda95a120");
+  await expect(
+    page.getByRole("heading", { name: "You don’t have access to this area." }),
+  ).toBeVisible();
+  expect(groupRequests).toBe(0);
 
   await page.goto("/admin/sources/15f8cb72-2628-4d75-bcf1-8f6cda95a120");
   await expect(

@@ -653,7 +653,7 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void directGroupMemberViewsAssociatedSourcesWithoutSourceAdministration() {
+    void directGroupMemberCannotInspectAssociatedSourceAdministration() {
         GroupId groupId = new GroupId(UUID.randomUUID());
         ActorId member = addScopedManager(groupId);
         jdbcClient.sql("""
@@ -667,10 +667,7 @@ class PostgresSourceLifecycleTest {
                 .update();
         var source = service.createFileSource(owner, "Member-visible", List.of(groupId), SourceAccess.PRIVATE);
 
-        assertThat(service.listGroupSources(member, groupId).sources())
-                .extracting(SourceSummary::id)
-                .containsExactly(source.id());
-        assertThat(service.listGroupSources(member, groupId).removableSourceIds()).isEmpty();
+        assertThrows(SourceException.class, () -> service.listGroupSources(member, groupId));
         assertThrows(IamException.class, () -> service.getSource(member, source.id()));
     }
 

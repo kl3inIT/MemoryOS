@@ -138,7 +138,7 @@ function DeferredGroupSources({ targetGroup = group }: { targetGroup?: GroupSumm
 
   return (
     <>
-      <GroupSourcesSection draft={draft} />
+      {draft.canOpenSources ? <GroupSourcesSection draft={draft} /> : null}
       <button type="button" disabled={!draft.dirty} onClick={() => void draft.save()}>
         Save Changes
       </button>
@@ -240,16 +240,15 @@ describe("ordinary Source associations", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows source associations to a member of the target group without edit controls", async () => {
+  it("hides source associations outside a scoped manager's target group", async () => {
     const targetGroup = {
       ...group,
       permissions: { ...group.permissions, manageSources: false },
     };
     setup(<DeferredGroupSources targetGroup={targetGroup} />, scopedSession);
-
-    expect(await screen.findByRole("heading", { name: "Sources" })).toBeVisible();
-    expect(await screen.findByText(source.name)).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Remove Team knowledge" })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Sources" })).not.toBeInTheDocument(),
+    );
   });
 
   it("allows a global manager to remove the last association from Group detail", async () => {

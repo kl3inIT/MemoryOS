@@ -50,7 +50,7 @@ export function adminAuthorityOf(
     global(capability) || identity.scopedCapabilities.includes(capability);
   return {
     canManageUsers: global("USERS_MANAGE"),
-    canReadGroups: true,
+    canReadGroups: any("GROUPS_READ"),
     canReadSources: any("SOURCES_READ"),
     canManageModels: global("MODELS_MANAGE"),
     canManageProviders: global("SYSTEM_ADMIN"),

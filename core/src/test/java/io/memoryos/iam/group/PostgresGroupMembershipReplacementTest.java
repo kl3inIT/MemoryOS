@@ -125,12 +125,11 @@ class PostgresGroupMembershipReplacementTest {
         persistMembership(new GroupId(GroupEntity.BASIC_ID), peer, false);
         groups.addMembers(MEMBER, RETAINED, Set.of(peer));
 
-        assertEquals(RETAINED, groups.get(peer, RETAINED).id());
-        assertEquals(2L, groups.members(peer, RETAINED, new GroupQuery(null, 0, 20)).totalItems());
-        assertEquals(
-                Set.of(new GroupId(GroupEntity.BASIC_ID), RETAINED),
-                groups.list(peer, new GroupQuery(null, 0, 20)).items().stream().map(group -> group.id()).collect(java.util.stream.Collectors.toSet())
-        );
+        assertEquals("IAM_GROUP_NOT_FOUND",
+                assertThrows(IamException.class, () -> groups.get(peer, RETAINED)).code());
+        assertEquals("IAM_GROUP_NOT_FOUND",
+                assertThrows(IamException.class, () -> groups.members(peer, RETAINED, new GroupQuery(null, 0, 20))).code());
+        assertTrue(groups.list(peer, new GroupQuery(null, 0, 20)).items().isEmpty());
         groups.assignManager(MEMBER, RETAINED, peer);
         assertEquals(RETAINED, groups.get(peer, RETAINED).id());
         groups.removeManager(MEMBER, RETAINED, peer);

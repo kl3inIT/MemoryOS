@@ -219,7 +219,7 @@ function GroupDetail({
           onChange={setCapabilityDraft}
         />
       ) : null}
-      {!systemGroup ? <GroupSourcesSection draft={sources} /> : null}
+      {!systemGroup && sources.canOpenSources ? <GroupSourcesSection draft={sources} /> : null}
 
       {canDelete ? (
         <DangerZone

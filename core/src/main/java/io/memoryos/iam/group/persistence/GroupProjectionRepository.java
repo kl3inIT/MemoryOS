@@ -35,13 +35,6 @@ public class GroupProjectionRepository {
     private static final String VISIBLE_GROUP_FILTER = """
               AND (
                     :globalAccess
-                    OR EXISTS (
-                        SELECT 1
-                        FROM iam_group_memberships member_membership
-                        WHERE member_membership.tenant_id = group_record.tenant_id
-                          AND member_membership.group_id = group_record.id
-                          AND member_membership.actor_id = :actorId
-                    )
                     OR (
                         group_record.system_key IS NULL
                         AND EXISTS (

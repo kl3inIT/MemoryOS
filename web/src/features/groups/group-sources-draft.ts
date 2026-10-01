@@ -28,7 +28,7 @@ export function useGroupSourcesDraft(group: GroupSummary) {
   const canOpenSources = sourceAuthority === "global" || canManage;
   const associated = useQuery({
     ...listGroupSourcesOptions({ path: { groupId: group.id } }),
-    enabled: ordinaryGroup,
+    enabled: canOpenSources,
     retry: false,
   });
   const allSources = useQuery({

@@ -100,7 +100,7 @@ it("shows only the administration pages the session may open, in their sections"
     within(navigation)
       .getAllByRole("link")
       .map((link) => link.textContent),
-  ).toEqual(["Groups", "Conversation history", "Audit log"]);
+  ).toEqual(["Conversation history", "Audit log"]);
   expect(within(navigation).getByRole("link", { name: "Conversation history" })).toHaveAttribute(
     "aria-current",
     "page",

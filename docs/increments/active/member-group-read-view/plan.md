@@ -1,14 +1,12 @@
 # Plan
 
-1. Extend the group projection and service authorization from manager-only to direct membership while preserving active-tenant and global-read checks.
-2. Permit a direct group member to retrieve only that group's associated source summaries; retain all source management and detail restrictions.
-3. Surface Groups to active users and make the existing detail surface strictly read-only without management authority.
-4. Add focused backend/frontend coverage, then run the affected Gradle and web checks.
+1. Remove direct Group membership from Group and Source-administration authorization; retain global readers and scoped ordinary-Group managers.
+2. Keep Employee access to questions, searches, citations and eligible documents without Groups or Sources administration navigation.
+3. Preserve manager-scoped Group members, Source associations and synchronization views; preserve global Users/Groups administration for the existing HR capability bundle and System Administrator controls.
+4. Cover direct-member denial, manager-scoped navigation and Source-association visibility.
 
 ## Verification
 
-- `./gradlew.bat :core:test --tests "*PostgresIamAuthorizationTest" --tests "*PostgresGroupMembershipReplacementTest" --tests "*PostgresSourceLifecycleTest" --no-daemon` passed.
-- `./gradlew.bat :sources:test --tests "*LargeChatSpreadsheetExtractionTest" --no-daemon` passed.
-- `corepack pnpm --config.verify-deps-before-run=false --dir web exec tsc -b` passed.
-- Targeted Vitest group/session coverage and changed-file oxlint passed.
-- Repository-wide `clean check` was attempted. It found the now-updated group projection assertion and two unrelated integration failures: an image-heavy source extraction and search rebuild cancellation. The extraction test passed when rerun alone; the search test could not initialize Testcontainers despite Docker being reachable.
+- `./gradlew.bat :core:compileTestJava --no-daemon` passed. The focused PostgreSQL runtime tests could not create their Testcontainers database locally (their shared setup failed before test bodies); pull-request CI remains the runtime authority.
+- `corepack pnpm --config.verify-deps-before-run=false --dir web exec tsc -b`, targeted Vitest (36 tests) and changed-file `oxlint --deny-warnings` passed.
+- Pull-request CI under the supported Node/Docker environment is pending.

@@ -646,7 +646,7 @@ describe("SearchPage", () => {
     expect(screen.queryByRole("region", { name: "Recent searches" })).not.toBeInTheDocument();
   });
 
-  it("keeps the Groups administration affordance for a member", async () => {
+  it("removes administration affordances for a Basic employee", async () => {
     await renderNewSession({
       ...OWNER_SESSION,
       tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
@@ -662,10 +662,7 @@ describe("SearchPage", () => {
     });
 
     expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
-      "href",
-      "/admin/groups",
-    );
+    expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
   });
 
   it("denies Search without global SEARCH_READ and sends no Search or reader requests", async () => {

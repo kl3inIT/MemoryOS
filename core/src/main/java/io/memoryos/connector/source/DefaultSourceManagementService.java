@@ -318,8 +318,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         boolean globalDelete = capabilities.contains(IamCapability.SOURCES_DELETE);
         groupScopes.validateGroupIds(tenantId, List.of(requiredGroupId));
         boolean managedGroup = groupScopes.isManagedBy(tenantId, requiredActorId, requiredGroupId);
-        boolean memberGroup = groupScopes.isMember(tenantId, requiredActorId, requiredGroupId);
-        if (!globalRead && !managedGroup && !memberGroup) {
+        if (!globalRead && !managedGroup) {
             throw SourceException.notFound();
         }
         List<SourceSummary> associated = queries.listForGroup(
@@ -328,8 +327,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 requiredGroupId,
                 globalRead,
                 globalManage,
-                globalDelete,
-                memberGroup
+                globalDelete
         );
         boolean manages = globalManage
                 || (managedGroup && authorization.scopedCapabilities(requiredActorId)
