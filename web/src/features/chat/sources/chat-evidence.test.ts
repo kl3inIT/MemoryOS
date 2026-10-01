@@ -23,14 +23,33 @@ describe("provider links", () => {
     }
   });
 
-  it("rejects a link that is not https or carries credentials", () => {
+  it("rejects a link that is not https, carries credentials or is not a URL at all", () => {
     for (const providerUrl of [
+      "not-a-url",
       "http://contoso.sharepoint.com/a.docx",
       "javascript:alert(1)",
       "https://user:secret@contoso.sharepoint.com/a.docx",
     ]) {
       expect(sourcesSchema.safeParse([{ ...document, providerUrl }]).success).toBe(false);
     }
+  });
+});
+
+describe("web citations", () => {
+  it("fail validation for a malformed page URL instead of throwing", () => {
+    const web = {
+      citationId: 1,
+      title: "Page",
+      startOrdinal: 0,
+      endOrdinal: 0,
+      provenance: [],
+      web: { url: "not-a-url", excerpt: "", retrievedAt: "2026-10-01T00:00:00Z" },
+    };
+    expect(sourcesSchema.safeParse([web]).success).toBe(false);
+    expect(
+      sourcesSchema.safeParse([{ ...web, web: { ...web.web, url: "https://example.com/a" } }])
+        .success,
+    ).toBe(true);
   });
 });
 
