@@ -39,6 +39,9 @@ describe("web citations", () => {
   it("fail validation for a malformed page URL instead of throwing", () => {
     const web = {
       citationId: 1,
+      documentId: null,
+      generation: null,
+      fileId: null,
       title: "Page",
       startOrdinal: 0,
       endOrdinal: 0,
