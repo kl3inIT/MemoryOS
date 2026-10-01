@@ -32,7 +32,8 @@ import org.springframework.stereotype.Component;
  * role. Keycloak's revocation also removes the client's offline session.
  *
  * <p>The member's Keycloak user is the subject of their binding under this realm's issuer. Claude's client ID is the URL
- * of its metadata document; the admin client encodes it as one path segment, which Keycloak 26.8 accepts.
+ * of its metadata document, so revocation goes through {@link KeycloakConsentResource}, which sends it as one path
+ * segment.
  */
 @Component
 class KeycloakMcpClientGrants implements McpClientGrants {
@@ -70,7 +71,7 @@ class KeycloakMcpClientGrants implements McpClientGrants {
                     .anyMatch(grant -> grant.clientId().equals(clientId));
             if (!granted) continue;
             try {
-                keycloak.realm(realm).users().get(user).revokeConsent(clientId);
+                keycloak.proxy(KeycloakConsentResource.class).revoke(realm, user, clientId);
             } catch (NotFoundException alreadyGone) {
                 // Revoked concurrently: the outcome the member asked for.
             } catch (ProcessingException | WebApplicationException failure) {
