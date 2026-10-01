@@ -13,6 +13,7 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -305,7 +306,8 @@ class BoundedDoclingClientTest {
     private DoclingSourceContentExtractor extractor(HttpServer server) {
         return new DoclingSourceContentExtractor(new DoclingProperties(
                 URI.create("http://127.0.0.1:" + server.getAddress().getPort()), null,
-                Duration.ofSeconds(5), 200, null, null, false, TEST_API_KEY), new ObjectMapper());
+                Duration.ofSeconds(5), 200, null, null, false, TEST_API_KEY), new ObjectMapper(),
+                new SimpleMeterRegistry());
     }
 
     private DocumentContent extractPdf(DoclingSourceContentExtractor extractor) throws Exception {

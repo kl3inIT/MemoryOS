@@ -79,6 +79,10 @@ Four provisioned dashboards, linked by the `memoryos` tag: *overview* (the landi
 - `memoryos.chat.turn.first.text` runs from admission to the first text the person sees, a refusal included; label `grounded`. A grounded turn holds text until its first valid citation, so its first text is later by design.
 - `memoryos.chat.guardrail.check` times the MEM-195 check before the answer model; label `kind` (`conversational`, `question`, `blocked`, `unavailable`).
 
+### Extraction metrics
+
+- `memoryos.extraction.docling.fallback` counts each Docling failure that reaches the native fallback, recorded in the worker. Labels: `reason` (`connection_failed`, `timeout`, `internal`, `malformed`) and `outcome` (`read`: published from Tika without tables or boxes; `refused`: the native text was too thin and Docling's failure stands; `failed`: the native reader failed too). All twelve series are registered at zero. The `MemoryOSDoclingFallback` alert fires on any increase within 15 minutes, and the overview dashboard shows it by reason and outcome.
+
 ### Extraction lifecycle diagnostics
 
 `ingestion.started`, `ingestion.stage.started` and terminal ingestion events carry `operation_id` (from the worker delivery MDC) and monotonic `elapsed_ms` for the current claimed processing invocation. Adjacent elapsed readings delimit storage opening, extraction (including streaming input consumption), artifact storage and transactional publication. These are not page-level OCR timings. Existing Worker `delivery_id` and `traceId`/`spanId` context distinguish processing deliveries; the operation ID identifies the logical attempt and is not a retry ordinal. Persisted first-claim queue metrics remain separate from in-process elapsed time.

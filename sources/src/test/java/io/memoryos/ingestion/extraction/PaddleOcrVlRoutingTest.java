@@ -12,6 +12,7 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -136,7 +137,7 @@ class PaddleOcrVlRoutingTest {
     @Test
     void withoutPaddleOcrVlDoclingKeepsReadingScansWithItsOwnOcr() throws Exception {
         doclingAnswers();
-        try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling)) {
+        try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling, new SimpleMeterRegistry())) {
             var result = extract(extractor, scan(2), "scan.pdf");
 
             assertEquals("docling", result.metadata().get("parser"));
@@ -166,7 +167,7 @@ class PaddleOcrVlRoutingTest {
         server.stop(0);
         server = null;
         var paddle = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(closed, Duration.ofSeconds(10), 200, null, null), mapper);
-        try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling, paddle)) {
+        try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling, paddle, new SimpleMeterRegistry())) {
             var error = assertThrows(ExtractionException.class, () -> extract(extractor, scan(1), "scan.pdf"));
             assertEquals(ExtractionFailure.CONNECTION_FAILED, error.failure());
             verifyNoInteractions(docling);
@@ -203,7 +204,7 @@ class PaddleOcrVlRoutingTest {
 
     @Test
     void withoutPaddleOcrVlAnImageIsNotReadAsASource() throws Exception {
-        try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling)) {
+        try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling, new SimpleMeterRegistry())) {
             byte[] png = png();
             var error = assertThrows(ExtractionException.class, () -> new SourceContentExtractorRouter(extractor, mapper)
                     .extract(new ByteArrayInputStream(png), png.length, "scan.png", SourceInputDescriptor.binary()));
@@ -362,7 +363,7 @@ class PaddleOcrVlRoutingTest {
     private DoclingSourceContentExtractor withPaddle(int maxPages) {
         var paddle = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(
                 URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Duration.ofSeconds(10), maxPages, null, null), mapper);
-        return new DoclingSourceContentExtractor(properties(), mapper, docling, paddle);
+        return new DoclingSourceContentExtractor(properties(), mapper, docling, paddle, new SimpleMeterRegistry());
     }
 
     private static DoclingProperties properties() {
