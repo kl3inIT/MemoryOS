@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatPromptShortcutPopover } from "@/features/agents/prompt-shortcuts";
 import { AuiIf, ComposerPrimitive, ThreadPrimitive, useAuiState } from "@assistant-ui/react";
-import { ArrowDown, ArrowUp, FileCheck, Square } from "lucide-react";
+import { ArrowDown, ArrowUp, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ErrorState } from "@/components/assistant-ui/elements/error-state";
@@ -40,7 +40,6 @@ export function ChatThreadComposer({
   composerMenu,
   modelPicker,
   modelNotice,
-  grounded,
   connection,
   stopping,
   onStop,
@@ -53,7 +52,6 @@ export function ChatThreadComposer({
   composerMenu?: ReactNode;
   modelPicker: ReactNode;
   modelNotice?: string;
-  grounded: boolean;
   connection: ConnectionState;
   stopping: boolean;
   onStop: () => void;
@@ -89,12 +87,6 @@ export function ChatThreadComposer({
       {modelNotice && (
         <p role="status" className="mb-2 text-sm text-content-secondary">
           {modelNotice}
-        </p>
-      )}
-      {grounded && (
-        <p className="mb-2 flex items-center gap-1.5 text-sm text-content-secondary">
-          <FileCheck className="size-4" aria-hidden />
-          {ui("Chỉ từ tài liệu của tổ chức")}
         </p>
       )}
       {connection === "recovering" && !error && (

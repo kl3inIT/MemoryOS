@@ -462,8 +462,8 @@ The phrase list itself stays out of the audit stream.
 
 **History and browser.** History returns `refusalReason` on completed replies. The `/admin/chat` page (Onyx Chat
 Preferences) holds Deep research, conversation-history visibility, answers from documents and the sensitive topics.
-The agent editor has the grounded switch. The composer says when a conversation answers from documents only and
-hides Deep research and disallowed Web search. A declined reply shows why.
+The agent editor has the grounded switch. In a grounded conversation the composer hides Deep research and disallowed
+Web search. A declined reply shows why.
 
 ## Deep research
 
