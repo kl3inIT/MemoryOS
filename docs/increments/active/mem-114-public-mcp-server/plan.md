@@ -143,7 +143,9 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
 - [x] **Versions.** `mcp-sdk` 2.0.1. `api` adds the MCP server starter, `bucket4j` 8.20.0 and `caffeine`.
 - [x] **Transport configuration.** Stateless and SYNC at `/mcp`, tool capability only, server instructions.
   `spring.ai.mcp.server.tool-callback-converter` is off: Spring AI otherwise publishes every `ToolCallback` bean of the
-  application, Chat's own tools included, through the endpoint.
+  application, Chat's own tools included, through the endpoint. Because 2.0.1 builds `@McpTool` specifications only
+  while that converter is on, the annotation scanner is off and `McpEndpointConfiguration` registers the two tools,
+  with a failure's sentence once rather than twice.
 - [x] **Security chain** (`McpEndpointSecurityConfiguration`, order 0, exactly `/mcp` and its metadata path).
   - Decoder with the exact issuer, the endpoint URL as audience and a non-blank subject; it is not a bean, so the API's
     decoder stays unambiguous.
@@ -185,7 +187,7 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
   - Audience and scope, and an endpoint token refused on `/api`.
   - Exactly two read-only tools with object schemas.
   - Search evidence and its link.
-  - A cause-free failure, and a refused call that says what to change.
+  - A cause-free failure, and a refused call that says what to change, each as one sentence.
   - A client that accepts only JSON is served.
   - ChatGPT's probe.
   - Foreign origin, 413 and 429 per caller.

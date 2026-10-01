@@ -32,13 +32,15 @@ public final class McpEndpointGateFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        // A bare status, not sendError: an error dispatch to /error would pass through the application's chain and
+        // redirect to sign-in.
         if (!endpointSwitch.available(tenant)) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
         String origin = request.getHeader(HttpHeaders.ORIGIN);
         if (origin != null && !sameOrigin(origin)) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
         chain.doFilter(request, response);

@@ -106,9 +106,11 @@ spring:
         protocol: STATELESS
         type: SYNC
         request-timeout: 60s
-        # Never publish the application's own ToolCallback beans (Chat's tools) through the endpoint; only the
-        # @McpTool methods of McpEndpointTools are served.
+        # Never publish the application's own ToolCallback beans (Chat's tools) through the endpoint. Spring AI
+        # scans @McpTool only while the converter is on, so McpEndpointConfiguration registers the endpoint's tools.
         tool-callback-converter: false
+        annotation-scanner:
+          enabled: false
         capabilities:
           tool: true
           resource: false

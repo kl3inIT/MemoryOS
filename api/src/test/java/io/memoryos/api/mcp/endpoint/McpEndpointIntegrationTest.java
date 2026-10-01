@@ -184,7 +184,7 @@ class McpEndpointIntegrationTest {
         String body = post(endpointToken(), call("search", Map.of("query", "leave")), "2025-11-25").body();
         assertFalse(body.contains("10.0.0.5"), body);
         assertFalse(body.contains("IllegalStateException"), body);
-        assertTrue(body.contains(McpEndpointTools.ToolFailure.FAILED), body);
+        assertEquals(McpEndpointTools.ToolFailure.FAILED, failureText(body), body);
     }
 
     @Test
@@ -199,8 +199,15 @@ class McpEndpointIntegrationTest {
     @Test
     void aRefusedCallTellsTheClientWhatToChange() throws Exception {
         String body = post(endpointToken(), call("fetch", Map.of("id", "not-an-id")), "2025-11-25").body();
-        assertTrue(body.contains(McpEndpointTools.INVALID_ID), body);
-        assertTrue(json(body).path("result").path("isError").asBoolean(), body);
+        assertEquals(McpEndpointTools.INVALID_ID, failureText(body), body);
+    }
+
+    /** The one text of a failed call, which must be a single sentence and flagged as an error. */
+    private static String failureText(String body) throws IOException {
+        JsonNode result = json(body).path("result");
+        assertTrue(result.path("isError").asBoolean(), body);
+        assertEquals(1, result.path("content").size(), body);
+        return result.path("content").get(0).path("text").asText();
     }
 
     @Test
