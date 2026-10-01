@@ -260,6 +260,7 @@ function ChatConversationBody({
           <ChatComposerMenu
             disabled={busy}
             allowed={conversation.allowedTools}
+            defaults={conversation.toolDefaults}
             web={{
               sessionId: session?.id,
               modelId: model.choice.id,

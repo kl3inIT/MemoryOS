@@ -39,6 +39,7 @@ export function ChatComposerMenu({
   research,
   disabled,
   allowed,
+  defaults,
 }: {
   web: {
     value: WebSearchMode;
@@ -69,6 +70,11 @@ export function ChatComposerMenu({
   disabled: boolean;
   /** Tools the conversation's agent allows (Onyx per-agent tools); absent means all. */
   allowed?: { web: boolean; image: boolean; mcpServerIds: string[] | null };
+  /**
+   * What the conversation uses while the person has chosen nothing. A chip beside the menu marks only a tool turned
+   * on against its default; the menu rows show every tool's state.
+   */
+  defaults?: { web: WebSearchMode; image: ImageMode };
 }) {
   const ui = useAppTranslation();
   const files = useComposerFileSelection();
@@ -194,8 +200,8 @@ export function ChatComposerMenu({
           <span className="hidden sm:inline">{ui("Deep research")}</span>
         </Button>
       )}
-      {web.value !== "off" && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken py-0.5 pr-0.5 pl-2 text-sm text-content-secondary">
+      {web.value !== "off" && web.value !== defaults?.web && (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-sunken py-0.5 pr-0.5 pl-2 text-sm whitespace-nowrap text-content-secondary">
           <Globe className="size-3.5" aria-hidden="true" />
           {ui("Web")}
           <IconButton
@@ -210,14 +216,14 @@ export function ChatComposerMenu({
           </IconButton>
         </span>
       )}
-      {image && image.value !== "off" && (
+      {image && image.value !== "off" && image.value !== defaults?.image && (
         <button
           type="button"
           aria-pressed="true"
           title={ui("Tắt tạo ảnh")}
           disabled={disabled}
           onClick={() => image.onChange("off")}
-          className="inline-flex items-center justify-center gap-1 rounded-full bg-surface-sunken px-2.5 py-1 text-sm text-content-secondary transition-colors outline-none hover:bg-surface-strong focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-surface-sunken px-2.5 py-1 text-sm whitespace-nowrap text-content-secondary transition-colors outline-none hover:bg-surface-strong focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ImagePlus className="size-3.5" aria-hidden="true" />
           {ui("Tạo ảnh")}

@@ -20,8 +20,12 @@ import type { Project } from "@/features/chat/projects/chat-projects-api";
 import type { ChatThreadController } from "@/features/chat/runtime/chat-thread-controller";
 import type { ImageMode } from "@/features/chat/image/chat-image";
 import type { WebSearchMode } from "@/features/chat/web-search/chat-web-preference";
+import { useApplicationSession } from "@/features/identity/application-session-context";
+import { useChatPreferences } from "@/features/identity/chat-preferences";
+import { useMcpConnections } from "@/features/mcp/mcp-connections";
 import { branchSteps } from "@/features/chat/thread/chat-branch-steps";
 import { RESEARCH_MINIMUM_CONTEXT, useChatModels } from "./chat-models";
+import { chatToolDefaults, turnModelOf } from "./chat-tool-defaults";
 import { useChatModelChoice } from "./use-chat-model-choice";
 
 /** Feedback is read for at most this many answers per request. */
@@ -59,19 +63,28 @@ function useChatVersions(sessionId: string | undefined) {
  * The per-turn tool choices of the composer. Each choice is written to the transport, which sends it with
  * the next turn, and mirrored here so the composer shows it.
  */
-function useToolChoices(controller: ChatThreadController) {
+function useToolChoices(controller: ChatThreadController, sessionId: string | undefined) {
   const { transport } = controller;
-  const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
+  // Each tool choice is the person's own; undefined leaves the conversation's default.
+  const [webSearch, setWebSearch] = useState(transport.webSearch);
   /** Decided before the first question: a conversation cannot become temporary once it exists (MEM-153). */
   const [temporary, setTemporary] = useState(transport.temporary);
-  const [mcpServerIds, setMcpServerIds] = useState<string[]>(transport.mcpServerIds);
-  const [image, setImage] = useState<ImageMode>(transport.image);
+  const [mcpServerIds, setMcpServerIds] = useState(transport.mcpServerIds);
+  const [image, setImage] = useState(transport.image);
   const [deepResearch, setDeepResearch] = useState(transport.deepResearch);
+  // History restores the conversation's own choices into the transport after the page has mounted.
+  const [restoredFor, setRestoredFor] = useState(sessionId);
+  if (restoredFor !== sessionId) {
+    setRestoredFor(sessionId);
+    setWebSearch(transport.webSearch);
+    setImage(transport.image);
+    setMcpServerIds(transport.mcpServerIds);
+  }
   // Editing an image turns image mode on, so the edit is sent as an image request.
   const imageEditing = useMemo(
     () => ({
       enableImages: () => {
-        if (transport.image !== "off") return;
+        if ((transport.image ?? transport.toolDefaults.image) !== "off") return;
         transport.selectImage("auto");
         setImage("auto");
       },
@@ -120,7 +133,7 @@ export function useChatConversation(controller: ChatThreadController, project?: 
   // The controller outlives this page; it learns which Project a new conversation is created in.
   useEffect(() => controller.setProject(project?.id), [controller, project?.id]);
   const model = useChatModelChoice(transport);
-  const tools = useToolChoices(controller);
+  const tools = useToolChoices(controller, session?.id);
 
   // The level pinned on this conversation; a new conversation starts on the member's own default.
   const [effort, setEffort] = useState<string>();
@@ -145,6 +158,9 @@ export function useChatConversation(controller: ChatThreadController, project?: 
     retry: false,
   });
   const imageAvailability = useQuery({ ...getChatImageAvailabilityOptions(), retry: false });
+  const mcpConnections = useMcpConnections();
+  const preferences = useChatPreferences();
+  const identity = useApplicationSession();
 
   // As Onyx: Deep research is offered outside Projects while the organization setting is on and research agents
   // have internal Search or an external Web search connection (research never uses provider-hosted search).
@@ -186,9 +202,42 @@ export function useChatConversation(controller: ChatThreadController, project?: 
   );
   // The server rejects tools the agent does not allow; the transport drops them and the composer hides them.
   useEffect(() => transport.restrictTools(allowedTools), [transport, allowedTools]);
-  const shownWebSearch = allowedTools.web ? tools.webSearch : "off";
-  const shownImage = allowedTools.image ? tools.image : "off";
-  const shownMcpServerIds = tools.mcpServerIds.filter(
+  // The model is unknown until the person's own default is read, so no default turns a tool on before that.
+  const turnModel = preferences.data
+    ? turnModelOf(modelCatalog.data, [
+        model.choice.id,
+        persona?.modelConfigurationId,
+        preferences.data.defaultModelId,
+      ])
+    : undefined;
+  const mayGenerateImages = identity.capabilities.includes("IMAGE_GENERATE");
+  const toolDefaults = useMemo(
+    () =>
+      chatToolDefaults({
+        grounded,
+        allowed: allowedTools,
+        model: turnModel,
+        web: webAvailability.data,
+        image: imageAvailability.data,
+        mayGenerateImages,
+        connections: mcpConnections.data,
+        deepResearch,
+      }),
+    [
+      grounded,
+      allowedTools,
+      turnModel,
+      webAvailability.data,
+      imageAvailability.data,
+      mayGenerateImages,
+      mcpConnections.data,
+      deepResearch,
+    ],
+  );
+  useEffect(() => transport.defaultTools(toolDefaults), [transport, toolDefaults]);
+  const shownWebSearch = allowedTools.web ? (tools.webSearch ?? toolDefaults.web) : "off";
+  const shownImage = allowedTools.image ? (tools.image ?? toolDefaults.image) : "off";
+  const shownMcpServerIds = (tools.mcpServerIds ?? toolDefaults.mcpServerIds).filter(
     (id) => !allowedTools.mcpServerIds || allowedTools.mcpServerIds.includes(id),
   );
   const busy = state.connection !== "ready" || state.checking;
@@ -292,6 +341,7 @@ export function useChatConversation(controller: ChatThreadController, project?: 
     pinEffort,
     tools,
     allowedTools,
+    toolDefaults,
     shownWebSearch,
     shownImage,
     shownMcpServerIds,
