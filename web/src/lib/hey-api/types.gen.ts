@@ -2684,6 +2684,10 @@ export type CurrentIdentity = {
      */
     actorId: string;
     /**
+     * Latest display name observed from the authenticated actor's identity provider.
+     */
+    displayName: string | null;
+    /**
      * Active Tenant context, or null when the actor has no active Tenant membership.
      */
     tenant: CurrentTenant | null;

@@ -244,7 +244,8 @@ public class JdbcSourceQueryRepository {
             GroupId groupId,
             boolean globalRead,
             boolean globalManage,
-            boolean globalDelete
+            boolean globalDelete,
+            boolean groupMember
     ) {
         return jdbcClient.sql(SOURCE_SELECT + """
                         JOIN source_group_grants requested_grant
@@ -252,7 +253,7 @@ public class JdbcSourceQueryRepository {
                          AND requested_grant.connector_credential_pair_id = pair.id
                          AND requested_grant.group_id = :groupId
                         WHERE pair.tenant_id = :tenantId
-                          AND (:globalRead OR %s)
+                          AND (:globalRead OR :groupMember OR %s)
                         ORDER BY connector.created_at, pair.id
                         """.formatted(MANAGED_REQUESTED_GROUP_SCOPE))
                 .param("tenantId", tenantId.value())
@@ -260,6 +261,7 @@ public class JdbcSourceQueryRepository {
                 .param("groupId", groupId.value())
                 .param("globalRead", globalRead)
                 .param("globalManage", globalManage)
+                .param("groupMember", groupMember)
                 .query((resultSet, ignored) -> summary(resultSet, globalManage, globalDelete))
                 .list();
     }

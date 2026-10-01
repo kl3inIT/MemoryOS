@@ -42,6 +42,7 @@ import { GoogleDrivePanel } from "./google-drive-panel";
 vi.mock("./google-drive-authorization", () => ({ launchGoogleDriveAuthorization: vi.fn() }));
 const owner: ApplicationSession = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },

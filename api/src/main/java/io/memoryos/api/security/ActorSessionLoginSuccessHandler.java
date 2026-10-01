@@ -85,13 +85,28 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
                 asserted(email, oidcUser.getSubject()),
                 // Only the signed ID token may select trusted JIT; UserInfo never can.
                 idToken.getClaims().get(IDENTITY_PROVIDER_CLAIM),
-                oidcUser.getClaimAsString("name"),
+                displayName(oidcUser),
                 email,
                 Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified")),
                 continuation == null ? null : new SignInAttempt.Invitation(continuation.invitationId(), continuation.tenant()),
                 InvitationSessionState.isActivation(request),
                 trust
         );
+    }
+
+    private static @Nullable String displayName(OidcUser user) {
+        String name = user.getClaimAsString("name");
+        if (name != null && !name.isBlank()) {
+            return name;
+        }
+        String givenName = user.getClaimAsString("given_name");
+        String familyName = user.getClaimAsString("family_name");
+        if (givenName == null || givenName.isBlank()) {
+            return familyName == null || familyName.isBlank() ? null : familyName.strip();
+        }
+        return familyName == null || familyName.isBlank()
+                ? givenName.strip()
+                : givenName.strip() + " " + familyName.strip();
     }
 
     private void signIn(

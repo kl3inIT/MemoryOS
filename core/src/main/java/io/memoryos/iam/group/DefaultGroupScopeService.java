@@ -107,6 +107,16 @@ public class DefaultGroupScopeService implements GroupScopeService {
 
     @Override
     @Transactional(readOnly = true)
+    public boolean isMember(TenantId tenantId, ActorId actorId, GroupId groupId) {
+        return invariants.existingGroupMemberships(
+                Objects.requireNonNull(tenantId, "tenantId must not be null"),
+                Objects.requireNonNull(actorId, "actorId must not be null"),
+                Set.of(Objects.requireNonNull(groupId, "groupId must not be null"))
+        ).contains(groupId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public boolean managesAnyOrdinaryGroup(TenantId tenantId, ActorId actorId) {
         return invariants.managesAnyOrdinaryGroup(
                 Objects.requireNonNull(tenantId, "tenantId must not be null"),

@@ -18,6 +18,7 @@ import { GeneralSettingsPage } from "./general-settings-page";
 
 const identity: CurrentIdentity = {
   actorId: "actor-a",
+  displayName: null,
   tenant: { role: "MEMBER", displayName: "Fixture" },
   authorizationVersion: 1,
   capabilities: [],

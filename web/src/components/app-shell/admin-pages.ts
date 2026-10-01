@@ -250,7 +250,6 @@ export function adminPage(id: AdminPage) {
 /** Where the administration entry lands: the first page of this order the person may open. */
 const entryOrder: readonly AdminPage[] = [
   "sources",
-  "groups",
   "users",
   "providers",
   "models",
@@ -258,6 +257,7 @@ const entryOrder: readonly AdminPage[] = [
   "agents",
   "audit",
   "chatHistory",
+  "groups",
 ];
 
 export function adminEntryPage(authority: AdminAuthority) {

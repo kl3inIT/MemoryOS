@@ -20,6 +20,7 @@ import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupEntity;
@@ -159,6 +160,7 @@ public class DefaultGroupService implements GroupService {
     );
 
     private final IamAuthorization authorization;
+    private final TenantAccessResolver tenants;
     private final GroupRepository groups;
     private final GroupMembershipRepository memberships;
     private final GroupCapabilityGrantRepository grants;
@@ -169,6 +171,7 @@ public class DefaultGroupService implements GroupService {
 
     public DefaultGroupService(
             IamAuthorization authorization,
+            TenantAccessResolver tenants,
             GroupRepository groups,
             GroupMembershipRepository memberships,
             GroupCapabilityGrantRepository grants,
@@ -179,6 +182,7 @@ public class DefaultGroupService implements GroupService {
     ) {
         this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
+        this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
         this.groups = Objects.requireNonNull(groups, "groups must not be null");
         this.memberships = Objects.requireNonNull(memberships, "memberships must not be null");
         this.grants = Objects.requireNonNull(grants, "grants must not be null");
@@ -195,12 +199,12 @@ public class DefaultGroupService implements GroupService {
     public GroupPage list(ActorId actorId, GroupQuery query) {
         ActorId requiredActorId = requireActor(actorId);
         GroupQuery requiredQuery = Objects.requireNonNull(query, "query must not be null");
-        IamAccess access = authorization.require(requiredActorId, IamCapability.GROUPS_READ, true);
+        TenantId tenantId = activeTenant(requiredActorId);
         Set<IamCapability> effectiveCapabilities = authorization.effectiveCapabilities(requiredActorId);
         GroupRecordPage page = projections.list(
-                access.tenantId(),
+                tenantId,
                 requiredActorId,
-                access.authority() == Authority.GLOBAL,
+                effectiveCapabilities.contains(IamCapability.GROUPS_READ),
                 requiredQuery
         );
         return new GroupPage(
@@ -254,14 +258,15 @@ public class DefaultGroupService implements GroupService {
     public GroupSummary get(ActorId actorId, GroupId groupId) {
         ActorId requiredActorId = requireActor(actorId);
         GroupId requiredGroupId = requireGroup(groupId);
-        IamAccess access = authorization.require(requiredActorId, IamCapability.GROUPS_READ, true);
+        TenantId tenantId = activeTenant(requiredActorId);
+        Set<IamCapability> effectiveCapabilities = authorization.effectiveCapabilities(requiredActorId);
         GroupRecord group = projections.detail(
-                access.tenantId(),
+                tenantId,
                 requiredActorId,
                 requiredGroupId,
-                access.authority() == Authority.GLOBAL
+                effectiveCapabilities.contains(IamCapability.GROUPS_READ)
         ).orElseThrow(() -> groupNotFound(requiredGroupId));
-        return summary(group, authorization.effectiveCapabilities(requiredActorId));
+        return summary(group, effectiveCapabilities);
     }
 
     @Override
@@ -317,7 +322,7 @@ public class DefaultGroupService implements GroupService {
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public GroupMemberPage members(ActorId actorId, GroupId groupId, GroupQuery query) {
-        AccessToGroup access = visibleGroup(actorId, groupId, IamCapability.GROUPS_READ);
+        AccessToGroup access = memberVisibleGroup(actorId, groupId);
         return projections.members(
                 access.access().tenantId(),
                 access.group().id(),
@@ -566,6 +571,21 @@ public class DefaultGroupService implements GroupService {
         }
     }
 
+    private AccessToGroup memberVisibleGroup(ActorId actorId, GroupId groupId) {
+        ActorId requiredActorId = requireActor(actorId);
+        GroupId requiredGroupId = requireGroup(groupId);
+        TenantId tenantId = activeTenant(requiredActorId);
+        boolean globalRead = authorization.effectiveCapabilities(requiredActorId)
+                .contains(IamCapability.GROUPS_READ);
+        GroupRecord group = projections.detail(
+                tenantId,
+                requiredActorId,
+                requiredGroupId,
+                globalRead
+        ).orElseThrow(() -> groupNotFound(requiredGroupId));
+        return new AccessToGroup(new IamAccess(tenantId, Authority.NONE), group);
+    }
+
     private AccessToGroup visibleGroup(
             ActorId actorId,
             GroupId groupId,
@@ -730,6 +750,11 @@ public class DefaultGroupService implements GroupService {
         } catch (NullPointerException invalidElement) {
             throw invalid("Capabilities contain a null value", invalidElement);
         }
+    }
+
+    private TenantId activeTenant(ActorId actorId) {
+        return tenants.findActiveTenant(actorId).orElseThrow(() ->
+                new IamException(IamFailureReason.ACCESS_DENIED, "Active membership required to view Groups"));
     }
 
     private static ActorId requireActor(ActorId actorId) {

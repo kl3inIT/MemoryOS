@@ -2688,6 +2688,7 @@ export const zCurrentTenant = z.object({
 
 export const zCurrentIdentity = z.object({
     actorId: z.uuid(),
+    displayName: z.string().nullable(),
     tenant: zCurrentTenant.nullable(),
     capabilities: z.array(z.enum([
         'SYSTEM_ADMIN',
