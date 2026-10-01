@@ -550,7 +550,13 @@ record of a change names the enabled topics; the phrase list itself stays out of
 `topic` is the topic's name; records written before V137 hold the built-in key.
 
 **History and browser.** History returns `refusalReason` on completed replies; the stream does not carry it, so the label under a declined reply (restricted topic, not in the documents) appears when the stored message is read, while the reply's own text streams as usual. The `/admin/chat` page (Onyx Chat
-Preferences) holds Deep research, conversation-history visibility, answers from documents and the sensitive topics.
+Preferences; MEM-208 layout) holds, as setting rows: **Answers** (Deep research, answers from documents only, and
+"Let people turn on Web search" nested under it, shown only while it is on), **Conversation history** (one radio choice
+of three), **Sensitive topics** (one row per topic with its description, a switch that saves at once, and Edit/Delete
+in its menu; Add topic and Edit open one dialog with name, description, example questions one per line and reply;
+Delete asks for confirmation; a link to the question check's task model) and **Blocked phrases** (typed, so the card
+keeps its own Save and sends the topics as they stand). Every guardrail change sends the whole document with its
+revision, and the section's controls wait for the previous save.
 The agent editor has the grounded switch. In a grounded conversation the composer hides Deep research and disallowed
 Web search. A declined reply shows why.
 

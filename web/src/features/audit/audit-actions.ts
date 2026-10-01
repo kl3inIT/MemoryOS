@@ -148,7 +148,7 @@ const valueLabels: Record<string, AppCopy> = {
   PUBLIC: "Public",
   PRIVATE: "Private",
   SYNC: "Auto Sync",
-  // A guardrail block: what stopped the question, and which built-in topic.
+  // A guardrail block: what stopped the question. Since MEM-208 the topic is its name; older records hold a key.
   topic: "Sensitive topic",
   phrase: "Blocked phrase",
   POLITICS: "Chính trị",

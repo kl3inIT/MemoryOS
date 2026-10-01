@@ -1,4 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
@@ -10,11 +16,14 @@ import {
   handleGetChatSettings,
   handleSaveChatGrounded,
   handleSaveChatGuardrails,
+  handleSaveChatHistoryVisibility,
 } from "@/lib/hey-api/msw.gen";
 import type {
   ChatGroundedRequest,
   ChatGuardrailsRequest,
   ChatGuardrailsResponse,
+  ChatGuardrailTopic,
+  ChatHistoryVisibilityRequest,
   ChatSettingsResponse,
 } from "@/lib/hey-api/types.gen";
 import { server } from "@/test/msw";
@@ -30,9 +39,27 @@ const SESSION: ApplicationSession = {
   scopedCapabilities: [],
 };
 
+const POLITICS: ChatGuardrailTopic = {
+  id: "0f5b6f2a-7c1d-4e8a-9b3c-000000000001",
+  name: "Chính trị",
+  description: "Câu hỏi về đảng phái và bầu cử.",
+  examples: ["Đảng nào tốt hơn?"],
+  message: "Trợ lý không trả lời câu hỏi về chính trị.",
+  enabled: false,
+};
+const LEADERS: ChatGuardrailTopic = {
+  id: "0f5b6f2a-7c1d-4e8a-9b3c-000000000002",
+  name: "Lãnh tụ và lãnh đạo",
+  description: "Câu hỏi về đời tư lãnh tụ.",
+  examples: [],
+  message: "Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo.",
+  enabled: true,
+};
+
 let settings: ChatSettingsResponse;
 let guardrails: ChatGuardrailsResponse;
 const savedGrounded = vi.fn<(body: ChatGroundedRequest) => void>();
+const savedHistory = vi.fn<(body: ChatHistoryVisibilityRequest) => void>();
 const savedGuardrails = vi.fn<(body: ChatGuardrailsRequest) => void>();
 
 function show() {
@@ -45,11 +72,24 @@ function show() {
       settings = { ...settings, ...body, revision: settings.revision + 1 };
       return HttpResponse.json(settings);
     }),
+    handleSaveChatHistoryVisibility(async ({ request }) => {
+      const body = await request.json();
+      savedHistory(body);
+      settings = {
+        ...settings,
+        chatHistoryVisibility: body.visibility,
+        revision: settings.revision + 1,
+      };
+      return HttpResponse.json(settings);
+    }),
     handleSaveChatGuardrails(async ({ request }) => {
       const body = await request.json();
       savedGuardrails(body);
       guardrails = {
-        topics: body.topics,
+        topics: body.topics.map((topic, index) => ({
+          ...topic,
+          id: topic.id ?? `00000000-0000-4000-8000-00000000000${index}`,
+        })),
         blockedPhrases: body.blockedPhrases,
         blockedPhraseMessage: body.blockedPhraseMessage ?? "",
         revision: guardrails.revision + 1,
@@ -57,12 +97,17 @@ function show() {
       return HttpResponse.json(guardrails);
     }),
   );
+  const rootRoute = createRootRoute({ component: AdminChatSettings });
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
   render(
     <ApplicationSessionProvider session={SESSION}>
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <AdminChatSettings />
+        <RouterProvider router={router} />
       </QueryClientProvider>
     </ApplicationSessionProvider>,
   );
@@ -78,13 +123,9 @@ beforeEach(() => {
     revision: 3,
   };
   guardrails = {
-    topics: [
-      { topic: "POLITICS", enabled: false, message: "" },
-      { topic: "LEADERS", enabled: false, message: "" },
-      { topic: "RELIGION", enabled: false, message: "" },
-    ],
-    blockedPhrases: [],
-    blockedPhraseMessage: "",
+    topics: [POLITICS, LEADERS],
+    blockedPhrases: ["Dự án Phoenix"],
+    blockedPhraseMessage: "Trợ lý không trả lời câu hỏi này.",
     revision: 7,
   };
 });
@@ -93,15 +134,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it("turns on answers from documents, after which Web search may be allowed", async () => {
+it("offers Web search only under answers from documents", async () => {
   const user = show();
-  const allowWeb = await screen.findByRole("switch", {
-    name: "Let people turn on Web search",
-  });
-  expect(allowWeb).toBeDisabled();
+  const answers = await screen.findByRole("region", { name: "Answers" });
+  expect(
+    within(answers).queryByRole("switch", { name: "Let people turn on Web search" }),
+  ).toBeNull();
 
   await user.click(
-    screen.getByRole("switch", { name: "Answer only from the organization's documents" }),
+    within(answers).getByRole("switch", { name: "Answer only from the organization's documents" }),
   );
 
   expect(savedGrounded).toHaveBeenCalledWith({
@@ -109,40 +150,150 @@ it("turns on answers from documents, after which Web search may be allowed", asy
     groundedAllowWeb: false,
     revision: 3,
   });
-  await waitFor(() => expect(allowWeb).toBeEnabled());
-  await user.click(allowWeb);
-  expect(savedGrounded).toHaveBeenLastCalledWith({
-    groundedAnswers: true,
-    groundedAllowWeb: true,
-    revision: 4,
+  const allowWeb = await within(answers).findByRole("switch", {
+    name: "Let people turn on Web search",
   });
+  await user.click(allowWeb);
+  await waitFor(() =>
+    expect(savedGrounded).toHaveBeenLastCalledWith({
+      groundedAnswers: true,
+      groundedAllowWeb: true,
+      revision: 4,
+    }),
+  );
 });
 
-it("saves the topics and phrases the manager edited", async () => {
+it("chooses who may read conversations with one radio choice", async () => {
+  const user = show();
+  const history = await screen.findByRole("radiogroup", { name: "Conversation history" });
+  expect(within(history).getByRole("radio", { name: "Show who asked" })).toBeChecked();
+
+  await user.click(within(history).getByRole("radio", { name: "Hide who asked" }));
+
+  expect(savedHistory).toHaveBeenCalledWith({ visibility: "ANONYMIZED", revision: 3 });
+});
+
+it("saves a topic switch at once with the whole guardrails", async () => {
   const user = show();
   const topics = await screen.findByRole("region", { name: "Sensitive topics" });
-  const save = within(topics).getByRole("button", { name: "Save" });
+  expect(within(topics).getByText("Câu hỏi về đảng phái và bầu cử.")).toBeVisible();
+
+  await user.click(within(topics).getByRole("switch", { name: "Chính trị" }));
+
+  expect(savedGuardrails).toHaveBeenCalledWith({
+    topics: [{ ...POLITICS, enabled: true }, LEADERS],
+    blockedPhrases: ["Dự án Phoenix"],
+    blockedPhraseMessage: "Trợ lý không trả lời câu hỏi này.",
+    revision: 7,
+  });
+  await waitFor(() =>
+    expect(within(topics).getByRole("switch", { name: "Chính trị" })).toBeChecked(),
+  );
+});
+
+it("adds a topic from the dialog, on from the start", async () => {
+  const user = show();
+  const topics = await screen.findByRole("region", { name: "Sensitive topics" });
+  await user.click(within(topics).getByRole("button", { name: "Add topic" }));
+  const dialog = await screen.findByRole("dialog", { name: "Add topic" });
+
+  await user.type(within(dialog).getByRole("textbox", { name: "Topic name" }), "Lương thưởng");
+  await user.type(
+    within(dialog).getByRole("textbox", { name: "Description" }),
+    "Câu hỏi về lương của từng người.",
+  );
+  await user.type(
+    within(dialog).getByRole("textbox", { name: "Example questions" }),
+    "Lương giám đốc bao nhiêu?\n\n",
+  );
+  await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  await waitFor(() =>
+    expect(savedGuardrails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        topics: [
+          POLITICS,
+          LEADERS,
+          {
+            id: undefined,
+            name: "Lương thưởng",
+            description: "Câu hỏi về lương của từng người.",
+            examples: ["Lương giám đốc bao nhiêu?"],
+            message: "",
+            enabled: true,
+          },
+        ],
+        revision: 7,
+      }),
+    ),
+  );
+  expect(await within(topics).findByRole("switch", { name: "Lương thưởng" })).toBeChecked();
+});
+
+it("refuses a second topic with the same name", async () => {
+  const user = show();
+  const topics = await screen.findByRole("region", { name: "Sensitive topics" });
+  await user.click(within(topics).getByRole("button", { name: "Add topic" }));
+  const dialog = await screen.findByRole("dialog", { name: "Add topic" });
+
+  await user.type(within(dialog).getByRole("textbox", { name: "Topic name" }), " chính trị ");
+  await user.type(within(dialog).getByRole("textbox", { name: "Description" }), "Trùng tên.");
+
+  expect(within(dialog).getByText("A topic with this name already exists.")).toBeVisible();
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+});
+
+it("edits a topic without changing its switch and deletes one after confirmation", async () => {
+  const user = show();
+  const topics = await screen.findByRole("region", { name: "Sensitive topics" });
+  await user.click(within(topics).getByRole("button", { name: "Actions for Lãnh tụ và lãnh đạo" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+  const dialog = await screen.findByRole("dialog", { name: "Edit topic" });
+  const reply = within(dialog).getByRole("textbox", { name: "Reply when blocked" });
+  await user.clear(reply);
+  await user.type(reply, "Không bàn về lãnh tụ.");
+  await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  await waitFor(() =>
+    expect(savedGuardrails).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        topics: [POLITICS, { ...LEADERS, message: "Không bàn về lãnh tụ." }],
+      }),
+    ),
+  );
+
+  await user.click(within(topics).getByRole("button", { name: "Actions for Chính trị" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Delete topic" }));
+  const confirm = await screen.findByRole("alertdialog", { name: "Delete the topic?" });
+  await user.click(within(confirm).getByRole("button", { name: "Delete topic" }));
+
+  await waitFor(() =>
+    expect(savedGuardrails).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        topics: [{ ...LEADERS, message: "Không bàn về lãnh tụ." }],
+        revision: 8,
+      }),
+    ),
+  );
+});
+
+it("saves the blocked phrases with the topics as they stand", async () => {
+  const user = show();
+  const phrases = await screen.findByRole("region", { name: "Blocked phrases" });
+  const save = within(phrases).getByRole("button", { name: "Save" });
   expect(save).toBeDisabled();
 
-  await user.click(within(topics).getByRole("switch", { name: "Politics" }));
-  // The Politics reply comes first; the reply to a blocked phrase follows the phrases.
-  const [politicsReply] = within(topics).getAllByRole("textbox", { name: "Reply when blocked" });
-  await user.type(politicsReply!, "No.");
   await user.type(
-    within(topics).getByRole("textbox", { name: "Blocked phrases" }),
-    "secret plan\n\n  launch date ",
+    within(phrases).getByRole("textbox", { name: "Blocked phrases" }),
+    "\nsecret plan\n\n  launch date ",
   );
   await user.click(save);
 
   await waitFor(() =>
     expect(savedGuardrails).toHaveBeenCalledWith({
-      topics: [
-        { topic: "POLITICS", enabled: true, message: "No." },
-        { topic: "LEADERS", enabled: false, message: "" },
-        { topic: "RELIGION", enabled: false, message: "" },
-      ],
-      blockedPhrases: ["secret plan", "launch date"],
-      blockedPhraseMessage: "",
+      topics: [POLITICS, LEADERS],
+      blockedPhrases: ["Dự án Phoenix", "secret plan", "launch date"],
+      blockedPhraseMessage: "Trợ lý không trả lời câu hỏi này.",
       revision: 7,
     }),
   );
@@ -151,11 +302,13 @@ it("saves the topics and phrases the manager edited", async () => {
 
 it("refuses more blocked phrases than the API keeps", async () => {
   const user = show();
-  const topics = await screen.findByRole("region", { name: "Sensitive topics" });
-  await user.click(within(topics).getByRole("textbox", { name: "Blocked phrases" }));
+  const phrases = await screen.findByRole("region", { name: "Blocked phrases" });
+  const field = within(phrases).getByRole("textbox", { name: "Blocked phrases" });
+  await user.clear(field);
+  await user.click(field);
   await user.paste(Array.from({ length: 21 }, (_, index) => `phrase ${index}`).join("\n"));
-  await user.click(within(topics).getByRole("button", { name: "Save" }));
+  await user.click(within(phrases).getByRole("button", { name: "Save" }));
 
-  expect(await within(topics).findByText("At most 20 phrases.")).toBeVisible();
+  expect(await within(phrases).findByText("At most 20 phrases.")).toBeVisible();
   expect(savedGuardrails).not.toHaveBeenCalled();
 });
