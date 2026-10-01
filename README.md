@@ -104,7 +104,7 @@ endpoints.
 API and worker images build from [`Dockerfile`](Dockerfile) and read their secrets from files mounted by Compose (every
 `MEMORYOS_<NAME>_FILE` becomes `MEMORYOS_<NAME>`) before Spring Boot starts; the browser image builds from [`web/Dockerfile`](web/Dockerfile). A deployment is composed from
 [`compose.base.yaml`](infrastructure/deployment/compose.base.yaml) plus a staging or production overlay: the base owns
-PostgreSQL, private MinIO with its bucket bootstrap, the Keycloak runtime shared with OrgMemory, TLS Redis, Docling, the
+PostgreSQL, private MinIO with its bucket bootstrap, the Keycloak runtime, TLS Redis, Docling, the
 code interpreter, API, worker and web.
 API and worker hold distinct file-mounted MinIO credentials. Staging adds Mailpit, read-only pgweb and Redis
 Insight behind SSO proxies and an owner-only MinIO Console; production adds no inspection surface.

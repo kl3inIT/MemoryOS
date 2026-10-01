@@ -158,16 +158,18 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn('has_interpreter "$state/current.env"', deploy)
         self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
 
-    def test_keycloak_joins_the_release_only_where_the_host_leaves_it_to_the_release(self):
+    def test_keycloak_is_rolled_out_by_the_release_on_every_host(self):
         backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
         self.assertIn("context: infrastructure/keycloak", backend)
         self.assertIn("infrastructure/keycloak/smoke-test-image.sh", backend)
         self.assertIn('"memoryos-keycloak:sha-$GITHUB_SHA"', backend)
         deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
-        # Staging names the OrgMemory image in its environment file; the release must not override it.
-        strip = deploy.index('sed -i "/^$(image_key keycloak)=/d" "$tx/candidate.env"')
-        self.assertLess(deploy.index('cp "$tx/images.env" "$tx/candidate.env"'), strip)
-        self.assertIn('grep -q "^$(image_key keycloak)=" "$environment_file"', deploy)
+        # No environment file names a Keycloak image: images.env is the only source, on staging too.
+        self.assertIn('cp "$tx/images.env" "$tx/candidate.env"', deploy)
+        self.assertNotIn('grep -q "^$(image_key keycloak)=" "$environment_file"', deploy)
+        for host in ("staging", "production"):
+            example = (ROOT / f"infrastructure/deployment/{host}.env.example").read_text(encoding="utf-8")
+            self.assertNotRegex(example, r"(?m)^MEMORYOS_KEYCLOAK_IMAGE=", host)
         # A Keycloak started by hand carries another revision; it joins the capture only once a release put it there.
         self.assertIn('has_keycloak "$state/current.env"', deploy)
         # Its database is dumped before a Keycloak that may migrate it starts.

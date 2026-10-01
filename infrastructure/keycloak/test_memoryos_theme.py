@@ -77,8 +77,8 @@ class MemoryOsThemeContractTest(unittest.TestCase):
         self.assertIn("COPY --chown=keycloak:keycloak themes/memoryos /opt/keycloak/themes/memoryos", dockerfile)
         # A release directory is readable by root only; Keycloak mounting it falls back to its own look.
         self.assertNotIn("/opt/keycloak/themes/memoryos", base)
-        # Staging runs the OrgMemory image, which does not carry this theme.
-        self.assertIn("../keycloak/themes/memoryos:/opt/keycloak/themes/memoryos:ro", staging)
+        # Staging runs the same image, so it mounts no copy of the theme either.
+        self.assertNotIn("/opt/keycloak/themes/memoryos", staging)
         self.assertRegex(reconcile, r'loginTheme:\s*"memoryos"')
         self.assertIn("get serverinfo", reconcile)
         self.assertNotIn("--fields themes", reconcile)
