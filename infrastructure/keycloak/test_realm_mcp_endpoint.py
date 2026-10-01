@@ -41,6 +41,8 @@ class McpEndpointTokenTest(unittest.TestCase):
         self.assertEqual("knowledge:read", scope["name"])
         self.assertEqual("true", scope["attributes"]["display.on.consent.screen"])
         self.assertEqual("true", scope["attributes"]["include.in.token.scope"])
+        # A message key, so the consent page reads in the person's language.
+        self.assertEqual("${knowledgeReadScopeConsentText}", scope["attributes"]["consent.screen.text"])
 
         mapper = load("memoryos-mcp-audience-mapper.json")
         self.assertEqual("oidc-audience-mapper", mapper["protocolMapper"])
@@ -120,6 +122,35 @@ class McpClientRegistrationTest(unittest.TestCase):
         self.assertEqual("S256", client["attributes"]["pkce.code.challenge.method"])
         self.assertIn("reconcile_client_scopes default acr basic knowledge:read", SCRIPT)
         self.assertIn("reconcile_client_scopes optional offline_access", SCRIPT)
+
+    def test_chatgpt_shows_a_logo_the_web_app_serves(self):
+        # Keycloak's consent page draws a client's logoUri; it comes from the MemoryOS origin, never a third party.
+        self.assertIn('"$MEMORYOS_BROWSER_PUBLIC_URL/provider-logos/openai.svg"', SCRIPT)
+        self.assertIn(".attributes.logoUri = $logo", SCRIPT)
+        self.assertTrue((ROOT / "web" / "public" / "provider-logos" / "openai.svg").is_file())
+
+
+class ConsentPageLanguageTest(unittest.TestCase):
+    MESSAGES = KEYCLOAK / "themes" / "memoryos" / "login" / "messages"
+
+    @staticmethod
+    def keys(path):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        return {line.split("=", 1)[0] for line in lines if "=" in line and not line.startswith("#")}
+
+    def test_the_realm_speaks_vietnamese_first_and_english(self):
+        for branch in ('verifyEmail: false,', 'verifyEmail: true,'):
+            settings = SCRIPT.split(branch, 1)[1][:200]
+            self.assertIn("internationalizationEnabled: true", settings)
+            self.assertIn('supportedLocales: ["vi", "en"]', settings)
+            self.assertIn('defaultLocale: "vi"', settings)
+
+    def test_every_message_the_theme_overrides_exists_in_both_languages(self):
+        english = self.keys(self.MESSAGES / "messages_en.properties")
+        self.assertEqual(english, self.keys(self.MESSAGES / "messages_vi.properties"))
+        for key in ("oauthGrantTitle", "oauthGrantRequest", "knowledgeReadScopeConsentText",
+                    "offlineAccessScopeConsentText", "doYes", "doNo"):
+            self.assertIn(key, english)
 
 
 class KeycloakImageTest(unittest.TestCase):

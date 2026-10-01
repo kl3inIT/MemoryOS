@@ -5,6 +5,6 @@
   "attributes": {
     "include.in.token.scope": "true",
     "display.on.consent.screen": "true",
-    "consent.screen.text": "Tìm kiếm và đọc tài liệu bạn có quyền xem"
+    "consent.screen.text": "${knowledgeReadScopeConsentText}"
   }
 }

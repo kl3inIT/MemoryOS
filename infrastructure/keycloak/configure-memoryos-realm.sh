@@ -175,6 +175,7 @@ MINIO_CONSOLE_CLIENT_FILE=$(mktemp)
 PROVISIONER_CLIENT_FILE=$(mktemp)
 MCP_AUDIENCE_MAPPER_FILE=$(mktemp)
 MCP_POLICIES_FILE=$(mktemp)
+MCP_CHATGPT_CLIENT_FILE=$(mktemp)
 cleanup() {
     rm -f \
         "$CONFIG_FILE" \
@@ -185,7 +186,8 @@ cleanup() {
         "$MINIO_CONSOLE_CLIENT_FILE" \
         "$PROVISIONER_CLIENT_FILE" \
         "$MCP_AUDIENCE_MAPPER_FILE" \
-        "$MCP_POLICIES_FILE"
+        "$MCP_POLICIES_FILE" \
+        "$MCP_CHATGPT_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -265,6 +267,9 @@ configure_realm() {
             loginWithEmailAllowed: true,
             duplicateEmailsAllowed: false,
             verifyEmail: false,
+            internationalizationEnabled: true,
+            supportedLocales: ["vi", "en"],
+            defaultLocale: "vi",
             smtpServer: {}
         }' |
             "$KCADM" update "realms/$TARGET_REALM" \
@@ -280,6 +285,9 @@ configure_realm() {
         loginWithEmailAllowed: true,
         duplicateEmailsAllowed: false,
         verifyEmail: true,
+        internationalizationEnabled: true,
+        supportedLocales: ["vi", "en"],
+        defaultLocale: "vi",
         smtpServer: ({
             host: env.MEMORYOS_KEYCLOAK_SMTP_HOST,
             port: env.MEMORYOS_KEYCLOAK_SMTP_PORT,
@@ -310,9 +318,9 @@ configure_realm() {
     fi
     # Say which realm was built, not which one the staging shape would have been.
     if [ "$SMTP_ENABLED" = true ]; then
-        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=required smtp=configured"
+        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=required smtp=configured locales=vi,en default-locale=vi"
     else
-        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=disabled smtp=none"
+        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=disabled smtp=none locales=vi,en default-locale=vi"
     fi
 }
 
@@ -879,8 +887,11 @@ if [ "$MCP_ENABLED" = true ]; then
 configure_mcp_endpoint
 if [ "$MCP_CHATGPT_ENABLED" = true ]; then
 # ChatGPT's own metadata document is one Keycloak cannot read, and ChatGPT prefers a pre-registered
-# client to a document, so it has a confidential client with its single connector callback.
-upsert_client memoryos-chatgpt "$SCRIPT_DIR/memoryos-mcp-chatgpt-client.json"
+# client to a document, so it has a confidential client with its single connector callback. Its logo on
+# the consent page is the one the web app already serves, so the page fetches nothing from a third party.
+jq --arg logo "$MEMORYOS_BROWSER_PUBLIC_URL/provider-logos/openai.svg" '.attributes.logoUri = $logo' \
+    "$SCRIPT_DIR/memoryos-mcp-chatgpt-client.json" >"$MCP_CHATGPT_CLIENT_FILE"
+upsert_client memoryos-chatgpt "$MCP_CHATGPT_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_MCP_CHATGPT_CLIENT_SECRET}' |
     "$KCADM" update "clients/$CLIENT_UUID" \
         --config "$CONFIG_FILE" \
