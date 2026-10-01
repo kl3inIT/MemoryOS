@@ -94,7 +94,7 @@ class ChatHistoryServiceTest {
         // The question and the answer are not hidden; only who asked is. The screen says as much.
         assertEquals("Tôi còn bao nhiêu ngày phép?", entry.question());
         assertThrows(ChatException.class, () -> history.page(new ActorId(reader),
-                new ChatHistoryQuery(null, null, null, asker, null), null, 30));
+                new ChatHistoryQuery(null, null, null, asker, null, false), null, 30));
         assertNotNull(history.transcript(new ActorId(reader), session).messages());
     }
 
@@ -123,8 +123,25 @@ class ChatHistoryServiceTest {
         var disliked = conversation("Chưa tốt", "Hỏi 2", "Đáp 2", false, false);
         rate(disliked, false);
         conversation("Chưa chấm", "Hỏi 3", "Đáp 3", false, false);
-        assertEquals(List.of("Chưa tốt"), titles(new ChatHistoryQuery(null, null, null, null, ChatHistoryFeedback.NEGATIVE)));
-        assertEquals(List.of("Chưa chấm"), titles(new ChatHistoryQuery(null, null, null, null, ChatHistoryFeedback.NONE)));
+        assertEquals(List.of("Chưa tốt"), titles(new ChatHistoryQuery(null, null, null, null, ChatHistoryFeedback.NEGATIVE, false)));
+        assertEquals(List.of("Chưa chấm"), titles(new ChatHistoryQuery(null, null, null, null, ChatHistoryFeedback.NONE, false)));
+    }
+
+    @Test void theBlockedFilterSelectsOnlyConversationsWithAReplyTheGuardrailsStopped() {
+        var blocked = conversation("Lãnh đạo", "Chủ tịch nước là ai?", "Trợ lý không trả lời câu hỏi về lãnh tụ.", false, false);
+        var uncited = conversation("Nghỉ phép", "Nghỉ phép năm?", "Tài liệu chưa có thông tin.", false, false);
+        conversation("Hợp đồng", "Điều khoản phạt?", "Phạt 8%.", false, false);
+        refuse(blocked, "blocked_topic");
+        refuse(uncited, "uncited");
+        assertEquals(List.of("Lãnh đạo"), titles(new ChatHistoryQuery(null, null, null, null, null, true)));
+        assertEquals(3, titles(all()).size());
+        assertEquals(1, history.page(new ActorId(reader), new ChatHistoryQuery(null, null, null, null, null, true), null, 30)
+                .totals().conversations());
+    }
+
+    private void refuse(UUID session, String reason) {
+        jdbc.sql("UPDATE chat_message SET refusal_reason = :reason WHERE session_id = :session AND role = 'ASSISTANT'")
+                .param("reason", reason).param("session", session).update();
     }
 
     @Test void theCursorWalksEveryConversationOnceAndTheSearchIsLiteral() {
@@ -141,7 +158,7 @@ class ChatHistoryServiceTest {
         assertEquals(3, seen.size());
         assertEquals(3, seen.stream().distinct().count());
         // "100%" is text to find, not a pattern that matches everything.
-        assertEquals(List.of("100% chắc"), titles(new ChatHistoryQuery(null, null, "100%", null, null)));
+        assertEquals(List.of("100% chắc"), titles(new ChatHistoryQuery(null, null, "100%", null, null, false)));
     }
 
     @Test void theExportCarriesEveryConversationTheFiltersSelect() {
@@ -159,7 +176,7 @@ class ChatHistoryServiceTest {
     }
 
     private static ChatHistoryQuery all() {
-        return new ChatHistoryQuery(null, null, null, null, null);
+        return ChatHistoryQuery.ALL;
     }
 
     private IamAuthorization authorization() {
