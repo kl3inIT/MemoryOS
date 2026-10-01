@@ -97,7 +97,8 @@ export function useDocumentSearch() {
       setQuery(text);
       setRecentSearches(rememberRecentSearch(actorId, text));
       if (text.trim() === search.q && !search.page) void result.refetch();
-      else show((current) => ({ ...current, q: text.trim(), page: undefined }), false);
+      else
+        show((current) => ({ ...current, q: text.trim(), page: undefined, doc: undefined }), false);
     },
     recentSearches,
     clearRecentSearches: () => {

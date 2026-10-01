@@ -10,6 +10,8 @@ import { matchingProvenance } from "@/features/documents/source-provenance";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import type { Result as SearchResult, Section } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useLinkedDocument } from "./linked-document";
 import { SearchBox } from "./search-box";
 import { SearchLanding } from "./search-landing";
 import { searchSourceOptions, searchStatus } from "./search-options";
@@ -43,6 +45,7 @@ function AuthorizedSearchPage() {
   const search = useDocumentSearch();
   const { request, result } = search;
   const [selected, setSelected] = useState<DocumentSelection | null>(null);
+  const linked = useLinkedDocument();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchFormRef = useRef<HTMLFormElement | null>(null);
   const previousSearchTopRef = useRef<number | null>(null);
@@ -135,6 +138,13 @@ function AuthorizedSearchPage() {
         )}
       >
         <h1 className="sr-only">{ui("Search documents")}</h1>
+        {linked.unavailable ? (
+          <Alert role="alert" className="mb-4">
+            <AlertDescription>
+              {ui("Tài liệu này không có trong những tài liệu bạn được đọc.")}
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <div className={cn(!request && "my-auto w-full max-w-3xl self-center pb-16")}>
           {!request ? (
             <header className="mb-6">
@@ -187,6 +197,14 @@ function AuthorizedSearchPage() {
           returnFocusRef={returnFocusRef}
           fallbackFocusRef={searchInputRef}
           onClose={() => setSelected(null)}
+        />
+      ) : linked.selection ? (
+        <DocumentPreviewDialog
+          key={`linked:${linked.selection.documentId}:${linked.selection.generation}`}
+          selection={linked.selection}
+          returnFocusRef={returnFocusRef}
+          fallbackFocusRef={searchInputRef}
+          onClose={linked.close}
         />
       ) : null}
     </>

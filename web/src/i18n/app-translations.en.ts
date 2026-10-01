@@ -1,6 +1,46 @@
 // English for the Vietnamese source keys. Natural source keys are static UI copy, never document text, filenames or API identifiers.
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-114 MemoryOS MCP: the endpoint, its connection guide and authorized apps
+  "Ẩn {{label}}": "Hide {{label}}",
+  "Hiện {{label}}": "Show {{label}}",
+  "Sao chép {{label}}": "Copy {{label}}",
+  "Không sao chép được. Hãy chọn và sao chép thủ công.":
+    "Could not copy. Select the text and copy it yourself.",
+  "Đã sao chép.": "Copied.",
+  "Cho Claude và ChatGPT tìm và đọc tài liệu của tổ chức bằng quyền của từng người.":
+    "Let Claude and ChatGPT search and read the organization's documents with each person's own access.",
+  "Không tải được cài đặt MemoryOS MCP.": "Could not load the MemoryOS MCP settings.",
+  "Máy chủ này chưa cấu hình địa chỉ MCP.": "This server has no MCP URL configured.",
+  "Bật MemoryOS MCP": "Turn on MemoryOS MCP",
+  "Địa chỉ MCP": "MCP URL",
+  "Dùng tài liệu của tổ chức trong Claude và ChatGPT, với đúng quyền của bạn.":
+    "Use your organization's documents in Claude and ChatGPT, with your own access.",
+  "Bạn chưa được dùng tìm kiếm tài liệu.": "You do not have access to document search.",
+  "Không tải được địa chỉ MemoryOS MCP.": "Could not load the MemoryOS MCP URL.",
+  "Quản trị viên chưa bật MemoryOS MCP.": "Your administrator has not turned on MemoryOS MCP.",
+  "Kết nối Claude hoặc ChatGPT": "Connect Claude or ChatGPT",
+  "Trong Claude, mở Settings › Connectors và chọn Add custom connector.":
+    "In Claude, open Settings › Connectors and choose Add custom connector.",
+  "Dán địa chỉ MCP ở trên rồi bấm Add.": "Paste the MCP URL above and choose Add.",
+  "Bấm Connect, đăng nhập MemoryOS và chọn Cho phép.":
+    "Choose Connect, sign in to MemoryOS and choose Allow.",
+  "Quản trị viên ChatGPT của tổ chức thêm MemoryOS vào workspace một lần.":
+    "Your organization's ChatGPT administrator adds MemoryOS to the workspace once.",
+  "Trong ChatGPT, mở Settings › Apps, chọn MemoryOS và bấm Connect.":
+    "In ChatGPT, open Settings › Apps, choose MemoryOS and choose Connect.",
+  "Đăng nhập MemoryOS và chọn Cho phép.": "Sign in to MemoryOS and choose Allow.",
+  "Ứng dụng đã cấp quyền": "Authorized apps",
+  "Không tải được ứng dụng đã cấp quyền.": "Could not load the authorized apps.",
+  "Chưa có ứng dụng nào được cấp quyền.": "No apps are authorized yet.",
+  "Đọc tri thức · Cấp ngày {{date}}": "Reads knowledge · Authorized {{date}}",
+  "Thu hồi": "Revoke",
+  "Thu hồi quyền của {{name}}?": "Revoke access for {{name}}?",
+  "{{name}} sẽ không đọc được tài liệu của bạn nữa.":
+    "{{name}} will no longer be able to read your documents.",
+  "Đang thu hồi…": "Revoking…",
+  "Tài liệu này không có trong những tài liệu bạn được đọc.":
+    "This document is not among the documents you can read.",
   // MEM-195 answers from documents only and sensitive topics
   "Trả lời từ tài liệu": "Answers from documents",
   "Chỉ trả lời từ tài liệu của tổ chức": "Answer only from the organization's documents",
