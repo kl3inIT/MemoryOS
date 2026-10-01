@@ -23,6 +23,6 @@ it("sends every authenticated member to their groups", () => {
   });
 });
 
-it("keeps groups as the administration entry when privileged pages are readable too", () => {
-  expect(adminAccess(["CHAT_HISTORY_READ", "AUDIT_READ"]).adminEntryPath).toBe("/admin/groups");
+it("prefers a privileged administration page over the member Groups fallback", () => {
+  expect(adminAccess(["CHAT_HISTORY_READ", "AUDIT_READ"]).adminEntryPath).toBe("/admin/audit");
 });

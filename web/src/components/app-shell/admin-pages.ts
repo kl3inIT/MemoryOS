@@ -251,13 +251,13 @@ export function adminPage(id: AdminPage) {
 const entryOrder: readonly AdminPage[] = [
   "sources",
   "users",
-  "groups",
   "providers",
   "models",
   "mcp",
   "agents",
   "audit",
   "chatHistory",
+  "groups",
 ];
 
 export function adminEntryPage(authority: AdminAuthority) {
