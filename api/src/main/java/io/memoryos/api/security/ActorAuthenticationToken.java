@@ -5,6 +5,7 @@ import io.memoryos.iam.IdentityContext;
 import java.io.Serial;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -43,6 +44,11 @@ public final class ActorAuthenticationToken extends AbstractAuthenticationToken 
     @Override
     public IdentityContext getPrincipal() {
         return identityContext;
+    }
+
+    /** The bearer token this identity came from; empty for a browser session. */
+    public Optional<Jwt> jwt() {
+        return Optional.ofNullable(jwt);
     }
 
     @Override

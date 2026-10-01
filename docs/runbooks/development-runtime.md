@@ -97,6 +97,7 @@ unreadable.
 | `MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY` | API and worker | Base64 32-byte AES key sealing the Entra client secret or certificate private key; pair it with `MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION`. |
 | `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` | API | Base64 32-byte AES key sealing MCP OAuth client secrets, header templates and User credentials. Missing configuration disables MCP secret writes and reads. |
 | `MEMORYOS_MCP_REDIRECT_URI` | API | HTTPS (or loopback HTTP locally) ending in `/login/oauth2/code/mcp`, registered on each MCP OAuth client. |
+| `MEMORYOS_MCP_ENDPOINT_URL` | API | Optional (MEM-114). The browser origin followed by `/mcp`; it is the token audience and the protected resource Claude and ChatGPT are given. Unset, there is no MCP endpoint and the Tenant switch stays locked. Its Keycloak side is in the [MCP endpoint runbook](mcp-endpoint.md). |
 
 There is no server-wide default Google client: a manager uploads a Google **Web application OAuth client JSON** of at
 most 16 KiB and enables the Drive, Sheets and Docs APIs in that project. SharePoint takes an **Entra application** with

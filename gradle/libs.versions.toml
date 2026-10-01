@@ -23,8 +23,12 @@ opensearch-java = "3.10.0"
 msal4j = "1.21.0"
 # MEM-137: realtime dictation and streamed read-aloud for Azure; the REST client stays for recordings.
 azure-speech = "1.52.0"
-# Aligned with the version spring-ai-mcp 2.0.1 (via Embabel) resolves; the Spring AI BOM does not manage it.
-mcp-sdk = "2.0.0"
+# The Spring AI BOM does not manage it, and Spring AI 2.0.1 still resolves 2.0.0. MEM-114 needs 2.0.1: a stateless
+# server answers an unregistered method (ChatGPT calls resources/list) with a JSON-RPC error instead of 500, and HTTP
+# reads are bounded.
+mcp-sdk = "2.0.1"
+# MEM-114 rate limit of the MCP endpoint.
+bucket4j = "8.20.0"
 
 [libraries]
 azure-speech = { module = "com.microsoft.cognitiveservices.speech:client-sdk", version.ref = "azure-speech" }
@@ -34,6 +38,9 @@ embabel-api = { module = "com.embabel.agent:embabel-agent-api", version.ref = "e
 embabel-platform = { module = "com.embabel.agent:embabel-agent-starter-platform", version.ref = "embabel" }
 embabel-openai = { module = "com.embabel.agent:embabel-agent-openai", version.ref = "embabel" }
 mcp = { module = "io.modelcontextprotocol.sdk:mcp", version.ref = "mcp-sdk" }
+spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
+bucket4j-core = { module = "com.bucket4j:bucket4j_jdk17-core", version.ref = "bucket4j" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine" }
 tomcat-embed-core = { module = "org.apache.tomcat.embed:tomcat-embed-core" }
 spring-ai-model-tool = { module = "org.springframework.ai:spring-ai-autoconfigure-model-tool" }
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
