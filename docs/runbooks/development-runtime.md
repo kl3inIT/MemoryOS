@@ -151,7 +151,7 @@ docker compose \
 
 Reconciliation first reads Keycloak `serverinfo` and requires exactly one login theme named `memoryos`; it then updates only the `memoryos` realm and reads the realm back to require `loginTheme=memoryos`. Do not disable theme or template caching in staging or production. For local theme development only, Keycloak's documented `--spi-theme--static-max-age=-1 --spi-theme--cache-themes=false --spi-theme--cache-templates=false` flags may be supplied to a disposable local server and must not enter Compose.
 
-Verify sign-in, forgot-password, invitation `VERIFY_EMAIL` and `UPDATE_PASSWORD`, success, invalid/expired action-token, and mobile layouts. Roll back by checking out the prior repository revision, recreating shared Keycloak, and rerunning the prior reconciliation script; do not edit the OrgMemory realm or change the public issuer.
+Verify sign-in, forgot-password, invitation `VERIFY_EMAIL` and `UPDATE_PASSWORD`, success, invalid/expired action-token, and mobile layouts. Roll back by checking out the prior repository revision, recreating Keycloak, and rerunning the prior reconciliation script; do not change the public issuer.
 
 The script also selects the `memoryos` login theme. Its source is `infrastructure/keycloak/themes/memoryos/`, which compose bind-mounts read-only into `keycloak`. Keycloak caches themes outside development mode, so after the mount is added or the theme changes, recreate the service (`docker compose ... up -d --no-deps --wait keycloak`) before replaying the realm script. A missing theme falls back to the Keycloak default rather than breaking sign-in.
 
@@ -469,7 +469,7 @@ docker compose \
   up -d --wait
 ```
 
-Only shared Keycloak, web, and the three OAuth2 Proxies join the external proxy network; Mailpit, pgweb, and Redis Insight remain on private backends. PostgreSQL binds to server loopback port `5556` by default; Keycloak, API, and web diagnostics default to `18180`, `18080`, and `18081`, while the inspection proxies also bind loopback ports `18026` and `18027`. Shared Keycloak keeps `orgmemory-keycloak`, `memoryos-keycloak`, and `keycloak` aliases while public issuers remain under `https://auth.kl3in.tech`.
+Only Keycloak, web, and the three OAuth2 Proxies join the external proxy network; Mailpit, pgweb, and Redis Insight remain on private backends. PostgreSQL binds to server loopback port `5556` by default; Keycloak, API, and web diagnostics default to `18180`, `18080`, and `18081`, while the inspection proxies also bind loopback ports `18026` and `18027`. Keycloak answers to the `memoryos-keycloak` and `keycloak` aliases, and the public issuer remains under `https://auth.kl3in.tech`.
 
 For local database access:
 

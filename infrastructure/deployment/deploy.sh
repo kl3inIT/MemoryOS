@@ -39,8 +39,7 @@ has_interpreter() {
   grep -q "^$(image_key interpreter)=" "$1"
 }
 
-# Keycloak belongs to the release only where the environment file leaves it to the release. A
-# runtime accepted before it joined, and a host that names its own Keycloak image, have none.
+# A runtime accepted before Keycloak joined the release has none of its own to capture or restore.
 has_keycloak() {
   grep -q "^$(image_key keycloak)=" "$1"
 }
@@ -129,14 +128,6 @@ if [[ "$mode" == deploy ]]; then
   done
   [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$tx/images.env")" == "${release:0:40}" ]] || { echo 'images.env names another release' >&2; exit 1; }
   cp "$tx/images.env" "$tx/candidate.env"
-  # The environment file names a Keycloak image where an operator runs Keycloak: staging shares one
-  # with OrgMemory, whose realm needs a theme only the OrgMemory image carries. The release then
-  # leaves Keycloak alone, and the environment file's image, not the release's, is the one Compose
-  # sees, because the release's value would otherwise override it.
-  if grep -q "^$(image_key keycloak)=" "$environment_file"; then
-    sed -i "/^$(image_key keycloak)=/d" "$tx/candidate.env"
-    echo 'Keycloak is managed on this host, not by the release'
-  fi
   mkdir "$tx/source"
   tar --extract --file "$tx/configuration.tar" --directory "$tx/source" --no-same-owner --no-same-permissions
   # The source is what git holds, and the services started from these Compose files read their

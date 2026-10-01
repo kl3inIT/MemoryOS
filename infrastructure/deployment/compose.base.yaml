@@ -211,8 +211,7 @@ services:
   keycloak:
     <<: *service-defaults
     # Each release publishes memoryos-keycloak with the login theme inside it, and the deployment
-    # rolls it out with the rest. A host whose environment file names this variable keeps that image
-    # instead and manages Keycloak itself: staging, where the runtime is shared with OrgMemory.
+    # rolls it out with the rest; images.env names it, never a host's environment file.
     image: ${MEMORYOS_KEYCLOAK_IMAGE:?Set MEMORYOS_KEYCLOAK_IMAGE}
     container_name: memoryos-keycloak
     command:

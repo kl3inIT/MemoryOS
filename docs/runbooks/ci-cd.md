@@ -193,7 +193,7 @@ fails later, while the application defines beans. Start
 
 The environment file feeds Compose interpolation and nothing else. A value reaches a container only when the service block in `compose.base.yaml` names it, so adding a key here does not by itself make the application see it — that was how the first deployment without the vault failed. Addresses inside the composition (the database, Keycloak's admin API, OpenSearch) are written in Compose and must not be repeated here; a stale copy silently wins over the composition. `infrastructure/deployment/test_configuration_reaches_the_container.py` holds both rules.
 
-**Networks.** `docker network create proxy-network`. Compose declares it `external`, so it is not created on demand and the whole stack refuses to start without it. Production declares no other external network; `shared-infra` exists only on the host MemoryOS shares with OrgMemory.
+**Networks.** `docker network create proxy-network`. Compose declares it `external`, so it is not created on demand and the whole stack refuses to start without it. Production declares no other external network; `shared-infra` exists only on staging, whose host MemoryOS shares with other services.
 
 **Reverse proxy.** Nginx Proxy Manager on `proxy-network`, forwarding to `memoryos-web:8080` by container name. No application service publishes a host port, so only the proxy is reachable from outside. Raise `client_max_body_size` on the object-storage host: the browser uploads directly to MinIO through it, and the default rejects large files at the proxy before MinIO ever sees them.
 
@@ -309,20 +309,13 @@ Each release builds `memoryos-keycloak` from `infrastructure/keycloak/Dockerfile
 
 The theme is not mounted. A release directory is root-only (`deploy.sh` runs under `umask 077`), and Keycloak runs as uid 1000, so a theme mounted from the release can never be read.
 
-**Who runs Keycloak depends on the environment file.**
+**The release owns Keycloak on every host.** `images.env` names its image; no environment file does.
 
-- **The file names no `MEMORYOS_KEYCLOAK_IMAGE`** (production): the release owns Keycloak.
-  - The deployment dumps the `keycloak` database next to the `memoryos` one, because a newer Keycloak migrates its schema on start.
-  - It rolls Keycloak out before the api and checks its health and revision like the other components.
-  - Sign-in is down for about a minute during each deployment.
-- **The file names an image** (staging): the release leaves Keycloak alone. The deployment removes Keycloak from the candidate image list, so the release's image cannot override the file's. Staging's Keycloak is shared with OrgMemory, and its `orgmemory` realm uses the `orgmemory-shadcn` theme that only the OrgMemory image carries. `compose.staging.yaml` mounts the `memoryos` theme into it, and the operator recreates it.
+- The deployment dumps the `keycloak` database next to the `memoryos` one, because a newer Keycloak migrates its schema on start.
+- It rolls Keycloak out before the api and checks its health and revision like the other components.
+- Sign-in is down for about a minute during each deployment.
 
-**Handing Keycloak to the release on a host that ran it by hand:**
-
-1. Remove `MEMORYOS_KEYCLOAK_IMAGE` from `.env.<environment>`.
-2. Run the next deployment.
-
-That first deployment captures no previous Keycloak: the one running carries another project's revision label. So a rollback of that deployment leaves the new Keycloak running rather than stopping sign-in. Later deployments capture and restore it like the other components.
+**A host's first deployment that rolls Keycloak out** captures no previous Keycloak, because the runtime it accepted before had none from a release. A rollback of that deployment therefore leaves the new Keycloak running rather than stopping sign-in. Later deployments capture and restore it like the other components. Staging reached this point when it stopped running the image it once shared with OrgMemory; its recovery path is in the [MCP endpoint runbook](mcp-endpoint.md#keycloak-268-with-cimd).
 
 ## Failure and recovery
 
