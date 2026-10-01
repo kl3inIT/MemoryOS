@@ -212,6 +212,11 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
 - Optional scopes `knowledge:read` and `offline_access`.
 - `chatgpt.com` stays out of the CIMD trusted domains, because Keycloak rejects ChatGPT's document (#51236) and the
   static client must win.
+- **Accepted risk.** Every ChatGPT user pastes the same client ID and secret, so the secret protects nothing by itself.
+  The single exact callback, PKCE and the consent page carry the grant.
+  - Someone could start a flow from their own ChatGPT connector and trick a member into consenting. The same holds
+    for any client shared by all users, Claude's metadata document included.
+  - Revoking in *Cài đặt › Kết nối* ends such a grant.
 
 **Lifetime.**
 

@@ -76,19 +76,29 @@ Not the MemoryOS `api` itself; the shared Keycloak was not touched.
 
 ## 2. Keycloak and routing (pull request 1)
 
-- [ ] **Image.** `infrastructure/keycloak/Dockerfile` pins 26.8.0 by digest and starts with `--features=cimd`. Check
-  the theme still renders.
-- [ ] **`configure-memoryos-realm.sh`:**
+- [x] **Image.** `infrastructure/keycloak/Dockerfile` pins 26.8.0 by digest and builds with `KC_FEATURES=cimd`.
+  `smoke-test-image.sh` now also fails an image that does not advertise metadata documents.
+- [x] **`configure-memoryos-realm.sh`**, everything behind `MEMORYOS_MCP_ENDPOINT_URL`, which must equal the browser
+  origin followed by `/mcp`:
   - client scope `knowledge:read` with consent text and the endpoint audience mapper;
-  - CIMD client policy and profile;
-  - PKCE policy for public clients;
-  - `memoryos-chatgpt`;
-  - `offline_access` and the 30-day offline idle for MCP clients.
-- [ ] **nginx.** Exact `location` blocks for `/mcp` and `/.well-known/oauth-protected-resource/mcp` in
-  `web/nginx.conf`, plus cases in `nginx-config.test.mjs`. Check MEM-112's `/mcp/oauth/client-metadata.json` route.
-- [ ] **Runbook.** Database backup, the shared staging container with the OrgMemory image moved to 26.8, the
-  production image, replaying the realm script.
-- [ ] **Server actions.** Backup, staging upgrade, production upgrade: each only after the owner approves that step.
+  - CIMD client profile and policy, plus a separate S256 PKCE policy for the same documents;
+  - `memoryos-chatgpt` when `MEMORYOS_MCP_CHATGPT_CLIENT_SECRET` is set, with its scopes reconciled exactly;
+  - the realm's default client scopes without `profile`, `email`, `roles` and `web-origins`, while every client the
+    script creates pins the classic set;
+  - 30-day offline idle.
+
+  Contract tests: `test_realm_mcp_endpoint.py`. Every new `jq` expression was run against sample data in a `jq` 1.8.1
+  container.
+- [ ] **End to end.** Run the script, twice, against a throwaway Keycloak built from this Dockerfile, then repeat
+  Claude Code's CIMD flow against it.
+- [x] **nginx.** One exact-path location sends `/mcp`, `/.well-known/oauth-protected-resource/mcp` and MEM-112's
+  `/mcp/oauth/client-metadata.json` to the API with a 256 KiB body limit. Before this, MEM-112's metadata document
+  fell to the web app's `index.html`. Covered in `nginx-config.test.mjs`.
+- [x] **Runbook.** [mcp-endpoint.md](../../../runbooks/mcp-endpoint.md): production upgrades with the next release
+  (database dumped first); the shared staging Keycloak needs the OrgMemory image rebuilt on 26.8 with `cimd`; realm
+  variables and expected output; removal.
+- [ ] **Server actions.** Staging image rebuild and recreate, realm replay, production promotion: each only after the
+  owner approves that step.
 
 ## 3. Endpoint (pull request 2)
 

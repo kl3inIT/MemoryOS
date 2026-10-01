@@ -14,6 +14,8 @@ from FILE uploads, Google Drive and SharePoint Sources; direct Search stays avai
 - [Vision](docs/vision.md) — product outcomes and principles.
 - [Roadmap](docs/roadmap.md) — delivered and active increments.
 - [Development runtime runbook](docs/runbooks/development-runtime.md) — environment variables, local runs and staging.
+- [MCP endpoint runbook](docs/runbooks/mcp-endpoint.md) — Keycloak 26.8 with Client ID Metadata Documents, the realm
+  scope and clients, and routing for the MemoryOS MCP endpoint.
 - [Shared PostgreSQL and Keycloak migration runbook](docs/runbooks/shared-runtime-migration.md) — backup, restore,
   cutover, rollback and shared-realm verification.
 

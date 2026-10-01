@@ -184,7 +184,12 @@ MEMORYOS_KEYCLOAK_SMTP_USERNAME # required when auth is true
 MEMORYOS_KEYCLOAK_SMTP_PASSWORD # required when auth is true
 MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
+MEMORYOS_MCP_ENDPOINT_URL # optional; exactly the browser origin followed by /mcp (MEM-114)
+MEMORYOS_MCP_CHATGPT_CLIENT_SECRET # optional; needs MEMORYOS_MCP_ENDPOINT_URL
 ```
+
+With `MEMORYOS_MCP_ENDPOINT_URL` the script also configures the MCP endpoint's scope, audience, Claude client policy
+and the ChatGPT client; the [MCP endpoint runbook](mcp-endpoint.md) owns that part.
 
 Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set all three inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb and Redis Insight OAuth secrets remain separate from the MinIO OIDC secret. Store every client secret outside Git; mount pgweb/Redis Insight secrets into their OAuth2 Proxies and the MinIO OIDC secret directly into MinIO.
 
