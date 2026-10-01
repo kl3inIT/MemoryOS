@@ -25,6 +25,14 @@ reopen it after each intermediate merge.
 - [ ] **Keycloak.** Keycloak 26.8.0 locally with `--features=cimd` and the CIMD policy; Claude Code completes sign-in
   through CIMD.
 - [ ] **Record.** Write the results here. Raise any deviation from the design before continuing.
+- [x] **Dependency check** (2026-10-01). The `api` runtime classpath already resolves, through Embabel:
+  - `spring-ai-starter-mcp-client` 2.0.1;
+  - `spring-ai-mcp-annotations` 2.0.1;
+  - `io.modelcontextprotocol.sdk:mcp` 2.0.0.
+
+  No `spring.ai.mcp.*` property is set, so the client auto-configuration starts with no connections. The server
+  starter adds only the server auto-configuration and the WebMVC transport. Starting both auto-configurations in one
+  context is still to be confirmed in the runtime spike.
 
 ## 2. Keycloak and routing (pull request 1)
 
