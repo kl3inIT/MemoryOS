@@ -287,7 +287,6 @@ export function useChatConversation(controller: ChatThreadController, project?: 
     headerSession: session && { ...session, title: sessionTitle ?? session.title },
     busy,
     persona,
-    grounded,
     model,
     pinnedEffort,
     pinEffort,
