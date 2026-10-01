@@ -19,6 +19,8 @@
   "defaultClientScopes": ["acr", "basic", "knowledge:read"],
   "optionalClientScopes": ["offline_access"],
   "attributes": {
-    "pkce.code.challenge.method": "S256"
+    "pkce.code.challenge.method": "S256",
+    "display.on.consent.screen": "true",
+    "consent.screen.text": "${chatgptClientConsentText}"
   }
 }

@@ -43,6 +43,13 @@ class McpEndpointTokenTest(unittest.TestCase):
         self.assertEqual("true", scope["attributes"]["include.in.token.scope"])
         # A message key, so the consent page reads in the person's language.
         self.assertEqual("${knowledgeReadScopeConsentText}", scope["attributes"]["consent.screen.text"])
+        # Ordered first; offline_access second; the client's own line, unordered, last.
+        self.assertEqual("10", scope["attributes"]["gui.order"])
+        self.assertIn(""".attributes["gui.order"] = "20\"""", SCRIPT)
+        client = load("memoryos-mcp-chatgpt-client.json")
+        self.assertEqual("true", client["attributes"]["display.on.consent.screen"])
+        self.assertEqual("${chatgptClientConsentText}", client["attributes"]["consent.screen.text"])
+        self.assertNotIn("gui.order", client["attributes"])
 
         mapper = load("memoryos-mcp-audience-mapper.json")
         self.assertEqual("oidc-audience-mapper", mapper["protocolMapper"])

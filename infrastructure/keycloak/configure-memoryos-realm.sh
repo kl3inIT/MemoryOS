@@ -866,6 +866,18 @@ configure_mcp_endpoint() {
     fi
     echo "realm=$TARGET_REALM default-client-scopes=$realm_defaults optional-client-scope=$SCOPE_NAME"
 
+    # The consent page lists scopes by gui.order and puts unordered entries last. Ordering the two
+    # permissions keeps the client's own line (Claude's hostname, ChatGPT's origin) at the end.
+    offline_id=$(find_scope_uuid offline_access)
+    if [ -n "$offline_id" ]; then
+        "$KCADM" get "client-scopes/$offline_id" --config "$CONFIG_FILE" -r "$TARGET_REALM" |
+            jq -c '.attributes["gui.order"] = "20"' |
+            "$KCADM" update "client-scopes/$offline_id" \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f - >/dev/null
+    fi
+
     # A grant to an MCP client is an offline session; it lapses after 30 days without use.
     jq -cn '{offlineSessionIdleTimeout: 2592000}' |
         "$KCADM" update "realms/$TARGET_REALM" \

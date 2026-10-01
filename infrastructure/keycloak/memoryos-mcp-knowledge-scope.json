@@ -5,6 +5,7 @@
   "attributes": {
     "include.in.token.scope": "true",
     "display.on.consent.screen": "true",
-    "consent.screen.text": "${knowledgeReadScopeConsentText}"
+    "consent.screen.text": "${knowledgeReadScopeConsentText}",
+    "gui.order": "10"
   }
 }
