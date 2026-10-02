@@ -4,7 +4,7 @@ Date: 2026-10-02
 
 ## Status
 
-Accepted; implemented in [no deployment Chat model](../increments/active/no-deployment-chat-model/design.md)
+Accepted; implemented in [no deployment Chat model](../increments/completed/no-deployment-chat-model/design.md)
 ([MEM-211](https://linear.app/memory-os/issue/MEM-211)).
 
 Supersedes the `memoryos.chat.provider.*` configuration keys that
