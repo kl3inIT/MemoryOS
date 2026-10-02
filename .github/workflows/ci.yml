@@ -107,11 +107,12 @@ jobs:
           printf 'backend=%s\nweb=%s\nlanding=%s\ninterpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_OUTPUT"
           printf 'Verification areas: backend=%s web=%s landing=%s interpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_STEP_SUMMARY"
 
-  check:
+  # Deployment, monitoring and workflow checks need no JVM, so they run beside the Gradle legs instead of before them.
+  infrastructure:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -163,18 +164,6 @@ jobs:
             prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0 \
             check config /etc/prometheus/prometheus.yaml
 
-      - name: Set up Java 25
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
-
-      - name: Build and verify
-        run: ./gradlew clean check --no-daemon
-
       - name: Verify Grafana SSO credential boundary
         run: python3 -m unittest discover -s infrastructure/observability -p 'test_*.py'
 
@@ -190,12 +179,53 @@ jobs:
       - name: Verify off-host backup and retention
         run: python3 -m unittest discover -s infrastructure/backup -p 'test_*.py'
 
+  # One runner held all four modules' tests, and core alone took eight of its ten minutes while api, sources and
+  # worker competed for the same four CPUs. Each leg now owns a runner; together they are the repository's `check`.
+  backend:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Core has the runner to itself: three JVMs, each with its PostgreSQL container and up to 1.5 GiB heap.
+          - leg: core
+            tasks: ':core:check'
+          - leg: api
+            tasks: ':api:check'
+          - leg: sources-worker
+            tasks: ':sources:check :worker:check'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 25
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+
+      - name: Build and verify
+        env:
+          MEMORYOS_CORE_TEST_FORKS: 3
+          TASKS: ${{ matrix.tasks }}
+        run: |
+          read -ra tasks <<< "$TASKS"
+          ./gradlew clean "${tasks[@]}" --no-daemon
+
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: backend-tests
+          name: backend-tests-${{ matrix.leg }}
           path: |
             core/build/test-results/test/*.xml
             sources/build/test-results/test/*.xml
@@ -205,7 +235,7 @@ jobs:
           retention-days: 3
 
       - name: Upload core test heap diagnostics
-        if: ${{ failure() }}
+        if: ${{ failure() && matrix.leg == 'core' }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -261,7 +291,7 @@ jobs:
       fail-fast: false
       matrix:
         # Playwright's CI guidance: one worker per runner, scale with shards. fullyParallel splits by test.
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
       options: --user 1001
@@ -313,6 +343,11 @@ jobs:
     if: ${{ needs.changes.outputs.web == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read # Check out the revision the images are built from.
+      packages: write # Push the verified images to GHCR on a main push; no pull request step pushes.
+    outputs:
+      images: ${{ steps.push.outputs.images }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -342,7 +377,7 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
-      - name: Verify and preserve the frontend image
+      - name: Verify the frontend image
         run: |
           image="memoryos-web:sha-$GITHUB_SHA"
           if docker run --rm --entrypoint /bin/sh "$image" \
@@ -378,20 +413,14 @@ jobs:
               fi
             done
           done
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            mkdir -p candidate
-            docker save --output candidate/web.tar "memoryos-web:sha-$GITHUB_SHA"
-          fi
 
-      - name: Preserve verified frontend image
+      - name: Push verified frontend image to GHCR
+        id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: ./.github/actions/push-release-images
         with:
-          name: candidate-web
-          path: candidate/web.tar
-          if-no-files-found: error
-          compression-level: 1
-          retention-days: 2
+          components: web
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   landing:
     needs: changes
@@ -456,7 +485,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
-      # Named outside candidate-* so the application publication never downloads it.
       - name: Preserve verified landing image
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -472,6 +500,11 @@ jobs:
     if: ${{ needs.changes.outputs.interpreter == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    permissions:
+      contents: read # Check out the revision the images are built from.
+      packages: write # Push the verified images to GHCR on a main push; no pull request step pushes.
+    outputs:
+      images: ${{ steps.push.outputs.images }}
     defaults:
       run:
         working-directory: interpreter/service
@@ -553,28 +586,25 @@ jobs:
         if: ${{ failure() }}
         run: docker logs memoryos-interpreter-ci || true
 
-      - name: Save interpreter images for publication
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/candidate"
-          docker save --output "$GITHUB_WORKSPACE/candidate/interpreter.tar" \
-            "memoryos-interpreter:sha-$GITHUB_SHA" "memoryos-interpreter-executor:sha-$GITHUB_SHA"
-
-      - name: Preserve verified interpreter images
+      # Registry credentials exist only after the e2e step, which hands the docker socket to the service container.
+      - name: Push verified interpreter images to GHCR
+        id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: ./.github/actions/push-release-images
         with:
-          name: candidate-interpreter
-          path: candidate/interpreter.tar
-          if-no-files-found: error
-          compression-level: 1
-          retention-days: 2
+          components: interpreter interpreter-executor
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   backend-images:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read # Check out the revision the images are built from.
+      packages: write # Push the verified images to GHCR on a main push; no pull request step pushes.
+    outputs:
+      images: ${{ steps.push.outputs.images }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -641,21 +671,13 @@ jobs:
       - name: Prove the Keycloak image serves the MemoryOS login theme
         run: infrastructure/keycloak/smoke-test-image.sh "memoryos-keycloak:sha-$GITHUB_SHA"
 
-      - name: Save backend images for publication
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          mkdir -p candidate
-          docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"             "memoryos-keycloak:sha-$GITHUB_SHA"
-
-      - name: Preserve verified backend images
+      - name: Push verified backend images to GHCR
+        id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: ./.github/actions/push-release-images
         with:
-          name: candidate-backend
-          path: candidate/backend.tar
-          if-no-files-found: error
-          compression-level: 1
-          retention-days: 2
+          components: api worker keycloak
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   secrets:
     runs-on: ubuntu-24.04
@@ -684,7 +706,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, check, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets]
+    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -699,10 +721,10 @@ jobs:
             | def selected(name; jobs): if $area[name] == "true"
                 then all(jobs[]; $jobs[.].result == "success")
                 else all(jobs[]; $jobs[.].result == "skipped") end;
-            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "frontend-preview", "interpreter", "landing", "secrets"]
+            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
-            and selected("backend"; ["check", "backend-images"])
+            and selected("backend"; ["infrastructure", "backend", "backend-images"])
             and selected("web"; ["frontend-check", "frontend", "frontend-preview", "frontend-image"])
             and selected("landing"; ["landing"])
             and selected("interpreter"; ["interpreter"])
@@ -711,47 +733,38 @@ jobs:
   publish:
     name: Publish verified release
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    needs: gate
+    # The image jobs already pushed what they verified; this job only names those digests as a release, and only
+    # after CI Gate. A tag in GHCR without this job's artifact is not deployable.
+    needs: [gate, backend-images, frontend-image, interpreter]
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 10
     permissions:
       contents: read # Read the verified main revision for the release bundle.
-      packages: write # Publish the preserved images to GHCR after CI Gate succeeds.
+      packages: read # Confirm every recorded digest resolves in GHCR.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: candidate-*
-          merge-multiple: true
-          path: candidate
       - name: Authenticate to GHCR for this job
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Publish the preserved images and record their digests
+      - name: Record the verified image digests
+        env:
+          IMAGES: |
+            ${{ needs.backend-images.outputs.images }}
+            ${{ needs.frontend-image.outputs.images }}
+            ${{ needs.interpreter.outputs.images }}
         run: |
-          docker load --input candidate/backend.tar
-          docker load --input candidate/web.tar
-          docker load --input candidate/interpreter.tar
           mkdir release
           for component in api worker web interpreter interpreter-executor keycloak; do
-            image="memoryos-$component:sha-$GITHUB_SHA"
-            docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
-              .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha
-              and .["org.opencontainers.image.source"] == "https://github.com/kl3inIT/MemoryOS"
-            '
-            repository="ghcr.io/kl3init/memoryos-$component"
-            tag="$repository:sha-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-            docker tag "$image" "$tag"
-            docker push "$tag"
-            digest=$(docker image inspect "$tag" | jq --exit-status --raw-output --arg repo "$repository@" '
-              [.[0].RepoDigests[] | select(startswith($repo))] | if length == 1 then .[0] else error("Ambiguous digest") end
-            ')
-            [[ "$digest" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
+            # Compose rejects a hyphen in an environment key.
             key=${component//-/_}
-            printf 'MEMORYOS_%s_IMAGE=%s\n' "${key^^}" "$digest" >> release/images.env
+            key="MEMORYOS_${key^^}_IMAGE"
+            line=$(grep -x "$key=ghcr\.io/kl3init/memoryos-$component@sha256:[0-9a-f]\{64\}" <<< "$IMAGES")
+            [[ $(wc -l <<< "$line") == 1 ]] || { echo "Expected one $component digest" >&2; exit 1; }
+            docker buildx imagetools inspect "${line#*=}" > /dev/null
+            printf '%s\n' "$line" >> release/images.env
           done
           printf 'MEMORYOS_RELEASE=%s\n' "$GITHUB_SHA" >> release/images.env
           git archive --format=tar --output=release/configuration.tar HEAD infrastructure core/src/main/resources/db/migration

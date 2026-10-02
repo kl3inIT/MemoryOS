@@ -1,0 +1,57 @@
+name: Push release images
+description: Push images a job built and verified to GHCR under this run's release tag and report their digests.
+
+# Each image job pushes the bytes it tested, so publication never moves an image archive through the
+# artifact store. A tag in GHCR is not a release: only the images.env that `Publish verified release`
+# writes after CI Gate names deployable digests.
+
+inputs:
+  components:
+    description: Space-separated components; each is pushed from the local image memoryos-<component>:sha-<commit>
+    required: true
+  token:
+    description: Token with packages:write for ghcr.io
+    required: true
+
+outputs:
+  images:
+    description: One MEMORYOS_<COMPONENT>_IMAGE=<digest reference> line per component
+    value: ${{ steps.push.outputs.images }}
+
+runs:
+  using: composite
+  steps:
+    - name: Push and record digests
+      id: push
+      shell: bash
+      env:
+        COMPONENTS: ${{ inputs.components }}
+        REGISTRY_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        trap 'docker logout ghcr.io' EXIT
+        images=""
+        for component in $COMPONENTS; do
+          image="memoryos-$component:sha-$GITHUB_SHA"
+          docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
+            .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha
+            and .["org.opencontainers.image.source"] == "https://github.com/kl3inIT/MemoryOS"
+          ' > /dev/null
+          repository="ghcr.io/kl3init/memoryos-$component"
+          tag="$repository:sha-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          docker tag "$image" "$tag"
+          docker push --quiet "$tag" > /dev/null
+          digest=$(docker image inspect "$tag" | jq --exit-status --raw-output --arg repo "$repository@" '
+            [.[0].RepoDigests[] | select(startswith($repo))] | if length == 1 then .[0] else error("Ambiguous digest") end
+          ')
+          [[ "$digest" =~ ^ghcr\.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
+          # Compose rejects a hyphen in an environment key.
+          key=${component//-/_}
+          images+=$(printf 'MEMORYOS_%s_IMAGE=%s' "${key^^}" "$digest")$'\n'
+        done
+        {
+          echo 'images<<MEMORYOS_IMAGES'
+          printf '%s' "$images"
+          echo 'MEMORYOS_IMAGES'
+        } >> "$GITHUB_OUTPUT"
