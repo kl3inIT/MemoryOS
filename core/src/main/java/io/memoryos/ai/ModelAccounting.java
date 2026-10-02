@@ -20,6 +20,14 @@ public record ModelAccounting(@Nullable Long input, @Nullable Long output, @Null
         this(input, output, cost, cacheRead, used, input != null && output != null);
     }
 
+    /**
+     * The totals a stored answer shows as its own: only complete ones. Partial totals go to the usage ledger, which counts
+     * the turn as having an unknown cost; on the answer they would read as the whole turn.
+     */
+    public ModelAccounting shown() {
+        return complete ? this : new ModelAccounting(null, null, null, 0, used, false);
+    }
+
     public static ModelAccounting of(List<? extends ModelGuard> guards, AgentProcess process, LlmMetadata metadata) {
         var used = guards.stream().filter(ModelGuard::used).toList();
         if (used.isEmpty()) return NONE;

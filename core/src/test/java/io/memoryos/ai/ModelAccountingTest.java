@@ -56,6 +56,15 @@ class ModelAccountingTest {
         assertEquals(200L, accounting.cacheRead());
         assertFalse(accounting.complete());
         assertTrue(accounting.used());
+        // The stored answer does not show partial totals as its own; only the usage ledger keeps them.
+        assertNull(accounting.shown().input());
+        assertNull(accounting.shown().cost());
+        var whole = complete();
+        assertSame(whole, whole.shown());
+    }
+
+    private ModelAccounting complete() {
+        return new ModelAccounting(10L, 2L, 0.1, 0, true);
     }
 
     @Test
