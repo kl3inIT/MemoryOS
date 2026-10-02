@@ -81,6 +81,8 @@ class SessionSecurityIntegrationTest {
     private static final AtomicReference<Boolean> AUTHENTICATING_EMAIL_VERIFIED =
             new AtomicReference<>(true);
     private static final AtomicReference<Object> AUTHENTICATING_PROVIDER = new AtomicReference<>();
+    /** The ID token's {@code auth_time}; none when null. */
+    private static final AtomicReference<Instant> AUTHENTICATED_AT = new AtomicReference<>();
     private static final HttpServer IDENTITY_SERVER = startIdentityServer();
     private static final String ISSUER = "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final String CLIENT_ID = "memoryos-web";
@@ -1182,6 +1184,55 @@ class SessionSecurityIntegrationTest {
         }
     }
 
+    @Test
+    void aBrowserSessionEndsSevenDaysAfterThePasswordHoweverActiveItStays() throws Exception {
+        AUTHENTICATING_SUBJECT.set("initial-owner");
+        TestProviderSessionConfiguration.reset(true);
+        try {
+            // Keycloak completed this sign-in silently, six days after the password: the session lives.
+            AUTHENTICATED_AT.set(Instant.now().minus(Duration.ofDays(6)));
+            var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+            try (var client = client(cookies)) {
+                assertEquals(302, completeOAuth(client, "/oauth2/authorization/memoryos").statusCode());
+                assertEquals(200, client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString())
+                        .statusCode());
+            }
+            // Seven days after the password the session ends on its next request, active or not.
+            AUTHENTICATED_AT.set(Instant.now().minus(Duration.ofDays(7)).minusSeconds(60));
+            var aged = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+            try (var client = client(aged)) {
+                assertEquals(302, completeOAuth(client, "/oauth2/authorization/memoryos").statusCode());
+                String sessionId = new String(Base64.getDecoder().decode(sessionCookie(aged)), UTF_8);
+                assertEquals(401, client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString())
+                        .statusCode());
+                // The session is gone, and so is its cookie.
+                assertEquals(0L, jdbcClient.sql("SELECT count(*) FROM spring_session WHERE session_id = :id")
+                        .param("id", sessionId).query(Long.class).single());
+            }
+            // A session signed in before the password's instant was kept is measured from its creation.
+            AUTHENTICATED_AT.set(null);
+            var older = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+            try (var client = client(older)) {
+                assertEquals(302, completeOAuth(client, "/oauth2/authorization/memoryos").statusCode());
+                String sessionId = new String(Base64.getDecoder().decode(sessionCookie(older)), UTF_8);
+                jdbcClient.sql("""
+                        DELETE FROM spring_session_attributes
+                        WHERE attribute_name = 'io.memoryos.api.security.ProviderSessionState.authenticatedAt'
+                          AND session_primary_id = (SELECT primary_id FROM spring_session WHERE session_id = :id)
+                        """).param("id", sessionId).update();
+                assertEquals(200, client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString())
+                        .statusCode());
+                jdbcClient.sql("UPDATE spring_session SET creation_time = :created WHERE session_id = :id")
+                        .param("created", Instant.now().minus(Duration.ofDays(8)).toEpochMilli())
+                        .param("id", sessionId).update();
+                assertEquals(401, client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString())
+                        .statusCode());
+            }
+        } finally {
+            AUTHENTICATED_AT.set(null);
+        }
+    }
+
     private HttpClient client(CookieManager cookies) {
         return HttpClient.newBuilder()
                 .cookieHandler(cookies)
@@ -1396,6 +1447,7 @@ class SessionSecurityIntegrationTest {
                 .claim("nonce", grant.nonce())
                 .claim("sid", PROVIDER_SESSION_ID)
                 .claim("session_leak_marker", PROVIDER_ID_TOKEN_MARKER)
+                .claim("auth_time", AUTHENTICATED_AT.get() == null ? null : AUTHENTICATED_AT.get().getEpochSecond())
                 .build();
         String idToken = signedToken(claims);
         json(exchange, """

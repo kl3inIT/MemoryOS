@@ -82,7 +82,7 @@ The image entrypoint fetches nothing over the network: its launcher turns every 
 | `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
 | `SPRING_PROFILES_ACTIVE` | No | Local Gradle and IntelliJ launches use Arconia development bootstrap mode, whose checked-in bootstrap properties activate `development`. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
-`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
+`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT` (8 hours unused; a session also ends 7 days after the password, with Keycloak's SSO session), object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
 
 ### Provider credential keys
 

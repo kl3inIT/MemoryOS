@@ -18,6 +18,8 @@ One pull request.
   the trusted apps. Tests: `mcp-endpoint-admin-page.test.tsx`, `mcp-endpoint-settings-page.test.tsx`,
   `mcp-endpoint.spec.ts` with captures in both themes at 1280 and 390 px, reviewed.
 - [x] **Dashboard.** The *MemoryOS MCP endpoint* row of Chat & AI.
+- [x] **Browser session.** 8 hours unused, 7 days from the password (`auth_time`) with Keycloak's SSO session at
+  the same 7 days. Tests: `SessionSecurityIntegrationTest`, `RealmSessionLifetimeTest`.
 - [x] **Documents.** [ADR 0020](../../../decisions/0020-trusted-mcp-apps-kept-in-memoryos.md), the audit spec and
   matrix, the runbooks, the MEM-114 increment, the roadmap.
 - [ ] CI green.
@@ -25,9 +27,10 @@ One pull request.
   1. Create `/apps/memoryos/secrets/keycloak/mcp-admin-client-secret.txt` (`deploy.sh` refuses a release whose secret
      files are missing).
   2. Run this branch's realm script with `MEMORYOS_MCP_ADMIN_CLIENT_SECRET`. It talks only to Keycloak, so the running
-     release is untouched: it creates the account, keeps the live trusted hosts, sets the 180-day maximum and deletes
-     `memoryos-chatgpt`.
+     release is untouched: it creates the account, keeps the live trusted hosts, sets the 180-day maximum and the
+     7-day SSO session, and deletes `memoryos-chatgpt`.
 - [ ] Merge after the owner's approval; the deployment follows.
 - [ ] **Staging, after the deployment:** the page lists Claude and ChatGPT as manageable; switching ChatGPT off and on
-  revokes and restores its connection; a call appears under *Hoạt động*; the dashboard row draws.
+  revokes and restores its connection; a call appears under *Hoạt động*; the dashboard row draws; after more than
+  8 hours away MemoryOS opens again without the password.
 - [ ] **Production:** the same secret file and realm run before the next promotion.

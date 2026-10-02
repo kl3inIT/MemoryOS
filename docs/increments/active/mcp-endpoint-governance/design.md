@@ -82,8 +82,39 @@ refusals for rate, the calls of each day, and the calls and people of each app a
 and a histogram; the Chat & AI dashboard has a *MemoryOS MCP endpoint* row: calls by tool and outcome, calls by app,
 p95 by tool, and refusals for rate.
 
+## 5. Browser session lifetime
+
+The owner asked for longer sessions. A person was asked for their password whenever they left MemoryOS for half an
+hour more than half an hour after signing in: the browser session ended after 30 minutes unused, and so did
+Keycloak's SSO session (its defaults, 30 minutes idle and 10 hours at most), which nothing refreshes because the
+browser keeps no provider token. Only a sign-in touches it.
+
+References: Onyx keeps a session 7 days (`SESSION_EXPIRE_TIME_SECONDS`, and ignores the provider's expiry unless
+`TRACK_EXTERNAL_IDP_EXPIRY`); Google Workspace defaults to 14 days; Glean publishes no length, defers to the
+customer's SSO and lets an administrator sign a person out of every session.
+
+**Decision.**
+
+- **Browser session:** ends after 8 hours unused (`MEMORYOS_SESSION_TIMEOUT` default), and 7 days after the
+  password however active (`memoryos.browser.session-max-lifetime`). Login keeps the ID token's `auth_time` beside
+  `sid`; `BrowserSessionLifetimeFilter`, between Spring Session and the security chains, invalidates an older
+  session, and the request continues signed out. A tab that polls can no longer keep a session forever.
+- **Keycloak SSO session:** 7 days idle and 7 days at most (realm script). Since only a sign-in touches it, its idle
+  is the cadence of the password: after a night away the browser signs in again through a silent redirect, and once a
+  week the person types the password. `auth_time` keeps the password's instant across silent sign-ins, so both
+  sessions end together.
+- An 8-hour Keycloak idle, first proposed, would have asked for the password every morning; a daily cadence is one
+  value in the realm script if the owner prefers it.
+
+**What it changes elsewhere.**
+
+- The inspection consoles (pgweb, Redis Insight, MinIO) sign in through the same SSO session, so the owner, the only
+  holder of `memoryos-inspector`, opens them without a password for the week too.
+- A person removed from the upstream (Tasco) directory but not from MemoryOS keeps a session up to 7 days, as with
+  Onyx. Deactivation in MemoryOS still applies on the next request, and sign-out ends the Keycloak session by `sid`.
+- MCP grants are offline sessions and keep their own lifetime (section 2).
+
 ## Excluded
 
 - Gemini and Dynamic Client Registration (MEM-207, second part).
 - An administrator revoking one member's connections.
-- Web and Keycloak session lifetimes, awaiting the owner's numbers.

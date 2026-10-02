@@ -309,6 +309,11 @@ configure_realm() {
             --config "$CONFIG_FILE" \
             -f - >/dev/null
     fi
+    # The browser keeps no provider token, so only a sign-in touches Keycloak's SSO session: its lifetime is how long
+    # signing in again stays silent. Seven days from the password, as Onyx keeps a session; the API ends a browser
+    # session at the same age (memoryos.browser.session-max-lifetime).
+    jq -cn '{ssoSessionIdleTimeout: 604800, ssoSessionMaxLifespan: 604800}' |
+        "$KCADM" update "realms/$TARGET_REALM"             --config "$CONFIG_FILE"             -f - >/dev/null
     configured_theme=$("$KCADM" get "realms/$TARGET_REALM" \
         --config "$CONFIG_FILE" \
         --fields loginTheme |

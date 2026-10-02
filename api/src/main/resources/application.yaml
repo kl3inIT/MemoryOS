@@ -153,7 +153,9 @@ server:
   forward-headers-strategy: framework
   servlet:
     session:
-      timeout: ${MEMORYOS_SESSION_TIMEOUT:30m}
+      # A browser session ends after 8 hours unused and, used or not, memoryos.browser.session-max-lifetime after the
+      # password; signing in again within that is a silent redirect through Keycloak.
+      timeout: ${MEMORYOS_SESSION_TIMEOUT:8h}
       cookie:
         http-only: true
         secure: ${MEMORYOS_SESSION_COOKIE_SECURE:true}
@@ -217,6 +219,8 @@ memoryos:
         client-secret: ${MEMORYOS_MCP_ADMIN_CLIENT_SECRET:}
   browser:
     registration-id: memoryos
+    # Equal to Keycloak's SSO session (configure-memoryos-realm.sh), so the two end together.
+    session-max-lifetime: 7d
   mcp:
     credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
     # HTTPS (or loopback HTTP) ending in /login/oauth2/code/mcp; registered with each OAuth client.
