@@ -92,7 +92,7 @@
     "@vitejs/plugin-react": "6.1.1",
     "jsdom": "30.1.1",
     "knip": "6.38.0",
-    "msw": "2.15.0",
+    "msw": "3.0.1",
     "oxfmt": "0.70.0",
     "oxlint": "1.85.0",
     "shadcn": "4.21.0",
