@@ -6,7 +6,7 @@ One pull request.
   `manage-clients`, seeds the trusted hosts once and keeps the live lists on a rerun, sets the 180-day offline
   maximum and deletes `memoryos-chatgpt`; Compose mounts `mcp_admin_client_secret` instead of the ChatGPT secret.
   Tests: `test_realm_mcp_endpoint.py`, `test_server_secret_sources.py`.
-- [x] **Trusted apps.** V140; `McpTrustedAppService` with validation, revisions, audit and the Keycloak projection;
+- [x] **Trusted apps.** V141; `McpTrustedAppService` with validation, revisions, audit and the Keycloak projection;
   `KeycloakMcpClientPolicy` behind the `McpClientPolicy` port; reconciliation at start and every 10 minutes; API
   routes under `/api/mcp/endpoint/trusted-apps`; the member connection lists the apps that are on. Tests:
   `KeycloakMcpClientPolicyTest`, `McpEndpointIntegrationTest`.
@@ -20,7 +20,7 @@ One pull request.
 - [x] **Dashboard.** The *MemoryOS MCP endpoint* row of Chat & AI.
 - [x] **Browser session.** 8 hours unused, 7 days from the password (`auth_time`) with Keycloak's SSO session at
   the same 7 days. Tests: `SessionSecurityIntegrationTest`, `RealmSessionLifetimeTest`.
-- [x] **Documents.** [ADR 0020](../../../decisions/0020-trusted-mcp-apps-kept-in-memoryos.md), the audit spec and
+- [x] **Documents.** [ADR 0022](../../../decisions/0022-trusted-mcp-apps-kept-in-memoryos.md), the audit spec and
   matrix, the runbooks, the MEM-114 increment, the roadmap.
 - [ ] CI green.
 - [x] **Staging, before the merge** (done 2026-10-03 with the owner's approval), so the API never runs without its

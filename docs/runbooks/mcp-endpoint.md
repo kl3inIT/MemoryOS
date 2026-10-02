@@ -22,7 +22,7 @@ What the realm reconciliation does with `MEMORYOS_MCP_ENDPOINT_URL`:
   Keycloak 26.8's own executor rejects (keycloak/keycloak#51236). The first run seeds Claude's and ChatGPT's hosts
   (`claude.ai`, `claude.com`, `chatgpt.com`, and loopback for Claude Code's redirects); after that
   *Quản trị › MemoryOS MCP* owns the lists and a rerun keeps them
-  ([ADR 0020](../decisions/0020-trusted-mcp-apps-kept-in-memoryos.md)). Resource indicators are limited to the
+  ([ADR 0022](../decisions/0022-trusted-mcp-apps-kept-in-memoryos.md)). Resource indicators are limited to the
   endpoint, and a separate policy requires S256 PKCE from every public client of the realm, these included.
 - **Admin account.** `memoryos-mcp-admin`, a confidential client with only a service account and the
   realm-management roles `manage-realm` and `manage-clients`; the script fails if it holds anything else.

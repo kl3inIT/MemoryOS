@@ -19,8 +19,8 @@ domain its document lists (callback, logo; loopback allowed). Switching an app o
 it revokes every connection made through it. A member's *Cài đặt › MemoryOS MCP* gives the steps only for the apps
 that are on, with one generic guide for any app of the Tenant's own.
 
-**Where the list lives.** MemoryOS owns it (`mcp_trusted_apps`, V140); Keycloak's client policy `memoryos-mcp-cimd`
-is its projection ([ADR 0020](../../../decisions/0020-trusted-mcp-apps-kept-in-memoryos.md)).
+**Where the list lives.** MemoryOS owns it (`mcp_trusted_apps`, V141); Keycloak's client policy `memoryos-mcp-cimd`
+is its projection ([ADR 0022](../../../decisions/0022-trusted-mcp-apps-kept-in-memoryos.md)).
 
 - Built-in apps keep their hosts in code (`McpTrustedApp.Preset`); a built-in row holds only its switch and revision.
   Claude: client ID hosts `claude.ai`, `claude.com`; document hosts those plus `localhost`, `127.0.0.1`. ChatGPT:

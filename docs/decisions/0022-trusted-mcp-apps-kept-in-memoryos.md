@@ -1,4 +1,4 @@
-# 20. Trusted MCP apps are kept in MemoryOS and Keycloak follows
+# 22. Trusted MCP apps are kept in MemoryOS and Keycloak follows
 
 Date: 2026-10-02
 

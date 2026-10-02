@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * MEM-207: which outside assistants the MCP endpoint admits, as Notion and Atlassian let an administrator approve the
  * AI apps that may connect. The database holds what the administrator chose; Keycloak's metadata-document policy is a
  * projection of the operating Tenant's enabled apps. A change writes the policy inside its transaction, so a Keycloak
- * failure leaves nothing changed, and {@link #reconcile()} repairs a policy that drifted, at start and periodically.
+ * failure leaves nothing changed, and {@link #reconcile()} repairs a policy that drifted, at start and periodically. A deployment without an endpoint URL leaves Keycloak alone.
  */
 @Service
 public class McpTrustedAppService {
@@ -42,24 +42,30 @@ public class McpTrustedAppService {
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
     private final AuditTrail audit;
+    private final McpEndpointProperties endpoint;
 
     public McpTrustedAppService(JdbcMcpTrustedAppRepository repository, McpClientPolicy policy,
-                                IamAuthorization authorization, TenantAccessResolver tenants, AuditTrail audit) {
+                                IamAuthorization authorization, TenantAccessResolver tenants, AuditTrail audit,
+                                McpEndpointProperties endpoint) {
         this.repository = repository;
         this.policy = policy;
         this.authorization = authorization;
         this.tenants = tenants;
         this.audit = audit;
+        this.endpoint = endpoint;
     }
 
-    /** {@code manageable} is false when the deployment has no account to change Keycloak's policy. */
+    /**
+     * {@code manageable} is false when the deployment has no endpoint URL, whose realm then holds no trusted-app policy,
+     * or no account to change Keycloak's policy.
+     */
     public record Listing(boolean manageable, List<McpTrustedApp> apps) {}
 
     @Transactional
     public Listing list(ActorId actor) {
         var tenant = authorization.require(actor, IamCapability.MCP_MANAGE, false).tenantId();
         repository.ensureBuiltIns(tenant);
-        return new Listing(policy.configured(), repository.list(tenant).stream().map(McpTrustedAppService::resolved).toList());
+        return new Listing(manageable(), repository.list(tenant).stream().map(McpTrustedAppService::resolved).toList());
     }
 
     /** The built-in apps a member may connect, and whether any app of the Tenant's own is trusted. */
@@ -122,7 +128,7 @@ public class McpTrustedAppService {
      */
     @Transactional(readOnly = true)
     public void reconcile() {
-        if (!policy.configured()) return;
+        if (!manageable()) return;
         tenants.operatingTenant().ifPresent(tenant -> {
             var hosts = trusted(tenant);
             policy.trust(hosts);
@@ -158,7 +164,12 @@ public class McpTrustedAppService {
     }
 
     private void requireManageable() {
-        if (!policy.configured()) throw McpException.trustedAppsNotManageable();
+        if (!manageable()) throw McpException.trustedAppsNotManageable();
+    }
+
+    /** The realm holds the trusted-app policy only beside an endpoint, and changing it takes the account. */
+    private boolean manageable() {
+        return endpoint.url().isPresent() && policy.configured();
     }
 
     private McpException missingOrChanged(TenantId tenant, UUID id) {
