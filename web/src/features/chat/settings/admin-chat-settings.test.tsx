@@ -300,6 +300,40 @@ it("saves the blocked phrases with the topics as they stand", async () => {
   await waitFor(() => expect(save).toBeDisabled());
 });
 
+it("waits for a topic save before the phrases can be saved", async () => {
+  const user = show();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  server.use(
+    handleSaveChatGuardrails(async ({ request }) => {
+      const body = await request.json();
+      savedGuardrails(body);
+      await held;
+      guardrails = { ...guardrails, topics: body.topics, revision: guardrails.revision + 1 };
+      return HttpResponse.json(guardrails);
+    }),
+  );
+  const topics = await screen.findByRole("region", { name: "Sensitive topics" });
+  const phrases = screen.getByRole("region", { name: "Blocked phrases" });
+  await user.type(within(phrases).getByRole("textbox", { name: "Blocked phrases" }), "\nmã nội bộ");
+  const save = within(phrases).getByRole("button", { name: "Save" });
+  expect(save).toBeEnabled();
+
+  await user.click(within(topics).getByRole("switch", { name: "Chính trị" }));
+
+  // A second save now would carry the revision the first one is about to replace.
+  await waitFor(() => expect(save).toBeDisabled());
+  expect(within(topics).getByRole("switch", { name: "Lãnh tụ và lãnh đạo" })).toBeDisabled();
+  release();
+  await waitFor(() => expect(save).toBeEnabled());
+  await user.click(save);
+  await waitFor(() =>
+    expect(savedGuardrails).toHaveBeenLastCalledWith(
+      expect.objectContaining({ topics: [{ ...POLITICS, enabled: true }, LEADERS], revision: 8 }),
+    ),
+  );
+});
+
 it("refuses more blocked phrases than the API keeps", async () => {
   const user = show();
   const phrases = await screen.findByRole("region", { name: "Blocked phrases" });

@@ -55,6 +55,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type {
   ChatGuardrailTopic,
+  ChatGuardrailsRequest,
   ChatGuardrailsResponse,
   ChatHistoryVisibilityRequest,
 } from "@/lib/hey-api/types.gen";
@@ -322,7 +323,8 @@ function linesOf(text: string) {
 /**
  * The Tenant's sensitive topics (MEM-208, after Amazon Q Business topic controls) and blocked phrases. A topic switch
  * saves at once; a topic is added and edited in a dialog and deleted after confirmation. Every change sends the whole
- * guardrails document with its revision, so the controls wait for the previous save.
+ * guardrails document with its revision, so every guardrail control, the phrases' Save included, waits while any
+ * guardrail save is in flight: a second save would carry a stale revision.
  */
 function GuardrailsSections() {
   const ui = useAppTranslation();
@@ -333,6 +335,9 @@ function GuardrailsSections() {
     onSuccess: (next) => cache.setQueryData(getChatGuardrailsQueryKey(), next),
     onError: () => cache.invalidateQueries({ queryKey: getChatGuardrailsQueryKey() }),
   });
+  // The phrases keep their own mutation so a failure is shown on their form, not under the topics.
+  const phrasesSave = useMutation(saveChatGuardrailsMutation());
+  const busy = save.isPending || phrasesSave.isPending;
   const [editing, setEditing] = useState<TopicDraft>();
   const [removing, setRemoving] = useState<ChatGuardrailTopic>();
   if (guardrails.isPending) return null;
@@ -362,7 +367,7 @@ function GuardrailsSections() {
           <Button
             prominence="secondary"
             size="sm"
-            disabled={full || save.isPending}
+            disabled={full || busy}
             title={full ? ui("Đã đủ 30 chủ đề.") : undefined}
             onClick={() =>
               setEditing({ name: "", description: "", examples: "", message: "", enabled: true })
@@ -390,7 +395,7 @@ function GuardrailsSections() {
                   <Switch
                     checked={topic.enabled}
                     aria-label={topic.name}
-                    disabled={save.isPending}
+                    disabled={busy}
                     onCheckedChange={(enabled) =>
                       void saveTopics(
                         saved.topics.map((other) =>
@@ -404,7 +409,7 @@ function GuardrailsSections() {
                       <IconButton
                         size="sm"
                         prominence="internal"
-                        disabled={save.isPending}
+                        disabled={busy}
                         aria-label={ui("Thao tác với {{name}}", { name: topic.name })}
                       >
                         <MoreHorizontal />
@@ -452,7 +457,11 @@ function GuardrailsSections() {
           />
         </SettingRows>
       </ChatSection>
-      <PhrasesSection saved={saved} />
+      <PhrasesSection
+        saved={saved}
+        busy={busy}
+        save={(body) => phrasesSave.mutateAsync({ body })}
+      />
       {editing && (
         <TopicDialog
           draft={editing}
@@ -594,11 +603,19 @@ function phrasesDraft(saved: ChatGuardrailsResponse) {
  * Exact phrases no question or answer may contain (MEM-195, after Amazon Q Business blocked phrases). They are typed,
  * so this card keeps its own save; the topics are sent as the latest save left them.
  */
-function PhrasesSection({ saved }: { saved: ChatGuardrailsResponse }) {
+function PhrasesSection({
+  saved,
+  busy,
+  save,
+}: {
+  saved: ChatGuardrailsResponse;
+  /** A guardrail save is in flight, from this card or the topics. */
+  busy: boolean;
+  save: (body: ChatGuardrailsRequest) => Promise<ChatGuardrailsResponse>;
+}) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const problemErrors = useProblemErrors();
-  const save = useMutation(saveChatGuardrailsMutation());
   const schema = z.object({
     phrases: z
       .string()
@@ -617,13 +634,11 @@ function PhrasesSection({ saved }: { saved: ChatGuardrailsResponse }) {
       // The latest guardrails are read at submit: a topic switched meanwhile keeps its new state.
       const current = cache.getQueryData(getChatGuardrailsOptions().queryKey) ?? saved;
       try {
-        const next = await save.mutateAsync({
-          body: {
-            topics: current.topics,
-            blockedPhrases: phrasesOf(value.phrases),
-            blockedPhraseMessage: value.message,
-            revision: current.revision,
-          },
+        const next = await save({
+          topics: current.topics,
+          blockedPhrases: phrasesOf(value.phrases),
+          blockedPhraseMessage: value.message,
+          revision: current.revision,
         });
         cache.setQueryData(getChatGuardrailsQueryKey(), next);
         formApi.reset(phrasesDraft(next));
@@ -658,7 +673,7 @@ function PhrasesSection({ saved }: { saved: ChatGuardrailsResponse }) {
           <form.Subscribe selector={(state) => state.isDirty}>
             {(dirty) => (
               <div className="flex justify-end">
-                <form.SubmitButton disabled={!dirty}>{ui("Lưu")}</form.SubmitButton>
+                <form.SubmitButton disabled={!dirty || busy}>{ui("Lưu")}</form.SubmitButton>
               </div>
             )}
           </form.Subscribe>
