@@ -1294,9 +1294,9 @@ class ChatSessionApiIntegrationTest {
         when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(document, List.of(new DocumentSourceMetadata(
                 searchSource, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
-        when(searchIndex.document(tenant, document, generation, 0, 2)).thenReturn(new SearchDocument(document, generation, "HR policy",
+        when(searchIndex.document(tenant, document, generation, 0, 2)).thenReturn(new SearchDocument(document, generation, "HR policy", "text/plain",
                 List.of(new SearchPage.Passage(0, "Employee handbook", "[]"), new SearchPage.Passage(1, "Annual policy", "[]")), 0, 3, true));
-        when(searchIndex.document(tenant, document, generation, 3, 2)).thenReturn(new SearchDocument(document, generation, "HR policy", List.of(), 3, 3, false));
+        when(searchIndex.document(tenant, document, generation, 3, 2)).thenReturn(new SearchDocument(document, generation, "HR policy", "text/plain", List.of(), 3, 3, false));
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
             assertFalse(text.contains("PRIVATE DENIED CONTENT"));
@@ -1356,7 +1356,7 @@ class ChatSessionApiIntegrationTest {
                 searchSource, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
         when(searchIndex.document(any(), any(), any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt()))
-                .thenReturn(new SearchDocument(document, generation, "HR policy", List.of(), 0, 0, false));
+                .thenReturn(new SearchDocument(document, generation, "HR policy", "text/plain", List.of(), 0, 0, false));
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
             if (text.contains("provide a standalone query")) return response("{\"query\":\"leave\"}", "stop", 7);
@@ -6113,7 +6113,7 @@ class ChatSessionApiIntegrationTest {
             int end = Math.min(start + count, content.size());
             var passages = IntStream.range(start, end)
                     .mapToObj(i -> new SearchPage.Passage(i, content.get(i), "[{\"page\":" + (i + 1) + "}]")).toList();
-            return new SearchDocument(id, generation, titles.get(id), passages, Math.min(start, content.size()), content.size(), end < content.size());
+            return new SearchDocument(id, generation, titles.get(id), "text/plain", passages, Math.min(start, content.size()), content.size(), end < content.size());
         });
         try {
             var provider = configuration.chatProviderModel(client, sync, key, ObservationRegistry.NOOP, meters);

@@ -497,9 +497,13 @@ null when the deployment has no secret. A member read returns only whether the e
 
 **Keycloak consent page.** Under the `memoryos` theme, in Vietnamese and English.
 
-**Document link.** `/search?doc=<id>` opens the document dialog on the document's text, read at its current
-generation. The viewer of the stored original needs the media type, which the document read does not return, so a
-linked document does not open on its original file.
+**Document link.** `/search?doc=<id>` opens the document dialog at the document's current generation. Until
+2026-10-02 the document read returned no media type, so a link opened on the extracted text and an uploaded PDF
+showed no pages. The read now returns the original's `mediaType`, and a link opens on the original as a Chat
+citation does: a PDF's pages, a Word document, a workbook. An original that can only be downloaded (`.doc`,
+PowerPoint, an unknown format) still opens on its text, because a link carries no citation rail to switch from.
+Opening at the cited passage (`&passage=<n>`, the PDF at its page) is recorded in
+[MEM-209](https://linear.app/memory-os/issue/MEM-209) for later.
 
 ## Scope
 

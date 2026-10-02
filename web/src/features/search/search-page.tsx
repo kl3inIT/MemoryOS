@@ -202,8 +202,7 @@ function AuthorizedSearchPage() {
         <DocumentPreviewDialog
           key={`linked:${linked.selection.documentId}:${linked.selection.generation}`}
           selection={linked.selection}
-          // A link names no media type, which the original's viewer needs, so it opens on the document's text.
-          view="passages"
+          view={linked.view}
           returnFocusRef={returnFocusRef}
           fallbackFocusRef={searchInputRef}
           onClose={linked.close}

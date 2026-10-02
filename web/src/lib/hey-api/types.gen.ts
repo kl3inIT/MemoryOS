@@ -2626,6 +2626,7 @@ export type SearchDocument = {
     documentId: string;
     generation: string;
     title: string;
+    mediaType: string;
     passages: Array<Passage>;
     firstOrdinal: number;
     totalChunks: number;

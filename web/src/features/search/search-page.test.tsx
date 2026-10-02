@@ -21,6 +21,7 @@ import { HttpResponse } from "msw";
 import {
   handleGetChatVoiceAvailability,
   handleGetSearchDocument,
+  handleReadSearchDocumentOriginal,
   handleListChatPersonaPins,
   handleListChatProjects,
   handleListChatSessions,
@@ -231,6 +232,8 @@ describe("SearchPage", () => {
           documentId,
           generation: "8a1c2e3f-4b5d-4c6e-8f70-112233445566",
           title: "Quy chế nghỉ phép 2026",
+          // An original that can only be downloaded opens on its extracted text instead.
+          mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
           passages: [
             { ordinal: 0, content: "Nhân viên mới có 12 ngày phép năm.", provenanceJson: "{}" },
           ],
@@ -250,6 +253,33 @@ describe("SearchPage", () => {
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(renderedRouter?.state.location.href).toBe("/search"));
+  });
+
+  it("opens an uploaded PDF a doc link names on its stored original, as a Chat citation does", async () => {
+    const documentId = "5c1d2e3f-4a5b-4c6d-8e7f-90a1b2c3d4e5";
+    const generation = "9b2d3e4f-5a6b-4c7d-8e9f-a0b1c2d3e4f5";
+    server.use(
+      handleGetSearchDocument(() =>
+        HttpResponse.json({
+          documentId,
+          generation,
+          title: "Sổ tay nhân sự 2026.pdf",
+          mediaType: "application/pdf",
+          passages: [{ ordinal: 0, content: "Chương 1. Quy định chung.", provenanceJson: "{}" }],
+          firstOrdinal: 0,
+          totalChunks: 40,
+          hasMore: true,
+        }),
+      ),
+      // jsdom cannot draw the PDF; the end-to-end case renders its pages.
+      handleReadSearchDocumentOriginal(() => new HttpResponse(null, { status: 404 })),
+    );
+    await renderNewSession(OWNER_SESSION, `/search?doc=${documentId}`);
+
+    // The dialog knows the original is a PDF, so it opens the PDF reader rather than the extracted text alone.
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(dialog).toHaveAccessibleDescription(/PDF/));
+    expect(dialog).not.toHaveAccessibleDescription(/Extracted document text/);
   });
 
   it("says so when a doc link names a document the reader cannot read", async () => {

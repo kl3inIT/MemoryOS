@@ -264,6 +264,15 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   or one with an end leaves them out. Items synchronized before V35 carry their ingestion time until that run.
   Connected Claude and ChatGPT clients see the new tool after they refresh their tool list.
 
+## 4d. Document links open the original (2026-10-02)
+
+- [x] A citation from Claude or ChatGPT to an uploaded PDF opened MemoryOS on the extracted text only: the document read
+  returned no media type. `SearchDocument` and the read now carry `mediaType` (the index's header hit), and
+  `/search?doc=<id>` opens on the original; download-only formats keep opening on the text.
+- [x] Tests: `DocumentSearchServiceTest`, `OpenApiContractTest`, `search-page.test.tsx` (a PDF link and a
+  download-only one), `search.spec.ts` with the 12-page PDF fixture, captures at 1280 and 390 px reviewed.
+- Opening at the cited passage moved to [MEM-209](https://linear.app/memory-os/issue/MEM-209).
+
 ## 5. Acceptance and documentation (pull request 4)
 
 - [ ] **Staging Keycloak from the release.** Staging ran the 26.7 image it once shared with OrgMemory, which has no
