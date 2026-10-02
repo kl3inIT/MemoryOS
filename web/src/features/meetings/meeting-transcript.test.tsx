@@ -68,10 +68,12 @@ it("renders only the lines in view of a long transcript, each saying where it si
 });
 it("follows server transcript updates while a shared meeting is recording", async () => {
   const active = { ...meeting(1), status: "RECORDING" as const };
+  const first = active.utterances[0];
+  if (!first) throw new Error("Live transcript fixture needs an utterance.");
   const client = new QueryClient();
   const view = render(
     <QueryClientProvider client={client}>
-      <Transcript meeting={active} onStar={vi.fn()} />
+      <Transcript meeting={active} recorder={undefined} onStar={vi.fn()} />
     </QueryClientProvider>,
   );
   const list = screen.getByRole("region", { name: "Transcript" });
@@ -90,7 +92,7 @@ it("follows server transcript updates while a shared meeting is recording", asyn
           utterances: [
             ...active.utterances,
             {
-              ...active.utterances[0],
+              ...first,
               id: "line-1",
               startMs: 5_000,
               endMs: 9_000,
@@ -98,6 +100,7 @@ it("follows server transcript updates while a shared meeting is recording", asyn
             },
           ],
         }}
+        recorder={undefined}
         onStar={vi.fn()}
       />
     </QueryClientProvider>,
