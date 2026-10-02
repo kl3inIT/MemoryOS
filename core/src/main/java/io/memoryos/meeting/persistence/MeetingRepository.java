@@ -439,13 +439,13 @@ public class MeetingRepository {
                 """).param("max", maxAttempts).update();
     }
 
-    /** Records a failed run; the meeting waits for another attempt until the attempts run out. */
-    public void failMinutes(UUID tenant, UUID meeting, int attempt, int maxAttempts, String failure) {
+    /** Records a failed run; unless it was the last, the meeting waits for another attempt. */
+    public void failMinutes(UUID tenant, UUID meeting, int attempt, boolean last, String failure) {
         jdbc.sql("""
-                UPDATE meeting SET minutes_status = CASE WHEN :attempt >= :max THEN 'FAILED' ELSE 'PENDING' END,
+                UPDATE meeting SET minutes_status = CASE WHEN :last THEN 'FAILED' ELSE 'PENDING' END,
                        minutes_lease_until = NULL, minutes_failure = :failure
                 WHERE tenant_id = :tenant AND id = :meeting AND minutes_status = 'RUNNING' AND minutes_attempts = :attempt
-                """).param("tenant", tenant).param("meeting", meeting).param("attempt", attempt).param("max", maxAttempts)
+                """).param("tenant", tenant).param("meeting", meeting).param("attempt", attempt).param("last", last)
                 .param("failure", failure).update();
     }
 
