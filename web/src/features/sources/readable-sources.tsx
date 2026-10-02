@@ -52,7 +52,7 @@ export function ReadableSources({
     return (
       <EmptyState
         role="alert"
-        title={ui("Sources unavailable")}
+        title={ui("Couldn't load sources")}
         action={
           <Button prominence="secondary" size="sm" onClick={() => void sources.refetch()}>
             {ui("Try again")}
@@ -77,7 +77,6 @@ export function ReadableSources({
       statuses={READABLE_STATUSES}
       documents={(source) => source.readableDocuments}
       documentsLabel={ui("Documents you can read")}
-      documentsTotalLabel={ui("Documents you can read")}
       renderName={(source) => <SourceName source={source} DocumentsLink={DocumentsLink} />}
       renderAccess={(source) =>
         source.groups.length > 0 ? (

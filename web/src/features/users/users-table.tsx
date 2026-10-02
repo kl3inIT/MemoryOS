@@ -3,6 +3,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
 import {
+  columnVisibilityFeature,
   createColumnHelper,
   rowPaginationFeature,
   rowSortingFeature,
@@ -14,6 +15,7 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, User } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -77,7 +79,11 @@ const statusTone: Record<UserListItem["status"], StatusTone> = {
 
 const pageSizes = [20, 50, 100] as const;
 
+/** On a phone the row keeps who it is, their status and their actions; groups and account type wait for a wider screen. */
+const phoneColumnVisibility = { groups: false, accountType: false };
+
 const features = tableFeatures({
+  columnVisibilityFeature,
   rowPaginationFeature,
   rowSortingFeature,
   columnMeta: {} as DataTableColumnMeta,
@@ -184,7 +190,7 @@ const columns = column.columns([
       const ui = useAppTranslation();
       return <SortButton table={table} field="status" label={ui("Status")} />;
     },
-    meta: { width: "w-48" },
+    meta: { width: "w-32 md:w-48" },
     cell: ({ row, table }) => {
       const meta = table.options.meta!;
       const key = rowKey(row.original);
@@ -267,6 +273,7 @@ export function UsersTable({
     if (target?.isConnected) requestAnimationFrame(() => target.focus());
   }
 
+  const isMobile = useIsMobile();
   const sorting = sortingOf(sort);
   const pagination = { pageIndex: page, pageSize: size };
   const table = useTable({
@@ -292,7 +299,7 @@ export function UsersTable({
     enableSortingRemoval: false,
     manualPagination: true,
     pageCount: totalPages,
-    state: { sorting, pagination },
+    state: { sorting, pagination, columnVisibility: isMobile ? phoneColumnVisibility : {} },
     onSortingChange: (updater) => {
       const next = sortOf(typeof updater === "function" ? updater(sorting) : updater);
       if (next) onSortChange(next);
@@ -306,7 +313,7 @@ export function UsersTable({
       <DataTable
         table={table}
         label={ui("Tenant users")}
-        className="min-w-224"
+        className="md:min-w-224"
         footer={
           <TablePagination
             label={ui("User pages")}
