@@ -43,6 +43,12 @@ public final class AiException extends BusinessException {
                 "The provider endpoint could not be reached.");
     }
 
+    /** The model answered, but not in the shape the call asked for, as when its answer stops at the output limit. */
+    public static AiException answerUnreadable() {
+        return new AiException("CHAT_MODEL_ANSWER_UNREADABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "The model's answer could not be read.");
+    }
+
     public static AiException providerIncompatible() {
         return new AiException("CHAT_PROVIDER_INCOMPATIBLE", FailureCategory.VALIDATION,
                 "The endpoint did not answer as an OpenAI-compatible API.");

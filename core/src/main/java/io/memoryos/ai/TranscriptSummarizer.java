@@ -1,5 +1,6 @@
 package io.memoryos.ai;
 
+import com.embabel.agent.core.support.InvalidLlmReturnFormatException;
 import io.memoryos.shared.ActorId;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
@@ -57,11 +58,23 @@ public class TranscriptSummarizer {
     public TranscriptSummary summarize(ActorId actor, UUID tenant, Subject subject, List<Line> lines) {
         if (lines.isEmpty()) throw AiException.invalid("A transcript is required.");
         try (var selected = models.resolveFlow(actor, ModelFlow.MEETING_MINUTES)) {
-            var summary = calls.generateObject(selected.binding(), instructions(subject), transcript(subject, lines),
-                    TranscriptSummary.class, TIMEOUT, MAX_OUTPUT_TOKENS,
-                    accounting -> record(tenant, actor, selected, accounting));
+            TranscriptSummary summary;
+            try {
+                summary = calls.generateObject(selected.binding(), instructions(subject), transcript(subject, lines),
+                        TranscriptSummary.class, TIMEOUT, MAX_OUTPUT_TOKENS,
+                        accounting -> record(tenant, actor, selected, accounting));
+            } catch (RuntimeException failure) {
+                throw named(selected.binding(), failure);
+            }
             return clean(summary, lines.size());
         }
+    }
+
+    /** A refused key and an answer that is not the minutes are named, so the owner sees why. */
+    private static RuntimeException named(ModelBinding binding, RuntimeException failure) {
+        if (binding.credentialRejected(failure)) return AiException.providerCredentialRejected();
+        if (failure instanceof InvalidLlmReturnFormatException) return AiException.answerUnreadable();
+        return failure;
     }
 
     /** The system half of the prompt: what to produce and what never to produce. */

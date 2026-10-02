@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { use, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   CheckSquare,
   Clock,
   FileDown,
   Gavel,
+  KeyRound,
   MessageSquareText,
   RefreshCw,
   Users,
@@ -16,6 +17,7 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ApplicationSessionContext } from "@/features/identity/application-session-context";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -134,11 +136,32 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
   );
 }
 
+/** Why the minutes could not be written, from the code the job stored; a model manager gets the way to fix a key. */
+function MinutesFailure({ failure }: { failure: string | null }) {
+  const ui = useAppTranslation();
+  const manager = use(ApplicationSessionContext)?.capabilities.includes("MODELS_MANAGE") ?? false;
+  if (failure === "CHAT_PROVIDER_CREDENTIAL_REJECTED")
+    return (
+      <>
+        {ui("Provider từ chối API key")}
+        {manager && (
+          <>
+            {" · "}
+            <Link to="/admin/models">{ui("Cập nhật API key")}</Link>
+          </>
+        )}
+      </>
+    );
+  if (failure === "CHAT_MODEL_ANSWER_UNREADABLE")
+    return ui("Model trả về biên bản không đọc được.");
+  return ui("Hãy thử lại.");
+}
+
 /** The model's account of the meeting, with what it is still doing or why it could not. */
 export function MinutesSummary({ meeting }: { meeting: MeetingDetail }) {
   const ui = useAppTranslation();
   const { rerun, start } = useRerunMinutes(meeting.id);
-  const { status, generatedAt } = meeting.minutes;
+  const { status, generatedAt, failure } = meeting.minutes;
 
   if (status === "PENDING" || status === "RUNNING")
     return (
@@ -150,9 +173,9 @@ export function MinutesSummary({ meeting }: { meeting: MeetingDetail }) {
     return (
       <EmptyState
         role="alert"
-        icon={<WifiOff />}
+        icon={failure === "CHAT_PROVIDER_CREDENTIAL_REJECTED" ? <KeyRound /> : <WifiOff />}
         title={ui("Chưa viết được tóm tắt")}
-        detail={ui("Transcript vẫn còn nguyên. Thử lại khi mô hình sẵn sàng.")}
+        detail={<MinutesFailure failure={failure} />}
         action={
           <Button
             size="sm"
