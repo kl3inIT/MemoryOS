@@ -34,12 +34,15 @@ assistant-ui's Model selector (`/elements/model-selector`, already installed as 
 - The question check keeps its 20-second bound: it runs before every guarded answer, and a check that runs past it leaves the turn without a verdict, which the answer model still guards.
 - A model that does not reason gets no level, as today.
 
-**The Models page keeps its picker and adds the Thinking row of assistant-ui's Model selector.**
-- The rows keep the Onyx-style `ModelPicker` (search, provider groups with their boundary tag, model logos). Replacing it with the assistant-ui selector would drop those for one row of levels.
-- A task row's picker ends with a Reasoning row ("Tắt / Thấp / Vừa / Cao", the Chat labels) while the selected model reasons, and the trigger names the level beside the model, as assistant-ui does.
-- The row is a single-choice `ToggleGroup` in a new `segmented` toggle variant. The default on-state (`bg-muted`) matches the popover surface in dark mode (#26262b on #262626), so the chosen level gets the sunken surface, a border and primary text. assistant-ui's own row uses the accent surface the same way.
-- Choosing a model or a level saves at once, as the rows already do, and the picker stays open so levels can be compared.
+**The Models page rows use assistant-ui's Model selector, as Chat and the agent editor do** (owner, 2026-10-03: "dùng component của họ rồi chế cháo gì thì thêm").
+- `ModelPicker` is built from the element's parts: search, one group per provider with its data boundary tag in the heading, model logos, and the Thinking row (`ModelSelectorEffort`, labelled "Reasoning") with "Tắt / Thấp / Vừa / Cao", the Chat labels. The row shows only while the selected model reasons.
+- The Onyx-style collapsible provider groups are gone; the Chat picker never had them.
+- Choosing a model or a level saves at once, as the rows already do. The picker stays open while a level is picked, so levels can be compared.
 - The Chat default row has no Reasoning row: a conversation's level is the member's (pinned on the conversation or in their preferences).
+
+**Two additions on top of the element.**
+- The trigger shows the level as a pill (`ReasoningLevel`): a brain icon, the level and one to three bars, in the selection accent at three strengths (`reasoning-{low,medium,high}-*` tokens). Off and a model that does not reason show nothing, as ChatGPT shows its Think chip only while thinking is on. The owner found the grey level text of the element hard to see, and Mobbin shows no product colouring each level differently: ChatGPT colours the chip while on, Cofounder counts marks.
+- The element's checked level used `bg-accent`, which matches the popover in dark mode (#26262b on #262626); it takes the medium reasoning tint instead, an edit in the copied element.
 
 ## Out of scope
 

@@ -771,7 +771,7 @@ describe("models by task", () => {
         </ApplicationSessionBoundary>
       </QueryClientProvider>,
     );
-    const picker = await screen.findByRole("button", { name: "Conversation naming model" });
+    const picker = await screen.findByRole("combobox", { name: "Conversation naming model" });
     expect(picker).toHaveTextContent("Choose an eligible model");
     expect(
       await screen.findByText(/^No model chosen; Saved model .* is used\.$/),
@@ -779,12 +779,12 @@ describe("models by task", () => {
     expect(screen.getAllByText("External").length).toBeGreaterThan(0);
     fireEvent.click(picker);
     // Choosing a model saves it at once; there is no separate save step.
-    fireEvent.click(await screen.findByRole("button", { name: /Saved model/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Saved model/ }));
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]?.searchParams.get("modelConfigurationId")).toBe(model.id);
     expect(writes[0]?.searchParams.get("revision")).toBe("1");
     expect(await screen.findByText("Task model saved.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Conversation naming model" })).toHaveTextContent(
+    expect(screen.getByRole("combobox", { name: "Conversation naming model" })).toHaveTextContent(
       "Saved model",
     );
     expect(screen.queryByText(/^No model chosen/)).not.toBeInTheDocument();
@@ -846,9 +846,10 @@ describe("models by task", () => {
         </ApplicationSessionBoundary>
       </QueryClientProvider>,
     );
-    const picker = await screen.findByRole("button", { name: "Conversation naming model" });
+    const picker = await screen.findByRole("combobox", { name: "Conversation naming model" });
     expect(picker).toHaveTextContent("Thinking model");
-    expect(picker).toHaveTextContent("Off");
+    // Off shows no level beside the model; the levels are in the picker's reasoning row.
+    expect(picker).not.toHaveTextContent("Off");
     fireEvent.click(picker);
     fireEvent.click(await screen.findByRole("radio", { name: "Medium" }));
     await waitFor(() => expect(writes).toHaveLength(1));
@@ -856,7 +857,7 @@ describe("models by task", () => {
     expect(writes[0]?.searchParams.get("reasoningEffort")).toBe("MEDIUM");
     expect(writes[0]?.searchParams.get("revision")).toBe("1");
     expect(await screen.findByText("Task model saved.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Conversation naming model" })).toHaveTextContent(
+    expect(screen.getByRole("combobox", { name: "Conversation naming model" })).toHaveTextContent(
       "Medium",
     );
     client.clear();

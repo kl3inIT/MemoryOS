@@ -10,9 +10,6 @@ const toggleVariants = cva(
       variant: {
         default: "bg-transparent",
         outline: "border border-input bg-transparent hover:bg-muted",
-        // A level chosen among a few, readable on a popover too, where the muted on-state matches the surface.
-        segmented:
-          "border border-transparent bg-transparent text-content-muted hover:text-content-primary data-[state=on]:border-border-default data-[state=on]:bg-surface-sunken data-[state=on]:text-content-primary",
       },
       size: {
         default:

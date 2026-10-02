@@ -18,7 +18,8 @@ import {
   type ManagedProvider,
 } from "./model-catalog";
 import { useModelCatalogBusy, useModelMutation } from "./model-mutation";
-import { ModelPicker, type ModelPickerEffort } from "./model-picker";
+import type { ModelSelectorEffortOption } from "@/components/assistant-ui/elements/model-selector";
+import { ModelPicker } from "./model-picker";
 
 type Catalog = {
   providers: ManagedProvider[];
@@ -41,7 +42,7 @@ type Row = {
   unsetMessage?: string;
   unavailableMessage?: string;
   /** A task row offers the reasoning level beside the model; the Chat default leaves it to each conversation. */
-  efforts?: readonly ModelPickerEffort[];
+  efforts?: readonly ModelSelectorEffortOption[];
   save: (
     revision: number,
     modelId: string | null,
@@ -150,8 +151,6 @@ function SelectionEditor({
     await save(chosen, level as Effort);
   }
 
-  const chosenModel = models.find((model) => model.id === chosen);
-
   async function reconcile() {
     saving.cancel();
     setSaved(false);
@@ -175,9 +174,8 @@ function SelectionEditor({
           disabled={busy || conflicted}
           placeholder={ui("Choose an eligible model")}
           onChange={(modelId) => void choose(modelId)}
-          efforts={chosenModel?.settings.capabilities.reasoning ? row.efforts : undefined}
+          efforts={row.efforts}
           effort={effort}
-          effortLabel={ui("Reasoning")}
           onEffortChange={(level) => void chooseEffort(level)}
           options={[
             ...(savedHidden && savedModel && savedProvider
@@ -351,7 +349,7 @@ export function TaskModels(catalog: Catalog) {
       />
     );
   // The Chat labels for the same levels.
-  const efforts: ModelPickerEffort[] = [
+  const efforts: ModelSelectorEffortOption[] = [
     { id: "OFF", name: ui("Off") },
     { id: "LOW", name: ui("Low") },
     { id: "MEDIUM", name: ui("Medium") },
