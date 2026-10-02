@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
@@ -65,6 +65,49 @@ it("renders only the lines in view of a long transcript, each saying where it si
   expect(lines[0]).toHaveTextContent("Câu số 0");
   expect(lines[0]).toHaveAttribute("aria-setsize", "2000");
   expect(lines[0]).toHaveAttribute("aria-posinset", "1");
+});
+it("follows server transcript updates while a shared meeting is recording", async () => {
+  const active = { ...meeting(1), status: "RECORDING" as const };
+  const first = active.utterances[0];
+  if (!first) throw new Error("Live transcript fixture needs an utterance.");
+  const client = new QueryClient();
+  const view = render(
+    <QueryClientProvider client={client}>
+      <Transcript meeting={active} recorder={undefined} onStar={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  const list = screen.getByRole("region", { name: "Transcript" });
+  Object.defineProperties(list, {
+    clientHeight: { configurable: true, value: 600 },
+    scrollHeight: { configurable: true, value: 1_200 },
+    scrollTop: { configurable: true, value: 0, writable: true },
+  });
+  Object.defineProperty(list, "scrollTo", { configurable: true, value: vi.fn() });
+
+  view.rerender(
+    <QueryClientProvider client={client}>
+      <Transcript
+        meeting={{
+          ...active,
+          utterances: [
+            ...active.utterances,
+            {
+              ...first,
+              id: "line-1",
+              startMs: 5_000,
+              endMs: 9_000,
+              text: "Câu số 1",
+            },
+          ],
+        }}
+        recorder={undefined}
+        onStar={vi.fn()}
+      />
+    </QueryClientProvider>,
+  );
+
+  await waitFor(() => expect(list.scrollTop).toBe(1_200));
+  client.clear();
 });
 
 it("shows only the starred lines when asked, and counts search hits across the transcript", async () => {
