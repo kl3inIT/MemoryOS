@@ -15,7 +15,7 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 
 ## Flows
 
-`CHAT`, `CHAT_NAMING`, `CHAT_GUARDRAIL`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`, `MEETING_CORRECTION`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint (V138 added `CHAT_GUARDRAIL`).
+`CHAT`, `CHAT_NAMING`, `CHAT_GUARDRAIL`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`, `MEETING_CORRECTION`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint (V138 added `CHAT_GUARDRAIL`, V139 validates it).
 
 | Flow | Captured by | Usage |
 | --- | --- | --- |
