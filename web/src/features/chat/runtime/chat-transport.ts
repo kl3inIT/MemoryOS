@@ -288,16 +288,20 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           this.projectId,
           this.temporary,
         );
-        // The level chosen before the conversation existed applies from its first answer.
-        if (reasoningEffort)
-          this.session = (
-            await pinChatReasoningEffort({
-              path: { sessionId: this.session.id },
-              body: { reasoningEffort },
-              signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
-            })
-          ).data;
-        this.onSessionCreated?.(this.session);
+        try {
+          // The level chosen before the conversation existed applies from its first answer.
+          if (reasoningEffort)
+            this.session = (
+              await pinChatReasoningEffort({
+                path: { sessionId: this.session.id },
+                body: { reasoningEffort },
+                signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
+              })
+            ).data;
+        } finally {
+          // The page learns of the conversation even when its level could not be pinned.
+          this.onSessionCreated?.(this.session);
+        }
       }
       // A conversation created by this turn keeps the choices made before it existed.
       writeWebPreference(this.preferenceOwner, this.session.id, this.webSearch);
