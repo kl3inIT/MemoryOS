@@ -1,6 +1,6 @@
 # No deployment Chat model
 
-Status: step 1 implemented 2026-10-02, recorded as [ADR 0020](../../../decisions/0020-chat-models-come-only-from-the-catalog.md). Linear: [MEM-211](https://linear.app/memory-os/issue/MEM-211).
+Status: delivered 2026-10-03 in PRs #451 and #462, recorded as [ADR 0020](../../../decisions/0020-chat-models-come-only-from-the-catalog.md); verified on staging. Linear: [MEM-211](https://linear.app/memory-os/issue/MEM-211).
 
 ## Problem
 
