@@ -104,6 +104,29 @@ No backend or ingest port is published. Grafana alone joins the existing proxy n
   Prometheus datasource/Prometheus API. No external notification destination has
   been configured; do not treat these rules as on-call paging.
 
+## Production
+
+Production runs the same project (`memoryos-observability`) from
+`/apps/memoryos/observability-stack`, a copy of `infrastructure/observability` from a deployed release whose
+commit is in its `REVISION` file, with `/apps/memoryos/observability.env`. It does not run from a deployment
+transaction directory: until 2026-10-03 it ran from one of September's, so Grafana kept that release's dashboards.
+
+To bring a release's dashboards, alerts and backend configuration, as root on the application node:
+
+```sh
+src=$(ls -d /apps/memoryos/deployments/<release sha>-*/source/infrastructure/observability | tail -n 1)
+mv /apps/memoryos/observability-stack /apps/memoryos/observability-stack.previous-$(date +%Y%m%d%H%M%S)
+mkdir /apps/memoryos/observability-stack && cp -a "$src/." /apps/memoryos/observability-stack/
+printf '%s\n' '<release sha>' > /apps/memoryos/observability-stack/REVISION
+docker compose --env-file /apps/memoryos/observability.env \
+  -f /apps/memoryos/observability-stack/compose.observability.yaml config --quiet
+docker compose --env-file /apps/memoryos/observability.env \
+  -f /apps/memoryos/observability-stack/compose.observability.yaml up -d
+```
+
+Then run the readiness check above with the same `--env-file` and `-f`. The volumes belong to the project, so
+they stay. When an image version changes, follow the upgrade below first.
+
 ## Upgrade and rollback
 
 Record image digests, backing up Grafana's SQLite database and backend volumes

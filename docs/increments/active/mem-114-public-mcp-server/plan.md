@@ -326,5 +326,6 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   - `ARCHITECTURE.md`: the module table, and "no MCP server" under candidates.
   - The roadmap.
   - The MEM-134 design note made concrete.
-- [ ] **Production.** Deployed with the switch off.
+- [ ] **Production.** Deployed with the switch off: endpoint configured on 2026-10-03 (`https://app.vadan.app/mcp`,
+  realm reconciled, see the [governance plan](../mcp-endpoint-governance/plan.md)); the owner turns the switch on.
 - [ ] **Close.** After merge and acceptance, move this increment to `completed/`.

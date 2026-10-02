@@ -37,4 +37,7 @@ One pull request.
 - [ ] **Staging, after the deployment:** the page lists Claude and ChatGPT as manageable; switching ChatGPT off and on
   revokes and restores its connection; a call appears under *Hoạt động*; the dashboard row draws; after more than
   8 hours away MemoryOS opens again without the password.
-- [ ] **Production:** the same secret file and realm run before the next promotion.
+- [x] **Production** (2026-10-03, release `6ac59f77`): the secret file, the release deployed (Keycloak 26.7.0 to
+  26.8.0; its dump kept in `/apps/memoryos-backups`), `MEMORYOS_MCP_ENDPOINT_URL=https://app.vadan.app/mcp` in
+  `.env.production`, the realm script run with the endpoint (Vietnamese sign-in, the metadata-document policy,
+  `memoryos-mcp-admin`), the release deployed again for the API to read the URL. The Tenant switch is the owner's.
