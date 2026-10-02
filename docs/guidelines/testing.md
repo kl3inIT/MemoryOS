@@ -35,9 +35,8 @@ Vitest uses two isolated workers. Browser CI uses one worker and no retry; brows
 ## Required gates
 
 1. Run focused tests while changing a contract.
-2. Inspect every changed IDE-supported file with JetBrains static analysis; include warnings.
-3. Run `gradlew.bat clean check --no-daemon` on Windows or `./gradlew clean check --no-daemon` elsewhere.
-4. Exercise the actual changed runtime surface. For authentication or provider changes, use a normal temporary OIDC user, verify both rejection and success paths, and remove temporary records afterward.
+2. Run `gradlew.bat clean check --no-daemon` on Windows or `./gradlew clean check --no-daemon` elsewhere.
+3. Exercise the actual changed runtime surface. For authentication or provider changes, use a normal temporary OIDC user, verify both rejection and success paths, and remove temporary records afterward.
 
 A green compile does not prove runtime configuration, database behavior, or view/HTTP behavior.
 

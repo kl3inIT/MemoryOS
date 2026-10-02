@@ -37,7 +37,7 @@ afterEach(cleanup);
 it("says an image was deleted instead of trying to show it", () => {
   show([image("11111111-1111-4111-8111-111111111111", true)]);
 
-  expect(screen.getByText("Ảnh đã bị xoá")).toBeInTheDocument();
+  expect(screen.getByText("Ảnh đã bị xóa")).toBeInTheDocument();
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
 });
 
@@ -51,12 +51,12 @@ it("shows the images that are still there beside the ones that are gone", () => 
     "src",
     expect.stringContaining("11111111-1111-4111-8111-111111111111"),
   );
-  expect(screen.getByText("Ảnh đã bị xoá")).toBeInTheDocument();
+  expect(screen.getByText("Ảnh đã bị xóa")).toBeInTheDocument();
 });
 
 it("renders nothing at all for an answer with no images", () => {
   show([]);
 
-  expect(screen.queryByText("Ảnh đã bị xoá")).not.toBeInTheDocument();
+  expect(screen.queryByText("Ảnh đã bị xóa")).not.toBeInTheDocument();
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
 });

@@ -59,7 +59,7 @@ export function ChatAddToProjectDialog({
       }}
       title={ui("Thêm vào dự án")}
       description={ui(
-        "Tệp được dùng trong mọi hội thoại của dự án. Gỡ khỏi dự án không xoá tệp khỏi thư viện.",
+        "Tệp được dùng trong mọi hội thoại của dự án. Gỡ khỏi dự án không xóa tệp khỏi thư viện.",
       )}
       submitLabel={creating ? ui("Tạo và thêm tệp") : ui("Thêm vào dự án")}
       submitDisabled={creating ? name.trim().length === 0 : !chosen}

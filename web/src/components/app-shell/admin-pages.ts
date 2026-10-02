@@ -160,7 +160,7 @@ export const adminPages: readonly AdminPageEntry[] = [
   {
     id: "sources",
     to: "/admin",
-    label: appText("Existing sources"),
+    label: appText("Sources"),
     title: appText("Sources"),
     icon: Plug,
     group: "knowledge",

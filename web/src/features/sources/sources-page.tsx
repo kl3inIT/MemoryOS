@@ -43,7 +43,7 @@ export function SourcesPage() {
     <SettingsLayout wide>
       <PageHeader
         icon={<BookOpen />}
-        title={ui("Existing sources")}
+        title={ui("Sources")}
         description={ui("Manage connected content and monitor indexing.")}
         actions={
           canCreate ? (

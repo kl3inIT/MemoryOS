@@ -428,7 +428,7 @@ export function StarterPromptsField({
               <IconButton
                 type="button"
                 prominence="tertiary"
-                aria-label={ui("Xoá câu hỏi gợi ý {{v1}}", { v1: index + 1 })}
+                aria-label={ui("Xóa câu hỏi gợi ý {{v1}}", { v1: index + 1 })}
                 onClick={() => onChange(rows.filter((_, i) => i !== index))}
               >
                 <X />

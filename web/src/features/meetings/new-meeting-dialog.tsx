@@ -282,7 +282,7 @@ function NewMeetingForm({ onClose }: { onClose: () => void }) {
           <form.FormError />
           <DialogFooter>
             <Button prominence="secondary" disabled={submitting} onClick={onClose}>
-              {ui("Huỷ")}
+              {ui("Hủy")}
             </Button>
             <form.Subscribe selector={(state) => state.values.consent}>
               {(consent) => (

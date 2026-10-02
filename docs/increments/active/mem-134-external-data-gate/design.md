@@ -68,10 +68,11 @@ In:
 - the Source setting and the consent dialog in the web app.
 
 Out, as later slices:
-- the MemoryOS MCP endpoint ([MEM-114](../mem-114-public-mcp-server/design.md#data-leaving-the-tenant)): every
+- the MemoryOS MCP endpoint ([MEM-114](../../completed/mem-114-public-mcp-server/design.md#data-leaving-the-tenant)): every
   passage it returns goes to the external client's provider, so it always counts as external. It reads through the
   Search path, which this slice does not narrow, so it needs its own removal of `INTERNAL_ONLY` Sources; until then its
-  per-Tenant switch stays off in production;
+  per-Tenant switch stays off in production once it holds organization data (the owner configured it on 2026-10-03,
+  while production held none);
 - a policy per Group (`ALLOW` / `ASK` / `BLOCK`); this slice asks everyone;
 - read-aloud, image editing and Web search queries, whose providers carry no boundary yet;
 - embeddings at ingestion, configured per deployment rather than in the catalog;

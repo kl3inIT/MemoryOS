@@ -163,7 +163,7 @@ export function MeetingNotices({
       )}
       {meeting.audio.status === "FAILED" && (
         <Notice variant="destructive" alert>
-          {ui("Không nhận dạng được bản ghi. File đã được xoá.")}
+          {ui("Không nhận dạng được bản ghi. File đã được xóa.")}
         </Notice>
       )}
       {meeting.owned && meeting.status === "RECORDING" && !recording && !resuming && (

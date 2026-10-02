@@ -65,7 +65,7 @@ it("warns when the library is nearly full", async () => {
   });
   show();
 
-  expect(await screen.findByText("Gần hết dung lượng · 98% · hãy xoá bớt tệp")).toBeInTheDocument();
+  expect(await screen.findByText("Gần hết dung lượng · 98% · hãy xóa bớt tệp")).toBeInTheDocument();
 });
 
 it("says there is no limit when the deployment sets none, and shows no meter with it", async () => {
@@ -91,12 +91,12 @@ it("holds what the library's own panel holds: the trash window and the retention
     limitBytes: 10240,
     byCategory: [{ category: "DOCUMENT", usedBytes: 3072 }],
   });
-  show(<section aria-label="Tự xoá hội thoại" />);
+  show(<section aria-label="Tự xóa hội thoại" />);
 
   expect(
-    await screen.findByText("Tệp đã xoá được giữ 30 ngày rồi xoá vĩnh viễn."),
+    await screen.findByText("Tệp đã xóa được giữ 30 ngày rồi xóa vĩnh viễn."),
   ).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "Tự xoá hội thoại" })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Tự xóa hội thoại" })).toBeInTheDocument();
 });
 
 it("offers a way to try again when the usage cannot be read", async () => {

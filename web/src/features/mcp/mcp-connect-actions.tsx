@@ -117,7 +117,7 @@ export function McpApiKeyDialog({
   return (
     <CatalogDialog
       title={ui("Kết nối {{name}}", { name: connection.name })}
-      description={ui("Khoá được thử với máy chủ trước khi lưu, và chỉ bạn dùng được.")}
+      description={ui("Khóa được thử với máy chủ trước khi lưu, và chỉ bạn dùng được.")}
       onClose={onClose}
     >
       <form
@@ -129,7 +129,7 @@ export function McpApiKeyDialog({
         }}
       >
         <Field data-invalid={save.isError || undefined}>
-          <FieldLabel htmlFor="mcp-user-key">{ui("Khoá API")}</FieldLabel>
+          <FieldLabel htmlFor="mcp-user-key">{ui("Khóa API")}</FieldLabel>
           <Input
             id="mcp-user-key"
             type="password"
@@ -142,12 +142,12 @@ export function McpApiKeyDialog({
             }}
           />
           {save.isError ? (
-            <FieldError>{ui("Máy chủ từ chối khoá này. Khoá chưa được lưu.")}</FieldError>
+            <FieldError>{ui("Máy chủ từ chối khóa này. Khóa chưa được lưu.")}</FieldError>
           ) : null}
         </Field>
         <div className="flex justify-end gap-2">
           <Button prominence="secondary" onClick={onClose}>
-            {ui("Huỷ")}
+            {ui("Hủy")}
           </Button>
           <Button type="submit" disabled={value.trim() === ""} pending={save.isPending}>
             {ui("Kết nối")}

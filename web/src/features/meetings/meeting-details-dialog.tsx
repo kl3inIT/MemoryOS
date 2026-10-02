@@ -73,7 +73,7 @@ function DetailsForm({ meeting, onClose }: { meeting: MeetingDetail; onClose: ()
   return (
     <DialogContent
       aria-describedby={undefined}
-      // A save in flight finishes before the dialog can close, so Huỷ is its only close control.
+      // A save in flight finishes before the dialog can close, so Hủy is its only close control.
       showCloseButton={false}
       onEscapeKeyDown={(event) => submitting && event.preventDefault()}
       onInteractOutside={(event) => submitting && event.preventDefault()}
@@ -107,7 +107,7 @@ function DetailsForm({ meeting, onClose }: { meeting: MeetingDetail; onClose: ()
           <form.FormError />
           <DialogFooter>
             <Button prominence="tertiary" disabled={submitting} onClick={onClose}>
-              {ui("Huỷ")}
+              {ui("Hủy")}
             </Button>
             <form.SubmitButton>{ui("Lưu")}</form.SubmitButton>
           </DialogFooter>

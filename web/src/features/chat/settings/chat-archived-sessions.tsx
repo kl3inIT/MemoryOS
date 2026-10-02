@@ -124,7 +124,7 @@ export function ChatArchivedSessionsPage() {
               </EmptyTitle>
               <EmptyDescription>
                 {query.length > 0
-                  ? ui("Hãy thử từ khoá khác.")
+                  ? ui("Hãy thử từ khóa khác.")
                   : ui("Lưu trữ một hội thoại để dọn thanh bên mà vẫn giữ lại nó.")}
               </EmptyDescription>
             </EmptyHeader>
@@ -217,7 +217,7 @@ function ArchivedSessionRow({
                 <IconButton
                   size="sm"
                   prominence="internal"
-                  aria-label={ui("Xoá hội thoại {{name}}", { name: session.title })}
+                  aria-label={ui("Xóa hội thoại {{name}}", { name: session.title })}
                 >
                   <Trash2 />
                 </IconButton>

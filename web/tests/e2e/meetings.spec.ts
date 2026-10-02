@@ -703,7 +703,7 @@ for (const width of [1440, 390]) {
     await confirm.getByRole("button", { name: "Dừng và kết thúc" }).click();
     // The confirmation closes at once; the last words are stored behind the recording bar.
     await expect(confirm).toBeHidden({ timeout: 1_000 });
-    await expect(page.getByRole("button", { name: "Xoá cuộc họp" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xóa cuộc họp" })).toBeVisible();
     // The minutes open on their own tab once they are written.
     await expect(
       page.getByText("Cuộc họp chốt ngân sách quý 4 trước thứ Năm", { exact: false }),
@@ -736,7 +736,7 @@ for (const width of [1440, 390]) {
     await added.hover();
     await page.screenshot({ path: `../output/playwright/meetings-added-${width}.png` });
     await added.getByRole("button", { name: "Sửa" }).click();
-    await page.getByRole("button", { name: "Xoá", exact: true }).click();
+    await page.getByRole("button", { name: "Xóa", exact: true }).click();
     await expect(page.getByText("Đặt phòng họp cho quý 4", { exact: true })).toHaveCount(0);
     await page.getByRole("tab", { name: /Quyết định/ }).click();
     await expect(

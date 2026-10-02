@@ -6,7 +6,7 @@
 - [x] `backend-images`, `frontend-image`, `interpreter`: `packages: write`, output `images`, bước push chỉ khi push lên `main`; bỏ `docker save` và artifact `candidate-*`.
 - [x] `publish`: đọc digest từ output, kiểm trên GHCR, không còn tải hay push image.
 - [x] `test_deploy_workflow.py`: thay assertion về `candidate-interpreter` bằng hợp đồng mới; thêm test chỉ build trên `main` mới push và `publish` không push.
-- [x] [ADR 0020](../../../decisions/0020-image-jobs-push-before-the-gate.md), [runbook CI/CD](../../../runbooks/ci-cd.md).
+- [x] [ADR 0023](../../../decisions/0023-image-jobs-push-before-the-gate.md), [runbook CI/CD](../../../runbooks/ci-cd.md).
 - [x] actionlint 1.7.12 sạch; shellcheck sạch cho script của action; 79 test Python trong `infrastructure/deployment` OK (20 skip trên Windows).
 - [x] CI của PR #458 xanh; merge thành `7b4182e5`.
 - [x] Lần chạy `main` đầu tiên sau merge (run 37036799141, `7b4182e5`): ba image job push được, `Publish verified release` xanh trong 11s (trước 4m16s), `Deploy staging` 37037572773 thành công. Từ lúc job bắt đầu tới publish xong mất 6m37s (trước 12m40s); `interpreter` 6m15s là chậm nhất.

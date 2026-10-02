@@ -31,7 +31,7 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 
 - JDK 25.
 - The checked-in Gradle wrapper; no system Gradle installation.
-- Node.js 24 with Corepack; `web/package.json` and `landing/package.json` pin pnpm.
+- Node.js 26 and pnpm 11.22.0 (`npm install --global pnpm@11.22.0`); `web/package.json` and `landing/package.json` pin it. Corepack is not used: Node 25 stopped bundling it.
 - Docker with the Compose plugin for PostgreSQL, private MinIO, shared Keycloak, API, worker and web.
 
 ## Modules
@@ -64,7 +64,6 @@ Linux or macOS:
 The browser application:
 
 ```powershell
-corepack enable
 cd web
 pnpm install --frozen-lockfile
 pnpm check

@@ -76,7 +76,7 @@ export function LibrarySettingsButton({
             )}
             {trashDays !== undefined && trashDays > 0 && (
               <p className="font-secondary-body text-content-muted">
-                {ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", { days: trashDays })}
+                {ui("Tệp đã xóa được giữ {{days}} ngày rồi xóa vĩnh viễn.", { days: trashDays })}
               </p>
             )}
             {retention}

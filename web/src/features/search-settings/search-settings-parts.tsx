@@ -205,7 +205,7 @@ export function ProviderRow({
                 prominence="tertiary"
                 tone="danger"
                 size="sm"
-                aria-label={ui(appText("Xoá provider {{name}}", { name: provider.name }))}
+                aria-label={ui(appText("Xóa provider {{name}}", { name: provider.name }))}
                 onClick={onDelete}
               >
                 <Trash2 />

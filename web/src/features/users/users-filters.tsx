@@ -52,7 +52,7 @@ export function UsersFilters({
       }}
     >
       <Field className="min-w-56 flex-1">
-        <FieldLabel htmlFor="users-search">{ui("Search")}</FieldLabel>
+        <FieldLabel htmlFor="users-search">{ui("Search users")}</FieldLabel>
         <InputGroup>
           <InputGroupAddon>
             <Search aria-hidden="true" />
@@ -63,7 +63,6 @@ export function UsersFilters({
             value={searchValue}
             maxLength={200}
             placeholder={ui("Search users…")}
-            aria-label={ui("Search users")}
             onChange={(event) => setDraft({ applied: appliedSearch, value: event.target.value })}
           />
         </InputGroup>

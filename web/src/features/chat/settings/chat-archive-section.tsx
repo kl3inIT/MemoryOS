@@ -29,7 +29,7 @@ export function ChatArchiveSection() {
         <SettingRow
           icon={<Archive />}
           title={ui("Hội thoại đã lưu trữ")}
-          description={ui("Xem, bỏ lưu trữ hoặc xoá những hội thoại bạn đã cất đi.")}
+          description={ui("Xem, bỏ lưu trữ hoặc xóa những hội thoại bạn đã cất đi.")}
           control={
             <Button prominence="secondary" asChild>
               <Link to="/settings/archived-chats">{ui("Mở")}</Link>
