@@ -274,7 +274,7 @@ function UploadRecordingForm({ onClose }: { onClose: () => void }) {
           <form.FormError />
           <DialogFooter>
             <Button prominence="tertiary" onClick={onClose}>
-              {ui("Huỷ")}
+              {ui("Hủy")}
             </Button>
             <form.SubmitButton disabled={!file || tooLarge || nobody || !consent}>
               <FileAudio data-icon="inline-start" aria-hidden="true" />

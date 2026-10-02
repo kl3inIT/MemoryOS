@@ -5,7 +5,7 @@ Date: 2026-10-02
 ## Status
 
 Accepted; implementation started 2026-10-02 in
-[MemoryOS MCP endpoint governance](../increments/active/mcp-endpoint-governance/design.md) (MEM-207).
+[MemoryOS MCP endpoint governance](../increments/completed/mcp-endpoint-governance/design.md) (MEM-207).
 
 ## Context
 

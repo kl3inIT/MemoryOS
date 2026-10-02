@@ -45,12 +45,12 @@ export function ChatRetentionSection() {
   return (
     <section aria-labelledby="chat-retention-heading" className="flex max-w-2xl flex-col gap-3">
       <h2 id="chat-retention-heading" className="font-heading-h3 text-content-primary">
-        {ui("Tự xoá hội thoại")}
+        {ui("Tự xóa hội thoại")}
       </h2>
       {policy.isPending && <Skeleton className="h-24 w-full" />}
       {policy.isError && (
         <Alert variant="destructive">
-          <AlertTitle>{ui("Không tải được thiết lập tự xoá.")}</AlertTitle>
+          <AlertTitle>{ui("Không tải được thiết lập tự xóa.")}</AlertTitle>
           <Button size="sm" prominence="internal" onClick={() => void policy.refetch()}>
             {ui("Thử lại")}
           </Button>
@@ -100,7 +100,7 @@ function RetentionForm({ saved }: { saved: number | null }) {
         // column one syllable wide.
         className="flex-wrap gap-y-3 [&>div:first-of-type]:min-w-56"
         icon={<CalendarClock />}
-        title={ui("Xoá hội thoại sau")}
+        title={ui("Xóa hội thoại sau")}
         description={ui(
           "Tính từ lần cuối bạn nhắn trong hội thoại đó. Tệp trong thư viện giữ vòng đời riêng.",
         )}
@@ -112,11 +112,11 @@ function RetentionForm({ saved }: { saved: number | null }) {
               save.reset();
             }}
           >
-            <SelectTrigger aria-label={ui("Xoá hội thoại sau")} className="w-44">
+            <SelectTrigger aria-label={ui("Xóa hội thoại sau")} className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={OFF}>{ui("Không tự xoá")}</SelectItem>
+              <SelectItem value={OFF}>{ui("Không tự xóa")}</SelectItem>
               {PRESETS.map((value) => (
                 <SelectItem key={value} value={String(value)}>
                   {ui("{{count}} ngày", { count: value })}
@@ -152,8 +152,8 @@ function RetentionForm({ saved }: { saved: number | null }) {
           <Alert variant={affected > 0 ? "destructive" : "default"}>
             <AlertTitle>
               {affected > 0
-                ? ui("{{count}} hội thoại sẽ bị xoá khi lưu.", { count: affected })
-                : ui("Không có hội thoại nào bị xoá ngay.")}
+                ? ui("{{count}} hội thoại sẽ bị xóa khi lưu.", { count: affected })
+                : ui("Không có hội thoại nào bị xóa ngay.")}
             </AlertTitle>
           </Alert>
         )}
@@ -164,7 +164,7 @@ function RetentionForm({ saved }: { saved: number | null }) {
         )}
         {save.isSuccess && (
           <Alert variant="success">
-            <AlertTitle>{ui("Đã lưu thiết lập tự xoá.")}</AlertTitle>
+            <AlertTitle>{ui("Đã lưu thiết lập tự xóa.")}</AlertTitle>
           </Alert>
         )}
         <ConfirmDialog
@@ -173,13 +173,13 @@ function RetentionForm({ saved }: { saved: number | null }) {
               {ui("Lưu thiết lập")}
             </Button>
           }
-          title={days === null ? ui("Tắt tự xoá hội thoại?") : ui("Bật tự xoá hội thoại?")}
+          title={days === null ? ui("Tắt tự xóa hội thoại?") : ui("Bật tự xóa hội thoại?")}
           description={
             affected > 0
-              ? ui("{{count}} hội thoại đã quá hạn sẽ bị xoá ngay khi lưu. Không thể hoàn tác.", {
+              ? ui("{{count}} hội thoại đã quá hạn sẽ bị xóa ngay khi lưu. Không thể hoàn tác.", {
                   count: affected,
                 })
-              : ui("Từ giờ hội thoại không có hoạt động quá số ngày này sẽ bị xoá.")
+              : ui("Từ giờ hội thoại không có hoạt động quá số ngày này sẽ bị xóa.")
           }
           confirmLabel={ui("Lưu thiết lập")}
           pendingLabel={ui("Đang lưu…")}

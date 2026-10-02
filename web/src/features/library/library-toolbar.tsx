@@ -158,7 +158,7 @@ export function LibrarySearchField({
         <InputGroupAddon align="inline-end">
           <InputGroupButton
             size="icon-xs"
-            aria-label={ui("Xoá từ khoá tìm kiếm")}
+            aria-label={ui("Xóa từ khóa tìm kiếm")}
             onClick={() => onChange("")}
           >
             <X />
@@ -219,7 +219,7 @@ export function LibrarySortSelect<S extends LibrarySort>({
     NAME: ui("Tên A → Z"),
     LARGEST: ui("Dung lượng giảm dần"),
     SMALLEST: ui("Dung lượng tăng dần"),
-    DELETED: ui("Xoá gần nhất"),
+    DELETED: ui("Xóa gần nhất"),
   };
   return (
     <Select value={sort} onValueChange={(next) => onSort(next as S)}>
@@ -310,7 +310,7 @@ function LibraryFilterPanel({
             handlers.onStarredOnly(false);
           }}
         >
-          {ui("Xoá bộ lọc")}
+          {ui("Xóa bộ lọc")}
         </Button>
       )}
     </div>
@@ -377,7 +377,7 @@ export function LibraryFilterPills({
             handlers.onStarredOnly(false);
           }}
         >
-          {ui("Xoá tất cả")}
+          {ui("Xóa tất cả")}
         </Button>
       </li>
     </ul>
@@ -481,7 +481,7 @@ export function LibrarySelectionBar({
             </Button>
             <Button size="sm" tone="danger" prominence="secondary" onClick={onPurge}>
               <Trash2 data-icon="inline-start" />
-              {ui("Xoá vĩnh viễn")}
+              {ui("Xóa vĩnh viễn")}
             </Button>
           </>
         ) : (
@@ -498,7 +498,7 @@ export function LibrarySelectionBar({
             )}
             <Button size="sm" tone="danger" prominence="secondary" onClick={onDelete}>
               <Trash2 data-icon="inline-start" />
-              {ui("Xoá")}
+              {ui("Xóa")}
             </Button>
           </>
         )}
@@ -566,7 +566,7 @@ export function LibraryCategoryFilter({
               className="self-start"
               onClick={() => onCategories([])}
             >
-              {ui("Xoá bộ lọc")}
+              {ui("Xóa bộ lọc")}
             </Button>
           )}
         </fieldset>

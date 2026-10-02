@@ -110,11 +110,11 @@ export function DeleteFilesDialog({
     <ConfirmDialog
       open={files !== undefined}
       onOpenChange={onOpenChange}
-      title={ui("Xoá tệp?")}
+      title={ui("Xóa tệp?")}
       description={
         trashDays === 0
           ? ui(
-              "Tệp sẽ bị xoá khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
+              "Tệp sẽ bị xóa khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
               { count },
             )
           : ui(
@@ -122,8 +122,8 @@ export function DeleteFilesDialog({
               { days: trashDays ?? 30, count },
             )
       }
-      confirmLabel={ui("Xoá")}
-      pendingLabel={ui("Đang xoá…")}
+      confirmLabel={ui("Xóa")}
+      pendingLabel={ui("Đang xóa…")}
       confirmTone="danger"
       onConfirm={onConfirm}
     />
@@ -145,12 +145,12 @@ export function PurgeFilesDialog({
     <ConfirmDialog
       open={files !== undefined}
       onOpenChange={onOpenChange}
-      title={ui("Xoá vĩnh viễn?")}
-      description={ui("Tệp sẽ bị xoá vĩnh viễn và không thể khôi phục. Đã chọn {{count}} tệp.", {
+      title={ui("Xóa vĩnh viễn?")}
+      description={ui("Tệp sẽ bị xóa vĩnh viễn và không thể khôi phục. Đã chọn {{count}} tệp.", {
         count: files?.length ?? 0,
       })}
-      confirmLabel={ui("Xoá vĩnh viễn")}
-      pendingLabel={ui("Đang xoá…")}
+      confirmLabel={ui("Xóa vĩnh viễn")}
+      pendingLabel={ui("Đang xóa…")}
       confirmTone="danger"
       onConfirm={onConfirm}
     />

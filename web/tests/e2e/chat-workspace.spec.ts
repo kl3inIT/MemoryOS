@@ -36,7 +36,7 @@ for (const title of ["Chat", "Search"]) {
     // Search has its own sidebar entry; no page offers a header Chat/Search mode menu.
     await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
     await page.goto("/");
-    await expect(header).toContainText("Trò chuyện");
+    await expect(header).toContainText("Chat");
     await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
     await page.goto("/search");
     await expect(header).toContainText("Tìm tài liệu");

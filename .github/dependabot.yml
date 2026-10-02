@@ -1,5 +1,8 @@
 version: 2
 
+# Every committed manifest has an owner here, so no ecosystem only hears about a security advisory. Images that
+# live outside a Dockerfile or Compose file (the Playwright container in ci.yml, ARG-selected bases) are updated by
+# hand with their package: the Playwright image must match @playwright/test.
 updates:
   - package-ecosystem: gradle
     directory: /
@@ -19,7 +22,9 @@ updates:
           - patch
 
   - package-ecosystem: npm
-    directory: /web
+    directories:
+      - /web
+      - /landing
     schedule:
       interval: weekly
       day: monday
@@ -51,30 +56,65 @@ updates:
         patterns:
           - "*"
 
+  - package-ecosystem: uv
+    directories:
+      - /interpreter/service
+      - /interpreter/executor
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:35"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    groups:
+      uv-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
   - package-ecosystem: docker
-    directory: /
+    directories:
+      - /
+      - /web
+      - /landing
+      - /interpreter/service
+      - /interpreter/executor
+      - /infrastructure/keycloak
+      - /infrastructure/deployment/ocr
     schedule:
       interval: weekly
       day: monday
       time: "09:20"
       timezone: Asia/Ho_Chi_Minh
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     labels:
       - dependencies
 
-  - package-ecosystem: docker
-    directory: /web
+  - package-ecosystem: docker-compose
+    directories:
+      - /infrastructure/deployment
+      - /infrastructure/observability
     schedule:
       interval: weekly
       day: monday
       time: "09:25"
       timezone: Asia/Ho_Chi_Minh
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     labels:
       - dependencies
+    groups:
+      compose-minor-and-patch:
+        update-types:
+          - minor
+          - patch
 
+  # "/" covers .github/workflows; composite actions under .github/actions need their own entry.
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/*
     schedule:
       interval: weekly
       day: monday

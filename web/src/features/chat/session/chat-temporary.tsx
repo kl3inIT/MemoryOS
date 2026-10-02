@@ -57,8 +57,8 @@ export function ChatTemporaryToggle({
             />
             <TemporaryFact
               icon={<Clock />}
-              title={ui("Tự xoá")}
-              description={ui("Cuộc trò chuyện và tệp bạn gửi vào đó bị xoá sau khi bạn dừng hỏi.")}
+              title={ui("Tự xóa")}
+              description={ui("Cuộc trò chuyện và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.")}
             />
             <TemporaryFact
               icon={<FolderX />}
@@ -118,7 +118,7 @@ export function ChatTemporaryNotice({ onLeave }: { onLeave: () => void }) {
       className="mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface-subtle px-3 py-1 font-secondary-body text-content-secondary"
     >
       <EyeOff className="size-3.5 shrink-0" aria-hidden="true" />
-      {ui("Cuộc trò chuyện này không được lưu và sẽ tự xoá cùng tệp của nó.")}
+      {ui("Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó.")}
       <Button size="sm" prominence="internal" onClick={onLeave}>
         {ui("Hội thoại mới")}
       </Button>

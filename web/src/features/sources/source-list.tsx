@@ -1,8 +1,16 @@
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
-import { ChevronDown, ChevronRight, Files, ListFilter } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Files,
+  FileText,
+  ListFilter,
+  Plug,
+  TriangleAlert,
+} from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { StatStrip, StatTile } from "@/components/composites/stat-strip";
+import { StatStrip, StatTile, StatToggleTile } from "@/components/composites/stat-strip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -30,10 +38,7 @@ import {
   findSourceProvider,
   sourceProviders,
 } from "@/features/sources/shared/source-provider-catalog";
-import {
-  SourceAccessBadge,
-  SourceStatusBadge,
-} from "@/features/sources/shared/source-status-badge";
+import { SourceAccess, SourceStatusBadge } from "@/features/sources/shared/source-status-badge";
 import {
   sourceAccessOptions,
   sourceAccessPresentation,
@@ -115,8 +120,8 @@ export function SourceList<T extends SourceListItem>({
   const hasExpandedGroups = groups.some((group) => !collapsedTypes.has(group.type));
   const columns = renderAction ? 6 : 5;
   const row = { documents, renderName, renderAccess, renderAction };
-  const activeCount = sources.filter((source) => source.status === "ACTIVE").length;
-  const workspaceAccessCount = sources.filter((source) => source.access === "PUBLIC").length;
+  const failedCount = sources.filter((source) => source.status === "FAILED").length;
+  const showingFailed = filters.status === "FAILED";
   const documentCount = sources.reduce((total, source) => total + documents(source), 0);
 
   function toggle(type: string) {
@@ -134,14 +139,34 @@ export function SourceList<T extends SourceListItem>({
 
   return (
     <>
-      <StatStrip columns={4}>
-        <StatTile label={ui("Total sources")} value={sources.length} />
-        <StatTile label={ui("Active sources")} value={`${activeCount}/${sources.length}`} />
+      {/*
+        What an administrator acts on: how many Sources there are, which ones failed, and what they hold. The
+        failed tile filters the list to them, as the Users counts filter theirs; its figure turns red only when
+        a Source has failed.
+      */}
+      <StatStrip columns={3}>
         <StatTile
-          label={ui("Open to all members")}
-          value={`${workspaceAccessCount}/${sources.length}`}
+          icon={<Plug />}
+          iconClass="text-chart-1"
+          label={ui("Total sources")}
+          value={sources.length}
         />
-        <StatTile label={documentsLabel} value={documentCount} />
+        <StatToggleTile
+          icon={<TriangleAlert />}
+          iconClass="text-status-danger-content"
+          label={ui("Failed")}
+          value={failedCount}
+          tone={failedCount > 0 ? "danger" : undefined}
+          selected={showingFailed}
+          onToggle={() => onFilters({ ...filters, status: showingFailed ? "" : "FAILED" })}
+          accessibleLabel={ui("Show failed sources, {{count}}", { count: failedCount })}
+        />
+        <StatTile
+          icon={<FileText />}
+          iconClass="text-chart-2"
+          label={documentsLabel}
+          value={documentCount}
+        />
       </StatStrip>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -356,31 +381,25 @@ function SourceGroupBody<T extends SourceListItem>({
         }}
       >
         <TableHead scope="rowgroup" colSpan={columns} className="px-4">
-          <span className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              aria-expanded={!collapsed}
-              aria-label={ui("{{v1}} group, {{v2}} sources, {{v3}} documents", {
-                v1: providerName,
-                v2: group.sources.length,
-                v3: documentCount,
-              })}
-              onClick={onToggle}
-              className="flex shrink-0 items-center gap-2 text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
-            >
-              {collapsed ? (
-                <ChevronRight className="size-4 text-content-secondary" aria-hidden="true" />
-              ) : (
-                <ChevronDown className="size-4 text-content-secondary" aria-hidden="true" />
-              )}
-              <ProviderIcon className="size-4 text-content-secondary" aria-hidden="true" />
-              <span className="font-main-ui-action text-content-primary">{providerName}</span>
-            </button>
-            <span className="truncate font-secondary-body text-content-muted tabular-nums">
-              {countOf(ui, group.sources.length, "source")} ·{" "}
-              {countOf(ui, documentCount, "document")}
-            </span>
-          </span>
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            aria-label={ui("{{v1}} group, {{v2}} sources, {{v3}} documents", {
+              v1: providerName,
+              v2: group.sources.length,
+              v3: documentCount,
+            })}
+            onClick={onToggle}
+            className="flex shrink-0 items-center gap-2 text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
+          >
+            {collapsed ? (
+              <ChevronRight className="size-4 text-content-secondary" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="size-4 text-content-secondary" aria-hidden="true" />
+            )}
+            <ProviderIcon className="size-4 text-content-secondary" aria-hidden="true" />
+            <span className="font-main-ui-action text-content-primary">{providerName}</span>
+          </button>
         </TableHead>
       </TableRow>
       {!collapsed
@@ -401,7 +420,7 @@ function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: 
       <TableCell className="px-4 py-2.5">
         {row.renderName(source)}
         <span className="mt-0.5 block font-secondary-body text-content-muted @4xl:hidden">
-          {ui(sourceAccessPresentation[source.access].label)} · {countOf(ui, documents, "document")}
+          {ui(sourceAccessPresentation[source.access].label)} · {documentsOf(ui, documents)}
           {source.lastSucceededAt ? (
             <>
               {" · "}
@@ -420,7 +439,7 @@ function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: 
         <SourceStatusBadge status={source.status} />
       </TableCell>
       <TableCell className="hidden px-4 @4xl:table-cell">
-        <SourceAccessBadge access={source.access} />
+        <SourceAccess access={source.access} />
         {row.renderAccess?.(source)}
       </TableCell>
       <TableCell className="hidden px-4 @4xl:table-cell">
@@ -433,9 +452,8 @@ function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: 
   );
 }
 
-/** "1 source", "2 sources": each count has its own sentence, so a translation is never stitched together. */
-function countOf(ui: AppTranslate, count: number, noun: "source" | "document") {
-  if (noun === "source") return count === 1 ? ui("1 source") : ui("{{count}} sources", { count });
+/** "1 document", "2 documents": each count has its own sentence, so a translation is never stitched together. */
+function documentsOf(ui: AppTranslate, count: number) {
   return count === 1 ? ui("1 document") : ui("{{count}} documents", { count });
 }
 

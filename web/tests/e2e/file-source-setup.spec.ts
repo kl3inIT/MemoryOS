@@ -232,7 +232,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
         .toBe(true);
       await page.screenshot({ path: testInfo.outputPath("file-setup-mobile.png"), fullPage: true });
       await page.setViewportSize({ width: 1280, height: 720 });
-      await page.getByRole("button", { name: "Tenant owner" }).click();
+      await page.getByRole("button", { name: "Owner", exact: true }).click();
       await page.getByRole("menuitem", { name: "Use dark theme" }).click();
       await expect(page.locator("html")).toHaveClass(/dark/);
       await page.keyboard.press("Escape");

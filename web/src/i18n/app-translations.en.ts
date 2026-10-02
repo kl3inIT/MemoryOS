@@ -202,12 +202,12 @@ export const vietnameseUi: Record<string, string> = {
   "Nhận dạng": "Recognition",
   "Có tách người nói": "Separates speakers",
   "Không tách người nói": "No speaker separation",
-  "Xoá {{v1}}?": "Delete {{v1}}?",
+  "Xóa {{v1}}?": "Delete {{v1}}?",
   "Đang tải cuộc họp": "Loading meeting",
   "Chưa xem được danh sách cuộc họp": "Meetings unavailable",
   "Chưa xem được cuộc họp này": "This meeting is unavailable",
-  "Xoá cuộc họp này": "Delete this meeting",
-  "Xoá cuộc họp": "Delete meeting",
+  "Xóa cuộc họp này": "Delete this meeting",
+  "Xóa cuộc họp": "Delete meeting",
   "Tìm theo tên cuộc họp": "Search by meeting name",
   "Mọi trạng thái": "Any status",
   "Thời gian": "Period",
@@ -307,7 +307,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đang tải lên… {{percent}}%": "Uploading… {{percent}}%",
   "Tải lên và nhận dạng": "Upload and transcribe",
   "Đang nhận dạng bản ghi {{filename}}…": "Transcribing {{filename}}…",
-  "Không nhận dạng được bản ghi. File đã được xoá.":
+  "Không nhận dạng được bản ghi. File đã được xóa.":
     "The recording could not be transcribed. The file has been deleted.",
   "Cơ quan, tổ chức": "Organization",
   "CÔNG TY CỔ PHẦN TASCO": "TASCO JOINT STOCK COMPANY",
@@ -355,7 +355,7 @@ export const vietnameseUi: Record<string, string> = {
   "Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.":
     "I have told everyone that this meeting is being recorded.",
   Transcript: "Transcript",
-  "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xoá vĩnh viễn.":
+  "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xóa vĩnh viễn.":
     "This meeting's transcript, speaker names and notes will be permanently deleted.",
   "Trình duyệt không cho dùng micro. Hãy cho phép micro rồi thử lại.":
     "The browser blocked the microphone. Allow the microphone and try again.",
@@ -365,7 +365,7 @@ export const vietnameseUi: Record<string, string> = {
     "Remember to turn on “Share tab audio”, and wear headphones.",
   "Về danh sách cuộc họp": "Back to meetings",
   "Giao ban tuần": "Weekly briefing",
-  "Xoá cuộc họp?": "Delete the meeting?",
+  "Xóa cuộc họp?": "Delete the meeting?",
   // MEM-152 file library v2: the library page redesign (rail, filter popover, rows and empty states)
   "Phần của thư viện": "Library sections",
   "Tổ chức": "Organization",
@@ -373,23 +373,23 @@ export const vietnameseUi: Record<string, string> = {
   "Đang xử lý": "Processing",
   "{{count}} tệp": "{{count}} files",
   "Xem tệp lớn nhất": "See the largest files",
-  "Xoá từ khoá tìm kiếm": "Clear the search",
+  "Xóa từ khóa tìm kiếm": "Clear the search",
   "Bộ lọc": "Filters",
   "Bộ lọc đang áp dụng": "Filters in force",
   "Bỏ lọc {{name}}": "Drop the {{name}} filter",
-  "Xoá bộ lọc": "Clear the filters",
-  "Xoá tất cả": "Clear all",
+  "Xóa bộ lọc": "Clear the filters",
+  "Xóa tất cả": "Clear all",
   "Loại tệp": "File kind",
   "Dạng danh sách": "As a list",
   "Phân trang thư viện": "Library pages",
-  "Một số tệp không xoá được": "Some files could not be deleted",
-  "Đã xoá {{date}}": "Deleted {{date}}",
-  "Xoá vĩnh viễn {{date}}": "Deleted for good on {{date}}",
+  "Một số tệp không xóa được": "Some files could not be deleted",
+  "Đã xóa {{date}}": "Deleted {{date}}",
+  "Xóa vĩnh viễn {{date}}": "Deleted for good on {{date}}",
   "Tải về {{name}}": "Download {{name}}",
   "Khôi phục {{name}}": "Restore {{name}}",
   "Thử lại {{name}}": "Retry {{name}}",
   "Không có tệp nào khớp": "No file matches",
-  "Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.": "Drop a filter or search for something else.",
+  "Hãy bỏ một vài bộ lọc hoặc đổi từ khóa tìm kiếm.": "Drop a filter or search for something else.",
   "Thư viện đang trống": "The library is empty",
   "Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây.":
     "Upload a file or let Chat make one, and it appears here.",
@@ -402,7 +402,7 @@ export const vietnameseUi: Record<string, string> = {
   "Bỏ chọn {{name}}": "Unselect {{name}}",
   "Tệp bạn đính kèm và tệp Chat tạo ra sẽ xuất hiện ở đây.":
     "What you attach and what Chat makes appears here.",
-  "Tệp bạn xoá sẽ nằm ở đây trước khi bị xoá vĩnh viễn.":
+  "Tệp bạn xóa sẽ nằm ở đây trước khi bị xóa vĩnh viễn.":
     "A file you delete waits here before it is deleted for good.",
   // Library hub: every file, meeting and document a person can see or use
   "Gần đây": "Recent",
@@ -456,32 +456,32 @@ export const vietnameseUi: Record<string, string> = {
   // MEM-152 file library v2, phase 4: storage limits and the trash
   "Thùng rác": "Trash",
   "Thùng rác đang trống.": "The trash is empty.",
-  "Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.":
+  "Tệp đã xóa được giữ {{days}} ngày rồi xóa vĩnh viễn.":
     "A deleted file is kept for {{days}} days, then deleted for good.",
-  "Máy chủ này xoá tệp ngay, không giữ trong thùng rác.":
+  "Máy chủ này xóa tệp ngay, không giữ trong thùng rác.":
     "This deployment deletes files at once and keeps no trash.",
   "Dọn sạch thùng rác": "Empty the trash",
   "Dọn sạch thùng rác?": "Empty the trash?",
-  "Mọi tệp trong thùng rác sẽ bị xoá vĩnh viễn và không thể khôi phục.":
+  "Mọi tệp trong thùng rác sẽ bị xóa vĩnh viễn và không thể khôi phục.":
     "Every file in the trash is deleted for good and cannot be restored.",
   "Dọn sạch": "Empty it",
   "Đang dọn…": "Emptying…",
   "Đã dọn sạch thùng rác.": "The trash is empty.",
-  "Đã xoá vĩnh viễn {{count}} tệp.": "{{count}} files were deleted for good.",
-  "Đã xoá": "Deleted",
+  "Đã xóa vĩnh viễn {{count}} tệp.": "{{count}} files were deleted for good.",
+  "Đã xóa": "Deleted",
   "Đã khôi phục {{name}}.": "{{name}} was restored.",
-  "Đã xoá vĩnh viễn {{name}}.": "{{name}} was deleted for good.",
-  "Xoá vĩnh viễn {{name}}": "Delete {{name}} for good",
-  "Xoá vĩnh viễn?": "Delete for good?",
-  "Tệp và nội dung của nó sẽ bị xoá khỏi kho lưu trữ và không thể khôi phục.":
+  "Đã xóa vĩnh viễn {{name}}.": "{{name}} was deleted for good.",
+  "Xóa vĩnh viễn {{name}}": "Delete {{name}} for good",
+  "Xóa vĩnh viễn?": "Delete for good?",
+  "Tệp và nội dung của nó sẽ bị xóa khỏi kho lưu trữ và không thể khôi phục.":
     "The file and its contents leave storage and cannot be restored.",
-  "Xoá vĩnh viễn": "Delete for good",
+  "Xóa vĩnh viễn": "Delete for good",
   "Tệp sẽ rời khỏi mọi cuộc hội thoại và nằm trong thùng rác {{days}} ngày, khôi phục được trong thời gian đó. Đã chọn {{count}} tệp.":
     "The files leave every conversation and stay in the trash for {{days}} days, restorable until then. {{count}} files selected.",
   "Đã khôi phục {{count}} tệp.": "{{count}} files were restored.",
   "Đã chuyển {{count}} tệp vào thùng rác.": "{{count}} files were moved to the trash.",
   "Hiển thị {{first}}–{{last}} trên {{total}} tệp": "Showing {{first}}–{{last}} of {{total}} files",
-  "Tệp sẽ bị xoá vĩnh viễn và không thể khôi phục. Đã chọn {{count}} tệp.":
+  "Tệp sẽ bị xóa vĩnh viễn và không thể khôi phục. Đã chọn {{count}} tệp.":
     "The files are deleted for good and cannot be restored. {{count}} files selected.",
   "Dung lượng đã dùng": "Storage used",
   "Đã dùng {{used}} / {{limit}}": "{{used}} of {{limit}} used",
@@ -510,47 +510,47 @@ export const vietnameseUi: Record<string, string> = {
   "Cài đặt thư viện": "Library settings",
   "Dung lượng bạn đang dùng và cách hội thoại của bạn được lưu giữ.":
     "What you are storing, and how long your conversations are kept.",
-  "Chọn một loại tệp để xem và xoá bớt.": "Pick a kind of file to look through and clear.",
-  "Xoá gần nhất": "Deleted most recently",
-  "Tuỳ chọn cho các tệp của bạn.": "Preferences for your files.",
+  "Chọn một loại tệp để xem và xóa bớt.": "Pick a kind of file to look through and clear.",
+  "Xóa gần nhất": "Deleted most recently",
+  "Tùy chọn cho các tệp của bạn.": "Preferences for your files.",
   "Không tải được dung lượng đã dùng.": "The storage used could not be loaded.",
   "Đã dùng {{used}}": "{{used}} used",
   "Triển khai này không đặt giới hạn dung lượng.": "This deployment sets no storage limit.",
   "Triển khai này không đặt giới hạn dung lượng · {{count}} tệp":
     "This deployment sets no storage limit · {{count}} files",
   "{{name}}: {{size}}": "{{name}}: {{size}}",
-  "Gần hết dung lượng · {{percent}}% · hãy xoá bớt tệp":
+  "Gần hết dung lượng · {{percent}}% · hãy xóa bớt tệp":
     "Nearly full · {{percent}}% · delete some files",
   "Đã dùng {{percent}}% · {{count}} tệp": "{{percent}}% used · {{count}} files",
   "Quản lý bộ nhớ lưu trữ": "Manage storage",
   "Mở thư viện để giải phóng dung lượng.": "Open the library to free up space.",
   "Thư viện của bạn chưa có tệp nào.": "Your library holds no files yet.",
   "Mở thư viện tệp": "Open the file library",
-  "Tệp đã xoá vẫn chiếm dung lượng cho tới khi thùng rác được dọn.":
+  "Tệp đã xóa vẫn chiếm dung lượng cho tới khi thùng rác được dọn.":
     "A deleted file still takes space until the trash lets it go.",
-  "Tự xoá hội thoại": "Delete conversations on their own",
-  "Không tải được thiết lập tự xoá.": "The self-deletion setting could not be loaded.",
-  "Xoá hội thoại sau": "Delete conversations after",
+  "Tự xóa hội thoại": "Delete conversations on their own",
+  "Không tải được thiết lập tự xóa.": "The self-deletion setting could not be loaded.",
+  "Xóa hội thoại sau": "Delete conversations after",
   "Tính từ lần cuối bạn nhắn trong hội thoại đó. Tệp trong thư viện giữ vòng đời riêng.":
     "Counted from the last time you wrote in it. Files in your library keep their own lifecycle.",
-  "Không tự xoá": "Never",
+  "Không tự xóa": "Never",
   "{{count}} ngày": "{{count}} days",
   "Số ngày khác…": "Another number of days…",
-  "Đã lưu thiết lập tự xoá.": "The self-deletion setting was saved.",
+  "Đã lưu thiết lập tự xóa.": "The self-deletion setting was saved.",
   "Lưu thiết lập": "Save the setting",
-  "Tắt tự xoá hội thoại?": "Stop deleting conversations on their own?",
-  "Bật tự xoá hội thoại?": "Delete conversations on their own?",
-  "{{count}} hội thoại đã quá hạn sẽ bị xoá ngay khi lưu. Không thể hoàn tác.":
+  "Tắt tự xóa hội thoại?": "Stop deleting conversations on their own?",
+  "Bật tự xóa hội thoại?": "Delete conversations on their own?",
+  "{{count}} hội thoại đã quá hạn sẽ bị xóa ngay khi lưu. Không thể hoàn tác.":
     "{{count}} conversations are already past it and are deleted as soon as this is saved. This cannot be undone.",
-  "Từ giờ hội thoại không có hoạt động quá số ngày này sẽ bị xoá.":
+  "Từ giờ hội thoại không có hoạt động quá số ngày này sẽ bị xóa.":
     "From now on a conversation with no activity for longer than this is deleted.",
   // MEM-153 phase 2: the Tenant's chat retention policy
   "Lưu giữ hội thoại": "Conversation retention",
   "Số ngày không hoạt động": "Days of inactivity",
   "Số ngày phải từ 1 đến {{max}}.": "The number of days must be between 1 and {{max}}.",
-  "{{count}} hội thoại sẽ bị xoá khi lưu.":
+  "{{count}} hội thoại sẽ bị xóa khi lưu.":
     "{{count}} conversations will be deleted when this is saved.",
-  "Không có hội thoại nào bị xoá ngay.": "No conversation is deleted right away.",
+  "Không có hội thoại nào bị xóa ngay.": "No conversation is deleted right away.",
   // MEM-153 phase 2: temporary conversations
   "Chat tạm thời": "Temporary chat",
   "Bật chat tạm thời": "Turn on temporary chat",
@@ -562,14 +562,14 @@ export const vietnameseUi: Record<string, string> = {
   "Không vào lịch sử": "Not in history",
   "Cuộc trò chuyện không hiện trên thanh bên và không tìm được.":
     "It is not on the sidebar and search does not find it.",
-  "Tự xoá": "Deletes itself",
-  "Cuộc trò chuyện và tệp bạn gửi vào đó bị xoá sau khi bạn dừng hỏi.":
+  "Tự xóa": "Deletes itself",
+  "Cuộc trò chuyện và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.":
     "The conversation and the files you send into it are deleted once you stop asking.",
   "Không chia sẻ, không dự án": "No link, no Project",
   "Không tạo được liên kết chia sẻ và không thêm được vào dự án.":
     "It cannot be given a share link or put in a Project.",
   "Tạm thời": "Temporary",
-  "Cuộc trò chuyện này không được lưu và sẽ tự xoá cùng tệp của nó.":
+  "Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó.":
     "This conversation is not kept, and it deletes itself with its files.",
   // MEM-153 chat lifecycle: archiving a conversation and branching one into a new chat
   "Lưu trữ": "Archive",
@@ -579,7 +579,7 @@ export const vietnameseUi: Record<string, string> = {
   "Hội thoại đã lưu trữ": "Archived conversations",
   "Hội thoại đã lưu trữ không còn trên thanh bên, nhưng vẫn mở được và vẫn tìm được.":
     "An archived conversation leaves the sidebar, but still opens and is still found by search.",
-  "Xem, bỏ lưu trữ hoặc xoá những hội thoại bạn đã cất đi.":
+  "Xem, bỏ lưu trữ hoặc xóa những hội thoại bạn đã cất đi.":
     "See, unarchive or delete what you put away.",
   Mở: "Open",
   "Lưu trữ tất cả hội thoại": "Archive every conversation",
@@ -594,11 +594,11 @@ export const vietnameseUi: Record<string, string> = {
   "Không tải được hội thoại đã lưu trữ.": "The archived conversations could not be loaded.",
   "Không có hội thoại nào khớp": "No conversation matches",
   "Chưa lưu trữ hội thoại nào": "Nothing is archived yet",
-  "Hãy thử từ khoá khác.": "Try another word.",
+  "Hãy thử từ khóa khác.": "Try another word.",
   "Lưu trữ một hội thoại để dọn thanh bên mà vẫn giữ lại nó.":
     "Archive a conversation to clear the sidebar and still keep it.",
   "Đã lưu trữ {{date}}": "Archived {{date}}",
-  "Xoá hội thoại {{name}}": "Delete {{name}}",
+  "Xóa hội thoại {{name}}": "Delete {{name}}",
   "Tách sang hội thoại mới": "Branch into a new chat",
   "Tách từ hội thoại gốc": "Branched from",
   "Nhánh của {{title}}": "Branch of {{title}}",
@@ -669,12 +669,12 @@ export const vietnameseUi: Record<string, string> = {
   "Đã tải lên xong": "Uploads finished",
   "Đóng danh sách tải lên": "Close the upload list",
   "Đã tải lên · {{size}}": "Uploaded · {{size}}",
-  "Đã huỷ": "Cancelled",
+  "Đã hủy": "Cancelled",
   "Tải lên lỗi": "Upload failed",
-  "Huỷ tải {{name}}": "Cancel uploading {{name}}",
+  "Hủy tải {{name}}": "Cancel uploading {{name}}",
   // MEM-152 file library v2
   "Thêm vào dự án": "Add to project",
-  "Tệp được dùng trong mọi hội thoại của dự án. Gỡ khỏi dự án không xoá tệp khỏi thư viện.":
+  "Tệp được dùng trong mọi hội thoại của dự án. Gỡ khỏi dự án không xóa tệp khỏi thư viện.":
     "Files are used in every conversation of the project. Removing one from the project keeps it in the library.",
   "Không tải được danh sách dự án.": "The projects could not be loaded.",
   "Bạn chưa có dự án nào. Tạo dự án trong mục Dự án trước.":
@@ -741,15 +741,15 @@ export const vietnameseUi: Record<string, string> = {
   "Xem trước {{name}}": "Preview {{name}}",
   "Trang trước": "Previous page",
   "Trang sau": "Next page",
-  "Xoá tệp?": "Delete file?",
-  "Tệp sẽ bị xoá khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.":
+  "Xóa tệp?": "Delete file?",
+  "Tệp sẽ bị xóa khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.":
     "The file is removed from every conversation and cannot be restored. {{count}} files selected.",
-  "Đang xoá…": "Deleting…",
+  "Đang xóa…": "Deleting…",
   "Mở hội thoại gốc": "Open the original conversation",
   "Tải về": "Download",
-  "Xoá {{name}}": "Delete {{name}}",
-  "Tệp đã bị xoá": "File deleted",
-  "Ảnh đã bị xoá": "Image deleted",
+  "Xóa {{name}}": "Delete {{name}}",
+  "Tệp đã bị xóa": "File deleted",
+  "Ảnh đã bị xóa": "Image deleted",
   "Suy nghĩ": "Thinking",
   "Đang tìm trong {{scope}}…": "Searching {{scope}}…",
   "Đã tìm trong {{scope}}": "Searched {{scope}}",
@@ -966,7 +966,7 @@ export const vietnameseUi: Record<string, string> = {
   "Dùng tài liệu ứng dụng": "Use the metadata document",
   "Máy chủ này không tự đăng ký được. Hãy nhập ứng dụng thủ công.":
     "This server cannot self-register. Enter the application by hand.",
-  "Dùng cho một tổ chức. Bí mật được mã hoá và không hiện lại.":
+  "Dùng cho một tổ chức. Bí mật được mã hóa và không hiện lại.":
     "For one organization. The secret is encrypted and never shown again.",
   Nhãn: "Label",
   Issuer: "Issuer",
@@ -978,12 +978,12 @@ export const vietnameseUi: Record<string, string> = {
   "{{count}} công cụ": "{{count}} tools",
   "Chờ quản trị viên": "Waiting on an administrator",
   "Kết nối {{name}}": "Connect {{name}}",
-  "Khoá được thử với máy chủ trước khi lưu, và chỉ bạn dùng được.":
+  "Khóa được thử với máy chủ trước khi lưu, và chỉ bạn dùng được.":
     "The key is tried against the server before it is stored, and only you can use it.",
-  "Máy chủ từ chối khoá này. Khoá chưa được lưu.":
+  "Máy chủ từ chối khóa này. Khóa chưa được lưu.":
     "The server rejected this key. Nothing was stored.",
   Tên: "Name",
-  Xoá: "Delete",
+  Xóa: "Delete",
   "Ví dụ: Google Drive": "Example: Google Drive",
   "Ví dụ: drive": "Example: drive",
   "Máy chủ MCP": "MCP servers",
@@ -1006,35 +1006,34 @@ export const vietnameseUi: Record<string, string> = {
   "1-16 ký tự a-z hoặc 0-9. Công cụ sẽ có tên mcp_<mã>_<công cụ>.":
     "1-16 characters of a-z or 0-9. Tools are named mcp_<code>_<tool>.",
   "Địa chỉ máy chủ": "Server URL",
-  "Đổi địa chỉ sẽ xoá thông tin đăng nhập đã lưu và danh sách công cụ.":
+  "Đổi địa chỉ sẽ xóa thông tin đăng nhập đã lưu và danh sách công cụ.":
     "Changing the URL removes the stored credentials and the tool list.",
   "Cách đăng nhập": "Authentication",
-  "Khoá API": "API key",
   "Không cần": "None",
-  "Đổi cách đăng nhập sẽ xoá thông tin đăng nhập đã lưu.":
+  "Đổi cách đăng nhập sẽ xóa thông tin đăng nhập đã lưu.":
     "Changing the authentication type removes the stored credentials.",
   "Mỗi người tự kết nối": "Each person connects",
   "Một kết nối dùng chung": "One shared connection",
   "Tự dò máy chủ OAuth": "Discover the authorization server",
   "Tự nhập điểm cuối": "Enter the endpoints",
-  "Khoá API dùng chung": "Shared API key",
-  "Để trống để giữ khoá đã lưu": "Leave empty to keep the stored key",
+  "Khóa API dùng chung": "Shared API key",
+  "Để trống để giữ khóa đã lưu": "Leave empty to keep the stored key",
   "Ai dùng được": "Who can use it",
   "Cả tổ chức": "Whole organization",
   "Chọn nhóm": "Selected Groups",
   "Chưa có nhóm nào.": "No Groups yet.",
   "Tôi hiểu máy chủ MCP là bên thứ ba: công cụ của nó có thể đọc và thay đổi dữ liệu, và kết quả trả về là dữ liệu không đáng tin.":
     "I understand an MCP server is a third party: its tools can read and change data, and its results are untrusted data.",
-  Huỷ: "Cancel",
+  Hủy: "Cancel",
   "Lấy công cụ": "Fetch tools",
   "Xem công cụ": "Show tools",
   "Ẩn công cụ": "Hide tools",
   Sửa: "Edit",
-  "Xoá máy chủ": "Delete server",
-  "Xoá máy chủ MCP?": "Delete this MCP server?",
-  "Công cụ và mọi thông tin đăng nhập đã lưu của máy chủ này sẽ bị xoá. Không hoàn tác được.":
+  "Xóa máy chủ": "Delete server",
+  "Xóa máy chủ MCP?": "Delete this MCP server?",
+  "Công cụ và mọi thông tin đăng nhập đã lưu của máy chủ này sẽ bị xóa. Không hoàn tác được.":
     "Its tools and every stored credential are removed. This cannot be undone.",
-  "Đang xoá": "Deleting",
+  "Đang xóa": "Deleting",
   "{{enabled}}/{{total}} công cụ đang bật": "{{enabled}}/{{total}} tools enabled",
   "Bật tất cả": "Enable all",
   "Tắt tất cả": "Disable all",
@@ -1050,7 +1049,7 @@ export const vietnameseUi: Record<string, string> = {
   "Chưa kết nối": "Not connected",
   "Không cần đăng nhập": "No sign-in needed",
   "Đã kết nối máy chủ MCP.": "The MCP server is connected.",
-  "Bạn đã huỷ việc cấp quyền.": "You cancelled the authorization.",
+  "Bạn đã hủy việc cấp quyền.": "You cancelled the authorization.",
   "Máy chủ cấp quyền không khớp cấu hình đã lưu.":
     "The authorization server does not match the saved configuration.",
   "Cấu hình đã đổi khi đang cấp quyền. Hãy thử lại.":
@@ -1146,7 +1145,6 @@ export const vietnameseUi: Record<string, string> = {
   "Nội dung câu hỏi": "Question text",
   "Câu hỏi và câu trả lời cũ vẫn có thể chọn lại.":
     "Previous questions and answers remain available as saved versions.",
-  Hủy: "Cancel",
   "Lưu và gửi": "Save and send",
   "Hữu ích": "Helpful",
   "Không hữu ích": "Not helpful",
@@ -1177,10 +1175,8 @@ export const vietnameseUi: Record<string, string> = {
   "Upload hết hạn · Chọn file để tải lại": "Upload expired · Select the file to upload again",
   "Xử lý lỗi": "Processing failed",
   "Chưa xác nhận upload": "Upload not confirmed",
-  "Đã xóa": "Deleted",
   "Thử lại": "Try again",
   "Xác nhận tải lên": "Confirm upload",
-  Xóa: "Delete",
   "Xóa tệp {{v1}}?": "Delete file {{v1}}?",
   "Nội dung tệp sẽ không còn đọc được, kể cả trong hội thoại cũ. Tên tệp trong lịch sử vẫn được giữ.":
     "File content will no longer be readable, including in previous conversations. Its name remains in history.",
@@ -1374,7 +1370,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chỉ bạn và quản trị viên trợ lý dùng được bộ tài liệu này.":
     "Only you and agent administrators can use this Document Set.",
   "Xóa {{v1}}": "Delete {{v1}}",
-  "Xóa {{v1}}?": "Delete {{v1}}?",
   "Bộ tài liệu sẽ bị gỡ khỏi mọi trợ lý đang dùng nó. Nguồn và tài liệu không bị xóa.":
     "The Document Set will be removed from every agent that uses it. Sources and documents are not deleted.",
   "Xóa bộ tài liệu": "Delete Document Set",
@@ -1404,7 +1399,7 @@ export const vietnameseUi: Record<string, string> = {
   "Ví dụ: OKR/KPI hằng tháng": "Example: Monthly OKR/KPI",
   "Ví dụ: Xếp loại KPI tháng 8 của các đơn vị": "Example: Rank the units' August KPIs",
   "Xem trước": "Preview",
-  "Xoá câu hỏi gợi ý {{v1}}": "Remove starter prompt {{v1}}",
+  "Xóa câu hỏi gợi ý {{v1}}": "Remove starter prompt {{v1}}",
   "Trợ lý theo chủ đề cho từng phòng ban, với hướng dẫn, nguồn tài liệu và công cụ riêng.":
     "Topic assistants for each team, with their own instructions, sources and tools.",
   "Bạn chưa có quyền tạo trợ lý. Liên hệ quản trị viên để được cấp quyền.":
@@ -1414,7 +1409,7 @@ export const vietnameseUi: Record<string, string> = {
   "Mọi người tạo": "All creators",
   "{{v1}} người tạo": "{{v1}} creators",
   "Tìm người tạo…": "Search creators…",
-  "Xoá bộ lọc người tạo": "Clear creator filter",
+  "Xóa bộ lọc người tạo": "Clear creator filter",
   "Sửa {{v1}}": "Edit {{v1}}",
   "Sửa trợ lý": "Edit assistant",
   "Không mở được trợ lý": "The assistant could not be opened",
@@ -1577,7 +1572,7 @@ export const vietnameseUi: Record<string, string> = {
     "Paint over the area to change. Leave it unpainted to edit the whole image.",
   "Tô vùng cần sửa": "Paint the area to change",
   "Cỡ cọ": "Brush size",
-  "Xoá vùng tô": "Clear painting",
+  "Xóa vùng tô": "Clear painting",
   "Mô tả thay đổi": "Describe the change",
   "Ví dụ: đổi áo sang màu đỏ, giữ nguyên mọi thứ khác":
     "For example: make the shirt red and keep everything else",
@@ -1912,24 +1907,24 @@ Object.assign(vietnameseUi, {
   "Tiến độ dựng lại": "Rebuild progress",
   "{{count}} lỗi": "{{count}} failed",
   sang: "to",
-  "Không xoá được index": "Index not deleted",
+  "Không xóa được index": "Index not deleted",
   "Chuyển index": "Switch index",
   "Không có khóa": "No key",
   "Sửa provider {{name}}": "Edit provider {{name}}",
-  "Xoá provider {{name}}": "Delete provider {{name}}",
-  "Xoá provider {{name}}?": "Delete provider {{name}}?",
-  "Key đã lưu bị xoá cùng provider.": "The saved key is deleted with the provider.",
-  "Xoá provider": "Delete provider",
+  "Xóa provider {{name}}": "Delete provider {{name}}",
+  "Xóa provider {{name}}?": "Delete provider {{name}}?",
+  "Key đã lưu bị xóa cùng provider.": "The saved key is deleted with the provider.",
+  "Xóa provider": "Delete provider",
   "Chuyển sang {{model}}?": "Switch to {{model}}?",
   "Index đang dùng được giữ 7 ngày để hoàn tác.":
     "The current index is kept for 7 days so the switch can be undone.",
   "Đang chuyển": "Switching",
   "Hủy dựng lại?": "Cancel the rebuild?",
-  "Index {{model}} đang dựng sẽ bị xoá.": "The {{model}} index being built is deleted.",
+  "Index {{model}} đang dựng sẽ bị xóa.": "The {{model}} index being built is deleted.",
   "Hủy dựng lại": "Cancel rebuild",
   "Đang hủy": "Cancelling",
   "Model đã biết": "Known model",
-  "Tuỳ chỉnh": "Custom",
+  "Tùy chỉnh": "Custom",
   "Tên model": "Model name",
   "Tiền tố câu hỏi": "Query prefix",
   "Tiền tố tài liệu": "Document prefix",

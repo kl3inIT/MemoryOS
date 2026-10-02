@@ -29,7 +29,7 @@ describe("placeSheetCitations", () => {
     expect(
       placeSheetCitations(sheets, rendered, [
         undefined,
-        { sheet: "Đã xoá", row: 1 },
+        { sheet: "Đã xóa", row: 1 },
         // The header line is not a cited row, and a row past the preview was never rendered.
         { sheet: "Tổng hợp", row: 0 },
         { sheet: "Tổng hợp", row: 3 },

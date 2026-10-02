@@ -113,7 +113,7 @@ export function ChangeModelDialog({
                 }
               }}
             >
-              <option value={custom}>{ui("Tuỳ chỉnh")}</option>
+              <option value={custom}>{ui("Tùy chỉnh")}</option>
               {presets.map((entry) => (
                 <option key={entry.model} value={entry.model}>
                   {entry.label}

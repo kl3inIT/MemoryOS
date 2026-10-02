@@ -95,7 +95,7 @@ const tools: ListMcpServerToolsResponse = [
     id: "t3",
     name: "delete_file",
     modelName: "mcp_drive_delete_file",
-    title: "Xoá tệp",
+    title: "Xóa tệp",
     description: "Chuyển một tệp vào thùng rác.",
     readOnlyHint: false,
     destructiveHint: true,
@@ -285,7 +285,7 @@ for (const theme of ["light", "dark"] as const) {
 
       await page.goto("/admin/mcp");
       await page.getByRole("button", { name: "Thao tác với Google Drive" }).click();
-      await expect(page.getByRole("menuitem", { name: "Xoá máy chủ" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "Xóa máy chủ" })).toBeVisible();
       await page.screenshot({ path: `${OUTPUT}/mem112-mcp-menu-${theme}-${width}.png` });
       await page.keyboard.press("Escape");
 
@@ -396,6 +396,6 @@ test("Rare server actions sit in one menu so the row fits a phone", async ({ pag
   expect((await refresh.boundingBox())!.y).toBe((await menu.boundingBox())!.y);
 
   await menu.click();
-  await page.getByRole("menuitem", { name: "Xoá máy chủ" }).click();
+  await page.getByRole("menuitem", { name: "Xóa máy chủ" }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
 });

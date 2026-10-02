@@ -287,7 +287,7 @@ export function ChatSessionFiles({
                   </EmptyTitle>
                   <EmptyDescription>
                     {filtered
-                      ? ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.")
+                      ? ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khóa tìm kiếm.")
                       : ui("Tệp bạn đính kèm và tệp Chat tạo ra sẽ xuất hiện ở đây.")}
                   </EmptyDescription>
                 </EmptyHeader>
@@ -325,15 +325,15 @@ export function ChatSessionFiles({
       <ConfirmDialog
         open={confirming !== undefined}
         onOpenChange={(next) => !next && setConfirming(undefined)}
-        title={ui("Xoá tệp?")}
+        title={ui("Xóa tệp?")}
         description={ui(
-          "Tệp sẽ bị xoá khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
+          "Tệp sẽ bị xóa khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
           {
             count: 1,
           },
         )}
-        confirmLabel={ui("Xoá")}
-        pendingLabel={ui("Đang xoá…")}
+        confirmLabel={ui("Xóa")}
+        pendingLabel={ui("Đang xóa…")}
         confirmTone="danger"
         onConfirm={async () => {
           const file = confirming;
@@ -459,7 +459,7 @@ function SessionFileRow({
                   onSelect={onDelete}
                 >
                   <Trash2 />
-                  {ui("Xoá")}
+                  {ui("Xóa")}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>

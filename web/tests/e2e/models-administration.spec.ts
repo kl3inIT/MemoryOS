@@ -55,10 +55,10 @@ for (const width of [1280, 390]) {
       "aria-current",
       "page",
     );
-    await expect(page.getByRole("link", { name: "Existing sources", exact: true })).toHaveCount(0);
-    await page.getByRole("link", { name: "Back to MemoryOS", exact: true }).click();
+    await expect(page.getByRole("link", { name: "Sources", exact: true })).toHaveCount(0);
+    await page.getByRole("link", { name: "Back to the app", exact: true }).click();
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
-    await page.getByRole("button", { name: "Tenant member", exact: true }).click();
+    await page.getByRole("button", { name: "Member", exact: true }).click();
     // The account menu and sidebar are distinct real entry points.
     const accountEntry = page.getByRole("menuitem", { name: "Admin Panel", exact: true });
     await expect(accountEntry).toHaveAttribute("href", "/admin/models");

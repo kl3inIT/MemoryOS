@@ -213,7 +213,7 @@ function PickerBody({
               </EmptyTitle>
               <EmptyDescription>
                 {query || source !== "ALL" || categories.length > 0
-                  ? ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.")
+                  ? ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khóa tìm kiếm.")
                   : ui("Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây.")}
               </EmptyDescription>
             </EmptyHeader>

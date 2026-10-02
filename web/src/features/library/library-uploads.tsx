@@ -141,7 +141,7 @@ export function LibraryUploadTray({
                         size: fileSize(upload.sizeBytes, i18n.language),
                       })
                     : upload.state === "cancelled"
-                      ? ui("Đã huỷ")
+                      ? ui("Đã hủy")
                       : upload.error
                         ? problemMessage(upload.error)
                         : ui("Tải lên lỗi")}
@@ -154,7 +154,7 @@ export function LibraryUploadTray({
                 <IconButton
                   size="sm"
                   prominence="internal"
-                  aria-label={ui("Huỷ tải {{name}}", { name: upload.name })}
+                  aria-label={ui("Hủy tải {{name}}", { name: upload.name })}
                   onClick={() => onCancel(upload.id)}
                 >
                   <X />
