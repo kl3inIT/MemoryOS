@@ -293,7 +293,8 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   - [ ] Host, before the merge: point that proxy host at `memoryos-keycloak`.
   - [ ] Host, with the deployment: `MEMORYOS_MCP_ENDPOINT_URL` in `.env.staging`, so one deployment recreates
     Keycloak and gives the API its endpoint. Keep the deployment's `keycloak.dump`.
-  - [ ] Realm script with the endpoint URL and the ChatGPT secret; the realm then advertises metadata documents.
+  - [x] Realm script with the endpoint URL; the realm advertises metadata documents (2026-10-01; since MEM-207 with
+    the `memoryos-mcp-admin` secret instead of ChatGPT's).
   - [ ] Remove what OrgMemory left on the host: the `orgmemory` realm once its clients are confirmed unused, the
     `orgmemory-docs` project, its volumes and network, `/apps/orgmemory*`, the old Keycloak image and the proxy hosts
     of `om.kl3in.tech` and `docs.kl3in.tech`. `zeromail-postgres` runs an image named after OrgMemory and stays.
@@ -314,18 +315,20 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   - [x] Removing `memoryos-chatgpt`, its secret file and the administration page's ChatGPT fields moved to
     [MEM-207](../mcp-endpoint-governance/plan.md), with the administrator's list of trusted apps; Dynamic Client
     Registration for Gemini is MEM-207's second part.
-- [ ] **Staging.** Switch on, with a test member who reads only test Documents.
-- [ ] **Probes.** The curl probes in the design.
-- [ ] **Clients.** Claude web, Claude Code, ChatGPT web; revoke; switch off. Confirm that Claude, whose client comes
+- [ ] **Staging.** Switch on (it is), with a test member who reads only test Documents (not yet).
+- [ ] **Probes.** The curl probes in the design: the metadata and the anonymous 401 ran on 2026-10-03; the probes
+  that need a member token remain ([verification](verification.md#not-yet-run)).
+- [ ] **Clients.** Claude web (2026-10-01) and ChatGPT web (2026-10-02) done; Claude Code, revoke and switch off remain. Confirm that Claude, whose client comes
   from a metadata document, appears in the authorized apps list. If ChatGPT fails, open its own issue and
   record why.
-- [ ] **Evidence.** `verification.md`.
-- [ ] **Documents.**
-  - The ADR for the endpoint.
-  - The spec and test matrix.
-  - `ARCHITECTURE.md`: the module table, and "no MCP server" under candidates.
+- [x] **Evidence.** [`verification.md`](verification.md), kept up to date as the rest runs.
+- [x] **Documents** (2026-10-03).
+  - [ADR 0024](../../../decisions/0024-mcp-endpoint-in-process-with-the-members-access.md).
+  - The [spec](../../../specs/mcp-endpoint.md) and [test matrix](../../../tests/mcp-endpoint.md).
+  - `ARCHITECTURE.md`: the module table, and the endpoint no longer listed as a candidate.
   - The roadmap.
-  - The MEM-134 design note made concrete.
+  - The MEM-134 design names the endpoint as its own later slice.
 - [ ] **Production.** Deployed with the switch off: endpoint configured on 2026-10-03 (`https://app.vadan.app/mcp`,
-  realm reconciled, see the [governance plan](../mcp-endpoint-governance/plan.md)); the owner turns the switch on.
+  realm reconciled, see the [governance plan](../mcp-endpoint-governance/plan.md)). The owner decided that day to
+  turn it on while production holds no organization data, ahead of MEM-134; the switch is theirs.
 - [ ] **Close.** After merge and acceptance, move this increment to `completed/`.

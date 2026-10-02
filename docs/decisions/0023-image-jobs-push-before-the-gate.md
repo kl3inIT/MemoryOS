@@ -1,8 +1,9 @@
-# ADR 0020: Image jobs push to GHCR before the gate
+# ADR 0023: Image jobs push to GHCR before the gate
 
 ## Status
 
-Accepted 2026-10-02 by the owner. Implementation starts with the [CI main fast path](../increments/active/ci-main-fast-path/design.md) increment.
+Accepted 2026-10-02 by the owner. Numbered 0020 until 2026-10-03, when it was renumbered because
+the catalog ADR had taken 0020 first. Implementation starts with the [CI main fast path](../increments/active/ci-main-fast-path/design.md) increment.
 
 ## Context
 
