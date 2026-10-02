@@ -202,10 +202,14 @@ function MemberActions({
         <ConfirmDialog
           trigger={
             <IconButton
-              size="sm"
+              size={member.isManager ? "md" : "sm"}
               prominence={member.isManager ? "secondary" : "tertiary"}
+              className={
+                member.isManager
+                  ? "border-status-success-emphasis-border bg-status-success-emphasis text-content-on-emphasis hover:border-status-success-emphasis-border hover:bg-status-success-emphasis hover:text-content-on-emphasis active:border-status-success-emphasis-border active:bg-status-success-emphasis active:text-content-on-emphasis disabled:border-status-success-emphasis-border disabled:bg-status-success-emphasis disabled:text-content-on-emphasis disabled:opacity-60"
+                  : undefined
+              }
               aria-pressed={member.isManager}
-              disabled={locked}
               pending={draft.managerPendingFor(member.actorId)}
               aria-label={ui("{{v1}} for {{v2}}", {
                 v1: ui(member.isManager ? "Remove manager" : "Make manager"),
