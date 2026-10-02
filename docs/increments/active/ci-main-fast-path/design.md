@@ -1,6 +1,6 @@
 # Thiết kế — CI main fast path
 
-Tiếp nối [CI song song cho backend](../ci-parallel-backend/design.md). Sau increment đó, PR mất 6m48s, còn push lên `main` vẫn khoảng 14.5 phút trước khi staging được deploy (run 37029069637). Có hai lý do:
+Tiếp nối [CI song song cho backend](../../completed/ci-parallel-backend/design.md). Sau increment đó, PR mất 6m48s, còn push lên `main` vẫn khoảng 14.5 phút trước khi staging được deploy (run 37029069637). Có hai lý do:
 
 1. `Publish verified release` mất 4m08s để tải lại khoảng 1.9 GB image archive mà các job build vừa upload, `docker load` rồi push lên GHCR.
 2. `main` chạy lại mọi job test, dù PR vừa verify đúng nội dung đó.
