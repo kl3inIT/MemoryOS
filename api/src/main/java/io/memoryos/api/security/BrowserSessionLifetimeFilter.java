@@ -33,8 +33,11 @@ final class BrowserSessionLifetimeFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         var session = request.getSession(false);
         if (session != null) {
+            Instant created = Instant.ofEpochMilli(session.getCreationTime());
+            // A sign-in never ends later than the session that holds it began plus the lifetime.
             Instant since = ProviderSessionState.authenticatedAt(session)
-                    .orElseGet(() -> Instant.ofEpochMilli(session.getCreationTime()));
+                    .filter(authenticated -> authenticated.isBefore(created))
+                    .orElse(created);
             if (!Instant.now().isBefore(since.plus(maxLifetime))) {
                 session.invalidate();
                 LOGGER.atInfo().addKeyValue("event", "identity.browser_session.expired")

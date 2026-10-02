@@ -1209,6 +1209,20 @@ class SessionSecurityIntegrationTest {
                 assertEquals(0L, jdbcClient.sql("SELECT count(*) FROM spring_session WHERE session_id = :id")
                         .param("id", sessionId).query(Long.class).single());
             }
+            // A claim from the future counts as now: the session still ends 7 days after it began.
+            AUTHENTICATED_AT.set(Instant.now().plus(Duration.ofDays(365)));
+            var future = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+            try (var client = client(future)) {
+                assertEquals(302, completeOAuth(client, "/oauth2/authorization/memoryos").statusCode());
+                String sessionId = new String(Base64.getDecoder().decode(sessionCookie(future)), UTF_8);
+                assertEquals(200, client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString())
+                        .statusCode());
+                jdbcClient.sql("UPDATE spring_session SET creation_time = :created WHERE session_id = :id")
+                        .param("created", Instant.now().minus(Duration.ofDays(8)).toEpochMilli())
+                        .param("id", sessionId).update();
+                assertEquals(401, client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString())
+                        .statusCode());
+            }
             // A session signed in before the password's instant was kept is measured from its creation.
             AUTHENTICATED_AT.set(null);
             var older = new CookieManager(null, CookiePolicy.ACCEPT_ALL);

@@ -139,13 +139,15 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
 
     /**
      * When the person gave their password: the ID token's {@code auth_time}, which a silent sign-in through a live
-     * Keycloak session keeps; now when the provider sends none.
+     * Keycloak session keeps. Never later than now, so a skewed or wrong claim cannot stretch the session's lifetime;
+     * now when the provider sends none.
      */
     private static Instant authenticatedAt(Authentication authentication) {
+        Instant now = Instant.now();
         Instant authTime = authentication.getPrincipal() instanceof OidcUser user
                 ? user.getIdToken().getAuthenticatedAt()
                 : null;
-        return authTime == null ? Instant.now() : authTime;
+        return authTime == null || authTime.isAfter(now) ? now : authTime;
     }
 
     private static @Nullable String asserted(@Nullable String email, @Nullable String subject) {
