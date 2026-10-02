@@ -2,3 +2,7 @@ allowBuilds:
   msw: false
 patchedDependencies:
   "@assistant-ui/ai-sdk@0.0.8": patches/@assistant-ui__ai-sdk@0.0.8.patch
+# rehype-katex (through @streamdown/math) asks for katex ^0.16, but the stylesheet comes from the direct
+# katex 0.18 dependency, whose class names changed; one version keeps markup and styles in step.
+overrides:
+  katex: 0.18.9

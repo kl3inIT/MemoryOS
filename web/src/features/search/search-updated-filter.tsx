@@ -54,7 +54,8 @@ export function SearchUpdatedFilter({
       : from === last || last === undefined
         ? day(from)
         : `${day(from)} – ${day(last)}`;
-  const today = new Date();
+  // Read once when the filter mounts, so a render stays pure.
+  const [today] = useState(() => new Date());
   const shownMonth =
     draft?.from ?? new Date(today.getFullYear(), today.getMonth() - (mobile ? 0 : 1), 1);
 
