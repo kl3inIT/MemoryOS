@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Objects;
 
 import org.jspecify.annotations.NonNull;
@@ -60,7 +61,8 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             throw exception;
         }
         switch (outcome) {
-            case SignInOutcome.Admitted admitted -> signIn(request, response, admitted, providerSessionId(authentication));
+            case SignInOutcome.Admitted admitted ->
+                    signIn(request, response, admitted, providerSessionId(authentication), authenticatedAt(authentication));
             case SignInOutcome.NotAdmitted ignored -> reject(request, response, ACCESS_NOT_PROVISIONED_DESTINATION);
             case SignInOutcome.InvitationRefused refused ->
                     reject(request, response, INVITATION_FAILURE_DESTINATION + invitationFailurePathReason(refused.reason()));
@@ -113,14 +115,15 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             HttpServletRequest request,
             HttpServletResponse response,
             SignInOutcome.Admitted admitted,
-            @Nullable String providerSessionId
+            @Nullable String providerSessionId,
+            Instant authenticatedAt
     ) throws IOException {
         InvitationSessionState.clear(request);
         var securityContext = SecurityContextHolder.createEmptyContext();
         securityContext.setAuthentication(new ActorAuthenticationToken(new IdentityContext(admitted.actorId())));
         SecurityContextHolder.setContext(securityContext);
         securityContextRepository.saveContext(securityContext, request, response);
-        ProviderSessionState.remember(request, providerSessionId);
+        ProviderSessionState.remember(request, providerSessionId, authenticatedAt);
         redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
     }
 
@@ -132,6 +135,19 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
     /** The Keycloak user session the ID token names, kept so sign-out can end it. */
     private static @Nullable String providerSessionId(Authentication authentication) {
         return authentication.getPrincipal() instanceof OidcUser user ? user.getIdToken().getClaimAsString("sid") : null;
+    }
+
+    /**
+     * When the person gave their password: the ID token's {@code auth_time}, which a silent sign-in through a live
+     * Keycloak session keeps. Never later than now, so a skewed or wrong claim cannot stretch the session's lifetime;
+     * now when the provider sends none.
+     */
+    private static Instant authenticatedAt(Authentication authentication) {
+        Instant now = Instant.now();
+        Instant authTime = authentication.getPrincipal() instanceof OidcUser user
+                ? user.getIdToken().getAuthenticatedAt()
+                : null;
+        return authTime == null || authTime.isAfter(now) ? now : authTime;
     }
 
     private static @Nullable String asserted(@Nullable String email, @Nullable String subject) {

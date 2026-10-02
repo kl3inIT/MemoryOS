@@ -82,7 +82,7 @@ The image entrypoint fetches nothing over the network: its launcher turns every 
 | `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
 | `SPRING_PROFILES_ACTIVE` | No | Local Gradle and IntelliJ launches use Arconia development bootstrap mode, whose checked-in bootstrap properties activate `development`. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
-`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
+`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT` (8 hours unused; a session also ends 7 days after the password, with Keycloak's SSO session), object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
 
 ### Provider credential keys
 
@@ -98,7 +98,7 @@ unreadable.
 | `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` | API | Base64 32-byte AES key sealing MCP OAuth client secrets, header templates and User credentials. Missing configuration disables MCP secret writes and reads. |
 | `MEMORYOS_MCP_REDIRECT_URI` | API | HTTPS (or loopback HTTP locally) ending in `/login/oauth2/code/mcp`, registered on each MCP OAuth client. |
 | `MEMORYOS_MCP_ENDPOINT_URL` | API | Optional (MEM-114). The browser origin followed by `/mcp`; it is the token audience and the protected resource Claude and ChatGPT are given. Unset, there is no MCP endpoint and the Tenant switch stays locked. Its Keycloak side is in the [MCP endpoint runbook](mcp-endpoint.md). |
-| `MEMORYOS_MCP_CHATGPT_CLIENT_SECRET` | API | Optional (MEM-114). The `memoryos-chatgpt` client secret the realm script gave Keycloak; with an endpoint URL, the administration page shows it and the client ID. On a server it is the `mcp_chatgpt_client_secret` secret file. |
+| `MEMORYOS_MCP_ADMIN_CLIENT_SECRET` | API | MEM-207. The `memoryos-mcp-admin` secret the realm script gave Keycloak; with it the API keeps Keycloak's trusted MCP app hosts, without it the list is read-only. On a server it is the `mcp_admin_client_secret` secret file. |
 
 There is no server-wide default Google client: a manager uploads a Google **Web application OAuth client JSON** of at
 most 16 KiB and enables the Drive, Sheets and Docs APIs in that project. SharePoint takes an **Entra application** with
@@ -187,7 +187,7 @@ MEMORYOS_KEYCLOAK_SMTP_PASSWORD # required when auth is true
 MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
 MEMORYOS_MCP_ENDPOINT_URL # optional; exactly the browser origin followed by /mcp (MEM-114)
-MEMORYOS_MCP_CHATGPT_CLIENT_SECRET # optional; needs MEMORYOS_MCP_ENDPOINT_URL
+MEMORYOS_MCP_ADMIN_CLIENT_SECRET   # required with MEMORYOS_MCP_ENDPOINT_URL and only with it
 ```
 
 With `MEMORYOS_MCP_ENDPOINT_URL` the script also configures the MCP endpoint's scope, audience, Claude client policy

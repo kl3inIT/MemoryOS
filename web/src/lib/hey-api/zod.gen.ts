@@ -1114,25 +1114,73 @@ export const zMcpEndpointSettingsRequest = z.object({
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-/**
- * What a ChatGPT workspace administrator enters once to add MemoryOS
- */
-export const zMcpEndpointChatGptClientResponse = z.object({
-    clientId: z.string(),
-    clientSecret: z.string()
-});
-
 export const zMcpEndpointSettingsResponse = z.object({
     configured: z.boolean(),
     enabled: z.boolean(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    url: z.string().nullable(),
-    chatGpt: zMcpEndpointChatGptClientResponse.nullable()
+    url: z.string().nullable()
+});
+
+export const zMcpTrustedAppEnabledRequest = z.object({
+    enabled: z.boolean(),
+    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * An outside assistant the MCP endpoint admits by the URL of its client metadata document
+ */
+export const zMcpTrustedAppResponse = z.object({
+    id: z.uuid(),
+    preset: z.enum([
+        'CLAUDE',
+        'CHATGPT',
+        'CUSTOM'
+    ]),
+    name: z.string(),
+    clientIdHosts: z.array(z.string()),
+    documentHosts: z.array(z.string()),
+    enabled: z.boolean(),
+    builtIn: z.boolean(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
 export const zMcpEndpointConnectionResponse = z.object({
     available: z.boolean(),
-    url: z.string().nullable()
+    url: z.string().nullable(),
+    apps: z.array(z.enum([
+        'CLAUDE',
+        'CHATGPT',
+        'CUSTOM'
+    ]))
+});
+
+/**
+ * One tool call through the MemoryOS MCP endpoint; no query and no document
+ */
+export const zMcpEndpointCallResponse = z.object({
+    id: z.uuid(),
+    occurredAt: z.iso.datetime(),
+    actorId: z.uuid(),
+    actorName: z.string().nullable(),
+    actorEmail: z.string().nullable(),
+    client: z.enum([
+        'CLAUDE',
+        'CHATGPT',
+        'OTHER'
+    ]),
+    clientName: z.string(),
+    tool: z.string(),
+    outcome: z.enum([
+        'SUCCESS',
+        'REFUSED',
+        'FAILED',
+        'RATE_LIMITED'
+    ])
+});
+
+export const zMcpEndpointCallPageResponse = z.object({
+    calls: z.array(zMcpEndpointCallResponse),
+    next: z.string().nullable()
 });
 
 export const zMcpClientGrantResponse = z.object({
@@ -1144,6 +1192,38 @@ export const zMcpClientGrantResponse = z.object({
     ]),
     name: z.string(),
     grantedAt: z.iso.datetime()
+});
+
+export const zMcpTrustedAppListResponse = z.object({
+    manageable: z.boolean(),
+    apps: z.array(zMcpTrustedAppResponse)
+});
+
+export const zMcpEndpointCountResponse = z.object({
+    key: z.string(),
+    name: z.string(),
+    calls: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    people: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zMcpEndpointDayResponse = z.object({
+    day: z.iso.date(),
+    calls: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    people: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
+ */
+export const zMcpEndpointInsightsResponse = z.object({
+    days: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    calls: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    people: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    failed: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    rateLimited: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    apps: z.array(zMcpEndpointCountResponse),
+    tools: z.array(zMcpEndpointCountResponse),
+    daily: z.array(zMcpEndpointDayResponse)
 });
 
 export const zInterpreterSettingsRequest = z.object({
@@ -1814,6 +1894,15 @@ export const zMcpOAuthAuthorizationInput = z.object({
 
 export const zMcpOAuthAuthorization = z.object({
     authorizationUrl: z.string()
+});
+
+/**
+ * An app of the Tenant's own, admitted by the URL of its client metadata document
+ */
+export const zMcpTrustedAppRequest = z.object({
+    name: z.string().min(0).max(80),
+    clientIdHosts: z.array(z.string().min(0).max(253)).min(1).max(10),
+    documentHosts: z.array(z.string().min(0).max(253)).min(0).max(20)
 });
 
 export const zMcpConnectionAuthorizationInput = z.object({
@@ -4792,10 +4881,59 @@ export const zUpdateMcpEndpointSettingsBody = zMcpEndpointSettingsRequest;
  */
 export const zUpdateMcpEndpointSettingsResponse = zMcpEndpointSettingsResponse;
 
+export const zRemoveMcpTrustedAppPath = z.object({
+    appId: z.uuid()
+});
+
+export const zRemoveMcpTrustedAppQuery = z.object({
+    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Trusted app removed
+ */
+export const zRemoveMcpTrustedAppResponse = z.void();
+
+export const zSetMcpTrustedAppEnabledBody = zMcpTrustedAppEnabledRequest;
+
+export const zSetMcpTrustedAppEnabledPath = z.object({
+    appId: z.uuid()
+});
+
+/**
+ * Trusted app switched
+ */
+export const zSetMcpTrustedAppEnabledResponse = zMcpTrustedAppResponse;
+
 /**
  * Whether the endpoint answers, and its URL
  */
 export const zGetMcpEndpointConnectionResponse = zMcpEndpointConnectionResponse;
+
+export const zListMcpEndpointActivityQuery = z.object({
+    from: z.iso.datetime().optional(),
+    to: z.iso.datetime().optional(),
+    client: z.enum([
+        'CLAUDE',
+        'CHATGPT',
+        'OTHER'
+    ]).optional(),
+    tool: z.string().min(0).max(64).optional(),
+    outcome: z.enum([
+        'SUCCESS',
+        'REFUSED',
+        'FAILED',
+        'RATE_LIMITED'
+    ]).optional(),
+    person: z.string().min(0).max(200).optional(),
+    cursor: z.string().min(0).max(200).optional(),
+    size: z.int().gte(1).lte(100).optional().default(50)
+});
+
+/**
+ * Tool calls, newest first
+ */
+export const zListMcpEndpointActivityResponse = zMcpEndpointCallPageResponse;
 
 export const zRevokeMcpClientGrantQuery = z.object({
     clientId: z.string().min(1).max(2048)
@@ -4810,6 +4948,15 @@ export const zRevokeMcpClientGrantResponse = z.void();
  * Clients the User allowed, newest first
  */
 export const zListMcpClientGrantsResponse = z.array(zMcpClientGrantResponse);
+
+export const zGetMcpEndpointInsightsQuery = z.object({
+    days: z.int().gte(7).lte(30).optional().default(7)
+});
+
+/**
+ * Use of the endpoint
+ */
+export const zGetMcpEndpointInsightsResponse = zMcpEndpointInsightsResponse;
 
 /**
  * Code Interpreter setting
@@ -5455,6 +5602,18 @@ export const zStartMcpServerOAuthAuthorizationPath = z.object({
  * Authorization URL for the browser
  */
 export const zStartMcpServerOAuthAuthorizationResponse = zMcpOAuthAuthorization;
+
+/**
+ * Claude and ChatGPT, then the organization's own apps
+ */
+export const zListMcpTrustedAppsResponse = zMcpTrustedAppListResponse;
+
+export const zAddMcpTrustedAppBody = zMcpTrustedAppRequest;
+
+/**
+ * Trusted app added
+ */
+export const zAddMcpTrustedAppResponse = zMcpTrustedAppResponse;
 
 export const zStartMcpConnectionAuthorizationBody = zMcpConnectionAuthorizationInput;
 

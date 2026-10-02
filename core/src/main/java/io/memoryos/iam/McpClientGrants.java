@@ -13,8 +13,6 @@ public interface McpClientGrants {
     /** The OAuth scope that lets a client read knowledge through the MCP endpoint. */
     String KNOWLEDGE_READ_SCOPE = "knowledge:read";
 
-    /** The confidential client the realm script creates for ChatGPT; Claude identifies itself by a metadata document. */
-    String CHATGPT_CLIENT_ID = "memoryos-chatgpt";
 
     /** The member's grants that carry {@link #KNOWLEDGE_READ_SCOPE}, newest first. */
     List<McpClientGrant> list(ActorId actor);

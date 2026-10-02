@@ -232,9 +232,10 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
   - The realm's other public clients (`memoryos-integration` and the built-in consoles) already use S256.
 
 **ChatGPT client `memoryos-chatgpt`.** Built before ChatGPT's document could be read, for a ChatGPT that is given a
-client ID by hand. With the lenient executor ChatGPT uses its document instead, and nobody needs this client; it is
-removed once ChatGPT has connected through its document on staging, in
-[MEM-207](https://linear.app/memory-os/issue/MEM-207).
+client ID by hand. With the lenient executor ChatGPT uses its document instead, and nobody needs this client. ChatGPT
+connected through its document on staging on 2026-10-02, and
+[MEM-207](../mcp-endpoint-governance/design.md#1-trusted-apps-mem-207-first-part) removes the client, its secret file
+and the administration page's ChatGPT fields. What follows describes it until then.
 
 - Confidential: `client_secret_basic` or `_post`.
 - Redirects `https://chatgpt.com/connector_platform_oauth_redirect` and the per-connector
@@ -254,7 +255,7 @@ removed once ChatGPT has connected through its document on staging, in
 **Lifetime.**
 
 - Access tokens are short-lived, because the endpoint does not introspect.
-- MCP clients may hold `offline_access`, with a 30-day offline idle.
+- MCP clients may hold `offline_access`, with a 30-day offline idle; MEM-209 adds a 180-day maximum.
 - Revoking a grant removes its offline session.
 
 **What is not enabled.**
@@ -494,8 +495,8 @@ on one screen.
 While the endpoint is off or not configured, the URL and tabs give way to one status line. The authorized apps stay,
 so a member can still revoke.
 
-**Reads behind the pages.** The administration read (`GET /api/mcp/endpoint`) gains the ChatGPT client ID and secret,
-null when the deployment has no secret. A member read returns only whether the endpoint is available and its URL.
+**Reads behind the pages.** The administration read (`GET /api/mcp/endpoint`) gained the ChatGPT client ID and secret,
+null when the deployment had no secret, until MEM-207 removed them. A member read returns only whether the endpoint is available and its URL.
 
 **Keycloak consent page.** Under the `memoryos` theme, in Vietnamese and English.
 

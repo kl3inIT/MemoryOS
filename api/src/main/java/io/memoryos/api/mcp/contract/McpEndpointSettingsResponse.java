@@ -12,12 +12,9 @@ public record McpEndpointSettingsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
                 description = "The URL people add to Claude or ChatGPT; present when configured")
-        @Nullable String url,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
-        @Nullable McpEndpointChatGptClientResponse chatGpt) {
+        @Nullable String url) {
     public static McpEndpointSettingsResponse from(McpEndpointService.Settings settings) {
         return new McpEndpointSettingsResponse(settings.configured(), settings.enabled(), settings.revision(),
-                settings.url() == null ? null : settings.url().toString(),
-                settings.chatGpt() == null ? null : McpEndpointChatGptClientResponse.from(settings.chatGpt()));
+                settings.url() == null ? null : settings.url().toString());
     }
 }

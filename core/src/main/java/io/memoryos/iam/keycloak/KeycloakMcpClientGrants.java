@@ -10,16 +10,13 @@ import io.memoryos.shared.ActorId;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.WebApplicationException;
-import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import org.jspecify.annotations.Nullable;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.UserResource;
 import org.slf4j.Logger;
@@ -39,7 +36,6 @@ import org.springframework.stereotype.Component;
 class KeycloakMcpClientGrants implements McpClientGrants {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KeycloakMcpClientGrants.class);
-    private static final List<String> CLAUDE_HOSTS = List.of("claude.ai", "claude.com");
 
     private final Keycloak keycloak;
     private final String realm;
@@ -84,7 +80,7 @@ class KeycloakMcpClientGrants implements McpClientGrants {
                     "The member has no grant to this MCP client");
         }
         LOGGER.atInfo().addKeyValue("event", "iam.mcp_client_grant.revoked")
-                .addKeyValue("client", client(clientId).name())
+                .addKeyValue("client", McpClientGrant.Client.of(clientId).name())
                 .log("MCP client grant revoked");
     }
 
@@ -115,34 +111,8 @@ class KeycloakMcpClientGrants implements McpClientGrants {
                 || !(consent.get("createdDate") instanceof Number created)) {
             return Optional.empty();
         }
-        McpClientGrant.Client client = client(clientId);
-        return Optional.of(new McpClientGrant(clientId, client, name(client, clientId),
-                Instant.ofEpochMilli(created.longValue())));
-    }
-
-    private static McpClientGrant.Client client(String clientId) {
-        if (CHATGPT_CLIENT_ID.equals(clientId)) return McpClientGrant.Client.CHATGPT;
-        String host = host(clientId);
-        boolean claude = host != null && CLAUDE_HOSTS.stream()
-                .anyMatch(domain -> host.equals(domain) || host.endsWith("." + domain));
-        return claude ? McpClientGrant.Client.CLAUDE : McpClientGrant.Client.OTHER;
-    }
-
-    private static String name(McpClientGrant.Client client, String clientId) {
-        return switch (client) {
-            case CLAUDE -> "Claude";
-            case CHATGPT -> "ChatGPT";
-            case OTHER -> Optional.ofNullable(host(clientId)).orElse(clientId);
-        };
-    }
-
-    private static @Nullable String host(String clientId) {
-        try {
-            String host = URI.create(clientId).getHost();
-            return host == null ? null : host.toLowerCase(Locale.ROOT);
-        } catch (IllegalArgumentException notAUri) {
-            return null;
-        }
+        return Optional.of(new McpClientGrant(clientId, McpClientGrant.Client.of(clientId),
+                McpClientGrant.Client.name(clientId), Instant.ofEpochMilli(created.longValue())));
     }
 
     private static McpClientGrantException unavailable(Throwable cause) {
