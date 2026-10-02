@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1.7
 
 # Build context: landing/
-FROM node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS build
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS build
 
 WORKDIR /workspace/landing
 
-RUN corepack enable \
-    && corepack install --global pnpm@11.22.0
+# Node 25 stopped bundling Corepack; npm installs the pnpm version package.json pins.
+RUN npm install --global pnpm@11.22.0
 
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
