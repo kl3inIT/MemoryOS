@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - JDK 25 and the checked-in Gradle wrapper.
-- Node.js 24 with Corepack for the `web/` application.
+- Node.js 26 and pnpm 11.22.0, installed with `npm install --global pnpm@11.22.0`, for the `web/` application. Corepack is not used.
 - Docker with the Compose plugin. Direct development uses one named, persistent PostgreSQL and Redis pair from `infrastructure/deployment/compose.development.yaml`.
 - Access to the developer-scoped Infisical `dev` environment, its configured development Keycloak realm and clients, and its explicitly provisioned S3/MinIO bucket and readiness sentinel. Staging access is not required for a local direct run.
 - A reachable Docling Serve endpoint is required only when the worker processes PDF, DOCX, or PPTX; an idle worker and TXT/Markdown extraction do not require it.
@@ -308,7 +308,6 @@ Production HTTPS keeps `MEMORYOS_SESSION_COOKIE_SECURE` unset so it defaults to 
 With the API on loopback port `18080`:
 
 ```powershell
-corepack enable
 cd web
 pnpm install --frozen-lockfile
 pnpm dev
@@ -316,14 +315,7 @@ pnpm dev
 
 The `dev` script generates the API client before starting Vite. Keep pnpm's `--package=...` options **before** `dlx` in `generate:api`; pnpm 11 can otherwise interpret `--package` as the package name and fail with `ERR_PNPM_FETCH_404`. Preserve the pinned generator and its TypeScript 6 package; the application uses its separately pinned TypeScript version.
 
-On Windows, an `Unsupported engine` warning can identify a different Node version from `node --version`: a Corepack `.cmd` launcher prefers a `node.exe` beside itself over `PATH`. For example, a tool-bundled Corepack may use Node 22 while the shell selects Node 26. With a supported Node selected by the shell, run the installed Corepack JavaScript entry point directly from `web/`:
-
-```powershell
-$corepackRoot = Split-Path (Get-Command corepack.cmd -ErrorAction Stop).Source
-node (Join-Path $corepackRoot 'node_modules/corepack/dist/corepack.js') pnpm dev
-```
-
-This retains the repository-pinned pnpm and normal API generation without modifying the other tool's runtime or lowering the project's Node requirement. Node 24 remains the CI baseline.
+Node 26 is the CI and image baseline; `package.json` accepts Node 24 and later.
 
 Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`, `/logout`, and `/actuator` to `MEMORYOS_API_URL`, which defaults to `http://127.0.0.1:18080`. Open the exact loopback origin registered in Keycloak so the generated callback uses the same host. The loopback-only development proxy removes the production `Secure` attribute from response cookies because local verification uses HTTP; it preserves every other cookie attribute. Production Nginx never performs this rewrite.
 
