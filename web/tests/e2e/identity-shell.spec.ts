@@ -655,6 +655,18 @@ test("manages members and one-time invitation recovery from the Users view", asy
     page.getByRole("row").filter({ hasText: "Rowan Brooks" }).getByText("Active"),
   ).toBeVisible();
   expect(membershipMutationHeader).toBe("1");
+
+  // On a phone a row keeps the member, their status and their actions on screen.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const rowan = page.getByRole("row").filter({ hasText: "Rowan Brooks" });
+  for (const cell of [
+    rowan.getByText("Active"),
+    rowan.getByRole("button", { name: "Actions for Rowan Brooks" }),
+  ]) {
+    const box = await cell.boundingBox();
+    expect(box && box.x + box.width).toBeLessThanOrEqual(390);
+  }
+  await expect(page.getByRole("columnheader", { name: "Groups" })).toHaveCount(0);
 });
 
 test("restores and updates the bounded server-driven Users view from the URL", async ({ page }) => {
@@ -1194,7 +1206,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await fileGroup.click();
   await expect(supportSource).toBeVisible();
   // The whole group row is a pointer target for its toggle.
-  const fileGroupTotal = fileGroup.locator("xpath=ancestor::tr").getByText("Total sources");
+  const fileGroupTotal = fileGroup.locator("xpath=ancestor::tr").getByText("1 source");
   await fileGroupTotal.click();
   await expect(fileGroup).toHaveAttribute("aria-expanded", "false");
   await fileGroupTotal.click();
@@ -1206,6 +1218,10 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   });
   await manageSource.focus();
   await expect(manageSource).toBeInViewport();
+  // On a phone the status stays beside the name instead of scrolling off with the wide columns.
+  const scheduled = await sourceTable.getByText("Scheduled", { exact: true }).first().boundingBox();
+  expect(scheduled && scheduled.x + scheduled.width).toBeLessThanOrEqual(390);
+  await expect(sourceTable.getByRole("columnheader", { name: "Access" })).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.setViewportSize({ width: 1280, height: 720 });
   await supportSource.click();
