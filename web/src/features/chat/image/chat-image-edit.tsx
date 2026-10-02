@@ -186,7 +186,7 @@ export function ChatImageEditDialog({
               onClick={() => setStrokes([])}
             >
               <EraserIcon data-icon="inline-start" aria-hidden="true" />
-              {ui("Xoá vùng tô")}
+              {ui("Xóa vùng tô")}
             </Button>
           </div>
         </div>

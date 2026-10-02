@@ -50,7 +50,7 @@ export function ChatGeneratedFiles() {
                 <FileDisplay.Icon mimeType={file.mediaType} filename={file.filename} />
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <FileDisplay.Name title={file.filename}>{file.filename}</FileDisplay.Name>
-                  <span className="text-xs text-muted-foreground">{ui("Tệp đã bị xoá")}</span>
+                  <span className="text-xs text-muted-foreground">{ui("Tệp đã bị xóa")}</span>
                 </div>
               </FileDisplay.Root>
             </li>

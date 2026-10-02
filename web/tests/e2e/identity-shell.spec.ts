@@ -115,7 +115,7 @@ test("shows a member's Groups entry while blocking unrelated administration deep
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await expect(page.getByRole("button", { name: "Tenant member" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Member", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
     "href",
     "/admin/groups",
@@ -166,7 +166,7 @@ test("signs out from the account menu with the same-origin guard", async ({ page
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Tenant owner" }).click();
+  await page.getByRole("button", { name: "Owner", exact: true }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
 
   // The server ended the provider session, so the reloaded app is signed out and goes straight to sign-in.
@@ -200,7 +200,7 @@ test("opens the provider logout page when the server could not end the provider 
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Tenant owner" }).click();
+  await page.getByRole("button", { name: "Owner", exact: true }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/signed-out-test$/);
@@ -216,13 +216,13 @@ test("persists the selected dark theme", async ({ page }) => {
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Tenant owner" }).click();
+  await page.getByRole("button", { name: "Owner", exact: true }).click();
   await page.getByRole("menuitem", { name: "Use dark theme" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("button", { name: "Tenant owner" }).click();
+  await page.getByRole("button", { name: "Owner", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Use light theme" })).toBeVisible();
 });
 
@@ -240,11 +240,11 @@ test("opens the separate administration shell", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("navigation", { name: "Administration navigation" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Existing sources", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Sources", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
-  await expect(page.getByRole("heading", { name: "Existing sources", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 });
 
@@ -262,7 +262,7 @@ test("separates listing Sources from adding one in the administration menu", asy
   await expect(navigation.getByText("Documents & Knowledge")).toBeVisible();
   const knowledge = navigation.getByRole("group", { name: "Documents & Knowledge" });
   await expect(knowledge.getByRole("link", { name: "Search settings", exact: true })).toBeVisible();
-  const list = navigation.getByRole("link", { name: "Existing sources", exact: true });
+  const list = navigation.getByRole("link", { name: "Sources", exact: true });
   const add = navigation.getByRole("link", { name: "Add a source", exact: true });
   await expect(list).toHaveAttribute("aria-current", "page");
 
@@ -311,7 +311,7 @@ test("keeps one document, identity session, and admin shell across internal rout
   await page.getByRole("link", { name: "Admin Panel" }).click();
 
   await expect(page).toHaveURL(/\/admin$/);
-  await expect(page.getByRole("heading", { name: "Existing sources", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () =>
@@ -363,7 +363,7 @@ test("closes mobile administration navigation after a client route change", asyn
   await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("button", { name: "Tenant owner" }).click();
+  await page.getByRole("button", { name: "Owner", exact: true }).click();
   await page.getByRole("menuitem", { name: "Admin Panel" }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
@@ -1179,7 +1179,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
 
   await page.goto("/admin");
   const sourceTable = page.getByRole("table", { name: "Connected sources" });
-  await expect(page.getByRole("heading", { name: "Existing sources" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
   await expect(sourceTable.getByText("Scheduled", { exact: true })).toBeVisible();
   const fileGroup = sourceTable.getByRole("button", {
     name: /File group, 1 sources, 0 documents/,
@@ -1262,7 +1262,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
   await expect(page.getByRole("button", { name: "Retry finalization" })).toBeVisible();
   expect(createAttempts).toBe(1);
-  await page.getByRole("link", { name: "Existing sources", exact: true }).last().click();
+  await page.getByRole("link", { name: "Sources", exact: true }).last().click();
   await expect(page).toHaveURL(/\/admin$/);
   await page
     .getByRole("table", { name: "Connected sources" })

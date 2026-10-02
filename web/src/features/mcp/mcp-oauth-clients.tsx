@@ -172,7 +172,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
                   })
                 }
               >
-                {ui("Xoá")}
+                {ui("Xóa")}
               </Button>
             </div>
           </li>
@@ -346,7 +346,7 @@ function McpOAuthClientEditor({
   return (
     <CatalogDialog
       title={ui("Nhập ứng dụng OAuth")}
-      description={ui("Dùng cho một tổ chức. Bí mật được mã hoá và không hiện lại.")}
+      description={ui("Dùng cho một tổ chức. Bí mật được mã hóa và không hiện lại.")}
       onClose={onClose}
     >
       <form
@@ -393,7 +393,7 @@ function McpOAuthClientEditor({
         ) : null}
         <div className="flex justify-end gap-2">
           <Button prominence="secondary" onClick={onClose}>
-            {ui("Huỷ")}
+            {ui("Hủy")}
           </Button>
           <Button type="submit" disabled={!complete} pending={save.isPending}>
             {ui("Lưu")}

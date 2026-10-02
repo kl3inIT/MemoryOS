@@ -121,21 +121,21 @@ function MeetingView({ meeting, page }: { meeting: MeetingDetail; page: MeetingP
         {owned && meeting.status === "ENDED" && (
           <DangerZone
             icon={<Trash2 />}
-            title={ui("Xoá cuộc họp này")}
+            title={ui("Xóa cuộc họp này")}
             description={ui("Transcript, tên người nói và ghi chú sẽ mất vĩnh viễn.")}
             action={
               <ConfirmDialog
                 trigger={
                   <Button tone="danger" prominence="secondary">
-                    {ui("Xoá cuộc họp")}
+                    {ui("Xóa cuộc họp")}
                   </Button>
                 }
-                title={ui("Xoá {{v1}}?", { v1: meeting.title })}
+                title={ui("Xóa {{v1}}?", { v1: meeting.title })}
                 description={ui(
-                  "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xoá vĩnh viễn.",
+                  "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xóa vĩnh viễn.",
                 )}
-                confirmLabel={ui("Xoá")}
-                pendingLabel={ui("Đang xoá…")}
+                confirmLabel={ui("Xóa")}
+                pendingLabel={ui("Đang xóa…")}
                 confirmTone="danger"
                 errorMessage={(error) => presentProblem(error, "mutation").message}
                 onConfirm={async () => {

@@ -148,7 +148,7 @@ describe("the minutes items", () => {
     expect(screen.getByRole("textbox", { name: "Nội dung" })).toHaveValue("Kiểm tra bảng cân đối");
   });
 
-  it("holds Huỷ and Xoá while an edit is saving", async () => {
+  it("holds Hủy and Xóa while an edit is saving", async () => {
     let answer: () => void = () => undefined;
     server.use(
       handleEditMeetingMinutesItem(
@@ -171,8 +171,8 @@ describe("the minutes items", () => {
     await user.click(await screen.findByRole("button", { name: "Sửa" }));
     await user.click(screen.getByRole("button", { name: "Lưu" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Huỷ" })).toBeDisabled());
-    expect(screen.getByRole("button", { name: "Xoá" })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Hủy" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Xóa" })).toBeDisabled();
     answer();
     await waitFor(() =>
       expect(screen.queryByRole("textbox", { name: "Nội dung" })).not.toBeInTheDocument(),
@@ -230,13 +230,13 @@ describe("the meeting details", () => {
     const dialog = screen.getByRole("dialog", { name: "Thông tin cuộc họp" });
     await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
 
-    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Huỷ" })).toBeDisabled());
-    // The only close control is Huỷ, and Escape waits for the save too.
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Hủy" })).toBeDisabled());
+    // The only close control is Hủy, and Escape waits for the save too.
     expect(
       within(dialog)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["Huỷ", "Lưu"]);
+    ).toEqual(["Hủy", "Lưu"]);
     await user.keyboard("{Escape}");
     expect(dialog).toBeInTheDocument();
     answer();

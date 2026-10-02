@@ -66,7 +66,7 @@ export function SearchSettingsConfirm({
           {...common}
           title={ui("Hủy dựng lại?")}
           description={ui(
-            appText("Index {{model}} đang dựng sẽ bị xoá.", { model: confirmation.future.model }),
+            appText("Index {{model}} đang dựng sẽ bị xóa.", { model: confirmation.future.model }),
           )}
           confirmLabel={ui("Hủy dựng lại")}
           pendingLabel={ui("Đang hủy")}
@@ -97,10 +97,10 @@ export function SearchSettingsConfirm({
       return (
         <ConfirmDialog
           {...common}
-          title={ui(appText("Xoá provider {{name}}?", { name: confirmation.provider.name }))}
-          description={ui("Key đã lưu bị xoá cùng provider.")}
-          confirmLabel={ui("Xoá provider")}
-          pendingLabel={ui("Đang xoá")}
+          title={ui(appText("Xóa provider {{name}}?", { name: confirmation.provider.name }))}
+          description={ui("Key đã lưu bị xóa cùng provider.")}
+          confirmLabel={ui("Xóa provider")}
+          pendingLabel={ui("Đang xóa")}
           onConfirm={async () => {
             await mutations.deleteProvider.mutateAsync({
               path: { providerId: confirmation.provider.id },

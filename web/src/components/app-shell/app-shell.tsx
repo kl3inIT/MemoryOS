@@ -295,7 +295,7 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
           ) : !appArea ? (
             <SidebarLink
               to="/"
-              label={ui("Back to MemoryOS")}
+              label={ui("Back to the app")}
               icon={<ArrowLeft />}
               variant="light"
               onNavigate={onNavigate}

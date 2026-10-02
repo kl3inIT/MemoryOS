@@ -38,7 +38,7 @@ export function StoragePage({
       <PageHeader
         icon={<HardDrive />}
         title={ui("Bộ nhớ lưu trữ")}
-        description={ui("Tuỳ chọn cho các tệp của bạn.")}
+        description={ui("Tùy chọn cho các tệp của bạn.")}
       />
       {usage.isPending && <Skeleton className="h-40 w-full max-w-2xl" />}
       {usage.isError && (
@@ -55,7 +55,7 @@ export function StoragePage({
       {/* The meter already offers the library and says a deleted file still counts; this adds the number. */}
       {trashWindow.data !== undefined && trashWindow.data > 0 && (
         <p className="max-w-2xl font-secondary-body text-content-muted">
-          {ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", { days: trashWindow.data })}
+          {ui("Tệp đã xóa được giữ {{days}} ngày rồi xóa vĩnh viễn.", { days: trashWindow.data })}
         </p>
       )}
       {retention}
