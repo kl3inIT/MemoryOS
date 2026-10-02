@@ -65,7 +65,7 @@ const models: AvailableModel[] = [
 function mount(calls: number, standing: AiUsageStanding | null = null) {
   const requested: string[] = [];
   server.use(
-    handleGetMyAiUsageStanding(() => HttpResponse.json(standing)),
+    handleGetMyAiUsageStanding(() => HttpResponse.json({ standing: standing ?? undefined })),
     handleGetMyAiCosts(({ request }) => {
       requested.push(new URL(request.url).pathname);
       return HttpResponse.json({
@@ -121,6 +121,15 @@ describe("personal usage", () => {
     mount(1);
     await screen.findByText("gpt-5.6-luna");
     expect(screen.queryByRole("region", { name: "Spending limit" })).toBeNull();
+  });
+
+  it("keeps the page when the budget answer is an empty object", async () => {
+    // Staging, 2026-10-02: an empty 200 became {} in the client, was taken for a budget and failed the page.
+    mount(1);
+    server.use(handleGetMyAiUsageStanding(() => HttpResponse.json({})));
+    await screen.findByText("gpt-5.6-luna");
+    expect(screen.queryByRole("region", { name: "Spending limit" })).toBeNull();
+    expect(screen.queryByText("Couldn't load this page.")).toBeNull();
   });
 
   it("explains an empty period instead of an empty table", async () => {

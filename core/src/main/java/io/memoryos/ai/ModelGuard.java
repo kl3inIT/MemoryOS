@@ -77,8 +77,18 @@ public class ModelGuard implements ChatModel {
             throw TurnFailure.BUDGET_EXCEEDED.exception();
     }
 
+    /**
+     * Whether every admitted call, streamed or synchronous, reported its usage. A guard used only for synchronous calls
+     * (the guardrail check, meeting minutes, transcript corrections) is known once they reported; requiring a streamed
+     * call recorded every such call as unknown.
+     */
     public boolean usageKnown() {
-        return calls.get() > 0 && accounted.get() == calls.get() && synchronousAccounted.get() == synchronousCalls.get();
+        return used() && accounted.get() == calls.get() && synchronousAccounted.get() == synchronousCalls.get();
+    }
+
+    /** Whether at least one admitted call reported its usage, so part of this guard's work has known totals. */
+    public boolean usageReported() {
+        return accounted.get() > 0 || synchronousAccounted.get() > 0;
     }
 
     /** Whether this guard admitted any model call; an unused guard contributes no usage. */

@@ -162,6 +162,24 @@ class ChatModelGuardTest {
     }
 
     @Test
+    void workMadeOnlyOfSynchronousCallsIsKnownOnceTheyReported() {
+        // The guardrail check, meeting minutes and transcript corrections never stream: their usage was always recorded
+        // as unknown because known usage required a streamed call.
+        when(provider.call(any(Prompt.class))).thenReturn(response("{}", "stop", 7));
+        guard.call(prompt);
+        assertTrue(guard.usageKnown());
+        assertTrue(guard.usageReported());
+    }
+
+    @Test
+    void aSynchronousCallWithoutUsageIsNeitherKnownNorReported() {
+        when(provider.call(any(Prompt.class))).thenReturn(response("{}", "stop", 0));
+        guard.call(prompt);
+        assertFalse(guard.usageKnown());
+        assertFalse(guard.usageReported());
+    }
+
+    @Test
     void unknownTypedUsageKeepsWholeTurnAccountingUnknownAndBudgetStopsAllInference() {
         when(provider.call(any(Prompt.class))).thenReturn(response("{}", "stop", 0));
         guard.call(prompt);

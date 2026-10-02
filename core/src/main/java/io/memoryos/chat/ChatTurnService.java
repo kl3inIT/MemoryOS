@@ -560,7 +560,7 @@ public final class ChatTurnService implements AutoCloseable {
     private void recordCheck(Active run, UUID modelConfigurationId, ModelResolver.Provenance provenance, String modelName,
             ModelAccounting accounting) {
         try {
-            persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT,
+            persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT_GUARDRAIL,
                     modelConfigurationId, provenance, modelName, accounting));
         } catch (RuntimeException failure) {
             LOG.atWarn().addKeyValue("event", "chat.guardrail.usage_not_recorded")

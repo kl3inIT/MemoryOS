@@ -48,16 +48,19 @@ public final class UsageReportPdf {
     private static final DateTimeFormatter SHORT_DAY = DateTimeFormatter.ofPattern("dd/MM");
     private static final DecimalFormatSymbols VI = DecimalFormatSymbols.getInstance(Locale.forLanguageTag("vi-VN"));
 
-    private static final Map<String, String> FLOWS = Map.of(
-            "CHAT", "Trò chuyện",
-            "CHAT_NAMING", "Đặt tên cuộc trò chuyện",
-            "DEEP_RESEARCH", "Deep research",
-            "EMBEDDING_QUERY", "Embedding khi tìm kiếm",
-            "EMBEDDING_INDEXING", "Embedding khi lập chỉ mục",
-            "IMAGE_GENERATION", "Tạo ảnh",
-            "IMAGE_EDIT", "Sửa ảnh",
-            "SPEECH_TO_TEXT", "Chuyển giọng nói thành chữ",
-            "TEXT_TO_SPEECH", "Đọc văn bản");
+    private static final Map<String, String> FLOWS = Map.ofEntries(
+            Map.entry("CHAT", "Trò chuyện"),
+            Map.entry("CHAT_NAMING", "Đặt tên cuộc trò chuyện"),
+            Map.entry("CHAT_GUARDRAIL", "Kiểm tra câu hỏi"),
+            Map.entry("DEEP_RESEARCH", "Deep research"),
+            Map.entry("EMBEDDING_QUERY", "Embedding khi tìm kiếm"),
+            Map.entry("EMBEDDING_INDEXING", "Embedding khi lập chỉ mục"),
+            Map.entry("IMAGE_GENERATION", "Tạo ảnh"),
+            Map.entry("IMAGE_EDIT", "Sửa ảnh"),
+            Map.entry("SPEECH_TO_TEXT", "Chuyển giọng nói thành chữ"),
+            Map.entry("TEXT_TO_SPEECH", "Đọc văn bản"),
+            Map.entry("MEETING_MINUTES", "Biên bản họp"),
+            Map.entry("MEETING_CORRECTION", "Sửa transcript"));
     private static final Map<String, String> BOUNDARIES = Map.of(
             "INTERNAL", "Nội bộ",
             "EXTERNAL", "Bên ngoài",

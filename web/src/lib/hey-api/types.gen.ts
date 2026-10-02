@@ -3649,6 +3649,13 @@ export type AiUsageStanding = {
     resetsAt: string;
 };
 
+export type MyAiUsageStanding = {
+    /**
+     * Absent when no enabled budget binds the caller
+     */
+    standing?: AiUsageStanding;
+};
+
 export type ApiProblem = {
     /**
      * Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.
@@ -17492,7 +17499,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/summary';
 };
@@ -17626,7 +17633,7 @@ export type GetMyAiUsageStandingResponses = {
     /**
      * The binding budget, or nothing when the Tenant sets no limit
      */
-    200: AiUsageStanding;
+    200: MyAiUsageStanding;
 };
 
 export type GetMyAiUsageStandingResponse = GetMyAiUsageStandingResponses[keyof GetMyAiUsageStandingResponses];
@@ -17677,7 +17684,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/daily';
 };
@@ -17717,7 +17724,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/breakdown';
 };

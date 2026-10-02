@@ -42,7 +42,7 @@ public class AiUsageRepository {
                 .param("cacheRead", call.cacheReadTokens()).param("images", call.imageCount())
                 .param("audio", BigDecimal.valueOf(call.audioSeconds()))
                 .param("cost", call.cost() == null ? BigDecimal.ZERO : BigDecimal.valueOf(call.cost()))
-                .param("unknown", call.cost() == null ? call.calls() : 0)
+                .param("unknown", call.unknownCostCalls())
                 .update();
     }
 }
