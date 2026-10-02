@@ -2614,6 +2614,7 @@ export const zSearchDocument = z.object({
     documentId: z.uuid(),
     generation: z.uuid(),
     title: z.string(),
+    mediaType: z.string(),
     passages: z.array(zPassage),
     firstOrdinal: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     totalChunks: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),

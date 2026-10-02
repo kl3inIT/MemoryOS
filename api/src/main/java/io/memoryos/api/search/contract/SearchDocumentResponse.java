@@ -10,12 +10,14 @@ public record SearchDocumentResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID documentId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID generation,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Passage> passages,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int firstOrdinal,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int totalChunks,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean hasMore) {
     public static SearchDocumentResponse from(SearchDocument document) {
         return new SearchDocumentResponse(document.documentId(), document.generation(), document.title(),
+                document.mediaType(),
                 document.passages().stream().map(value -> new Passage(value.ordinal(), value.content(), value.provenanceJson())).toList(),
                 document.firstOrdinal(), document.totalChunks(), document.hasMore());
     }

@@ -178,6 +178,22 @@ class McpEndpointIntegrationTest {
     }
 
     @Test
+    void theInstructionsAskForClaimsLinkedToTheirSource() throws Exception {
+        // A bare [n] reads as plain text in Claude and ChatGPT; a Markdown link to the result's url opens the source.
+        String instructions = json(post(endpointToken(), initialize(), null).body()).path("result").path("instructions")
+                .asText();
+        assertTrue(instructions.contains("Markdown link"), instructions);
+        assertFalse(instructions.contains("[1]"), instructions);
+        var tools = json(post(endpointToken(), "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}", "2025-11-25")
+                .body()).path("result").path("tools");
+        for (JsonNode tool : tools) {
+            String description = tool.path("description").asText();
+            assertTrue(description.contains("Markdown link"), description);
+            assertFalse(description.contains("[n]"), description);
+        }
+    }
+
+    @Test
     void searchWithFiltersOffersEachFilterWithItsAllowedValues() throws Exception {
         var tools = json(post(endpointToken(), "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}", "2025-11-25")
                 .body()).path("result").path("tools");

@@ -96,3 +96,10 @@ The following acceptance evidence remains distinct: approved OpenAI embeddings o
 | Search page: the Updated filter offers the presets beside a calendar range; a range lives in the address as `from`/`to`, replaces a preset, cannot reach past today and is sent as whole UTC days | `search-page.test.tsx` ("applies a range of days picked on the calendar…"), `search.spec.ts` ("picks a range of update days…", captures at 1280 and 390 px reviewed) |
 | MCP `search_with_filters`: the endpoint lists exactly `search`, `fetch` and `search_with_filters`, all read-only; its input schema names `source_types` and `file_types` with their allowed values; each filter reaches `SearchRequest` (document sets by name, case aside; dates as whole UTC days; file types as media types) | `McpEndpointIntegrationTest.theEndpointPublishesOnlyItsThreeReadOnlyTools`, `.searchWithFiltersOffersEachFilterWithItsAllowedValues`, `.searchWithFiltersNarrowsTheSearchToWhatThePersonAsked` |
 | A filter the tool cannot use is refused in one sentence without searching: an unknown document set lists the person's sets, a malformed or reversed period gives the format, an unknown source names the field and its values | `McpEndpointIntegrationTest.anUnknownDocumentSetIsAnsweredWithTheSetsThePersonCanUse`, `.aPeriodTheToolCannotReadIsRefusedWithTheFormatToUse`, `.anUnknownSourceIsRefusedWithoutReachingSearch` |
+
+## Document links open the original (MEM-114) — 2026-10-02
+
+| Contract | Evidence |
+| --- | --- |
+| The document read returns the original's `mediaType` from the index's header hit | `OpenApiContractTest`; `DocumentSearchServiceTest` fixtures |
+| `/search?doc=<id>` opens a PDF on its pages, as a Chat citation does; an original that can only be downloaded opens on its extracted text | `search-page.test.tsx` ("opens an uploaded PDF a doc link names…", "opens the document a doc link names…"), `search.spec.ts` ("opens the pages of an uploaded PDF that a MemoryOS MCP document link names", captures at 1280 and 390 px reviewed) |

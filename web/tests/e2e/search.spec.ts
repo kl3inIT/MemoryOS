@@ -301,6 +301,48 @@ test("picks a range of update days on the calendar beside the presets", async ({
   await expect(page).not.toHaveURL(/from=/);
 });
 
+test("opens the pages of an uploaded PDF that a MemoryOS MCP document link names", async ({
+  page,
+}) => {
+  const originalPdf = rangedHandbookPdf();
+  // Claude and ChatGPT link an upload to /search?doc=<id>; the read names the original's media type.
+  await page.route(
+    (url) => url.pathname === `/api/search/documents/${documentId}`,
+    (route) =>
+      route.fulfill({
+        json: {
+          documentId,
+          generation,
+          title: "Sổ tay nhân sự 2026.pdf",
+          mediaType: "application/pdf",
+          passages: [{ ordinal: 0, content: "Chương 1. Quy định chung.", provenanceJson: "[]" }],
+          firstOrdinal: 0,
+          totalChunks: 40,
+          hasMore: true,
+        },
+      }),
+  );
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    fulfillPdfRange(route, originalPdf),
+  );
+  await page.goto(`/search?doc=${documentId}`);
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="1"]')).toHaveAttribute(
+    "data-rendered",
+    "true",
+  );
+  await expect(dialog.getByText("/ 12")).toBeVisible();
+  await expect(dialog.locator('[data-slot="pdf-page"]')).toHaveCount(12);
+  await page.screenshot({ path: "test-results/screens/doc-link-pdf-desktop.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="1"]')).toHaveAttribute(
+    "data-rendered",
+    "true",
+  );
+  await page.screenshot({ path: "test-results/screens/doc-link-pdf-mobile.png" });
+});
+
 test("handles unavailable, retry, empty and a pending search", async ({ page }) => {
   let failures = 1;
   await page.route("**/api/search", async (route) => {

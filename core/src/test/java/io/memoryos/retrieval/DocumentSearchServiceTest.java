@@ -69,7 +69,7 @@ class DocumentSearchServiceTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         when(index.identity()).thenReturn("space");
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation));
-        var result = new SearchDocument(document, generation, "Private", List.of(), 5, 8, false);
+        var result = new SearchDocument(document, generation, "Private", "text/plain", List.of(), 5, 8, false);
         when(index.document(tenant, document, generation, 5, 20)).thenReturn(result);
         assertEquals(result, service.fileDocument(actor, tenant, Map.of(file, document), document, generation, 5));
         assertThrows(SearchDocumentUnavailableException.class, () -> service.fileDocument(actor, tenant, Map.of(file, document), document, UUID.randomUUID(), 5));
@@ -351,9 +351,9 @@ class DocumentSearchServiceTest {
         assertEquals(.7 / 52 + 1.0 / 51, result.hits().getFirst().score(), .000001);
         Mockito.clearInvocations(access);
         when(documents.isCurrent(tenant, new DocumentId(second), generation, "space")).thenReturn(true);
-        when(index.document(tenant, second, generation, 0, 1)).thenReturn(new SearchDocument(second, generation, "Title",
+        when(index.document(tenant, second, generation, 0, 1)).thenReturn(new SearchDocument(second, generation, "Title", "text/plain",
                 List.of(new SearchPage.Passage(0, "Passage 0", "[]")), 0, 4, true));
-        when(index.document(tenant, second, generation, 2, 2)).thenReturn(new SearchDocument(second, generation, "Title",
+        when(index.document(tenant, second, generation, 2, 2)).thenReturn(new SearchDocument(second, generation, "Title", "text/plain",
                 List.of(new SearchPage.Passage(2, "Passage 2", "[]")), 2, 3, false));
         assertEquals(List.of(0, 1, 2), service.window(result, result.sections().getFirst(), 2).stream().map(SearchPage.Passage::ordinal).toList());
         verifyNoInteractions(access);
@@ -372,7 +372,7 @@ class DocumentSearchServiceTest {
         when(index.identity()).thenReturn("space");
         when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
         when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
-        var window = new SearchDocument(id, generation, "Title", List.of(), 20, 20, false);
+        var window = new SearchDocument(id, generation, "Title", "text/plain", List.of(), 20, 20, false);
         when(index.document(tenant, id, generation, 20, 20)).thenReturn(window);
         assertEquals(window, service.document(actor, id, generation, 20));
         when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
@@ -391,7 +391,7 @@ class DocumentSearchServiceTest {
         when(index.identity()).thenReturn("space");
         when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
         when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
-        var window = new SearchDocument(id, generation, "Title", List.of(), 0, 1, false);
+        var window = new SearchDocument(id, generation, "Title", "text/plain", List.of(), 0, 1, false);
         when(index.document(tenant, id, generation, 0, 20)).thenReturn(window);
         assertEquals(window, service.citation(actor, id, generation, 0));
         assertThrows(IamException.class, () -> service.document(actor, id, generation, 0));
@@ -485,7 +485,7 @@ class DocumentSearchServiceTest {
         when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
         when(index.document(tenant, id, generation, 0, 20)).thenAnswer(_ -> {
             when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
-            return new SearchDocument(id, generation, "Private", List.of(new SearchPage.Passage(0, "secret", "[]")), 0, 1, false);
+            return new SearchDocument(id, generation, "Private", "text/plain", List.of(new SearchPage.Passage(0, "secret", "[]")), 0, 1, false);
         });
         assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, id, generation, 0));
     }
@@ -501,7 +501,7 @@ class DocumentSearchServiceTest {
         when(index.document(tenant, id, generation, 0, 20)).thenAnswer(_ -> {
             when(authorization.require(actor, IamCapability.SEARCH_READ, false))
                     .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant revoked"));
-            return new SearchDocument(id, generation, "Private", List.of(), 0, 1, false);
+            return new SearchDocument(id, generation, "Private", "text/plain", List.of(), 0, 1, false);
         });
         assertThrows(IamException.class, () -> service.document(actor, id, generation, 0));
     }
@@ -548,11 +548,11 @@ class DocumentSearchServiceTest {
         Mockito.clearInvocations(documents, tenants);
         when(index.document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 1, 1)).thenAnswer(_ -> {
             when(sourceSearch.readableMetadata(fixture.scope(), List.of(fixture.hit().documentId()))).thenReturn(Map.of());
-            return new SearchDocument(fixture.hit().documentId(), generation, "Private",
+            return new SearchDocument(fixture.hit().documentId(), generation, "Private", "text/plain",
                     List.of(new SearchPage.Passage(1, "secret", "[]")), 1, 4, true);
         });
         when(index.document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 3, 1)).thenReturn(new SearchDocument(
-                fixture.hit().documentId(), generation, "Private", List.of(new SearchPage.Passage(3, "after", "[]")), 3, 4, false));
+                fixture.hit().documentId(), generation, "Private", "text/plain", List.of(new SearchPage.Passage(3, "after", "[]")), 3, 4, false));
         assertEquals(List.of(1, 2, 3), service.window(fixture.results(), fixture.section(), 1).stream().map(SearchPage.Passage::ordinal).toList());
         verify(documents, never()).currentGenerations(any(), any(), any());
         verify(tenants, never()).findActiveTenant(any());
@@ -616,7 +616,7 @@ class DocumentSearchServiceTest {
         var result = new SearchPage.Result(UUID.randomUUID(), generation, privateText, "text/plain", Instant.EPOCH, .9,
                 List.of(new SearchPage.Section(0, 0, 0, .9, privateText, List.of(new SearchPage.ChunkProvenance(0, "[]")))));
         assertFalse(new SearchPage(List.of(result), 0, false, 1, 500, new SearchPage.SourceFacets(1, List.of())).toString().contains(privateText));
-        assertFalse(new SearchDocument(result.documentId(), generation, privateText,
+        assertFalse(new SearchDocument(result.documentId(), generation, privateText, "text/plain",
                 List.of(new SearchPage.Passage(0, privateText, "[]")), 0, 1, false)
                 .toString().contains(privateText));
     }

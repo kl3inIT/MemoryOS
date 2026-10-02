@@ -495,7 +495,7 @@ public class OpenSearchIndexService implements SearchIndex {
                 "query", Map.of("bool", Map.of("filter", List.of(term("tenant_id", tenant.value().toString()),
                         term("document_id", id.toString()), term("generation", generation.toString()), term("index_identity", identity)))),
                 "aggs", Map.of(
-                        "header", Map.of("top_hits", Map.of("size", 1, "_source", List.of("title"))),
+                        "header", Map.of("top_hits", Map.of("size", 1, "_source", List.of("title", "media_type"))),
                         "last", Map.of("max", Map.of("field", "ordinal")),
                         "window", Map.of("filter", Map.of("range", Map.of("ordinal", Map.of("gte", from, "lt", from + limit))),
                                 "aggs", Map.of("chunks", Map.of("top_hits", Map.of("size", limit,
@@ -514,8 +514,9 @@ public class OpenSearchIndexService implements SearchIndex {
         }
         int start = Math.min(from, total);
         if (passages.size() != Math.min(limit, total - start)) throw new SearchUnavailableException();
-        String title = aggregations.path("header").path("hits").path("hits").path(0).path("_source").path("title").asString();
-        return new SearchDocument(id, generation, title, List.copyOf(passages), start, total, start + passages.size() < total);
+        var header = aggregations.path("header").path("hits").path("hits").path(0).path("_source");
+        return new SearchDocument(id, generation, header.path("title").asString(), header.path("media_type").asString(),
+                List.copyOf(passages), start, total, start + passages.size() < total);
     }
 
     /**

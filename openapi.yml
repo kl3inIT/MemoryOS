@@ -26722,6 +26722,8 @@ components:
           format: uuid
         title:
           type: string
+        mediaType:
+          type: string
         passages:
           type: array
           items:
@@ -26739,6 +26741,7 @@ components:
       - firstOrdinal
       - generation
       - hasMore
+      - mediaType
       - passages
       - title
       - totalChunks
