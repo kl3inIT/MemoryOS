@@ -114,8 +114,6 @@ class OpenApiConfiguration {
                         configureNullableProperty(components, settings, "pricing",
                                 new Schema<>().$ref("#/components/schemas/" + (settings.equals("ModelSettingsInput") ? "PricingInput" : "Pricing")));
                     }
-                    configureNullableProperty(components, "McpEndpointSettingsResponse", "chatGpt",
-                            new Schema<>().$ref("#/components/schemas/McpEndpointChatGptClientResponse"));
                     configureNullableProperty(components, "SearchSettingsResponse", "future",
                             new Schema<>().$ref("#/components/schemas/SearchGenerationResponse"));
                     configureNullableProperty(components, "SearchSettingsResponse", "rebuild",

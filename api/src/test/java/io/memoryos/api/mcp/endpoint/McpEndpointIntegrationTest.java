@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,6 +32,8 @@ import io.memoryos.iam.McpClientGrant;
 import io.memoryos.iam.McpClientGrantException;
 import io.memoryos.iam.McpClientGrantFailureReason;
 import io.memoryos.iam.McpClientGrants;
+import io.memoryos.iam.McpClientPolicy;
+import io.memoryos.mcp.McpEndpointCallRetention;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchPage;
 import io.memoryos.retrieval.SearchRequest;
@@ -88,6 +92,9 @@ class McpEndpointIntegrationTest {
     @MockitoBean private DocumentSetService documentSets;
     /** Keycloak's consents are the iam adapter's contract; here only what the API passes and returns is checked. */
     @MockitoBean private McpClientGrants grants;
+    /** Keycloak's policy is the iam adapter's contract; here only the hosts the API asks it to trust are checked. */
+    @MockitoBean private McpClientPolicy policy;
+    @Autowired private McpEndpointCallRetention retention;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -112,13 +119,13 @@ class McpEndpointIntegrationTest {
         registry.add("memoryos.initial-tenant.display-name", () -> "Test");
         registry.add("memoryos.initial-tenant.change-reference", () -> "TEST-MCP-ENDPOINT");
         registry.add("memoryos.mcp.endpoint.url", () -> ENDPOINT);
-        registry.add("memoryos.mcp.endpoint.chatgpt-client-secret", () -> "chatgpt-test-secret");
         registry.add("memoryos.mcp.endpoint.caller-calls-per-minute", () -> CALLER_CALLS_PER_MINUTE);
     }
 
     @BeforeEach
     void endpointOn() {
         endpoint(true);
+        when(policy.configured()).thenReturn(true);
     }
 
     @AfterAll
@@ -358,6 +365,9 @@ class McpEndpointIntegrationTest {
         var limited = post(caller, call("search", Map.of("query", "leave")), "2025-11-25");
         assertEquals(429, limited.statusCode());
         assertTrue(limited.headers().firstValue("Retry-After").isPresent());
+        // A refused call is in the activity log too, with the tool it asked for.
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM mcp_endpoint_calls WHERE outcome = 'RATE_LIMITED' AND tool = 'search'")
+                .query(Long.class).single());
         // The same person through another client has a bucket of their own.
         assertEquals(200, post(endpointToken(), call("search", Map.of("query", "leave")), "2025-11-25").statusCode());
     }
@@ -388,21 +398,119 @@ class McpEndpointIntegrationTest {
     }
 
     @Test
-    void onlyTheAdministratorIsGivenTheChatGptClientAndAMemberIsGivenTheUrlWhileItAnswers() throws Exception {
+    void aMemberIsGivenTheUrlAndTheTrustedAppsWhileTheEndpointAnswers() throws Exception {
+        jdbc.sql("DELETE FROM mcp_trusted_apps").update();
         String owner = token(OWNER, API_AUDIENCE, "openid", "memoryos-web");
-        var chatGpt = json(api(owner, "GET", "/api/mcp/endpoint", null).body()).path("chatGpt");
-        assertEquals("memoryos-chatgpt", chatGpt.path("clientId").asText());
-        assertEquals("chatgpt-test-secret", chatGpt.path("clientSecret").asText());
+        // ChatGPT connects through its metadata document; nobody is handed a client secret any more.
+        assertFalse(json(api(owner, "GET", "/api/mcp/endpoint", null).body()).has("chatGpt"));
 
         var connection = json(api(owner, "GET", "/api/mcp/endpoint/connection", null).body());
         assertTrue(connection.path("available").asBoolean());
         assertEquals(ENDPOINT, connection.path("url").asText());
-        assertFalse(connection.toString().contains("chatgpt-test-secret"), connection.toString());
+        assertEquals(List.of("CLAUDE", "CHATGPT"), StreamSupport.stream(connection.path("apps").spliterator(), false)
+                .map(JsonNode::asText).toList());
 
         endpoint(false);
         var off = json(api(owner, "GET", "/api/mcp/endpoint/connection", null).body());
         assertFalse(off.path("available").asBoolean());
         assertTrue(off.path("url").isNull(), off.toString());
+    }
+
+    @Test
+    void anAdministratorTrustsAnAppOfTheirOwnAndKeycloakFollowsEachChange() throws Exception {
+        jdbc.sql("DELETE FROM mcp_trusted_apps").update();
+        String owner = token(OWNER, API_AUDIENCE, "openid", "memoryos-web");
+        var listed = json(api(owner, "GET", "/api/mcp/endpoint/trusted-apps", null).body());
+        assertTrue(listed.path("manageable").asBoolean(), listed.toString());
+        assertEquals(List.of("CLAUDE", "CHATGPT"), StreamSupport.stream(listed.path("apps").spliterator(), false)
+                .map(app -> app.path("preset").asText()).toList());
+        var chatGpt = listed.path("apps").get(1);
+        assertTrue(chatGpt.path("builtIn").asBoolean());
+        assertEquals("[\"chatgpt.com\",\"persistent.oaistatic.com\"]", chatGpt.path("documentHosts").toString());
+
+        var added = api(owner, "POST", "/api/mcp/endpoint/trusted-apps",
+                "{\"name\":\" Agent \",\"clientIdHosts\":[\"Agent.Example.com\"],\"documentHosts\":[\"localhost\"]}");
+        assertEquals(201, added.statusCode(), added.body());
+        var agent = json(added.body());
+        assertEquals("Agent", agent.path("name").asText());
+        assertEquals("[\"agent.example.com\",\"localhost\"]", agent.path("documentHosts").toString());
+        var trusted = ArgumentCaptor.forClass(McpClientPolicy.Hosts.class);
+        verify(policy, atLeastOnce()).trust(trusted.capture());
+        assertEquals(Set.of("claude.ai", "claude.com", "chatgpt.com", "agent.example.com"),
+                trusted.getValue().clientIdHosts());
+        verify(policy, atLeastOnce()).removeClientsOutside(trusted.getValue());
+
+        // ChatGPT switched off: its host leaves the policy and its clients go with it.
+        var off = api(owner, "PUT", "/api/mcp/endpoint/trusted-apps/" + chatGpt.path("id").asText(),
+                "{\"enabled\":false,\"revision\":" + chatGpt.path("revision").asLong() + "}");
+        assertEquals(200, off.statusCode(), off.body());
+        verify(policy, atLeastOnce()).trust(trusted.capture());
+        assertEquals(Set.of("claude.ai", "claude.com", "agent.example.com"), trusted.getValue().clientIdHosts());
+        assertEquals(List.of("CLAUDE", "CUSTOM"), StreamSupport.stream(json(api(owner, "GET",
+                "/api/mcp/endpoint/connection", null).body()).path("apps").spliterator(), false).map(JsonNode::asText).toList());
+
+        // A stale revision, a built-in app and an invalid domain are refused, and nothing reaches Keycloak.
+        clearInvocations(policy);
+        assertEquals(409, api(owner, "PUT", "/api/mcp/endpoint/trusted-apps/" + chatGpt.path("id").asText(),
+                "{\"enabled\":true,\"revision\":" + chatGpt.path("revision").asLong() + "}").statusCode());
+        assertEquals(400, api(owner, "DELETE", "/api/mcp/endpoint/trusted-apps/" + chatGpt.path("id").asText()
+                + "?revision=2", "").statusCode());
+        assertEquals(400, api(owner, "POST", "/api/mcp/endpoint/trusted-apps",
+                "{\"name\":\"Bad\",\"clientIdHosts\":[\"https://agent.example.com\"],\"documentHosts\":[]}")
+                .statusCode());
+        verify(policy, never()).trust(any());
+
+        assertEquals(204, api(owner, "DELETE", "/api/mcp/endpoint/trusted-apps/" + agent.path("id").asText()
+                + "?revision=" + agent.path("revision").asLong(), "").statusCode());
+        verify(policy).trust(trusted.capture());
+        assertEquals(Set.of("claude.ai", "claude.com"), trusted.getValue().clientIdHosts());
+        assertEquals(3L, jdbc.sql("SELECT count(*) FROM audit_event WHERE action = 'mcp_trusted_app.change'")
+                .query(Long.class).single());
+
+        // Without the Keycloak account the list is read-only.
+        when(policy.configured()).thenReturn(false);
+        assertFalse(json(api(owner, "GET", "/api/mcp/endpoint/trusted-apps", null).body()).path("manageable").asBoolean());
+        assertEquals(503, api(owner, "POST", "/api/mcp/endpoint/trusted-apps",
+                "{\"name\":\"Agent\",\"clientIdHosts\":[\"agent.example.com\"],\"documentHosts\":[]}").statusCode());
+    }
+
+    @Test
+    void everyToolCallReachesTheActivityLogWithoutItsQueryAndTheInsightsCountIt() throws Exception {
+        jdbc.sql("DELETE FROM mcp_endpoint_calls").update();
+        when(documents.search(any(), any())).thenReturn(new SearchPage(List.of(), 0, false, 0, 50,
+                new SearchPage.SourceFacets(0, List.of())));
+        String claude = token(OWNER, ENDPOINT, "knowledge:read", "https://claude.ai/oauth/mcp-oauth-client-metadata");
+        assertEquals(200, post(claude, call("search", Map.of("query", "secret salary review")), "2025-11-25").statusCode());
+        post(endpointToken(), call("fetch", Map.of("id", "not-an-id")), "2025-11-25");
+
+        String owner = token(OWNER, API_AUDIENCE, "openid", "memoryos-web");
+        var page = json(api(owner, "GET", "/api/mcp/endpoint/activity", null).body());
+        var calls = page.path("calls");
+        assertEquals(2, calls.size(), page.toString());
+        assertEquals("fetch", calls.get(0).path("tool").asText());
+        assertEquals("REFUSED", calls.get(0).path("outcome").asText());
+        assertEquals("OTHER", calls.get(0).path("client").asText());
+        assertEquals("search", calls.get(1).path("tool").asText());
+        assertEquals("SUCCESS", calls.get(1).path("outcome").asText());
+        assertEquals("CLAUDE", calls.get(1).path("client").asText());
+        assertEquals("Claude", calls.get(1).path("clientName").asText());
+        assertFalse(page.toString().contains("salary"), "The log keeps no query");
+        assertTrue(page.path("next").isNull(), page.toString());
+
+        var claudeOnly = json(api(owner, "GET", "/api/mcp/endpoint/activity?client=CLAUDE&size=1", null).body());
+        assertEquals(1, claudeOnly.path("calls").size(), claudeOnly.toString());
+
+        var insights = json(api(owner, "GET", "/api/mcp/endpoint/insights?days=7", null).body());
+        assertEquals(2, insights.path("calls").asLong(), insights.toString());
+        assertEquals(1, insights.path("people").asLong(), insights.toString());
+        assertEquals(2, insights.path("apps").size(), insights.toString());
+        assertEquals(1, insights.path("daily").size(), insights.toString());
+        assertEquals(400, api(owner, "GET", "/api/mcp/endpoint/insights?days=14", null).statusCode());
+
+        // Ninety days on, the Worker's retention removes the call; younger ones stay.
+        jdbc.sql("UPDATE mcp_endpoint_calls SET occurred_at = now() - interval '91 days' WHERE tool = 'search'").update();
+        assertEquals(1, retention.purge());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM mcp_endpoint_calls").query(Long.class).single());
     }
 
     @Test

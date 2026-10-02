@@ -212,6 +212,9 @@ memoryos:
         connect-timeout: 2s
         connection-request-timeout: 1s
         read-timeout: 5s
+      # MEM-207: the memoryos-mcp-admin service account, which keeps the MCP endpoint's trusted apps in Keycloak.
+      mcp-admin:
+        client-secret: ${MEMORYOS_MCP_ADMIN_CLIENT_SECRET:}
   browser:
     registration-id: memoryos
   mcp:
@@ -224,11 +227,10 @@ memoryos:
     # MEM-114: the MemoryOS MCP endpoint, exactly the browser origin followed by /mcp. Unset, there is no endpoint.
     endpoint:
       url: ${MEMORYOS_MCP_ENDPOINT_URL:}
-      # The memoryos-chatgpt client secret, shown to administrators; it exists only beside the endpoint URL.
-      chatgpt-client-secret: ${MEMORYOS_MCP_CHATGPT_CLIENT_SECRET:}
-      # tools/call per caller (person and client) and for the whole endpoint, each per minute.
-      caller-calls-per-minute: 60
-      global-calls-per-minute: 600
+      # tools/call per caller (person and client) and for the whole endpoint, each per minute. The caller's bound is
+      # Glean's for its search (5 a second); a search embeds its query, so the endpoint's bound is the cost bound.
+      caller-calls-per-minute: 300
+      global-calls-per-minute: 3000
       max-request-bytes: 262144
   google-drive:
     credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}

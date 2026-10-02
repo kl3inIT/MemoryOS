@@ -65,6 +65,11 @@ public enum AuditAction {
     MCP_CONNECTION_CHANGE("mcp_connection.change", AuditEventClass.API_ACTIVITY, "change"),
     /** MEM-114: the per-Tenant switch of the MemoryOS MCP endpoint. Calls through the endpoint are not recorded. */
     MCP_ENDPOINT_CHANGE("mcp_endpoint.change", AuditEventClass.API_ACTIVITY, "enabled"),
+    /**
+     * MEM-207: an app trusted to connect to the MemoryOS MCP endpoint was added, switched on or off, or removed. The
+     * endpoint's own calls are in its activity log, not the audit trail.
+     */
+    MCP_TRUSTED_APP_CHANGE("mcp_trusted_app.change", AuditEventClass.API_ACTIVITY, "change", "enabled", "hosts"),
     IDENTITY_PROVIDER_CREATE("identity_provider.create", AuditEventClass.API_ACTIVITY, "after"),
     IDENTITY_PROVIDER_UPDATE("identity_provider.update", AuditEventClass.API_ACTIVITY, "before", "after"),
     IDENTITY_PROVIDER_DELETE("identity_provider.delete", AuditEventClass.API_ACTIVITY, "alias"),

@@ -11,6 +11,7 @@ import io.memoryos.chat.ChatSessionPurgeService;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.SourceRunHistoryMaintenance;
 import io.memoryos.library.UserFileMaintenance;
+import io.memoryos.mcp.McpEndpointCallRetention;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
@@ -232,6 +233,13 @@ class ControlPlaneConfiguration {
                     }
                     archives.sweepExpired();
                 });
+    }
+
+    /** MEM-209: the MCP endpoint's activity log keeps 90 days; an hourly pass removes what aged out in bounded batches. */
+    @Bean
+    RecurringTask<Void> mcpEndpointActivityRetentionTask(McpEndpointCallRetention retention) {
+        return Tasks.recurring("memoryos-mcp-endpoint-activity-retention-v1", FixedDelay.of(Duration.ofHours(1)))
+                .execute((_, _) -> retention.purge());
     }
 
     @Bean

@@ -3,6 +3,7 @@ package io.memoryos.api.security;
 import io.memoryos.api.mcp.endpoint.McpEndpointGateFilter;
 import io.memoryos.api.mcp.endpoint.McpEndpointLimits;
 import io.memoryos.api.mcp.endpoint.McpEndpointRequestFilter;
+import io.memoryos.mcp.McpEndpointActivity;
 import io.memoryos.iam.ExternalIdentityResolver;
 import io.memoryos.iam.McpClientGrants;
 import io.memoryos.iam.TenantAccessResolver;
@@ -59,6 +60,7 @@ class McpEndpointSecurityConfiguration {
             McpEndpointProperties endpoint,
             McpEndpointService endpointSwitch,
             McpEndpointLimits limits,
+            McpEndpointActivity activity,
             ExternalIdentityResolver identityResolver,
             TenantAccessResolver tenantAccessResolver) {
         String resource = endpoint.url().map(Object::toString).orElse(NO_ENDPOINT);
@@ -70,7 +72,7 @@ class McpEndpointSecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new McpEndpointGateFilter(endpointSwitch, endpoint, new TenantId(tenantId)),
                         DisableEncodeUrlFilter.class)
-                .addFilterAfter(new McpEndpointRequestFilter(limits), BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new McpEndpointRequestFilter(limits, activity), BearerTokenAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(McpEndpointProperties.METADATA_PATH).permitAll()
                         .anyRequest().access((authentication, _) -> new AuthorizationDecision(

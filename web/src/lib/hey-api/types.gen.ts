@@ -1175,15 +1175,34 @@ export type McpEndpointSettingsResponse = {
      * The URL people add to Claude or ChatGPT; present when configured
      */
     url: string | null;
-    chatGpt: McpEndpointChatGptClientResponse | null;
+};
+
+export type McpTrustedAppEnabledRequest = {
+    enabled: boolean;
+    revision: number;
 };
 
 /**
- * What a ChatGPT workspace administrator enters once to add MemoryOS
+ * An outside assistant the MCP endpoint admits by the URL of its client metadata document
  */
-export type McpEndpointChatGptClientResponse = {
-    clientId: string;
-    clientSecret: string;
+export type McpTrustedAppResponse = {
+    id: string;
+    preset: 'CLAUDE' | 'CHATGPT' | 'CUSTOM';
+    name: string;
+    /**
+     * Hosts the document's URL may have
+     */
+    clientIdHosts: Array<string>;
+    /**
+     * Hosts the URIs inside the document may have
+     */
+    documentHosts: Array<string>;
+    enabled: boolean;
+    /**
+     * Claude and ChatGPT can be switched off, not removed
+     */
+    builtIn: boolean;
+    revision: number;
 };
 
 export type McpEndpointConnectionResponse = {
@@ -1195,6 +1214,33 @@ export type McpEndpointConnectionResponse = {
      * The URL to add to Claude or ChatGPT; present while available
      */
     url: string | null;
+    /**
+     * The apps the administrator trusts; CUSTOM when any app of the organization's own is
+     */
+    apps: Array<'CLAUDE' | 'CHATGPT' | 'CUSTOM'>;
+};
+
+export type McpEndpointCallPageResponse = {
+    calls: Array<McpEndpointCallResponse>;
+    /**
+     * Pass as cursor for older calls; absent on the last page
+     */
+    next: string | null;
+};
+
+/**
+ * One tool call through the MemoryOS MCP endpoint; no query and no document
+ */
+export type McpEndpointCallResponse = {
+    id: string;
+    occurredAt: string;
+    actorId: string;
+    actorName: string | null;
+    actorEmail: string | null;
+    client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+    clientName: string;
+    tool: string;
+    outcome: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
 };
 
 export type McpClientGrantResponse = {
@@ -1205,6 +1251,53 @@ export type McpClientGrantResponse = {
     client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
     name: string;
     grantedAt: string;
+};
+
+export type McpTrustedAppListResponse = {
+    /**
+     * Whether this deployment can change the list; without its Keycloak account it is read-only
+     */
+    manageable: boolean;
+    apps: Array<McpTrustedAppResponse>;
+};
+
+export type McpEndpointCountResponse = {
+    /**
+     * The app's client ID or the tool's name
+     */
+    key: string;
+    name: string;
+    calls: number;
+    people: number;
+};
+
+export type McpEndpointDayResponse = {
+    /**
+     * A UTC day
+     */
+    day: string;
+    calls: number;
+    people: number;
+};
+
+/**
+ * Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
+ */
+export type McpEndpointInsightsResponse = {
+    days: number;
+    calls: number;
+    /**
+     * Distinct people who called a tool
+     */
+    people: number;
+    failed: number;
+    rateLimited: number;
+    apps: Array<McpEndpointCountResponse>;
+    tools: Array<McpEndpointCountResponse>;
+    /**
+     * Days with at least one call
+     */
+    daily: Array<McpEndpointDayResponse>;
 };
 
 export type InterpreterSettingsRequest = {
@@ -1910,6 +2003,21 @@ export type McpOAuthAuthorization = {
      * Navigate the browser here
      */
     authorizationUrl: string;
+};
+
+/**
+ * An app of the Tenant's own, admitted by the URL of its client metadata document
+ */
+export type McpTrustedAppRequest = {
+    name: string;
+    /**
+     * Domains of the document's URL, 1 to 10
+     */
+    clientIdHosts: Array<string>;
+    /**
+     * Other domains the document lists, such as its callback or logo; may be empty
+     */
+    documentHosts: Array<string>;
 };
 
 export type McpConnectionAuthorizationInput = {
@@ -7658,7 +7766,7 @@ export type GetMcpEndpointSettingsErrors = {
      */
     409: ApiProblem;
     /**
-     * This deployment has no MCP endpoint URL
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
      */
     503: ApiProblem;
 };
@@ -7703,7 +7811,7 @@ export type UpdateMcpEndpointSettingsErrors = {
      */
     409: ApiProblem;
     /**
-     * This deployment has no MCP endpoint URL
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
      */
     503: ApiProblem;
 };
@@ -7718,6 +7826,105 @@ export type UpdateMcpEndpointSettingsResponses = {
 };
 
 export type UpdateMcpEndpointSettingsResponse = UpdateMcpEndpointSettingsResponses[keyof UpdateMcpEndpointSettingsResponses];
+
+export type RemoveMcpTrustedAppData = {
+    body?: never;
+    path: {
+        appId: string;
+    };
+    query: {
+        /**
+         * The app's revision as listed
+         */
+        revision: number;
+    };
+    url: '/api/mcp/endpoint/trusted-apps/{appId}';
+};
+
+export type RemoveMcpTrustedAppErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RemoveMcpTrustedAppError = RemoveMcpTrustedAppErrors[keyof RemoveMcpTrustedAppErrors];
+
+export type RemoveMcpTrustedAppResponses = {
+    /**
+     * Trusted app removed
+     */
+    204: void;
+};
+
+export type RemoveMcpTrustedAppResponse = RemoveMcpTrustedAppResponses[keyof RemoveMcpTrustedAppResponses];
+
+export type SetMcpTrustedAppEnabledData = {
+    body: McpTrustedAppEnabledRequest;
+    path: {
+        appId: string;
+    };
+    query?: never;
+    url: '/api/mcp/endpoint/trusted-apps/{appId}';
+};
+
+export type SetMcpTrustedAppEnabledErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpTrustedAppEnabledError = SetMcpTrustedAppEnabledErrors[keyof SetMcpTrustedAppEnabledErrors];
+
+export type SetMcpTrustedAppEnabledResponses = {
+    /**
+     * Trusted app switched
+     */
+    200: McpTrustedAppResponse;
+};
+
+export type SetMcpTrustedAppEnabledResponse = SetMcpTrustedAppEnabledResponses[keyof SetMcpTrustedAppEnabledResponses];
 
 export type GetMcpEndpointConnectionData = {
     body?: never;
@@ -7751,6 +7958,68 @@ export type GetMcpEndpointConnectionResponses = {
 };
 
 export type GetMcpEndpointConnectionResponse = GetMcpEndpointConnectionResponses[keyof GetMcpEndpointConnectionResponses];
+
+export type ListMcpEndpointActivityData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Calls at or after this instant
+         */
+        from?: string;
+        /**
+         * Calls before this instant
+         */
+        to?: string;
+        client?: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+        tool?: string;
+        outcome?: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
+        /**
+         * The next value of the previous page
+         */
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/mcp/endpoint/activity';
+};
+
+export type ListMcpEndpointActivityErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpEndpointActivityError = ListMcpEndpointActivityErrors[keyof ListMcpEndpointActivityErrors];
+
+export type ListMcpEndpointActivityResponses = {
+    /**
+     * Tool calls, newest first
+     */
+    200: McpEndpointCallPageResponse;
+};
+
+export type ListMcpEndpointActivityResponse = ListMcpEndpointActivityResponses[keyof ListMcpEndpointActivityResponses];
 
 export type RevokeMcpClientGrantData = {
     body?: never;
@@ -7826,6 +8095,53 @@ export type ListMcpClientGrantsResponses = {
 };
 
 export type ListMcpClientGrantsResponse = ListMcpClientGrantsResponses[keyof ListMcpClientGrantsResponses];
+
+export type GetMcpEndpointInsightsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        days?: number;
+    };
+    url: '/api/mcp/endpoint/insights';
+};
+
+export type GetMcpEndpointInsightsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetMcpEndpointInsightsError = GetMcpEndpointInsightsErrors[keyof GetMcpEndpointInsightsErrors];
+
+export type GetMcpEndpointInsightsResponses = {
+    /**
+     * Use of the endpoint
+     */
+    200: McpEndpointInsightsResponse;
+};
+
+export type GetMcpEndpointInsightsResponse = GetMcpEndpointInsightsResponses[keyof GetMcpEndpointInsightsResponses];
 
 export type GetChatInterpreterSettingsData = {
     body?: never;
@@ -10241,6 +10557,96 @@ export type StartMcpServerOAuthAuthorizationResponses = {
 };
 
 export type StartMcpServerOAuthAuthorizationResponse = StartMcpServerOAuthAuthorizationResponses[keyof StartMcpServerOAuthAuthorizationResponses];
+
+export type ListMcpTrustedAppsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint/trusted-apps';
+};
+
+export type ListMcpTrustedAppsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpTrustedAppsError = ListMcpTrustedAppsErrors[keyof ListMcpTrustedAppsErrors];
+
+export type ListMcpTrustedAppsResponses = {
+    /**
+     * Claude and ChatGPT, then the organization's own apps
+     */
+    200: McpTrustedAppListResponse;
+};
+
+export type ListMcpTrustedAppsResponse = ListMcpTrustedAppsResponses[keyof ListMcpTrustedAppsResponses];
+
+export type AddMcpTrustedAppData = {
+    body: McpTrustedAppRequest;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint/trusted-apps';
+};
+
+export type AddMcpTrustedAppErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type AddMcpTrustedAppError = AddMcpTrustedAppErrors[keyof AddMcpTrustedAppErrors];
+
+export type AddMcpTrustedAppResponses = {
+    /**
+     * Trusted app added
+     */
+    201: McpTrustedAppResponse;
+};
+
+export type AddMcpTrustedAppResponse = AddMcpTrustedAppResponses[keyof AddMcpTrustedAppResponses];
 
 export type StartMcpConnectionAuthorizationData = {
     body: McpConnectionAuthorizationInput;
