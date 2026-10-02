@@ -52,7 +52,7 @@ public class McpEndpointTools {
     static final int FETCH_TEXT_CHARS = 100_000;
     private static final int LAST_ORDINAL = 9_999;
     static final String INVALID_QUERY = "The query must be 1 to 1,000 characters. Shorten or rephrase it and search again.";
-    static final String INVALID_ID = "Pass the id of a search result exactly as search returned it.";
+    static final String INVALID_ID = "Pass the id of a result exactly as search or search_with_filters returned it.";
     static final String INVALID_WINDOW = "updated_after must be on or before updated_before.";
     static final String TOO_MANY_DOCUMENT_SETS = "Pass at most 10 document set names.";
     static final String NO_DOCUMENT_SETS = "This person has no document sets; search without document_set_names.";
@@ -82,10 +82,11 @@ public class McpEndpointTools {
                     file type, use search_with_filters instead.
 
                     Returns {"results": [{id, title, url, sourceNumber, text, updatedAt, sources}]}, at most 10, \
-                    best first. text holds the passages that matched, cut at 2,000 characters. Cite each claim with \
-                    the result's sourceNumber as [n]. Call fetch with a result's id to read the whole document when \
-                    the passages are not enough. An empty list means nothing the person can read matched; say so \
-                    rather than guessing.
+                    best first. text holds the passages that matched, cut at 2,000 characters. url opens the document \
+                    where it lives: Google Drive, SharePoint, or MemoryOS for an upload. updatedAt is when it last \
+                    changed there. Link each claim to its result's url as a Markdown link so the person can open the \
+                    source. Call fetch with a result's id to read the whole document when the passages are not \
+                    enough. An empty list means nothing the person can read matched; say so rather than guessing.
 
                     Example: {"query": "annual leave policy for new employees"}""",
             annotations = @McpTool.McpAnnotations(title = "Search organization knowledge", readOnlyHint = true,
@@ -105,8 +106,8 @@ public class McpEndpointTools {
                     or to a file type. Pass only the filters the person asked for; never add one to narrow results \
                     yourself. A filter left out keeps everything.
 
-                    Returns the same {"results": [...]} as search, at most 10, best first. Cite each claim with the \
-                    result's sourceNumber as [n], and call fetch with a result's id to read the whole document. An \
+                    Returns the same {"results": [...]} as search, at most 10, best first. Link each claim to its \
+                    result's url as a Markdown link, and call fetch with a result's id to read the whole document. An \
                     empty list means nothing the person can read matched these filters; say which filters were used.
 
                     Example: {"query": "quarterly revenue", "source_types": ["SHAREPOINT"], \
@@ -220,17 +221,19 @@ public class McpEndpointTools {
 
     @McpTool(name = "fetch", title = "Read a document", generateOutputSchema = true,
             description = """
-                    Reads the full text of one document found by search, by the result's id, if the signed-in person \
-                    may still read it. Use it when the passages search returned do not answer the question.
+                    Reads the full text of one document that search or search_with_filters found, by the result's \
+                    id, if the signed-in person may still read it. Use it when the passages returned do not answer \
+                    the question.
 
                     Returns {id, title, text, url, metadata}. A document longer than 100,000 characters is cut and \
-                    the text ends by saying how many of its passages were shown.
+                    the text ends by saying how many of its passages were shown. Link each claim taken from it to \
+                    its url as a Markdown link.
 
                     Example: {"id": "<the id of a search result>"}""",
             annotations = @McpTool.McpAnnotations(title = "Read a document", readOnlyHint = true,
                     destructiveHint = false, idempotentHint = true, openWorldHint = false))
-    public FetchedDocument fetch(@McpToolParam(required = true, description = "The id of a search result, exactly as "
-            + "search returned it") String id) {
+    public FetchedDocument fetch(@McpToolParam(required = true, description = "The id of a result, exactly as search "
+            + "or search_with_filters returned it") String id) {
         return timed("fetch", INVALID_ID, () -> {
             var actor = actor();
             var documentId = documentId(id);
@@ -342,8 +345,10 @@ public class McpEndpointTools {
     public record SearchResults(List<SearchResult> results) {}
 
     /**
-     * {@code sourceNumber} counts from 1 in rank order; {@code text} is the matching passages; {@code sources} names
-     * where the document comes from (GOOGLE_DRIVE, SHAREPOINT, FILE), as far as the person may see.
+     * {@code url} opens the document where it lives, so a client can link a claim to it, as Onyx and Glean return it;
+     * {@code sourceNumber} counts from 1 in rank order; {@code text} is the matching passages; {@code updatedAt} is
+     * when the provider last changed it; {@code sources} names where the document comes from (GOOGLE_DRIVE,
+     * SHAREPOINT, FILE), as far as the person may see.
      */
     public record SearchResult(String id, String title, String url, int sourceNumber, String text, String updatedAt,
                                List<String> sources) {}

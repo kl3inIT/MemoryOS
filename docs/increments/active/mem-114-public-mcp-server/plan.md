@@ -264,6 +264,15 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   or one with an end leaves them out. Items synchronized before V35 carry their ingestion time until that run.
   Connected Claude and ChatGPT clients see the new tool after they refresh their tool list.
 
+## 4c. Linked citations and instruction review (2026-10-02)
+
+- [x] Citations in Claude and ChatGPT showed as `[1]` and could not be opened: the instructions asked for a bare
+  `[n]`. As Onyx and Glean do, the server instructions and every tool description now ask for a Markdown link to the
+  result's `url`; a test keeps `[n]` out.
+- [x] Instruction review: `fetch` and the invalid-id sentence name both search tools; `search` says what `url` and
+  `updatedAt` mean (`updatedAt` is the provider's date since pull request 3c).
+- [ ] After deployment, refresh the ChatGPT plugin and reconnect Claude, then check a cited answer opens its sources.
+
 ## 4d. Document links open the original (2026-10-02)
 
 - [x] A citation from Claude or ChatGPT to an uploaded PDF opened MemoryOS on the extracted text only: the document read
