@@ -30,16 +30,15 @@ Complete one approved scope before starting another: implement, verify, publish,
 ## 2. Implement and verify locally
 
 1. Follow the current MemoryOS architecture decision and capability boundaries. Do not copy legacy OrgMemory infrastructure wholesale.
-2. For every edited IDE-supported file, follow `memoryos-ide-static-analysis` when JetBrains MCP is available. Include warnings. Otherwise run the documented Gradle fallback.
-3. Run focused behavioral verification while iterating, then the terminating repository gate:
+2. Run focused behavioral verification while iterating, then the terminating repository gate:
 
 ```text
 gradlew.bat clean check --no-daemon
 ```
 
-4. Exercise changed runtime surfaces. For API changes, call the affected endpoint. For worker changes, start the actual worker and observe startup or changed processing. For future UI changes, require real-browser evidence and explicit user approval before merge.
-5. Review working-tree and staged diffs, account for every path, run whitespace checks, and scan for credentials, tokens, cookies, customer data, generated junk, and machine-local configuration.
-6. Keep `.omp/mcp.json` local. Canonical project skills under `.skills/` must not contain credentials, fixed local ports, or hard-coded checkout paths. The per-skill entries under `.agents/skills/`, `.claude/skills/`, and `.omp/skills/` are relative symbolic links to that shared content.
+3. Exercise changed runtime surfaces. For API changes, call the affected endpoint. For worker changes, start the actual worker and observe startup or changed processing. For future UI changes, require real-browser evidence and explicit user approval before merge.
+4. Review working-tree and staged diffs, account for every path, run whitespace checks, and scan for credentials, tokens, cookies, customer data, generated junk, and machine-local configuration.
+5. Keep `.omp/mcp.json` local. Canonical project skills under `.skills/` must not contain credentials, fixed local ports, or hard-coded checkout paths. The per-skill entries under `.agents/skills/`, `.claude/skills/`, and `.omp/skills/` are relative symbolic links to that shared content.
 
 ## 3. Synchronize, publish, and open the pull request
 

@@ -54,26 +54,26 @@ describe("detail page composites", () => {
     render(
       <EmptyState
         title="Không còn nguồn này"
-        detail="Có thể nguồn đã bị xoá."
+        detail="Có thể nguồn đã bị xóa."
         action={<Button>Thử lại</Button>}
       />,
     );
     expect(screen.getByRole("heading", { name: "Không còn nguồn này" })).toBeVisible();
-    expect(screen.getByText("Có thể nguồn đã bị xoá.")).toBeVisible();
+    expect(screen.getByText("Có thể nguồn đã bị xóa.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Thử lại" })).toBeVisible();
   });
 
   it("names what a destructive action destroys", () => {
     render(
       <DangerZone
-        title="Xoá nhóm này"
+        title="Xóa nhóm này"
         description="Thành viên và quyền bị gỡ."
-        action={<Button tone="danger">Xoá nhóm</Button>}
+        action={<Button tone="danger">Xóa nhóm</Button>}
       />,
     );
     const zone = screen.getByRole("region", { name: "Danger Zone" });
-    expect(zone).toHaveTextContent("Xoá nhóm này");
+    expect(zone).toHaveTextContent("Xóa nhóm này");
     expect(zone).toHaveTextContent("Thành viên và quyền bị gỡ.");
-    expect(screen.getByRole("button", { name: "Xoá nhóm" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Xóa nhóm" })).toBeVisible();
   });
 });

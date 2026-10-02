@@ -1,7 +1,7 @@
 # MCP endpoint: Keycloak and routing
 
 Operating procedure for the identity and routing side of the MemoryOS MCP endpoint
-([MEM-114 design](../increments/active/mem-114-public-mcp-server/design.md)). Claude and ChatGPT reach `/mcp` on the
+([MEM-114 design](../increments/completed/mem-114-public-mcp-server/design.md)). Claude and ChatGPT reach `/mcp` on the
 browser origin, sign the member in through Keycloak and receive a token whose audience is that URL.
 
 ## What has to be in place

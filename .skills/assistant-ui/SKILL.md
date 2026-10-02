@@ -1,6 +1,6 @@
 ---
 name: assistant-ui
-description: "Overview and router for assistant-ui, the React library for building AI chat interfaces from composable primitives and a styled elements catalog. Use for high-level, cross-cutting, or architecture questions: choosing packages, picking a runtime, or understanding the layers (elements, primitives, the aui client with AuiConfig and AuiProvider, the runtime, adapters) and the message model. Covers `@assistant-ui/react` 0.15.x, the framework-neutral `@assistant-ui/ai-sdk` integration for AI SDK v7 (`useChatRuntime`, `AssistantChatTransport`; `@assistant-ui/react-ai-sdk` re-exports it), `@assistant-ui/core`, `@assistant-ui/store`, `assistant-stream`, `assistant-cloud`, the adapters for LangGraph, LangChain, Google ADK, A2A, AG-UI, Eve, OpenCode, and Pi, and the platform bindings `@assistant-ui/react-native` and `@assistant-ui/react-ink`; `AssistantRuntimeProvider`; the primitives `ThreadPrimitive`, `MessagePrimitive`, `ComposerPrimitive`; the hooks `useAui`, `useAuiState`, `useAuiEvent`; and runtime selection across `useChatRuntime`, `useExternalStoreRuntime`, `useLangGraphRuntime`, `useLocalRuntime`. For a specific area route to a focused sibling instead: setup, elements, primitives, runtime, tools, generative-ui, streaming, thread-list, copilots, markdown, react-mcp, observability, ink, or update."
+description: "Overview and router for assistant-ui, the React library for building AI chat interfaces from composable primitives and a styled elements catalog. Use for high-level, cross-cutting, or architecture questions: choosing packages, picking a runtime, or understanding the layers (elements, primitives, the aui client with AuiConfig and AuiProvider, the runtime, adapters) and the message model. Covers `@assistant-ui/react` 0.15.x, `@assistant-ui/ai-sdk` for AI SDK v7 (`useChatRuntime`), `@assistant-ui/core`, `@assistant-ui/store`, `assistant-stream`, `assistant-cloud`, the LangGraph, LangChain, Google ADK, A2A, AG-UI, Eve, OpenCode, and Pi adapters, the `@assistant-ui/react-native` and `@assistant-ui/react-ink` bindings, and the `useAui`, `useAuiState`, and `useAuiEvent` hooks. For a specific area route to a focused sibling instead: setup, elements, primitives, runtime, tools, generative-ui, streaming, cloud, thread-list, copilots, markdown, react-mcp, observability, react-native, ink, or update."
 license: MIT
 ---
 
@@ -155,10 +155,12 @@ Nested scopes use `<AuiProvider extends={useAui()} config={config}>`; an isolate
 - [tools](../tools/SKILL.md) -- toolkits, tool UI, approvals, MCP, WebMCP
 - [generative-ui](../generative-ui/SKILL.md) -- the `present` tool and component vocabularies
 - [streaming](../streaming/SKILL.md) -- assistant-stream, transports, resumable streams
+- [cloud](../cloud/SKILL.md) -- Assistant Cloud persistence and auth
 - [thread-list](../thread-list/SKILL.md) -- multi-thread management
 - [copilots](../copilots/SKILL.md) -- grounding the assistant in your app
 - [markdown](../markdown/SKILL.md) -- markdown, code, math, diagrams
 - [react-mcp](../react-mcp/SKILL.md) -- user-managed MCP servers
 - [observability](../observability/SKILL.md) -- tracing and span visualization
+- [react-native](../react-native/SKILL.md) -- Expo and React Native
 - [ink](../ink/SKILL.md) -- terminal chat with Ink
 - [update](../update/SKILL.md) -- upgrades and migrations

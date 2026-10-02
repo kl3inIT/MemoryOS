@@ -95,7 +95,7 @@ export function StorageMeter({
             )}
           >
             {nearlyFull
-              ? ui("Gần hết dung lượng · {{percent}}% · hãy xoá bớt tệp", { percent })
+              ? ui("Gần hết dung lượng · {{percent}}% · hãy xóa bớt tệp", { percent })
               : ui("Đã dùng {{percent}}% · {{count}} tệp", { percent, count: usage.fileCount })}
           </p>
         )}
@@ -108,7 +108,7 @@ export function StorageMeter({
           </h2>
           <p className="font-secondary-body text-content-muted">
             {onCategory
-              ? ui("Chọn một loại tệp để xem và xoá bớt.")
+              ? ui("Chọn một loại tệp để xem và xóa bớt.")
               : ui("Mở thư viện để giải phóng dung lượng.")}
           </p>
         </div>
@@ -167,7 +167,7 @@ export function StorageMeter({
         )}
         <p className="font-secondary-body text-content-muted">
           <Trash2 className="mr-1 inline size-3.5" aria-hidden="true" />
-          {ui("Tệp đã xoá vẫn chiếm dung lượng cho tới khi thùng rác được dọn.")}
+          {ui("Tệp đã xóa vẫn chiếm dung lượng cho tới khi thùng rác được dọn.")}
         </p>
       </section>
     </div>

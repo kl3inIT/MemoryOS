@@ -200,9 +200,9 @@ it("deletes a file after the confirmation", async () => {
   const { user, panel } = await openPanel();
 
   await user.click(within(panel).getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
-  await user.click(await screen.findByRole("menuitem", { name: "Xoá" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Xóa" }));
   await user.click(
-    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá" }),
+    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xóa" }),
   );
 
   await waitFor(() => expect(deleted).toEqual([generated.id]));

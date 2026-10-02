@@ -174,7 +174,7 @@ export function MeetingsPage() {
                   setPeriod("all");
                 }}
               >
-                {ui("Xoá bộ lọc")}
+                {ui("Xóa bộ lọc")}
               </Button>
             }
           />

@@ -326,7 +326,7 @@ describe("SearchPage", () => {
     // Without a Tenant speech-to-text provider there is no microphone, and no browser recognition fallback.
     expect(screen.queryByRole("button", { name: "Search by voice" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("status").some((status) => status.textContent === "")).toBe(true);
-    expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Owner" })).toBeInTheDocument();
   });
 
   it("adds the MemoryOS transcript to the controlled query without searching automatically", async () => {
@@ -796,7 +796,7 @@ describe("SearchPage", () => {
       scopedCapabilities: [],
     });
 
-    expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Member" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
       "href",
       "/admin/groups",
@@ -876,7 +876,7 @@ describe("SearchPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     await renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
+    await user.click(screen.getByRole("button", { name: "Owner" }));
     await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(fetchMock).toHaveBeenCalledWith("/logout", {
@@ -895,7 +895,7 @@ describe("SearchPage", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
     await renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
+    await user.click(screen.getByRole("button", { name: "Owner" }));
     await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(await screen.findByRole("alert")).toBeVisible();

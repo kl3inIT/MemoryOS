@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "Installs and configures assistant-ui with the `assistant-ui` CLI (`create`, `init`, `add`, `update`, `upgrade`, `codemod`, `doctor`, `info`, `mcp`, `agent`) and picks the runtime adapter for a backend. Use for first-time install (`npx assistant-ui@latest create my-app` with templates `default`, `minimal`, `cloud`, `cloud-clerk`, `langchain`, `mcp`, `eve`, or `--example` scaffolds such as `with-ai-sdk-v7`, `with-langgraph`, `with-ag-ui`, `with-google-adk`, `with-eve`, `with-openui`, `with-expo`, `with-react-ink`), adding to an existing Next.js app (`init`), or keeping an install current (`update`, `upgrade`, `codemod`). Covers picking a runtime hook for a backend: `useChatRuntime` (AI SDK v7 via `@assistant-ui/ai-sdk`), `useLangGraphRuntime`, `useStreamRuntime` (LangChain), `useAdkRuntime` (Google ADK), `useA2ARuntime`, `useAgUiRuntime`, `useEveAgentRuntime`, `useOpenCodeRuntime`, `useLocalRuntime`, `useExternalStoreRuntime`, `useDataStreamRuntime`, and `useAssistantTransportRuntime`, plus wiring guides for Mastra, Cloudflare Agents, Claude Managed Agents, LLM gateways, a ChatGPT subscription, and Electron. Also covers the Expo (`--native`) and React Ink (`--ink`) platform scaffolds and the hosted MCP docs server. Route here for the CLI itself, choosing a runtime, or a platform target; once a runtime exists, use elements to install the styled Thread/composer, primitives for unstyled building blocks, runtime for the chosen runtime's hooks and adapters in depth, react-native or ink for platform specifics, and update for a deep migration."
+description: "Installs and configures assistant-ui with the `assistant-ui` CLI (`create`, `init`, `add`, `update`, `upgrade`, `codemod`, `doctor`, `info`, `mcp`, `agent`) and picks the runtime adapter for a backend. Use for first-time install (`npx assistant-ui@latest create`, templates, `--example` scaffolds), adding to an existing Next.js app (`init`), or keeping an install current. Covers the runtime hook per backend: `useChatRuntime` (AI SDK v7), `useLangGraphRuntime`, `useStreamRuntime` (LangChain), `useAdkRuntime`, `useA2ARuntime`, `useAgUiRuntime`, `useEveAgentRuntime`, `useOpenCodeRuntime`, `useLocalRuntime`, `useExternalStoreRuntime`, `useDataStreamRuntime`, and `useAssistantTransportRuntime`, plus wiring guides for Mastra, Cloudflare Agents, Claude Managed Agents, LLM gateways, and Electron, the Expo (`--native`) and React Ink (`--ink`) scaffolds, and the hosted MCP docs server. Once a runtime exists, use elements for the styled Thread, runtime for hooks and adapters, and update for a deep migration."
 license: MIT
 ---
 
@@ -157,7 +157,7 @@ Framework and provider wiring guides, all layered on the AI SDK runtime above ra
 | Target | Package | Scaffold | Skill |
 | --- | --- | --- | --- |
 | Web (React) | `@assistant-ui/react` | `create` | this skill, [elements](../elements/SKILL.md) |
-| Expo / React Native | `@assistant-ui/react-native` + `@assistant-ui/metro` | `create <name> --native` (or `-e with-expo`) | react-native |
+| Expo / React Native | `@assistant-ui/react-native` + `@assistant-ui/metro` | `create <name> --native` (or `-e with-expo`) | [react-native](../react-native/SKILL.md) |
 | Terminal | `@assistant-ui/react-ink` + `@assistant-ui/react-ink-markdown` | `create <name> --ink` (or `-e with-react-ink`) | [ink](../ink/SKILL.md) |
 
 Vite-based web apps (TanStack Start, plain Vite, Nuxt) are not a `create` template; see [tanstack.md](./references/tanstack.md) for manual setup and the `aui()` compiler plugin from `@assistant-ui/vite`.
@@ -191,5 +191,7 @@ Vite-based web apps (TanStack Start, plain Vite, Nuxt) are not a `create` templa
 - [primitives](../primitives/SKILL.md) -- unstyled building blocks when composing your own UI instead of `elements`
 - [runtime](../runtime/SKILL.md) -- the chosen runtime's hooks, adapters, events, and capabilities in depth
 - [update](../update/SKILL.md) -- version detection, the full migration map, and the codemod list behind `upgrade`
+- [react-native](../react-native/SKILL.md) -- Expo / React Native specifics once scaffolded with `--native`
 - [ink](../ink/SKILL.md) -- React Ink terminal specifics once scaffolded with `--ink`
+- [cloud](../cloud/SKILL.md) -- AssistantCloud persistence behind the `cloud` and `cloud-clerk` templates
 - [tools](../tools/SKILL.md) -- defining tools once a runtime is wired up
