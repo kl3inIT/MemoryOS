@@ -2,6 +2,7 @@ package io.memoryos.worker;
 
 import io.memoryos.chat.ChatWorkerComponents;
 import io.memoryos.library.LibraryWorkerComponents;
+import io.memoryos.mcp.McpWorkerComponents;
 import io.memoryos.retrieval.SearchTimings;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -26,7 +27,8 @@ import org.springframework.context.annotation.Import;
         "io.memoryos.iam.user.persistence"
 })
 // MEM-9, MEM-142, MEM-143, MEM-152 and MEM-153: the library and Chat work the Worker runs, each named by its module.
-@Import({SearchTimings.class, LibraryWorkerComponents.class, ChatWorkerComponents.class})
+// MEM-209: the MCP endpoint's activity log retention.
+@Import({SearchTimings.class, LibraryWorkerComponents.class, ChatWorkerComponents.class, McpWorkerComponents.class})
 public class MemoryOsWorkerApplication {
 
     public static void main(String[] args) {

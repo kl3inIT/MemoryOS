@@ -5501,7 +5501,8 @@ paths:
     get:
       tags:
       - MCP
-      summary: Read whether the MemoryOS MCP endpoint is configured and on for the Tenant
+      summary: Read whether the MemoryOS MCP endpoint is configured and on for the
+        Tenant
       operationId: getMcpEndpointSettings
       responses:
         "400":
@@ -5513,7 +5514,8 @@ paths:
         "401":
           description: Authentication required
         "403":
-          description: MCP management, Tenant membership or CSRF requirement not met
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
           content:
             application/problem+json:
               schema:
@@ -5531,7 +5533,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "503":
-          description: This deployment has no MCP endpoint URL
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
           content:
             application/problem+json:
               schema:
@@ -5575,7 +5578,8 @@ paths:
         "401":
           description: Authentication required
         "403":
-          description: MCP management, Tenant membership or CSRF requirement not met
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
           content:
             application/problem+json:
               schema:
@@ -5593,7 +5597,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "503":
-          description: This deployment has no MCP endpoint URL
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
           content:
             application/problem+json:
               schema:
@@ -5607,15 +5612,161 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/endpoint/trusted-apps/{appId}:
+    put:
+      tags:
+      - MCP
+      summary: Switch a trusted app on or off; off removes its clients and every grant
+        to them
+      operationId: setMcpTrustedAppEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: appId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpTrustedAppEnabledRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Trusted app switched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpTrustedAppResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: "Remove an app of the organization's own, its clients and every grant\
+        \ to them"
+      operationId: removeMcpTrustedApp
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: appId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        description: The app's revision as listed
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Trusted app removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/endpoint/connection:
     get:
       tags:
       - MCP
-      summary: "Read whether the signed-in User can connect Claude or ChatGPT to MemoryOS, and the URL to use"
+      summary: "Read whether the signed-in User can connect Claude or ChatGPT to MemoryOS,\
+        \ and the URL to use"
       operationId: getMcpEndpointConnection
       responses:
-        "401":
-          description: Authentication required
+        "200":
+          description: "Whether the endpoint answers, and its URL"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointConnectionResponse"
         "403":
           description: Search use or Tenant membership requirement not met
           content:
@@ -5628,12 +5779,125 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/activity:
+    get:
+      tags:
+      - MCP
+      summary: "Read the MCP endpoint's activity log: who called which tool through\
+        \ which app, kept 90 days"
+      operationId: listMcpEndpointActivity
+      parameters:
+      - name: from
+        in: query
+        description: Calls at or after this instant
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        description: Calls before this instant
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: client
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+      - name: tool
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 64
+          minLength: 0
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SUCCESS
+          - REFUSED
+          - FAILED
+          - RATE_LIMITED
+      - name: person
+        in: query
+        description: Part of the person's name or e-mail address
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: cursor
+        in: query
+        description: The next value of the previous page
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
         "200":
-          description: "Whether the endpoint answers, and its URL"
+          description: "Tool calls, newest first"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/McpEndpointConnectionResponse"
+                $ref: "#/components/schemas/McpEndpointCallPageResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5644,14 +5908,6 @@ paths:
       summary: List the outside assistants the signed-in User allowed to read MemoryOS
       operationId: listMcpClientGrants
       responses:
-        "401":
-          description: Authentication required
-        "503":
-          description: Keycloak unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
         "200":
           description: "Clients the User allowed, newest first"
           content:
@@ -5660,13 +5916,22 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/McpClientGrantResponse"
+        "503":
+          description: Keycloak unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
       security:
       - bearerAuth: []
       - browserSession: []
     delete:
       tags:
       - MCP
-      summary: Revoke the signed-in User's grant to one outside assistant and end its offline session
+      summary: Revoke the signed-in User's grant to one outside assistant and end
+        its offline session
       operationId: revokeMcpClientGrant
       parameters:
       - name: X-MemoryOS-CSRF
@@ -5686,8 +5951,8 @@ paths:
           maxLength: 2048
           minLength: 1
       responses:
-        "401":
-          description: Authentication required
+        "204":
+          description: Grant revoked
         "400":
           description: Invalid client ID
           content:
@@ -5712,8 +5977,69 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: Grant revoked
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/insights:
+    get:
+      tags:
+      - MCP
+      summary: "Read calls, people, apps and tools of the MCP endpoint over the last\
+        \ 7 or 30 days"
+      operationId: getMcpEndpointInsights
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 7
+          maximum: 30
+          minimum: 7
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Use of the endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointInsightsResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -9206,6 +9532,121 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/McpOAuthAuthorization"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/trusted-apps:
+    get:
+      tags:
+      - MCP
+      summary: List the apps the MemoryOS MCP endpoint admits
+      operationId: listMcpTrustedApps
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Claude and ChatGPT, then the organization's own apps"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpTrustedAppListResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - MCP
+      summary: Trust an app of the organization's own by the domains of its client
+        metadata document
+      operationId: addMcpTrustedApp
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpTrustedAppRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Trusted app added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpTrustedAppResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -14664,7 +15105,8 @@ paths:
           format: uuid
       - name: generation
         in: query
-        description: "The generation a search result named; without one, the current generation, as a link that carries only the document opens it"
+        description: "The generation a search result named; without one, the current\
+          \ generation, as a link that carries only the document opens it"
         required: false
         schema:
           type: string
@@ -22799,7 +23241,8 @@ components:
       properties:
         configured:
           type: boolean
-          description: Whether this deployment configured an MCP endpoint URL; without one the switch stays off
+          description: Whether this deployment configured an MCP endpoint URL; without
+            one the switch stays off
         enabled:
           type: boolean
         revision:
@@ -22810,47 +23253,163 @@ components:
           - string
           - "null"
           description: The URL people add to Claude or ChatGPT; present when configured
-        chatGpt:
-          oneOf:
-          - $ref: "#/components/schemas/McpEndpointChatGptClientResponse"
-          - type: "null"
       required:
-      - chatGpt
       - configured
       - enabled
       - revision
       - url
-    McpEndpointChatGptClientResponse:
+    McpTrustedAppEnabledRequest:
       type: object
-      description: What a ChatGPT workspace administrator enters once to add MemoryOS
       properties:
-        clientId:
-          type: string
-        clientSecret:
-          type: string
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
       required:
-      - clientId
-      - clientSecret
+      - enabled
+      - revision
+    McpTrustedAppResponse:
+      type: object
+      description: An outside assistant the MCP endpoint admits by the URL of its
+        client metadata document
+      properties:
+        id:
+          type: string
+          format: uuid
+        preset:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - CUSTOM
+        name:
+          type: string
+        clientIdHosts:
+          type: array
+          description: Hosts the document's URL may have
+          items:
+            type: string
+        documentHosts:
+          type: array
+          description: Hosts the URIs inside the document may have
+          items:
+            type: string
+        enabled:
+          type: boolean
+        builtIn:
+          type: boolean
+          description: "Claude and ChatGPT can be switched off, not removed"
+        revision:
+          type: integer
+          format: int64
+      required:
+      - builtIn
+      - clientIdHosts
+      - documentHosts
+      - enabled
+      - id
+      - name
+      - preset
+      - revision
     McpEndpointConnectionResponse:
       type: object
       properties:
         available:
           type: boolean
-          description: Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint now
+          description: Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint
+            now
         url:
           type:
           - string
           - "null"
           description: The URL to add to Claude or ChatGPT; present while available
+        apps:
+          type: array
+          description: The apps the administrator trusts; CUSTOM when any app of the
+            organization's own is
+          items:
+            type: string
+            enum:
+            - CLAUDE
+            - CHATGPT
+            - CUSTOM
       required:
+      - apps
       - available
       - url
+    McpEndpointCallPageResponse:
+      type: object
+      properties:
+        calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCallResponse"
+        next:
+          type:
+          - string
+          - "null"
+          description: Pass as cursor for older calls; absent on the last page
+      required:
+      - calls
+      - next
+    McpEndpointCallResponse:
+      type: object
+      description: One tool call through the MemoryOS MCP endpoint; no query and no
+        document
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        actorId:
+          type: string
+          format: uuid
+        actorName:
+          type:
+          - string
+          - "null"
+        actorEmail:
+          type:
+          - string
+          - "null"
+        client:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+        clientName:
+          type: string
+        tool:
+          type: string
+        outcome:
+          type: string
+          enum:
+          - SUCCESS
+          - REFUSED
+          - FAILED
+          - RATE_LIMITED
+      required:
+      - actorEmail
+      - actorId
+      - actorName
+      - client
+      - clientName
+      - id
+      - occurredAt
+      - outcome
+      - tool
     McpClientGrantResponse:
       type: object
       properties:
         clientId:
           type: string
-          description: Keycloak's client ID; Claude's is the URL of its client metadata document
+          description: Keycloak's client ID; Claude's is the URL of its client metadata
+            document
         client:
           type: string
           enum:
@@ -22867,6 +23426,98 @@ components:
       - clientId
       - grantedAt
       - name
+    McpTrustedAppListResponse:
+      type: object
+      properties:
+        manageable:
+          type: boolean
+          description: Whether this deployment can change the list; without its Keycloak
+            account it is read-only
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpTrustedAppResponse"
+      required:
+      - apps
+      - manageable
+    McpEndpointCountResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The app's client ID or the tool's name
+        name:
+          type: string
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+      required:
+      - calls
+      - key
+      - name
+      - people
+    McpEndpointDayResponse:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+          description: A UTC day
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+      required:
+      - calls
+      - day
+      - people
+    McpEndpointInsightsResponse:
+      type: object
+      description: Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
+      properties:
+        days:
+          type: integer
+          format: int32
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+          description: Distinct people who called a tool
+        failed:
+          type: integer
+          format: int64
+        rateLimited:
+          type: integer
+          format: int64
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCountResponse"
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCountResponse"
+        daily:
+          type: array
+          description: Days with at least one call
+          items:
+            $ref: "#/components/schemas/McpEndpointDayResponse"
+      required:
+      - apps
+      - calls
+      - daily
+      - days
+      - failed
+      - people
+      - rateLimited
+      - tools
     InterpreterSettingsRequest:
       type: object
       properties:
@@ -24630,6 +25281,38 @@ components:
           description: Navigate the browser here
       required:
       - authorizationUrl
+    McpTrustedAppRequest:
+      type: object
+      description: "An app of the Tenant's own, admitted by the URL of its client\
+        \ metadata document"
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          minLength: 0
+        clientIdHosts:
+          type: array
+          description: "Domains of the document's URL, 1 to 10"
+          items:
+            type: string
+            maxLength: 253
+            minLength: 0
+          maxItems: 10
+          minItems: 1
+        documentHosts:
+          type: array
+          description: "Other domains the document lists, such as its callback or\
+            \ logo; may be empty"
+          items:
+            type: string
+            maxLength: 253
+            minLength: 0
+          maxItems: 20
+          minItems: 0
+      required:
+      - clientIdHosts
+      - documentHosts
+      - name
     McpConnectionAuthorizationInput:
       type: object
       properties:
@@ -26998,10 +27681,11 @@ components:
           format: uuid
           description: Stable internal MemoryOS actor identifier.
         displayName:
-          description: Latest display name observed from the authenticated actor's identity provider.
           type:
           - string
           - "null"
+          description: Latest display name observed from the authenticated actor's
+            identity provider.
         tenant:
           description: "Active Tenant context, or null when the actor has no active\
             \ Tenant membership."

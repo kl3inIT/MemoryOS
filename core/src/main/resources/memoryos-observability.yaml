@@ -91,6 +91,7 @@ management:
         memoryos.chat.image.request: true
         memoryos.chat.voice.request: true
         memoryos.chat.mcp.call: true
+        memoryos.mcp.endpoint.call: true
         memoryos.chat.research.phase.duration: true
         memoryos.search.query.duration: true
         memoryos.search.stage.duration: true
@@ -107,6 +108,7 @@ management:
         memoryos.chat.image.request: 100ms
         memoryos.chat.voice.request: 10ms
         memoryos.chat.mcp.call: 10ms
+        memoryos.mcp.endpoint.call: 10ms
         memoryos.chat.research.phase.duration: 100ms
         memoryos.search.query.duration: 5ms
         memoryos.search.stage.duration: 1ms
@@ -123,6 +125,7 @@ management:
         memoryos.chat.image.request: 300s
         memoryos.chat.voice.request: 120s
         memoryos.chat.mcp.call: 120s
+        memoryos.mcp.endpoint.call: 120s
         memoryos.chat.research.phase.duration: 900s
         memoryos.search.query.duration: 30s
         memoryos.search.stage.duration: 30s

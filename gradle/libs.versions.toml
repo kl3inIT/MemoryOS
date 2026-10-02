@@ -37,6 +37,7 @@ spring-ai-openai = { module = "org.springframework.ai:spring-ai-openai" }
 embabel-api = { module = "com.embabel.agent:embabel-agent-api", version.ref = "embabel" }
 embabel-platform = { module = "com.embabel.agent:embabel-agent-starter-platform", version.ref = "embabel" }
 embabel-openai = { module = "com.embabel.agent:embabel-agent-openai", version.ref = "embabel" }
+embabel-byok = { module = "com.embabel.agent:embabel-agent-byok-autoconfigure", version.ref = "embabel" }
 mcp = { module = "io.modelcontextprotocol.sdk:mcp", version.ref = "mcp-sdk" }
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
 bucket4j-core = { module = "com.bucket4j:bucket4j_jdk17-core", version.ref = "bucket4j" }

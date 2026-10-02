@@ -19,12 +19,9 @@ public final class McpEndpointProperties {
     private static final Set<String> LOOPBACK_HOSTS = Set.of("127.0.0.1", "[::1]", "localhost");
 
     private final @Nullable URI url;
-    private final @Nullable String chatGptClientSecret;
 
-    public McpEndpointProperties(@Value("${memoryos.mcp.endpoint.url:}") String url,
-                                 @Value("${memoryos.mcp.endpoint.chatgpt-client-secret:}") String chatGptClientSecret) {
+    public McpEndpointProperties(@Value("${memoryos.mcp.endpoint.url:}") String url) {
         this.url = url.isBlank() ? null : validated(url);
-        this.chatGptClientSecret = chatGptClientSecret.isBlank() ? null : chatGptClientSecret;
     }
 
     /** A malformed URL fails startup instead of serving an endpoint no client can reach. */
@@ -58,11 +55,4 @@ public final class McpEndpointProperties {
         return url().map(endpoint -> endpoint.resolve("/"));
     }
 
-    /**
-     * The secret of the ChatGPT client, the same value the realm script gave Keycloak. It exists only beside an endpoint
-     * URL, because the script creates the client only then.
-     */
-    public Optional<String> chatGptClientSecret() {
-        return url == null ? Optional.empty() : Optional.ofNullable(chatGptClientSecret);
-    }
 }

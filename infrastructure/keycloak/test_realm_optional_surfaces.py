@@ -54,6 +54,17 @@ class RealmOptionalSurfacesTest(unittest.TestCase):
         self.assertIn("MEMORYOS_KEYCLOAK_SMTP_USERNAME is required when SMTP auth is enabled", SCRIPT)
 
 
+class RealmSessionLifetimeTest(unittest.TestCase):
+    def test_a_sign_in_stays_silent_for_seven_days_in_every_environment(self):
+        # The browser keeps no provider token, so the SSO session lives exactly as long as the password; the API's
+        # browser session ends at the same age.
+        update = "jq -cn '{ssoSessionIdleTimeout: 604800, ssoSessionMaxLifespan: 604800}'"
+        self.assertEqual(1, SCRIPT.count(update))
+        self.assertLess(SCRIPT.index(update), SCRIPT.index('configured_theme=$("$KCADM" get "realms/$TARGET_REALM"'))
+        application = (ROOT / "api/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        self.assertIn("session-max-lifetime: 7d", application)
+
+
 class RealmBootstrapTest(unittest.TestCase):
     def test_the_script_builds_a_realm_that_is_not_there_yet(self):
         # It used to assert the realm existed, so the first environment could only be built by

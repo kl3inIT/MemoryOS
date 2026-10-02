@@ -12,7 +12,7 @@
 - [x] `infrastructure/deployment/test_deploy_workflow.py`: 30 test, OK (8 skip vì máy Windows không có `jq`/`bash` runtime).
 - [x] CI của pull request #452 (run 37031801125): `CI Gate` xanh, mọi leg `backend` thành công, leg `core` không OOM.
 - [x] Ghi thời gian từng job so với lần chạy 37027896348 (PR) và 37029069637 (`main`).
-- [ ] Đo lần chạy `main` đầu tiên sau merge (3574fc32) để xác nhận thời gian từ push tới publish.
+- [x] Lần chạy `main` đầu tiên sau merge (run 37032857513, `3574fc32`): job bắt đầu 16:18:22, CI Gate xanh 16:26:43 (8m21s), publish xong 16:31:02 (tổng 12m40s, trước đây ~14.5 phút). Leg `core` 6m55s; `backend-images` 8m15s là chậm nhất, chậm hơn mức 5m20s trước đây, chưa rõ nguyên nhân.
 
 ## Kết quả đo
 

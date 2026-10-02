@@ -1,7 +1,7 @@
 {
   "uid": "memoryos-chat-ai",
   "title": "MemoryOS Chat & AI",
-  "description": "Chat turns and their refusals, the MEM-195 guardrail check, model calls and tokens by model, Chat tools and search.",
+  "description": "Chat turns and their refusals, the MEM-195 guardrail check, model calls and tokens by model, Chat tools and search, and the MemoryOS MCP endpoint.",
   "tags": [
     "memoryos"
   ],
@@ -1317,6 +1317,203 @@
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "MemoryOS MCP endpoint (MEM-209)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 73,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Endpoint calls / min by tool",
+      "description": "Tool calls from Claude, ChatGPT and trusted apps, by tool and outcome.",
+      "gridPos": {
+        "x": 0,
+        "y": 74,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "memoryos-prometheus",
+        "type": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{tool}} {{outcome}}",
+          "expr": "sum by (tool, outcome) (rate(memoryos_mcp_endpoint_call_milliseconds_count[$__rate_interval])) * 60"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Endpoint calls / min by app",
+      "description": "Tool calls by the app they came through: claude, chatgpt or other.",
+      "gridPos": {
+        "x": 6,
+        "y": 74,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "memoryos-prometheus",
+        "type": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{client}}",
+          "expr": "sum by (client) (rate(memoryos_mcp_endpoint_call_milliseconds_count[$__rate_interval])) * 60"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Endpoint call p95 by tool",
+      "description": "Tool call duration at the 95th percentile.",
+      "gridPos": {
+        "x": 12,
+        "y": 74,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "memoryos-prometheus",
+        "type": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{tool}}",
+          "expr": "histogram_quantile(0.95, sum by (le, tool) (rate(memoryos_mcp_endpoint_call_milliseconds_bucket[$__rate_interval])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 34,
+      "type": "timeseries",
+      "title": "Rate limited / min",
+      "description": "Calls answered 429, by the bucket that ran dry (caller or endpoint) and app.",
+      "gridPos": {
+        "x": 18,
+        "y": 74,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "memoryos-prometheus",
+        "type": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{scope}} {{client}}",
+          "expr": "sum by (scope, client) (rate(memoryos_mcp_endpoint_rate_limited_total[$__rate_interval])) * 60"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,

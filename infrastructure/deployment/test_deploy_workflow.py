@@ -521,6 +521,61 @@ else:
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)
 
 
+class VerifiedTreeReuseTest(unittest.TestCase):
+    JOBS = ("backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview",
+            "infrastructure", "interpreter", "landing", "secrets")
+    AREAS = {"backend": (["infrastructure", "backend"], ["backend-images"]),
+             "web": (["frontend-check", "frontend", "frontend-preview"], ["frontend-image"]),
+             "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"])}
+
+    def gate(self, outputs, override=None):
+        jq = shutil.which("jq")
+        if jq is None:
+            self.skipTest("jq is required to run the gate")
+        gate = CI_WORKFLOW.split("  gate:\n", 1)[1].split("\n  publish:\n", 1)[0]
+        program = gate.split("jq --exit-status '", 1)[1].split("' <<< \"$RESULTS\"", 1)[0]
+        results = {job: {"result": "skipped", "outputs": {}} for job in self.JOBS}
+        results["changes"] = {"result": "success", "outputs": outputs}
+        results["secrets"]["result"] = "success"
+        for area, (tests, images) in self.AREAS.items():
+            if outputs.get(area) == "true":
+                for job in images:
+                    results[job]["result"] = "success"
+                if outputs.get(area + "_verified") != "true":
+                    for job in tests:
+                        results[job]["result"] = "success"
+        results.update({job: {"result": result, "outputs": {}} for job, result in (override or {}).items()})
+        return subprocess.run([jq, "--exit-status", program], input=json.dumps(results), text=True,
+                              capture_output=True).returncode
+
+    def test_a_verified_area_skips_its_tests_but_still_builds_its_images(self):
+        every = {"backend": "true", "web": "true", "landing": "true", "interpreter": "true"}
+        self.assertEqual(0, self.gate(every))
+        verified = {**every, "backend_verified": "true", "web_verified": "true"}
+        self.assertEqual(0, self.gate(verified))
+        self.assertNotEqual(0, self.gate(verified, {"backend-images": "skipped"}))
+        self.assertNotEqual(0, self.gate(verified, {"frontend-image": "failure"}))
+        # Tests may be skipped only when the area was found verified.
+        self.assertNotEqual(0, self.gate(every, {"backend": "skipped"}))
+        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "interpreter": "false"},
+                                         {"backend-images": "success"}))
+
+    def test_only_a_successful_same_repository_pull_request_run_of_this_commit_is_trusted(self):
+        changes = CI_WORKFLOW.split("  changes:\n", 1)[1].split("\n  infrastructure:\n", 1)[0]
+        lookup = changes.split("- name: Reuse the verification of an identical pull request tree", 1)[1]
+        self.assertIn("if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}", lookup)
+        for guard in ('.path == ".github/workflows/ci.yml"', '.event == "pull_request"', '.conclusion == "success"',
+                      ".head_repository.full_name == $repo", "select(.head.repo.full_name == $repo)",
+                      "$heads | index($sha) != null", "select(.expired | not)"):
+            self.assertIn(guard, lookup)
+        # A failed lookup must fall back to every test rather than fail the main push.
+        self.assertIn("set -uo pipefail", lookup)
+        self.assertNotIn("set -euo pipefail", lookup)
+        gate = CI_WORKFLOW.split("  gate:\n", 1)[1].split("\n  publish:\n", 1)[0]
+        upload = gate.split("- name: Record the areas this pull request verified", 1)[1]
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", upload)
+        self.assertIn("name: ci-verified-${{ needs.changes.outputs.tree }}", upload)
+
 
 if __name__ == "__main__":
     unittest.main()

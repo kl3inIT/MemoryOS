@@ -338,10 +338,9 @@ services:
       MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
       MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/mcp_credential_encryption_key
-      # MEM-114: the memoryos-chatgpt client secret the realm script gave Keycloak, shown to administrators.
-      MEMORYOS_MCP_CHATGPT_CLIENT_SECRET_FILE: /run/secrets/mcp_chatgpt_client_secret
-      # One key serves chat and embedding; the launcher exports both names from this file.
-      MEMORYOS_CHAT_API_KEY_FILE: /run/secrets/model_api_key
+      # MEM-207: the memoryos-mcp-admin client secret, with which the API keeps the trusted apps in Keycloak.
+      MEMORYOS_MCP_ADMIN_CLIENT_SECRET_FILE: /run/secrets/mcp_admin_client_secret
+      # The embedding key. Chat holds no key of its own: every Chat provider and its key is a catalog entry (MEM-211).
       MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
     secrets:
       - minio_api_secret_key
@@ -355,7 +354,7 @@ services:
       - chat_catalog_encryption_key
       - google_drive_credential_encryption_key
       - mcp_credential_encryption_key
-      - mcp_chatgpt_client_secret
+      - mcp_admin_client_secret
       - model_api_key
     depends_on:
       postgres:
@@ -687,8 +686,8 @@ secrets:
     file: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/google-drive-credential-key.txt}
   mcp_credential_encryption_key:
     file: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/mcp-credential-key.txt}
-  mcp_chatgpt_client_secret:
-    file: ${MEMORYOS_MCP_CHATGPT_CLIENT_SECRET_SECRET_FILE:-/apps/memoryos/secrets/keycloak/mcp-chatgpt-client-secret.txt}
+  mcp_admin_client_secret:
+    file: ${MEMORYOS_MCP_ADMIN_CLIENT_SECRET_SECRET_FILE:-/apps/memoryos/secrets/keycloak/mcp-admin-client-secret.txt}
   model_api_key:
     file: ${MEMORYOS_MODEL_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/model/api-key.txt}
   minio_root_password:

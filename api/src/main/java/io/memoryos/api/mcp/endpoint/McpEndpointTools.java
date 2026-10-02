@@ -5,6 +5,8 @@ import io.memoryos.FailureCategory;
 import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.chat.DocumentSetService;
 import io.memoryos.connector.SourceType;
+import io.memoryos.iam.McpClientGrant;
+import io.memoryos.mcp.McpEndpointActivity;
 import io.memoryos.mcp.McpEndpointProperties;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchDocument;
@@ -64,13 +66,15 @@ public class McpEndpointTools {
     private final DocumentSetService documentSets;
     private final McpEndpointProperties endpoint;
     private final MeterRegistry metrics;
+    private final McpEndpointActivity activity;
 
     McpEndpointTools(DocumentSearchService documents, DocumentSetService documentSets, McpEndpointProperties endpoint,
-                     MeterRegistry metrics) {
+                     MeterRegistry metrics, McpEndpointActivity activity) {
         this.documents = documents;
         this.documentSets = documentSets;
         this.endpoint = endpoint;
         this.metrics = metrics;
+        this.activity = activity;
     }
 
     @McpTool(name = "search", title = "Search organization knowledge", generateOutputSchema = true,
@@ -306,16 +310,16 @@ public class McpEndpointTools {
      */
     private <T> T timed(String tool, String invalid, Supplier<T> call) {
         long started = System.nanoTime();
-        String outcome = "failed";
+        var outcome = McpEndpointActivity.Outcome.FAILED;
         try {
             T result = call.get();
-            outcome = "success";
+            outcome = McpEndpointActivity.Outcome.SUCCESS;
             return result;
         } catch (ToolFailure refused) {
-            outcome = "refused";
+            outcome = McpEndpointActivity.Outcome.REFUSED;
             throw refused;
         } catch (BusinessException refused) {
-            outcome = "refused";
+            outcome = McpEndpointActivity.Outcome.REFUSED;
             LOGGER.atInfo().addKeyValue("event", "mcp_endpoint.tool.refused").addKeyValue("tool", tool)
                     .addKeyValue("error_type", refused.getClass().getName()).addKeyValue("error_code", refused.code())
                     .log("MCP endpoint tool call refused");
@@ -326,9 +330,22 @@ public class McpEndpointTools {
                     .log("MCP endpoint tool call failed");
             throw new ToolFailure(ToolFailure.FAILED);
         } finally {
-            metrics.timer("memoryos.mcp.endpoint.call", "tool", tool, "outcome", outcome)
+            String client = client();
+            // The app is a bounded label (Claude, ChatGPT or other), never the client ID.
+            metrics.timer("memoryos.mcp.endpoint.call", "tool", tool, "outcome", outcome.name().toLowerCase(Locale.ROOT),
+                            "client", McpClientGrant.Client.of(client).name().toLowerCase(Locale.ROOT))
                     .record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
+            if (SecurityContextHolder.getContext().getAuthentication() instanceof ActorAuthenticationToken token) {
+                activity.record(token.getPrincipal().actorId(), client, tool, outcome);
+            }
         }
+    }
+
+    /** The app the caller came through: the access token's {@code azp}, the URL of its metadata document. */
+    static String client() {
+        return SecurityContextHolder.getContext().getAuthentication() instanceof ActorAuthenticationToken token
+                ? token.jwt().map(jwt -> jwt.getClaimAsString("azp")).orElse("unknown-client")
+                : "unknown-client";
     }
 
     /** A tool failure the client may see: a fixed sentence, no cause and no stack. */
