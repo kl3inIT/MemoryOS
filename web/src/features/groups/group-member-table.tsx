@@ -203,6 +203,8 @@ function MemberActions({
           trigger={
             <IconButton
               size="sm"
+              prominence={member.isManager ? "secondary" : "tertiary"}
+              aria-pressed={member.isManager}
               disabled={locked}
               pending={draft.managerPendingFor(member.actorId)}
               aria-label={ui("{{v1}} for {{v2}}", {
