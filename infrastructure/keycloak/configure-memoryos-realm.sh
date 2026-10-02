@@ -104,11 +104,11 @@ esac
 MEMORYOS_BROWSER_PUBLIC_URL=${MEMORYOS_BROWSER_REDIRECT_URI%/login/oauth2/code/memoryos}
 
 # MEM-114: the MemoryOS MCP endpoint. Left unset, the realm gets no MCP scope, policy or client and its
-# default scopes are left alone. The ChatGPT client exists only alongside the endpoint.
+# default scopes are left alone. With it, MemoryOS keeps the hosts of the apps an administrator trusts in the
+# endpoint's client policy through the memoryos-mcp-admin service account, whose secret is then required.
 MEMORYOS_MCP_ENDPOINT_URL=${MEMORYOS_MCP_ENDPOINT_URL:-}
-MEMORYOS_MCP_CHATGPT_CLIENT_SECRET=${MEMORYOS_MCP_CHATGPT_CLIENT_SECRET:-}
+MEMORYOS_MCP_ADMIN_CLIENT_SECRET=${MEMORYOS_MCP_ADMIN_CLIENT_SECRET:-}
 MCP_ENABLED=false
-MCP_CHATGPT_ENABLED=false
 if [ -n "$MEMORYOS_MCP_ENDPOINT_URL" ]; then
     # The token audience, the protected-resource metadata and the URL a person pastes into Claude must be
     # one string, so the endpoint is pinned to the browser origin rather than chosen freely.
@@ -116,15 +116,16 @@ if [ -n "$MEMORYOS_MCP_ENDPOINT_URL" ]; then
         echo "MEMORYOS_MCP_ENDPOINT_URL must be the browser origin followed by /mcp" >&2
         exit 1
     fi
-    MCP_ENABLED=true
-    if [ -n "$MEMORYOS_MCP_CHATGPT_CLIENT_SECRET" ]; then
-        MCP_CHATGPT_ENABLED=true
+    if [ -z "$MEMORYOS_MCP_ADMIN_CLIENT_SECRET" ]; then
+        echo "MEMORYOS_MCP_ENDPOINT_URL needs MEMORYOS_MCP_ADMIN_CLIENT_SECRET" >&2
+        exit 1
     fi
-elif [ -n "$MEMORYOS_MCP_CHATGPT_CLIENT_SECRET" ]; then
-    echo "MEMORYOS_MCP_CHATGPT_CLIENT_SECRET needs MEMORYOS_MCP_ENDPOINT_URL" >&2
+    MCP_ENABLED=true
+elif [ -n "$MEMORYOS_MCP_ADMIN_CLIENT_SECRET" ]; then
+    echo "MEMORYOS_MCP_ADMIN_CLIENT_SECRET needs MEMORYOS_MCP_ENDPOINT_URL" >&2
     exit 1
 fi
-export MEMORYOS_MCP_CHATGPT_CLIENT_SECRET
+export MEMORYOS_MCP_ADMIN_CLIENT_SECRET
 
 if [ "$MAILPIT_ENABLED" = true ]; then
 case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
@@ -175,7 +176,7 @@ MINIO_CONSOLE_CLIENT_FILE=$(mktemp)
 PROVISIONER_CLIENT_FILE=$(mktemp)
 MCP_AUDIENCE_MAPPER_FILE=$(mktemp)
 MCP_POLICIES_FILE=$(mktemp)
-MCP_CHATGPT_CLIENT_FILE=$(mktemp)
+MCP_ADMIN_CLIENT_FILE=$(mktemp)
 cleanup() {
     rm -f \
         "$CONFIG_FILE" \
@@ -187,7 +188,7 @@ cleanup() {
         "$PROVISIONER_CLIENT_FILE" \
         "$MCP_AUDIENCE_MAPPER_FILE" \
         "$MCP_POLICIES_FILE" \
-        "$MCP_CHATGPT_CLIENT_FILE"
+        "$MCP_ADMIN_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -798,13 +799,28 @@ reconcile_client_scopes() {
 }
 
 # Replaces this script's entry, by name, in the realm's client profiles or policies and keeps the rest.
+# Replaces the script's own profiles and policies and keeps any other. The hosts the memoryos-mcp-cimd profile and
+# policy trust are seeded from the file once; afterwards MemoryOS owns them (an administrator's trusted apps), so a
+# rerun keeps the hosts it finds.
 merge_client_policies() {
     section=$1
     "$KCADM" get "realms/$TARGET_REALM/client-policies/$section" --config "$CONFIG_FILE" |
         jq -c --arg section "$section" --slurpfile ours "$MCP_POLICIES_FILE" '
             ($ours[0][$section] | map(.name)) as $names
-            | .[$section] = ([(.[$section] // [])[] | select(.name as $n | $names | index($n) | not)]
-                + $ours[0][$section])' |
+            | (.[$section] // []) as $current
+            | .[$section] = ([$current[] | select(.name as $n | $names | index($n) | not)]
+                + ($ours[0][$section] | map(. as $mine
+                    | ($current | map(select(.name == $mine.name)) | .[0]) as $live
+                    | if $mine.name != "memoryos-mcp-cimd" or $live == null then .
+                      elif $section == "profiles" then
+                        .executors[0].configuration["cimd-allow-permitted-domains"] =
+                            ($live.executors[0].configuration["cimd-allow-permitted-domains"]
+                                // .executors[0].configuration["cimd-allow-permitted-domains"])
+                      else
+                        .conditions[0].configuration["client-id-uri-allow-permitted-domains"] =
+                            ($live.conditions[0].configuration["client-id-uri-allow-permitted-domains"]
+                                // .conditions[0].configuration["client-id-uri-allow-permitted-domains"])
+                      end)))' |
         "$KCADM" update "realms/$TARGET_REALM/client-policies/$section" \
             --config "$CONFIG_FILE" \
             -f - >/dev/null
@@ -908,8 +924,10 @@ configure_mcp_endpoint() {
         fi
     done
 
-    # A grant to an MCP client is an offline session; it lapses after 30 days without use.
-    jq -cn '{offlineSessionIdleTimeout: 2592000}' |
+    # A grant to an MCP client is an offline session; it lapses after 30 days without use and, used or not, after
+    # 180 days, when the person connects again (Glean's refresh tokens last 180 days). The browser takes no offline
+    # session, so this bounds only the MCP grants.
+    jq -cn '{offlineSessionIdleTimeout: 2592000, offlineSessionMaxLifespanEnabled: true, offlineSessionMaxLifespan: 15552000}' |
         "$KCADM" update "realms/$TARGET_REALM" \
             --config "$CONFIG_FILE" \
             -f - >/dev/null
@@ -928,20 +946,53 @@ configure_mcp_endpoint() {
 
 if [ "$MCP_ENABLED" = true ]; then
 configure_mcp_endpoint
-if [ "$MCP_CHATGPT_ENABLED" = true ]; then
-# ChatGPT's own metadata document is one Keycloak cannot read, and ChatGPT prefers a pre-registered
-# client to a document, so it has a confidential client with its single connector callback. Its logo on
-# the consent page is the one the web app already serves, so the page fetches nothing from a third party.
-jq --arg logo "$MEMORYOS_BROWSER_PUBLIC_URL/provider-logos/openai.svg" '.attributes.logoUri = $logo' \
-    "$SCRIPT_DIR/memoryos-mcp-chatgpt-client.json" >"$MCP_CHATGPT_CLIENT_FILE"
-upsert_client memoryos-chatgpt "$MCP_CHATGPT_CLIENT_FILE"
-jq -cn '{secret: env.MEMORYOS_MCP_CHATGPT_CLIENT_SECRET}' |
-    "$KCADM" update "clients/$CLIENT_UUID" \
+
+# MemoryOS changes the policy's hosts and removes the clients of an app it no longer trusts, which needs
+# manage-realm and manage-clients. They sit on an account of their own rather than on the provisioner, whose
+# manage-users would otherwise share one secret with the right to rewrite the realm.
+cp "$SCRIPT_DIR/memoryos-mcp-admin-client.json" "$MCP_ADMIN_CLIENT_FILE"
+upsert_client memoryos-mcp-admin "$MCP_ADMIN_CLIENT_FILE"
+MCP_ADMIN_CLIENT_UUID=$CLIENT_UUID
+jq -cn '{secret: env.MEMORYOS_MCP_ADMIN_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$MCP_ADMIN_CLIENT_UUID" \
         --config "$CONFIG_FILE" \
         -r "$TARGET_REALM" \
         -f - >/dev/null
-reconcile_client_scopes default acr basic knowledge:read
-reconcile_client_scopes optional offline_access
-echo "client=memoryos-chatgpt secret=updated scopes=knowledge:read,offline_access"
+MCP_ADMIN_ACCOUNT_ID=$("$KCADM" get "clients/$MCP_ADMIN_CLIENT_UUID/service-account-user" \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --fields id |
+    jq -r '.id')
+if [ -z "$MCP_ADMIN_ACCOUNT_ID" ] || [ "$MCP_ADMIN_ACCOUNT_ID" = "null" ]; then
+    echo "memoryos-mcp-admin service account did not converge" >&2
+    exit 1
+fi
+for role in manage-realm manage-clients; do
+    "$KCADM" add-roles \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --uid "$MCP_ADMIN_ACCOUNT_ID" \
+        --cclientid realm-management \
+        --rolename "$role" >/dev/null
+done
+MCP_ADMIN_ROLES=$("$KCADM" get \
+    "users/$MCP_ADMIN_ACCOUNT_ID/role-mappings/clients/$REALM_MANAGEMENT_UUID" \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --fields name |
+    jq -cS '[.[].name] | sort')
+if [ "$MCP_ADMIN_ROLES" != '["manage-clients","manage-realm"]' ]; then
+    echo "memoryos-mcp-admin must have only realm-management manage-realm and manage-clients" >&2
+    exit 1
+fi
+echo "client=memoryos-mcp-admin secret=updated roles=manage-realm,manage-clients"
+
+# ChatGPT now connects through its metadata document; the client once registered for it by hand is removed,
+# with every grant to it.
+CLIENT_ID=memoryos-chatgpt
+STATIC_CHATGPT_UUID=$(find_client_uuid)
+if [ -n "$STATIC_CHATGPT_UUID" ]; then
+    "$KCADM" delete "clients/$STATIC_CHATGPT_UUID" --config "$CONFIG_FILE" -r "$TARGET_REALM" >/dev/null
+    echo "client=memoryos-chatgpt action=removed"
 fi
 fi

@@ -19,20 +19,22 @@ class McpEndpointIsOptionalTest(unittest.TestCase):
     def test_an_environment_without_the_endpoint_is_untouched(self):
         # Neither variable is required, and everything the endpoint changes sits behind its switch, so
         # a realm reconciled without it keeps its default scopes and gains no MCP client.
-        for name in ("MEMORYOS_MCP_ENDPOINT_URL", "MEMORYOS_MCP_CHATGPT_CLIENT_SECRET"):
+        for name in ("MEMORYOS_MCP_ENDPOINT_URL", "MEMORYOS_MCP_ADMIN_CLIENT_SECRET"):
             self.assertNotIn("%s:?" % name, SCRIPT, name)
         switched = SCRIPT.split('if [ "$MCP_ENABLED" = true ]; then', 1)[1]
         self.assertIn("configure_mcp_endpoint", switched)
-        self.assertIn("upsert_client memoryos-chatgpt", switched)
-        self.assertNotIn("upsert_client memoryos-chatgpt", SCRIPT.split('if [ "$MCP_ENABLED" = true ]; then', 1)[0])
+        self.assertIn("upsert_client memoryos-mcp-admin", switched)
+        self.assertNotIn("upsert_client memoryos-mcp-admin", SCRIPT.split('if [ "$MCP_ENABLED" = true ]; then', 1)[0])
 
     def test_the_endpoint_is_the_browser_origin_followed_by_mcp(self):
         # The token audience, the protected-resource metadata and the URL people paste must be one string.
         self.assertIn('"$MEMORYOS_MCP_ENDPOINT_URL" != "$MEMORYOS_BROWSER_PUBLIC_URL/mcp"', SCRIPT)
         self.assertIn("MEMORYOS_MCP_ENDPOINT_URL must be the browser origin followed by /mcp", SCRIPT)
 
-    def test_a_chatgpt_secret_without_the_endpoint_is_refused(self):
-        self.assertIn("MEMORYOS_MCP_CHATGPT_CLIENT_SECRET needs MEMORYOS_MCP_ENDPOINT_URL", SCRIPT)
+    def test_the_endpoint_and_its_admin_secret_come_together(self):
+        # MemoryOS keeps the trusted apps' hosts through memoryos-mcp-admin, so the endpoint needs its secret.
+        self.assertIn("MEMORYOS_MCP_ENDPOINT_URL needs MEMORYOS_MCP_ADMIN_CLIENT_SECRET", SCRIPT)
+        self.assertIn("MEMORYOS_MCP_ADMIN_CLIENT_SECRET needs MEMORYOS_MCP_ENDPOINT_URL", SCRIPT)
 
 
 class McpEndpointTokenTest(unittest.TestCase):
@@ -46,10 +48,6 @@ class McpEndpointTokenTest(unittest.TestCase):
         # Ordered first; ChatGPT's e-mail address, then offline_access; the client's own line, unordered, last.
         self.assertEqual("10", scope["attributes"]["gui.order"])
         self.assertIn("for ordered in email:15 offline_access:20; do", SCRIPT)
-        client = load("memoryos-mcp-chatgpt-client.json")
-        self.assertEqual("true", client["attributes"]["display.on.consent.screen"])
-        self.assertEqual("${chatgptClientConsentText}", client["attributes"]["consent.screen.text"])
-        self.assertNotIn("gui.order", client["attributes"])
 
         mapper = load("memoryos-mcp-audience-mapper.json")
         self.assertEqual("oidc-audience-mapper", mapper["protocolMapper"])
@@ -89,6 +87,9 @@ class McpEndpointTokenTest(unittest.TestCase):
     def test_a_rerun_does_not_reassign_the_realm_optional_scope(self):
         # Keycloak answers a repeated assignment with 409; the end-to-end rerun stopped there once.
         self.assertIn("""jq -e --arg id "$SCOPE_UUID" 'any(.[]; .id == $id)'""", SCRIPT)
+
+    def test_a_grant_ends_after_one_hundred_and_eighty_days_used_or_not(self):
+        self.assertIn("offlineSessionMaxLifespanEnabled: true, offlineSessionMaxLifespan: 15552000", SCRIPT)
 
     def test_a_grant_lapses_after_thirty_days_without_use(self):
         self.assertIn("offlineSessionIdleTimeout: 2592000", SCRIPT)
@@ -132,22 +133,29 @@ class McpClientRegistrationTest(unittest.TestCase):
     def test_other_client_policies_of_the_realm_survive(self):
         self.assertRegex(SCRIPT, re.compile(r"merge_client_policies profiles\s+merge_client_policies policies"))
 
-    def test_chatgpt_has_one_exact_callback_and_only_the_endpoint_scope(self):
-        client = load("memoryos-mcp-chatgpt-client.json")
-        self.assertFalse(client["publicClient"])
-        self.assertTrue(client["consentRequired"])
-        self.assertFalse(client["fullScopeAllowed"])
-        self.assertFalse(client["directAccessGrantsEnabled"])
-        self.assertEqual(["https://chatgpt.com/connector_platform_oauth_redirect"], client["redirectUris"])
-        self.assertEqual("S256", client["attributes"]["pkce.code.challenge.method"])
-        self.assertIn("reconcile_client_scopes default acr basic knowledge:read", SCRIPT)
-        self.assertIn("reconcile_client_scopes optional offline_access", SCRIPT)
+    def test_a_rerun_keeps_the_hosts_administrators_trusted(self):
+        # The file seeds the hosts once; afterwards MemoryOS owns them, so the merge carries the live lists over.
+        self.assertIn('if $mine.name != "memoryos-mcp-cimd" or $live == null then .', SCRIPT)
+        self.assertIn('$live.executors[0].configuration["cimd-allow-permitted-domains"]', SCRIPT)
+        self.assertIn('$live.conditions[0].configuration["client-id-uri-allow-permitted-domains"]', SCRIPT)
 
-    def test_chatgpt_shows_a_logo_the_web_app_serves(self):
-        # Keycloak's consent page draws a client's logoUri; it comes from the MemoryOS origin, never a third party.
-        self.assertIn('"$MEMORYOS_BROWSER_PUBLIC_URL/provider-logos/openai.svg"', SCRIPT)
-        self.assertIn(".attributes.logoUri = $logo", SCRIPT)
-        self.assertTrue((ROOT / "web" / "public" / "provider-logos" / "openai.svg").is_file())
+    def test_memoryos_keeps_the_policy_through_an_account_of_its_own(self):
+        client = load("memoryos-mcp-admin-client.json")
+        self.assertTrue(client["serviceAccountsEnabled"])
+        self.assertFalse(client["publicClient"])
+        self.assertFalse(client["standardFlowEnabled"])
+        self.assertFalse(client["directAccessGrantsEnabled"])
+        # Exactly the roles the trusted apps need, checked after they are granted; the provisioner keeps its own two.
+        self.assertIn("for role in manage-realm manage-clients; do", SCRIPT)
+        self.assertIn('if [ "$MCP_ADMIN_ROLES" != \'["manage-clients","manage-realm"]\' ]; then', SCRIPT)
+        self.assertIn('if [ "$PROVISIONER_ROLES" != \'["manage-identity-providers","manage-users"]\' ]; then', SCRIPT)
+
+    def test_the_hand_registered_chatgpt_client_is_removed_once(self):
+        # ChatGPT connects through its metadata document; the old client goes with its grants, and the run says so.
+        self.assertFalse((KEYCLOAK / "memoryos-mcp-chatgpt-client.json").exists())
+        self.assertIn('"$KCADM" delete "clients/$STATIC_CHATGPT_UUID"', SCRIPT)
+        self.assertIn("client=memoryos-chatgpt action=removed", SCRIPT)
+        self.assertNotIn("upsert_client memoryos-chatgpt", SCRIPT)
 
 
 class ConsentPageLanguageTest(unittest.TestCase):
