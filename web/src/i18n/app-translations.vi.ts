@@ -1295,8 +1295,6 @@ Object.assign(englishUi, {
   "Total sources": "Tổng số nguồn",
   "1 document": "1 tài liệu",
   "{{count}} documents": "{{count}} tài liệu",
-  "Active sources": "Nguồn đang hoạt động",
-  "Open to all members": "Mở cho mọi thành viên",
   "Total docs": "Tổng tài liệu",
   "Documents you can read": "Tài liệu bạn đọc được",
   "No sources you can read yet": "Chưa có nguồn nào bạn đọc được",

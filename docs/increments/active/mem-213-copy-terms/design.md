@@ -11,6 +11,7 @@ Second fix batch of the 2026-10-02 UI critique; copy only, no behavior change. O
 ## Sources list follow-up (owner, 2026-10-03)
 
 - Access is plain secondary text with its icon (`SourceAccess`, formerly `SourceAccessBadge`), not an outline badge: it is neither a state nor a control, and the frame weighed as much as the status badge.
+- The figure strip follows the [composites rule](../../../conventions.md#composites) like the Users page: *Total sources* with `Plug` in `chart-1`, *Active* with `CircleCheck` in the success status colour (the Active badge's), *All members* with `Users` in `chart-3` (the access label and icon), and the documents total with `FileText` in `chart-2`. The labels reuse *Active* and *All members*, so they fit a phone's two-column strip beside an icon; *Active sources* and *Open to all members* are removed.
 - A provider's group row shows only its chevron, icon and name. The visible "3 sources · 129 documents" repeated the rows below and the documents total above; the counts stay in the toggle's accessible name. The *1 source*/*{{count}} sources* keys are removed.
 
 ## Out of scope

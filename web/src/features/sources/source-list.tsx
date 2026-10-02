@@ -1,6 +1,15 @@
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
-import { ChevronDown, ChevronRight, Files, ListFilter } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  CircleCheck,
+  Files,
+  FileText,
+  ListFilter,
+  Plug,
+  Users,
+} from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Card, CardContent } from "@/components/ui/card";
@@ -131,14 +140,32 @@ export function SourceList<T extends SourceListItem>({
 
   return (
     <>
+      {/* Labels and icons repeat the Active badge and the All members access; status colour for the badge, chart colours for the rest. */}
       <StatStrip columns={4}>
-        <StatTile label={ui("Total sources")} value={sources.length} />
-        <StatTile label={ui("Active sources")} value={`${activeCount}/${sources.length}`} />
         <StatTile
-          label={ui("Open to all members")}
+          icon={<Plug />}
+          iconClass="text-chart-1"
+          label={ui("Total sources")}
+          value={sources.length}
+        />
+        <StatTile
+          icon={<CircleCheck />}
+          iconClass="text-status-success-content"
+          label={ui("Active")}
+          value={`${activeCount}/${sources.length}`}
+        />
+        <StatTile
+          icon={<Users />}
+          iconClass="text-chart-3"
+          label={ui("All members")}
           value={`${workspaceAccessCount}/${sources.length}`}
         />
-        <StatTile label={documentsLabel} value={documentCount} />
+        <StatTile
+          icon={<FileText />}
+          iconClass="text-chart-2"
+          label={documentsLabel}
+          value={documentCount}
+        />
       </StatStrip>
 
       <div className="flex flex-wrap items-center gap-2">
