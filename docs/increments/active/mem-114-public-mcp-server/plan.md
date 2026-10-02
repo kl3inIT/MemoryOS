@@ -290,6 +290,8 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
     language menu with its caret inside the control.
   - [x] Staging: deployed 2026-10-01 (the first attempt timed out on SSH from the runner and was rerun); realm
     script rerun; an authorization request with ChatGPT's client ID reaches the sign-in page.
+  - [x] ChatGPT passed the client check and was refused `invalid_scope`: it asks for `email`, which a client built
+    from a metadata document lacked. `email` becomes an optional scope of such clients, existing ones included.
   - [ ] A personal ChatGPT plugin connects and calls the tools.
   - [ ] Removing `memoryos-chatgpt`, its secret file and the administration page's ChatGPT fields moved to
     [MEM-207](https://linear.app/memory-os/issue/MEM-207), with the administrator's list of trusted apps (metadata
