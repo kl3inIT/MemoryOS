@@ -3,15 +3,14 @@ import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation
 import {
   ChevronDown,
   ChevronRight,
-  CircleCheck,
   Files,
   FileText,
   ListFilter,
   Plug,
-  Users,
+  TriangleAlert,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { StatStrip, StatTile } from "@/components/composites/stat-strip";
+import { StatStrip, StatTile, StatToggleTile } from "@/components/composites/stat-strip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -121,8 +120,8 @@ export function SourceList<T extends SourceListItem>({
   const hasExpandedGroups = groups.some((group) => !collapsedTypes.has(group.type));
   const columns = renderAction ? 6 : 5;
   const row = { documents, renderName, renderAccess, renderAction };
-  const activeCount = sources.filter((source) => source.status === "ACTIVE").length;
-  const workspaceAccessCount = sources.filter((source) => source.access === "PUBLIC").length;
+  const failedCount = sources.filter((source) => source.status === "FAILED").length;
+  const showingFailed = filters.status === "FAILED";
   const documentCount = sources.reduce((total, source) => total + documents(source), 0);
 
   function toggle(type: string) {
@@ -140,25 +139,27 @@ export function SourceList<T extends SourceListItem>({
 
   return (
     <>
-      {/* Labels and icons repeat the Active badge and the All members access; status colour for the badge, chart colours for the rest. */}
-      <StatStrip columns={4}>
+      {/*
+        What an administrator acts on: how many Sources there are, which ones failed, and what they hold. The
+        failed tile filters the list to them, as the Users counts filter theirs; its figure turns red only when
+        a Source has failed.
+      */}
+      <StatStrip columns={3}>
         <StatTile
           icon={<Plug />}
           iconClass="text-chart-1"
           label={ui("Total sources")}
           value={sources.length}
         />
-        <StatTile
-          icon={<CircleCheck />}
-          iconClass="text-status-success-content"
-          label={ui("Active")}
-          value={`${activeCount}/${sources.length}`}
-        />
-        <StatTile
-          icon={<Users />}
-          iconClass="text-chart-3"
-          label={ui("All members")}
-          value={`${workspaceAccessCount}/${sources.length}`}
+        <StatToggleTile
+          icon={<TriangleAlert />}
+          iconClass="text-status-danger-content"
+          label={ui("Failed")}
+          value={failedCount}
+          tone={failedCount > 0 ? "danger" : undefined}
+          selected={showingFailed}
+          onToggle={() => onFilters({ ...filters, status: showingFailed ? "" : "FAILED" })}
+          accessibleLabel={ui("Show failed sources, {{count}}", { count: failedCount })}
         />
         <StatTile
           icon={<FileText />}

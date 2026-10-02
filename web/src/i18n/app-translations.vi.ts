@@ -1293,6 +1293,7 @@ Object.assign(englishUi, {
   "No sources match your search and filters.": "Không có nguồn phù hợp với tìm kiếm và bộ lọc.",
   "{{v1}} group, {{v2}} sources, {{v3}} documents": "Nhóm {{v1}}, {{v2}} nguồn, {{v3}} tài liệu",
   "Total sources": "Tổng số nguồn",
+  "Show failed sources, {{count}}": "Hiển thị nguồn thất bại, {{count}}",
   "1 document": "1 tài liệu",
   "{{count}} documents": "{{count}} tài liệu",
   "Total docs": "Tổng tài liệu",
