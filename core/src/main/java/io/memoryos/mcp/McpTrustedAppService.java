@@ -89,7 +89,7 @@ public class McpTrustedAppService {
         if (repository.customCount(tenant) >= MAX_CUSTOM_APPS) throw McpException.invalid("Trust at most 50 apps.");
         var app = repository.insertCustom(tenant, label, List.copyOf(clientId), List.copyOf(document));
         project(tenant);
-        record(actor, tenant, app, "added");
+        record(actor, tenant, app, "ADD");
         return app;
     }
 
@@ -101,7 +101,7 @@ public class McpTrustedAppService {
         var app = repository.setEnabled(tenant, id, enabled, revision).map(McpTrustedAppService::resolved)
                 .orElseThrow(() -> missingOrChanged(tenant, id));
         project(tenant);
-        record(actor, tenant, app, enabled ? "enabled" : "disabled");
+        record(actor, tenant, app, enabled ? "ENABLE" : "DISABLE");
         return app;
     }
 
@@ -113,7 +113,7 @@ public class McpTrustedAppService {
         if (app.builtIn()) throw McpException.invalid("Claude and ChatGPT can be switched off but not removed.");
         if (!repository.deleteCustom(tenant, id, revision)) throw missingOrChanged(tenant, id);
         project(tenant);
-        record(actor, tenant, app, "removed");
+        record(actor, tenant, app, "REMOVE");
     }
 
     /**
@@ -168,8 +168,7 @@ public class McpTrustedAppService {
     private void record(ActorId actor, TenantId tenant, McpTrustedApp app, String change) {
         audit.record(AuditRecord.of(AuditAction.MCP_TRUSTED_APP_CHANGE, tenant).actor(actor)
                 .resource("MCP_TRUSTED_APP", app.id(), app.name())
-                .detail("change", change).detail("enabled", app.enabled())
-                .detail("hosts", String.join(", ", app.clientIdHosts())).build());
+                .detail("change", change).detail("hosts", app.clientIdHosts()).build());
     }
 
     /** A built-in app shows the hosts its preset carries. */
