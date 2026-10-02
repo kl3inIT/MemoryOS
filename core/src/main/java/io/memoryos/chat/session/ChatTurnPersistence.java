@@ -477,7 +477,7 @@ public class ChatTurnPersistence {
                         provider.providerId(), modelConfigurationId, provider.dataBoundary(), at);
             return AiUsage.tokens(tenant.value(), actor.value(), flow, provider.providerName(), modelName,
                     provider.providerId(), modelConfigurationId, provider.dataBoundary(), accounting.input(), accounting.output(),
-                    Math.min(accounting.cacheRead(), accounting.input()), accounting.cost(), at);
+                    Math.min(accounting.cacheRead(), accounting.input()), accounting.cost(), accounting.complete(), at);
         }
     }
 

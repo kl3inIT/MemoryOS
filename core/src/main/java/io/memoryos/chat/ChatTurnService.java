@@ -560,7 +560,7 @@ public final class ChatTurnService implements AutoCloseable {
     private void recordCheck(Active run, UUID modelConfigurationId, ModelResolver.Provenance provenance, String modelName,
             ModelAccounting accounting) {
         try {
-            persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT,
+            persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT_GUARDRAIL,
                     modelConfigurationId, provenance, modelName, accounting));
         } catch (RuntimeException failure) {
             LOG.atWarn().addKeyValue("event", "chat.guardrail.usage_not_recorded")
@@ -671,8 +671,8 @@ public final class ChatTurnService implements AutoCloseable {
                 if (outcome == null) return;
                 if (!run.persisted) {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
-                            outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.activity(), outcome.research(),
+                            outcome.content(), outcome.failure(), run.setup.model(), run.accounting.shown().input(),
+                            run.accounting.shown().output(), run.accounting.shown().cost(), outcome.sources(), outcome.activity(), outcome.research(),
                             outcome.refusal(), new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
                                     run.setup.research().enabled() ? AiUsageFlow.DEEP_RESEARCH : AiUsageFlow.CHAT,
                                     run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), run.accounting));

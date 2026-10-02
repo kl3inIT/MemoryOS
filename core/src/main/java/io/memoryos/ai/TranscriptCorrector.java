@@ -269,7 +269,7 @@ public class TranscriptCorrector {
                     selected.provenance().providerId(), selected.modelConfigurationId(),
                     selected.provenance().dataBoundary(), accounting.input() == null ? 0 : accounting.input(),
                     accounting.output() == null ? 0 : accounting.output(), accounting.cacheRead(),
-                    accounting.cost(), Instant.now()));
+                    accounting.cost(), accounting.complete(), Instant.now()));
         } catch (RuntimeException failure) {
             // The correction is the owner's answer; a ledger that refuses it must not take the answer with it.
             LOG.atWarn().addKeyValue("event", "meeting.correction.usage_not_recorded")

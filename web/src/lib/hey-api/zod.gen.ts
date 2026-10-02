@@ -3709,6 +3709,10 @@ export const zAiUsageStanding = z.object({
     resetsAt: z.iso.datetime()
 });
 
+export const zMyAiUsageStanding = z.object({
+    standing: zAiUsageStanding.optional()
+});
+
 export const zApiProblem = z.object({
     type: z.url().optional(),
     title: z.string(),
@@ -7349,6 +7353,7 @@ export const zGetAiCostSummaryQuery = z.object({
     flow: z.enum([
         'CHAT',
         'CHAT_NAMING',
+        'CHAT_GUARDRAIL',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',
@@ -7388,7 +7393,7 @@ export const zGetMyAiCostsResponse = zAiCostDetail;
 /**
  * The binding budget, or nothing when the Tenant sets no limit
  */
-export const zGetMyAiUsageStandingResponse = zAiUsageStanding;
+export const zGetMyAiUsageStandingResponse = zMyAiUsageStanding;
 
 export const zGetAiCostDetailQuery = z.object({
     from: z.iso.date(),
@@ -7414,6 +7419,7 @@ export const zListAiCostDaysQuery = z.object({
     flow: z.enum([
         'CHAT',
         'CHAT_NAMING',
+        'CHAT_GUARDRAIL',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',
@@ -7446,6 +7452,7 @@ export const zListAiCostBreakdownQuery = z.object({
     flow: z.enum([
         'CHAT',
         'CHAT_NAMING',
+        'CHAT_GUARDRAIL',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',

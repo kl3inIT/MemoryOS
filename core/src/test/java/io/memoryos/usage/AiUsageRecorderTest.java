@@ -54,6 +54,21 @@ class AiUsageRecorderTest {
         assertEquals(model, row.get("model_configuration_id"));
     }
 
+    @Test void aPartlyKnownCallAddsWhatWasReportedAndStillCountsAsUnknown() {
+        recorder.record(AiUsage.tokens(tenant, actor, AiUsageFlow.CHAT, "OpenAI", "gpt-5.1", null, null, "EXTERNAL",
+                1000, 100, 0, 0.004, false, noon));
+        var row = only();
+        assertEquals(1000L, row.get("input_tokens"));
+        assertEquals(0, new BigDecimal("0.004").compareTo((BigDecimal) row.get("cost_usd")));
+        assertEquals(1L, row.get("unknown_cost_calls"));
+    }
+
+    @Test void theGuardrailCheckIsItsOwnFlow() {
+        recorder.record(AiUsage.tokens(tenant, actor, AiUsageFlow.CHAT_GUARDRAIL, "9Router", "ocg/deepseek-v4-flash", null,
+                null, "EXTERNAL", 400, 5, 0, 0.0001, noon));
+        assertEquals("CHAT_GUARDRAIL", only().get("flow"));
+    }
+
     @Test void dayFlowModelAndBoundaryStartSeparateRows() {
         recorder.record(chat(10, 1, 0, 0.1, Instant.parse("2026-09-19T23:59:59Z"), "EXTERNAL", null));
         recorder.record(chat(10, 1, 0, 0.1, Instant.parse("2026-09-20T00:00:00Z"), "EXTERNAL", null));

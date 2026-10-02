@@ -165,7 +165,7 @@ public class TranscriptSummarizer {
                     selected.provenance().providerId(), selected.modelConfigurationId(),
                     selected.provenance().dataBoundary(), accounting.input() == null ? 0 : accounting.input(),
                     accounting.output() == null ? 0 : accounting.output(), accounting.cacheRead(),
-                    accounting.cost(), Instant.now()));
+                    accounting.cost(), accounting.complete(), Instant.now()));
         } catch (RuntimeException failure) {
             LOG.atWarn().addKeyValue("event", "meeting.minutes.usage_not_recorded")
                     .addKeyValue("error_type", failure.getClass().getName()).log("Minutes usage not recorded");

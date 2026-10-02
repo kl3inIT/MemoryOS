@@ -4,6 +4,8 @@ package io.memoryos.usage;
 public enum AiUsageFlow {
     CHAT,
     CHAT_NAMING,
+    /** MEM-208: the guardrail check before an answer, recorded apart so Chat counts each turn once. */
+    CHAT_GUARDRAIL,
     DEEP_RESEARCH,
     EMBEDDING_QUERY,
     EMBEDDING_INDEXING,

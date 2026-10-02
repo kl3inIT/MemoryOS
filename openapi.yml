@@ -19086,6 +19086,7 @@ paths:
           enum:
           - CHAT
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -19235,7 +19236,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AiUsageStanding"
+                $ref: "#/components/schemas/MyAiUsageStanding"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -19338,6 +19339,7 @@ paths:
           enum:
           - CHAT
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -19426,6 +19428,7 @@ paths:
           enum:
           - CHAT
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -29344,6 +29347,12 @@ components:
       - resetsAt
       - scope
       - tokensUsed
+    MyAiUsageStanding:
+      type: object
+      properties:
+        standing:
+          $ref: "#/components/schemas/AiUsageStanding"
+          description: Absent when no enabled budget binds the caller
     ApiProblem:
       type: object
       additionalProperties: false

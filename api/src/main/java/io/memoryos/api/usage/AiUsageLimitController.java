@@ -4,6 +4,7 @@ import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.usage.contract.AiUsageLimitRequest;
 import io.memoryos.api.usage.contract.AiUsageLimitResponse;
 import io.memoryos.api.usage.contract.AiUsageStandingResponse;
+import io.memoryos.api.usage.contract.MyAiUsageStandingResponse;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.usage.AiUsageLimitService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,7 +14,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -75,7 +75,7 @@ class AiUsageLimitController {
     @ApiResponse(responseCode = "200", description = "The binding budget, or nothing when the Tenant sets no limit", useReturnTypeSchema = true)
     @GetMapping("/mine")
     @Operation(operationId = "getMyAiUsageStanding", summary = "The budget that binds the caller and what they have spent against it; any member")
-    @Nullable AiUsageStandingResponse mine(@CurrentActor IdentityContext identity) {
-        return limits.standing(identity.actorId()).map(AiUsageStandingResponse::from).orElse(null);
+    MyAiUsageStandingResponse mine(@CurrentActor IdentityContext identity) {
+        return new MyAiUsageStandingResponse(limits.standing(identity.actorId()).map(AiUsageStandingResponse::from).orElse(null));
     }
 }

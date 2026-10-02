@@ -8,18 +8,20 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 
 - **Written synchronously, never dropped.** Chat writes in the transaction that finishes the turn; other flows write when their provider call returns. Onyx queues samples and drops them under pressure; MemoryOS does not, because limits (MEM-123) will block on these totals.
 - **Unknown cost stays unknown.** A call without a price adds its tokens and one `unknown_cost_calls`; it never adds 0 to the cost. A model priced 0/0 is priced and costs 0.
+- **Partly known usage is kept.** A turn or task makes several model calls; when some report no usage, the row adds what the others reported (tokens and their cost) and still counts one `unknown_cost_calls` (`ModelAccounting.complete`, `AiUsage.unknownCostCalls`). The stored answer shows tokens only when they are complete (`ModelAccounting.shown`), so partial totals never read as the whole turn. Before 2026-10-02 one silent call erased the whole turn's usage, and work made only of synchronous calls (the guardrail check, meeting minutes, transcript corrections) was always recorded as unknown because known usage required a streamed call (`ModelGuard.usageKnown`); usage recorded before then is not recovered.
 - **Names and boundary at call time.** Provider and model names and the provider's data boundary (MEM-102) are copied into the row; provider and model configuration IDs are kept without foreign keys, so renaming, relabelling or deleting catalog entries leaves history unchanged.
 - **Actor is nullable** for system work (document indexing embeddings). The actor reference does not cascade.
 - Per-message usage on `chat_message` stays; the ledger is the aggregate.
 
 ## Flows
 
-`CHAT`, `CHAT_NAMING`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint.
+`CHAT`, `CHAT_NAMING`, `CHAT_GUARDRAIL`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`, `MEETING_CORRECTION`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint (V138 added `CHAT_GUARDRAIL`, V139 validates it).
 
 | Flow | Captured by | Usage |
 | --- | --- | --- |
 | Chat, Deep research | `ChatTurnService` when the turn settles (completed, stopped or failed), summed over every `ChatModelGuard` of the turn | Provider-reported input, output and cache-read tokens; cost from the model price |
 | Conversation naming | `ChatTurnService.recordNaming` after the title call | Same, on the naming model |
+| Question check (guardrail) | `ChatTurnService.recordCheck` after the check's call, on the model that ran it | Same; recorded apart from `CHAT` since 2026-10-02, so Chat counts each turn once |
 | Search and indexing embeddings | `ValidatedEmbeddingService` per batch with a known caller | Reported tokens; priced by `memoryos.search.embedding-input-price-per-million`, unknown when unset |
 | Image generation and editing | `ImageProviderClient` after a delivered image | One image; cost unknown |
 | Speech-to-text | `VoiceTranscriptionService` once when a dictation session closes, and `BatchTranscriptionService` once per uploaded recording | Seconds from the audio received (16-bit mono 24 kHz), or the length the provider reported for a recording; cost unknown |
@@ -77,7 +79,7 @@ window of `period_days` whole UTC days, and can be kept but switched off.
 | `POST /api/ai-costs/limits` | Sets one limit; at least one budget, 1–366 days. Requires `MODELS_MANAGE` |
 | `PUT /api/ai-costs/limits/{limitId}` | Changes the budgets, the period or the switch; who a limit applies to is fixed |
 | `DELETE /api/ai-costs/limits/{limitId}` | Removes it |
-| `GET /api/ai-costs/limits/mine` | The budget that binds the caller and what they have spent against it, or nothing; any member |
+| `GET /api/ai-costs/limits/mine` | `MyAiUsageStanding`: `standing`, the budget that binds the caller and what they have spent against it, absent when none binds; always a JSON body (an empty 200 reads as an empty object in the browser client, which the usage page took for a budget); any member |
 
 ## Usage reports
 

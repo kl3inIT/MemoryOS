@@ -66,6 +66,7 @@ export const scopeLabels: Record<"TENANT" | "GROUP" | "PERSON", AppCopy> = {
 const flowLabels: Record<Flow, AppCopy> = {
   CHAT: "Chat",
   CHAT_NAMING: "Conversation naming",
+  CHAT_GUARDRAIL: "Question check",
   DEEP_RESEARCH: "Deep research",
   EMBEDDING_QUERY: "Search embeddings",
   EMBEDDING_INDEXING: "Indexing embeddings",

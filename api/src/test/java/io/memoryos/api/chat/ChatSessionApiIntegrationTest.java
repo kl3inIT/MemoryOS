@@ -1662,8 +1662,8 @@ class ChatSessionApiIntegrationTest {
                 VALUES (:tenant, NULL, CAST(:day AS date), 'EMBEDDING_INDEXING', 'OpenAI', 'text-embedding-3-large', NULL, 2, 50000, 0, 0.01, 0)
                 """).param("tenant", TENANT).param("day", today).update();
         mockMvc.perform(get("/api/ai-costs/limits/mine").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.tokensUsed").value(0))
-                .andExpect(jsonPath("$.scope").value("PERSON"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.standing.tokensUsed").value(0))
+                .andExpect(jsonPath("$.standing.scope").value("PERSON"));
 
         jdbc.sql("""
                 INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
