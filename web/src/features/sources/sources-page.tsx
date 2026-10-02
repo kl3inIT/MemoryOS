@@ -61,7 +61,7 @@ export function SourcesPage() {
       ) : sourcesQuery.isError ? (
         <EmptyState
           role="alert"
-          title={ui("Sources unavailable")}
+          title={ui("Couldn't load sources")}
           action={
             <Button prominence="secondary" size="sm" onClick={() => void sourcesQuery.refetch()}>
               {ui("Try again")}
@@ -162,7 +162,6 @@ function AdminSourceList({ sources }: { sources: SourceSummary[] }) {
       onFilters={setFilters}
       documents={(source) => source.documentCount}
       documentsLabel={ui("Total docs")}
-      documentsTotalLabel={ui("Total docs indexed")}
       renderName={(source) => (
         <Link
           to="/admin/sources/$sourceId"
