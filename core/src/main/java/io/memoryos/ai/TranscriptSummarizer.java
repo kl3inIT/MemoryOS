@@ -27,7 +27,8 @@ import org.springframework.stereotype.Service;
 public class TranscriptSummarizer {
     /** A long meeting still answers within a person's patience; the job retries a timeout. */
     static final Duration TIMEOUT = Duration.ofMinutes(4);
-    static final int MAX_OUTPUT_TOKENS = 4096;
+    /** Room for the reasoning as well as the minutes: at 4,096 a reasoning model cut the JSON of a long meeting off. */
+    static final int MAX_OUTPUT_TOKENS = 16_384;
     /** Enough for about two hours of speech; beyond that the middle is dropped, and the summary says so. */
     static final int MAX_INPUT_CHARS = 120_000;
     /** A table of contents longer than this is a transcript again. */
@@ -60,8 +61,8 @@ public class TranscriptSummarizer {
         try (var selected = models.resolveFlow(actor, ModelFlow.MEETING_MINUTES)) {
             TranscriptSummary summary;
             try {
-                summary = calls.generateObject(selected.binding(), instructions(subject), transcript(subject, lines),
-                        TranscriptSummary.class, TIMEOUT, MAX_OUTPUT_TOKENS,
+                summary = calls.generateReasonedObject(selected.binding(), ReasoningEffort.MEDIUM, instructions(subject),
+                        transcript(subject, lines), TranscriptSummary.class, TIMEOUT, MAX_OUTPUT_TOKENS,
                         accounting -> record(tenant, actor, selected, accounting));
             } catch (RuntimeException failure) {
                 throw named(selected.binding(), failure);
