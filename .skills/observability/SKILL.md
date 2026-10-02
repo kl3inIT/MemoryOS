@@ -89,4 +89,5 @@ The `SpanRow` component is automatically scoped to one visible span. Use `SpanPr
 
 - [streaming](../streaming/SKILL.md) -- AI SDK stream transport and route response handling.
 - [setup](../setup/SKILL.md) -- Project creation, CLI setup, and runtime installation.
+- [cloud](../cloud/SKILL.md) -- Assistant Cloud persistence and run reporting configuration.
 - [elements](../elements/SKILL.md) -- Copied styled elements, including TraceWaterfall.

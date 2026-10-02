@@ -222,4 +222,5 @@ When this listener is inside an item row, compare `threadId` to `s.threadListIte
 ## Related Skills
 
 - [runtime](../runtime/SKILL.md) -- choose and configure the runtime that owns the active conversation
+- [cloud](../cloud/SKILL.md) -- configure AssistantCloud authentication, persistence, and managed threads
 - [elements](../elements/SKILL.md) -- install, style, and customize the runtime connected registry components

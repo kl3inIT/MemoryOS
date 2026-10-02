@@ -57,7 +57,7 @@ export default function Home() {
 }
 ```
 
-For React Native and React Ink, host the route in a separate backend and point the transport at its absolute URL (see react-native and [ink](../../ink/SKILL.md)).
+For React Native and React Ink, host the route in a separate backend and point the transport at its absolute URL (see [react-native](../../react-native/SKILL.md) and [ink](../../ink/SKILL.md)).
 
 ## useChatRuntime vs useAISDKRuntime
 
@@ -257,7 +257,7 @@ Use `{ type: "image", image: <data url or remote url> }` for images.
 
 ## Persisting chat history
 
-Messages live in memory by default. Provide a `ThreadHistoryAdapter` via `adapters.history`; it **must** implement `withFormat`, since `useChatRuntime` persists through `withFormat(fmt)` so messages round-trip as AI SDK `UIMessage`s. An adapter without it throws at runtime, and the top-level `load`/`append` are unused on this path. For zero-adapter-code persistence, use AssistantCloud instead.
+Messages live in memory by default. Provide a `ThreadHistoryAdapter` via `adapters.history`; it **must** implement `withFormat`, since `useChatRuntime` persists through `withFormat(fmt)` so messages round-trip as AI SDK `UIMessage`s. An adapter without it throws at runtime, and the top-level `load`/`append` are unused on this path. For zero-adapter-code persistence, use [AssistantCloud](../../cloud/SKILL.md) instead.
 
 ```tsx
 import { useChatRuntime } from "@assistant-ui/ai-sdk";
