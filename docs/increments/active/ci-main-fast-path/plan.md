@@ -26,5 +26,12 @@
 - [x] Sáu cache `type=gha` của `backend-images`, `frontend-image`, `interpreter` chuyển sang `type=registry` tại `memoryos-<component>:buildcache`; chỉ push lên `main` mới ghi, có `ignore-error=true`; ba job login GHCR trước khi build và logout ở cuối.
 - [x] Runbook và design.
 - [x] actionlint 1.7.12 sạch; 81 test Python OK (21 skip trên Windows).
-- [ ] CI của PR xanh. Cache chưa có, nên PR này chưa nhanh hơn.
-- [ ] Lần chạy `main` sau merge ghi được cache; lần chạy sau nữa đọc được cache, và `backend-images` nhanh hơn rõ rệt. Ghi số đo.
+- [x] CI của PR #461 xanh; `backend-images` 4m49s (trước 9m35s) vì PR không còn ghi cache. Merge thành `69e64297`.
+- [x] Run 37043727500 (`6ac59f77`, gồm #461 và bản sửa #463): ghi được `buildcache` cho api, worker, web, interpreter; `backend-images` 6m16s; từ push tới publish 8m07s; `Deploy staging` 37044631699 thành công.
+- [x] Run 37044889560 (`55d7306d`, đọc cache, chạy đủ test vì tree khác): build image API 2m32s (trước 7m05s), `backend-images` 4m39s, từ push tới publish 7m50s. Đường găng giờ là shard Playwright `frontend (2)` 7m13s, shard này luôn chậm nhất.
+
+## Bản sửa #463
+
+Run 37041478495 (`6bcff78c`) là lần đầu `main` bỏ test: các job test bị bỏ qua, CI Gate xanh, nhưng `Publish verified release` cũng bị bỏ qua. Một job có `if` không chứa hàm trạng thái ngầm đòi mọi job phía trước trong chuỗi phụ thuộc đã chạy thành công, nên các job test bị bỏ qua sau gate kéo theo `publish`. `Deploy staging` 37042468509 vì vậy thất bại. PR #463 (`6ac59f77`) cho `publish` dùng `!cancelled()` và kiểm trực tiếp kết quả của `gate` cùng ba job image.
+
+- [ ] Lần chạy `main` bỏ test kế tiếp: `Publish verified release` chạy và `Deploy staging` nhận release.

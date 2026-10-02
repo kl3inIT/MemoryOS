@@ -9,6 +9,7 @@ import {
   KeyRound,
   MessageSquareText,
   RefreshCw,
+  Sparkles,
   Users,
   WifiOff,
 } from "lucide-react";
@@ -152,6 +153,18 @@ function MinutesFailure({ failure }: { failure: string | null }) {
         )}
       </>
     );
+  if (failure === "CHAT_MODEL_NOT_CONFIGURED")
+    return (
+      <>
+        {ui("Chưa có model nào")}
+        {manager && (
+          <>
+            {" · "}
+            <Link to="/admin/models">{ui("Thêm model")}</Link>
+          </>
+        )}
+      </>
+    );
   if (failure === "CHAT_MODEL_ANSWER_UNREADABLE")
     return ui("Model trả về biên bản không đọc được.");
   return ui("Hãy thử lại.");
@@ -173,7 +186,15 @@ export function MinutesSummary({ meeting }: { meeting: MeetingDetail }) {
     return (
       <EmptyState
         role="alert"
-        icon={failure === "CHAT_PROVIDER_CREDENTIAL_REJECTED" ? <KeyRound /> : <WifiOff />}
+        icon={
+          failure === "CHAT_PROVIDER_CREDENTIAL_REJECTED" ? (
+            <KeyRound />
+          ) : failure === "CHAT_MODEL_NOT_CONFIGURED" ? (
+            <Sparkles />
+          ) : (
+            <WifiOff />
+          )
+        }
         title={ui("Chưa viết được tóm tắt")}
         detail={<MinutesFailure failure={failure} />}
         action={

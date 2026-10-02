@@ -1589,6 +1589,8 @@ export const vietnameseUi: Record<string, string> = {
     "This model cannot run Deep research: it needs tool calling and at least 50,000 tokens of context.",
   "Provider từ chối API key": "The provider rejected the API key",
   "Cập nhật API key": "Update the API key",
+  "Chưa có model nào": "No model is set up",
+  "Thêm model": "Add a model",
   "Model không dùng được": "Model unavailable",
   "Hãy chọn model khác hoặc báo quản trị viên.": "Choose another model or tell an administrator.",
   "Câu trả lời bị gián đoạn": "The answer was interrupted",

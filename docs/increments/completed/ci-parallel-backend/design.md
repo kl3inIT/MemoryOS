@@ -32,7 +32,7 @@ Không đổi tên `CI Gate` và `Publish verified release`, vì `deploy.yml` t�
 
 ## Việc tiếp theo
 
-Cả hai việc dưới đây được chấp nhận ngày 2026-10-02 và đang làm trong [CI main fast path](../ci-main-fast-path/design.md).
+Cả hai việc dưới đây được chấp nhận ngày 2026-10-02 và đang làm trong [CI main fast path](../../active/ci-main-fast-path/design.md).
 
 * **Publish 4 phút trên `main`.** Mỗi lần chạy, khoảng 1.9 GB image archive (`candidate-interpreter` 1.07 GB, `candidate-backend` 816 MB) được upload rồi tải lại. Có thể bỏ bước này bằng cách đẩy image lên GHCR dưới tag candidate rồi gắn tag release sau khi gate qua. Cách này đổi hợp đồng phát hành hiện tại: hiện chưa có gì lên registry trước khi CI Gate thành công. Vì vậy cần chủ dự án quyết định trước.
 * **`main` verify lại thứ PR vừa verify.** Không có merge queue thì chỉ còn cách so tree của commit `main` với merge commit đã được verify. Image vẫn phải build lại vì label revision mang SHA của `main`.
