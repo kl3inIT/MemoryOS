@@ -42,7 +42,7 @@ function Thread({ state }: { state: ResearchState }) {
           role: "assistant",
           content: [{ type: "text", text: "Answer [1]." }],
           metadata: {
-            custom: { createdAt: new Date().toISOString(), sources: [{ citationId: 1 }] },
+            custom: { createdAt: "2026-10-02T09:00:00.000Z", sources: [{ citationId: 1 }] },
           },
         },
       ],

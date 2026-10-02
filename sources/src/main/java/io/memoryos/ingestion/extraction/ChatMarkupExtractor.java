@@ -45,7 +45,9 @@ final class ChatMarkupExtractor {
         // Text layers only: OCR is Docling's job, and a fallback that ran it would be a second OCR
         // path with its own quality nobody measured.
         var pdfConfig = new PDFParserConfig();
-        pdfConfig.getOcr().setStrategy(OcrConfig.Strategy.NO_OCR);
+        var ocr = new OcrConfig();
+        ocr.setStrategy(OcrConfig.Strategy.NO_OCR);
+        pdfConfig.setOcr(ocr);
         context.set(PDFParserConfig.class, pdfConfig);
         context.set(OutputLimits.class, new OutputLimits(StructuredContent.MAX_TEXT, true, 100, 10, 1000000, 100));
         context.set(Parser.class, parser);

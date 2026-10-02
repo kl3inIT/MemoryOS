@@ -1,6 +1,6 @@
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
@@ -10,13 +10,12 @@ export default defineConfig({
     },
   },
   test: {
-    execArgv: Number(process.versions.node.split(".")[0]) >= 25 ? ["--no-webstorage"] : [],
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     environment: "jsdom",
     restoreMocks: true,
     maxWorkers: 2,
     reporters: process.env.CI
-      ? ["default", ["junit", { includeConsoleOutput: false }]]
+      ? [...configDefaults.reporters, ["junit", { includeConsoleOutput: false }]]
       : ["default"],
     outputFile: process.env.CI ? { junit: "reports/unit.xml" } : undefined,
     setupFiles: ["./src/test/setup.ts"],
