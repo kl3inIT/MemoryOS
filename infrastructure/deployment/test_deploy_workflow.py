@@ -174,6 +174,12 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("needs: [gate, backend-images, frontend-image, interpreter]", publish)
         self.assertIn("packages: read", publish)
         self.assertNotIn("docker push", publish)
+        # A main push whose tree a pull request verified skips the test jobs behind the gate; without a status
+        # function that skip would skip the release too, so the gate and the image jobs are checked by name.
+        condition = CI_WORKFLOW.split("  publish:\n", 1)[1].split("    needs:", 1)[0]
+        self.assertIn("!cancelled()", condition)
+        for job in ("gate", "backend-images", "frontend-image", "interpreter"):
+            self.assertIn(f"needs.{job}.result == 'success'", condition, job)
 
     def test_keycloak_is_rolled_out_by_the_release_on_every_host(self):
         backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
