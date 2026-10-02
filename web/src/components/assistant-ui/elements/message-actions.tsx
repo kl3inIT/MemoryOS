@@ -28,7 +28,7 @@ export function MessageActions({
             size="sm"
             prominence="internal"
             aria-label={ui("Hữu ích")}
-            title={ui("Hữu ích")}
+            tooltip
             aria-pressed={reaction === "up"}
             disabled={disabled}
             onClick={() => onReactionChange(reaction === "up" ? null : "up")}
@@ -39,7 +39,7 @@ export function MessageActions({
             size="sm"
             prominence="internal"
             aria-label={ui("Không hữu ích")}
-            title={ui("Không hữu ích")}
+            tooltip
             aria-pressed={reaction === "down"}
             disabled={disabled}
             onClick={() => onReactionChange(reaction === "down" ? null : "down")}
@@ -52,7 +52,7 @@ export function MessageActions({
         size="sm"
         prominence="internal"
         aria-label={ui("Tạo lại câu trả lời")}
-        title={ui("Tạo lại câu trả lời")}
+        tooltip
         disabled={disabled}
         onClick={onRegenerate}
       >

@@ -197,7 +197,7 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
             <ActionBarPrimitive.Copy asChild>
               <IconButton
                 aria-label={ui("Sao chép câu trả lời")}
-                title={ui("Sao chép câu trả lời")}
+                tooltip
                 prominence="internal"
                 size="sm"
               >

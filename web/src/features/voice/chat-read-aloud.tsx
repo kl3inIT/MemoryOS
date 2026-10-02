@@ -17,12 +17,7 @@ export function ChatReadAloudButton() {
   if (status === undefined)
     return (
       <ActionBarPrimitive.Speak asChild>
-        <IconButton
-          aria-label={ui("Đọc thành tiếng")}
-          title={ui("Đọc thành tiếng")}
-          prominence="internal"
-          size="sm"
-        >
+        <IconButton aria-label={ui("Đọc thành tiếng")} tooltip prominence="internal" size="sm">
           <Volume2 />
         </IconButton>
       </ActionBarPrimitive.Speak>
@@ -33,7 +28,7 @@ export function ChatReadAloudButton() {
       <IconButton
         aria-label={ui("Dừng đọc")}
         aria-busy={loading || undefined}
-        title={loading ? ui("Đang tải âm thanh…") : ui("Dừng đọc")}
+        tooltip
         prominence="internal"
         size="sm"
       >

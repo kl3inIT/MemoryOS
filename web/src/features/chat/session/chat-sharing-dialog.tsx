@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type RefObject } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Share2, Users, type LucideIcon } from "lucide-react";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
@@ -32,11 +32,14 @@ export function SharingDialog({
   open: controlledOpen,
   onOpenChange,
   trigger,
+  restoreFocusRef,
 }: {
   sessionId: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   trigger?: ReactNode;
+  /** Where focus returns when the dialog was opened from a menu item rather than its own trigger. */
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const ui = useAppTranslation();
   const [internalOpen, setOpen] = useState(false);
@@ -106,6 +109,7 @@ export function SharingDialog({
         ) : undefined)
       }
       closeOnSuccess={false}
+      restoreFocusRef={restoreFocusRef}
       submitLabel={
         selected
           ? sharing.data?.enabled

@@ -1,17 +1,11 @@
-import { useMutation } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { GitBranch } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { branchChatSessionMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
-import { actionErrorText } from "@/lib/action-errors";
-import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
+import { useChatBranch } from "./use-chat-branch";
 
-/**
- * "Branch into a new chat" on one message, after Gemini's answer menu: the conversation so far is copied into a
- * new one and that one opens, so trying another direction leaves this conversation exactly as it is.
- */
+/** "Branch into a new chat" as a question's own icon; an answer offers it in its "…" menu. */
 export function ChatBranchAction({
   sessionId,
   messageId,
@@ -20,44 +14,27 @@ export function ChatBranchAction({
 }: {
   sessionId: string;
   messageId: string;
-  /** The branch is named here, so its title reads in the language the person is using. */
   originTitle?: string;
   disabled?: boolean;
 }) {
   const ui = useAppTranslation();
-  const refreshSessions = useRefreshChatSessions();
-  const navigate = useNavigate();
-  const branch = useMutation({
-    ...branchChatSessionMutation(),
-    onSuccess: async (created) => {
-      await refreshSessions();
-      await navigate({ to: "/chat/$sessionId", params: { sessionId: created.id } });
-    },
-  });
+  const branch = useChatBranch({ sessionId, messageId, originTitle });
   return (
     <>
       <IconButton
         size="sm"
         prominence="internal"
         aria-label={ui("Tách sang hội thoại mới")}
-        title={ui("Tách sang hội thoại mới")}
-        pending={branch.isPending}
-        disabled={disabled || branch.isPending}
-        onClick={() =>
-          branch.mutate({
-            path: { sessionId, messageId },
-            body: originTitle
-              ? { title: ui("Nhánh của {{title}}", { title: originTitle }).slice(0, 200) }
-              : {},
-            signal: AbortSignal.timeout(120_000),
-          })
-        }
+        tooltip
+        pending={branch.pending}
+        disabled={disabled || branch.pending}
+        onClick={branch.start}
       >
         <GitBranch />
       </IconButton>
-      {branch.isError && (
+      {branch.error && (
         <p role="alert" className="text-xs text-status-danger-content">
-          {ui(actionErrorText(branch.error))}
+          {branch.error}
         </p>
       )}
     </>

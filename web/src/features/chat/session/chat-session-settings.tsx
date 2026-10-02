@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -39,14 +40,24 @@ export function ChatSessionSettings({
   onShowMessage?: (messageId: string) => Promise<boolean>;
 }) {
   const [configuring, setConfiguring] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
+  // A phone keeps the conversation's title readable: Files and Share wait in the conversation menu.
+  const compact = useIsMobile();
   if (!session) return null;
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ChatBranchOrigin session={session} />
-      <ChatSessionFiles sessionId={session.id} onShowMessage={onShowMessage} />
-      <SharingDialog sessionId={session.id} />
+      <ChatSessionFiles
+        sessionId={session.id}
+        onShowMessage={onShowMessage}
+        open={filesOpen}
+        onOpenChange={setFilesOpen}
+        trigger={!compact}
+      />
+      {!compact && <SharingDialog sessionId={session.id} />}
       <ChatSessionMenu
         session={session}
+        onShowFiles={compact ? () => setFilesOpen(true) : undefined}
         busy={busy}
         onChange={onChange}
         deleteSession={deleteSession}

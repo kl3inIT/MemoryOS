@@ -19,8 +19,8 @@ import { actionErrorText } from "@/lib/action-errors";
 import { invalidateChatVersions, type Feedback } from "@/features/chat/chat-api";
 import { fileIdFromReference } from "@/features/library/files";
 import { ChatFilePicker } from "@/features/library/file-picker";
+import { ChatAnswerMenu } from "./chat-answer-menu";
 import { ChatBranchAction } from "./chat-branch-action";
-import { ChatRegenerateMenu } from "./chat-regenerate-menu";
 
 type MessagePart = ReturnType<typeof useMessage>["parts"][number];
 
@@ -121,7 +121,7 @@ export function ChatUserMessageContent({
         <div className="mt-1 flex items-center gap-1">
           <IconButton
             aria-label={ui("Chỉnh sửa câu hỏi")}
-            title={ui("Chỉnh sửa câu hỏi")}
+            tooltip
             size="sm"
             prominence="internal"
             disabled={editing.busy}
@@ -200,11 +200,13 @@ export function ChatMessageActions({ author }: { author: "user" | "assistant" })
           }}
         />
       )}
-      {author === "assistant" && (
-        <ChatRegenerateMenu
+      {author === "assistant" ? (
+        <ChatAnswerMenu
           sessionId={sessionId}
+          messageId={message.id}
+          originTitle={editing.sessionTitle}
           disabled={disabled}
-          onSelect={(modelId) => {
+          onRegenerateWith={(modelId) => {
             if (modelRequest.current.model !== modelId)
               modelRequest.current = { model: modelId, id: crypto.randomUUID() };
             void editing
@@ -215,13 +217,14 @@ export function ChatMessageActions({ author }: { author: "user" | "assistant" })
               .catch(() => {});
           }}
         />
+      ) : (
+        <ChatBranchAction
+          sessionId={sessionId}
+          messageId={message.id}
+          originTitle={editing.sessionTitle}
+          disabled={disabled}
+        />
       )}
-      <ChatBranchAction
-        sessionId={sessionId}
-        messageId={message.id}
-        originTitle={editing.sessionTitle}
-        disabled={disabled}
-      />
       {removeFeedback.isError && (
         <p role="alert" className="text-xs">
           {ui(actionErrorText(removeFeedback.error))}

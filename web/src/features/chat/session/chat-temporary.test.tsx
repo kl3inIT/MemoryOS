@@ -18,9 +18,8 @@ it("mounts on its own and explains temporary chat before turning it on", async (
   render(<ChatTemporaryToggle value={false} onChange={onChange} />);
   const user = userEvent.setup();
 
-  const toggle = screen.getByRole("button", { name: "Bật chat tạm thời" });
+  const toggle = screen.getByRole("button", { name: "Chat tạm thời" });
   expect(toggle).toHaveAttribute("aria-pressed", "false");
-  expect(toggle).toHaveAttribute("title", "Chat tạm thời");
 
   await user.click(toggle);
   // Turning it on is explained once, in the terms that matter.
@@ -38,7 +37,9 @@ it("turns itself off without asking again", async () => {
   render(<ChatTemporaryToggle value onChange={onChange} />);
   const user = userEvent.setup();
 
-  await user.click(screen.getByRole("button", { name: "Tắt chat tạm thời" }));
+  const toggle = screen.getByRole("button", { name: "Chat tạm thời" });
+  expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await user.click(toggle);
 
   expect(onChange).toHaveBeenCalledWith(false);
   expect(screen.queryByText("Không vào lịch sử")).not.toBeInTheDocument();

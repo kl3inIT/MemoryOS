@@ -175,13 +175,26 @@ function useSessionFiles(
 export function ChatSessionFiles({
   sessionId,
   onShowMessage,
+  open: controlledOpen,
+  onOpenChange,
+  trigger = true,
 }: {
   sessionId: string;
   /** Scrolls the transcript to a message, switching versions when it is on another branch. */
   onShowMessage?: (messageId: string) => Promise<boolean>;
+  /** Opens the sheet from elsewhere, such as the conversation menu on a phone. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Whether the paperclip button shows; a phone reaches the sheet from the conversation menu instead. */
+  trigger?: boolean;
 }) {
   const ui = useAppTranslation();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (next: boolean) => {
+    setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [search, setSearch] = useState("");
   const query = useDebouncedValue(search.trim(), 250);
   const [categories, setCategories] = useState<LibraryCategory[]>([]);
@@ -210,26 +223,28 @@ export function ChatSessionFiles({
 
   return (
     <>
-      <IconButton
-        size="sm"
-        prominence="internal"
-        aria-label={
-          count > 0 ? ui("Tệp trong hội thoại ({{count}})", { count }) : ui("Tệp trong hội thoại")
-        }
-        title={ui("Tệp trong hội thoại")}
-        onClick={() => setOpen(true)}
-        className="relative"
-      >
-        <Paperclip />
-        {count > 0 && (
-          <span
-            aria-hidden="true"
-            className="absolute -top-1 -right-1 min-w-4 rounded-full bg-primary px-1 text-xs leading-4 font-medium text-primary-foreground"
-          >
-            {count > 99 ? "99+" : count}
-          </span>
-        )}
-      </IconButton>
+      {trigger && (
+        <IconButton
+          size="sm"
+          prominence="internal"
+          aria-label={
+            count > 0 ? ui("Tệp trong hội thoại ({{count}})", { count }) : ui("Tệp trong hội thoại")
+          }
+          tooltip
+          onClick={() => setOpen(true)}
+          className="relative"
+        >
+          <Paperclip />
+          {count > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-1 -right-1 min-w-4 rounded-full bg-primary px-1 text-xs leading-4 font-medium text-primary-foreground"
+            >
+              {count > 99 ? "99+" : count}
+            </span>
+          )}
+        </IconButton>
+      )}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right">
           <SheetHeader>

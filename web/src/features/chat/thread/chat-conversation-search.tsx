@@ -34,7 +34,7 @@ export function ChatConversationSearch() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <IconButton size="sm" prominence="internal" aria-label={ui("Tìm trong hội thoại")}>
+        <IconButton size="sm" prominence="internal" aria-label={ui("Tìm trong hội thoại")} tooltip>
           <Search />
         </IconButton>
       </PopoverTrigger>
