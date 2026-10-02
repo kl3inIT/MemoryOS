@@ -360,6 +360,8 @@ class McpEndpointIntegrationTest {
         when(documents.search(any(), any())).thenReturn(new SearchPage(List.of(), 0, false, 0, 50,
                 new SearchPage.SourceFacets(0, List.of())));
         String caller = token(OWNER, ENDPOINT, "knowledge:read", "client-" + UUID.randomUUID());
+        var refusals = meters.counter("memoryos.mcp.endpoint.rate_limited", "scope", "caller", "client", "other");
+        double before = refusals.count();
         for (int i = 0; i < CALLER_CALLS_PER_MINUTE; i++) {
             post(caller, "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/list\"}", "2025-11-25");
             assertEquals(200, post(caller, call("search", Map.of("query", "leave")), "2025-11-25").statusCode());
@@ -371,8 +373,7 @@ class McpEndpointIntegrationTest {
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM mcp_endpoint_calls WHERE outcome = 'RATE_LIMITED' AND tool = 'search'")
                 .query(Long.class).single());
         // The counter names the bucket that ran dry and the app, never the client ID or the tool the caller named.
-        assertEquals(1.0, meters.get("memoryos.mcp.endpoint.rate_limited").tags("scope", "caller", "client", "other")
-                .counter().count());
+        assertEquals(before + 1, refusals.count());
         // The same person through another client has a bucket of their own.
         assertEquals(200, post(endpointToken(), call("search", Map.of("query", "leave")), "2025-11-25").statusCode());
     }
