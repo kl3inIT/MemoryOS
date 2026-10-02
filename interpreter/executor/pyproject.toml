@@ -14,7 +14,7 @@ dependencies = [
   "matplotlib>=3.11.2,<3.12",
   "matplotlib-inline>=0.1.7",
   "matplotlib-venn>=1.1.2",
-  "numpy==1.26.4",
+  "numpy==2.4.6",
   "opencv-python>=4.11.0.86",
   "openpyxl>=3.1.5",
   "pandas==2.2.2",
