@@ -1,6 +1,7 @@
 package io.memoryos.meeting;
 
 import io.memoryos.BusinessException;
+import io.memoryos.FailureCategory;
 import io.memoryos.ai.TranscriptSummarizer;
 import io.memoryos.ai.TranscriptSummary;
 import io.memoryos.shared.ActorId;
@@ -28,7 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class MeetingMinutesService {
     private static final Logger LOG = LoggerFactory.getLogger(MeetingMinutesService.class);
-    /** A meeting that keeps failing stops being retried, as the usage report does. */
+    /** A meeting that keeps failing stops being retried, as the usage report does; a refused key is never retried. */
     static final int MAX_ATTEMPTS = 3;
     /** Longer than the model call, so a replica that dies mid-run does not block the meeting for long. */
     static final Duration LEASE = Duration.ofMinutes(10);
@@ -52,7 +53,7 @@ public class MeetingMinutesService {
                 () -> Objects.requireNonNull(tx.execute(ignored -> meetings.claimMinutes(LEASE, MAX_ATTEMPTS))),
                 this::write,
                 (claim, failure) -> tx.executeWithoutResult(ignored -> meetings.failMinutes(claim.tenant(), claim.id(),
-                        claim.attempts(), MAX_ATTEMPTS, reason(failure)))));
+                        claim.attempts(), claim.attempts() >= MAX_ATTEMPTS || !retried(failure), reason(failure)))));
     }
 
     private void write(MeetingRepository.MinutesClaim claim) {
@@ -109,6 +110,11 @@ public class MeetingMinutesService {
         if (value == null || value.isBlank()) return null;
         String text = value.strip();
         return text.length() > 100 ? text.substring(0, 100) : text;
+    }
+
+    /** A refused key or another invalid setting fails the same way every time; the owner reruns once it is fixed. */
+    private static boolean retried(RuntimeException failure) {
+        return !(failure instanceof BusinessException business && business.category() == FailureCategory.VALIDATION);
     }
 
     /** A safe code for the owner; provider text never reaches the meeting row. */
