@@ -101,7 +101,7 @@ services:
   # start of tei; it finds the revision already there and exits, so only the first deployment needs
   # the network, and tei itself never reaches Hugging Face (HF_HUB_OFFLINE).
   tei-model-download:
-    image: ${MEMORYOS_TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:89-1.9.4@sha256:1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2}
+    image: ${MEMORYOS_TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:121-1.9.4@sha256:a8f7f1b33b18a8a8d87b9f16268803ce83c9b4dd33fc05424b3b5375bf18c85c}
     <<: *service-defaults
     restart: "no"
     entrypoint:
@@ -123,7 +123,7 @@ services:
   # variable, never as a command-line argument that ps would show. The health check proves both
   # that the server answers with the key and that it refuses a request without one.
   tei:
-    image: ${MEMORYOS_TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:89-1.9.4@sha256:1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2}
+    image: ${MEMORYOS_TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:121-1.9.4@sha256:a8f7f1b33b18a8a8d87b9f16268803ce83c9b4dd33fc05424b3b5375bf18c85c}
     <<: *service-defaults
     cap_add:
       - DAC_OVERRIDE
