@@ -107,6 +107,17 @@ and keeps any other in the realm.
 exist, `memoryos-web` among them, keep their scopes. The script gives every client it creates the classic set
 explicitly.
 
+## A release that changes the tools
+
+Clients read the tool list when they connect. ChatGPT keeps the list it saw when the plugin was created or approved,
+and a call to a tool that changed since can fail; Claude refreshes on reconnect. After a release that adds or changes
+a tool, refresh the plugin in ChatGPT (a workspace administrator republishes a workspace app) and reconnect Claude's
+connector.
+
+The first release with `search_with_filters` also starts recording Drive and SharePoint dates. Until a Source runs
+once after the deployment, its items have no date, so a recent period or one with an end leaves them out; a manual
+sync of the Source fills them at once.
+
 ## Taking it back
 
 The script has no removal path; it only reconciles what the environment asks for. To remove the endpoint's Keycloak

@@ -391,7 +391,8 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                         if (!insideWindow(metadata.lastModifiedAt())) continue;
                         boolean unchanged = run.fenced(_ -> {
                             observePage(siteId, metadata);
-                            return !current.prune() && run.unchanged(metadata.pageId(), metadata.contentVersion());
+                            return !current.prune() && run.unchanged(metadata.pageId(), metadata.contentVersion(),
+                                    null, metadata.lastModifiedAt());
                         }).orElse(true);
                         if (!current.prune() && !unchanged) acquirePage(siteId, metadata, null);
                         if (interrupted()) return interruption();
@@ -420,7 +421,7 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                 var descriptor = new SourceInputDescriptor(SourceInputFormat.SHAREPOINT_PAGE, metadata.pageId(),
                         page.metadata().contentVersion(), metadata.webUrl());
                 run.acquire(new SyncRun.Content(descriptor, metadata.title() + ".json", PAGE_MEDIA_TYPE, true,
-                        page.snapshot()), _ -> { });
+                        page.snapshot(), null, metadata.lastModifiedAt()), _ -> { });
             } catch (SharePointProviderException exception) {
                 if (runLevel(exception)) throw exception;
                 if (vanished(exception, metadata.pageId())) return;
@@ -491,7 +492,7 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                     run.skipped(item.id());
                     return true;
                 }
-                return run.unchanged(item.id(), item.contentVersion());
+                return run.unchanged(item.id(), item.contentVersion(), item.createdAt(), item.lastModifiedAt());
             }).orElse(true);
             if (!done) acquire(item);
         }
@@ -510,7 +511,7 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                 var descriptor = new SourceInputDescriptor(SourceInputFormat.BINARY, item.id(), read.contentVersion(),
                         read.webUrl());
                 run.acquire(new SyncRun.Content(descriptor, content.filename(), content.mediaType(), false,
-                        content.bytes()), _ -> { });
+                        content.bytes(), read.createdAt(), read.lastModifiedAt()), _ -> { });
             } catch (SharePointProviderException exception) {
                 if (runLevel(exception)) throw exception;
                 if (vanished(exception, item.id())) return;

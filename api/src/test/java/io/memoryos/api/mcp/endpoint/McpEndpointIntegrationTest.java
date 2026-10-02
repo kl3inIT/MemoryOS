@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,12 +24,15 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.BrowserMutation;
+import io.memoryos.chat.DocumentSetService;
+import io.memoryos.connector.SourceType;
 import io.memoryos.iam.McpClientGrant;
 import io.memoryos.iam.McpClientGrantException;
 import io.memoryos.iam.McpClientGrantFailureReason;
 import io.memoryos.iam.McpClientGrants;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchPage;
+import io.memoryos.retrieval.SearchRequest;
 import io.swagger.v3.core.util.Json;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -41,6 +45,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +56,7 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -79,6 +85,7 @@ class McpEndpointIntegrationTest {
     @LocalServerPort private int port;
     @Autowired private JdbcClient jdbc;
     @MockitoBean private DocumentSearchService documents;
+    @MockitoBean private DocumentSetService documentSets;
     /** Keycloak's consents are the iam adapter's contract; here only what the API passes and returns is checked. */
     @MockitoBean private McpClientGrants grants;
 
@@ -153,11 +160,11 @@ class McpEndpointIntegrationTest {
     }
 
     @Test
-    void theEndpointPublishesOnlyItsTwoReadOnlyTools() throws Exception {
+    void theEndpointPublishesOnlyItsThreeReadOnlyTools() throws Exception {
         var response = post(endpointToken(), "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}", "2025-11-25");
         assertEquals(200, response.statusCode());
         var tools = json(response.body()).path("result").path("tools");
-        assertEquals(Set.of("search", "fetch"), Set.copyOf(StreamSupport.stream(tools.spliterator(), false)
+        assertEquals(Set.of("search", "fetch", "search_with_filters"), Set.copyOf(StreamSupport.stream(tools.spliterator(), false)
                 .map(tool -> tool.path("name").asText()).toList()));
         for (JsonNode tool : tools) {
             var hints = tool.path("annotations");
@@ -168,6 +175,88 @@ class McpEndpointIntegrationTest {
             assertFalse(tool.path("title").asText().isBlank(), tool.toString());
             assertEquals("object", tool.path("outputSchema").path("type").asText(), tool.toString());
         }
+    }
+
+    @Test
+    void searchWithFiltersOffersEachFilterWithItsAllowedValues() throws Exception {
+        var tools = json(post(endpointToken(), "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}", "2025-11-25")
+                .body()).path("result").path("tools");
+        var schema = StreamSupport.stream(tools.spliterator(), false)
+                .filter(tool -> tool.path("name").asText().equals("search_with_filters")).findFirst().orElseThrow()
+                .path("inputSchema");
+        assertEquals(Set.of("query", "source_types", "document_set_names", "updated_after", "updated_before", "file_types"),
+                Set.copyOf(names(schema.path("properties"))), schema.toString());
+        assertEquals(List.of("query"), values(schema.path("required")), schema.toString());
+        assertEquals(Set.of("FILE", "GOOGLE_DRIVE", "SHAREPOINT"),
+                Set.copyOf(values(schema.path("properties").path("source_types").path("items").path("enum"))), schema.toString());
+        assertEquals(Set.of("PDF", "WORD", "POWERPOINT", "SPREADSHEET", "TEXT", "MARKDOWN"),
+                Set.copyOf(values(schema.path("properties").path("file_types").path("items").path("enum"))), schema.toString());
+    }
+
+    @Test
+    void searchWithFiltersNarrowsTheSearchToWhatThePersonAsked() throws Exception {
+        UUID contracts = UUID.randomUUID();
+        when(documentSets.list(any(), eq(0), eq(100))).thenReturn(List.of(set(contracts, "Hợp đồng"), set(UUID.randomUUID(), "Nhân sự")));
+        when(documents.search(any(), any())).thenReturn(new SearchPage(List.of(), 0, false, 0, 50, new SearchPage.SourceFacets(0, List.of())));
+
+        var result = json(post(endpointToken(), call("search_with_filters", Map.of("query", "doanh thu",
+                "source_types", List.of("SHAREPOINT"), "document_set_names", List.of(" hợp đồng "),
+                "updated_after", "2026-07-01", "updated_before", "2026-07-31", "file_types", List.of("PDF", "MARKDOWN"))),
+                "2025-11-25").body()).path("result");
+        assertFalse(result.path("isError").asBoolean(), result.toString());
+        var request = ArgumentCaptor.forClass(SearchRequest.class);
+        verify(documents).search(any(), request.capture());
+        assertEquals(List.of(SourceType.SHAREPOINT), request.getValue().sourceTypes());
+        assertEquals(List.of(contracts), request.getValue().documentSetIds());
+        assertEquals(Instant.parse("2026-07-01T00:00:00Z"), request.getValue().updatedFrom());
+        assertEquals(Instant.parse("2026-07-31T23:59:59.999999999Z"), request.getValue().updatedTo());
+        assertEquals(List.of("application/pdf", "text/markdown", "text/x-markdown"), request.getValue().mediaTypes());
+    }
+
+    @Test
+    void anUnknownDocumentSetIsAnsweredWithTheSetsThePersonCanUse() throws Exception {
+        when(documentSets.list(any(), eq(0), eq(100))).thenReturn(List.of(set(UUID.randomUUID(), "Hợp đồng"), set(UUID.randomUUID(), "Nhân sự")));
+        String body = post(endpointToken(), call("search_with_filters", Map.of("query", "lương",
+                "document_set_names", List.of("Tài chính"))), "2025-11-25").body();
+        assertEquals("Document set \"Tài chính\" not found. Available: Hợp đồng, Nhân sự.", failureText(body), body);
+        verify(documents, never()).search(any(), any());
+    }
+
+    @Test
+    void aPeriodTheToolCannotReadIsRefusedWithTheFormatToUse() throws Exception {
+        String malformed = post(endpointToken(), call("search_with_filters", Map.of("query", "lương",
+                "updated_after", "01/07/2026")), "2025-11-25").body();
+        assertEquals("Pass updated_after as a date such as 2026-03-01.", failureText(malformed), malformed);
+        String reversed = post(endpointToken(), call("search_with_filters", Map.of("query", "lương",
+                "updated_after", "2026-08-01", "updated_before", "2026-07-01")), "2025-11-25").body();
+        assertEquals(McpEndpointTools.INVALID_WINDOW, failureText(reversed), reversed);
+        verify(documents, never()).search(any(), any());
+    }
+
+    @Test
+    void anUnknownSourceIsRefusedWithoutReachingSearch() throws Exception {
+        String body = post(endpointToken(), call("search_with_filters", Map.of("query", "lương",
+                "source_types", List.of("DROPBOX"))), "2025-11-25").body();
+        // The MCP SDK checks arguments against the input schema, naming the field and the values it accepts.
+        String text = failureText(body);
+        assertTrue(text.contains("/source_types/0") && text.contains("GOOGLE_DRIVE"), text);
+        assertFalse(text.contains("io.memoryos"), text);
+        verify(documents, never()).search(any(), any());
+    }
+
+    private static DocumentSetService.View set(UUID id, String name) {
+        return new DocumentSetService.View(id, new DocumentSetService.Permissions(false, false, false, false), 1, name, "",
+                false, List.of(), List.of(), 0, List.of(), List.of(), Instant.EPOCH, Instant.EPOCH);
+    }
+
+    private static List<String> names(JsonNode object) {
+        var names = new ArrayList<String>();
+        object.fieldNames().forEachRemaining(names::add);
+        return names;
+    }
+
+    private static List<String> values(JsonNode array) {
+        return StreamSupport.stream(array.spliterator(), false).map(JsonNode::asText).toList();
     }
 
     @Test
@@ -350,7 +439,7 @@ class McpEndpointIntegrationTest {
                  "capabilities":{},"clientInfo":{"name":"test","version":"0"}}}""";
     }
 
-    private static String call(String tool, Map<String, String> arguments) throws IOException {
+    private static String call(String tool, Map<String, ?> arguments) throws IOException {
         return Json.mapper().writeValueAsString(Map.of("jsonrpc", "2.0", "id", 3, "method", "tools/call",
                 "params", Map.of("name", tool, "arguments", arguments)));
     }

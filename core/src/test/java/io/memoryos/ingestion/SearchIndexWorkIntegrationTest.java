@@ -1,6 +1,7 @@
 package io.memoryos.ingestion;
 
 import io.memoryos.connector.SourceAclChanged;
+import io.memoryos.connector.SourceMetadataChanged;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.ingestion.application.SearchProjectionMaintenance;
 import io.memoryos.shared.Sha256;
@@ -361,6 +362,27 @@ class SearchIndexWorkIntegrationTest {
         verify(index).updateAccess(tenant, document, generation(document), IDENTITY);
         verify(index, times(1)).index(any(), any());
         assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "A permission refresh must not hide the document");
+    }
+
+    @Test
+    void newProviderDatesRefreshTheSearchFieldsOfTheDocumentsWhateverTheAccessMode() {
+        var document = publish(null);
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+            var source = mapToFileSource(document);
+            var maintenance = new SearchProjectionMaintenance(chunks, work, index,
+                    new DataSourceTransactionManager(dataSource), 64);
+            var changed = new SourceMetadataChanged(tenant, source, List.of(document));
+            tx.executeWithoutResult(_ -> maintenance.metadataChanged(changed));
+            tx.executeWithoutResult(_ -> maintenance.metadataChanged(changed));
+            assertEquals(1, count("search_index_operations WHERE action='ACCESS' AND status='NOT_STARTED'"),
+                    "A Private Source's documents follow new dates, and repeated changes collapse into one refresh");
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+        }
+        verify(index).updateAccess(tenant, document, generation(document), IDENTITY);
+        verify(index, times(1)).index(any(), any());
+        assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "A field refresh must not hide the document");
     }
 
     private SourceId mapToFileSource(DocumentId document) {

@@ -324,7 +324,8 @@ public class GoogleDriveSyncAdapter implements SourceSyncAdapter {
                 run.observed(file.id(), file.name());
                 acl.record(work, file.id(), acls);
                 aclRecorded = true;
-                if (!run.unchanged(file.id(), file.version())) return false;
+                // Drive's listing carries the modification time only; its creation time is not requested.
+                if (!run.unchanged(file.id(), file.version(), null, file.modifiedAt())) return false;
                 google.observe(work, file.id(), root, file.version());
                 google.checkpoint(work, node, null);
                 return true;
@@ -335,7 +336,8 @@ public class GoogleDriveSyncAdapter implements SourceSyncAdapter {
                     || !file.version().equals(content.descriptor().providerVersion()))
                 throw new GoogleDriveProviderException(Failure.INCONSISTENT);
             var acquired = run.acquire(new SyncRun.Content(content.descriptor(), content.filename(),
-                    content.mediaType(), content.descriptor().format() != SourceInputFormat.BINARY, content.bytes()),
+                    content.mediaType(), content.descriptor().format() != SourceInputFormat.BINARY, content.bytes(),
+                    null, file.modifiedAt()),
                     new SyncRun.AcquireHooks() {
                         @Override
                         public boolean inScope() {

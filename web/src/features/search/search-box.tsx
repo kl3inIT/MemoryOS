@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Clock3, FileStack, Files, Mic, Search, SlidersHorizontal, X } from "lucide-react";
+import { FileStack, Files, Mic, Search, SlidersHorizontal, X } from "lucide-react";
 import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -9,12 +9,8 @@ import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
 import { useDictationInput } from "@/features/voice/use-dictation-input";
 import { cn } from "@/lib/utils";
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
-import {
-  TIME_RANGE_OPTIONS,
-  voiceStatusMessage,
-  withResultFileTypes,
-  type SearchTimeRange,
-} from "./search-options";
+import { SearchUpdatedFilter } from "./search-updated-filter";
+import { voiceStatusMessage, withResultFileTypes } from "./search-options";
 import type { SearchSourceOption } from "./search-source-rail";
 import type { DocumentSearch } from "./use-document-search";
 
@@ -156,16 +152,12 @@ function SearchFilters({
         <SlidersHorizontal className="size-3.5" aria-hidden="true" />
         {ui("Filters")}
       </span>
-      <SearchFilterMenu
-        label={ui("Updated")}
-        value={timeRange}
-        options={TIME_RANGE_OPTIONS}
-        icon={<Clock3 />}
-        onChange={(value) =>
-          setFilter({
-            time: value === "all" ? undefined : (value as Exclude<SearchTimeRange, "all">),
-          })
-        }
+      <SearchUpdatedFilter
+        timeRange={timeRange}
+        from={search.updatedFrom}
+        to={search.updatedTo}
+        onPreset={search.setUpdated}
+        onRange={search.setUpdatedRange}
       />
       <SearchFilterMenu
         label={ui("File type")}

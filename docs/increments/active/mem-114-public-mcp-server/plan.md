@@ -243,6 +243,27 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   `tests/e2e/mcp-endpoint.spec.ts` with a Tenant's realistic values, reviewed. Fixed from the review: the grant date no
   longer breaks mid-date on a phone, and a capture waits for the selected tab to finish drawing.
 
+## 4b. Search filters (pull request 3c)
+
+- [x] **Owner decisions** (2026-10-02): a separate `search_with_filters` tool; snake_case inputs; enums for sources
+  and file types; document sets by name; `updated_before` as well as `updated_after`; a period is the provider's
+  update date, in one pull request with the Search page's calendar range.
+- [x] **Provider dates.** Drive and SharePoint record their dates on every run; `SourceMetadataChanged` queues the
+  index field refresh.
+- [x] **Search window.** `SearchRequest.updatedFrom`/`updatedTo` replace `updatedSince`; the index and the readable
+  origins both apply `SearchFilters.Interval`; a result shows the provider date. `openapi.yml` and the web client.
+- [x] **Search page.** The Updated filter offers the presets beside a calendar range (`from`/`to` in the address).
+- [x] **MCP.** `search_with_filters`, the `search` description's pointer to it, and the server instructions.
+- [x] **Tests.** `SearchRequestTest`, `DocumentSearchServiceTest`, `PostgresGoogleDriveSyncTest`,
+  `SearchIndexWorkIntegrationTest`, `McpEndpointIntegrationTest`, `OpenApiContractTest`, `search-page.test.tsx`,
+  `search.spec.ts` with captures at 1280 and 390 px in both themes, reviewed. Fixed from the review: a day after
+  today no longer looks selected; the range band and today's mark use the sunken surface, which `muted` was not
+  distinct from in the dark theme; a picked day keeps readable colours under the pointer in the dark theme.
+- [ ] **CI**, including `OpenSearchRetrievalIntegrationTest`, which needs more memory than the workstation had.
+- [ ] **After deployment.** Until each Drive and SharePoint Source runs once, its items have no date: a recent window
+  or one with an end leaves them out. Items synchronized before V35 carry their ingestion time until that run.
+  Connected Claude and ChatGPT clients see the new tool after they refresh their tool list.
+
 ## 5. Acceptance and documentation (pull request 4)
 
 - [ ] **Staging Keycloak from the release.** Staging ran the 26.7 image it once shared with OrgMemory, which has no
@@ -267,7 +288,9 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
   - [x] The ChatGPT tab of *Cài đặt › MemoryOS MCP* gives a personal plugin's steps.
   - [x] The sign-in page's 26.8 strings in Vietnamese ("hoặc", the Tasco button without "Sign in with") and the
     language menu with its caret inside the control.
-  - [ ] Staging: deploy, rerun the realm script, connect a personal ChatGPT plugin.
+  - [x] Staging: deployed 2026-10-01 (the first attempt timed out on SSH from the runner and was rerun); realm
+    script rerun; an authorization request with ChatGPT's client ID reaches the sign-in page.
+  - [ ] A personal ChatGPT plugin connects and calls the tools.
   - [ ] Removing `memoryos-chatgpt`, its secret file and the administration page's ChatGPT fields moved to
     [MEM-207](https://linear.app/memory-os/issue/MEM-207), with the administrator's list of trusted apps (metadata
     document domains, and Dynamic Client Registration limited to named redirect hosts for Gemini).
