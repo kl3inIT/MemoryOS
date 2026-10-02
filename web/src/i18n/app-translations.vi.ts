@@ -2318,6 +2318,10 @@ Object.assign(englishUi, {
   "Transcript corrections": "Sửa transcript",
   "Proposes what was said where the speech provider was unsure.":
     "Đề xuất lại câu nói ở những chỗ nhận dạng giọng nói chưa chắc.",
+  Off: "Tắt",
+  Low: "Thấp",
+  Medium: "Vừa",
+  High: "Cao",
   "No model chosen; the task does not run until one is.":
     "Chưa chọn mô hình; tác vụ chưa chạy được cho tới khi chọn.",
   "No default chosen; Chat cannot answer until one is.":

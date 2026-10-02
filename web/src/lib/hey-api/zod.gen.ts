@@ -1101,6 +1101,12 @@ export const zModelFlow = z.object({
     ]),
     modelConfigurationId: z.uuid().nullable(),
     available: z.boolean(),
+    reasoningEffort: z.enum([
+        'OFF',
+        'LOW',
+        'MEDIUM',
+        'HIGH'
+    ]),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
@@ -4812,6 +4818,12 @@ export const zSetChatModelFlowPath = z.object({
 
 export const zSetChatModelFlowQuery = z.object({
     modelConfigurationId: z.uuid().optional(),
+    reasoningEffort: z.enum([
+        'OFF',
+        'LOW',
+        'MEDIUM',
+        'HIGH'
+    ]).optional(),
     revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 

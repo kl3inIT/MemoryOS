@@ -2,12 +2,15 @@ import { Check, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ModelLogo } from "./model-logo";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import { DataBoundaryTag } from "./data-boundary";
 import type { ManagedModel, ManagedProvider } from "./model-catalog";
+
+export type ModelPickerEffort = { id: string; name: string };
 
 export type ModelPickerOption = {
   model: ManagedModel;
@@ -16,7 +19,11 @@ export type ModelPickerOption = {
   note?: string;
 };
 
-/** Onyx-style default-model picker: search + collapsible provider groups + model logos. */
+/**
+ * Onyx-style default-model picker: search + collapsible provider groups + model logos. With {@code efforts}, the
+ * popover ends in the reasoning row of assistant-ui's Model selector: the levels of the selected model, kept open
+ * while a level is picked, and the trigger reads "model · level".
+ */
 export function ModelPicker({
   value,
   options,
@@ -25,6 +32,10 @@ export function ModelPicker({
   ariaLabel,
   emptyLabel,
   onChange,
+  efforts,
+  effort,
+  effortLabel,
+  onEffortChange,
 }: {
   value: string;
   /** A clearable selection offers this first choice, which selects the empty value. */
@@ -34,12 +45,18 @@ export function ModelPicker({
   placeholder: string;
   ariaLabel: string;
   onChange: (modelId: string) => void;
+  /** The levels the selected model reasons at; absent for a model that does not reason. */
+  efforts?: readonly ModelPickerEffort[];
+  effort?: string;
+  effortLabel?: string;
+  onEffortChange?: (effort: string) => void;
 }) {
   const ui = useAppTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const selected = options.find((option) => option.model.id === value);
+  const level = selected && efforts?.find((option) => option.id === effort);
   const groups = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const visible = needle
@@ -87,6 +104,11 @@ export function ModelPicker({
               <span className="min-w-0 flex-1 truncate font-medium">
                 {selected.model.displayName}
               </span>
+              {level && (
+                <span className="shrink-0 font-secondary-body text-content-muted">
+                  {level.name}
+                </span>
+              )}
             </>
           ) : !value && emptyLabel ? (
             <span className="min-w-0 flex-1 truncate font-medium">{emptyLabel}</span>
@@ -199,6 +221,30 @@ export function ModelPicker({
             </p>
           )}
         </div>
+        {selected && efforts && efforts.length > 0 && (
+          <div className="mt-2 flex items-center justify-between gap-3 border-t border-border-subtle px-2 pt-2">
+            <span className="font-secondary-body text-content-muted">{effortLabel}</span>
+            <ToggleGroup
+              type="single"
+              variant="segmented"
+              size="sm"
+              spacing={1}
+              aria-label={effortLabel}
+              value={effort ?? ""}
+              disabled={disabled}
+              onValueChange={(next) => {
+                // Picking the current level again keeps it; the popover stays open to compare levels.
+                if (next) onEffortChange?.(next);
+              }}
+            >
+              {efforts.map((option) => (
+                <ToggleGroupItem key={option.id} value={option.id}>
+                  {option.name}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

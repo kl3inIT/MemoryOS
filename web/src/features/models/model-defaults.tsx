@@ -18,14 +18,20 @@ import {
   type ManagedProvider,
 } from "./model-catalog";
 import { useModelCatalogBusy, useModelMutation } from "./model-mutation";
-import { ModelPicker } from "./model-picker";
+import { ModelPicker, type ModelPickerEffort } from "./model-picker";
 
 type Catalog = {
   providers: ManagedProvider[];
   models: ManagedModel[];
   adapters: InstalledAdapter[];
 };
-type Selection = { modelConfigurationId: string | null; revision: number; available?: boolean };
+type Effort = ModelFlow["reasoningEffort"];
+type Selection = {
+  modelConfigurationId: string | null;
+  revision: number;
+  available?: boolean;
+  reasoningEffort?: Effort;
+};
 type Row = {
   title: string;
   description: string;
@@ -34,7 +40,14 @@ type Row = {
   /** Shown while nothing is saved, naming the model the task falls back to. */
   unsetMessage?: string;
   unavailableMessage?: string;
-  save: (revision: number, modelId: string | null, signal: AbortSignal) => Promise<Selection>;
+  /** A task row offers the reasoning level beside the model; the Chat default leaves it to each conversation. */
+  efforts?: readonly ModelPickerEffort[];
+  save: (
+    revision: number,
+    modelId: string | null,
+    effort: Effort | undefined,
+    signal: AbortSignal,
+  ) => Promise<Selection>;
 };
 
 function SelectionEditor({
@@ -55,15 +68,26 @@ function SelectionEditor({
   const [conflict, setConflict] = useState(false);
   const [baseline, setBaseline] = useState(selection);
   const [chosen, setChosen] = useState(selection.modelConfigurationId ?? "");
+  const [effort, setEffort] = useState(selection.reasoningEffort);
   const [saved, setSaved] = useState(false);
-  // Choosing a model saves it at once; the operation reads the choice from here, not from a render that predates it.
-  const target = useRef("");
+  // Choosing a model or a level saves it at once; the operation reads the choice from here, not from a render that
+  // predates it.
+  const target = useRef<{ model: string; effort: Effort | undefined }>({
+    model: "",
+    effort: undefined,
+  });
   const saving = useModelMutation(
     async (signal) => {
-      const result = await row.save(baseline.revision, target.current || null, signal);
+      const result = await row.save(
+        baseline.revision,
+        target.current.model || null,
+        target.current.effort,
+        signal,
+      );
       signal.throwIfAborted();
       setBaseline(result);
       setChosen(result.modelConfigurationId ?? "");
+      setEffort(result.reasoningEffort);
       await refreshModelCatalog(client);
       signal.throwIfAborted();
       setSaved(true);
@@ -81,10 +105,12 @@ function SelectionEditor({
   if (
     selection.revision === baseline.revision &&
     (selection.modelConfigurationId !== baseline.modelConfigurationId ||
-      selection.available !== baseline.available)
+      selection.available !== baseline.available ||
+      selection.reasoningEffort !== baseline.reasoningEffort)
   ) {
     setBaseline(selection);
     setChosen(selection.modelConfigurationId ?? "");
+    setEffort(selection.reasoningEffort);
   }
   const candidates = models.filter((model) => {
     const provider = providers.find((entry) => entry.id === model.providerId);
@@ -98,11 +124,10 @@ function SelectionEditor({
     !candidates.some((model) => model.id === baseline.modelConfigurationId);
   const conflicted = conflict || selection.revision !== baseline.revision;
 
-  async function choose(modelId: string) {
-    if (busy || conflicted || modelId === (baseline.modelConfigurationId ?? "")) return;
-    if (!candidates.some((model) => model.id === modelId)) return;
-    target.current = modelId;
-    setChosen(modelId);
+  async function save(model: string, level: Effort | undefined) {
+    target.current = { model, effort: level };
+    setChosen(model);
+    setEffort(level);
     setSaved(false);
     reconciling.cancel();
     try {
@@ -110,8 +135,22 @@ function SelectionEditor({
     } catch {
       // The picker shows what is saved again; action errors are safe strings, never provider payloads.
       setChosen(baseline.modelConfigurationId ?? "");
+      setEffort(baseline.reasoningEffort);
     }
   }
+
+  async function choose(modelId: string) {
+    if (busy || conflicted || modelId === (baseline.modelConfigurationId ?? "")) return;
+    if (!candidates.some((model) => model.id === modelId)) return;
+    await save(modelId, effort);
+  }
+
+  async function chooseEffort(level: string) {
+    if (busy || conflicted || !chosen || level === baseline.reasoningEffort) return;
+    await save(chosen, level as Effort);
+  }
+
+  const chosenModel = models.find((model) => model.id === chosen);
 
   async function reconcile() {
     saving.cancel();
@@ -136,6 +175,10 @@ function SelectionEditor({
           disabled={busy || conflicted}
           placeholder={ui("Choose an eligible model")}
           onChange={(modelId) => void choose(modelId)}
+          efforts={chosenModel?.settings.capabilities.reasoning ? row.efforts : undefined}
+          effort={effort}
+          effortLabel={ui("Reasoning")}
+          onEffortChange={(level) => void chooseEffort(level)}
           options={[
             ...(savedHidden && savedModel && savedProvider
               ? [
@@ -271,7 +314,7 @@ export function TenantDefault(catalog: Catalog) {
         ariaLabel: ui("Tenant model default"),
         unsetMessage: ui("No default chosen; Chat cannot answer until one is."),
         savedMessage: ui("Default saved. Existing transcript is unchanged."),
-        save: async (revision, modelConfigurationId, signal) =>
+        save: async (revision, modelConfigurationId, _effort, signal) =>
           (
             await setChatModelDefault({
               query: { revision, modelConfigurationId: modelConfigurationId ?? "" },
@@ -307,6 +350,13 @@ export function TaskModels(catalog: Catalog) {
         onRetry={() => void flows.refetch()}
       />
     );
+  // The Chat labels for the same levels.
+  const efforts: ModelPickerEffort[] = [
+    { id: "OFF", name: ui("Off") },
+    { id: "LOW", name: ui("Low") },
+    { id: "MEDIUM", name: ui("Medium") },
+    { id: "HIGH", name: ui("High") },
+  ];
   const copy: Record<ModelFlow["flow"], Pick<Row, "title" | "description" | "ariaLabel">> = {
     CHAT_NAMING: {
       title: ui("Conversation naming"),
@@ -350,12 +400,17 @@ export function TaskModels(catalog: Catalog) {
         unavailableMessage: fallback
           ? ui("Unavailable; {{model}} is used instead.", { model: fallback })
           : ui("Unavailable; the Chat model is used instead."),
+        efforts,
         savedMessage: ui("Task model saved."),
-        save: async (revision, modelConfigurationId, signal) =>
+        save: async (revision, modelConfigurationId, reasoningEffort, signal) =>
           (
             await setChatModelFlow({
               path: { flow: flow.flow },
-              query: { revision, ...(modelConfigurationId ? { modelConfigurationId } : {}) },
+              query: {
+                revision,
+                ...(modelConfigurationId ? { modelConfigurationId } : {}),
+                ...(reasoningEffort ? { reasoningEffort } : {}),
+              },
               signal,
             })
           ).data,

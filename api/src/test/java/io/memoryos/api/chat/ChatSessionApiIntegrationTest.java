@@ -2689,6 +2689,9 @@ class ChatSessionApiIntegrationTest {
         flows.forEach(flow -> assertEquals(chatModel, flow.path("modelConfigurationId").asText(),
                 flow.path("flow").asText() + " names the model that runs it, the Chat model to begin with"));
         assertTrue(naming.path("available").asBoolean());
+        // Each task runs at its own default level until one is chosen: the minutes reason, the helper tasks do not.
+        flows.forEach(flow -> assertEquals("MEETING_MINUTES".equals(flow.path("flow").asText()) ? "MEDIUM" : "OFF",
+                flow.path("reasoningEffort").asText(), flow.path("flow").asText() + " level"));
         mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
         var internal = providerBody("http://flow.internal/v1", true).put("dataBoundary", "INTERNAL");
         var provider = Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf())
@@ -2704,14 +2707,17 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(put("/api/chat/model-flows/UNKNOWN").param("revision", revision).param("modelConfigurationId", mini)
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isBadRequest());
         var set = Json.mapper().readTree(mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", revision)
-                        .param("modelConfigurationId", mini).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                        .param("modelConfigurationId", mini).param("reasoningEffort", "HIGH")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         assertEquals(mini, set.path("modelConfigurationId").asText());
+        assertEquals("HIGH", set.path("reasoningEffort").asText(), "the model and the level are set together");
         mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", revision)
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
         mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", set.path("revision").asText())
                         .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").isEmpty());
+                .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").isEmpty())
+                .andExpect(jsonPath("$.reasoningEffort").value("OFF"));
         // Configuration is on the audit stream: where data goes before and after, and never the provider's key.
         String providerId = provider.path("id").asText();
         assertEquals("{\"adapter\": \"openai\", \"dataBoundary\": \"INTERNAL\"}", jdbc.sql("""

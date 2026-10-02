@@ -5170,8 +5170,9 @@ paths:
     put:
       tags:
       - Chat models
-      summary: "Set a visible, publicly available task model, or omit the model ID\
-        \ to use the conversation model"
+      summary: "Set a visible, publicly available task model and how hard it thinks;\
+        \ omit the model ID to use the conversation model and the level to use the\
+        \ task's own default"
       operationId: setChatModelFlow
       parameters:
       - name: X-MemoryOS-CSRF
@@ -5198,6 +5199,16 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: reasoningEffort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
       - name: revision
         in: query
         required: true
@@ -23202,6 +23213,16 @@ components:
           type: boolean
           description: False when the model is set but no longer eligible; the task
             then uses the conversation model
+        reasoningEffort:
+          type: string
+          description: "How hard the task's model thinks: the level chosen for the\
+            \ task, else its own default (medium for meeting minutes, off for the\
+            \ others); a model that does not reason ignores it"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
         revision:
           type: integer
           format: int64
@@ -23209,6 +23230,7 @@ components:
       - available
       - flow
       - modelConfigurationId
+      - reasoningEffort
       - revision
     Default:
       type: object

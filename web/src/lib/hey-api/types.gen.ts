@@ -1151,6 +1151,10 @@ export type ModelFlow = {
      * False when the model is set but no longer eligible; the task then uses the conversation model
      */
     available: boolean;
+    /**
+     * How hard the task's model thinks: the level chosen for the task, else its own default (medium for meeting minutes, off for the others); a model that does not reason ignores it
+     */
+    reasoningEffort: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     revision: number;
 };
 
@@ -7513,6 +7517,7 @@ export type SetChatModelFlowData = {
     };
     query: {
         modelConfigurationId?: string;
+        reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
         revision: number;
     };
     url: '/api/chat/model-flows/{flow}';

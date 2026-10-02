@@ -791,6 +791,77 @@ describe("models by task", () => {
     client.clear();
   });
 
+  it("offers a reasoning model's levels beside it and saves a level at once with the model", async () => {
+    const publicProvider: ManagedProvider = { ...provider, isPublic: true, groupIds: [] };
+    const thinking: ManagedModel = {
+      ...model,
+      id: "00000000-0000-0000-0000-000000000010",
+      displayName: "Thinking model",
+      settings: {
+        ...model.settings,
+        capabilities: { ...model.settings.capabilities, reasoning: true },
+      },
+    };
+    const writes: URL[] = [];
+    let naming = {
+      flow: "CHAT_NAMING",
+      modelConfigurationId: thinking.id as string | null,
+      available: true,
+      reasoningEffort: "OFF",
+      revision: 1,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        const url = new URL(request.url);
+        const path = url.pathname;
+        if (path === "/api/identity/me") return Response.json(session);
+        if (request.method === "PUT" && path === "/api/chat/model-flows/CHAT_NAMING") {
+          writes.push(url);
+          naming = {
+            ...naming,
+            modelConfigurationId: url.searchParams.get("modelConfigurationId"),
+            reasoningEffort: url.searchParams.get("reasoningEffort") ?? "OFF",
+            revision: naming.revision + 1,
+          };
+          return Response.json(naming);
+        }
+        if (path === "/api/chat/providers") return Response.json([publicProvider]);
+        if (path === "/api/chat/provider-adapters") return Response.json([adapter]);
+        if (path.endsWith(`/providers/${provider.id}/models`))
+          return Response.json([model, thinking]);
+        if (path === "/api/chat/model-default")
+          return Response.json({ modelConfigurationId: model.id, revision: 1 });
+        if (path === "/api/chat/model-flows") return Response.json([naming]);
+        if (path === "/api/chat/model-personas")
+          return Response.json({ items: [], nextCursor: null });
+        throw new Error(`Unexpected synthetic route: ${path}`);
+      }),
+    );
+    const client = createMemoryOsQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ApplicationSessionBoundary>
+          <ModelsPage />
+        </ApplicationSessionBoundary>
+      </QueryClientProvider>,
+    );
+    const picker = await screen.findByRole("button", { name: "Conversation naming model" });
+    expect(picker).toHaveTextContent("Thinking model");
+    expect(picker).toHaveTextContent("Off");
+    fireEvent.click(picker);
+    fireEvent.click(await screen.findByRole("radio", { name: "Medium" }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]?.searchParams.get("modelConfigurationId")).toBe(thinking.id);
+    expect(writes[0]?.searchParams.get("reasoningEffort")).toBe("MEDIUM");
+    expect(writes[0]?.searchParams.get("revision")).toBe("1");
+    expect(await screen.findByText("Task model saved.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Conversation naming model" })).toHaveTextContent(
+      "Medium",
+    );
+    client.clear();
+  });
+
   it("says Chat cannot answer and a task cannot run while no default is chosen", async () => {
     const publicProvider: ManagedProvider = { ...provider, isPublic: true, groupIds: [] };
     vi.stubGlobal(

@@ -6,6 +6,7 @@ import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.ai.ModelFlow;
+import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
 import io.memoryos.api.chat.contract.ChatGroupPageResponse;
 import io.memoryos.api.chat.contract.ChatModelDefaultResponse;
@@ -216,10 +217,13 @@ class ChatModelCatalogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/model-flows/{flow}")
     @Operation(operationId = "setChatModelFlow",
-            summary = "Set a visible, publicly available task model, or omit the model ID to use the conversation model")
+            summary = "Set a visible, publicly available task model and how hard it thinks; omit the model ID to use the "
+                    + "conversation model and the level to use the task's own default")
     ChatModelFlowResponse setFlow(@CurrentActor IdentityContext identity, @PathVariable ModelFlow flow,
-            @RequestParam(required = false) @Nullable UUID modelConfigurationId, @RequestParam @Positive long revision) {
-        return ChatModelFlowResponse.from(catalog.setFlowDefault(identity.actorId(), flow, modelConfigurationId, revision));
+            @RequestParam(required = false) @Nullable UUID modelConfigurationId,
+            @RequestParam(required = false) @Nullable ReasoningEffort reasoningEffort, @RequestParam @Positive long revision) {
+        return ChatModelFlowResponse.from(catalog.setFlowDefault(identity.actorId(), flow, modelConfigurationId,
+                reasoningEffort, revision));
     }
     @ApiResponse(responseCode = "200", description = "Tenant Persona page", useReturnTypeSchema = true)
     @GetMapping("/model-personas")
