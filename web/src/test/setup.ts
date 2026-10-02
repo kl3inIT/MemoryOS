@@ -6,7 +6,7 @@ import { i18n } from "@/i18n";
 import "@/lib/api";
 import { server } from "./msw";
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 

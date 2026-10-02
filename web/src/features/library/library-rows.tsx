@@ -101,6 +101,8 @@ export function LibraryList({
 }) {
   const ui = useAppTranslation();
   const groups = grouped ? groupByDate(files) : [];
+  // Read once when the list mounts, so a render stays pure.
+  const [thisYear] = useState(() => new Date().getFullYear());
   /**
    * Today and yesterday read as words; any other day reads as its date, with the year only when it is not
    * this one, because a year repeated on every heading says nothing.
@@ -113,7 +115,7 @@ export function LibraryList({
       weekday: "long",
       day: "numeric",
       month: "long",
-      year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+      year: date.getFullYear() === thisYear ? undefined : "numeric",
     });
   };
   if (!grouped)

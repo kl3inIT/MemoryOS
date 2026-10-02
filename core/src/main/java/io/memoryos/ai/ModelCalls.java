@@ -56,6 +56,24 @@ public final class ModelCalls {
     public <T> T generateObject(ModelBinding selected, String instructions, String input, Class<T> shape,
                                 Duration timeout, int maxOutputTokens, @Nullable Double temperature,
                                 Consumer<ModelAccounting> accounting) {
+        return generate(selected, instructions, input, shape, timeout, maxOutputTokens, temperature, false, accounting);
+    }
+
+    /**
+     * The same call for a whole piece of work a person reads, such as a meeting's minutes, rather than a step inside a
+     * turn: the model reasons at {@code effort}, or at the level its configuration names, instead of the helper effort.
+     * Without reasoning, extraction from a long transcript was uneven: one run found three action items, the next none.
+     */
+    public <T> T generateReasonedObject(ModelBinding selected, ReasoningEffort effort, String instructions, String input,
+                                        Class<T> shape, Duration timeout, int maxOutputTokens,
+                                        Consumer<ModelAccounting> accounting) {
+        return generate(selected.forOptions(new ModelSampling(null, effort, false), null), instructions, input, shape,
+                timeout, maxOutputTokens, null, true, accounting);
+    }
+
+    private <T> T generate(ModelBinding selected, String instructions, String input, Class<T> shape, Duration timeout,
+                           int maxOutputTokens, @Nullable Double temperature, boolean reasoned,
+                           Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         var deadline = Instant.now().plus(timeout);
@@ -70,7 +88,8 @@ public final class ModelCalls {
             guard.outputLimit(output);
             admitted = guard;
             var runner = context.ai().withLlmService(selected.withModel(guard));
-            var llm = Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(output).withTimeout(timeout);
+            var llm = Objects.requireNonNull(runner.getLlm()).withMaxTokens(output).withTimeout(timeout);
+            if (!reasoned) llm = llm.withoutThinking();
             if (temperature != null) llm = llm.withTemperature(temperature);
             return runner.withLlm(llm).createObject(List.of(new SystemMessage(instructions), new UserMessage(input)), shape);
         } finally {

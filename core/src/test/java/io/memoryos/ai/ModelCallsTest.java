@@ -1,6 +1,8 @@
 package io.memoryos.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -23,6 +25,7 @@ import com.embabel.chat.UserMessage;
 import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.shared.Tokenizers;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -81,6 +84,41 @@ class ModelCallsTest {
         verify(runner, times(2)).withLlm(options.capture());
         assertEquals(0.0, options.getAllValues().get(0).getTemperature());
         assertNull(options.getAllValues().get(1).getTemperature());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aReasonedCallKeepsThinkingOnAndAsksForItsEffortWhileAHelperCallTurnsItOff() {
+        var context = mock(ExecutingOperationContext.class, RETURNS_DEEP_STUBS);
+        var runner = mock(PromptRunner.class);
+        when(context.ai().withLlmService(any())).thenReturn(runner);
+        when(runner.getLlm()).thenReturn(LlmOptions.withDefaultLlm());
+        when(runner.withLlm(any())).thenReturn(runner);
+        when(runner.createObject(anyList(), eq(Minutes.class))).thenReturn(new Minutes("ok"));
+        ObjectProvider<ExecutingOperationContext> contexts = mock(ObjectProvider.class);
+        when(contexts.getObject()).thenReturn(context);
+        var calls = new ModelCalls(contexts, mock(AgentProcessRepository.class), 1.0, 10_000, 2);
+        var asked = new ArrayList<ModelSampling>();
+        var policy = ModelRequestPolicy.hosted(Tokenizers.o200k(), prompt -> prompt);
+        var binding = ModelBinding.builder(new SpringAiLlmService("fixture", "fixture", mock(ChatModel.class)), prompt -> prompt,
+                policy, 32000, 4096, false, false).sampling((service, sampling) -> {
+                    asked.add(sampling);
+                    return service;
+                }).build();
+
+        calls.generateReasonedObject(binding, ReasoningEffort.MEDIUM, "Write the minutes.", "[1] 00:00 An: Chốt.",
+                Minutes.class, Duration.ofSeconds(30), 1000, accounting -> {});
+        calls.generateObject(binding, "Write the minutes.", "[1] 00:00 An: Chốt.", Minutes.class,
+                Duration.ofSeconds(30), 1000, accounting -> {});
+
+        assertEquals(List.of(new ModelSampling(null, ReasoningEffort.MEDIUM, false)), asked,
+                "only the reasoned call asks for an effort; the model's own configured level still wins");
+        var options = ArgumentCaptor.forClass(LlmOptions.class);
+        verify(runner, times(2)).withLlm(options.capture());
+        var reasoned = options.getAllValues().get(0).getThinking();
+        var helper = options.getAllValues().get(1).getThinking();
+        assertTrue(reasoned == null || reasoned.getEnabled());
+        assertFalse(helper == null || helper.getEnabled());
     }
 
     @Test

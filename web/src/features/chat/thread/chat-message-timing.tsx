@@ -1,14 +1,17 @@
 import { useAuiState } from "@assistant-ui/react";
+import { useState } from "react";
 import { formatUiDate } from "@/i18n/format";
 
 /** Answer time from the saved message timestamp, revealed on hover or focus. */
 export function ChatMessageTiming() {
   const createdAt = useAuiState((state) => state.message.metadata.custom.createdAt);
   const running = useAuiState((state) => state.message.status?.type === "running");
+  // Read once when the message mounts, so a render stays pure.
+  const [now] = useState(() => new Date());
   if (running || typeof createdAt !== "string") return null;
   const started = new Date(createdAt);
   if (Number.isNaN(started.getTime())) return null;
-  const today = started.toDateString() === new Date().toDateString();
+  const today = started.toDateString() === now.toDateString();
   return (
     <span
       data-slot="message-timing"

@@ -3,9 +3,10 @@ import { ParticleField } from "@/components/particle-field";
 import { VadanLogo } from "@/components/vadan-logo";
 import { contact, footer } from "@/content";
 
-function Footer() {
-  const year = new Date().getFullYear();
+// Read once when the page loads, so a render stays pure.
+const year = new Date().getFullYear();
 
+function Footer() {
   return (
     <footer className="relative isolate overflow-hidden border-t border-border-subtle bg-surface-raised px-[var(--page-gutter)]">
       <div aria-hidden="true" className="cta-glow pointer-events-none absolute inset-0 -z-10" />

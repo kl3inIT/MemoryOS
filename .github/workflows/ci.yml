@@ -169,9 +169,16 @@ jobs:
         with:
           persist-credentials: false
 
+      # The released binary, as actionlint's own CI guidance and the gitleaks step below: `go run` compiled it on
+      # every run and, needing Go 1.25 on a runner that defaults to 1.24, first downloaded a Go toolchain (#158).
       - name: Validate workflows and shell scripts
         run: |
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          curl --fail --silent --show-error --location \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$RUNNER_TEMP/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint"
           bash -n infrastructure/deployment/deploy.sh
           bash -n infrastructure/deployment/deploy-serving.sh
           sh -n infrastructure/deployment/serving-firewall.sh
@@ -260,7 +267,7 @@ jobs:
           java-version: '25'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
 
       - name: Build and verify
         env:
