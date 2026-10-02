@@ -18,6 +18,7 @@ Contract: [Audit evidence](../specs/audit.md).
 | `AUDIT_READ` is an editable, registered capability | `core/src/test/java/io/memoryos/iam/group/DefaultGroupServiceAuthorizationTest.java` |
 | The Worker context starts with the audit writer and the retention task | `worker/src/test/java/io/memoryos/worker/ControlPlaneIntegrationTest.java` |
 | The page lists readable actions, opens an event with only the changed fields, pages with the cursor and back, exports the filters on screen, offers a retry, and shows an unknown action by its code | `web/src/features/audit/audit-log-page.test.tsx` |
+| Each change to the MCP endpoint's trusted apps (add, switch, remove) is recorded once | `api/src/test/java/io/memoryos/api/mcp/endpoint/McpEndpointIntegrationTest.java` — `anAdministratorTrustsAnAppOfTheirOwnAndKeycloakFollowsEachChange` |
 | A guardrail block reads as *Question blocked*, with what stopped it (sensitive topic or blocked phrase), the topic's name and the conversation | `web/src/features/audit/audit-actions.test.ts` |
 | HTTP paths and schemas are in the checked-in contract | `api/src/test/java/io/memoryos/api/OpenApiContractTest.java` |
 
