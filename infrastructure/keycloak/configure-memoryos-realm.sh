@@ -866,17 +866,47 @@ configure_mcp_endpoint() {
     fi
     echo "realm=$TARGET_REALM default-client-scopes=$realm_defaults optional-client-scope=$SCOPE_NAME"
 
-    # The consent page lists scopes by gui.order and puts unordered entries last. Ordering the two
-    # permissions keeps the client's own line (Claude's hostname, ChatGPT's origin) at the end.
-    offline_id=$(find_scope_uuid offline_access)
-    if [ -n "$offline_id" ]; then
-        "$KCADM" get "client-scopes/$offline_id" --config "$CONFIG_FILE" -r "$TARGET_REALM" |
-            jq -c '.attributes["gui.order"] = "20"' |
-            "$KCADM" update "client-scopes/$offline_id" \
-                --config "$CONFIG_FILE" \
-                -r "$TARGET_REALM" \
-                -f - >/dev/null
+    # ChatGPT's authorization request asks for `email` too, and Keycloak refuses the whole request when a
+    # client lacks one scope it asks for. `email` is therefore an optional scope of a client built from a
+    # metadata document: it reaches a token, and the consent page, only when the client asks for it, so
+    # Claude, which asks for the endpoint's scope and offline access, still receives no e-mail address.
+    EMAIL_SCOPE_UUID=$(find_scope_uuid email)
+    if [ -z "$EMAIL_SCOPE_UUID" ]; then
+        echo "client scope email is missing from realm $TARGET_REALM" >&2
+        exit 1
     fi
+    if ! "$KCADM" get "realms/$TARGET_REALM/default-optional-client-scopes" --config "$CONFIG_FILE" |
+        jq -e --arg id "$EMAIL_SCOPE_UUID" 'any(.[]; .id == $id)' >/dev/null; then
+        "$KCADM" update "realms/$TARGET_REALM/default-optional-client-scopes/$EMAIL_SCOPE_UUID" \
+            --config "$CONFIG_FILE" >/dev/null
+    fi
+    # The realm's optional scopes reach only clients created afterwards; a document's client Keycloak
+    # already stores gains `email` here. Its client ID is the document's https URL.
+    "$KCADM" get clients --config "$CONFIG_FILE" -r "$TARGET_REALM" --fields id,clientId |
+        jq -r '.[] | select(.clientId | startswith("https://")) | .id' |
+        while read -r document_client; do
+            if ! "$KCADM" get "clients/$document_client/optional-client-scopes" \
+                --config "$CONFIG_FILE" -r "$TARGET_REALM" | jq -e 'any(.[]; .name == "email")' >/dev/null; then
+                "$KCADM" update "clients/$document_client/optional-client-scopes/$EMAIL_SCOPE_UUID" \
+                    --config "$CONFIG_FILE" -r "$TARGET_REALM" >/dev/null
+            fi
+        done
+    echo "realm=$TARGET_REALM metadata-document-optional-client-scope=email"
+
+    # The consent page lists scopes by gui.order and puts unordered entries last. Ordering the
+    # permissions keeps the client's own line (Claude's hostname, ChatGPT's origin) at the end:
+    # the endpoint's scope, then ChatGPT's e-mail address, then offline access.
+    for ordered in email:15 offline_access:20; do
+        ordered_id=$(find_scope_uuid "${ordered%%:*}")
+        if [ -n "$ordered_id" ]; then
+            "$KCADM" get "client-scopes/$ordered_id" --config "$CONFIG_FILE" -r "$TARGET_REALM" |
+                jq -c --arg order "${ordered#*:}" '.attributes["gui.order"] = $order' |
+                "$KCADM" update "client-scopes/$ordered_id" \
+                    --config "$CONFIG_FILE" \
+                    -r "$TARGET_REALM" \
+                    -f - >/dev/null
+        fi
+    done
 
     # A grant to an MCP client is an offline session; it lapses after 30 days without use.
     jq -cn '{offlineSessionIdleTimeout: 2592000}' |
