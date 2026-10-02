@@ -43,9 +43,9 @@ class McpEndpointTokenTest(unittest.TestCase):
         self.assertEqual("true", scope["attributes"]["include.in.token.scope"])
         # A message key, so the consent page reads in the person's language.
         self.assertEqual("${knowledgeReadScopeConsentText}", scope["attributes"]["consent.screen.text"])
-        # Ordered first; offline_access second; the client's own line, unordered, last.
+        # Ordered first; ChatGPT's e-mail address, then offline_access; the client's own line, unordered, last.
         self.assertEqual("10", scope["attributes"]["gui.order"])
-        self.assertIn(""".attributes["gui.order"] = "20\"""", SCRIPT)
+        self.assertIn("for ordered in email:15 offline_access:20; do", SCRIPT)
         client = load("memoryos-mcp-chatgpt-client.json")
         self.assertEqual("true", client["attributes"]["display.on.consent.screen"])
         self.assertEqual("${chatgptClientConsentText}", client["attributes"]["consent.screen.text"])
@@ -64,6 +64,17 @@ class McpEndpointTokenTest(unittest.TestCase):
         # only `sub`, so those are trimmed and checked after the trim.
         self.assertIn("for trimmed in profile email roles web-origins; do", SCRIPT)
         self.assertIn("realm default client scopes did not converge", SCRIPT)
+
+    def test_a_metadata_document_client_may_ask_for_email(self):
+        # ChatGPT asks for openid, email, offline_access and the endpoint's scope; Keycloak refuses the
+        # request when one is missing. Optional, so Claude, which does not ask, still gets no address.
+        self.assertIn('EMAIL_SCOPE_UUID=$(find_scope_uuid email)', SCRIPT)
+        self.assertIn('"realms/$TARGET_REALM/default-optional-client-scopes/$EMAIL_SCOPE_UUID"', SCRIPT)
+        # Clients Keycloak already built from a document gain it as well; realm defaults reach only new ones.
+        self.assertIn('select(.clientId | startswith("https://"))', SCRIPT)
+        self.assertIn('"clients/$document_client/optional-client-scopes/$EMAIL_SCOPE_UUID"', SCRIPT)
+        # Never a default scope of such a client.
+        self.assertIn("for trimmed in profile email roles web-origins; do", SCRIPT)
 
     def test_clients_the_script_creates_keep_their_scopes(self):
         # Trimming the realm defaults must not change what memoryos-web and the other clients receive.

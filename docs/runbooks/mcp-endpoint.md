@@ -103,6 +103,10 @@ client=memoryos-chatgpt secret=updated scopes=knowledge:read,offline_access
 **Other client policies.** Rerunning the script replaces only its own client profiles and policies (`memoryos-mcp-cimd` and `memoryos-mcp-cimd-pkce`)
 and keeps any other in the realm.
 
+**E-mail scope.** ChatGPT asks for `email`, so the script makes it an optional scope of the realm and of every client
+whose client ID is a metadata document URL, those Keycloak already stores included. Without it ChatGPT's sign-in
+stops with `invalid_scope`.
+
 **Default scopes.** Narrowing the realm's default scopes changes only clients created afterwards. Clients that already
 exist, `memoryos-web` among them, keep their scopes. The script gives every client it creates the classic set
 explicitly.

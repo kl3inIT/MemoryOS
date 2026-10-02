@@ -218,6 +218,11 @@ All of this goes in `configure-memoryos-realm.sh` and the Keycloak image.
     `sub`, which the `basic` scope carries.
   - The reconciliation therefore removes `profile`, `email`, `roles` and `web-origins` from the realm's default client
     scopes. A client built from a metadata document is created with only `acr` and `basic` by default.
+  - ChatGPT asks for `openid email offline_access knowledge:read`, and Keycloak refuses the whole request with
+    `invalid_scope` when the client lacks one of them (seen on staging on 2026-10-02). `email` is therefore an optional
+    scope of every client built from a metadata document, including clients Keycloak already stores: it reaches a
+    token and the consent page only when the client asks, so Claude still receives no address. The consent page orders
+    the endpoint's scope, the e-mail address and offline access, then the client's line.
   - Clients the script creates pin the classic default and optional sets, and existing clients keep theirs.
   - The end-to-end consent page lists only the scope text, Offline Access and the client's hostname.
 - PKCE S256 enforced through a separate policy for every public client of the realm (Keycloak #52795).
