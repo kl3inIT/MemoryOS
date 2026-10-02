@@ -12,7 +12,7 @@ Chủ dự án đã chấp nhận cả hai thay đổi ngày 2026-10-02. Hai tha
 Quyết định ghi trong [ADR 0020](../../../decisions/0020-image-jobs-push-before-the-gate.md).
 
 * Action dùng chung [`push-release-images`](../../../../.github/actions/push-release-images/action.yml): login, kiểm label revision/source, push tag `sha-<sha>-<run>-<attempt>`, lấy digest, logout. Output là các dòng `MEMORYOS_<COMPONENT>_IMAGE=<digest>`.
-* `backend-images` (api, worker, keycloak), `frontend-image` (web), `interpreter` (interpreter, interpreter-executor) gọi action ở bước cuối, chỉ khi push lên `main`. Ở `interpreter`, bước này nằm sau bước e2e, vì bước e2e trao docker socket cho container service.
+* `backend-images` (api, worker, keycloak), `frontend-image` (web), `interpreter` (interpreter, interpreter-executor) gọi action ở bước cuối, chỉ khi push lên `main`.
 * `publish` cần `gate` và ba job image. Nó ghép output, đòi đúng một digest cho mỗi component theo regex, kiểm digest có trên GHCR bằng `docker buildx imagetools inspect`, rồi ghi `images.env` theo thứ tự cũ. Quyền chỉ còn `contents: read` và `packages: read`.
 * `landing` giữ nguyên cách cũ.
 
@@ -24,6 +24,18 @@ Quyết định ghi trong [ADR 0020](../../../decisions/0020-image-jobs-push-bef
 * CI Gate có ba trạng thái cho mỗi area: không chọn thì mọi job phải bị bỏ qua; chọn và chưa verify thì mọi job phải thành công; chọn và đã verify thì job test phải bị bỏ qua và job image phải thành công.
 
 So sánh tree an toàn vì tree trùng nghĩa là nội dung file giống hệt thứ PR đã test, kể cả `ci.yml`. Chỉ tin PR từ chính repo, vì artifact của một PR từ fork có thể mang tên tree của một PR khác.
+
+## 3. Cache layer Docker nằm trên GHCR
+
+Thêm ngày 2026-10-02, sau khi đo run 37038355600. `backend-images` chậm dần qua từng lần chạy: 4m45s, 6m31s, 8m15s, rồi 9m35s. Trong lần chậm nhất, riêng bước build image API mất 7m05s, trong đó **229s là ghi cache lên GitHub Actions Cache**. Repo dùng 10.7 GB Actions cache, vượt giới hạn 10 GB, nên GitHub liên tục xoá cache cũ. Các cache Docker `mode=max`, cộng với cache Gradle của ba leg backend, pnpm và uv, cứ bị xoá rồi ghi lại.
+
+* Cache layer chuyển sang registry, đặt cạnh image: `ghcr.io/kl3init/memoryos-<component>:buildcache`, `mode=max`. Đây là dạng `<image>:buildcache` mà tài liệu Docker dùng làm ví dụ cho registry cache. GHCR không có giới hạn 10 GB.
+* Mọi run đều đọc cache. Chỉ push lên `main` mới ghi, theo đúng khuyến nghị tránh để PR làm rác cache (cùng ý tưởng với `int128/docker-build-cache-config-action`). PR vì vậy không còn trả thời gian ghi cache.
+* Ghi cache dùng `ignore-error=true`, để cache lỗi không bao giờ làm fail build.
+* Ba job image login GHCR bằng token của job trước khi build, để đọc được cache trong package private. Credential chỉ nằm ở client Docker trên runner; container service của bước e2e interpreter chỉ nhận docker socket, không nhận credential.
+* `landing` giữ cache `type=gha`, vì image nhỏ và job không có quyền ghi package.
+
+`buildcache` là cache layer, không phải image chạy được, và không release nào trỏ tới nó. Quy tắc "không có tag deploy thay đổi được" vẫn giữ nguyên.
 
 ## Kết quả mong đợi
 

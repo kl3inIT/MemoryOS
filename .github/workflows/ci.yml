@@ -411,7 +411,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      # Layers are cached in the Actions cache.
+      # Layer caches live in GHCR beside the images, outside the Actions cache and its 10 GB eviction. Every run
+      # reads them; only a main push writes them.
+      - name: Authenticate to GHCR for layer caches
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
       - name: Build production frontend image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -424,8 +430,8 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-web:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-web:buildcache,mode=max,ignore-error=true' || '' }}
 
       - name: Verify the frontend image
         run: |
@@ -471,6 +477,10 @@ jobs:
         with:
           components: web
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
 
   landing:
     needs: changes
@@ -585,6 +595,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+      # Layer caches live in GHCR beside the images, outside the Actions cache and its 10 GB eviction. Every run
+      # reads them; only a main push writes them.
+      - name: Authenticate to GHCR for layer caches
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
       # Integration and e2e tests start real executor containers from this image on the runner's daemon.
       - name: Build executor image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -599,8 +616,8 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: type=gha,scope=interpreter-executor
-          cache-to: type=gha,mode=max,scope=interpreter-executor
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-interpreter-executor:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-interpreter-executor:buildcache,mode=max,ignore-error=true' || '' }}
 
       - name: Run integration tests
         if: ${{ needs.changes.outputs.interpreter_verified != 'true' }}
@@ -619,8 +636,8 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: type=gha,scope=interpreter-service
-          cache-to: type=gha,mode=max,scope=interpreter-service
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-interpreter:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-interpreter:buildcache,mode=max,ignore-error=true' || '' }}
 
       # test_concurrent_execute.py sends 5 requests at once; the default limit of 4 would reject one.
       - name: Run e2e tests against the service container
@@ -639,7 +656,6 @@ jobs:
         if: ${{ failure() }}
         run: docker logs memoryos-interpreter-ci || true
 
-      # Registry credentials exist only after the e2e step, which hands the docker socket to the service container.
       - name: Push verified interpreter images to GHCR
         id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -647,6 +663,10 @@ jobs:
         with:
           components: interpreter interpreter-executor
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
 
   backend-images:
     needs: changes
@@ -671,6 +691,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+      # Layer caches live in GHCR beside the images, outside the Actions cache and its 10 GB eviction. Every run
+      # reads them; only a main push writes them.
+      - name: Authenticate to GHCR for layer caches
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
       # Both targets share the Gradle build stage; each keeps its own cache scope and reads the other's.
       - name: Build production API image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -685,9 +712,9 @@ jobs:
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
           cache-from: |
-            type=gha,scope=backend-api
-            type=gha,scope=backend-worker
-          cache-to: type=gha,mode=max,scope=backend-api
+            type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache
+            type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache,mode=max,ignore-error=true' || '' }}
 
       - name: Build production worker image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -702,9 +729,9 @@ jobs:
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
           cache-from: |
-            type=gha,scope=backend-api
-            type=gha,scope=backend-worker
-          cache-to: type=gha,mode=max,scope=backend-worker
+            type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache
+            type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache,mode=max,ignore-error=true' || '' }}
 
       # The login theme is inside this image, so a release carries its own sign-in page.
       - name: Build production Keycloak image
@@ -718,8 +745,8 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: type=gha,scope=keycloak
-          cache-to: type=gha,mode=max,scope=keycloak
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-keycloak:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-keycloak:buildcache,mode=max,ignore-error=true' || '' }}
 
       - name: Prove the Keycloak image serves the MemoryOS login theme
         run: infrastructure/keycloak/smoke-test-image.sh "memoryos-keycloak:sha-$GITHUB_SHA"
@@ -731,6 +758,10 @@ jobs:
         with:
           components: api worker keycloak
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
 
   secrets:
     runs-on: ubuntu-24.04

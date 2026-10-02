@@ -20,3 +20,11 @@
 - [x] `VerifiedTreeReuseTest`: chạy chương trình jq của gate với các kết quả giả (chạy với jq trong Docker, OK) và kiểm các điều kiện tin cậy của bước tra cứu; actionlint 1.7.12 và shellcheck sạch; 81 test Python OK trên Windows (21 skip).
 - [x] CI của PR #459 xanh, artifact `ci-verified-9b5f0a64574e970535aa4cb9ff72344ea031d756` có trên run của PR; merge thành `4c466e8b`, tree của nó trùng với artifact.
 - [ ] Lần chạy `main` sau merge: các job test bị bỏ qua, image vẫn build, CI Gate xanh; ghi thời gian từ push tới publish.
+
+## PR 3: cache layer trên GHCR
+
+- [x] Sáu cache `type=gha` của `backend-images`, `frontend-image`, `interpreter` chuyển sang `type=registry` tại `memoryos-<component>:buildcache`; chỉ push lên `main` mới ghi, có `ignore-error=true`; ba job login GHCR trước khi build và logout ở cuối.
+- [x] Runbook và design.
+- [x] actionlint 1.7.12 sạch; 81 test Python OK (21 skip trên Windows).
+- [ ] CI của PR xanh. Cache chưa có, nên PR này chưa nhanh hơn.
+- [ ] Lần chạy `main` sau merge ghi được cache; lần chạy sau nữa đọc được cache, và `backend-images` nhanh hơn rõ rệt. Ghi số đo.
