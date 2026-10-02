@@ -4,7 +4,6 @@ import { EmptyState } from "@/components/composites/empty-state";
 import { SectionHeader } from "@/components/composites/section-header";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
-import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -18,11 +17,12 @@ import {
   listMcpClientGrantsQueryKey,
   revokeMcpClientGrantMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { McpClientGrantResponse } from "@/lib/hey-api/types.gen";
+import { McpClientMark } from "./mcp-client-mark";
 import { McpCopyField } from "./mcp-copy-field";
 
 /**
- * MEM-114 Settings › MemoryOS MCP: how a member connects Claude or ChatGPT to MemoryOS, and the assistants they allowed.
+ * MEM-114 Settings › MemoryOS MCP: how a member connects the apps their administrator trusts (MEM-207) to MemoryOS,
+ * and the assistants they allowed.
  * Connections is the other direction, the tools the assistant uses on the member's behalf.
  */
 export function McpEndpointSettingsPage() {
@@ -71,21 +71,40 @@ function ConnectSection() {
       </Alert>
     );
   }
+  const apps = connection.data.apps;
+  if (apps.length === 0) {
+    return (
+      <Alert role="note">
+        <AlertDescription>{ui("Quản trị viên chưa tin cậy ứng dụng nào.")}</AlertDescription>
+      </Alert>
+    );
+  }
   return (
     <section aria-label={ui("Kết nối Claude hoặc ChatGPT")} className="flex flex-col gap-6">
       <McpCopyField id="mcp-endpoint-url" label={ui("Địa chỉ MCP")} value={connection.data.url} />
-      <Tabs defaultValue="claude">
+      {/* A guide for each app the administrator trusts, in the order Claude, ChatGPT, then any other. */}
+      <Tabs defaultValue={apps[0]}>
         <TabsList>
-          <TabsTrigger value="claude">
-            <ProviderLogo mark="ANTHROPIC" className="size-4" />
-            {ui("Claude")}
-          </TabsTrigger>
-          <TabsTrigger value="chatgpt">
-            <ProviderLogo mark="OPENAI" className="size-4" />
-            {ui("ChatGPT")}
-          </TabsTrigger>
+          {apps.includes("CLAUDE") ? (
+            <TabsTrigger value="CLAUDE">
+              <McpClientMark client="CLAUDE" className="size-4" />
+              {ui("Claude")}
+            </TabsTrigger>
+          ) : null}
+          {apps.includes("CHATGPT") ? (
+            <TabsTrigger value="CHATGPT">
+              <McpClientMark client="CHATGPT" className="size-4" />
+              {ui("ChatGPT")}
+            </TabsTrigger>
+          ) : null}
+          {apps.includes("CUSTOM") ? (
+            <TabsTrigger value="CUSTOM">
+              <McpClientMark client="CUSTOM" className="size-4" />
+              {ui("Ứng dụng khác")}
+            </TabsTrigger>
+          ) : null}
         </TabsList>
-        <TabsContent value="claude">
+        <TabsContent value="CLAUDE">
           <Steps
             steps={[
               ui("Trong Claude, mở Settings › Connectors và chọn Add custom connector."),
@@ -94,12 +113,21 @@ function ConnectSection() {
             ]}
           />
         </TabsContent>
-        <TabsContent value="chatgpt">
+        <TabsContent value="CHATGPT">
           <Steps
             steps={[
               ui("Trong ChatGPT, mở Plugin và chọn Plugin mới."),
               ui("Dán địa chỉ MCP ở trên, giữ Xác thực là OAuth rồi bấm Tạo."),
               ui("Bấm Connect, đăng nhập MemoryOS và chọn Cho phép."),
+            ]}
+          />
+        </TabsContent>
+        <TabsContent value="CUSTOM">
+          <Steps
+            steps={[
+              ui("Trong ứng dụng, thêm một máy chủ MCP từ xa."),
+              ui("Dán địa chỉ MCP ở trên và chọn xác thực OAuth."),
+              ui("Đăng nhập MemoryOS và chọn Cho phép."),
             ]}
           />
         </TabsContent>
@@ -147,7 +175,7 @@ function GrantsSection() {
           {grants.data.map((grant) => (
             <SettingRow
               key={grant.clientId}
-              icon={<GrantMark client={grant.client} />}
+              icon={<McpClientMark client={grant.client} />}
               title={grant.name}
               description={
                 // One line with a separator where it fits; on a phone, two lines and no dangling separator.
@@ -184,10 +212,4 @@ function GrantsSection() {
       )}
     </section>
   );
-}
-
-function GrantMark({ client }: { client: McpClientGrantResponse["client"] }) {
-  if (client === "CLAUDE") return <ProviderLogo mark="ANTHROPIC" />;
-  if (client === "CHATGPT") return <ProviderLogo mark="OPENAI" />;
-  return <Cable />;
 }
