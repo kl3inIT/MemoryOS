@@ -179,7 +179,9 @@ final class TikaExtractionProcess {
     private static ParseContext parseContext() {
         ParseContext context = new ParseContext();
         PDFParserConfig pdf = new PDFParserConfig();
-        pdf.getOcr().setStrategy(OcrConfig.Strategy.NO_OCR);
+        OcrConfig ocr = new OcrConfig();
+        ocr.setStrategy(OcrConfig.Strategy.NO_OCR);
+        pdf.setOcr(ocr);
         context.set(PDFParserConfig.class, pdf);
         context.set(EmbeddedDocumentExtractor.class, new RejectingEmbeddedDocumentExtractor());
         return context;
