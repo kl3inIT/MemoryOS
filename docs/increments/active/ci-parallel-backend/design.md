@@ -30,7 +30,9 @@ Không đổi tên `CI Gate` và `Publish verified release`, vì `deploy.yml` t�
 * **Self-hosted runner trên máy `PRODUCTION_HOST`.** Máy đó có 4 vCPU giống runner GitHub, nhưng chỉ còn khoảng 4.7 GB RAM khả dụng, swap 4 GB đã đầy, và đang chạy 35 container. Một runner sẽ chạy các job lần lượt thay vì khoảng mười job song song. Repo public nên PR từ fork chạy code tùy ý trên máy. Runner GitHub-hosted miễn phí cho repo public.
 * **Merge queue để `main` không verify lại.** Repo thuộc tài khoản cá nhân, không có merge queue.
 
-## Việc tiếp theo, chưa làm
+## Việc tiếp theo
+
+Cả hai việc dưới đây được chấp nhận ngày 2026-10-02 và đang làm trong [CI main fast path](../ci-main-fast-path/design.md).
 
 * **Publish 4 phút trên `main`.** Mỗi lần chạy, khoảng 1.9 GB image archive (`candidate-interpreter` 1.07 GB, `candidate-backend` 816 MB) được upload rồi tải lại. Có thể bỏ bước này bằng cách đẩy image lên GHCR dưới tag candidate rồi gắn tag release sau khi gate qua. Cách này đổi hợp đồng phát hành hiện tại: hiện chưa có gì lên registry trước khi CI Gate thành công. Vì vậy cần chủ dự án quyết định trước.
 * **`main` verify lại thứ PR vừa verify.** Không có merge queue thì chỉ còn cách so tree của commit `main` với merge commit đã được verify. Image vẫn phải build lại vì label revision mang SHA của `main`.
