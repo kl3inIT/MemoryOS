@@ -109,6 +109,10 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # TEI tags lead with the CUDA compute capability the image is built for (89 = Ada Lovelace, the serving
+      # node's GPU), which Dependabot reads as a version and "upgrades" to another GPU generation. Updated by hand.
+      - dependency-name: huggingface/text-embeddings-inference
 
   # "/" covers .github/workflows; composite actions under .github/actions need their own entry.
   - package-ecosystem: github-actions
