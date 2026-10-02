@@ -107,11 +107,12 @@ jobs:
           printf 'backend=%s\nweb=%s\nlanding=%s\ninterpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_OUTPUT"
           printf 'Verification areas: backend=%s web=%s landing=%s interpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_STEP_SUMMARY"
 
-  check:
+  # Deployment, monitoring and workflow checks need no JVM, so they run beside the Gradle legs instead of before them.
+  infrastructure:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -163,18 +164,6 @@ jobs:
             prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0 \
             check config /etc/prometheus/prometheus.yaml
 
-      - name: Set up Java 25
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
-
-      - name: Build and verify
-        run: ./gradlew clean check --no-daemon
-
       - name: Verify Grafana SSO credential boundary
         run: python3 -m unittest discover -s infrastructure/observability -p 'test_*.py'
 
@@ -190,12 +179,53 @@ jobs:
       - name: Verify off-host backup and retention
         run: python3 -m unittest discover -s infrastructure/backup -p 'test_*.py'
 
+  # One runner held all four modules' tests, and core alone took eight of its ten minutes while api, sources and
+  # worker competed for the same four CPUs. Each leg now owns a runner; together they are the repository's `check`.
+  backend:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Core has the runner to itself: three JVMs, each with its PostgreSQL container and up to 1.5 GiB heap.
+          - leg: core
+            tasks: ':core:check'
+          - leg: api
+            tasks: ':api:check'
+          - leg: sources-worker
+            tasks: ':sources:check :worker:check'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 25
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+
+      - name: Build and verify
+        env:
+          MEMORYOS_CORE_TEST_FORKS: 3
+          TASKS: ${{ matrix.tasks }}
+        run: |
+          read -ra tasks <<< "$TASKS"
+          ./gradlew clean "${tasks[@]}" --no-daemon
+
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: backend-tests
+          name: backend-tests-${{ matrix.leg }}
           path: |
             core/build/test-results/test/*.xml
             sources/build/test-results/test/*.xml
@@ -205,7 +235,7 @@ jobs:
           retention-days: 3
 
       - name: Upload core test heap diagnostics
-        if: ${{ failure() }}
+        if: ${{ failure() && matrix.leg == 'core' }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -261,7 +291,7 @@ jobs:
       fail-fast: false
       matrix:
         # Playwright's CI guidance: one worker per runner, scale with shards. fullyParallel splits by test.
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
       options: --user 1001
@@ -684,7 +714,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, check, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets]
+    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -699,10 +729,10 @@ jobs:
             | def selected(name; jobs): if $area[name] == "true"
                 then all(jobs[]; $jobs[.].result == "success")
                 else all(jobs[]; $jobs[.].result == "skipped") end;
-            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "frontend-preview", "interpreter", "landing", "secrets"]
+            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
-            and selected("backend"; ["check", "backend-images"])
+            and selected("backend"; ["infrastructure", "backend", "backend-images"])
             and selected("web"; ["frontend-check", "frontend", "frontend-preview", "frontend-image"])
             and selected("landing"; ["landing"])
             and selected("interpreter"; ["interpreter"])
