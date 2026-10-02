@@ -23,12 +23,16 @@ One pull request.
 - [x] **Documents.** [ADR 0020](../../../decisions/0020-trusted-mcp-apps-kept-in-memoryos.md), the audit spec and
   matrix, the runbooks, the MEM-114 increment, the roadmap.
 - [ ] CI green.
-- [ ] **Staging, before the merge**, each step with the owner's approval, so the API never runs without its account:
+- [x] **Staging, before the merge** (done 2026-10-03 with the owner's approval), so the API never runs without its
+  account:
   1. Create `/apps/memoryos/secrets/keycloak/mcp-admin-client-secret.txt` (`deploy.sh` refuses a release whose secret
      files are missing).
   2. Run this branch's realm script with `MEMORYOS_MCP_ADMIN_CLIENT_SECRET`. It talks only to Keycloak, so the running
      release is untouched: it creates the account, keeps the live trusted hosts, sets the 180-day maximum and the
      7-day SSO session, and deletes `memoryos-chatgpt`.
+  Checked afterwards: SSO idle and maximum 604800 s, offline idle 2592000 s and maximum 15552000 s; the trusted
+  hosts unchanged (Claude and ChatGPT); `memoryos-chatgpt` gone, the Claude and ChatGPT document clients kept;
+  `memoryos-mcp-admin` obtains a token with the secret file.
 - [ ] Merge after the owner's approval; the deployment follows.
 - [ ] **Staging, after the deployment:** the page lists Claude and ChatGPT as manageable; switching ChatGPT off and on
   revokes and restores its connection; a call appears under *Hoạt động*; the dashboard row draws; after more than
