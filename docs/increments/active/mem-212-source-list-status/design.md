@@ -5,7 +5,7 @@
 A design critique of the web application on 2026-10-02 (Impeccable `critique`, 24/40) found the Sources list the weakest administration surface. This increment is its first fix batch, frontend only:
 
 1. **P1-1** The Sources table (`/admin` and *Thư viện › Tổ chức › Nguồn dữ liệu*) is `min-w-6xl` inside a horizontal scroller, and the Users table is `min-w-224`. At 390 px only the name and one other column show; status, access and the manage action sit off-screen with no cue. Both must be usable on a phone and at 200 % zoom.
-2. **P1-2** Access (*All members*, *Specific groups*, *Sync permissions*) is painted in status tones copied from Onyx: *Specific groups* is the same orange as *Paused*, against the rule that status colours carry state only ([design tokens](../../../guidelines/design-tokens.md)). A status the client does not know renders as *Scheduled*. A failed Source shows no reason although the list response carries `errorCode`.
+2. **P1-2** Access (*All members*, *Specific groups*, *Sync permissions*) is painted in status tones copied from Onyx: *Specific groups* is the same orange as *Paused*, against the rule that status colours carry state only ([design tokens](../../../guidelines/design-tokens.md)). A status the client does not know renders as *Scheduled*.
 3. **P1-3** The same word, *Active*, is a solid pill on Sources and a soft badge on Users.
 4. **P2-1** Every provider group repeats a four-figure summary row and a full column header, so three providers show the header three times.
 5. **P2-2** A failed list load reads *Sources unavailable*, which sounds as if the Sources themselves are down.
@@ -24,7 +24,7 @@ Owner decisions (2026-10-02): access becomes a neutral outline badge with its ic
 ### Status and access badges (`features/sources/shared/`)
 
 - `SourceStatusBadge` uses `StatusBadge`'s default soft variant. `NOT_STARTED` keeps *Scheduled*; a status the client does not know gets its own neutral *Unknown* (the catalog's existing *Chưa rõ*) with a help icon instead of borrowing *Scheduled*.
-- A `FAILED` row prints the reason under its badge: `sourceStatusMessage(errorCode)`, the same safe copy the Source's file panel already shows, clamped to two lines with the full text in `title`. A member's list has no `errorCode` and shows none.
+- A `FAILED` row shows its badge alone. A first version printed `sourceStatusMessage(errorCode)` under the badge; the owner rejected it on 2026-10-02: Onyx's connector table shows the badge only, and the reason already sits on the Source's detail page (`source-files-panel.tsx`, `history/source-item-history.tsx`). The list keeps leading the group with the failure.
 - `SourceAccessBadge` becomes the registry `Badge` with `variant="outline"`, its icon and label: access is not a state, so it takes no status tone. The Source detail page uses the same badges and changes with them.
 
 ### Load failure copy

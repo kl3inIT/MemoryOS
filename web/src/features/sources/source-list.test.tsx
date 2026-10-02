@@ -10,7 +10,6 @@ const handbooks: SourceListItem = {
   access: "PUBLIC",
   status: "ACTIVE",
   lastSucceededAt: "2026-09-20T08:00:00Z",
-  errorCode: null,
 };
 
 function renderList(sources: SourceListItem[]) {
@@ -28,7 +27,7 @@ function renderList(sources: SourceListItem[]) {
   );
 }
 
-it("leads its group with a failed Source and says why it failed", () => {
+it("leads its group with a failed Source and names a status it does not know", () => {
   renderList([
     handbooks,
     {
@@ -36,7 +35,6 @@ it("leads its group with a failed Source and says why it failed", () => {
       id: "20000000-0000-4000-8000-000000000002",
       name: "Contracts",
       status: "FAILED",
-      errorCode: "SEARCH_INDEX_NO_TEXT",
     },
     {
       ...handbooks,
@@ -56,13 +54,6 @@ it("leads its group with a failed Source and says why it failed", () => {
     "source-20000000-0000-4000-8000-000000000001",
     "source-20000000-0000-4000-8000-000000000003",
   ]);
-  const reason = "The file contains no searchable text.";
-  expect(
-    within(screen.getByRole("row", { name: /Contracts/ })).getAllByText(reason),
-  ).not.toHaveLength(0);
-  expect(
-    within(screen.getByRole("row", { name: /Handbooks/ })).queryByText(reason),
-  ).not.toBeInTheDocument();
   // An unknown status says so instead of passing for a scheduled Source.
   const archive = screen.getByRole("row", { name: /Archive/ });
   expect(within(archive).getByText("Unknown")).toBeInTheDocument();

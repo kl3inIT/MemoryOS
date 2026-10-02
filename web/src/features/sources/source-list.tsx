@@ -26,7 +26,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
-import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import {
   findSourceProvider,
   sourceProviders,
@@ -53,8 +52,6 @@ export type SourceListItem = {
   status: string;
   access: SourceSummary["access"];
   lastSucceededAt: string | null;
-  /** Why the Source failed, for readers allowed to know; a member's list carries none. */
-  errorCode?: string | null;
 };
 
 /**
@@ -397,10 +394,6 @@ function SourceGroupBody<T extends SourceListItem>({
 
 function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: RowRendering<T> }) {
   const ui = useAppTranslation();
-  const failure =
-    source.status === "FAILED" && source.errorCode
-      ? ui(sourceStatusMessage(source.errorCode))
-      : null;
   const documents = row.documents(source);
 
   return (
@@ -417,11 +410,6 @@ function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: 
           ) : null}
         </span>
         {row.renderAccess ? <span className="@4xl:hidden">{row.renderAccess(source)}</span> : null}
-        {failure ? (
-          <span className="mt-1 block font-secondary-body text-status-danger-content @4xl:hidden">
-            {failure}
-          </span>
-        ) : null}
       </TableCell>
       <TableCell className="hidden px-4 @4xl:table-cell">
         <span className="font-secondary-body text-content-muted">
@@ -430,14 +418,6 @@ function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: 
       </TableCell>
       <TableCell className="px-2 py-2.5 @4xl:px-4">
         <SourceStatusBadge status={source.status} />
-        {failure ? (
-          <span
-            title={failure}
-            className="mt-1 hidden font-secondary-body text-status-danger-content @4xl:line-clamp-2"
-          >
-            {failure}
-          </span>
-        ) : null}
       </TableCell>
       <TableCell className="hidden px-4 @4xl:table-cell">
         <SourceAccessBadge access={source.access} />
