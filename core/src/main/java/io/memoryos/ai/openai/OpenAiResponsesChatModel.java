@@ -6,6 +6,7 @@ import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseStreamEvent;
 import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.TurnFailure;
+import io.memoryos.ai.TurnFailureException;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
@@ -83,11 +84,19 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
                     try { assembler.accept(event); } catch (RuntimeException failure) { sink.error(failure); }
                 }
                 @Override public void onComplete(Optional<Throwable> error) {
-                    if (error.isPresent()) sink.error((OpenAiFailures.credentialRejected(error.get())
-                            ? TurnFailure.PROVIDER_CREDENTIAL_REJECTED : TurnFailure.PROVIDER_UNAVAILABLE).exception());
+                    if (error.isPresent()) sink.error(failure(error.get(), options.getReasoningEffort()));
                     else if (!assembler.finished()) sink.error(TurnFailure.INCOMPLETE_RESPONSE.exception());
                 }
             });
         }, FluxSink.OverflowStrategy.BUFFER);
+    }
+
+    /** A provider failure without its text; a refused reasoning effort also names the effort the model accepts. */
+    private static TurnFailureException failure(Throwable error, @Nullable String effort) {
+        if (OpenAiFailures.credentialRejected(error)) return TurnFailure.PROVIDER_CREDENTIAL_REJECTED.exception();
+        var failure = TurnFailure.PROVIDER_UNAVAILABLE.exception();
+        String accepted = OpenAiReasoningFallback.replacementFor(error, effort);
+        if (accepted != null && !accepted.equals(effort)) failure.initCause(new OpenAiReasoningFallback.Refused(accepted));
+        return failure;
     }
 }
