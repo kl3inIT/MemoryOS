@@ -68,6 +68,7 @@ export const vietnameseUi: Record<string, string> = {
   "Mọi ứng dụng": "All apps",
   "Mọi công cụ": "All tools",
   "Mọi kết quả": "All outcomes",
+  "Tìm theo tên hoặc email": "Search by name or email",
   "Thành công": "Succeeded",
   "Bị từ chối": "Refused",
   "Thất bại": "Failed",

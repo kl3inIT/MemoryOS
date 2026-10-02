@@ -42,6 +42,7 @@ export const mcpEndpointAdminSearchSchema = z.object({
   client: z.enum(activityClients).optional().catch(undefined),
   tool: z.enum(activityTools).optional().catch(undefined),
   outcome: z.enum(activityOutcomes).optional().catch(undefined),
+  person: z.string().trim().min(1).max(200).optional().catch(undefined),
   days: z
     .union([z.literal(7), z.literal(30)])
     .default(7)

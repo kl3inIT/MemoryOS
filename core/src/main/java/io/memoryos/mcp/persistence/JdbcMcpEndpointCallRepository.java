@@ -1,5 +1,6 @@
 package io.memoryos.mcp.persistence;
 
+import io.memoryos.shared.LikePattern;
 import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -28,7 +29,7 @@ public class JdbcMcpEndpointCallRepository {
                       String clientId, String clientKind, String tool, String outcome) {}
 
     public record Filter(@Nullable Instant from, @Nullable Instant to, @Nullable String clientKind,
-                         @Nullable String tool, @Nullable String outcome) {}
+                         @Nullable String tool, @Nullable String outcome, @Nullable String person) {}
 
     public record Cursor(Instant occurredAt, UUID id) {}
 
@@ -60,6 +61,7 @@ public class JdbcMcpEndpointCallRepository {
                   AND (CAST(:kind AS VARCHAR) IS NULL OR c.client_kind = CAST(:kind AS VARCHAR))
                   AND (CAST(:tool AS VARCHAR) IS NULL OR c.tool = CAST(:tool AS VARCHAR))
                   AND (CAST(:outcome AS VARCHAR) IS NULL OR c.outcome = CAST(:outcome AS VARCHAR))
+                  AND (CAST(:person AS VARCHAR) IS NULL OR p.display_name ILIKE :pattern OR p.email ILIKE :pattern)
                   AND (CAST(:afterAt AS TIMESTAMPTZ) IS NULL
                        OR (c.occurred_at, c.id) < (CAST(:afterAt AS TIMESTAMPTZ), CAST(:afterId AS UUID)))
                 ORDER BY c.occurred_at DESC, c.id DESC
@@ -69,6 +71,8 @@ public class JdbcMcpEndpointCallRepository {
                 .param("to", time(filter.to()), Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("kind", filter.clientKind(), Types.VARCHAR).param("tool", filter.tool(), Types.VARCHAR)
                 .param("outcome", filter.outcome(), Types.VARCHAR)
+                .param("person", filter.person(), Types.VARCHAR)
+                .param("pattern", filter.person() == null ? null : LikePattern.containing(filter.person()), Types.VARCHAR)
                 .param("afterAt", after == null ? null : time(after.occurredAt()), Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("afterId", after == null ? null : after.id(), Types.OTHER)
                 .param("limit", limit).query(JdbcMcpEndpointCallRepository::row).list();

@@ -6,13 +6,14 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { Activity, CircleAlert } from "lucide-react";
-import { useMemo } from "react";
+import { Activity, CircleAlert, Search } from "lucide-react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
 import { cursorTablePaging, useCursorPaging } from "@/components/data-table/use-cursor-paging";
 import { EmptyState } from "@/components/composites/empty-state";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { AppCopy } from "@/i18n/app-text";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -188,9 +190,10 @@ export function McpEndpointActivity() {
       client: filters.client,
       tool: filters.tool,
       outcome: filters.outcome,
+      person: filters.person,
       size: PAGE_SIZE,
     }),
-    [filters.period, filters.client, filters.tool, filters.outcome],
+    [filters.period, filters.client, filters.tool, filters.outcome, filters.person],
   );
   return (
     <>
@@ -210,6 +213,19 @@ function ActivityFilters({ filters }: { filters: McpEndpointAdminSearch }) {
       replace: true,
       resetScroll: false,
     });
+  const [text, setText] = useState(filters.person ?? "");
+  const [shownText, setShownText] = useState(filters.person);
+  if (shownText !== filters.person) {
+    // Back and forward change the searched person; the box follows it.
+    setShownText(filters.person);
+    if ((text.trim() || undefined) !== filters.person) setText(filters.person ?? "");
+  }
+  // The typed name reaches the address once typing pauses.
+  const searched = useDebouncedValue(text.trim() || undefined, 300);
+  const writeSearch = useEffectEvent((person: string | undefined) => {
+    if (person !== filters.person) setFilters({ person });
+  });
+  useEffect(() => writeSearch(searched), [searched]);
 
   return (
     <div
@@ -297,6 +313,18 @@ function ActivityFilters({ filters }: { filters: McpEndpointAdminSearch }) {
           </SelectGroup>
         </SelectContent>
       </Select>
+      <InputGroup className="col-span-2 sm:min-w-56 sm:flex-1">
+        <InputGroupAddon>
+          <Search aria-hidden="true" />
+        </InputGroupAddon>
+        <InputGroupInput
+          value={text}
+          maxLength={200}
+          onChange={(event) => setText(event.target.value)}
+          placeholder={ui("Tìm theo tên hoặc email")}
+          aria-label={ui("Tìm theo tên hoặc email")}
+        />
+      </InputGroup>
     </div>
   );
 }

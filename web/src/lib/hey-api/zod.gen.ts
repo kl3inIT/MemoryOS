@@ -4925,6 +4925,7 @@ export const zListMcpEndpointActivityQuery = z.object({
         'FAILED',
         'RATE_LIMITED'
     ]).optional(),
+    person: z.string().min(0).max(200).optional(),
     cursor: z.string().min(0).max(200).optional(),
     size: z.int().gte(1).lte(100).optional().default(50)
 });

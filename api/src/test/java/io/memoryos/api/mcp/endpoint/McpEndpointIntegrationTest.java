@@ -506,6 +506,21 @@ class McpEndpointIntegrationTest {
         var claudeOnly = json(api(owner, "GET", "/api/mcp/endpoint/activity?client=CLAUDE&size=1", null).body());
         assertEquals(1, claudeOnly.path("calls").size(), claudeOnly.toString());
 
+        // A person is found by part of their name or e-mail address; a % is searched for, not a wildcard.
+        jdbc.sql("""
+                INSERT INTO actor_profiles(actor_id, issuer, subject, display_name, email, email_verified, observed_at)
+                SELECT actor_id, issuer, subject, 'Trần Thu Hà', 'ha.tt@tasco.com.vn', TRUE, now()
+                FROM external_identity_bindings WHERE subject = :subject
+                ON CONFLICT (actor_id) DO UPDATE SET display_name = EXCLUDED.display_name, email = EXCLUDED.email
+                """).param("subject", OWNER).update();
+        var byName = json(api(owner, "GET", "/api/mcp/endpoint/activity?person=thu%20h", null).body());
+        assertEquals(2, byName.path("calls").size(), byName.toString());
+        assertEquals("Trần Thu Hà", byName.path("calls").get(0).path("actorName").asText());
+        assertEquals(2, json(api(owner, "GET", "/api/mcp/endpoint/activity?person=TASCO.COM", null).body())
+                .path("calls").size());
+        assertEquals(0, json(api(owner, "GET", "/api/mcp/endpoint/activity?person=%25", null).body())
+                .path("calls").size());
+
         var insights = json(api(owner, "GET", "/api/mcp/endpoint/insights?days=7", null).body());
         assertEquals(2, insights.path("calls").asLong(), insights.toString());
         assertEquals(1, insights.path("people").asLong(), insights.toString());

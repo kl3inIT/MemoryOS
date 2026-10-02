@@ -71,8 +71,9 @@ write it is logged and swallowed, so the log never fails a call.
 **Who reads it.** Holders of `MCP_MANAGE`, the people who switch the endpoint and trust its apps. `AUDIT_READ` does
 not reach it: the audit trail records administrators' changes, and a member reading what they may read is not one.
 
-**Pages.** *Hoạt động*: the calls newest first, filtered by period (24 hours to 90 days), app, tool and outcome, with
-cursor pages; the filters live in the address. *Thống kê*: for the last 7 or 30 UTC days, calls, people, failures and
+**Pages.** *Hoạt động*: the calls newest first, filtered by period (24 hours to 90 days), app, tool, outcome and
+person (part of a name or e-mail address, as the audit log searches), with cursor pages; the filters live in the
+address. *Thống kê*: for the last 7 or 30 UTC days, calls, people, failures and
 refusals for rate, the calls of each day, and the calls and people of each app and tool.
 
 **Retention.** The worker removes rows older than 90 days every hour, in batches of 5,000.

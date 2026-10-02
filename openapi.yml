@@ -5832,6 +5832,14 @@ paths:
           - REFUSED
           - FAILED
           - RATE_LIMITED
+      - name: person
+        in: query
+        description: Part of the person's name or e-mail address
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
       - name: cursor
         in: query
         description: The next value of the previous page

@@ -7975,6 +7975,10 @@ export type ListMcpEndpointActivityData = {
         tool?: string;
         outcome?: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
         /**
+         * Part of the person's name or e-mail address
+         */
+        person?: string;
+        /**
          * The next value of the previous page
          */
         cursor?: string;

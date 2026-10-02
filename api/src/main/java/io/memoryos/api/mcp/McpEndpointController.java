@@ -136,11 +136,13 @@ class McpEndpointController {
             @RequestParam(required = false) McpClientGrant.@Nullable Client client,
             @RequestParam(required = false) @Size(max = 64) @Nullable String tool,
             @RequestParam(required = false) McpEndpointActivity.@Nullable Outcome outcome,
+            @Parameter(description = "Part of the person's name or e-mail address")
+            @RequestParam(required = false) @Size(max = 200) @Nullable String person,
             @Parameter(description = "The next value of the previous page")
             @RequestParam(required = false) @Size(max = 200) @Nullable String cursor,
             @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
         return McpEndpointCallPageResponse.from(activity.page(identity.actorId(),
-                new McpEndpointActivity.Filter(from, to, client, tool, outcome), cursor, size));
+                new McpEndpointActivity.Filter(from, to, client, tool, outcome, person), cursor, size));
     }
 
     @GetMapping("/insights")

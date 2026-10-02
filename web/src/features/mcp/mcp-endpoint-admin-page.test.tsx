@@ -288,6 +288,10 @@ describe("MemoryOS MCP administration", () => {
       outcome: "RATE_LIMITED",
       client: "CHATGPT",
     });
+
+    await user.type(screen.getByRole("textbox", { name: "Search by name or email" }), "Thu Hà");
+    await waitFor(() => expect(requested.at(-1)!.searchParams.get("person")).toBe("Thu Hà"));
+    expect(router?.state.location.search).toMatchObject({ person: "Thu Hà" });
   });
 
   it("counts calls, people, failures and refusals for rate, and by app and tool", async () => {

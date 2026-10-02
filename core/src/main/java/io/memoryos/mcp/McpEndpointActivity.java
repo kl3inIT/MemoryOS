@@ -57,8 +57,14 @@ public class McpEndpointActivity {
 
     public record Page(List<Call> calls, @Nullable String next) {}
 
+    /** Every filter is optional; {@code person} matches part of the person's name or e-mail address. */
     public record Filter(@Nullable Instant from, @Nullable Instant to, McpClientGrant.@Nullable Client client,
-                         @Nullable String tool, @Nullable Outcome outcome) {}
+                         @Nullable String tool, @Nullable Outcome outcome, @Nullable String person) {
+        public Filter {
+            person = person == null || person.isBlank() ? null : person.strip();
+            if (person != null && person.length() > 200) throw McpException.invalid("Search text is too long.");
+        }
+    }
 
     public record Count(String key, String name, long calls, long people) {}
 
@@ -91,7 +97,7 @@ public class McpEndpointActivity {
         }
         var rows = calls.page(tenant, new JdbcMcpEndpointCallRepository.Filter(filter.from(), filter.to(),
                         filter.client() == null ? null : filter.client().name(), filter.tool(),
-                        filter.outcome() == null ? null : filter.outcome().name()),
+                        filter.outcome() == null ? null : filter.outcome().name(), filter.person()),
                 decode(cursor), size + 1);
         var page = new ArrayList<Call>(Math.min(rows.size(), size));
         for (var row : rows.subList(0, Math.min(rows.size(), size))) {
