@@ -95,8 +95,8 @@ public class ModelCatalogRepository {
     public Optional<LlmProvider> provider(UUID tenant, UUID id) {
         return providers.findByTenantIdAndId(tenant, id).map(ModelCatalogRepository::provider);
     }
-    public void insertProvider(LlmProvider p, @Nullable String builtinKey) {
-        var entity = new LlmProviderEntity(p.id(), p.tenantId(), builtinKey, p.adapterType());
+    public void insertProvider(LlmProvider p) {
+        var entity = new LlmProviderEntity(p.id(), p.tenantId(), p.adapterType());
         entity.update(p.name(), p.baseUrl(), p.enabled(), p.isPublic(), p.credential(), p.groupIds(), p.personaIds(), p.dataBoundary());
         providers.saveAndFlush(entity);
     }
