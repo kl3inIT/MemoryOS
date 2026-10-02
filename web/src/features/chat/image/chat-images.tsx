@@ -32,7 +32,7 @@ export function ChatImages() {
             data-slot="image-deleted"
             className="rounded-lg border border-border-default px-3 py-2 text-sm text-content-muted"
           >
-            {ui("Ảnh đã bị xoá")}
+            {ui("Ảnh đã bị xóa")}
           </p>
         ) : (
           <ImageGeneration

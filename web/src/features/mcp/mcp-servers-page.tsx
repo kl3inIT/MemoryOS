@@ -145,12 +145,12 @@ export function McpServersPage() {
       {removing ? (
         <ConfirmDialog
           open
-          title={ui("Xoá máy chủ MCP?")}
+          title={ui("Xóa máy chủ MCP?")}
           description={ui(
-            "Công cụ và mọi thông tin đăng nhập đã lưu của máy chủ này sẽ bị xoá. Không hoàn tác được.",
+            "Công cụ và mọi thông tin đăng nhập đã lưu của máy chủ này sẽ bị xóa. Không hoàn tác được.",
           )}
-          confirmLabel={ui("Xoá")}
-          pendingLabel={ui("Đang xoá")}
+          confirmLabel={ui("Xóa")}
+          pendingLabel={ui("Đang xóa")}
           confirmTone="danger"
           onConfirm={async () => {
             await remove.mutateAsync({
@@ -248,7 +248,7 @@ function McpServerCard({
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem variant="destructive" onSelect={onRemove}>
-                    <Trash2 /> {ui("Xoá máy chủ")}
+                    <Trash2 /> {ui("Xóa máy chủ")}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
@@ -278,7 +278,7 @@ function ConnectionOutcome({ outcome }: { outcome: string }) {
     outcome === "connected"
       ? { tone: "success" as const, text: "Đã kết nối máy chủ MCP." }
       : outcome === "authorization-cancelled"
-        ? { tone: "neutral" as const, text: "Bạn đã huỷ việc cấp quyền." }
+        ? { tone: "neutral" as const, text: "Bạn đã hủy việc cấp quyền." }
         : outcome === "issuer-mismatch"
           ? { tone: "danger" as const, text: "Máy chủ cấp quyền không khớp cấu hình đã lưu." }
           : outcome === "configuration-changed"

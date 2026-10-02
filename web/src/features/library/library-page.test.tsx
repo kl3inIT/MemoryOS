@@ -262,10 +262,10 @@ it("deletes each selected file through its own route and reports a refusal", asy
   );
 
   await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
-  await user.click(screen.getByRole("button", { name: "Xoá" }));
+  await user.click(screen.getByRole("button", { name: "Xóa" }));
   // The dialog's own confirm button, not the toolbar one that opened it.
   await user.click(
-    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá" }),
+    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xóa" }),
   );
 
   await waitFor(() => expect(deletedImages).toEqual([image.id]));
@@ -288,9 +288,9 @@ it("names the project holding an upload when the server refuses the deletion", a
   );
 
   await user.click(screen.getByRole("button", { name: "Thao tác với ghi-chú.pdf" }));
-  await user.click(await screen.findByRole("menuitem", { name: "Xoá" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Xóa" }));
   await user.click(
-    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá" }),
+    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xóa" }),
   );
 
   expect(await screen.findByText("ghi-chú.pdf: Đang dùng trong Kế hoạch")).toBeInTheDocument();
@@ -364,8 +364,8 @@ it("takes files straight into the library, showing each upload's progress", asyn
   act(() => report?.(40));
   expect(await within(tray).findByText("40%")).toBeInTheDocument();
   // Cancelling one upload stops it and says so, without touching the others.
-  await user.click(within(tray).getByRole("button", { name: "Huỷ tải hop-dong.pdf" }));
-  expect(await within(tray).findByText("Đã huỷ")).toBeInTheDocument();
+  await user.click(within(tray).getByRole("button", { name: "Hủy tải hop-dong.pdf" }));
+  expect(await within(tray).findByText("Đã hủy")).toBeInTheDocument();
 });
 
 it("lists uploads still being processed separately, with retry", async () => {
@@ -571,7 +571,7 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
 
   // The confirmation says where the file goes, not that it is gone.
   await user.click(screen.getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
-  await user.click(await screen.findByRole("menuitem", { name: "Xoá" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Xóa" }));
   expect(await screen.findByText(/nằm trong thùng rác 30 ngày/)).toBeInTheDocument();
   await user.keyboard("{Escape}");
 
@@ -579,15 +579,15 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   await user.click(screen.getByRole("radio", { name: "Thùng rác" }));
 
   await waitFor(() => expect(lastListed()).toMatchObject({ status: "TRASH", sort: "DELETED" }));
-  expect(await screen.findByText(/Tệp đã xoá được giữ 30 ngày/)).toBeInTheDocument();
+  expect(await screen.findByText(/Tệp đã xóa được giữ 30 ngày/)).toBeInTheDocument();
 
   await user.click(await screen.findByRole("button", { name: "Khôi phục" }));
   await waitFor(() => expect(restored).toEqual([{ source: "GENERATED", id: trashed.id }]));
   expect(await screen.findByText("Đã khôi phục da-xoa.xlsx.")).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Xoá vĩnh viễn da-xoa.xlsx" }));
+  await user.click(screen.getByRole("button", { name: "Xóa vĩnh viễn da-xoa.xlsx" }));
   await user.click(
-    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá vĩnh viễn" }),
+    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xóa vĩnh viễn" }),
   );
   await waitFor(() => expect(purged).toEqual([{ source: "GENERATED", id: trashed.id }]));
 
@@ -596,7 +596,7 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Dọn sạch" }),
   );
   await waitFor(() => expect(emptied).toBe(true));
-  expect(await screen.findByText("Đã xoá vĩnh viễn 3 tệp.")).toBeInTheDocument();
+  expect(await screen.findByText("Đã xóa vĩnh viễn 3 tệp.")).toBeInTheDocument();
 });
 
 it("narrows Tệp của tôi to its starred files, and takes that filter off like any other", async () => {
@@ -622,7 +622,7 @@ it("says what an empty view means and offers the way out of a filter", async () 
 
   await user.type(screen.getByRole("textbox", { name: "Tìm theo tên tệp" }), "khong-co");
   expect(await screen.findByText("Không có tệp nào khớp")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Xoá bộ lọc" }));
+  await user.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
   expect(await screen.findByText("Thư viện đang trống")).toBeInTheDocument();
 
   await user.click(screen.getByRole("radio", { name: "Thùng rác" }));
@@ -651,10 +651,10 @@ it("keeps the library's own settings on the library: what is stored and how long
   // The meter, what the deployment allows, and the trash window are read here rather than in an admin page.
   expect(within(panel).getByText(/3 KB \/ 10 KB/)).toBeInTheDocument();
   expect(
-    within(panel).getByText("Tệp đã xoá được giữ 30 ngày rồi xoá vĩnh viễn."),
+    within(panel).getByText("Tệp đã xóa được giữ 30 ngày rồi xóa vĩnh viễn."),
   ).toBeInTheDocument();
   // Without Chat the panel has no conversation retention to offer.
-  expect(within(panel).queryByRole("combobox", { name: "Xoá hội thoại sau" })).toBeNull();
+  expect(within(panel).queryByRole("combobox", { name: "Xóa hội thoại sau" })).toBeNull();
 
   // A kind of file narrows the list already behind the panel instead of navigating anywhere.
   await user.click(within(panel).getByRole("button", { name: /Ảnh/ }));

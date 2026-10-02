@@ -358,14 +358,14 @@ function RowMeta({ file, view }: { file: LibraryFile; view: LibraryOwnedView }) 
   if (view === "pending") parts.push(statusLabel(file, ui));
   else if (view === "trash" && file.deletedAt)
     parts.push(
-      ui("Đã xoá {{date}}", { date: new Date(file.deletedAt).toLocaleDateString(i18n.language) }),
+      ui("Đã xóa {{date}}", { date: new Date(file.deletedAt).toLocaleDateString(i18n.language) }),
     );
   else parts.push(sources[file.source]);
   parts.push(categories[file.category]);
   parts.push(fileSize(file.sizeBytes, i18n.language));
   if (view === "trash" && file.purgeAfter)
     parts.push(
-      ui("Xoá vĩnh viễn {{date}}", {
+      ui("Xóa vĩnh viễn {{date}}", {
         date: new Date(file.purgeAfter).toLocaleDateString(i18n.language),
       }),
     );
@@ -577,7 +577,7 @@ export function FileActions({
           >
             <Trash2 />
             {file.deletable
-              ? ui("Xoá")
+              ? ui("Xóa")
               : ui("Đang dùng trong {{name}}", { name: usageLabel(file) })}
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -621,17 +621,17 @@ function TrashActions({
           <IconButton
             size="sm"
             prominence="internal"
-            aria-label={ui("Xoá vĩnh viễn {{name}}", { name: file.filename })}
+            aria-label={ui("Xóa vĩnh viễn {{name}}", { name: file.filename })}
           >
             <Trash2 />
           </IconButton>
         }
-        title={ui("Xoá vĩnh viễn?")}
+        title={ui("Xóa vĩnh viễn?")}
         description={ui(
-          "Tệp và nội dung của nó sẽ bị xoá khỏi kho lưu trữ và không thể khôi phục.",
+          "Tệp và nội dung của nó sẽ bị xóa khỏi kho lưu trữ và không thể khôi phục.",
         )}
-        confirmLabel={ui("Xoá vĩnh viễn")}
-        pendingLabel={ui("Đang xoá…")}
+        confirmLabel={ui("Xóa vĩnh viễn")}
+        pendingLabel={ui("Đang xóa…")}
         confirmTone="danger"
         onConfirm={onPurge}
       />
@@ -754,7 +754,7 @@ export function LibraryEmpty({
     },
     trash: {
       title: ui("Thùng rác trống"),
-      description: ui("Tệp bạn xoá sẽ nằm ở đây trước khi bị xoá vĩnh viễn."),
+      description: ui("Tệp bạn xóa sẽ nằm ở đây trước khi bị xóa vĩnh viễn."),
     },
   };
   return (
@@ -787,11 +787,11 @@ export function LibraryNoMatch({
         </EmptyMedia>
         <EmptyTitle>{title ?? ui("Không có tệp nào khớp")}</EmptyTitle>
         <EmptyDescription>
-          {ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.")}
+          {ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khóa tìm kiếm.")}
         </EmptyDescription>
       </EmptyHeader>
       <Button size="sm" prominence="secondary" onClick={onClearFilters}>
-        {ui("Xoá bộ lọc")}
+        {ui("Xóa bộ lọc")}
       </Button>
     </Empty>
   );

@@ -276,7 +276,7 @@ it("offers the person's conversation retention in the library panel", async () =
   const panel = await screen.findByRole("dialog", { name: "Cài đặt thư viện" });
   // The one setting the panel offers belongs to the person, not to an administrator.
   expect(
-    await within(panel).findByRole("combobox", { name: "Xoá hội thoại sau" }),
+    await within(panel).findByRole("combobox", { name: "Xóa hội thoại sau" }),
   ).toBeInTheDocument();
 });
 
@@ -301,6 +301,6 @@ it("offers the same retention on the storage page", async () => {
   );
 
   // The storage page holds what the library panel holds, exactly as there.
-  expect(await screen.findByRole("combobox", { name: "Xoá hội thoại sau" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Tự xoá hội thoại" })).toBeInTheDocument();
+  expect(await screen.findByRole("combobox", { name: "Xóa hội thoại sau" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Tự xóa hội thoại" })).toBeInTheDocument();
 });

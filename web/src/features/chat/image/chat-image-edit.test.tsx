@@ -66,7 +66,7 @@ it("needs an instruction and closes without sending on cancel", async () => {
   );
   loadImage();
   expect(screen.getByRole("button", { name: "Đưa vào khung chat" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "Xoá vùng tô" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Xóa vùng tô" })).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Hủy" }));
   expect(onOpenChange).toHaveBeenCalledWith(false);
   expect(onSubmit).not.toHaveBeenCalled();

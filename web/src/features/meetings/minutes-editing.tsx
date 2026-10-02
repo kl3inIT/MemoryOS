@@ -104,7 +104,7 @@ function SummaryForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () =
             {(submitting) => (
               <Button size="sm" prominence="tertiary" disabled={submitting} onClick={onDone}>
                 <X data-icon="inline-start" aria-hidden="true" />
-                {ui("Huỷ")}
+                {ui("Hủy")}
               </Button>
             )}
           </form.Subscribe>
@@ -184,7 +184,7 @@ export function EditableItem({
           onClick={() => remove.mutate({ path: { meetingId: meeting.id, itemId: item.id } })}
         >
           <Trash2 data-icon="inline-start" aria-hidden="true" />
-          {ui("Xoá")}
+          {ui("Xóa")}
         </Button>
       }
     />
@@ -323,7 +323,7 @@ function ItemForm({
                 onClick={onCancel}
               >
                 <X data-icon="inline-start" aria-hidden="true" />
-                {ui("Huỷ")}
+                {ui("Hủy")}
               </Button>
             )}
           </form.Subscribe>

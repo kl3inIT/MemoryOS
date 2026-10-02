@@ -85,7 +85,8 @@ function StatBody({
   const TrendIcon = trend ? trendIcons[trend.direction] : null;
   return (
     <>
-      <span className={cn("flex min-w-0 items-center gap-2", statLabelClass)}>
+      {/* A label wraps to a second line rather than losing its end in a narrow tile, as three tiles are on a phone. */}
+      <span className={cn("flex min-w-0 items-start gap-2", statLabelClass)}>
         {icon && (
           <span
             aria-hidden="true"
@@ -94,7 +95,7 @@ function StatBody({
             {icon}
           </span>
         )}
-        <span className="truncate">{label}</span>
+        <span className="line-clamp-2">{label}</span>
       </span>
       {loading ? (
         <Skeleton className="mt-1.5 h-6 w-20" />
@@ -103,7 +104,7 @@ function StatBody({
           // A long figure keeps the tile's width; the full text stays available on hover.
           title={typeof value === "string" ? value : undefined}
           className={cn(
-            "mt-1 block truncate",
+            "mt-auto block truncate pt-1",
             statValueClass,
             tone === "warning" && "text-status-warning-content",
             tone === "danger" && "text-status-danger-content",
@@ -123,7 +124,8 @@ function StatBody({
   );
 }
 
-const tileClass = "min-w-0 bg-surface-raised px-4 py-3";
+// Figures sit at the foot of their tile, so a tile whose label wraps keeps them level with the rest of the strip.
+const tileClass = "flex min-w-0 flex-col bg-surface-raised px-4 py-3";
 
 export function StatTile(props: StatTileProps) {
   return (

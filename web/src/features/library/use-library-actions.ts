@@ -106,7 +106,7 @@ export function useLibraryActions({
       },
       (count) =>
         trashDays === 0
-          ? ui("Đã xoá vĩnh viễn {{count}} tệp.", { count })
+          ? ui("Đã xóa vĩnh viễn {{count}} tệp.", { count })
           : ui("Đã chuyển {{count}} tệp vào thùng rác.", { count }),
     );
 
@@ -124,7 +124,7 @@ export function useLibraryActions({
       targets,
       (file) => purge.mutateAsync({ ...pathOf(file), signal: AbortSignal.timeout(commandTimeout) }),
       (_file, failure) => actionErrorText(failure),
-      (count) => ui("Đã xoá vĩnh viễn {{count}} tệp.", { count }),
+      (count) => ui("Đã xóa vĩnh viễn {{count}} tệp.", { count }),
     );
 
   const emptyTheTrash = () =>
@@ -132,7 +132,7 @@ export function useLibraryActions({
       const { purged } = await emptyTrash.mutateAsync({
         signal: AbortSignal.timeout(commandTimeout),
       });
-      return ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: purged });
+      return ui("Đã xóa vĩnh viễn {{count}} tệp.", { count: purged });
     }, ui("Đã dọn sạch thùng rác."));
 
   const rename = (file: LibraryFile, filename: string) =>
@@ -181,7 +181,7 @@ export function useLibraryActions({
     onPurge: (file) =>
       act(
         () => purge.mutateAsync({ ...pathOf(file), signal: AbortSignal.timeout(commandTimeout) }),
-        ui("Đã xoá vĩnh viễn {{name}}.", { name: file.filename }),
+        ui("Đã xóa vĩnh viễn {{name}}.", { name: file.filename }),
       ),
     onRetried: invalidate,
     onRemoveFromProject:

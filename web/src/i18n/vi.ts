@@ -102,7 +102,7 @@ export const vi = {
     settings: "Cài đặt",
     general: "Chung",
     admin: "Quản trị",
-    owner: "Chủ tổ chức",
+    owner: "Chủ sở hữu",
     member: "Thành viên",
     lightTheme: "Dùng giao diện sáng",
     darkTheme: "Dùng giao diện tối",

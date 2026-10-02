@@ -1,5 +1,4 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import {
@@ -27,18 +26,17 @@ export function SourceStatusBadge({ status }: { status: string }) {
   );
 }
 
-export function SourceAccessBadge({ access }: { access: SourceSummary["access"] }) {
+/** Who may read the Source, as plain text with its icon: access is neither a state nor a control. */
+export function SourceAccess({ access }: { access: SourceSummary["access"] }) {
   const ui = useAppTranslation();
   const presentation = sourceAccessPresentation[access];
   const AccessIcon = presentation.icon;
 
   return (
     <SourceHint hint={ui(presentation.title)}>
-      <span className="inline-flex">
-        <Badge variant="outline">
-          <AccessIcon data-icon="inline-start" aria-hidden="true" />
-          {ui(presentation.label)}
-        </Badge>
+      <span className="inline-flex items-center gap-1 font-secondary-body text-content-secondary">
+        <AccessIcon className="size-3.5 shrink-0" aria-hidden="true" />
+        {ui(presentation.label)}
       </span>
     </SourceHint>
   );
