@@ -4253,9 +4253,7 @@ class ChatSessionApiIntegrationTest {
     @Test
     void minutesThatCannotBeWrittenSayWhyAndARefusedKeyIsNotRetried() throws Exception {
         var refused = new AtomicBoolean(true);
-        var calls = new AtomicInteger();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
-            calls.incrementAndGet();
             if (refused.get()) throw UnauthorizedException.builder().headers(Headers.builder().build()).build();
             return response("Biên bản cuộc họp: chốt ngân sách.", "stop", 10);
         });
@@ -4266,6 +4264,8 @@ class ChatSessionApiIntegrationTest {
                     VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'RECORDING', NULL)
                     """).param("tenant", TENANT).param("id", meeting).param("owner", actor.getPrincipal().actorId().value())
                     .update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name) VALUES (:tenant, :meeting, 'MIC', '1', NULL)")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
             jdbc.sql("""
                     INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
                     VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 4000, 'Chốt ngân sách quý 4 trước thứ Năm.', 0.9)
@@ -4274,21 +4274,24 @@ class ChatSessionApiIntegrationTest {
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
 
             // A refused key fails the same way on every attempt, so the first failure is the last.
-            var failed = failedMinutes(meeting);
-            assertEquals("CHAT_PROVIDER_CREDENTIAL_REJECTED", failed.path("failure").asText());
-            assertEquals(1, calls.get(), "a refused key is not retried");
+            assertEquals("CHAT_PROVIDER_CREDENTIAL_REJECTED", failedMinutes(meeting).path("failure").asText());
+            assertEquals(1, minutesAttempts(meeting), "a refused key is not retried");
 
             // An answer that is not the minutes may read on the next attempt, so it is retried before it fails.
             refused.set(false);
             mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
             assertEquals("CHAT_MODEL_ANSWER_UNREADABLE", failedMinutes(meeting).path("failure").asText());
-            assertEquals(3, jdbc.sql("SELECT minutes_attempts FROM meeting WHERE tenant_id=:tenant AND id=:id")
-                    .param("tenant", TENANT).param("id", meeting).query(Integer.class).single());
+            assertEquals(3, minutesAttempts(meeting));
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
             jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'").param("tenant", TENANT).update();
         }
+    }
+
+    private int minutesAttempts(UUID meeting) {
+        return jdbc.sql("SELECT minutes_attempts FROM meeting WHERE tenant_id=:tenant AND id=:id")
+                .param("tenant", TENANT).param("id", meeting).query(Integer.class).single();
     }
 
     /** The meeting's minutes once the job has given up on them. */
