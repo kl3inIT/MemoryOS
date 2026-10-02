@@ -53,7 +53,7 @@ class OpenAiProviderAdapterTest {
                 try (var client = adapter.create(connection, "configured-model", settings(options, true), Duration.ofSeconds(5))) {
                     var service = client.binding().service();
                     service.getChatModel().call(new Prompt("Helper", service.convertOptions(new LlmOptions().withMaxTokens(100).withoutThinking())));
-                    assertEquals(lowest.equals("default") ? "minimal" : lowest, request.get().path("reasoning_effort").asString());
+                    assertEquals(lowest.equals("default") ? "none" : lowest, request.get().path("reasoning_effort").asString());
                     assertEquals(100, request.get().path("max_completion_tokens").asInt());
                     assertFalse(request.get().has("max_tokens"));
                     service.getChatModel().call(new Prompt("Answer", service.convertOptions(new LlmOptions().withMaxTokens(200))));

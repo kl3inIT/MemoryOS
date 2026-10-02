@@ -239,14 +239,15 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                 boolean openAi = servedByOpenAi(connection.baseUrl());
                 boolean hostedSearch = supportsNativeWebSearch(settings);
                 boolean summaries = openAi || "auto".equals(settings.options().get("reasoningSummary"));
+                // Either route retries a refused reasoning effort once; only Chat Completions also refuses tools
+                // beside an effort, and its providers stream reasoning beside the answer, published to the turn as
+                // the Responses route does.
                 var model = openAi || hostedSearch || summaries
-                        ? async.decorateNative(view -> new OpenAiResponsesChatModel(
+                        ? new OpenAiReasoningFallback(async.decorateNative(view -> new OpenAiResponsesChatModel(
                                 OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
                                         .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                         .observationRegistry(observations).meterRegistry(meters).build(),
-                                view, settings.capabilities().reasoning(), hostedSearch, summaries, openAi, meters))
-                        // Only the Chat Completions route carries the tools-with-reasoning constraint; its providers
-                        // stream reasoning beside the answer, published to the turn as the Responses route does.
+                                view, settings.capabilities().reasoning(), hostedSearch, summaries, openAi, meters)))
                         : new ChatCompletionsReasoning(new OpenAiReasoningFallback(async.decorate(view -> OpenAiChatModel.builder()
                                 .openAiClient(sync).openAiClientAsync(view)
                                 .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
@@ -275,9 +276,10 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
             var converted = (OpenAiChatOptions) nativeConverter.convertOptions(effective, modelName);
             if (configured.get("reasoningEffort") instanceof String effort) converted = converted.mutate().reasoningEffort(effort).build();
             if (settings.capabilities().reasoning() && options.getThinking() != null && !options.getThinking().getEnabled()) {
-                // This override is applied after binding options. The verified GPT-5 mini baseline supports
-                // minimal, not none; other model configurations declare their supported lowest effort.
-                String effort = (String) configured.getOrDefault("helperReasoningEffort", "minimal");
+                // This override is applied after binding options. None turns reasoning off on GPT-5.1 and later
+                // and on gateways that map it to no thinking; a model that refuses it, as the first GPT-5 family
+                // does, is retried once with the lowest effort it lists (OpenAiReasoningFallback).
+                String effort = (String) configured.getOrDefault("helperReasoningEffort", "none");
                 converted = converted.mutate().reasoningEffort(effort).build();
             }
             return converted;

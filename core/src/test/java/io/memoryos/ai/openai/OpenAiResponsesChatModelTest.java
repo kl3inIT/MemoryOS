@@ -45,6 +45,8 @@ class OpenAiResponsesChatModelTest {
     private final List<String> bodies = new CopyOnWriteArrayList<>();
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private volatile int status = 200;
+    /** Statuses for the first requests, in order; later requests answer with {@link #status}. */
+    private final List<Integer> statuses = new CopyOnWriteArrayList<>();
     private HttpServer server;
     private OpenAIClientAsync client;
 
@@ -54,8 +56,9 @@ class OpenAiResponsesChatModelTest {
         server.createContext("/v1/responses", exchange -> {
             requests.add(JSON.readTree(exchange.getRequestBody().readAllBytes()));
             byte[] body = bodies.get(requests.size() - 1).getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", status == 200 ? "text/event-stream" : "application/json");
-            exchange.sendResponseHeaders(status, body.length);
+            int code = requests.size() <= statuses.size() ? statuses.get(requests.size() - 1) : status;
+            exchange.getResponseHeaders().set("Content-Type", code == 200 ? "text/event-stream" : "application/json");
+            exchange.sendResponseHeaders(code, body.length);
             try (var output = exchange.getResponseBody()) { output.write(body); }
         });
         server.start();
@@ -251,6 +254,35 @@ class OpenAiResponsesChatModelTest {
 
         assertEquals("CHAT_PROVIDER_CREDENTIAL_REJECTED", failure.code());
         assertFalse(failure.getMessage().contains("sk-fixture"));
+    }
+
+    @Test
+    void aRefusedReasoningEffortIsRetriedWithTheEffortTheModelListsAndNoProviderDetail() {
+        // The first GPT-5 family refuses the helper default none and lists what it supports instead.
+        String refusal = "{\"error\":{\"message\":\"Unsupported value: 'reasoning.effort' does not support 'none' with this model. "
+                + "Supported values are: 'minimal', 'low', 'medium', and 'high'.\",\"type\":\"invalid_request_error\","
+                + "\"param\":\"reasoning.effort\",\"code\":\"unsupported_value\"}}";
+        var options = OpenAiChatOptions.builder().model("configured-model").maxCompletionTokens(100).reasoningEffort("none").build();
+        statuses.add(400);
+        bodies.add(refusal);
+        var route = turnModel(new ChatEvidence(), new ArrayList<>(), true);
+
+        var failure = assertThrows(TurnFailureException.class,
+                () -> route.stream(new Prompt(List.of(new UserMessage("Hi")), options)).collectList().block());
+        assertEquals("CHAT_PROVIDER_UNAVAILABLE", failure.code());
+        assertInstanceOf(OpenAiReasoningFallback.Refused.class, failure.getCause());
+        assertFalse(failure.getCause().getMessage().contains("Unsupported value"));
+
+        requests.clear();
+        bodies.clear();
+        bodies.add(refusal);
+        bodies.add(sse(event("response.output_text.delta", Map.of("item_id", "msg_1", "output_index", 0, "content_index", 0,
+                "sequence_number", 1, "delta", "QUESTION", "logprobs", List.of())), completed(List.of(message("QUESTION")))));
+        var responses = new OpenAiReasoningFallback(turnModel(new ChatEvidence(), new ArrayList<>(), true))
+                .stream(new Prompt(List.of(new UserMessage("Hi")), options)).collectList().block();
+
+        assertEquals("QUESTION", text(responses));
+        assertEquals(List.of("none", "minimal"), requests.stream().map(request -> request.path("reasoning").path("effort").asString()).toList());
     }
 
     @Test
