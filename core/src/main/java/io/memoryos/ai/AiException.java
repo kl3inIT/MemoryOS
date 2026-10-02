@@ -33,6 +33,14 @@ public final class AiException extends BusinessException {
                 "Chat provider is not configured or available.");
     }
 
+    /**
+     * The Tenant has no Chat default and the call named no usable model of its own. The catalog starts empty
+     * (MEM-211), so this is a setting an administrator still has to make, not an outage; it is not retried.
+     */
+    public static AiException modelNotConfigured() {
+        return new AiException("CHAT_MODEL_NOT_CONFIGURED", FailureCategory.VALIDATION, "No Chat model is configured.");
+    }
+
     public static AiException providerCredentialRejected() {
         return new AiException("CHAT_PROVIDER_CREDENTIAL_REJECTED", FailureCategory.VALIDATION,
                 "The provider rejected the API key.");

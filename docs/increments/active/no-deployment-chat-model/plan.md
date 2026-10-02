@@ -28,10 +28,11 @@ Design: [design.md](design.md). Linear: [MEM-211](https://linear.app/memory-os/i
 
 ## Step 2: say "no model configured" (next pull request)
 
-- [ ] A distinct `CHAT_MODEL_NOT_CONFIGURED` (validation) when the Tenant has no usable default and the turn or flow has no model of its own.
-- [ ] The Chat composer and the failed-minutes state name it. A model manager gets the link to the Models page.
-- [ ] The Models page shows an unset Tenant default.
-- [ ] UI screenshots for owner approval.
+- [x] A distinct `CHAT_MODEL_NOT_CONFIGURED` (validation) when the Tenant has no Chat default and the turn or flow has no usable model of its own. A default whose provider cannot be used still answers `CHAT_PROVIDER_UNAVAILABLE`.
+- [x] The Chat composer and the failed-minutes state name it. A model manager gets the link to the Models page in the minutes state.
+- [x] The Models page shows an unset Tenant default, and an unset task row without a Chat default.
+- [x] Owner request (2026-10-03): choosing a model in a default or task row saves it at once, with no Save button. The page header icon matches the navigation's (`Sparkles`).
+- [ ] UI screenshots for owner approval (`output/ui-review/no-model-*.png`).
 
 ## Verification log
 

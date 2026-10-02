@@ -778,8 +778,8 @@ describe("models by task", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("External").length).toBeGreaterThan(0);
     fireEvent.click(picker);
+    // Choosing a model saves it at once; there is no separate save step.
     fireEvent.click(await screen.findByRole("button", { name: /Saved model/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Save task model" }));
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]?.searchParams.get("modelConfigurationId")).toBe(model.id);
     expect(writes[0]?.searchParams.get("revision")).toBe("1");
@@ -788,6 +788,44 @@ describe("models by task", () => {
       "Saved model",
     );
     expect(screen.queryByText(/^No model chosen/)).not.toBeInTheDocument();
+    client.clear();
+  });
+
+  it("says Chat cannot answer and a task cannot run while no default is chosen", async () => {
+    const publicProvider: ManagedProvider = { ...provider, isPublic: true, groupIds: [] };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        const path = new URL(request.url).pathname;
+        if (path === "/api/identity/me") return Response.json(session);
+        if (path === "/api/chat/providers") return Response.json([publicProvider]);
+        if (path === "/api/chat/provider-adapters") return Response.json([adapter]);
+        if (path.endsWith(`/providers/${provider.id}/models`)) return Response.json([model]);
+        if (path === "/api/chat/model-default")
+          return Response.json({ modelConfigurationId: null, revision: 1 });
+        if (path === "/api/chat/model-flows")
+          return Response.json([
+            { flow: "CHAT_NAMING", modelConfigurationId: null, available: true, revision: 1 },
+          ]);
+        if (path === "/api/chat/model-personas")
+          return Response.json({ items: [], nextCursor: null });
+        throw new Error(`Unexpected synthetic route: ${path}`);
+      }),
+    );
+    const client = createMemoryOsQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ApplicationSessionBoundary>
+          <ModelsPage />
+        </ApplicationSessionBoundary>
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText("No default chosen; Chat cannot answer until one is."),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("No model chosen; the task does not run until one is."),
+    ).toBeInTheDocument();
     client.clear();
   });
 });

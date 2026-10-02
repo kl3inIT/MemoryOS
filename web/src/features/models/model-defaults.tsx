@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +30,6 @@ type Row = {
   title: string;
   description: string;
   ariaLabel: string;
-  saveLabel: string;
   savedMessage: string;
   /** Shown while nothing is saved, naming the model the task falls back to. */
   unsetMessage?: string;
@@ -57,9 +56,11 @@ function SelectionEditor({
   const [baseline, setBaseline] = useState(selection);
   const [chosen, setChosen] = useState(selection.modelConfigurationId ?? "");
   const [saved, setSaved] = useState(false);
+  // Choosing a model saves it at once; the operation reads the choice from here, not from a render that predates it.
+  const target = useRef("");
   const saving = useModelMutation(
     async (signal) => {
-      const result = await row.save(baseline.revision, chosen || null, signal);
+      const result = await row.save(baseline.revision, target.current || null, signal);
       signal.throwIfAborted();
       setBaseline(result);
       setChosen(result.modelConfigurationId ?? "");
@@ -95,18 +96,20 @@ function SelectionEditor({
   const savedHidden =
     baseline.modelConfigurationId &&
     !candidates.some((model) => model.id === baseline.modelConfigurationId);
-  const candidateChosen = candidates.some((model) => model.id === chosen);
   const conflicted = conflict || selection.revision !== baseline.revision;
 
-  async function save() {
-    if (busy || conflicted || !candidateChosen || chosen === (baseline.modelConfigurationId ?? ""))
-      return;
+  async function choose(modelId: string) {
+    if (busy || conflicted || modelId === (baseline.modelConfigurationId ?? "")) return;
+    if (!candidates.some((model) => model.id === modelId)) return;
+    target.current = modelId;
+    setChosen(modelId);
     setSaved(false);
     reconciling.cancel();
     try {
       await saving.run();
     } catch {
-      /* Action errors are safe strings, never provider payloads. */
+      // The picker shows what is saved again; action errors are safe strings, never provider payloads.
+      setChosen(baseline.modelConfigurationId ?? "");
     }
   }
 
@@ -130,12 +133,9 @@ function SelectionEditor({
         <ModelPicker
           ariaLabel={row.ariaLabel}
           value={chosen}
-          disabled={busy}
+          disabled={busy || conflicted}
           placeholder={ui("Choose an eligible model")}
-          onChange={(modelId) => {
-            setChosen(modelId);
-            setSaved(false);
-          }}
+          onChange={(modelId) => void choose(modelId)}
           options={[
             ...(savedHidden && savedModel && savedProvider
               ? [
@@ -211,16 +211,10 @@ function SelectionEditor({
           <AlertDescription>{ui(actionError)}</AlertDescription>
         </Alert>
       )}
-      {saved && <p role="status">{row.savedMessage}</p>}
-      {chosen !== (baseline.modelConfigurationId ?? "") && (
-        <Button
-          className="self-start"
-          pending={saving.pending}
-          disabled={conflicted || !candidateChosen || busy}
-          onClick={() => void save()}
-        >
-          {row.saveLabel}
-        </Button>
+      {saved && (
+        <p role="status" className="font-secondary-body text-content-muted">
+          {row.savedMessage}
+        </p>
       )}
     </div>
   );
@@ -275,7 +269,7 @@ export function TenantDefault(catalog: Catalog) {
         title: ui("Chat"),
         description: ui("Used for new conversations and assistants without their own model."),
         ariaLabel: ui("Tenant model default"),
-        saveLabel: ui("Save Tenant default"),
+        unsetMessage: ui("No default chosen; Chat cannot answer until one is."),
         savedMessage: ui("Default saved. Existing transcript is unchanged."),
         save: async (revision, modelConfigurationId, signal) =>
           (
@@ -350,11 +344,12 @@ export function TaskModels(catalog: Catalog) {
       }}
       row={{
         ...copy[flow.flow],
-        unsetMessage: fallback && ui("No model chosen; {{model}} is used.", { model: fallback }),
+        unsetMessage: fallback
+          ? ui("No model chosen; {{model}} is used.", { model: fallback })
+          : ui("No model chosen; the task does not run until one is."),
         unavailableMessage: fallback
           ? ui("Unavailable; {{model}} is used instead.", { model: fallback })
           : ui("Unavailable; the Chat model is used instead."),
-        saveLabel: ui("Save task model"),
         savedMessage: ui("Task model saved."),
         save: async (revision, modelConfigurationId, signal) =>
           (

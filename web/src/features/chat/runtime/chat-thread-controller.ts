@@ -19,6 +19,7 @@ import { COMMITTED_FAILURE, MemoryOsChatTransport, type ConnectionState } from "
 
 const sendProblems = {
   CHAT_PROVIDER_UNAVAILABLE: { key: "chatProviderUnavailable" },
+  CHAT_MODEL_NOT_CONFIGURED: { key: "chatModelNotConfigured" },
   CHAT_CAPACITY_EXCEEDED: { key: "chatBusy" },
   CHAT_INVALID_REQUEST: { key: "chatRejected" },
   CHAT_WEB_UNAVAILABLE: { key: "chatWebUnavailable" },

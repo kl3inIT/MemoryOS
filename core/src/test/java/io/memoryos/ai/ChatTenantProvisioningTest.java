@@ -162,6 +162,26 @@ class ChatTenantProvisioningTest {
         assertProvisioned();
     }
 
+    @Test
+    void anEmptyCatalogSaysNoModelIsConfiguredRatherThanAProviderFault() {
+        ActorId owner = bootstrapper(listening(false)).bootstrap(request()).ownerActorId();
+        var locks = new IamLockRepository(jdbc);
+        var tenants = new JpaTenantAccessResolver(new JpaTenantRepository(jpa.entityManager()), locks);
+        var authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), locks);
+        var agents = new JdbcAgentModelRepository(jdbc);
+        var service = TestDatabase.transactionalProxy(new ModelCatalogService(catalog,
+                (tenant, ids) -> agents.exist(tenant.value(), ids), event -> {}, tenants, authorization, adapters,
+                new ProviderCredentials(""), mock(GroupScopeService.class), TestDatabase.noAudit()),
+                ModelCatalogService.class, jpa.transactionManager());
+        UUID persona = jdbc.sql("SELECT id FROM persona WHERE builtin_key = 'default'").query(UUID.class).single();
+
+        // MEM-211: until an administrator picks a Chat default, a turn and a task name the setting, not an outage.
+        assertEquals("CHAT_MODEL_NOT_CONFIGURED", assertThrows(AiException.class,
+                () -> service.select(owner, TENANT, persona, null, null, null, false)).code());
+        assertEquals("CHAT_MODEL_NOT_CONFIGURED", assertThrows(AiException.class,
+                () -> service.resolveFlow(owner, ModelFlow.MEETING_MINUTES)).code());
+    }
+
     /** The Chat default and one row per task, all unset: no provider and no model comes from the deployment. */
     private void assertCatalogProvisioned() {
         assertEquals(1L, count("chat_model_default"));
