@@ -101,7 +101,8 @@ import org.springframework.context.annotation.Bean;
 import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.openai.OpenAiProviderAdapter;
-import io.memoryos.ai.openai.OpenAiProviderConfiguration;
+import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.retrieval.SearchHit;
@@ -225,7 +226,6 @@ import io.memoryos.library.LibraryArchiveService;
 import reactor.core.scheduler.Schedulers;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-        "memoryos.chat.provider.api-key=test-only-model-is-mocked",
         "memoryos.chat.catalog.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "memoryos.mcp.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         // Short enough that a stalled MCP tool can be exercised without stalling the suite.
@@ -273,8 +273,11 @@ class ChatSessionApiIntegrationTest {
     /** Which stretch the correction pass asked about, so the stubbed model can answer that one. */
     private static final AtomicReference<String> STRETCH =
             new AtomicReference<>("");
-    @MockitoBean(name = "chatProviderModel")
+    /** The model behind every catalog binding here: the stubbed adapter builds each one on it. */
+    @MockitoBean
     private ChatModel model;
+    @Autowired
+    private ProviderCredentials credentials;
     @MockitoSpyBean
     private OpenAiProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
@@ -316,8 +319,60 @@ class ChatSessionApiIntegrationTest {
         doAnswer(call -> new ProviderAdapter.Client(OpenAiProviderAdapter.binding(
                 call.getArgument(1), call.getArgument(2), model, Tokenizers.o200k()), () -> {}))
                 .when(providerAdapter).create(any(), any(), any(), any());
+        catalogFixture();
         actor = actor();
         other = actor();
+    }
+
+    /** The model the Tenant's Chat default names in this suite. */
+    private static final String DEFAULT_MODEL = "gpt-6-luna";
+
+    /**
+     * The Chat default an administrator adds first: a public OpenAI provider with a key, and one model that every task
+     * names. The catalog starts empty (MEM-211), so the first test to find no default adds it, and later tests see
+     * whatever the earlier ones left, as they did when the deployment seeded it.
+     */
+    private void catalogFixture() {
+        boolean unset = jdbc.sql("SELECT model_configuration_id IS NULL FROM chat_model_default WHERE tenant_id = :tenant")
+                .param("tenant", TENANT).query(Boolean.class).single();
+        if (!unset) return;
+        UUID provider = UUID.randomUUID(), chatModel = UUID.randomUUID();
+        String credential = credentials.update(TENANT, provider, null,
+                new ProviderCredentials.Change(ProviderCredentials.Action.REPLACE, "test-only-model-is-mocked"));
+        jdbc.sql("""
+                INSERT INTO llm_provider(id, tenant_id, name, adapter_type, base_url, enabled, is_public, credential, revision, data_boundary)
+                VALUES (:id, :tenant, 'OpenAI', 'openai', 'https://api.openai.com/v1', TRUE, TRUE, :credential, 1, 'EXTERNAL')
+                """).param("id", provider).param("tenant", TENANT).param("credential", credential).update();
+        var known = Objects.requireNonNull(ModelResolver.findKnown(DEFAULT_MODEL, providerAdapter.knownModels()));
+        var settings = Json.mapper().createObjectNode().put("contextWindow", known.contextWindow())
+                .put("maxOutputTokens", known.maxOutputTokens()).put("tokenizerProfile", "openai-o200k-v1");
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", known.capabilities().toolCalling())
+                .put("vision", known.capabilities().vision()).put("reasoning", known.capabilities().reasoning());
+        settings.putObject("options").put("maxCompletionTokens", known.capabilities().reasoning());
+        var pricing = settings.putObject("pricing").put("inputPerMillion", known.pricing().inputPerMillion())
+                .put("outputPerMillion", known.pricing().outputPerMillion());
+        if (known.pricing().cachedInputPerMillion() != null)
+            pricing.put("cachedInputPerMillion", known.pricing().cachedInputPerMillion());
+        jdbc.sql("""
+                INSERT INTO model_configuration(id, tenant_id, provider_id, model_name, display_name, visible, settings, revision)
+                VALUES (:id, :tenant, :provider, :name, :name, TRUE, CAST(:settings AS jsonb), 1)
+                """).param("id", chatModel).param("tenant", TENANT).param("provider", provider).param("name", DEFAULT_MODEL)
+                .param("settings", settings.toString()).update();
+        jdbc.sql("UPDATE chat_model_default SET model_configuration_id = :model, revision = revision + 1 WHERE tenant_id = :tenant")
+                .param("model", chatModel).param("tenant", TENANT).update();
+        jdbc.sql("UPDATE model_flow_default SET model_configuration_id = :model WHERE tenant_id = :tenant AND model_configuration_id IS NULL")
+                .param("model", chatModel).param("tenant", TENANT).update();
+    }
+
+    /** A real OpenAI model for the opt-in live checks, built by the adapter as any catalog provider's is. */
+    private ProviderAdapter.Client liveClient(String key, MeterRegistry meters) {
+        var known = Objects.requireNonNull(ModelResolver.findKnown(DEFAULT_MODEL, providerAdapter.knownModels()));
+        var settings = new ModelSettings(known.contextWindow(), known.maxOutputTokens(),
+                new ModelSettings.Capabilities(true, known.capabilities().toolCalling(), known.capabilities().vision(),
+                        known.capabilities().reasoning()),
+                Map.of("maxCompletionTokens", known.capabilities().reasoning()), known.pricing(), "openai-o200k-v1");
+        return new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters).create(
+                new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, limits.providerReadTimeout());
     }
 
     @Test
@@ -5930,13 +5985,10 @@ class ChatSessionApiIntegrationTest {
     void realProviderRunsThroughSendNativeRunnerAndPersistedHistory() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required for this explicitly enabled check");
-        var configuration = new OpenAiProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
+        var live = liveClient(key, meters);
         try {
-            var provider = configuration.chatProviderModel(client, sync, key,
-                    ObservationRegistry.NOOP, meters);
+            var provider = live.binding().service().getChatModel();
             when(model.stream(any(Prompt.class))).thenAnswer(call -> provider.stream(call.getArgument(0, Prompt.class)));
             var session = create();
             var reply = send(session, UUID.randomUUID().toString());
@@ -5947,8 +5999,7 @@ class ChatSessionApiIntegrationTest {
             assertTrue(jdbc.sql("SELECT input_tokens FROM chat_message WHERE id = :id")
                     .param("id", UUID.fromString(id)).query(Long.class).single() > 0);
         } finally {
-            client.close();
-            sync.close();
+            live.close();
             meters.close();
         }
     }
@@ -6037,9 +6088,7 @@ class ChatSessionApiIntegrationTest {
         assertTrue(key != null && !key.isBlank());
         String corpusFile = System.getenv("MEMORYOS_CHAT_CORPUS_FILE");
         assertTrue(corpusFile != null && !corpusFile.isBlank(), "MEMORYOS_CHAT_CORPUS_FILE is required for this opt-in check");
-        var configuration = new OpenAiProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var live = liveClient(key, meters);
         var receipts = new ArrayList<Map<String, Object>>();
         var answerChecks = new ArrayList<Executable>();
         try (var corpus = new LiveSearchCorpus(
@@ -6050,7 +6099,7 @@ class ChatSessionApiIntegrationTest {
                     call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3)));
             when(searchIndex.document(any(), any(), any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt()))
                     .thenAnswer(call -> corpus.index.document(call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3), call.getArgument(4)));
-            var provider = configuration.chatProviderModel(client, sync, key, ObservationRegistry.NOOP, meters);
+            var provider = live.binding().service().getChatModel();
             when(model.call(any(Prompt.class))).thenAnswer(call -> provider.call(call.getArgument(0, Prompt.class)));
             when(model.stream(any(Prompt.class))).thenAnswer(call -> provider.stream(call.getArgument(0, Prompt.class)));
             var questions = List.of(
@@ -6114,7 +6163,7 @@ class ChatSessionApiIntegrationTest {
             }
             Assertions.assertAll("Real corpus answer quality", answerChecks);
         } finally {
-            try (AutoCloseable _ = client::close; AutoCloseable _ = sync::close) {
+            try (AutoCloseable _ = live::close) {
                 var report = Path.of("build", "reports", "chat-corpus");
                 Files.createDirectories(report);
                 Files.writeString(report.resolve("timings.json"), Json.mapper().writeValueAsString(receipts));
@@ -6131,10 +6180,8 @@ class ChatSessionApiIntegrationTest {
     void realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "A managed OpenAI key is required for this opt-in check");
-        var configuration = new OpenAiProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
+        var live = liveClient(key, meters);
         UUID policy = UUID.randomUUID(), contractor = UUID.randomUUID(), injection = UUID.randomUUID(), hidden = UUID.randomUUID();
         var generation = UUID.randomUUID();
         var corpus = Map.of(
@@ -6174,7 +6221,7 @@ class ChatSessionApiIntegrationTest {
             return new SearchDocument(id, generation, titles.get(id), "text/plain", passages, Math.min(start, content.size()), content.size(), end < content.size());
         });
         try {
-            var provider = configuration.chatProviderModel(client, sync, key, ObservationRegistry.NOOP, meters);
+            var provider = live.binding().service().getChatModel();
             when(model.stream(any(Prompt.class))).thenAnswer(call -> {
                 Prompt request = call.getArgument(0);
                 assertFalse(request.toString().contains("DENIED_ONLY_SECRET_99"));
@@ -6231,7 +6278,7 @@ class ChatSessionApiIntegrationTest {
             assertGroundedCitation(defended, injection);
             verify(sourceAccess, never()).canRead(any(), any());
         } finally {
-            try (AutoCloseable _ = client::close; AutoCloseable _ = sync::close; AutoCloseable _ = meters::close) {
+            try (AutoCloseable _ = live::close; AutoCloseable _ = meters::close) {
                 var receipts = Path.of("build", "reports", "chat-grounding");
                 Files.createDirectories(receipts);
                 Files.writeString(receipts.resolve("helpers.json"), Json.mapper().writeValueAsString(helperReceipts));

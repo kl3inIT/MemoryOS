@@ -1,6 +1,6 @@
 # No deployment Chat model
 
-Status: designed 2026-10-02. Linear: [MEM-211](https://linear.app/memory-os/issue/MEM-211).
+Status: step 1 implemented 2026-10-02, recorded as [ADR 0020](../../../decisions/0020-chat-models-come-only-from-the-catalog.md). Linear: [MEM-211](https://linear.app/memory-os/issue/MEM-211).
 
 ## Problem
 
@@ -40,11 +40,15 @@ The `model_api_key` secret stays, because embedding still reads it.
 - Every MemoryOS call already passes its catalog service explicitly (`ModelCalls`, `ChatModelExecutor`). A call that reached the platform default would fail with Embabel's `NoLlmConfiguredException`, instead of quietly spending a deployment key.
 - The module also registers per-key client factories that MemoryOS does not call. They are inert beans with no endpoint. Writing our own placeholder would duplicate `SetupRequiredLlm`.
 
-**Existing seeded providers lose the marker, not the provider.**
-- Migration V140 sets `credential = NULL` and `builtin_key = NULL` on every `llm_provider` whose credential is `deployment`.
-- The provider, its models, the Chat default and the flow rows are kept, following [ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md).
-- The Models page then shows the provider without a key. The administrator enters one or deletes the provider.
-- Selection already treats a provider without a usable credential as unusable, so a turn fails with the existing codes rather than calling with no key.
+**Existing seeded providers are removed, in every environment** (owner decision 2026-10-02).
+- Migration V140 deletes every `llm_provider` whose credential is `deployment`, with its models.
+- First it does what deleting them in the catalog does:
+  - the Chat default that named one of those models becomes unset;
+  - an Agent's model is cleared as `ChatAgentModels` does on `ModelsRemoved`.
+- The task models and the members' own defaults clear through their `ON DELETE SET NULL`.
+- Chat history keeps its model IDs, which are metadata only.
+- Following [ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md), this is what is lost on purpose: a provider whose key nothing reads any more. A production Tenant whose Chat default was that provider's model has no default after the deploy, until an administrator picks one.
+- `llm_provider.builtin_key` stays, unmapped and unwritten, so the previous release still runs on this schema. A later migration drops it.
 
 ## Out of scope
 
@@ -55,5 +59,5 @@ The `model_api_key` secret stays, because embedding still reads it.
 ## Consequences
 
 - A new environment answers no chat until an administrator adds a provider and picks a default.
-- On staging after the deploy, the "OpenAI" provider has no key. Its models are already failing with 401, and the Tenant default and the meeting tasks point at 9Router models.
+- On staging after the deploy, the "OpenAI" provider and its four models are gone. They already failed with 401, and the Tenant default and the meeting tasks point at 9Router models.
 - `ChatSessionApiIntegrationTest` no longer gets a seeded, keyed default. Its tests add their fixture provider and default model themselves.

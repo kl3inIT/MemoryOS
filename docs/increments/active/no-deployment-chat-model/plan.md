@@ -4,21 +4,21 @@ Design: [design.md](design.md). Linear: [MEM-211](https://linear.app/memory-os/i
 
 ## Step 1: the catalog starts empty (this pull request)
 
-- [ ] `api`:
+- [x] `api`:
   - add `embabel-agent-byok-autoconfigure` (version from the `embabel` catalog entry);
   - set `embabel.models.default-llm: setup-required`;
   - remove `chatDeploymentModel` and the `memoryos.chat.provider.*` entries from `application.yaml` and the configuration metadata.
-- [ ] `core/ai`:
+- [x] `core/ai`:
   - `ModelCatalogProvisioner` initializes the default row and the flow rows only;
   - remove `ModelCatalogService.Deployment`, the `deployment` marker in `ProviderCredentials` and its key property, and the four beans in `OpenAiProviderConfiguration`.
-- [ ] V140: clear `credential` and `builtin_key` where the credential is `deployment`. Add a migration test over a seeded row that proves the provider, its models, the default and the flows survive.
-- [ ] Tests:
-  - `ChatSessionApiIntegrationTest` adds its fixture provider and default model itself, and its model becomes a plain mock;
+- [x] V140: delete the providers whose credential is `deployment`, with their models, after clearing the Chat default and the Agents that named one. `DeploymentChatProviderMigrationTest` proves that what an administrator added stays.
+- [x] Tests:
+  - `ChatSessionApiIntegrationTest` adds its fixture provider and default model itself, and its live checks build their model through the adapter;
   - remove `ChatModelCatalogConfigurationTest`;
-  - update `ChatTenantProvisioningTest`, `ProviderCredentialsTest`, `ModelCatalogConstraintsTest` and `OpenAiProviderConfigurationTest`;
-  - add a test that the API context starts with no provider key.
-- [ ] Deployment: remove the API's `MEMORYOS_CHAT_API_KEY_FILE` mapping and the launcher export. Keep `model_api_key` for embedding.
-- [ ] Docs: `docs/specs/chat-models.md` (the deployment import), `docs/specs/chat.md`, `docs/tests/chat.md`, ADR 0015's mention, and a new ADR once implementation is under way.
+  - update `ChatTenantProvisioningTest`, `ProviderCredentialsTest` and `ModelCatalogConstraintsTest`, and remove `OpenAiProviderConfigurationTest`;
+  - every API `@SpringBootTest` now starts with no provider key.
+- [x] Deployment: remove the API's `MEMORYOS_CHAT_API_KEY_FILE` mapping. The launcher exports any `*_FILE` it is given, so it needs no change. Keep `model_api_key` for embedding.
+- [x] Docs: `docs/specs/chat-models.md`, `docs/specs/chat.md`, `docs/tests/chat.md` and ADR 0020, which supersedes ADR 0015's mention of the keys.
 - [ ] Gates:
   - `:core:test` and `:api:test` for the touched classes;
   - `ModulithArchitectureTest`;

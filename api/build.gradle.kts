@@ -19,6 +19,8 @@ dependencies {
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.embabel.platform)
     implementation(libs.embabel.openai)
+    // Embabel's setup-required placeholder: the platform starts with no model, since every model is a catalog one.
+    implementation(libs.embabel.byok)
     implementation(libs.spring.ai.model.tool)
     // MEM-114 MCP endpoint: Spring AI's stateless server on the SDK version the catalog pins, and its rate limit.
     implementation(libs.spring.ai.starter.mcp.server.webmvc)

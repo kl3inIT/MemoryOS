@@ -140,7 +140,9 @@ embabel:
         data-binding:
           max-attempts: 2
   models:
-    default-llm: ${memoryos.chat.persona.model:gpt-6-luna}
+    # MemoryOS holds no model of its own: every call names a catalog model. Embabel's placeholder lets the platform start
+    # with none, and fails a call that reaches it instead of spending a deployment key (MEM-211).
+    default-llm: setup-required
 
 # Native framework diagnostics include prompts, tool arguments/results and binding errors.
 # Keep native observations (sanitized at the tool boundary) and MemoryOS lifecycle/failure logs.
@@ -171,9 +173,6 @@ management:
 
 memoryos:
   chat:
-    provider:
-      api-key: ${MEMORYOS_CHAT_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
-      base-url: ${MEMORYOS_CHAT_BASE_URL:https://api.openai.com/v1}
     catalog:
       encryption-key: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY:}
     execution:
