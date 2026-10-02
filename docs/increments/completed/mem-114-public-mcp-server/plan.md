@@ -331,4 +331,4 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
 - [ ] **Production.** Deployed with the switch off: endpoint configured on 2026-10-03 (`https://app.vadan.app/mcp`,
   realm reconciled, see the [governance plan](../mcp-endpoint-governance/plan.md)). The owner decided that day to
   turn it on while production holds no organization data, ahead of MEM-134; the switch is theirs.
-- [ ] **Close.** After merge and acceptance, move this increment to `completed/`.
+- [x] **Close.** Closed by the owner on 2026-10-03 and moved to `completed/`. Not run by then: the probes that need a member token, Claude Code, revoking a grant, switching off, a test member reading only test Documents, and a ChatGPT deep research load against the rate limit; the [verification](../mem-114-public-mcp-server/verification.md) lists them.

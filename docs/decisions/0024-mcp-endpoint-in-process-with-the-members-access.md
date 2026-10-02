@@ -4,7 +4,7 @@ Date: 2026-10-03
 
 ## Status
 
-Accepted by the owner on 2026-10-01; implemented in [MEM-114](../increments/active/mem-114-public-mcp-server/design.md)
+Accepted by the owner on 2026-10-01; implemented in [MEM-114](../increments/completed/mem-114-public-mcp-server/design.md)
 (PRs #419, #421, #425, #430, #431, #433, #436, #438, #440 and #442) and extended by
 [ADR 0022](0022-trusted-mcp-apps-kept-in-memoryos.md). Recorded after the fact, when the endpoint ran on staging with
 Claude and ChatGPT.

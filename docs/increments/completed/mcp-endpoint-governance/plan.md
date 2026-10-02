@@ -22,7 +22,7 @@ One pull request.
   the same 7 days. Tests: `SessionSecurityIntegrationTest`, `RealmSessionLifetimeTest`.
 - [x] **Documents.** [ADR 0022](../../../decisions/0022-trusted-mcp-apps-kept-in-memoryos.md), the audit spec and
   matrix, the runbooks, the MEM-114 increment, the roadmap.
-- [ ] CI green.
+- [x] CI green.
 - [x] **Staging, before the merge** (done 2026-10-03 with the owner's approval), so the API never runs without its
   account:
   1. Create `/apps/memoryos/secrets/keycloak/mcp-admin-client-secret.txt` (`deploy.sh` refuses a release whose secret
@@ -33,8 +33,8 @@ One pull request.
   Checked afterwards: SSO idle and maximum 604800 s, offline idle 2592000 s and maximum 15552000 s; the trusted
   hosts unchanged (Claude and ChatGPT); `memoryos-chatgpt` gone, the Claude and ChatGPT document clients kept;
   `memoryos-mcp-admin` obtains a token with the secret file.
-- [ ] Merge after the owner's approval; the deployment follows.
-- [ ] **Staging, after the deployment:** the page lists Claude and ChatGPT as manageable; switching ChatGPT off and on
+- [x] Merged 2026-10-03 (PR #453); staging deployed release `6ac59f77` once PR #463 let a verified main tree publish its release.
+- [ ] **Staging, after the deployment** (not run when the owner closed the increment on 2026-10-03): the page lists Claude and ChatGPT as manageable; switching ChatGPT off and on
   revokes and restores its connection; a call appears under *Hoạt động*; the dashboard row draws; after more than
   8 hours away MemoryOS opens again without the password.
 - [x] **Production** (2026-10-03, release `6ac59f77`): the secret file, the release deployed (Keycloak 26.7.0 to
