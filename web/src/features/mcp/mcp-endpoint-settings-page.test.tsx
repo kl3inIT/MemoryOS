@@ -22,7 +22,7 @@ const claude: McpClientGrantResponse = {
   grantedAt: "2026-10-01T09:30:00Z",
 };
 const chatGpt: McpClientGrantResponse = {
-  clientId: "memoryos-chatgpt",
+  clientId: "https://chatgpt.com/oauth/client.json",
   client: "CHATGPT",
   name: "ChatGPT",
   grantedAt: "2026-09-28T02:15:00Z",
@@ -38,11 +38,15 @@ function renderPage() {
   );
 }
 
-it("gives the URL with each client's steps and revokes Claude by its URL client ID after confirmation", async () => {
+it("gives the URL with the steps of each trusted app and revokes Claude by its URL client ID after confirmation", async () => {
   const revoked: Array<string | null> = [];
   server.use(
     handleGetMcpEndpointConnection({
-      body: { available: true, url: "https://memoryos.example.vn/mcp" },
+      body: {
+        available: true,
+        url: "https://memoryos.example.vn/mcp",
+        apps: ["CLAUDE", "CHATGPT"],
+      },
     }),
     handleListMcpClientGrants({ body: [claude] }),
     handleRevokeMcpClientGrant(({ request }) => {
@@ -72,7 +76,7 @@ it("gives the URL with each client's steps and revokes Claude by its URL client 
 
 it("shows one status line while the endpoint is off and still lists what can be revoked", async () => {
   server.use(
-    handleGetMcpEndpointConnection({ body: { available: false, url: null } }),
+    handleGetMcpEndpointConnection({ body: { available: false, url: null, apps: [] } }),
     handleListMcpClientGrants({ body: [chatGpt] }),
   );
   renderPage();
@@ -84,4 +88,41 @@ it("shows one status line while the endpoint is off and still lists what can be 
   expect(screen.queryByRole("tab")).toBeNull();
   const apps = screen.getByRole("region", { name: "Authorized apps" });
   expect(await within(apps).findByRole("button", { name: "Revoke" })).toBeVisible();
+});
+
+it("guides only through the apps the administrator trusts", async () => {
+  server.use(
+    handleGetMcpEndpointConnection({
+      body: {
+        available: true,
+        url: "https://memoryos.example.vn/mcp",
+        apps: ["CHATGPT", "CUSTOM"],
+      },
+    }),
+    handleListMcpClientGrants({ body: [] }),
+  );
+  const user = userEvent.setup();
+  renderPage();
+
+  expect(
+    await screen.findByText(
+      "Paste the MCP URL above, keep Authentication as OAuth and choose Create.",
+    ),
+  ).toBeVisible();
+  expect(screen.queryByRole("tab", { name: "Claude" })).toBeNull();
+  await user.click(screen.getByRole("tab", { name: "Other apps" }));
+  expect(await screen.findByText("In the app, add a remote MCP server.")).toBeVisible();
+});
+
+it("gives no URL while the administrator trusts no app", async () => {
+  server.use(
+    handleGetMcpEndpointConnection({
+      body: { available: true, url: "https://memoryos.example.vn/mcp", apps: [] },
+    }),
+    handleListMcpClientGrants({ body: [] }),
+  );
+  renderPage();
+
+  expect(await screen.findByText("Your administrator has not trusted any app yet.")).toBeVisible();
+  expect(screen.queryByLabelText("MCP URL")).toBeNull();
 });

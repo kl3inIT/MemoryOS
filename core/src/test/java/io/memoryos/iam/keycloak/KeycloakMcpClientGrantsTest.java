@@ -43,7 +43,7 @@ class KeycloakMcpClientGrantsTest {
             [{"clientId":"%s","createdDate":1790857772093,"lastUpdatedDate":1790857772113,
               "grantedClientScopes":["knowledge:read","offline_access"],
               "additionalGrants":[{"client":"d16513ec","key":"Offline Token"}]},
-             {"clientId":"memoryos-chatgpt","createdDate":1790900000000,"lastUpdatedDate":1790900000000,
+             {"clientId":"https://chatgpt.com/oauth/client.json","createdDate":1790900000000,"lastUpdatedDate":1790900000000,
               "grantedClientScopes":["offline_access","knowledge:read"],"additionalGrants":[]},
              {"clientId":"https://tools.example.org/client.json","createdDate":1790800000000,
               "lastUpdatedDate":1790800000000,"grantedClientScopes":["knowledge:read"],"additionalGrants":[]},
@@ -76,7 +76,7 @@ class KeycloakMcpClientGrantsTest {
         try (var keycloak = keycloak(serverUrl())) {
             var grants = grants(keycloak).list(MEMBER);
             assertEquals(List.of(
-                    new McpClientGrant("memoryos-chatgpt", McpClientGrant.Client.CHATGPT, "ChatGPT",
+                    new McpClientGrant("https://chatgpt.com/oauth/client.json", McpClientGrant.Client.CHATGPT, "ChatGPT",
                             Instant.ofEpochMilli(1790900000000L)),
                     new McpClientGrant(CLAUDE, McpClientGrant.Client.CLAUDE, "Claude",
                             Instant.ofEpochMilli(1790857772093L)),

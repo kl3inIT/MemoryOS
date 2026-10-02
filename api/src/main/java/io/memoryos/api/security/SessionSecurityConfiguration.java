@@ -10,6 +10,7 @@ import io.memoryos.shared.TenantId;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,6 +21,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.session.web.http.SessionRepositoryFilter;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({BrowserLoginProperties.class, JitAdmissionProperties.class})
@@ -79,6 +81,14 @@ class SessionSecurityConfiguration {
                         .deleteCookies("SESSION")
                         .logoutSuccessHandler(new SessionLogoutSuccessHandler(clientRegistration)));
         return http.build();
+    }
+
+    /** Right after Spring Session restores the session, before any security chain reads the sign-in from it. */
+    @Bean
+    FilterRegistrationBean<BrowserSessionLifetimeFilter> browserSessionLifetimeFilter(BrowserLoginProperties properties) {
+        var registration = new FilterRegistrationBean<>(new BrowserSessionLifetimeFilter(properties.sessionMaxLifetime()));
+        registration.setOrder(SessionRepositoryFilter.DEFAULT_ORDER + 1);
+        return registration;
     }
 
     @Bean

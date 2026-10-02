@@ -24,6 +24,8 @@ const unchanged = [
   "Tiếng Việt",
   "English",
   "name@company.com",
+  "agent.example.com",
+  "auth.example.com",
   "{{v1}} B",
   "{{v1}} KiB",
   " {{v1}}%",

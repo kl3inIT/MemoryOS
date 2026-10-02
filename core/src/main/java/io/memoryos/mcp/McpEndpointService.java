@@ -5,11 +5,11 @@ import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
-import io.memoryos.iam.McpClientGrants;
 import io.memoryos.mcp.persistence.JdbcMcpEndpointRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.net.URI;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,31 +25,25 @@ public class McpEndpointService {
     private final McpEndpointProperties properties;
     private final IamAuthorization authorization;
     private final AuditTrail audit;
+    private final McpTrustedAppService trustedApps;
 
     public McpEndpointService(JdbcMcpEndpointRepository repository, McpEndpointProperties properties,
-                              IamAuthorization authorization, AuditTrail audit) {
+                              IamAuthorization authorization, AuditTrail audit, McpTrustedAppService trustedApps) {
         this.repository = repository;
         this.properties = properties;
         this.authorization = authorization;
         this.audit = audit;
+        this.trustedApps = trustedApps;
     }
+
+    /** {@code url} is where people point their client, present only when the deployment configured it. */
+    public record Settings(boolean configured, boolean enabled, long revision, @Nullable URI url) {}
 
     /**
-     * {@code url} is where people point their client, present only when the deployment configured it; {@code chatGpt}
-     * is what a ChatGPT workspace administrator enters once, present only when the deployment set its secret.
+     * What a member needs to connect a client: whether the endpoint answers, its URL while it does, and the apps the
+     * administrator trusts, so the guide shows only those ({@code CUSTOM} when any app of the Tenant's own is).
      */
-    public record Settings(boolean configured, boolean enabled, long revision, @Nullable URI url,
-                           @Nullable ChatGptClient chatGpt) {}
-
-    public record ChatGptClient(String clientId, String clientSecret) {
-        @Override
-        public String toString() {
-            return "ChatGptClient[clientId=" + clientId + ", clientSecret=<redacted>]";
-        }
-    }
-
-    /** What a member needs to connect a client: whether the endpoint answers, and its URL while it does. */
-    public record Connection(boolean available, @Nullable URI url) {}
+    public record Connection(boolean available, @Nullable URI url, Set<McpTrustedApp.Preset> apps) {}
 
     @Transactional(readOnly = true)
     public Settings settings(ActorId actor) {
@@ -74,7 +68,9 @@ public class McpEndpointService {
     @Transactional(readOnly = true)
     public Connection connection(ActorId actor) {
         var tenant = authorization.require(actor, IamCapability.SEARCH_READ, false).tenantId();
-        return available(tenant) ? new Connection(true, properties.url().orElse(null)) : new Connection(false, null);
+        return available(tenant)
+                ? new Connection(true, properties.url().orElse(null), trustedApps.enabled(tenant))
+                : new Connection(false, null, Set.of());
     }
 
     /** Checked on every request to the endpoint, so turning the switch off refuses the next call. */
@@ -85,8 +81,6 @@ public class McpEndpointService {
     }
 
     private Settings settings(boolean enabled, long revision) {
-        var chatGpt = properties.chatGptClientSecret()
-                .map(secret -> new ChatGptClient(McpClientGrants.CHATGPT_CLIENT_ID, secret)).orElse(null);
-        return new Settings(properties.configured(), enabled, revision, properties.url().orElse(null), chatGpt);
+        return new Settings(properties.configured(), enabled, revision, properties.url().orElse(null));
     }
 }

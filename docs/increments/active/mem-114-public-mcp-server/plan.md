@@ -299,7 +299,7 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
     of `om.kl3in.tech` and `docs.kl3in.tech`. `zeromail-postgres` runs an image named after OrgMemory and stays.
 - [x] **Staging Keycloak takeover done** on 2026-10-01: proxy repointed, release deployed (26.8 with `cimd`), realm
   script run, `keycloak.dump` kept in `/apps/memoryos-backups`. Claude web connected and called both tools.
-- [ ] **ChatGPT through its metadata document.** ChatGPT's personal plugin was refused (`client_not_found`): the
+- [x] **ChatGPT through its metadata document.** ChatGPT's personal plugin was refused (`client_not_found`): the
   policy did not trust `chatgpt.com`, and Keycloak 26.8 cannot read its document anyway (#51236).
   - [x] The image's `memoryos-client-id-metadata-document` executor (upstream fix #51235); `chatgpt.com` and
     `persistent.oaistatic.com` trusted; the smoke test requires the executor.
@@ -310,10 +310,10 @@ Split in two so CI checks the Keycloak side before the screens are built on its 
     script rerun; an authorization request with ChatGPT's client ID reaches the sign-in page.
   - [x] ChatGPT passed the client check and was refused `invalid_scope`: it asks for `email`, which a client built
     from a metadata document lacked. `email` becomes an optional scope of such clients, existing ones included.
-  - [ ] A personal ChatGPT plugin connects and calls the tools.
-  - [ ] Removing `memoryos-chatgpt`, its secret file and the administration page's ChatGPT fields moved to
-    [MEM-207](https://linear.app/memory-os/issue/MEM-207), with the administrator's list of trusted apps (metadata
-    document domains, and Dynamic Client Registration limited to named redirect hosts for Gemini).
+  - [x] A personal ChatGPT plugin connects and calls the tools (staging, 2026-10-02).
+  - [x] Removing `memoryos-chatgpt`, its secret file and the administration page's ChatGPT fields moved to
+    [MEM-207](../mcp-endpoint-governance/plan.md), with the administrator's list of trusted apps; Dynamic Client
+    Registration for Gemini is MEM-207's second part.
 - [ ] **Staging.** Switch on, with a test member who reads only test Documents.
 - [ ] **Probes.** The curl probes in the design.
 - [ ] **Clients.** Claude web, Claude Code, ChatGPT web; revoke; switch off. Confirm that Claude, whose client comes
