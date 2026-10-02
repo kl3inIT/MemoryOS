@@ -837,7 +837,13 @@ jobs:
 
   publish:
     name: Publish verified release
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # Without a status function the condition would also require every job behind the gate to have run, and a main
+    # push whose tree a pull request verified skips the test jobs, which skipped this job too (run 37041478495). The
+    # gate already judged those jobs, so the gate and the three image jobs are checked by name.
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.gate.result == 'success' && needs.backend-images.result == 'success'
+      && needs.frontend-image.result == 'success' && needs.interpreter.result == 'success' }}
     # The image jobs already pushed what they verified; this job only names those digests as a release, and only
     # after CI Gate. A tag in GHCR without this job's artifact is not deployable.
     needs: [gate, backend-images, frontend-image, interpreter]
