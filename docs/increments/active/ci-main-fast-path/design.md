@@ -9,7 +9,7 @@ Chủ dự án đã chấp nhận cả hai thay đổi ngày 2026-10-02. Hai tha
 
 ## 1. Image job push thẳng lên GHCR
 
-Quyết định ghi trong [ADR 0020](../../../decisions/0020-image-jobs-push-before-the-gate.md).
+Quyết định ghi trong [ADR 0023](../../../decisions/0023-image-jobs-push-before-the-gate.md).
 
 * Action dùng chung [`push-release-images`](../../../../.github/actions/push-release-images/action.yml): login, kiểm label revision/source, push tag `sha-<sha>-<run>-<attempt>`, lấy digest, logout. Output là các dòng `MEMORYOS_<COMPONENT>_IMAGE=<digest>`.
 * `backend-images` (api, worker, keycloak), `frontend-image` (web), `interpreter` (interpreter, interpreter-executor) gọi action ở bước cuối, chỉ khi push lên `main`.
