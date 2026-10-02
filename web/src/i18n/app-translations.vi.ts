@@ -2308,9 +2308,18 @@ Object.assign(englishUi, {
     "Phân loại câu hỏi trước khi trả lời: câu xã giao, câu hỏi hay chủ đề bị chặn. Cần model trả đúng định dạng.",
   "Question check model": "Model kiểm tra câu hỏi",
   "No model chosen; {{model}} is used.": "Chưa chọn mô hình; đang dùng {{model}}.",
+  "Meeting minutes": "Biên bản họp",
+  "Writes the summary, decisions and action items of a recorded meeting.":
+    "Viết tóm tắt, quyết định và việc cần làm của một cuộc họp đã ghi.",
+  "Transcript corrections": "Sửa transcript",
+  "Proposes what was said where the speech provider was unsure.":
+    "Đề xuất lại câu nói ở những chỗ nhận dạng giọng nói chưa chắc.",
+  "No model chosen; the task does not run until one is.":
+    "Chưa chọn mô hình; tác vụ chưa chạy được cho tới khi chọn.",
+  "No default chosen; Chat cannot answer until one is.":
+    "Chưa chọn mô hình mặc định; Chat chưa trả lời được cho tới khi chọn.",
   "Unavailable; {{model}} is used instead.": "Không khả dụng; đang dùng {{model}}.",
   "Unavailable; the Chat model is used instead.": "Không khả dụng; đang dùng mô hình Chat.",
-  "Save task model": "Lưu mô hình tác vụ",
   "Task model saved.": "Đã lưu mô hình tác vụ.",
   "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.":
     "Mọi mô hình đã cấu hình của nhà cung cấp này sẽ bị xóa. Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của cuộc trò chuyện và lịch sử Chat được giữ nguyên. Hãy thay mặc định Tenant trước.",
@@ -2325,7 +2334,6 @@ Object.assign(englishUi, {
   "Reconcile saved selection": "Đồng bộ lựa chọn đã lưu",
   "Default saved. Existing transcript is unchanged.":
     "Đã lưu mặc định. Hội thoại hiện có không đổi.",
-  "Save Tenant default": "Lưu mặc định Tenant",
   "Loading Tenant default…": "Đang tải mặc định Tenant…",
   "Tenant default could not be loaded.": "Không tải được mặc định Tenant.",
   "Retry Tenant default": "Thử lại mặc định Tenant",

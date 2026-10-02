@@ -332,7 +332,7 @@ public class ModelCatalogService {
         var selection = accessible(tenant, preferred, personaId, manager, groups);
         if (selection != null) return new Selection(selection.model(), selection.provider(), null, contextRevision);
         var fallback = accessible(tenant, defaultId, personaId, manager, groups);
-        if (fallback == null) throw AiException.providerUnavailable();
+        if (fallback == null) throw defaultId == null ? AiException.modelNotConfigured() : AiException.providerUnavailable();
         return new Selection(fallback.model(), fallback.provider(), "SELECTION_UNAVAILABLE", contextRevision);
     }
 
@@ -361,9 +361,10 @@ public class ModelCatalogService {
         var membership = tenants.lockActiveMembership(actor).orElseThrow(AiException::unavailable);
         UUID tenant = membership.tenantId().value();
         UUID id = catalog.flowDefault(tenant, flow).modelConfigurationId();
+        UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
         var selection = id == null ? null : flowSelection(tenant, id);
-        if (selection == null) selection = flowSelection(tenant, catalog.defaultModel(tenant).modelConfigurationId());
-        if (selection == null) throw AiException.providerUnavailable();
+        if (selection == null && defaultId != null) selection = flowSelection(tenant, defaultId);
+        if (selection == null) throw defaultId == null ? AiException.modelNotConfigured() : AiException.providerUnavailable();
         return new Selection(selection.model(), selection.provider(), null);
     }
 

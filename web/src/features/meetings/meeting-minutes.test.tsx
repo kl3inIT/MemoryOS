@@ -109,6 +109,16 @@ describe("minutes that could not be written", () => {
     expect(within(alert).queryByRole("link")).not.toBeInTheDocument();
   });
 
+  it("say no model is set up, and show a model manager where to add one", async () => {
+    const alert = await show("CHAT_MODEL_NOT_CONFIGURED", ["MODELS_MANAGE"]);
+
+    expect(alert).toHaveTextContent("Chưa có model nào");
+    expect(within(alert).getByRole("link", { name: "Thêm model" })).toHaveAttribute(
+      "href",
+      "/admin/models",
+    );
+  });
+
   it("say the model's answer could not be read", async () => {
     expect(await show("CHAT_MODEL_ANSWER_UNREADABLE")).toHaveTextContent(
       "Model trả về biên bản không đọc được.",
