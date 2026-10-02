@@ -681,15 +681,30 @@ export type ChatHistoryVisibilityRequest = {
 };
 
 export type ChatGuardrailTopic = {
-    topic: 'POLITICS' | 'LEADERS' | 'RELIGION';
-    enabled: boolean;
+    /**
+     * Absent for a topic this request creates
+     */
+    id?: string;
+    name: string;
+    /**
+     * What the model classifies a question by
+     */
+    description: string;
+    /**
+     * Example questions about the topic
+     */
+    examples: Array<string>;
     /**
      * What the person is told when a question matches
      */
     message: string;
+    enabled: boolean;
 };
 
 export type ChatGuardrailsRequest = {
+    /**
+     * Every topic of the Tenant, in order; one left out is deleted
+     */
     topics: Array<ChatGuardrailTopic>;
     /**
      * Exact phrases no question or answer may contain; at most 20 of at most 100 characters
@@ -704,7 +719,7 @@ export type ChatGuardrailsRequest = {
 
 export type ChatGuardrailsResponse = {
     /**
-     * Every built-in topic, in a fixed order
+     * Every topic of the Tenant, in order
      */
     topics: Array<ChatGuardrailTopic>;
     blockedPhrases: Array<string>;

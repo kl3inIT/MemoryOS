@@ -11,8 +11,8 @@ import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,23 +86,21 @@ public class ChatSettingsService {
     public GuardrailsView guardrails(ActorId actor) {
         var tenant = authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId().value();
         return settings.findById(tenant).map(entity -> new GuardrailsView(guardrails(entity), entity.revision()))
-                .orElse(new GuardrailsView(ChatGuardrails.NONE, 0));
+                .orElse(new GuardrailsView(ChatGuardrails.DEFAULT, 0));
     }
 
     @Transactional
-    public GuardrailsView saveGuardrails(ActorId actor, List<ChatGuardrails.TopicSetting> topics, List<String> phrases,
+    public GuardrailsView saveGuardrails(ActorId actor, List<ChatGuardrails.Topic> topics, List<String> phrases,
                                         @Nullable String phraseMessage, long revision) {
         var validated = ChatGuardrails.of(topics, phrases, phraseMessage);
         var entity = writable(actor, revision);
-        var stored = new ArrayList<ChatSettingsEntity.StoredTopic>();
-        for (var topic : validated.topics())
-            stored.add(new ChatSettingsEntity.StoredTopic(topic.topic().name(), topic.enabled(), topic.message()));
-        entity.guardrails(stored, validated.blockedPhrases(), phraseMessage == null || phraseMessage.isBlank() ? null : phraseMessage);
+        entity.guardrails(stored(validated.topics()), validated.blockedPhrases(),
+                phraseMessage == null || phraseMessage.isBlank() ? null : phraseMessage);
         var saved = settings.saveAndFlush(entity);
         // The phrases themselves stay out of the audit stream: they may name what the organization keeps confidential.
         audit.record(AuditRecord.of(AuditAction.CHAT_SETTINGS_CHANGE, new TenantId(saved.tenantId()))
                 .actor(actor).resource("SETTING", "chat", "Chat")
-                .detail("guardrailTopics", validated.enabledTopics().stream().map(topic -> topic.topic().name()).toList())
+                .detail("guardrailTopics", validated.enabledTopics().stream().map(ChatGuardrails.Topic::name).toList())
                 .detail("blockedPhrases", validated.blockedPhrases().size()).build());
         return new GuardrailsView(guardrails(saved), saved.revision());
     }
@@ -117,7 +115,7 @@ public class ChatSettingsService {
 
     private ChatSettingsEntity writable(ActorId actor, long revision) {
         var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE).tenantId().value();
-        var entity = settings.findById(tenant).orElseGet(() -> new ChatSettingsEntity(tenant));
+        var entity = settings.findById(tenant).orElseGet(() -> seeded(tenant));
         if (entity.revision() != revision) throw ChatException.conflict();
         return entity;
     }
@@ -146,13 +144,21 @@ public class ChatSettingsService {
                 entity.groundedAnswers(), entity.groundedAllowWeb(), entity.revision());
     }
 
-    /** A stored topic this version no longer knows is ignored rather than failing every turn. */
     private static ChatGuardrails guardrails(ChatSettingsEntity entity) {
-        var topics = new ArrayList<ChatGuardrails.TopicSetting>();
-        for (var stored : entity.guardrailTopics()) {
-            for (var topic : ChatGuardrails.Topic.values())
-                if (topic.name().equals(stored.topic())) topics.add(new ChatGuardrails.TopicSetting(topic, stored.enabled(), stored.message()));
-        }
+        var topics = entity.guardrailTopics().stream().map(stored -> new ChatGuardrails.Topic(stored.id(), stored.name(),
+                stored.description(), stored.examples(), stored.message(), stored.enabled())).toList();
         return new ChatGuardrails(topics, entity.blockedPhrases(), entity.blockedPhraseMessage());
+    }
+
+    private static List<ChatSettingsEntity.StoredTopic> stored(List<ChatGuardrails.Topic> topics) {
+        return topics.stream().map(topic -> new ChatSettingsEntity.StoredTopic(topic.id(), topic.name(),
+                topic.description(), topic.examples(), topic.message(), topic.enabled())).toList();
+    }
+
+    /** A Tenant's first settings row starts from the seed topics, as a Tenant without one reads them (MEM-208). */
+    private static ChatSettingsEntity seeded(UUID tenant) {
+        var entity = new ChatSettingsEntity(tenant);
+        entity.guardrails(stored(ChatGuardrails.BUILT_IN), List.of(), null);
+        return entity;
     }
 }

@@ -21646,31 +21646,50 @@ components:
     ChatGuardrailTopic:
       type: object
       properties:
-        topic:
+        id:
           type: string
-          enum:
-          - POLITICS
-          - LEADERS
-          - RELIGION
-        enabled:
-          type: boolean
+          format: uuid
+          description: Absent for a topic this request creates
+        name:
+          type: string
+          maxLength: 36
+          minLength: 0
+        description:
+          type: string
+          description: What the model classifies a question by
+          maxLength: 350
+          minLength: 0
+        examples:
+          type: array
+          description: Example questions about the topic
+          items:
+            type: string
+            maxLength: 200
+            minLength: 0
+          maxItems: 5
+          minItems: 0
         message:
           type: string
           description: What the person is told when a question matches
           maxLength: 500
           minLength: 0
+        enabled:
+          type: boolean
       required:
+      - description
       - enabled
+      - examples
       - message
-      - topic
+      - name
     ChatGuardrailsRequest:
       type: object
       properties:
         topics:
           type: array
+          description: "Every topic of the Tenant, in order; one left out is deleted"
           items:
             $ref: "#/components/schemas/ChatGuardrailTopic"
-          maxItems: 10
+          maxItems: 30
           minItems: 0
         blockedPhrases:
           type: array
@@ -21699,7 +21718,7 @@ components:
       properties:
         topics:
           type: array
-          description: "Every built-in topic, in a fixed order"
+          description: "Every topic of the Tenant, in order"
           items:
             $ref: "#/components/schemas/ChatGuardrailTopic"
         blockedPhrases:

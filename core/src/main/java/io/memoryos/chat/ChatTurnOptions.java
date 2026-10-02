@@ -20,8 +20,8 @@ import org.jspecify.annotations.Nullable;
  *                        model configuration as it stands)
  * @param grounded        MEM-195: the turn answers from the organization's documents only, because the Tenant or the
  *                        agent says so; it searches whatever the agent's search tool setting ({@link #searches()})
- * @param topicRules      the Tenant's blocked topics as an instruction for the answer model, set only for a turn whose
- *                        guardrail check returned no verdict; empty otherwise
+ * @param topicRules      the Tenant's blocked topics as an instruction for the answer model, set on every turn while a
+ *                        topic is enabled (MEM-208); empty otherwise
  */
 public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boolean sourcesRestricted,
                               @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
@@ -86,7 +86,7 @@ public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boole
                 knowledgeCutoff, taskPrompt, codeInterpreter, sampling, value, topicRules);
     }
 
-    /** The same turn, with the blocked topics left to the answer model because the guardrail check gave no verdict. */
+    /** The same turn, with the blocked topics as the answer model's own instruction. */
     public ChatTurnOptions withTopicRules(String value) {
         return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
                 knowledgeCutoff, taskPrompt, codeInterpreter, sampling, grounded, value);

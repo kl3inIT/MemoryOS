@@ -44,7 +44,7 @@ public final class ChatModelGuard extends ModelGuard {
     /** MEM-195: every inference of this turn carries the answer-from-documents instruction. */
     public void grounded(boolean value) { grounded = value; }
 
-    /** Blocked topics this turn's answer model applies itself, because the guardrail check gave no verdict. */
+    /** Blocked topics this turn's answer model applies itself, behind the guardrail check (MEM-208). */
     public void topicRules(String value) { topicRules = value; }
 
     @Override

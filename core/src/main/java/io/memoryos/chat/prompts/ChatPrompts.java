@@ -291,7 +291,7 @@ public final class ChatPrompts {
     /**
      * The agent task prompt leads the final reminder of every inference (Onyx {@code llm_loop.py} reminder).
      *
-     * @param topicRules the blocked topics the answer model applies itself, when the guardrail check gave no verdict
+     * @param topicRules the blocked topics the answer model applies itself, behind the guardrail check
      */
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt,
                                       boolean grounded, String topicRules) {
