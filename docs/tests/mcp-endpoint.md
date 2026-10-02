@@ -26,4 +26,4 @@ with signed tokens from a stand-in issuer and Search and Keycloak's admin API mo
 | The administration page: switch at its revision, trusted apps (confirming before distrust, domain validation, read-only without the account), activity filters in the address, insights; the member page guides only through the apps that are on and revokes a grant | `web/src/features/mcp/mcp-endpoint-admin-page.test.tsx`, `mcp-endpoint-settings-page.test.tsx`; `web/tests/e2e/mcp-endpoint.spec.ts` (captures in both themes at 1280 and 390 px, reviewed) |
 | HTTP paths and schemas are in the checked-in contract | `api/src/test/java/io/memoryos/api/OpenApiContractTest.java` |
 
-Live evidence: [MEM-114 verification](../increments/active/mem-114-public-mcp-server/verification.md).
+Live evidence: [MEM-114 verification](../increments/completed/mem-114-public-mcp-server/verification.md).

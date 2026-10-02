@@ -3,8 +3,8 @@
 Claude, ChatGPT and other trusted apps search and read a Tenant's Documents through `/mcp`, as the signed-in member
 and with exactly that member's access. Decided in [ADR 0024](../decisions/0024-mcp-endpoint-in-process-with-the-members-access.md)
 and [ADR 0022](../decisions/0022-trusted-mcp-apps-kept-in-memoryos.md); delivered by
-[MEM-114](../increments/active/mem-114-public-mcp-server/design.md) and
-[MEM-207/MEM-209](../increments/active/mcp-endpoint-governance/design.md). The other direction, MemoryOS calling
+[MEM-114](../increments/completed/mem-114-public-mcp-server/design.md) and
+[MEM-207/MEM-209](../increments/completed/mcp-endpoint-governance/design.md). The other direction, MemoryOS calling
 other MCP servers from Chat, is in the [Chat contract](chat.md). Verification: [matrix](../tests/mcp-endpoint.md).
 Operations: [runbook](../runbooks/mcp-endpoint.md).
 

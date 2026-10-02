@@ -1,6 +1,6 @@
 # MemoryOS MCP endpoint governance: trusted apps, grant lifetime, rate limits, activity (MEM-207, MEM-209)
 
-Status: in progress, started 2026-10-02 at the owner's request, in one pull request. Linear:
+Status: delivered in PR #453 (merged 2026-10-03) and deployed to staging and production; closed by the owner on 2026-10-03 before the checks after deployment ran. Linear:
 [MEM-209](https://linear.app/memory-os/issue/MEM-209) and the first part of
 [MEM-207](https://linear.app/memory-os/issue/MEM-207). Builds on the endpoint of
 [MEM-114](../mem-114-public-mcp-server/design.md).

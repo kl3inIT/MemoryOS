@@ -1,5 +1,7 @@
 # MEM-114: MemoryOS as a public MCP server
 
+Status: delivered; the current contract is the [MemoryOS MCP endpoint spec](../../../specs/mcp-endpoint.md). Closed by the owner on 2026-10-03 and moved to `completed/`. Not run by then: the probes that need a member token, Claude Code, revoking a grant, switching off, a test member reading only test Documents, and a ChatGPT deep research load against the rate limit; the [verification](../mem-114-public-mcp-server/verification.md) lists them.
+
 [MEM-114](https://linear.app/memory-os/issue/MEM-114). [MEM-112](../../completed/mem-112-chat-mcp-client/design.md) made
 MemoryOS an MCP client: Chat calls tools on other systems. This increment is the reverse direction. Claude and ChatGPT
 search and read a Tenant's knowledge through MemoryOS, as the signed-in person and with exactly that person's access.
@@ -13,7 +15,7 @@ search and read a Tenant's knowledge through MemoryOS, as the signed-in person a
   - ChatGPT uses a pre-registered client.
   - Anonymous dynamic client registration stays closed.
 - **Endpoint switch.** One switch per Tenant, off by default.
-  - Production stays off until [MEM-134](../mem-134-external-data-gate/design.md) can keep an `INTERNAL_ONLY` Source
+  - Production stays off until [MEM-134](../../active/mem-134-external-data-gate/design.md) can keep an `INTERNAL_ONLY` Source
     out of it.
 - **Who may use it.** Any member with `SEARCH_READ`, once the Tenant has switched the endpoint on.
 - **Acceptance clients.**
