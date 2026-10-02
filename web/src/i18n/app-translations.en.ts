@@ -89,8 +89,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đang viết tóm tắt, quyết định và việc cần làm…":
     "Writing the summary, decisions and action items…",
   "Chưa viết được tóm tắt": "The minutes could not be written",
-  "Transcript vẫn còn nguyên. Thử lại khi mô hình sẵn sàng.":
-    "The transcript is intact. Try again when the model is available.",
+  "Model trả về biên bản không đọc được.": "The model's minutes could not be read.",
   "Viết lại": "Write again",
   "Viết lại tóm tắt?": "Write the minutes again?",
   "Những chỗ bạn đã sửa sẽ bị thay bằng bản mới.":
