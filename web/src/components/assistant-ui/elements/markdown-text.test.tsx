@@ -41,6 +41,8 @@ describe("assistant math", () => {
     await waitFor(() =>
       expect(document.querySelectorAll(".katex").length).toBeGreaterThanOrEqual(2),
     );
+    // The markup must come from the katex version whose stylesheet is imported (0.18 prefixes its classes).
+    expect(document.querySelector(".katex .katex-base")).not.toBeNull();
     expect(document.body.textContent).toContain("$5 và $7");
     // KaTeX keeps the TeX source in its MathML annotation; no raw TeX remains outside rendered math.
     const prose = document.body.cloneNode(true) as HTMLElement;
