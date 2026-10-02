@@ -37,6 +37,7 @@ import io.memoryos.mcp.McpEndpointCallRetention;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchPage;
 import io.memoryos.retrieval.SearchRequest;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.swagger.v3.core.util.Json;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -95,6 +96,7 @@ class McpEndpointIntegrationTest {
     /** Keycloak's policy is the iam adapter's contract; here only the hosts the API asks it to trust are checked. */
     @MockitoBean private McpClientPolicy policy;
     @Autowired private McpEndpointCallRetention retention;
+    @Autowired private MeterRegistry meters;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -368,6 +370,9 @@ class McpEndpointIntegrationTest {
         // A refused call is in the activity log too, with the tool it asked for.
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM mcp_endpoint_calls WHERE outcome = 'RATE_LIMITED' AND tool = 'search'")
                 .query(Long.class).single());
+        // The counter names the bucket that ran dry and the app, never the client ID or the tool the caller named.
+        assertEquals(1.0, meters.get("memoryos.mcp.endpoint.rate_limited").tags("scope", "caller", "client", "other")
+                .counter().count());
         // The same person through another client has a bucket of their own.
         assertEquals(200, post(endpointToken(), call("search", Map.of("query", "leave")), "2025-11-25").statusCode());
     }

@@ -6,7 +6,9 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
 import io.memoryos.api.security.ActorAuthenticationToken;
+import io.memoryos.iam.McpClientGrant;
 import io.memoryos.mcp.McpEndpointActivity;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletException;
@@ -24,6 +26,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -39,7 +42,8 @@ import tools.jackson.databind.json.JsonMapper;
  * MEM-114: bounds every request to the MCP endpoint. A body over {@link McpEndpointLimits#maxRequestBytes()} is refused
  * with 413, whether it declares its length or arrives chunked. Each {@code tools/call} spends one token from the caller's
  * bucket (person and client) and one from the endpoint's; an empty bucket answers 429 with {@code Retry-After}.
- * Discovery, {@code initialize} and listing cost nothing, because ChatGPT repeats them before every call.
+ * Discovery, {@code initialize} and listing cost nothing, because ChatGPT repeats them before every call. Each refusal
+ * counts in {@code memoryos.mcp.endpoint.rate_limited} by scope and app, and reaches the activity log.
  *
  * <p>The transport refuses a request whose {@code Accept} lacks either {@code application/json} or
  * {@code text/event-stream}; as Onyx does, a client that sends less is given both rather than a 400.
@@ -54,13 +58,15 @@ public final class McpEndpointRequestFilter extends OncePerRequestFilter {
 
     private final McpEndpointLimits limits;
     private final McpEndpointActivity activity;
+    private final MeterRegistry metrics;
     private final Bucket endpoint;
     private final Cache<String, Bucket> callers = Caffeine.newBuilder()
             .maximumSize(10_000).expireAfterAccess(Duration.ofMinutes(15)).build();
 
-    public McpEndpointRequestFilter(McpEndpointLimits limits, McpEndpointActivity activity) {
+    public McpEndpointRequestFilter(McpEndpointLimits limits, McpEndpointActivity activity, MeterRegistry metrics) {
         this.limits = limits;
         this.activity = activity;
+        this.metrics = metrics;
         this.endpoint = bucket(limits.globalCallsPerMinute());
     }
 
@@ -88,13 +94,13 @@ public final class McpEndpointRequestFilter extends OncePerRequestFilter {
             int perCaller = limits.callerCallsPerMinute();
             var probe = callers.get(caller, ignored -> bucket(perCaller)).tryConsumeAndReturnRemaining(1);
             if (!probe.isConsumed()) {
-                recordLimited(tool);
+                recordLimited(tool, "caller");
                 limited(response, probe, perCaller, "MCP_CALLER_RATE_LIMITED", "caller");
                 return;
             }
             var shared = endpoint.tryConsumeAndReturnRemaining(1);
             if (!shared.isConsumed()) {
-                recordLimited(tool);
+                recordLimited(tool, "endpoint");
                 limited(response, shared, limits.globalCallsPerMinute(), "MCP_ENDPOINT_RATE_LIMITED", "endpoint");
                 return;
             }
@@ -121,10 +127,13 @@ public final class McpEndpointRequestFilter extends OncePerRequestFilter {
         }
     }
 
-    private void recordLimited(String tool) {
+    /** The tool is the caller's own text, so only the log keeps it; the counter has the bounded scope and app. */
+    private void recordLimited(String tool, String scope) {
+        String client = McpEndpointTools.client();
+        metrics.counter("memoryos.mcp.endpoint.rate_limited", "scope", scope,
+                "client", McpClientGrant.Client.of(client).name().toLowerCase(Locale.ROOT)).increment();
         if (SecurityContextHolder.getContext().getAuthentication() instanceof ActorAuthenticationToken token) {
-            activity.record(token.getPrincipal().actorId(), McpEndpointTools.client(), tool,
-                    McpEndpointActivity.Outcome.RATE_LIMITED);
+            activity.record(token.getPrincipal().actorId(), client, tool, McpEndpointActivity.Outcome.RATE_LIMITED);
         }
     }
 

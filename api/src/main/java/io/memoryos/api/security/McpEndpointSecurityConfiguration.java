@@ -10,6 +10,7 @@ import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.mcp.McpEndpointProperties;
 import io.memoryos.mcp.McpEndpointService;
 import io.memoryos.shared.TenantId;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.NullMarked;
@@ -61,6 +62,7 @@ class McpEndpointSecurityConfiguration {
             McpEndpointService endpointSwitch,
             McpEndpointLimits limits,
             McpEndpointActivity activity,
+            MeterRegistry metrics,
             ExternalIdentityResolver identityResolver,
             TenantAccessResolver tenantAccessResolver) {
         String resource = endpoint.url().map(Object::toString).orElse(NO_ENDPOINT);
@@ -72,7 +74,7 @@ class McpEndpointSecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new McpEndpointGateFilter(endpointSwitch, endpoint, new TenantId(tenantId)),
                         DisableEncodeUrlFilter.class)
-                .addFilterAfter(new McpEndpointRequestFilter(limits, activity), BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new McpEndpointRequestFilter(limits, activity, metrics), BearerTokenAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(McpEndpointProperties.METADATA_PATH).permitAll()
                         .anyRequest().access((authentication, _) -> new AuthorizationDecision(
