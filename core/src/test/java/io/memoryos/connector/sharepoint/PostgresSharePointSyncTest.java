@@ -127,7 +127,7 @@ class PostgresSharePointSyncTest {
 
         var sources = new JdbcSourceRepository(jdbc, event -> { });
         var documents = new JdbcSourceDocumentRepository(jdbc);
-        var items = new JdbcSourceItemRepository(jdbc);
+        var items = new JdbcSourceItemRepository(jdbc, _ -> { });
         attempts = new JdbcSourceSyncRepository(jdbc);
         runs = new JdbcSharePointSyncRepository(jdbc);
         sharePoint = new JdbcSharePointSourceRepository(jdbc, sources);

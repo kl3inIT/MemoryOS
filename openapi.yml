@@ -23577,7 +23577,10 @@ components:
           type: array
           items:
             type: string
-        updatedSince:
+        updatedFrom:
+          type: string
+          format: date-time
+        updatedTo:
           type: string
           format: date-time
         page:

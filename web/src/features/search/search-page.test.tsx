@@ -163,11 +163,61 @@ describe("SearchPage", () => {
     expect(screen.getByRole("textbox", { name: "Search documents" })).toHaveValue("budget");
 
     await user.click(await screen.findByRole("button", { name: "Updated: All time" }));
-    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
+    await user.click(screen.getByRole("button", { name: "Past 30 days" }));
 
     await waitFor(() =>
       expect(renderedRouter?.state.location.href).toBe("/search?q=budget&source=FILE&time=30d"),
     );
+  });
+
+  it("applies a range of days picked on the calendar in place of a preset and keeps it in the address", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        results: [],
+        page: 0,
+        hasMore: false,
+        totalResults: 0,
+        candidateLimit: 200,
+        sourceFacets: { total: 0, types: [] },
+      },
+    });
+    await renderNewSession(OWNER_SESSION, "/search?q=budget&time=7d");
+    // The calendar opens on last month beside this one, and a day after today cannot be picked.
+    const today = new Date();
+    const month = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const day = (date: number) =>
+      `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
+    const named = (date: number) =>
+      new RegExp(
+        `${month.toLocaleString("en-US", { month: "long" })} ${date}(st|nd|rd|th), ${month.getFullYear()}`,
+      );
+
+    await user.click(await screen.findByRole("button", { name: "Updated: Past 7 days" }));
+    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: named(3) }));
+    await user.click(screen.getByRole("button", { name: named(17) }));
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    await waitFor(() =>
+      expect(searchDocumentsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            query: "budget",
+            updatedFrom: `${day(3)}T00:00:00.000Z`,
+            updatedTo: `${day(17)}T23:59:59.999Z`,
+          }),
+        }),
+      ),
+    );
+    expect(renderedRouter?.state.location.href).toBe(
+      `/search?q=budget&from=${day(3)}&to=${day(17)}`,
+    );
+    expect(screen.queryByRole("button", { name: "Updated: Past 7 days" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Updated: / }));
+    await user.click(screen.getByRole("button", { name: "All time" }));
+    await waitFor(() => expect(renderedRouter?.state.location.href).toBe("/search?q=budget"));
   });
 
   it("opens the document a doc link names at its current generation and leaves the link on close", async () => {
@@ -386,7 +436,7 @@ describe("SearchPage", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Updated: All time" }));
-    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
+    await user.click(screen.getByRole("button", { name: "Past 30 days" }));
 
     await waitFor(() =>
       expect(searchDocumentsMock).toHaveBeenCalledWith(
@@ -395,7 +445,7 @@ describe("SearchPage", () => {
             query: "nghỉ phép",
             mediaTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
             page: 0,
-            updatedSince: expect.stringMatching(/T00:00:00\.000Z$/),
+            updatedFrom: expect.stringMatching(/T00:00:00\.000Z$/),
           }),
         }),
       ),

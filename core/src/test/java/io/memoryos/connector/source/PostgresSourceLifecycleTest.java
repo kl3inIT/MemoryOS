@@ -204,7 +204,7 @@ class PostgresSourceLifecycleTest {
                         documents,
                         objectUploads,
                         storedObjects,
-                        new JdbcSourceItemRepository(jdbcClient),
+                        new JdbcSourceItemRepository(jdbcClient, _ -> { }),
                         Mockito.mock(ObjectWriteService.class)
                 ),
                 ConnectorCleanupPort.class,
@@ -1406,7 +1406,7 @@ class PostgresSourceLifecycleTest {
         Mockito.when(tenants.findActiveTenant(Mockito.any())).thenReturn(Optional.of(new TenantId(tenantId)));
         var target = new DefaultSourceManagementService(
                 sourceRepository,
-                new JdbcSourceItemRepository(jdbcClient),
+                new JdbcSourceItemRepository(jdbcClient, _ -> { }),
                 new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
                         SourceSyncAdapters.registry()),
                 sourceDocuments,

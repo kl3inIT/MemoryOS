@@ -2,6 +2,7 @@ package io.memoryos.ingestion.application;
 
 import io.memoryos.connector.SourceAclChanged;
 import io.memoryos.connector.SourceAccessChanged;
+import io.memoryos.connector.SourceMetadataChanged;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
@@ -60,6 +61,14 @@ public class SearchProjectionMaintenance {
     public void aclChanged(SourceAclChanged event) {
         for (String identity : index.identities()) {
             work.enqueueDocumentAccess(event.tenantId(), event.sourceId(), event.documentIds(), identity);
+        }
+    }
+
+    /** Runs in the transaction that recorded new provider dates; the ACCESS refresh rewrites the source metadata too. */
+    @EventListener
+    public void metadataChanged(SourceMetadataChanged event) {
+        for (String identity : index.identities()) {
+            work.enqueueDocumentMetadata(event.tenantId(), event.sourceId(), event.documentIds(), identity);
         }
     }
 

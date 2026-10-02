@@ -15,6 +15,7 @@ import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.FileOutcome;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.ItemFailure;
 import io.memoryos.objectstorage.ObjectWriteService;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -104,11 +105,13 @@ public final class SyncRun {
 
     /**
      * Inside a fence: true, recording the file as unchanged, when the Source already holds this provider version
-     * under the attempt's scope and credential.
+     * under the attempt's scope and credential. The provider's dates are recorded either way they were read.
      */
-    public boolean unchanged(String providerFileId, String providerVersion) {
+    public boolean unchanged(String providerFileId, String providerVersion, @Nullable Instant createdAt,
+            @Nullable Instant updatedAt) {
         var version = items.unchanged(work, providerFileId, providerVersion);
         if (version.isEmpty()) return false;
+        items.recordDates(work, version.get().itemId(), createdAt, updatedAt);
         attempts.outcome(work, providerFileId, FileOutcome.UNCHANGED,
                 indexing.findLive(work.tenantId(), work.sourceId(), version.get()).isPresent());
         resolved(providerFileId);
@@ -179,6 +182,7 @@ public final class SyncRun {
                 var same = items.sameContent(work, file, staged.object().metadata().checksum().value(),
                         staged.object().filename(), content.descriptor().providerVersion());
                 if (same.isPresent()) {
+                    items.recordDates(work, same.get().itemId(), content.createdAt(), content.updatedAt());
                     attempts.outcome(work, file, FileOutcome.UNCHANGED,
                             indexing.findLive(work.tenantId(), work.sourceId(), same.get()).isPresent());
                     resolved(file);
@@ -186,7 +190,8 @@ public final class SyncRun {
                     return Acquired.UNCHANGED;
                 }
                 writes.adopt(work.tenantId(), staged);
-                var version = items.acceptRemote(work, pair, staged.object(), content.descriptor());
+                var version = items.acceptRemote(work, pair, staged.object(), content.descriptor(),
+                        content.createdAt(), content.updatedAt());
                 indexing.cancelForItem(work.tenantId(), work.sourceId(), version.itemId());
                 // The current Document stays retrievable until the new version publishes over the same mapping.
                 indexing.create(work.tenantId(), pair, version, work.operationId());
@@ -220,8 +225,9 @@ public final class SyncRun {
     }
 
     /** Content read from the provider, with the descriptor its version is recorded under. */
+    /** {@code createdAt} and {@code updatedAt} are the provider's own dates of the file, when it reports them. */
     public record Content(SourceInputDescriptor descriptor, String filename, String mediaType, boolean text,
-                          byte[] bytes) {}
+                          byte[] bytes, @Nullable Instant createdAt, @Nullable Instant updatedAt) {}
 
     /** What the adapter does inside the acquisition fence. */
     public interface AcquireHooks {

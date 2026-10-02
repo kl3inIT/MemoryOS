@@ -1,6 +1,7 @@
 package io.memoryos.connector.googledrive;
 
 import io.memoryos.connector.SourceAccess;
+import io.memoryos.connector.SourceMetadataChanged;
 import io.memoryos.connector.googledrive.persistence.GoogleDriveCredentialConfiguration;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveAclRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveCredentialRepository;
@@ -66,6 +67,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -159,7 +161,7 @@ class PostgresGoogleDriveSyncTest {
         source = Objects.requireNonNull(pair).sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();
         jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id").param("id", source.value()).update();
-        items = new JdbcSourceItemRepository(jdbc);
+        items = new JdbcSourceItemRepository(jdbc, published::add);
         mappings = new JdbcSourceDocumentRepository(jdbc);
         roots = new JdbcGoogleDriveSourceRepository(jdbc);
         syncRows = new JdbcSourceSyncRepository(jdbc);
@@ -378,6 +380,29 @@ class PostgresGoogleDriveSyncTest {
         assertThat(updated.contextStatus()).isEqualTo(GoogleDriveAclSnapshot.ContextStatus.CURRENT);
         verify(session, never()).acquire(any());
         assertThat(dispatch.claim(OperationWorkload.INGESTION, 1)).isEmpty();
+    }
+
+    @Test
+    void driveModificationTimeIsRecordedAndAnUnchangedFileGainingOneRefreshesItsSearchFields() {
+        var modified = Instant.parse("2025-03-04T05:06:07Z");
+        listing(modifiedAt(file("one", false, "1"), modified));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        assertThat(sourceUpdatedAt("one")).isEqualTo(modified);
+        // An item synchronized before provider dates were kept has none; the next run fills it without a download.
+        jdbc.sql("UPDATE connector_items SET source_updated_at = NULL").update();
+        published.clear();
+        Mockito.clearInvocations(session);
+
+        finish(enqueue());
+
+        verify(session, never()).acquire(any());
+        assertThat(sourceUpdatedAt("one")).isEqualTo(modified);
+        assertThat(published).filteredOn(SourceMetadataChanged.class::isInstance).singleElement()
+                .satisfies(event -> assertThat(((SourceMetadataChanged) event).documentIds()).hasSize(1));
+        published.clear();
+        finish(enqueue());
+        assertThat(published).noneMatch(SourceMetadataChanged.class::isInstance);
     }
 
     @Test
@@ -1546,6 +1571,16 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private long scalar(String query) { return jdbc.sql(query).query(Long.class).single(); }
+
+    private Instant sourceUpdatedAt(String fileId) {
+        return jdbc.sql("SELECT source_updated_at FROM connector_items WHERE provider_file_id = :file")
+                .param("file", fileId).query(OffsetDateTime.class).single().toInstant();
+    }
+
+    private static GoogleDriveGateway.FileMetadata modifiedAt(GoogleDriveGateway.FileMetadata file, Instant at) {
+        return new GoogleDriveGateway.FileMetadata(file.id(), file.name(), file.mimeType(), file.version(), file.checksum(),
+                at, file.trashed(), file.parents(), file.driveId(), file.shortcutTargetId());
+    }
     private static String link(String id) { return "https://drive.google.com/drive/folders/" + id; }
     private static ContentSha256 checksum(byte[] value) {
         try { return new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value))); }

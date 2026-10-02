@@ -1479,7 +1479,8 @@ export type CreateFileSourceRequest = {
 export type SearchRequest = {
     query?: string;
     mediaTypes?: Array<string>;
-    updatedSince?: string;
+    updatedFrom?: string;
+    updatedTo?: string;
     page?: number;
     pageSize?: number;
     sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;

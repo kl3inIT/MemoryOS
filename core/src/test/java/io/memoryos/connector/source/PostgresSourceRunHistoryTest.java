@@ -173,7 +173,7 @@ class PostgresSourceRunHistoryTest {
         when(connections.open(any(), any())).thenReturn(new GoogleDriveConnectionService.Connection(session, 1));
         when(connections.state(any(), any())).thenReturn(new GoogleDriveConnectionService.State(
                 new CredentialId(UUID.randomUUID()), "owner@example.test", "ACTIVE", 1, true, "OAUTH"));
-        items = new JdbcSourceItemRepository(jdbc);
+        items = new JdbcSourceItemRepository(jdbc, _ -> { });
         mappings = new JdbcSourceDocumentRepository(jdbc);
         sync = new JdbcSourceSyncRepository(jdbc);
         attempts = new JdbcIndexAttemptRepository(jdbc, sources, mappings,

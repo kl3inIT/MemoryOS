@@ -84,3 +84,15 @@ The following acceptance evidence remains distinct: approved OpenAI embeddings o
 | `totalResults` counts readable grouped Documents across pages; heading and shared `TablePagination` use it (`Showing 1–1 of 23`, `1 / 2` → `2 / 2`) | `DocumentSearchServiceTest.filtersObsoleteAndIneligibleHitsBeforeGroupingAndBoundedPaging`; `OpenApiContractTest`; `search-page.test.tsx`; `search.spec.ts` result case |
 | Landing file-type chips preselect the filter without searching; recent searches are per actor, rerun with the chosen filter, dedupe, clear and survive unreadable storage | `search-page.test.tsx` landing cases |
 | Search documents is a sidebar entry and no header Chat/Search mode menu exists | `search-page.test.tsx`; `chat.spec.ts` mobile drawer case; `chat-workspace.spec.ts` saved-title cases |
+
+## Update window by provider date and MCP filters (MEM-114) — 2026-10-02
+
+| Contract | Evidence |
+| --- | --- |
+| `SearchRequest` takes an optional inclusive `updatedFrom`/`updatedTo`; no bound means no window; a window that ends before it starts fails validation | `SearchRequestTest.anUpdateWindowIsOptionalAndMustNotEndBeforeItStarts` |
+| The window reaches the index and is repeated on the readable origins before connector counts; MemoryOS's write time neither filters nor shows, and a result shows the newest provider date | `DocumentSearchServiceTest.anUpdateWindowKeepsWhatTheProviderChangedInsideItAndShowsThatDate` |
+| A connector filter and the window must hold for the same origin | `DocumentSearchServiceTest.aSourceAndAnUpdateWindowMustHoldForTheSameOrigin` |
+| A Tenant-wide search filters the nested origin update date in real OpenSearch | `OpenSearchRetrievalIntegrationTest` (Tenant search window assertions) |
+| Search page: the Updated filter offers the presets beside a calendar range; a range lives in the address as `from`/`to`, replaces a preset, cannot reach past today and is sent as whole UTC days | `search-page.test.tsx` ("applies a range of days picked on the calendar…"), `search.spec.ts` ("picks a range of update days…", captures at 1280 and 390 px reviewed) |
+| MCP `search_with_filters`: the endpoint lists exactly `search`, `fetch` and `search_with_filters`, all read-only; its input schema names `source_types` and `file_types` with their allowed values; each filter reaches `SearchRequest` (document sets by name, case aside; dates as whole UTC days; file types as media types) | `McpEndpointIntegrationTest.theEndpointPublishesOnlyItsThreeReadOnlyTools`, `.searchWithFiltersOffersEachFilterWithItsAllowedValues`, `.searchWithFiltersNarrowsTheSearchToWhatThePersonAsked` |
+| A filter the tool cannot use is refused in one sentence without searching: an unknown document set lists the person's sets, a malformed or reversed period gives the format, an unknown source names the field and its values | `McpEndpointIntegrationTest.anUnknownDocumentSetIsAnsweredWithTheSetsThePersonCanUse`, `.aPeriodTheToolCannotReadIsRefusedWithTheFormatToUse`, `.anUnknownSourceIsRefusedWithoutReachingSearch` |

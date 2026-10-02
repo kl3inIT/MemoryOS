@@ -6,6 +6,8 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceItemId;
+import io.memoryos.connector.SourceMetadataChanged;
+import io.memoryos.document.DocumentId;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
@@ -13,12 +15,17 @@ import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.shared.TenantId;
 
+import java.sql.Types;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -27,9 +34,11 @@ import org.springframework.stereotype.Repository;
 public class JdbcSourceItemRepository {
 
     private final JdbcClient jdbcClient;
+    private final ApplicationEventPublisher events;
 
-    public JdbcSourceItemRepository(JdbcClient jdbcClient) {
+    public JdbcSourceItemRepository(JdbcClient jdbcClient, ApplicationEventPublisher events) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
+        this.events = Objects.requireNonNull(events, "events must not be null");
     }
 
     public ItemVersion resolveOrCreate(
@@ -178,6 +187,38 @@ public class JdbcSourceItemRepository {
     }
 
     /**
+     * Records the provider's own dates of an item whose content this run did not re-read. A null date keeps the one
+     * held. When a date changes, the item's Documents are announced so their search fields follow without waiting
+     * for the index reconciliation sweep.
+     */
+    public void recordDates(ConnectorSyncPort.Work work, SourceItemId item, @Nullable Instant createdAt,
+            @Nullable Instant updatedAt) {
+        if (createdAt == null && updatedAt == null) return;
+        int changed = jdbcClient.sql("""
+                UPDATE connector_items
+                SET source_created_at = COALESCE(CAST(:created AS TIMESTAMPTZ), source_created_at),
+                    source_updated_at = COALESCE(CAST(:updated AS TIMESTAMPTZ), source_updated_at)
+                WHERE tenant_id = :tenant AND id = :item
+                  AND (source_created_at IS DISTINCT FROM COALESCE(CAST(:created AS TIMESTAMPTZ), source_created_at)
+                    OR source_updated_at IS DISTINCT FROM COALESCE(CAST(:updated AS TIMESTAMPTZ), source_updated_at))
+                """).param("created", sqlTime(createdAt), Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("updated", sqlTime(updatedAt), Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("tenant", work.tenantId().value()).param("item", item.value()).update();
+        if (changed == 0) return;
+        List<DocumentId> documentIds = jdbcClient.sql("""
+                SELECT DISTINCT document_id FROM documents_by_connector_credential_pair
+                WHERE tenant_id = :tenant AND connector_credential_pair_id = :source AND connector_item_id = :item
+                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
+                .param("item", item.value()).query((r, _) -> new DocumentId(r.getObject(1, UUID.class))).list();
+        if (!documentIds.isEmpty())
+            events.publishEvent(new SourceMetadataChanged(work.tenantId(), work.sourceId(), documentIds));
+    }
+
+    private static @Nullable OffsetDateTime sqlTime(@Nullable Instant instant) {
+        return instant == null ? null : OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
+    }
+
+    /**
      * Finds the current version whose adopted bytes and filename equal a re-read file under the same scope and
      * credential revisions, and records the newer provider version in place. A provider version also advances for
      * sharing or metadata changes, which must not create a new input version or re-extraction.
@@ -204,9 +245,10 @@ public class JdbcSourceItemRepository {
         return current;
     }
 
+    /** {@code createdAt} and {@code updatedAt} are the provider's own dates; a null one keeps the date already held. */
     public ItemVersion acceptRemote(ConnectorSyncPort.Work work,
             JdbcSourceRepository.SourcePair pair, StoredObjectReference object,
-            SourceInputDescriptor input) {
+            SourceInputDescriptor input, @Nullable Instant createdAt, @Nullable Instant updatedAt) {
         var existing = jdbcClient.sql("""
                 SELECT id, status FROM connector_items
                 WHERE tenant_id = :tenant AND connector_id = :connector AND provider_file_id = :file FOR UPDATE
@@ -219,11 +261,15 @@ public class JdbcSourceItemRepository {
         UUID version = UUID.randomUUID();
         if (existing.isEmpty()) {
             jdbcClient.sql("""
-                    INSERT INTO connector_items (id, tenant_id, connector_id, provider_file_id, content_sha256, status)
-                    VALUES (:id, :tenant, :connector, :file, :sha, 'PENDING')
+                    INSERT INTO connector_items (id, tenant_id, connector_id, provider_file_id, content_sha256, status,
+                      source_created_at, source_updated_at)
+                    VALUES (:id, :tenant, :connector, :file, :sha, 'PENDING',
+                      CAST(:created AS TIMESTAMPTZ), CAST(:updated AS TIMESTAMPTZ))
                     """).param("id", item.value()).param("tenant", work.tenantId().value())
                     .param("connector", pair.connectorId()).param("file", input.providerFileId())
-                    .param("sha", object.metadata().checksum().value()).update();
+                    .param("sha", object.metadata().checksum().value())
+                    .param("created", sqlTime(createdAt), Types.TIMESTAMP_WITH_TIMEZONE)
+                    .param("updated", sqlTime(updatedAt), Types.TIMESTAMP_WITH_TIMEZONE).update();
         }
         jdbcClient.sql("""
                 INSERT INTO connector_item_versions (id, tenant_id, connector_id, connector_item_id,
@@ -240,8 +286,12 @@ public class JdbcSourceItemRepository {
                 .param("scope", work.scopeRevision()).param("credential", work.credentialRevision()).update();
         jdbcClient.sql("""
                 UPDATE connector_items SET current_version_id = :version, content_sha256 = :sha,
+                  source_created_at = COALESCE(CAST(:created AS TIMESTAMPTZ), source_created_at),
+                  source_updated_at = COALESCE(CAST(:updated AS TIMESTAMPTZ), source_updated_at),
                   status = 'PENDING', updated_at = CURRENT_TIMESTAMP WHERE tenant_id = :tenant AND id = :item
                 """).param("version", version).param("sha", object.metadata().checksum().value())
+                .param("created", sqlTime(createdAt), Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("updated", sqlTime(updatedAt), Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("tenant", work.tenantId().value()).param("item", item.value()).update();
         jdbcClient.sql("""
                 UPDATE google_drive_membership SET eligible = FALSE

@@ -67,6 +67,20 @@ public class JdbcSearchWorkRepository {
      */
     @Transactional
     public void enqueueDocumentAccess(TenantId tenant, SourceId source, List<DocumentId> documents, String identity) {
+        enqueueDocumentFields(tenant, source, documents, identity, true);
+    }
+
+    /**
+     * Queues a refresh of the search fields (source metadata and access) of the listed searchable documents of a
+     * Source, whatever its access mode, after the provider's recorded metadata changed.
+     */
+    @Transactional
+    public void enqueueDocumentMetadata(TenantId tenant, SourceId source, List<DocumentId> documents, String identity) {
+        enqueueDocumentFields(tenant, source, documents, identity, false);
+    }
+
+    private void enqueueDocumentFields(TenantId tenant, SourceId source, List<DocumentId> documents, String identity,
+            boolean syncAccessOnly) {
         if (documents.isEmpty()) return;
         jdbc.sql("""
                 INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity)
@@ -75,12 +89,14 @@ public class JdbcSearchWorkRepository {
                 WHERE d.tenant_id=:tenant AND d.id IN (:documents) AND d.status='ELIGIBLE'
                     AND EXISTS (SELECT 1 FROM documents_by_connector_credential_pair m
                         JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
-                        WHERE m.tenant_id=d.tenant_id AND m.document_id=d.id AND p.id=:source AND p.access_type='SYNC')
+                        WHERE m.tenant_id=d.tenant_id AND m.document_id=d.id AND p.id=:source
+                            AND (NOT :syncAccessOnly OR p.access_type='SYNC'))
                 ON CONFLICT (tenant_id,document_id,generation,action,index_identity) DO UPDATE
                 SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,claim_token=NULL,
                     lease_expires_at=NULL,next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
                 """).param("tenant", tenant.value()).param("source", source.value())
-                .param("documents", documents.stream().map(DocumentId::value).toList()).param("identity", identity).update();
+                .param("documents", documents.stream().map(DocumentId::value).toList()).param("identity", identity)
+                .param("syncAccessOnly", syncAccessOnly).update();
     }
 
     /**

@@ -188,6 +188,119 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
 });
 
+test("picks a range of update days on the calendar beside the presets", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-02T09:00:00+07:00"));
+  await page.route("**/api/identity/me", (route) =>
+    route.fulfill({
+      json: {
+        actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+        authorizationVersion: 1,
+        uiLanguage: "vi",
+        tenant: { displayName: "Tasco", role: "MEMBER" },
+        capabilities: ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE"],
+        scopedCapabilities: [],
+      },
+    }),
+  );
+  const requests: { updatedFrom?: string; updatedTo?: string }[] = [];
+  const result = (
+    id: string,
+    title: string,
+    mediaType: string,
+    updatedAt: string,
+    type: string,
+  ) => ({
+    documentId: id,
+    generation,
+    title,
+    mediaType,
+    sourceTypes: [type],
+    authors: ["Phòng Tài chính"],
+    providerUrl: null,
+    updatedAt,
+    score: 0.8,
+    sections: [
+      {
+        startOrdinal: 0,
+        endOrdinal: 0,
+        matchingOrdinal: 0,
+        score: 0.8,
+        content: "Doanh thu quý III tăng 12% so với cùng kỳ, chủ yếu nhờ mảng logistics.",
+        provenance: [{ ordinal: 0, provenanceJson: "[]" }],
+      },
+    ],
+  });
+  await page.route("**/api/search", async (route) => {
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 2,
+        candidateLimit: 500,
+        sourceFacets: {
+          total: 2,
+          types: [
+            { type: "GOOGLE_DRIVE", count: 1 },
+            { type: "SHAREPOINT", count: 1 },
+          ],
+        },
+        results: [
+          result(
+            documentId,
+            "Báo cáo tài chính quý III 2026",
+            "application/pdf",
+            "2026-09-17T03:00:00Z",
+            "SHAREPOINT",
+          ),
+          result(
+            "2f1c6a37-5b2e-4f43-9d55-0b7e1c9a4d10",
+            "Kế hoạch ngân sách 2027",
+            "application/vnd.google-apps.spreadsheet",
+            "2026-09-05T08:30:00Z",
+            "GOOGLE_DRIVE",
+          ),
+        ],
+      },
+    });
+  });
+  await page.goto("/search?q=b%C3%A1o%20c%C3%A1o%20doanh%20thu");
+  await page.getByRole("button", { name: "Đã cập nhật: Mọi thời điểm" }).click();
+  const apply = page.getByRole("button", { name: "Áp dụng" });
+  await expect(apply).toBeDisabled();
+  // A day after today cannot be picked.
+  await expect(page.locator('td[data-day="2026-10-05"] button')).toBeDisabled();
+  await page.locator('td[data-day="2026-09-03"]:not([data-outside]) button').click();
+  await page.locator('td[data-day="2026-09-18"]:not([data-outside]) button').click();
+  await expect(page.locator('[data-slot="popover-content"]')).toHaveCSS("opacity", "1");
+  // The picked day eases into its colours over 150 ms; capture what the person then sees.
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: "test-results/screens/search-updated-range-desktop.png" });
+  await apply.click();
+
+  await expect(page).toHaveURL(/from=2026-09-03&to=2026-09-18/);
+  await expect(
+    page.getByRole("button", { name: "Đã cập nhật: 03/09/2026 – 18/09/2026" }),
+  ).toBeVisible();
+  expect(requests.at(-1)).toMatchObject({
+    updatedFrom: "2026-09-03T00:00:00.000Z",
+    updatedTo: "2026-09-18T23:59:59.999Z",
+  });
+  await page.screenshot({ path: "test-results/screens/search-updated-range-applied.png" });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Đã cập nhật: 03/09/2026 – 18/09/2026" }).click();
+  await expect(page.locator('td[data-day="2026-09-03"]:not([data-outside])')).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.locator('[data-slot="popover-content"]')).toHaveCSS("opacity", "1");
+  await page.screenshot({ path: "test-results/screens/search-updated-range-mobile.png" });
+  await page.getByRole("button", { name: "7 ngày qua" }).click();
+  await expect(page).toHaveURL(/time=7d/);
+  await expect(page).not.toHaveURL(/from=/);
+});
+
 test("handles unavailable, retry, empty and a pending search", async ({ page }) => {
   let failures = 1;
   await page.route("**/api/search", async (route) => {

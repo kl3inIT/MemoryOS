@@ -1599,6 +1599,8 @@ Object.assign(englishUi, {
   "Past 7 days": "7 ngày qua",
   "Past 30 days": "30 ngày qua",
   "Past year": "Năm qua",
+  Clear: "Bỏ chọn",
+  Apply: "Áp dụng",
   Text: "Văn bản",
   "Untitled document": "Tài liệu chưa đặt tên",
   "Best match": "Phù hợp nhất",
