@@ -11,7 +11,7 @@ x-defaults: &defaults
 services:
   collector:
     <<: *defaults
-    image: otel/opentelemetry-collector-contrib:0.160.0@sha256:799dc6cf12c96192af37b5bdba804da8c10b3bc563b43cb90c3f3c58d9572ad6
+    image: otel/opentelemetry-collector-contrib:0.161.0@sha256:fd328de2552466ad78385e1b1289c3f2402b1c45f265b252aab1955b42845ac1
     command: [--config=/etc/otelcol/config.yaml]
     volumes:
       - ./collector.yaml:/etc/otelcol/config.yaml:ro
@@ -22,7 +22,7 @@ services:
       backend:
   loki:
     <<: *defaults
-    image: grafana/loki:3.7.7@sha256:d70e4659623f3e109af669cae76fe2a5dd5be54e2298fe8aed380d982fbc2500
+    image: grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
     command: [-config.file=/etc/loki/config.yaml]
     volumes:
       - ./loki.yaml:/etc/loki/config.yaml:ro
@@ -30,7 +30,7 @@ services:
     networks: [backend]
   tempo:
     <<: *defaults
-    image: grafana/tempo:3.0.3@sha256:0296560ac66f8a3600d7fb3014a52c189d4d9c3549ad6ff441bf2409855d68d5
+    image: grafana/tempo:3.1.0@sha256:3076b8dcdfb32fd6bc5ccef85e7b7313e6199b9cb84366257fc17ecb696db5fd
     command:
       - -target=all
       - -config.file=/etc/tempo/config.yaml
@@ -42,7 +42,7 @@ services:
     networks: [backend]
   prometheus:
     <<: *defaults
-    image: prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
     command:
       - --config.file=/etc/prometheus/prometheus.yaml
       - --storage.tsdb.path=/prometheus
@@ -60,7 +60,7 @@ services:
   grafana:
     <<: *defaults
     user: "472:472"
-    image: grafana/grafana:13.2.1@sha256:f772d434e8fab0049deb2b1b30abd43342bcfca1537614aa8d36080232cf4283
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
     environment:
       GF_SERVER_ROOT_URL: ${MEMORYOS_GRAFANA_PUBLIC_URL:?Set MEMORYOS_GRAFANA_PUBLIC_URL}
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
