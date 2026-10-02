@@ -1206,10 +1206,12 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await fileGroup.click();
   await expect(supportSource).toBeVisible();
   // The whole group row is a pointer target for its toggle.
-  const fileGroupTotal = fileGroup.locator("xpath=ancestor::tr").getByText("1 source");
-  await fileGroupTotal.click();
+  const fileGroupRow = fileGroup.locator("xpath=ancestor::tr");
+  const groupRowBox = await fileGroupRow.boundingBox();
+  const beyondToggle = { x: (groupRowBox?.width ?? 0) - 24, y: (groupRowBox?.height ?? 0) / 2 };
+  await fileGroupRow.click({ position: beyondToggle });
   await expect(fileGroup).toHaveAttribute("aria-expanded", "false");
-  await fileGroupTotal.click();
+  await fileGroupRow.click({ position: beyondToggle });
   await expect(supportSource).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   const manageSource = sourceTable.getByRole("link", {
