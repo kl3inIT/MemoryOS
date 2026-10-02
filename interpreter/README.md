@@ -5,7 +5,7 @@ Runs model-written Python for Chat in disposable executor containers or pods. It
 | Path | Content |
 | --- | --- |
 | `service/` | FastAPI service `memoryos-interpreter` (package `memoryos_interpreter`). It never runs user code itself. |
-| `executor/` | Executor image `memoryos-interpreter-executor`: Python 3.11 with the data, chart and office-document packages. |
+| `executor/` | Executor image `memoryos-interpreter-executor`: Python 3.14 with numpy 2.5, pandas 3.0, OpenCV 5 and the data, chart and office-document packages. |
 | `kubernetes/memoryos-interpreter/` | Helm chart for the Kubernetes executor backend. |
 
 ## Local verification
