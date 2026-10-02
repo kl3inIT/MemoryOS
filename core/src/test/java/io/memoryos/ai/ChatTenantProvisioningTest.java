@@ -3,7 +3,7 @@ package io.memoryos.ai;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -36,18 +36,19 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.DefaultInitialTenantBootstrapper;
 import io.memoryos.iam.InitialTenantBootstrapRequest;
 import io.memoryos.iam.InitialTenantBootstrapper;
+import io.memoryos.iam.TenantBootstrapped;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -58,8 +59,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class ChatTenantProvisioningTest {
     private static final TenantId TENANT = new TenantId(UUID.fromString("10000000-0000-0000-0000-000000000031"));
-    private static final ModelSettings SETTINGS = new ModelSettings(400000, 128000,
-            new ModelSettings.Capabilities(true, true, true, true), Map.of("maxCompletionTokens", true), null, "openai-o200k-v1");
 
     private HikariDataSource dataSource;
     private JdbcClient jdbc;
@@ -90,7 +89,7 @@ class ChatTenantProvisioningTest {
 
     @Test
     void creatingTheTenantProvisionsItsChatDefaultsInTheSameTransaction() {
-        var result = bootstrapper(listening("https://api.openai.com/v1")).bootstrap(request());
+        var result = bootstrapper(listening(false)).bootstrap(request());
 
         assertTrue(result.created());
         assertProvisioned();
@@ -98,9 +97,9 @@ class ChatTenantProvisioningTest {
 
     @Test
     void aFailedProvisioningLeavesNoTenantBehind() {
-        var bootstrapper = bootstrapper(listening("ftp://api.openai.com/v1"));
+        var bootstrapper = bootstrapper(listening(true));
 
-        assertThrows(AiException.class, () -> bootstrapper.bootstrap(request()));
+        assertThrows(IllegalStateException.class, () -> bootstrapper.bootstrap(request()));
 
         assertEquals(0L, count("tenants"));
         assertEquals(0L, count("chat_model_default"));
@@ -114,7 +113,7 @@ class ChatTenantProvisioningTest {
         assertEquals(0L, count("chat_model_default"));
         assertEquals(0L, count("persona"));
 
-        var restarted = bootstrapper(listening("https://api.openai.com/v1"));
+        var restarted = bootstrapper(listening(false));
         assertFalse(restarted.bootstrap(request()).created());
         assertProvisioned();
 
@@ -131,7 +130,7 @@ class ChatTenantProvisioningTest {
 
     @Test
     void chatReadsRunReadOnlyOnAProvisionedTenant() {
-        ActorId owner = bootstrapper(listening("https://api.openai.com/v1")).bootstrap(request()).ownerActorId();
+        ActorId owner = bootstrapper(listening(false)).bootstrap(request()).ownerActorId();
         var readOnly = new TransactionTemplate(jpa.transactionManager());
         readOnly.setReadOnly(true);
         // The harness enforces read-only transactions, so any write below would fail rather than pass silently.
@@ -143,47 +142,40 @@ class ChatTenantProvisioningTest {
         var authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), locks);
         var service = TestDatabase.transactionalProxy(new ModelCatalogService(catalog,
                 (tenant, ids) -> agents.exist(tenant.value(), ids), event -> {}, tenants, authorization, adapters,
-                new ProviderCredentials("", "sk-deployment"), mock(GroupScopeService.class), TestDatabase.noAudit()),
+                new ProviderCredentials(""), mock(GroupScopeService.class), TestDatabase.noAudit()),
                 ModelCatalogService.class, jpa.transactionManager());
         var access = TestDatabase.transactionalProxy(new ChatModelAccess(service, agents, new JdbcChatRepository(jdbc),
                 tenants, authorization), ChatModelAccess.class, jpa.transactionManager());
         long revision = jdbc.sql("SELECT revision FROM chat_model_default").query(Long.class).single();
 
         readOnly.executeWithoutResult(_ -> {
-            var providers = service.providers(owner);
-            assertEquals(1, providers.size());
-            assertEquals(1, service.models(owner, providers.getFirst().id()).size());
-            assertNotNull(service.defaultModel(owner).modelConfigurationId());
+            // The catalog starts empty: an administrator adds every provider (MEM-211).
+            assertTrue(service.providers(owner).isEmpty());
+            assertNull(service.defaultModel(owner).modelConfigurationId());
             assertEquals(ModelFlow.values().length, service.flowDefaults(owner).size());
             assertEquals(1, access.personas(owner, null, 25).items().size());
-            var available = access.availableModels(owner, null);
-            assertEquals(1, available.size());
-            assertTrue(available.getFirst().isDefault());
+            assertTrue(access.availableModels(owner, null).isEmpty());
             assertDoesNotThrow(() -> access.availableWebModels(owner, null));
-            assertDoesNotThrow(() -> service.validationSelection(owner, available.getFirst().id()));
         });
 
         assertEquals(revision, jdbc.sql("SELECT revision FROM chat_model_default").query(Long.class).single());
         assertProvisioned();
     }
 
-    private UUID assertCatalogProvisioned() {
+    /** The Chat default and one row per task, all unset: no provider and no model comes from the deployment. */
+    private void assertCatalogProvisioned() {
         assertEquals(1L, count("chat_model_default"));
-        var provider = jdbc.sql("SELECT id, base_url, builtin_key FROM llm_provider").query().singleRow();
-        assertEquals("https://api.openai.com/v1", provider.get("base_url"));
-        assertEquals("deployment", provider.get("builtin_key"));
-        UUID model = jdbc.sql("SELECT id FROM model_configuration WHERE model_name = 'gpt-5.1'").query(UUID.class).single();
-        assertEquals(model, jdbc.sql("SELECT model_configuration_id FROM chat_model_default WHERE tenant_id = :tenant")
-                .param("tenant", TENANT.value()).query(UUID.class).single());
+        assertEquals(0L, count("llm_provider"));
+        assertEquals(0L, count("model_configuration"));
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM chat_model_default WHERE model_configuration_id IS NOT NULL")
+                .query(Long.class).single());
         assertEquals((long) ModelFlow.values().length, count("model_flow_default"));
-        return model;
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM model_flow_default WHERE model_configuration_id IS NOT NULL")
+                .query(Long.class).single());
     }
 
     private void assertProvisioned() {
-        UUID model = assertCatalogProvisioned();
-        // Each task names the Chat default from the start, as the lazy path seeded it.
-        assertEquals((long) ModelFlow.values().length, jdbc.sql("SELECT count(*) FROM model_flow_default WHERE model_configuration_id = :model")
-                .param("model", model).query(Long.class).single());
+        assertCatalogProvisioned();
         assertAgentProvisioned();
     }
 
@@ -195,10 +187,12 @@ class ChatTenantProvisioningTest {
         assertEquals(1L, count("persona"));
     }
 
-    /** A Spring context whose event multicaster invokes the provisioner through its {@code @EventListener}. */
-    private ApplicationEventPublisher listening(String baseUrl) {
-        var catalogProvisioner = TestDatabase.transactionalProxy(new ModelCatalogProvisioner(catalog, adapters,
-                new ModelCatalogService.Deployment(baseUrl, "gpt-5.1", SETTINGS)),
+    /**
+     * A Spring context whose event multicaster invokes the provisioners through their {@code @EventListener}; with
+     * {@code failing}, another listener of the same event fails, as a provisioning step that cannot finish would.
+     */
+    private ApplicationEventPublisher listening(boolean failing) {
+        var catalogProvisioner = TestDatabase.transactionalProxy(new ModelCatalogProvisioner(catalog),
                 ModelCatalogProvisioner.class, jpa.transactionManager());
         var agentProvisioner = TestDatabase.transactionalProxy(new ChatTenantProvisioner(new JdbcChatRepository(jdbc),
                 new PersonaProperties()), ChatTenantProvisioner.class, jpa.transactionManager());
@@ -206,6 +200,7 @@ class ChatTenantProvisioningTest {
         context = new AnnotationConfigApplicationContext();
         context.registerBean(ModelCatalogProvisioner.class, () -> catalogProvisioner);
         context.registerBean(ChatTenantProvisioner.class, () -> agentProvisioner);
+        if (failing) context.registerBean(FailingProvisioner.class, FailingProvisioner::new);
         context.refresh();
         return context;
     }
@@ -222,6 +217,13 @@ class ChatTenantProvisioningTest {
     private static InitialTenantBootstrapRequest request() {
         return new InitialTenantBootstrapRequest(TENANT,
                 new ExternalIdentity("https://keycloak.example/realms/memoryos", "chat-owner"), "tasco", "Tasco AI", "TEST-CHAT-PROVISION");
+    }
+
+    static final class FailingProvisioner {
+        @EventListener
+        public void bootstrapped(TenantBootstrapped event) {
+            throw new IllegalStateException("Provisioning failed");
+        }
     }
 
     private long count(String table) {

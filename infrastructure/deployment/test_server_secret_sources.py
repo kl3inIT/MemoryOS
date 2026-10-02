@@ -23,7 +23,6 @@ MOUNTED = {
     "MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE": "google_drive_credential_encryption_key",
     "MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE": "mcp_credential_encryption_key",
     "MEMORYOS_MCP_ADMIN_CLIENT_SECRET_FILE": "mcp_admin_client_secret",
-    "MEMORYOS_CHAT_API_KEY_FILE": "model_api_key",
     "MEMORYOS_EMBEDDING_API_KEY_FILE": "model_api_key",
 }
 

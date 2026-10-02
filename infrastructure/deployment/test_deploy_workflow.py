@@ -17,6 +17,7 @@ STAGING_CALLER = (ROOT / ".github/workflows/deploy-staging.yml").read_text(encod
 PRODUCTION_CALLER = (ROOT / ".github/workflows/deploy-production.yml").read_text(encoding="utf-8")
 CALLERS = (STAGING_CALLER, PRODUCTION_CALLER)
 CI_WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+PUSH_ACTION = (ROOT / ".github/actions/push-release-images/action.yml").read_text(encoding="utf-8")
 SCRIPT = (ROOT / "infrastructure/deployment/deploy.sh").read_text(encoding="utf-8")
 
 
@@ -141,11 +142,13 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
 
     def test_interpreter_images_join_the_release_contract(self):
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        self.assertIn("name: candidate-interpreter", CI_WORKFLOW)
-        self.assertIn("docker load --input candidate/interpreter.tar", publish)
+        interpreter = CI_WORKFLOW.split("  interpreter:\n", 1)[1].split("\n  backend-images:\n", 1)[0]
+        self.assertIn("components: interpreter interpreter-executor", interpreter)
+        self.assertIn("${{ needs.interpreter.outputs.images }}", publish)
         self.assertIn("for component in api worker web interpreter interpreter-executor keycloak; do", publish)
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
+        self.assertIn("key=${component//-/_}", PUSH_ACTION)
         self.assertIn("images=(api worker web interpreter interpreter-executor keycloak)", SCRIPT)
         # images.env holds one line per image plus the release; the count follows the list.
         self.assertIn('[[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]]', SCRIPT)
@@ -157,6 +160,20 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         # A runtime accepted before the interpreter joined the release has no interpreter container.
         self.assertIn('has_interpreter "$state/current.env"', deploy)
         self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
+
+    def test_only_a_main_build_pushes_and_only_the_gate_makes_a_release(self):
+        main_push = "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}\n        uses: ./.github/actions/push-release-images"
+        for job, end in (("frontend-image", "landing"), ("interpreter", "backend-images"), ("backend-images", "secrets")):
+            text = CI_WORKFLOW.split(f"  {job}:\n", 1)[1].split(f"\n  {end}:\n", 1)[0]
+            self.assertEqual(text.count("uses: ./.github/actions/push-release-images"), 1, job)
+            self.assertIn(main_push, text, job)
+            self.assertNotIn("docker save", text, job)
+        # Images are pushed with the labels that name this revision; a tag alone is never deployable.
+        self.assertIn('.["org.opencontainers.image.revision"] == $sha', PUSH_ACTION)
+        publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
+        self.assertIn("needs: [gate, backend-images, frontend-image, interpreter]", publish)
+        self.assertIn("packages: read", publish)
+        self.assertNotIn("docker push", publish)
 
     def test_keycloak_is_rolled_out_by_the_release_on_every_host(self):
         backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
@@ -503,6 +520,61 @@ else:
         self.assertFalse(any("pg_restore" in call for call in self.docker_calls()))
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)
 
+
+class VerifiedTreeReuseTest(unittest.TestCase):
+    JOBS = ("backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview",
+            "infrastructure", "interpreter", "landing", "secrets")
+    AREAS = {"backend": (["infrastructure", "backend"], ["backend-images"]),
+             "web": (["frontend-check", "frontend", "frontend-preview"], ["frontend-image"]),
+             "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"])}
+
+    def gate(self, outputs, override=None):
+        jq = shutil.which("jq")
+        if jq is None:
+            self.skipTest("jq is required to run the gate")
+        gate = CI_WORKFLOW.split("  gate:\n", 1)[1].split("\n  publish:\n", 1)[0]
+        program = gate.split("jq --exit-status '", 1)[1].split("' <<< \"$RESULTS\"", 1)[0]
+        results = {job: {"result": "skipped", "outputs": {}} for job in self.JOBS}
+        results["changes"] = {"result": "success", "outputs": outputs}
+        results["secrets"]["result"] = "success"
+        for area, (tests, images) in self.AREAS.items():
+            if outputs.get(area) == "true":
+                for job in images:
+                    results[job]["result"] = "success"
+                if outputs.get(area + "_verified") != "true":
+                    for job in tests:
+                        results[job]["result"] = "success"
+        results.update({job: {"result": result, "outputs": {}} for job, result in (override or {}).items()})
+        return subprocess.run([jq, "--exit-status", program], input=json.dumps(results), text=True,
+                              capture_output=True).returncode
+
+    def test_a_verified_area_skips_its_tests_but_still_builds_its_images(self):
+        every = {"backend": "true", "web": "true", "landing": "true", "interpreter": "true"}
+        self.assertEqual(0, self.gate(every))
+        verified = {**every, "backend_verified": "true", "web_verified": "true"}
+        self.assertEqual(0, self.gate(verified))
+        self.assertNotEqual(0, self.gate(verified, {"backend-images": "skipped"}))
+        self.assertNotEqual(0, self.gate(verified, {"frontend-image": "failure"}))
+        # Tests may be skipped only when the area was found verified.
+        self.assertNotEqual(0, self.gate(every, {"backend": "skipped"}))
+        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "interpreter": "false"},
+                                         {"backend-images": "success"}))
+
+    def test_only_a_successful_same_repository_pull_request_run_of_this_commit_is_trusted(self):
+        changes = CI_WORKFLOW.split("  changes:\n", 1)[1].split("\n  infrastructure:\n", 1)[0]
+        lookup = changes.split("- name: Reuse the verification of an identical pull request tree", 1)[1]
+        self.assertIn("if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}", lookup)
+        for guard in ('.path == ".github/workflows/ci.yml"', '.event == "pull_request"', '.conclusion == "success"',
+                      ".head_repository.full_name == $repo", "select(.head.repo.full_name == $repo)",
+                      "$heads | index($sha) != null", "select(.expired | not)"):
+            self.assertIn(guard, lookup)
+        # A failed lookup must fall back to every test rather than fail the main push.
+        self.assertIn("set -uo pipefail", lookup)
+        self.assertNotIn("set -euo pipefail", lookup)
+        gate = CI_WORKFLOW.split("  gate:\n", 1)[1].split("\n  publish:\n", 1)[0]
+        upload = gate.split("- name: Record the areas this pull request verified", 1)[1]
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", upload)
+        self.assertIn("name: ci-verified-${{ needs.changes.outputs.tree }}", upload)
 
 
 if __name__ == "__main__":

@@ -63,7 +63,7 @@ class ModelCatalogConstraintsTest {
                 VALUES (:id,:tenant,'Provider','openai','http://internal/v1',true,true,'deployment',1)""")
                 .param("id", provider).param("tenant", tenant).update(); });
         else tx(() -> { catalog.initialize(tenant); catalog.insertProvider(new LlmProvider(provider, tenant,
-                "Provider", "openai", "http://internal/v1", true, true, "deployment", 1, Set.of(), Set.of(), DataBoundary.EXTERNAL), null); });
+                "Provider", "openai", "http://internal/v1", true, true, "v1:fixture", 1, Set.of(), Set.of(), DataBoundary.EXTERNAL)); });
     }
     @AfterEach void close() { if (jpa != null) jpa.close(); if (dataSource != null) dataSource.close(); }
 

@@ -59,7 +59,6 @@ public class ModelCatalogService {
         this.groups = groups;
     }
 
-    public record Deployment(String baseUrl, String modelName, ModelSettings settings) {}
     public record ProviderInput(String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
                                 Set<UUID> groupIds, Set<UUID> personaIds, ProviderCredentials.Change credential,
                                 DataBoundary dataBoundary) {
@@ -99,7 +98,7 @@ public class ModelCatalogService {
         if (catalog.providers(tenant).size() >= 64) throw AiException.invalid("Provider limit reached.");
         UUID id = UUID.randomUUID();
         var provider = validated(tenant, id, input, null, 1);
-        catalog.insertProvider(provider, null);
+        catalog.insertProvider(provider);
         record(tenant, actor, AuditAction.PROVIDER_CREATE, "LLM_PROVIDER", id, provider.name(), event -> event
                 .detail("adapter", provider.adapterType()).detail("dataBoundary", provider.dataBoundary().name()));
         return view(provider);
