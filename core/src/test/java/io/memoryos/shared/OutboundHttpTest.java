@@ -8,8 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.shared.OutboundHttp.Limits;
 import io.memoryos.shared.OutboundHttp.ResponseTooLargeException;
@@ -30,9 +28,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.NestedExceptionUtils;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.service.annotation.HttpExchange;
+import org.springframework.web.service.annotation.PostExchange;
 import tools.jackson.databind.JsonNode;
 
 class OutboundHttpTest {
@@ -201,10 +208,63 @@ class OutboundHttpTest {
         assertEquals(16384, received.get());
     }
 
+    @HttpExchange(accept = MediaType.APPLICATION_JSON_VALUE)
+    interface Files {
+        @PostExchange(url = "/folders/{folder}/files", contentType = MediaType.MULTIPART_FORM_DATA_VALUE)
+        Stored store(@PathVariable String folder, @RequestPart("file") HttpEntity<Resource> file);
+
+        record Stored(String id) {}
+    }
+
+    @Test void anExchangeInterfaceSendsItsPartUnderTheClientsBaseUrlAndHeaders() {
+        var target = new AtomicReference<String>();
+        var authorization = new AtomicReference<String>();
+        var sent = new AtomicReference<String>();
+        server.createContext("/v1/folders", exchange -> {
+            try (exchange) {
+                target.set(exchange.getRequestMethod() + " " + exchange.getRequestURI().getRawPath());
+                authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                sent.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
+                byte[] answer = "{\"id\":\"file-1\",\"ignored\":true}".getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, answer.length);
+                exchange.getResponseBody().write(answer);
+            }
+        });
+        var api = OutboundHttp.service(Files.class, OutboundHttp.builder(new Limits(PATIENT, BOUND)).baseUrl(url("/v1"))
+                .defaultHeaders(headers -> headers.setBearerAuth("secret")).build());
+        var part = new HttpHeaders();
+        part.setContentType(MediaType.parseMediaType("audio/mp4"));
+        var clip = new ByteArrayResource(new byte[] {1, 2, 3}) {
+            @Override public String getFilename() { return "clip.m4a"; }
+        };
+        assertEquals("file-1", api.store("a b", new HttpEntity<>(clip, part)).id());
+        assertEquals("POST /v1/folders/a%20b/files", target.get());
+        assertEquals("Bearer secret", authorization.get());
+        assertTrue(sent.get().contains("Content-Disposition: form-data; name=\"file\"; filename=\"clip.m4a\""), sent.get());
+        assertTrue(sent.get().contains("Content-Type: audio/mp4"), sent.get());
+    }
+
+    @Test void jsonIsReadFromAnAnswerThatDeclaresNoContentTypeOrTheWrongOne() {
+        byte[] json = "{\"id\":\"file-1\"}".getBytes(StandardCharsets.UTF_8);
+        answer("/undeclared", 200, json, true);
+        server.createContext("/mislabelled", exchange -> {
+            try (exchange) {
+                exchange.getResponseHeaders().set("Content-Type", "text/plain");
+                exchange.sendResponseHeaders(200, json.length);
+                exchange.getResponseBody().write(json);
+            }
+        });
+        for (String path : new String[]{"/undeclared", "/mislabelled"}) {
+            JsonNode answer = client(PATIENT).get().uri(url(path)).retrieve().body(JsonNode.class);
+            assertEquals("file-1", answer.path("id").asString(), path);
+        }
+    }
+
     @Test void jsonIsWrittenAndReadAndNoCompressionIsAskedFor() {
         var sent = new AtomicReference<String>();
         var acceptEncoding = new AtomicReference<String>();
-        server.createContext("/json", (HttpHandler) (HttpExchange exchange) -> {
+        server.createContext("/json", exchange -> {
             try (exchange) {
                 sent.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
                 acceptEncoding.set(exchange.getRequestHeaders().getFirst("Accept-Encoding"));

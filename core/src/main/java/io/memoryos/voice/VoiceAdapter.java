@@ -1,7 +1,5 @@
 package io.memoryos.voice;
 
-import java.io.IOException;
-import java.net.http.HttpClient;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -18,6 +16,6 @@ interface VoiceAdapter {
     void verify(VoiceConnectionService.Probe probe);
 
     /** Transcribes one 24 kHz WAV upload. */
-    String transcribe(HttpClient http, VoiceConnectionService.Connection connection, String key, @Nullable String language,
-                      byte[] wav) throws IOException, InterruptedException;
+    String transcribe(VoiceConnectionService.Connection connection, String key, @Nullable String language, byte[] wav)
+            throws InterruptedException;
 }
