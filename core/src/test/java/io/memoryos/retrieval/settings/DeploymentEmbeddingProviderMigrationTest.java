@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.memoryos.TestDatabase;
-import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.jspecify.annotations.Nullable;
@@ -32,8 +32,8 @@ class DeploymentEmbeddingProviderMigrationTest {
             var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("144").load();
             assertEquals(1, flyway.migrate().migrationsExecuted);
 
-            assertEquals(List.of(serving, used).stream().sorted().toList(),
-                    jdbc.sql("SELECT id FROM embedding_provider ORDER BY id").query(UUID.class).list());
+            // Compared as a set: PostgreSQL and Java order UUIDs differently.
+            assertEquals(Set.of(serving, used), jdbc.sql("SELECT id FROM embedding_provider").query(UUID.class).set());
             assertEquals("v1:sealed", credential(jdbc, serving));
             assertEquals(1L, revision(jdbc, serving));
             assertNull(credential(jdbc, used), "a provider still in use keeps its row and asks for a key");
