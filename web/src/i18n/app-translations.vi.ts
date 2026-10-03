@@ -1735,8 +1735,8 @@ Object.assign(englishUi, {
   "Revoke the invitation for {{name}}?": "Thu hồi lời mời dành cho {{name}}?",
   "They will regain access to this organization. Their existing identity and membership history stay intact.":
     "Người dùng sẽ được truy cập lại tổ chức. Danh tính và lịch sử thành viên được giữ nguyên.",
-  "They will lose access on their next protected request. Their identity and membership history stay intact.":
-    "Người dùng sẽ mất quyền truy cập từ yêu cầu được bảo vệ tiếp theo. Danh tính và lịch sử thành viên được giữ nguyên.",
+  "They will lose access to this organization right away. You can activate them again at any time; their identity and membership history stay intact.":
+    "Người dùng sẽ mất quyền truy cập tổ chức ngay. Bạn có thể kích hoạt lại bất cứ lúc nào; danh tính và lịch sử thành viên được giữ nguyên.",
   "The current recovery link will stop working. You can invite this email again later.":
     "Liên kết khôi phục hiện tại sẽ ngừng hoạt động. Bạn có thể mời lại email này sau.",
   "Activation email sent": "Đã gửi email kích hoạt",
@@ -2155,10 +2155,10 @@ Object.assign(englishUi, {
   "{{input}} in · {{output}} out": "{{input}} in · {{output}} out",
   "Default Creativity": "Độ sáng tạo mặc định",
   "Starting creativity for your new chats. A model the administrator pinned keeps its own value.":
-    "Độ sáng tạo khởi điểm cho các cuộc trò chuyện mới. Model đã được quản trị viên đặt sẵn thì giữ giá trị của model.",
+    "Độ sáng tạo khởi điểm cho các hội thoại mới. Model đã được quản trị viên đặt sẵn thì giữ giá trị của model.",
   "Default Reasoning Level": "Mức suy luận mặc định",
   "Starting reasoning level for your new chats. Any single chat can pin its own level.":
-    "Mức suy luận khởi điểm cho các cuộc trò chuyện mới. Mỗi cuộc trò chuyện vẫn ghim được mức riêng.",
+    "Mức suy luận khởi điểm cho các hội thoại mới. Mỗi hội thoại vẫn ghim được mức riêng.",
   "Model default": "Theo model",
   Thấp: "Thấp",
   Vừa: "Vừa",
@@ -2167,9 +2167,9 @@ Object.assign(englishUi, {
   "{{input}} in · {{output}} out · {{cache}} cache":
     "{{input}} in · {{output}} out · {{cache}} cache",
   "Share of spend": "Tỉ lệ chi phí",
-  Chats: "Cuộc trò chuyện",
+  Chats: "Hội thoại",
   "This model will be used by default in your chats.":
-    "Model này được dùng mặc định trong các cuộc trò chuyện của bạn.",
+    "Model này được dùng mặc định trong các hội thoại của bạn.",
   "The model your administrator chose.": "Model do quản trị viên chọn.",
   "Provide your custom preferences in natural language.":
     "Mô tả tùy chọn riêng của bạn bằng ngôn ngữ tự nhiên.",
@@ -2278,7 +2278,7 @@ Object.assign(englishUi, {
   Providers: "Nhà cung cấp",
   "System work": "Tác vụ hệ thống",
   "Used for new conversations and assistants without their own model.":
-    "Dùng cho cuộc trò chuyện mới và trợ lý chưa chọn mô hình riêng.",
+    "Dùng cho hội thoại mới và trợ lý chưa chọn mô hình riêng.",
   "Mark this provider as Internal?": "Đánh dấu nhà cung cấp này là Nội bộ?",
   "Confirm that it is self-hosted, or that its agreement forbids retaining your data and training on it. Internal documents may later be sent to it without asking users.":
     "Xác nhận đây là máy chủ tự vận hành, hoặc hợp đồng cấm lưu dữ liệu và cấm dùng dữ liệu để huấn luyện. Sau này tài liệu nội bộ có thể được gửi tới nhà cung cấp này mà không hỏi người dùng.",
@@ -2296,10 +2296,10 @@ Object.assign(englishUi, {
   "Loading task models…": "Đang tải mô hình theo tác vụ…",
   "Task models could not be loaded.": "Không tải được mô hình theo tác vụ.",
   "Retry task models": "Tải lại mô hình theo tác vụ",
-  "Conversation naming": "Đặt tên cuộc trò chuyện",
+  "Conversation naming": "Đặt tên hội thoại",
   "Names new conversations. A small, fast model keeps the chat model free.":
-    "Đặt tên cho cuộc trò chuyện mới. Chọn mô hình nhỏ, nhanh để mô hình chat vẫn rảnh trả lời.",
-  "Conversation naming model": "Mô hình đặt tên cuộc trò chuyện",
+    "Đặt tên cho hội thoại mới. Chọn mô hình nhỏ, nhanh để mô hình chat vẫn rảnh trả lời.",
+  "Conversation naming model": "Mô hình đặt tên hội thoại",
   "Question check": "Kiểm tra câu hỏi",
   "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.":
     "Phân loại câu hỏi trước khi trả lời: câu xã giao, câu hỏi hay chủ đề bị chặn. Cần model trả đúng định dạng.",
@@ -2323,9 +2323,9 @@ Object.assign(englishUi, {
   "Unavailable; the Chat model is used instead.": "Không khả dụng; đang dùng mô hình Chat.",
   "Task model saved.": "Đã lưu mô hình tác vụ.",
   "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace an organization default first.":
-    "Mọi mô hình đã cấu hình của nhà cung cấp này sẽ bị xóa. Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của cuộc trò chuyện và lịch sử Chat được giữ nguyên. Hãy thay mặc định của tổ chức trước.",
+    "Mọi mô hình đã cấu hình của nhà cung cấp này sẽ bị xóa. Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của hội thoại và lịch sử Chat được giữ nguyên. Hãy thay mặc định của tổ chức trước.",
   "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace an organization default first.":
-    "Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của cuộc trò chuyện và lịch sử Chat được giữ nguyên. Hãy thay mặc định của tổ chức trước.",
+    "Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của hội thoại và lịch sử Chat được giữ nguyên. Hãy thay mặc định của tổ chức trước.",
   "Choose an eligible model": "Chọn một mô hình đủ điều kiện",
   "(saved; hidden or unavailable)": "(đã lưu; đang ẩn hoặc không khả dụng)",
   "(draft no longer eligible)": "(bản nháp không còn đủ điều kiện)",
@@ -2384,19 +2384,19 @@ Object.assign(englishUi, {
   "No connectors set up for your organization.": "Tổ chức chưa thiết lập kết nối nào.",
   "Disconnect {{name}}": "Ngắt kết nối {{name}}",
   "The assistant will no longer be able to use {{name}} with your account. Existing conversations stay as they are.":
-    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các cuộc trò chuyện cũ vẫn giữ nguyên.",
+    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các hội thoại cũ vẫn giữ nguyên.",
   "Disconnecting…": "Đang ngắt kết nối…",
   "Danger Zone": "Khu vực nguy hiểm",
-  "Delete All Chats": "Xóa mọi cuộc chat",
-  "Permanently delete all your chat sessions.": "Xóa vĩnh viễn toàn bộ cuộc trò chuyện của bạn.",
-  "Delete all chats?": "Xóa mọi cuộc chat?",
+  "Delete All Chats": "Xóa mọi hội thoại",
+  "Permanently delete all your chat sessions.": "Xóa vĩnh viễn toàn bộ hội thoại của bạn.",
+  "Delete all chats?": "Xóa mọi hội thoại?",
   "All your chat sessions and history will be permanently deleted. Deletion cannot be undone.":
-    "Toàn bộ cuộc trò chuyện và lịch sử của bạn sẽ bị xóa vĩnh viễn. Không thể hoàn tác.",
+    "Toàn bộ hội thoại và lịch sử của bạn sẽ bị xóa vĩnh viễn. Không thể hoàn tác.",
   "Deleting…": "Đang xóa…",
-  "New conversations": "Cuộc trò chuyện mới",
+  "New conversations": "Hội thoại mới",
   "Default Model": "Model mặc định",
   "Preselected whenever you start a new chat. An assistant with its own model keeps it.":
-    "Được chọn sẵn khi bạn bắt đầu cuộc trò chuyện mới. Trợ lý có model riêng vẫn dùng model của trợ lý.",
+    "Được chọn sẵn khi bạn bắt đầu hội thoại mới. Trợ lý có model riêng vẫn dùng model của trợ lý.",
   "Organization default": "Theo mặc định của tổ chức",
   "Personal Preferences": "Sở thích cá nhân",
   "Describe how you want the system to behave and the tone it should use.":
@@ -2447,7 +2447,7 @@ Object.assign(englishUi, {
   Auto: "Theo hệ thống",
   Light: "Sáng",
   Dark: "Tối",
-  "Preferences for your conversations.": "Tùy chọn cho các cuộc trò chuyện của bạn.",
+  "Preferences for your conversations.": "Tùy chọn cho các hội thoại của bạn.",
   "Test connection": "Kiểm tra kết nối",
   "Test connection {{name}}": "Kiểm tra kết nối {{name}}",
   "Connection succeeded · {{latency}} ms": "Kết nối thành công · {{latency}} ms",

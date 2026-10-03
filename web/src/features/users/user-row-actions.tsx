@@ -77,7 +77,7 @@ export function UserRowActions({
     confirmation === "activate"
       ? "They will regain access to this organization. Their existing identity and membership history stay intact."
       : confirmation === "deactivate"
-        ? "They will lose access on their next protected request. Their identity and membership history stay intact."
+        ? "They will lose access to this organization right away. You can activate them again at any time; their identity and membership history stay intact."
         : "The current recovery link will stop working. You can invite this email again later.";
   const confirmLabel =
     confirmation === "activate"
