@@ -54,11 +54,12 @@ import { type LibraryLayout } from "./library-toolbar";
 import type { LibraryOwnedView } from "./library-views";
 
 /**
- * A row's actions appear on hover and on keyboard focus, so a long list reads as names rather than as buttons; a
- * touch screen, which cannot hover, keeps them, and an open menu keeps its row's actions on screen.
+ * A row always shows its menu, so it reads as something to act on. Its shortcuts (the star, the download) appear
+ * on hover and on keyboard focus, so a long list reads as names rather than as buttons; a touch screen, which
+ * cannot hover, keeps them, and an open menu keeps them on screen.
  */
-export const rowActionsReveal =
-  "opacity-100 transition-opacity md:opacity-0 md:group-focus-within/item:opacity-100 md:group-hover/item:opacity-100 md:has-[[data-state=open]]:opacity-100";
+export const rowShortcutReveal =
+  "opacity-100 transition-opacity md:opacity-0 md:group-focus-within/item:opacity-100 md:group-hover/item:opacity-100 md:group-has-[[data-state=open]]/item:opacity-100";
 
 export type RowActions = {
   onPreview: (file: LibraryFile) => void;
@@ -76,8 +77,8 @@ export type RowActions = {
 
 /**
  * The files themselves, grouped by the day they arrived when that is the order they are in. A row carries its
- * name, what it is and what it costs on one line each; its actions appear on hover and on keyboard focus, so a
- * long list reads as names rather than as buttons.
+ * name, what it is and what it costs on one line each; its menu is always there and its shortcuts appear on
+ * hover and on keyboard focus, so a long list reads as names rather than as buttons.
  */
 export function LibraryList({
   files,
@@ -228,6 +229,7 @@ function FileGroup({
                 selected={selected.includes(file.id)}
                 actions={actions}
                 onSelect={onSelect}
+                dated={!showLabel}
               />
             </li>
           ))}
@@ -243,12 +245,15 @@ function LibraryRow({
   selected,
   actions,
   onSelect,
+  dated,
 }: {
   file: LibraryFile;
   view: LibraryOwnedView;
   selected: boolean;
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
+  /** False under a day heading, which already says when the file arrived. */
+  dated: boolean;
 }) {
   const ui = useAppTranslation();
   return (
@@ -290,15 +295,13 @@ function LibraryRow({
           </button>
           <ItemDescription>
             <span className="flex flex-wrap items-center gap-x-1.5">
-              <RowMeta file={file} view={view} />
+              <RowMeta file={file} view={view} dated={dated} />
             </span>
           </ItemDescription>
           <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
         </ItemContent>
         <ItemActions>
-          <div className={rowActionsReveal}>
-            <RowActionButtons file={file} view={view} actions={actions} />
-          </div>
+          <RowActionButtons file={file} view={view} actions={actions} />
         </ItemActions>
       </Item>
     </div>
@@ -353,7 +356,15 @@ export function LibraryPicture({
 }
 
 /** One line of facts about a file, in the order the current view makes useful. */
-function RowMeta({ file, view }: { file: LibraryFile; view: LibraryOwnedView }) {
+function RowMeta({
+  file,
+  view,
+  dated = true,
+}: {
+  file: LibraryFile;
+  view: LibraryOwnedView;
+  dated?: boolean;
+}) {
   const ui = useAppTranslation();
   const sources = sourceLabels(ui);
   const categories = categoryLabels(ui);
@@ -370,7 +381,7 @@ function RowMeta({ file, view }: { file: LibraryFile; view: LibraryOwnedView }) 
         date: formatUiDay(file.purgeAfter),
       }),
     );
-  else parts.push(formatUiDay(file.createdAt));
+  else if (dated) parts.push(formatUiDay(file.createdAt));
   return (
     <>
       {parts.map((part, index) => (
@@ -490,38 +501,42 @@ export function FileActions({
   const byPointer = useRef(false);
   return (
     <div className="flex shrink-0 items-center gap-0.5">
-      {!compact && (
+      <div className={cn("flex items-center gap-0.5", !compact && rowShortcutReveal)}>
+        {!compact && (
+          <IconButton
+            size="sm"
+            prominence="internal"
+            // The "…" menu also downloads, so a phone row gives this width to the file's name.
+            className="hidden sm:inline-flex"
+            aria-label={ui("Tải về {{name}}", { name: file.filename })}
+            title={ui("Tải về")}
+            asChild
+          >
+            <a
+              href={downloadUrl(libraryPreviewTarget(file))}
+              download={file.filename}
+              onClick={() => recordEntryOpened(file.source, file.id)}
+            >
+              <Download />
+            </a>
+          </IconButton>
+        )}
         <IconButton
           size="sm"
           prominence="internal"
-          // The "…" menu also downloads, so a phone row gives this width to the file's name.
-          className="hidden sm:inline-flex"
-          aria-label={ui("Tải về {{name}}", { name: file.filename })}
-          title={ui("Tải về")}
-          asChild
+          aria-pressed={file.favorite}
+          aria-label={
+            file.favorite
+              ? ui("Bỏ gắn sao {{name}}", { name: file.filename })
+              : ui("Gắn sao {{name}}", { name: file.filename })
+          }
+          onClick={() => actions.onFavorite(file)}
         >
-          <a
-            href={downloadUrl(libraryPreviewTarget(file))}
-            download={file.filename}
-            onClick={() => recordEntryOpened(file.source, file.id)}
-          >
-            <Download />
-          </a>
+          <Star
+            className={file.favorite ? "fill-current text-status-warning-content" : undefined}
+          />
         </IconButton>
-      )}
-      <IconButton
-        size="sm"
-        prominence="internal"
-        aria-pressed={file.favorite}
-        aria-label={
-          file.favorite
-            ? ui("Bỏ gắn sao {{name}}", { name: file.filename })
-            : ui("Gắn sao {{name}}", { name: file.filename })
-        }
-        onClick={() => actions.onFavorite(file)}
-      >
-        <Star className={file.favorite ? "fill-current text-status-warning-content" : undefined} />
-      </IconButton>
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <IconButton
