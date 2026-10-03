@@ -37,6 +37,7 @@ public final class ModelResolver {
     public Resolved resolveFlow(ActorId actor, ModelFlow flow) {
         return acquire(catalog.resolveFlow(actor, flow));
     }
+
     public Resolved forValidation(ActorId actor, UUID model) { return acquire(catalog.validationSelection(actor, model)); }
 
     /**
@@ -174,15 +175,21 @@ public final class ModelResolver {
             throw AiException.providerUnavailable();
         }
         return new Resolved(model.id(), selection.fallbackReason(), lease, selection.contextRevision(),
-                new Provenance(provider.id(), provider.name(), provider.dataBoundary().name()));
+                new Provenance(provider.id(), provider.name(), provider.dataBoundary().name()), selection.taskEffort());
     }
     /** The catalog provider behind a resolved model, recorded with its usage. */
     public record Provenance(@Nullable UUID providerId, String providerName, @Nullable String dataBoundary) {
         public static final Provenance UNKNOWN = new Provenance(null, "unknown", null);
     }
 
+    /** A leased model; {@code taskEffort} is set when it runs a task, and {@link #binding} then carries that level. */
     public record Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ModelClients.Lease lease,
-                           @Nullable String contextRevision, Provenance provenance) implements AutoCloseable {
+                           @Nullable String contextRevision, Provenance provenance,
+                           @Nullable ReasoningEffort taskEffort) implements AutoCloseable {
+        public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ModelClients.Lease lease,
+                        @Nullable String contextRevision, Provenance provenance) {
+            this(modelConfigurationId, fallbackReason, lease, contextRevision, provenance, null);
+        }
         public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ModelClients.Lease lease) {
             this(modelConfigurationId, fallbackReason, lease, null, Provenance.UNKNOWN);
         }
@@ -190,7 +197,7 @@ public final class ModelResolver {
                         @Nullable String contextRevision) {
             this(modelConfigurationId, fallbackReason, lease, contextRevision, Provenance.UNKNOWN);
         }
-        public ModelBinding binding() { return lease.binding(); }
+        public ModelBinding binding() { return taskEffort == null ? lease.binding() : lease.binding().forTask(taskEffort); }
         @Override public void close() { lease.close(); }
     }
 }

@@ -20,7 +20,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
                                ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
                                UnaryOperator<Prompt> requiredTools,
                                BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling,
-                               Predicate<Throwable> credentialRejection) {
+                               Predicate<Throwable> credentialRejection, @Nullable ReasoningEffort taskEffort) {
     /** A binding that leaves tool requests unchanged and has no per-turn sampling. */
     public static Builder builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
                                   int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
@@ -56,7 +56,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
 
         public ModelBinding build() {
             return new ModelBinding(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
-                    requiredTools, sampling, credentialRejection);
+                    requiredTools, sampling, credentialRejection, null);
         }
     }
 
@@ -85,7 +85,23 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
                 turnSampling.isEmpty() ? service : sampling.apply(service, turnSampling),
                 finalRequest, policy, contextWindow,
                 outputTokenLimit == null ? maxOutputTokens : Integer.valueOf(outputAtMost(outputTokenLimit)),
-                toolCalling, vision, requiredTools, sampling, credentialRejection);
+                toolCalling, vision, requiredTools, sampling, credentialRejection, taskEffort);
+    }
+
+    /**
+     * This binding for a task beside the conversation (naming, the question check, the minutes, corrections) at the
+     * level chosen for it. {@link ReasoningEffort#OFF} keeps the helper path, thinking off; any other level keeps
+     * thinking on and asks for that level, which a level named in the model's configuration still outranks.
+     */
+    public ModelBinding forTask(ReasoningEffort effort) {
+        var base = effort == ReasoningEffort.OFF ? this : forOptions(new ModelSampling(null, effort, false), null);
+        return new ModelBinding(base.service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
+                requiredTools, sampling, credentialRejection, effort);
+    }
+
+    /** Whether a task call through this binding thinks rather than running as a helper. */
+    public boolean reasons() {
+        return taskEffort != null && taskEffort != ReasoningEffort.OFF;
     }
 
     /** Whether a failure of a call through this binding means the provider refused its credential (the adapter's rule). */

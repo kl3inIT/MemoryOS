@@ -11,5 +11,13 @@ public enum ModelFlow {
     /** Summary, decisions and action items for a recorded meeting. */
     MEETING_MINUTES,
     /** Proposals for the stretches of a transcript the speech provider was unsure of. */
-    MEETING_CORRECTION
+    MEETING_CORRECTION;
+
+    /**
+     * How hard the task's model thinks until an administrator picks a level: the minutes reason, because without it
+     * their extraction was uneven; the helper tasks stay fast with thinking off.
+     */
+    public ReasoningEffort defaultEffort() {
+        return this == MEETING_MINUTES ? ReasoningEffort.MEDIUM : ReasoningEffort.OFF;
+    }
 }

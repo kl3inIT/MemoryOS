@@ -88,7 +88,7 @@ class ModelCallsTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void aReasonedCallKeepsThinkingOnAndAsksForItsEffortWhileAHelperCallTurnsItOff() {
+    void aTaskThatReasonsKeepsThinkingOnWithRoomAndAsksForItsLevelWhileAnOffTaskRunsAsAHelper() {
         var context = mock(ExecutingOperationContext.class, RETURNS_DEEP_STUBS);
         var runner = mock(PromptRunner.class);
         when(context.ai().withLlmService(any())).thenReturn(runner);
@@ -106,19 +106,21 @@ class ModelCallsTest {
                     return service;
                 }).build();
 
-        calls.generateReasonedObject(binding, ReasoningEffort.MEDIUM, "Write the minutes.", "[1] 00:00 An: Chốt.",
+        calls.generateObject(binding.forTask(ReasoningEffort.MEDIUM), "Write the minutes.", "[1] 00:00 An: Chốt.",
                 Minutes.class, Duration.ofSeconds(30), 1000, accounting -> {});
-        calls.generateObject(binding, "Write the minutes.", "[1] 00:00 An: Chốt.", Minutes.class,
-                Duration.ofSeconds(30), 1000, accounting -> {});
+        calls.generateObject(binding.forTask(ReasoningEffort.OFF), "Write the minutes.", "[1] 00:00 An: Chốt.",
+                Minutes.class, Duration.ofSeconds(30), 1000, accounting -> {});
 
         assertEquals(List.of(new ModelSampling(null, ReasoningEffort.MEDIUM, false)), asked,
-                "only the reasoned call asks for an effort; the model's own configured level still wins");
+                "only the task that reasons asks for a level; the model's own configured level still wins");
         var options = ArgumentCaptor.forClass(LlmOptions.class);
         verify(runner, times(2)).withLlm(options.capture());
-        var reasoned = options.getAllValues().get(0).getThinking();
-        var helper = options.getAllValues().get(1).getThinking();
-        assertTrue(reasoned == null || reasoned.getEnabled());
-        assertFalse(helper == null || helper.getEnabled());
+        var reasoned = options.getAllValues().get(0);
+        var helper = options.getAllValues().get(1);
+        assertTrue(reasoned.getThinking() == null || reasoned.getThinking().getEnabled());
+        assertFalse(helper.getThinking() == null || helper.getThinking().getEnabled());
+        assertEquals(4096, reasoned.getMaxTokens(), "a task that reasons gets room for its thinking");
+        assertEquals(1000, helper.getMaxTokens());
     }
 
     @Test

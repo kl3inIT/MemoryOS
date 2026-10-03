@@ -4,10 +4,16 @@ import { ApiError } from "@/lib/api";
 import {
   cancelChatMessage,
   getChatHistory,
+  pinChatReasoningEffort,
   sendChatMessage,
   streamChatMessage,
 } from "@/lib/hey-api/sdk.gen";
-import type { Accepted, ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
+import type {
+  Accepted,
+  ChatMessage,
+  ChatSession,
+  ReasoningSelection,
+} from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "@/features/chat/chat-api";
 import { fileIdFromReference } from "@/features/library/files";
 import {
@@ -135,6 +141,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   selectModel(id?: string) {
     this.modelConfigurationId = id;
   }
+  /** The level chosen before the conversation exists, pinned on the conversation the first send creates. */
+  private reasoningEffort?: ReasoningSelection["reasoningEffort"];
+  selectReasoning(level?: ReasoningSelection["reasoningEffort"]) {
+    this.reasoningEffort = level;
+  }
   /** The model the server last accepted a turn with, kept while the thread stays mounted. */
   lastModelSelection?: Accepted;
   recordModelSelection(selection: Accepted) {
@@ -212,6 +223,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   async sendMessages(options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0]) {
     // Capture selection before any await; later UI changes affect the next turn.
     const modelConfigurationId = this.modelConfigurationId;
+    const reasoningEffort = this.reasoningEffort;
     const allowed = this.allowedTools;
     const webSearch = allowed?.web === false ? "off" : (this.webSearch ?? this.toolDefaults.web);
     const image = allowed?.image === false ? "off" : (this.image ?? this.toolDefaults.image);
@@ -228,6 +240,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         image,
         mcpServerIds,
         deepResearch,
+        reasoningEffort,
       );
     } catch (error) {
       if (creating && !this.session) this.onSessionFailed?.(error);
@@ -242,6 +255,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     image: ImageMode,
     mcpServerIds: string[],
     deepResearch: boolean,
+    reasoningEffort: ReasoningSelection["reasoningEffort"] | undefined,
   ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
@@ -274,7 +288,20 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           this.projectId,
           this.temporary,
         );
-        this.onSessionCreated?.(this.session);
+        try {
+          // The level chosen before the conversation existed applies from its first answer.
+          if (reasoningEffort)
+            this.session = (
+              await pinChatReasoningEffort({
+                path: { sessionId: this.session.id },
+                body: { reasoningEffort },
+                signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
+              })
+            ).data;
+        } finally {
+          // The page learns of the conversation even when its level could not be pinned.
+          this.onSessionCreated?.(this.session);
+        }
       }
       // A conversation created by this turn keeps the choices made before it existed.
       writeWebPreference(this.preferenceOwner, this.session.id, this.webSearch);

@@ -18,6 +18,8 @@ import org.springframework.beans.factory.ObjectProvider;
  * attachments, no streaming. The deployment's token and cost budgets bound each call as they bound a Chat turn.
  */
 public final class ModelCalls {
+    /** The least output a task that reasons is given, so its thinking does not cut a short answer off. */
+    static final int REASONING_OUTPUT_TOKENS = 4096;
     private final ObjectProvider<ExecutingOperationContext> contexts;
     private final AgentProcessRepository processes;
     private final double costCap;
@@ -41,7 +43,8 @@ public final class ModelCalls {
     /**
      * One structured call: the model answers as {@code shape}, and {@code accounting} receives its usage even when the
      * call fails. The instructions travel as the system message and the untrusted input as the user message, so text
-     * inside the input cannot pose as the caller's instructions.
+     * inside the input cannot pose as the caller's instructions. A binding made {@link ModelBinding#forTask for a task}
+     * at a level other than off lets the model think; any other call runs as a helper, with thinking off.
      */
     public <T> T generateObject(ModelBinding selected, String instructions, String input, Class<T> shape,
                                 Duration timeout, int maxOutputTokens, Consumer<ModelAccounting> accounting) {
@@ -56,31 +59,14 @@ public final class ModelCalls {
     public <T> T generateObject(ModelBinding selected, String instructions, String input, Class<T> shape,
                                 Duration timeout, int maxOutputTokens, @Nullable Double temperature,
                                 Consumer<ModelAccounting> accounting) {
-        return generate(selected, instructions, input, shape, timeout, maxOutputTokens, temperature, false, accounting);
-    }
-
-    /**
-     * The same call for a whole piece of work a person reads, such as a meeting's minutes, rather than a step inside a
-     * turn: the model reasons at {@code effort}, or at the level its configuration names, instead of the helper effort.
-     * Without reasoning, extraction from a long transcript was uneven: one run found three action items, the next none.
-     */
-    public <T> T generateReasonedObject(ModelBinding selected, ReasoningEffort effort, String instructions, String input,
-                                        Class<T> shape, Duration timeout, int maxOutputTokens,
-                                        Consumer<ModelAccounting> accounting) {
-        return generate(selected.forOptions(new ModelSampling(null, effort, false), null), instructions, input, shape,
-                timeout, maxOutputTokens, null, true, accounting);
-    }
-
-    private <T> T generate(ModelBinding selected, String instructions, String input, Class<T> shape, Duration timeout,
-                           int maxOutputTokens, @Nullable Double temperature, boolean reasoned,
-                           Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         var deadline = Instant.now().plus(timeout);
         ModelGuard admitted = null;
         try {
             var metadata = selected.service();
-            int output = selected.outputAtMost(maxOutputTokens);
+            // A task that reasons (ModelBinding.forTask) needs room for the reasoning as well as the answer.
+            int output = selected.outputAtMost(selected.reasons() ? Math.max(maxOutputTokens, REASONING_OUTPUT_TOKENS) : maxOutputTokens);
             var guard = new ModelGuard(metadata.getChatModel(), process, metadata,
                     new Budget(costCap, Integer.MAX_VALUE, tokenCap), attempts,
                     () -> { if (!Instant.now().isBefore(deadline)) throw TurnFailure.DEADLINE.exception(); },
@@ -89,7 +75,7 @@ public final class ModelCalls {
             admitted = guard;
             var runner = context.ai().withLlmService(selected.withModel(guard));
             var llm = Objects.requireNonNull(runner.getLlm()).withMaxTokens(output).withTimeout(timeout);
-            if (!reasoned) llm = llm.withoutThinking();
+            if (!selected.reasons()) llm = llm.withoutThinking();
             if (temperature != null) llm = llm.withTemperature(temperature);
             return runner.withLlm(llm).createObject(List.of(new SystemMessage(instructions), new UserMessage(input)), shape);
         } finally {
