@@ -723,8 +723,8 @@ class ChatSessionApiIntegrationTest {
         var reader = actor();
         UUID agent = UUID.randomUUID();
         jdbc.sql("""
-                INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model,file_ids)
-                VALUES (:id,:tenant,:owner,'Trợ lý nhân sự','','model',CAST(:files AS jsonb))
+                INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,file_ids)
+                VALUES (:id,:tenant,:owner,'Trợ lý nhân sự','',CAST(:files AS jsonb))
                 """).param("id", agent).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value())
                 .param("files", "[\"" + id + "\"]").update();
         jdbc.sql("INSERT INTO persona_user_share(tenant_id,persona_id,actor_id,permission) VALUES (:tenant,:agent,:actor,'VIEWER')")
@@ -2332,7 +2332,7 @@ class ChatSessionApiIntegrationTest {
             for (int i = 0; i < 27; i++) {
                 UUID id = i == 0 ? UUID.fromString("abcdef00-0000-4000-8000-000000000001") : UUID.randomUUID();
                 seeded.add(id);
-                jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model) VALUES (:id,:tenant,:owner,'Duplicate name','private instruction','legacy model')")
+                jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions) VALUES (:id,:tenant,:owner,'Duplicate name','private instruction')")
                         .param("id", id).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value()).update();
             }
             var first = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-personas").with(authentication(actor)))
@@ -2388,8 +2388,8 @@ class ChatSessionApiIntegrationTest {
         try {
             for (var entry : owners.entrySet()) {
                 jdbc.sql("""
-                        INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model)
-                        VALUES (:id,:tenant,:owner,'Private assistant','Private instructions','legacy')
+                        INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions)
+                        VALUES (:id,:tenant,:owner,'Private assistant','Private instructions')
                         """).param("id", entry.getKey()).param("tenant", TENANT).param("owner", entry.getValue()).update();
             }
             jdbc.sql("UPDATE persona SET deleted_at=CURRENT_TIMESTAMP WHERE id IN (:ids)")
@@ -2622,7 +2622,7 @@ class ChatSessionApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString().contains(modelId));
         // A second Persona excludes the selected session even for the model manager.
         UUID differentPersona = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model) VALUES (:id,:tenant,:owner,'Other','','model')")
+        jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions) VALUES (:id,:tenant,:owner,'Other','')")
                 .param("id", differentPersona).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value()).update();
         update.putArray("personaIds").add(differentPersona.toString());
         mockMvc.perform(put("/api/chat/providers/" + provider.path("id").asText()).param("revision", "2")

@@ -76,7 +76,7 @@ class ModelCatalogConstraintsTest {
                 UUID.randomUUID(), otherTenant, provider, "model", "Foreign", true, settings, 1))));
         assertThrows(DataIntegrityViolationException.class, () -> tx(() -> catalog.setDefault(otherTenant, model.id(), 1)));
         UUID persona = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id, tenant_id, builtin_key, name, instructions, model) VALUES (:id, :tenant, 'default', 'Persona', '', 'model')")
+        jdbc.sql("INSERT INTO persona(id, tenant_id, builtin_key, name, instructions) VALUES (:id, :tenant, 'default', 'Persona', '')")
                 .param("id", persona).param("tenant", otherTenant).update();
         assertThrows(DataIntegrityViolationException.class, () -> tx(() -> new JdbcAgentModelRepository(jdbc).setPersonaModel(otherTenant, UUID.randomUUID(), true, persona, model.id(), 1)));
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("INSERT INTO llm_provider_persona VALUES (:tenant, :provider, :persona)")
@@ -99,7 +99,7 @@ class ModelCatalogConstraintsTest {
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,'Allowed')").param("tenant", tenant).param("id", group).update();
         UUID persona = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Default','','model')")
+        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions) VALUES (:id,:tenant,'default','Default','')")
                 .param("id", persona).param("tenant", tenant).update();
         var original = read(() -> catalog.provider(tenant, provider).orElseThrow());
         tx(() -> catalog.updateProvider(new LlmProvider(provider, tenant, original.name(), original.adapterType(),
@@ -160,10 +160,10 @@ class ModelCatalogConstraintsTest {
     @Test void personaCursorRejectsForeignAndMissingAnchors() {
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         UUID otherTenant = tenant(), foreign = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Foreign','private','legacy')")
+        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions) VALUES (:id,:tenant,'default','Foreign','private')")
                 .param("id", foreign).param("tenant", otherTenant).update();
         var chats = new JdbcChatRepository(jdbc);
-        UUID builtin = chats.provisionPersona(new TenantId(tenant), new PersonaProperties().getName(), "instructions", "hosted");
+        UUID builtin = chats.provisionPersona(new TenantId(tenant), new PersonaProperties().getName(), "instructions");
         var authorization = mock(IamAuthorization.class);
         var actor = new ActorId(UUID.randomUUID());
         when(authorization.require(actor, IamCapability.MODELS_MANAGE, false))

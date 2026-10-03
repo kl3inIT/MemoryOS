@@ -168,7 +168,7 @@ class ChatPersistenceIntegrationTest {
         documentSets = service(new DocumentSetService(tenants, authorization, sources, agentRows, documentSetRows), DocumentSetService.class);
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
                 agentRows, new PersonaRevisions(jpa.entityManager()),
-                new PersonaProperties(), models, sources, documentSets, documentSetRows, fileService,
+                models, sources, documentSets, documentSetRows, fileService,
                 mock(UserFileContentService.class)), ChatPersonaService.class);
         projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
         shortcuts = service(new ChatPromptShortcutService(tenants, authorization, repository,
@@ -657,9 +657,7 @@ class ChatPersistenceIntegrationTest {
         assertThrows(AiException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
                 "Question", Duration.ofMinutes(2), raw, selection));
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
-        jdbc.sql("UPDATE persona SET model = 'obsolete-model' WHERE id = :id").param("id", session.personaId()).update();
         var reservation = turns.reserve(owner, session.id(), session.rootMessageId(), request, "Question", Duration.ofMinutes(2), raw + 64, selection);
-        assertEquals("obsolete-model", turns.loadContext(owner, session.id(), reservation).model());
         var setup = ChatTurnSetup.resolve(session.id(), reservation.assistantMessageId(),
                 turns.loadContext(owner, session.id(), reservation), raw + 64, binding, contribution);
         // The prompt carries the instant it was resolved at, which differs between this expectation and the reservation.
@@ -1455,7 +1453,7 @@ class ChatPersistenceIntegrationTest {
                 .param("id", id).param("slug", id.toString()).update();
         // Tenant provisioning creates the built-in agent in production; the raw fixture does it here.
         var defaults = new PersonaProperties();
-        new JdbcChatRepository(jdbc).provisionPersona(new TenantId(id), defaults.getName(), defaults.getInstructions(), defaults.getModel());
+        new JdbcChatRepository(jdbc).provisionPersona(new TenantId(id), defaults.getName(), defaults.getInstructions());
         return id;
     }
 
