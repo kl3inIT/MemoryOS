@@ -6,4 +6,5 @@
 - [x] `docs/specs/localization.md` states the term and the guard
 - [x] `tsc -b`, `check:i18n`; unit tests for the changed features
 - [x] Lint, format; e2e identity-shell (18); screenshots of the admin menu in both languages
-- [ ] Owner approval of the wording table before merge
+- [x] `check:i18n` guard widened after review: any quote style and the plural
+- [x] Owner approved the wording 2026-10-03; merged in PR #512
