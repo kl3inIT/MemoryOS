@@ -19,6 +19,19 @@ if "MPLCONFIGDIR" not in os.environ and os.path.isdir(_BUILT):
         pass
 
 
+# pandas 3 never applies a chained assignment (`df['a'][0] = 1`, `df['a'].fillna(0, inplace=True)`) and only
+# warns, so a run reports results computed on unchanged data. In the model's own script (__main__) the warning
+# is an error, a traceback the model fixes; inside libraries it stays a warning. Matched by message, so pandas
+# is not imported on every start.
+import warnings
+
+warnings.filterwarnings(
+    "error",
+    message="A value is being set on a copy of a DataFrame or Series through chained assignment",
+    module=r"__main__\Z",
+)
+
+
 # Figures a run leaves open become chart data plus PNG at exit (memoryos_charts.capture).
 try:
     import atexit

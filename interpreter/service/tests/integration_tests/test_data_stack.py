@@ -139,15 +139,15 @@ print('Graph saved successfully')
 
 
 def test_the_idioms_the_prompt_teaches_hold_on_the_executor_stack() -> None:
-    # RUN_PYTHON_GUIDANCE names Python 3.14, numpy 2.5, pandas 3 and OpenCV 5 and the idioms they
-    # need. Each check proves one claim, so a relock that changes what the model is told fails CI.
+    # RUN_PYTHON_GUIDANCE in core's ChatPrompts names these versions and idioms. Each check
+    # proves one claim, so a relock that changes what the model is told fails here: update
+    # the prompt with it.
     client = TestClient(create_app())
 
     code = """
 import io
 import json
 import sys
-import warnings
 
 import cv2
 import numpy as np
@@ -156,23 +156,25 @@ import pandas as pd
 
 checks = {}
 checks['python'] = list(sys.version_info[:2])
-checks['numpy'] = int(np.__version__.split('.')[0])
-checks['pandas'] = int(pd.__version__.split('.')[0])
+checks['numpy'] = '.'.join(np.__version__.split('.')[:2])
+checks['pandas'] = '.'.join(pd.__version__.split('.')[:2])
 checks['opencv'] = int(cv2.__version__.split('.')[0])
 
 # Text columns are dtype str, and the helper the prompt names recognises them.
 text = pd.DataFrame({'a': ['x', 'y']})['a']
 checks['str_dtype'] = str(text.dtype) == 'str' and pd.api.types.is_string_dtype(text)
 
-# Copy-on-write: assigning back changes the frame; a chained assignment does not.
+# Copy-on-write: assigning back changes the frame; a chained assignment in this script raises
+# (sitecustomize turns pandas' warning into an error for __main__ only).
 df = pd.DataFrame({'a': [1.0, None]})
 df['a'] = df['a'].fillna(0)
 checks['assign_back'] = df['a'].tolist() == [1.0, 0.0]
 frame = pd.DataFrame({'a': [1, 2]})
-with warnings.catch_warnings():
-    warnings.simplefilter('ignore')
+try:
     frame['a'][0] = 9
-checks['chained_ignored'] = frame['a'].tolist() == [1, 2]
+    checks['chained_raises'] = False
+except pd.errors.ChainedAssignmentError:
+    checks['chained_raises'] = frame['a'].tolist() == [1, 2]
 frame.loc[frame['a'] == 1, 'a'] = 9
 checks['loc_assign'] = frame['a'].tolist() == [9, 2]
 
@@ -210,6 +212,7 @@ checks['trapezoid'] = float(np.trapezoid([1.0, 1.0])) == 1.0
 # OpenCV 5 still encodes images; its machine-learning module left the main wheel.
 checks['cv2_encode'] = bool(cv2.imencode('.png', np.zeros((4, 4, 3), np.uint8))[0])
 checks['cv2_ml_absent'] = not hasattr(cv2, 'ml')
+checks['cv2_haar_absent'] = not hasattr(cv2, 'CascadeClassifier')
 
 print(json.dumps(checks))
 """.strip()
@@ -221,5 +224,5 @@ print(json.dumps(checks))
     assert payload["exit_code"] == 0, payload["stderr"]
     checks = json.loads(payload["stdout"].strip())
     assert checks.pop("python") == [3, 14]
-    assert (checks.pop("numpy"), checks.pop("pandas"), checks.pop("opencv")) == (2, 3, 5)
+    assert (checks.pop("numpy"), checks.pop("pandas"), checks.pop("opencv")) == ("2.5", "3.0", 5)
     assert {name: ok for name, ok in checks.items() if not ok} == {}
