@@ -97,7 +97,7 @@ class ChatGroundedTurnTest {
         // The agent itself does not search; grounded mode adds the search tool only while it applies.
         var grounded = ChatTurnOptions.builder().searchEnabled(false).grounded(true).build();
         when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
-                "", "gpt-5-mini", grounded, "0", null, List.of(), Set.of("search", "web_search"), null), false, false, false));
+                "", grounded, "0", null, List.of(), Set.of("search", "web_search"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
         var question = ChatMessage.builder(pair.userMessageId(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
                 .parentMessageId(parent)
@@ -106,7 +106,7 @@ class ChatGroundedTurnTest {
                 .finishedAt(Instant.now())
                 .build();
         when(persistence.loadContext(any(), any(), any())).thenReturn(ChatTurnPersistence.TurnContext.builder(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer",
+                new TenantId(UUID.randomUUID()), "Answer",
                 Stream.concat(Stream.of(question), earlierNewestFirst.stream()).toList())
                 .options(grounded)
                 .build());

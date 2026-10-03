@@ -29,7 +29,6 @@ public class PersonaEntity {
     @Column(nullable = false, length = 200) private String name;
     @Column(nullable = false, length = 2000) private String description = "";
     @Column(nullable = false, columnDefinition = "text") private String instructions = "";
-    @Column(nullable = false, length = 200) private String model;
     @Column(name = "model_configuration_id") private @Nullable UUID modelConfigurationId;
     @Column(name = "model_revision", nullable = false) private long modelRevision = 1;
     @ElementCollection @CollectionTable(name = "persona_starter", joinColumns = @JoinColumn(name = "persona_id"))
@@ -60,8 +59,8 @@ public class PersonaEntity {
     @Version private @Nullable Long revision;
 
     protected PersonaEntity() {}
-    public PersonaEntity(UUID id, UUID tenantId, @Nullable UUID ownerId, String model) {
-        this.id = id; this.tenantId = tenantId; this.ownerId = ownerId; this.model = model;
+    public PersonaEntity(UUID id, UUID tenantId, @Nullable UUID ownerId) {
+        this.id = id; this.tenantId = tenantId; this.ownerId = ownerId;
     }
     public record Settings(String name, String description, String instructions, String taskPrompt, List<String> starters,
                            List<UUID> sources, @Nullable UUID modelId, @Nullable Integer contextLimit, @Nullable Integer outputLimit,
