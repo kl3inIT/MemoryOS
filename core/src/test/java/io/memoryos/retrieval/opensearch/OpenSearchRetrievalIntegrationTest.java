@@ -83,7 +83,7 @@ class OpenSearchRetrievalIntegrationTest {
     void indexes3072DimensionsFusesKeywordAndSemanticResultsReusesVectorsAndRepairsProjection() throws Exception {
         var config = new SearchInfrastructureConfiguration();
         var properties = new SearchProperties(new URI("http", null, OPENSEARCH.getHost(), OPENSEARCH.getMappedPort(9200), null, null, null),
-                "", "", "", "https://api.openai.com/v1", "", "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
+                "", "", "", "https://api.openai.com/v1", "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
                 .70, Duration.ofSeconds(30), "memoryos-test", 0, "", "");
         var mapper = new ObjectMapper();
         var documents = mock(DocumentChunkPort.class);
@@ -367,7 +367,7 @@ class OpenSearchRetrievalIntegrationTest {
     void anIndexThatDisagreesWithItsGenerationFailsLoudlyAndAnIndexFromBeforeGenerationsIsRecordedOnce() throws Exception {
         var config = new SearchInfrastructureConfiguration();
         var properties = new SearchProperties(new URI("http", null, OPENSEARCH.getHost(), OPENSEARCH.getMappedPort(9200), null, null, null),
-                "", "", "", "https://api.openai.com/v1", "", "text-embedding-3-small", 8, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
+                "", "", "", "https://api.openai.com/v1", "text-embedding-3-small", 8, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
                 .70, Duration.ofSeconds(30), "memoryos-meta", 0, "", "");
         var mapper = new ObjectMapper();
         var embeddings = new ValidatedEmbeddingService(mock(EmbeddingModel.class), properties.model(), 8, 32, 2);

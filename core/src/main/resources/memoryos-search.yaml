@@ -4,10 +4,11 @@ memoryos:
     username: ${MEMORYOS_OPENSEARCH_USERNAME:}
     password: ${MEMORYOS_OPENSEARCH_PASSWORD:}
     ca-certificate: ${MEMORYOS_OPENSEARCH_CA_CERTIFICATE:}
-    api-key: ${MEMORYOS_EMBEDDING_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
-    embedding-endpoint: ${MEMORYOS_EMBEDDING_ENDPOINT:https://api.openai.com/v1}
-    model: ${MEMORYOS_EMBEDDING_MODEL:text-embedding-3-large}
-    dimensions: ${MEMORYOS_EMBEDDING_DIMENSIONS:3072}
+    # The deployment's serving node (compose.serving.yaml) seeds the first search generation; its key is entered on
+    # the Search settings page, as every embedding key is (MEM-216).
+    embedding-endpoint: ${MEMORYOS_EMBEDDING_ENDPOINT:}
+    model: ${MEMORYOS_EMBEDDING_MODEL:Qwen/Qwen3-Embedding-4B}
+    dimensions: ${MEMORYOS_EMBEDDING_DIMENSIONS:2560}
     embedding-batch-size: ${MEMORYOS_EMBEDDING_BATCH_SIZE:32}
     embedding-concurrency: ${MEMORYOS_EMBEDDING_CONCURRENCY:2}
     embedding-timeout: ${MEMORYOS_EMBEDDING_TIMEOUT:10s}

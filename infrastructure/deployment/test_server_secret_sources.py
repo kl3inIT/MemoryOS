@@ -23,7 +23,6 @@ MOUNTED = {
     "MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE": "google_drive_credential_encryption_key",
     "MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE": "mcp_credential_encryption_key",
     "MEMORYOS_MCP_ADMIN_CLIENT_SECRET_FILE": "mcp_admin_client_secret",
-    "MEMORYOS_EMBEDDING_API_KEY_FILE": "model_api_key",
 }
 
 
@@ -62,9 +61,12 @@ class ServerSecretSourceTest(unittest.TestCase):
                 plain = variable[: -len("_FILE")]
                 self.assertNotRegex(block, r"\n\s+%s: \$\{" % re.escape(plain), "%s/%s" % (service, plain))
 
-    def test_the_embedding_key_keeps_working_for_developer_machines(self):
+    def test_the_deployment_holds_no_model_key(self):
+        # Every Chat and embedding key is a catalog entry an administrator enters (MEM-211, MEM-216).
         search = (ROOT / "core/src/main/resources/memoryos-search.yaml").read_text(encoding="utf-8")
-        self.assertIn("${MEMORYOS_EMBEDDING_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}", search)
+        self.assertNotIn("api-key:", search)
+        self.assertNotIn("model_api_key", BASE)
+        self.assertNotIn("MEMORYOS_EMBEDDING_API_KEY", BASE)
 
 
 if __name__ == "__main__":
