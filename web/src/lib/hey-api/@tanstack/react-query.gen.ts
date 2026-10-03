@@ -1534,7 +1534,7 @@ export const updateChatModelMutation = (options?: Partial<Options<UpdateChatMode
 };
 
 /**
- * Set a visible, publicly available task model, or omit the model ID to use the conversation model
+ * Set a visible, publicly available task model and how hard it thinks; omit the model ID to use the conversation model and the level to use the task's own default
  */
 export const setChatModelFlowMutation = (options?: Partial<Options<SetChatModelFlowData>>): UseMutationOptions<SetChatModelFlowResponse, SetChatModelFlowError, Options<SetChatModelFlowData>> => {
     const mutationOptions: UseMutationOptions<SetChatModelFlowResponse, SetChatModelFlowError, Options<SetChatModelFlowData>> = {

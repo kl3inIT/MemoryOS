@@ -132,18 +132,24 @@ public final class ChatModelExecutor {
                                 Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
-        var deadline = Instant.now().plusSeconds(10);
+        // A naming model that reasons (a level chosen for the task) needs room and time for its thinking: at 128
+        // tokens a reasoning model spent the whole allowance before the title.
+        boolean reasons = selected.reasons();
+        int outputLimit = selected.outputAtMost(reasons ? 4096 : 128);
+        var timeout = Duration.ofSeconds(reasons ? 60 : 10);
+        var deadline = Instant.now().plus(timeout);
         ChatModelGuard admitted = null;
         try {
             var metadata = selected.service();
             var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
-                    new Budget(limits.costCap(), Integer.MAX_VALUE, Math.min(4096, limits.tokenCap())), 1,
+                    new Budget(limits.costCap(), Integer.MAX_VALUE, Math.min(reasons ? 16_384 : 4096, limits.tokenCap())), 1,
                     () -> { if (!Instant.now().isBefore(deadline)) throw TurnFailure.DEADLINE.exception(); },
-                    selected.policy(), Math.min(3000, selected.contextWindow() - selected.outputAtMost(128)), selected.finalRequest());
-            guard.outputLimit(selected.outputAtMost(128));
+                    selected.policy(), Math.min(3000, selected.contextWindow() - outputLimit), selected.finalRequest());
+            guard.outputLimit(outputLimit);
             admitted = guard;
             var runner = context.ai().withLlmService(new StreamingLlmService(selected.withModel(guard)));
-            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(selected.outputAtMost(128)).withTimeout(Duration.ofSeconds(10)));
+            var llm = Objects.requireNonNull(runner.getLlm()).withMaxTokens(outputLimit).withTimeout(timeout);
+            runner = runner.withLlm(reasons ? llm : llm.withoutThinking());
             var text = new StringBuilder();
             for (var message : history) {
                 String content = message.content() == null ? "" : message.content();
@@ -156,7 +162,7 @@ public final class ChatModelExecutor {
             var output = new StringBuilder();
             new StreamingPromptRunnerBuilder(runner).streaming().withMessages(messages).generateStream()
                     .doOnNext(part -> { if (output.length() + part.length() > 1024) throw TurnFailure.OUTPUT_LIMIT.exception(); output.append(part); })
-                    .blockLast(Duration.ofSeconds(10));
+                    .blockLast(timeout);
             String title = output.toString().strip().replaceAll("[\\r\\n\\t]+", " ").replaceAll("^[\"'`]+|[\"'`]+$", "");
             if (title.isBlank()) throw TurnFailure.EMPTY_RESPONSE.exception();
             return title.substring(0, title.offsetByCodePoints(0, Math.min(80, title.codePointCount(0, title.length()))));

@@ -61,9 +61,9 @@ public class TranscriptSummarizer {
         try (var selected = models.resolveFlow(actor, ModelFlow.MEETING_MINUTES)) {
             TranscriptSummary summary;
             try {
-                summary = calls.generateReasonedObject(selected.binding(), ReasoningEffort.MEDIUM, instructions(subject),
-                        transcript(subject, lines), TranscriptSummary.class, TIMEOUT, MAX_OUTPUT_TOKENS,
-                        accounting -> record(tenant, actor, selected, accounting));
+                // The binding carries the level chosen for the minutes task, medium unless an administrator changed it.
+                summary = calls.generateObject(selected.binding(), instructions(subject), transcript(subject, lines),
+                        TranscriptSummary.class, TIMEOUT, MAX_OUTPUT_TOKENS, accounting -> record(tenant, actor, selected, accounting));
             } catch (RuntimeException failure) {
                 throw named(selected.binding(), failure);
             }

@@ -592,7 +592,9 @@ function ModelSelectorEffort({
             value={option.id}
             className={cn(
               "cursor-pointer rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring/50",
-              "data-[state=checked]:bg-accent data-[state=checked]:font-medium data-[state=checked]:text-accent-foreground",
+              // MemoryOS: the accent surface matches the popover in dark mode, so the checked level takes the
+              // reasoning tint the level pill uses.
+              "data-[state=checked]:bg-reasoning-surface data-[state=checked]:font-medium data-[state=checked]:text-reasoning-content",
             )}
           >
             {option.name}

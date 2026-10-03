@@ -1368,7 +1368,7 @@ export const updateChatModel = <ThrowOnError extends boolean = true>(options: Op
 });
 
 /**
- * Set a visible, publicly available task model, or omit the model ID to use the conversation model
+ * Set a visible, publicly available task model and how hard it thinks; omit the model ID to use the conversation model and the level to use the task's own default
  */
 export const setChatModelFlow = <ThrowOnError extends boolean = true>(options: Options<SetChatModelFlowData, ThrowOnError>): RequestResult<SetChatModelFlowResponses, SetChatModelFlowErrors, ThrowOnError> => (options.client ?? client).put<SetChatModelFlowResponses, SetChatModelFlowErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

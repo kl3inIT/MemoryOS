@@ -143,6 +143,9 @@
 
   /* Selection accent (switch on, selected row, link) and gallery card surfaces. */
   --action-selection: #286df8;
+  /* A reasoning level: a light tint of the selection accent; content reaches 4.5:1 on its surface. */
+  --reasoning-surface: #e7effc;
+  --reasoning-content: #245fda;
   --surface-card-gradient: radial-gradient(
     236.31% 141.42% at 0% 0%,
     var(--surface-raised) 0%,
@@ -341,6 +344,8 @@
   --status-success-faint: #001503;
   --status-warning-faint: #200600;
   --status-info-faint: #040e25;
+  --reasoning-surface: #142c5c;
+  --reasoning-content: #8cb4ff;
   /* Dark steps of the same eight hues, validated on #19191e and #000000. */
   --chart-1: #397bff;
   --chart-2: #e1642f;

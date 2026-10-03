@@ -331,6 +331,62 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(accepted).toHaveBeenCalledWith({ userMessageId: userId, assistantMessageId: runId });
   });
 
+  it("pins a level chosen before the conversation existed before its first answer", async () => {
+    const order: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input.clone() : new Request(input, init);
+        const path = new URL(request.url).pathname;
+        order.push(`${request.method} ${path}`);
+        if (path === "/api/chat/sessions") return json(session, 201);
+        if (path.endsWith("/reasoning"))
+          return json({ ...session, reasoningEffort: (await request.json()).reasoningEffort });
+        if (path.endsWith("/events")) return sse(delta + terminal());
+        if (request.method === "POST")
+          return json({ userMessageId: userId, assistantMessageId: runId }, 202);
+        if (path.endsWith("/messages")) return json([row]);
+        return json(session);
+      }),
+    );
+    const transport = new MemoryOsChatTransport();
+    const created = vi.fn();
+    transport.onSessionCreated = created;
+    transport.selectReasoning("HIGH");
+    await collect(await send(transport));
+    expect(order.slice(0, 3)).toEqual([
+      "POST /api/chat/sessions",
+      `PUT /api/chat/sessions/${session.id}/reasoning`,
+      `POST /api/chat/sessions/${session.id}/messages`,
+    ]);
+    expect(created).toHaveBeenCalledWith(expect.objectContaining({ reasoningEffort: "HIGH" }));
+  });
+
+  it("still announces the conversation when its level cannot be pinned, and sends no question", async () => {
+    const order: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input.clone() : new Request(input, init);
+        const path = new URL(request.url).pathname;
+        order.push(`${request.method} ${path}`);
+        if (path === "/api/chat/sessions") return json(session, 201);
+        if (path.endsWith("/reasoning")) return json({ title: "Unavailable" }, 503);
+        return json(session);
+      }),
+    );
+    const transport = new MemoryOsChatTransport();
+    const created = vi.fn();
+    const failed = vi.fn();
+    transport.onSessionCreated = created;
+    transport.onSessionFailed = failed;
+    transport.selectReasoning("HIGH");
+    await expect(send(transport)).rejects.toBeDefined();
+    expect(created).toHaveBeenCalledExactlyOnceWith(session);
+    expect(failed).not.toHaveBeenCalled();
+    expect(order).not.toContain(`POST /api/chat/sessions/${session.id}/messages`);
+  });
+
   it("sends a composer quote as a leading blockquote of the question", async () => {
     const fetch = fixture(() => sse(delta + terminal()));
     await collect(
