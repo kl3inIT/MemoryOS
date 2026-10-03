@@ -194,10 +194,7 @@ for (const [label, width, scheme] of [
     await expect(discovery).toHaveCount(0);
 
     // A new provider: the endpoint and the typed key list models before anything is saved.
-    await page
-      .getByRole("button", { name: "Thêm một kết nối 9Router nữa" })
-      .first()
-      .click();
+    await page.getByRole("button", { name: "Thêm một kết nối 9Router nữa" }).first().click();
     const creation = page.getByRole("dialog");
     const list = creation.getByRole("button", { name: "Lấy danh sách model" });
     await expect(list).toBeDisabled();
