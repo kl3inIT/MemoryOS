@@ -29,7 +29,7 @@ class EmbeddingProviderTest {
 
     @Test
     void aKeyIsStoredEncryptedBoundToItsTenantAndProviderAndNeverPrinted() {
-        var credentials = new EmbeddingProviderCredentials(CATALOG_KEY, "deployment-key");
+        var credentials = new EmbeddingProviderCredentials(CATALOG_KEY);
         UUID tenant = UUID.randomUUID(), provider = UUID.randomUUID();
         String sealed = credentials.seal(tenant, provider, "tei-key");
         assertTrue(sealed.startsWith("v1:"));
@@ -37,10 +37,13 @@ class EmbeddingProviderTest {
         assertEquals("tei-key", credentials.resolve(tenant, provider, sealed));
         assertThrows(SearchUnavailableException.class, () -> credentials.resolve(tenant, UUID.randomUUID(), sealed));
         assertThrows(SearchUnavailableException.class, () -> credentials.resolve(UUID.randomUUID(), provider, sealed));
-        assertThrows(SearchUnavailableException.class, () -> new EmbeddingProviderCredentials("", "deployment-key")
+        assertThrows(SearchUnavailableException.class, () -> new EmbeddingProviderCredentials("")
                 .resolve(tenant, provider, sealed));
-        assertEquals("deployment-key", credentials.resolve(tenant, provider, EmbeddingProviderCredentials.DEPLOYMENT));
         assertEquals("", credentials.resolve(tenant, provider, null));
+        assertFalse(credentials.present(null));
+        assertTrue(credentials.present(sealed));
+        // The deployment's key is gone (MEM-216): the reference older releases stored is no key, never sent.
+        assertThrows(SearchUnavailableException.class, () -> credentials.resolve(tenant, provider, "deployment"));
         var stored = new EmbeddingProvider(provider, tenant, "serving", "http://172.24.244.79:18090/v1", sealed,
                 EmbeddingProvider.DataBoundary.INTERNAL, 1);
         assertFalse(stored.toString().contains(sealed));

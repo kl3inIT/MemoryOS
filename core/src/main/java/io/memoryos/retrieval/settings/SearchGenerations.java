@@ -37,8 +37,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * and the FUTURE being rebuilt beside it, each with the embedding client built for it.
  *
  * <p>The first call seeds PRESENT from deployment configuration when the operating Tenant has none, with the index
- * name the deployment already uses, so an existing index is kept rather than rebuilt. From then on deployment
- * configuration no longer decides the model. Until the operating Tenant is published (a worker can start before the
+ * name the deployment already uses, so an existing index is kept rather than rebuilt. The seed describes the
+ * deployment's serving node: an Internal provider without a key, whose key an administrator enters (MEM-216). From then
+ * on deployment configuration no longer decides the model. Until the operating Tenant is published (a worker can start before the
  * api bootstraps it) the configuration-derived generation is served unsaved and seeding is retried, which cannot
  * diverge because seeding writes exactly that generation.
  *
@@ -51,7 +52,7 @@ public class SearchGenerations {
     private static final Logger LOGGER = LoggerFactory.getLogger(SearchGenerations.class);
     private static final Duration UNSEEDED_RETRY = Duration.ofSeconds(30);
     static final Duration REFRESH = Duration.ofSeconds(5);
-    static final String SEEDED_PROVIDER_NAME = "Deployment";
+    static final String SEEDED_PROVIDER_NAME = "Serving";
 
     /** A generation with the client that embeds for it. */
     public record Active(SearchGeneration generation, ValidatedEmbeddingService embeddings, boolean persisted) {
@@ -78,6 +79,7 @@ public class SearchGenerations {
     private volatile @Nullable Snapshot current;
     private volatile long retryAt;
     private volatile Duration refresh = REFRESH;
+    private volatile boolean unconfiguredReported;
 
     @Autowired
     public SearchGenerations(JdbcSearchSettingsRepository settings, TenantAccessResolver tenants,
@@ -189,8 +191,8 @@ public class SearchGenerations {
                     .log("No operating Tenant yet; serving the deployment-configured search generation unsaved");
             var unsaved = new UUID(0, 0);
             var generation = configured(properties, UUID.randomUUID(), unsaved, unsaved, Instant.now());
-            return new Snapshot(new Active(generation, embeddings(generation, unsaved, properties.embeddingEndpoint(),
-                    properties.apiKey()), false), null, "", System.nanoTime(), Map.of(), false);
+            return new Snapshot(new Active(generation, embeddings(generation, unsaved, configuredEndpoint(),
+                    OpenAiCompatibleEmbeddings.NO_KEY), false), null, "", System.nanoTime(), Map.of(), false);
         }
         UUID operating = tenant.orElseThrow().value();
         record Read(SearchGeneration present, @Nullable SearchGeneration future, String version) { }
@@ -243,9 +245,8 @@ public class SearchGenerations {
         settings.lock(tenant);
         var existing = settings.present(tenant);
         if (existing.isPresent()) return existing.orElseThrow();
-        var provider = new EmbeddingProvider(UUID.randomUUID(), tenant, SEEDED_PROVIDER_NAME,
-                properties.embeddingEndpoint(), EmbeddingProviderCredentials.DEPLOYMENT,
-                EmbeddingProvider.DataBoundary.EXTERNAL, 1);
+        var provider = new EmbeddingProvider(UUID.randomUUID(), tenant, SEEDED_PROVIDER_NAME, configuredEndpoint(), null,
+                EmbeddingProvider.DataBoundary.INTERNAL, 1);
         settings.insertProvider(provider);
         var generation = configured(properties, UUID.randomUUID(), tenant, provider.id(), Instant.now());
         settings.insertGeneration(generation);
@@ -254,6 +255,20 @@ public class SearchGenerations {
                 .addKeyValue("model", generation.model()).addKeyValue("dimensions", generation.dimensions())
                 .log("Seeded the PRESENT search generation from deployment configuration");
         return generation;
+    }
+
+    /**
+     * The serving endpoint a generation is seeded with. Without one search is unavailable until it is configured, and the
+     * process keeps running: a seeded deployment never reads it.
+     */
+    private String configuredEndpoint() {
+        if (!properties.embeddingEndpoint().isBlank()) return properties.embeddingEndpoint();
+        if (!unconfiguredReported) {
+            unconfiguredReported = true;
+            LOGGER.atError().addKeyValue("event", "search.generation.unconfigured")
+                    .log("No search generation and no MEMORYOS_EMBEDDING_ENDPOINT to seed one from; search is unavailable");
+        }
+        throw new SearchUnavailableException();
     }
 
     /** The generation deployment configuration describes, named like the index that configuration already uses. */

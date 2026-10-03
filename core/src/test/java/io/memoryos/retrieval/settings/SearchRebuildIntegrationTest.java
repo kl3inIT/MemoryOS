@@ -144,7 +144,7 @@ class SearchRebuildIntegrationTest {
         Process(int rebuildWindow, UnaryOperator<OpenSearchGateway> gateways) throws Exception {
             var mapper = new ObjectMapper();
             var repository = new JdbcSearchSettingsRepository(jdbc);
-            var credentials = new EmbeddingProviderCredentials(MASTER_KEY, "deployment-key");
+            var credentials = new EmbeddingProviderCredentials(MASTER_KEY);
             @SuppressWarnings("unchecked")
             ObjectProvider<AiUsageRecorder> usage = mock(ObjectProvider.class);
             generations = new SearchGenerations(repository, tenants, credentials, properties, transactions,
@@ -209,7 +209,7 @@ class SearchRebuildIntegrationTest {
         embeddings = new FakeEmbeddingServer();
         scheduler = Executors.newSingleThreadScheduledExecutor();
         properties = new SearchProperties(new URI("http", null, OPENSEARCH.getHost(), OPENSEARCH.getMappedPort(9200), null, null, null),
-                "", "", "", embeddings.endpoint(), "deployment-key", OLD_MODEL, 8, 32, 2, Duration.ofSeconds(5), 0, 50, .5,
+                "", "", "", embeddings.endpoint(), OLD_MODEL, 8, 32, 2, Duration.ofSeconds(5), 0, 50, .5,
                 .70, Duration.ofSeconds(30), "memoryos-t" + Long.toHexString(System.nanoTime()), 0, "", "");
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'ops','Ops','ACTIVE','TEST')")
                 .param("id", tenant).update();
@@ -466,7 +466,7 @@ class SearchRebuildIntegrationTest {
         var failing = spy(process.index);
         doReturn(false).when(failing).deleteIndex(any());
         var repository = new JdbcSearchSettingsRepository(jdbc);
-        var credentials = new EmbeddingProviderCredentials(MASTER_KEY, "deployment-key");
+        var credentials = new EmbeddingProviderCredentials(MASTER_KEY);
         var settings = new SearchSettingsService(repository, process.generations, failing, process.chunks, authorization, tenants,
                 credentials, new EmbeddingProbe(properties, ObservationRegistry.NOOP), properties, transactions, clock());
         for (int attempt = 1; attempt <= 3; attempt++) {

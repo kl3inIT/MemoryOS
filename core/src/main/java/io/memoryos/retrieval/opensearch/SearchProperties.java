@@ -13,10 +13,9 @@ public record SearchProperties(
         @DefaultValue("") String username,
         @DefaultValue("") String password,
         @DefaultValue("") String caCertificate,
-        @DefaultValue("https://api.openai.com/v1") String embeddingEndpoint,
-        @DefaultValue("") String apiKey,
-        @DefaultValue("text-embedding-3-large") String model,
-        @DefaultValue("3072") int dimensions,
+        @DefaultValue("") String embeddingEndpoint,
+        @DefaultValue("Qwen/Qwen3-Embedding-4B") String model,
+        @DefaultValue("2560") int dimensions,
         @DefaultValue("32") int embeddingBatchSize,
         @DefaultValue("2") int embeddingConcurrency,
         @DefaultValue("10s") Duration embeddingTimeout,
@@ -37,13 +36,16 @@ public record SearchProperties(
             throw new IllegalArgumentException("OpenSearch credentials and remote endpoints require HTTPS");
         }
         if (username.isBlank() != password.isBlank()) throw new IllegalArgumentException("incomplete search credentials");
-        // The Chat provider endpoint rule (docs/specs/chat-models.md#credentials-and-provider-extension): HTTP is
-        // allowed with a key, internal hosts included; credentials, query strings and fragments in the URL are not.
-        var embeddingUri = URI.create(embeddingEndpoint);
-        if (embeddingUri.getHost() == null || embeddingUri.getRawUserInfo() != null
-                || embeddingUri.getRawQuery() != null || embeddingUri.getRawFragment() != null
-                || !Set.of("http", "https").contains(embeddingUri.getScheme())) {
-            throw new IllegalArgumentException("invalid embedding endpoint");
+        // The endpoint only seeds the first search generation, so a seeded deployment need not set it. When set it
+        // follows the Chat provider endpoint rule (docs/specs/chat-models.md#credentials-and-provider-extension): HTTP
+        // is allowed, internal hosts included; credentials, query strings and fragments in the URL are not.
+        if (!embeddingEndpoint.isBlank()) {
+            var embeddingUri = URI.create(embeddingEndpoint);
+            if (embeddingUri.getHost() == null || embeddingUri.getRawUserInfo() != null
+                    || embeddingUri.getRawQuery() != null || embeddingUri.getRawFragment() != null
+                    || !Set.of("http", "https").contains(embeddingUri.getScheme())) {
+                throw new IllegalArgumentException("invalid embedding endpoint");
+            }
         }
         if (queryPrefix.length() > 1000 || documentPrefix.length() > 1000) throw new IllegalArgumentException("invalid embedding prefix");
         if (!indexPrefix.matches("[a-z][a-z0-9-]{0,59}") || !Double.isFinite(keywordWeight)
