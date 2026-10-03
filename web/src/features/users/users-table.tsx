@@ -408,8 +408,11 @@ function UserIdentity({ entry }: { entry: UserListItem }) {
       : ui("Email unavailable");
   return (
     <div className="min-w-0">
-      <span className="flex min-w-0 items-center gap-2">
-        <span className="truncate font-main-ui-action text-content-primary" title={primary}>
+      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+        <span
+          className="max-w-full truncate font-main-ui-action text-content-primary"
+          title={primary}
+        >
           {primary}
         </span>
         {entry.role === "OWNER" ? (

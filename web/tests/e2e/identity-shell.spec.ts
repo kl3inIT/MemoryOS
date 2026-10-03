@@ -651,7 +651,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for member@example.com" }).click();
-  await page.getByRole("button", { name: "Rotate recovery link" }).click();
+  await page.getByRole("menuitem", { name: "Rotate recovery link" }).click();
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     /\/invite\/rotated-secret$/,
   );
@@ -660,7 +660,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   await expect(page.getByRole("button", { name: "Actions for member@example.com" })).toBeFocused();
 
   await page.getByRole("button", { name: "Actions for member@example.com" }).click();
-  await page.getByRole("button", { name: "Revoke invitation" }).click();
+  await page.getByRole("menuitem", { name: "Revoke invitation" }).click();
   const revokeDialog = page.getByRole("alertdialog");
   await expect(revokeDialog.getByRole("button", { name: "Cancel" })).toBeFocused();
   await revokeDialog.getByRole("button", { name: "Revoke invitation" }).click();
@@ -670,7 +670,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
 
   await page.getByRole("button", { name: "Show active users, 2" }).click();
   await page.getByRole("button", { name: "Actions for Rowan Brooks" }).click();
-  await page.getByRole("button", { name: "Deactivate member" }).click();
+  await page.getByRole("menuitem", { name: "Deactivate member" }).click();
   const deactivateDialog = page.getByRole("alertdialog");
   await expect(deactivateDialog.getByRole("button", { name: "Cancel" })).toBeFocused();
   await deactivateDialog.getByRole("button", { name: "Deactivate member" }).click();
@@ -680,7 +680,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toContainText("Inactive");
 
   await page.getByRole("button", { name: "Actions for Rowan Brooks" }).click();
-  await page.getByRole("button", { name: "Activate member" }).click();
+  await page.getByRole("menuitem", { name: "Activate member" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Activate member" }).click();
   await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Invite member" })).toBeFocused();

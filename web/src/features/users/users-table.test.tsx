@@ -104,7 +104,7 @@ describe("UsersTable", () => {
     const actionButton = screen.getByRole("button", { name: "Actions for Rowan Brooks" });
 
     await user.click(actionButton);
-    await user.click(screen.getByRole("button", { name: "Deactivate member" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Deactivate member" }));
     const confirmation = screen.getByRole("alertdialog");
     expect(within(confirmation).getByRole("button", { name: "Cancel" })).toHaveFocus();
     await user.click(within(confirmation).getByRole("button", { name: "Deactivate member" }));

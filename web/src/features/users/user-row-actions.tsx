@@ -3,9 +3,13 @@ import { MoreHorizontal, RefreshCw, UserCheck, UserX, Users, XCircle } from "luc
 import { useRef, useState, type RefObject } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
-import { MenuItem } from "@/components/ui/menu-item";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { UserListItem } from "@/lib/hey-api/types.gen";
 import { invitationError, membershipActionError } from "./user-action-errors";
 import { userActionPendingLabel, type UserPendingAction } from "./use-user-actions";
@@ -94,13 +98,12 @@ export function UserRowActions({
 
   return (
     <>
-      <Popover
+      <DropdownMenu
         open={menuOpen}
-        onOpenChange={(nextOpen) => {
-          if (!pendingAction) setMenuOpen(nextOpen);
-        }}
+        // A running action keeps the menu shut; closing is always allowed, since choosing an entry starts one.
+        onOpenChange={(nextOpen) => setMenuOpen(nextOpen && !pendingAction)}
       >
-        <PopoverTrigger asChild>
+        <DropdownMenuTrigger asChild>
           <IconButton
             ref={actionButtonRef}
             size="sm"
@@ -114,74 +117,52 @@ export function UserRowActions({
           >
             <MoreHorizontal />
           </IconButton>
-        </PopoverTrigger>
-        <PopoverContent align="end" sideOffset={6} className="w-56 p-1.5">
-          <div className="flex flex-col gap-1">
-            {canChangeGroups ? (
-              <>
-                <MenuItem
-                  icon={<Users />}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onEditGroups(actionButtonRef.current);
-                  }}
-                >
-                  {ui("Edit groups")}
-                </MenuItem>
-                {canChangeMembership ? <Separator /> : null}
-              </>
-            ) : null}
-            {canChangeMembership ? (
-              entry.status === "ACTIVE" ? (
-                <MenuItem
-                  tone="danger"
-                  icon={<UserX />}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setConfirmation("deactivate");
-                  }}
-                >
-                  {ui("Deactivate member")}
-                </MenuItem>
-              ) : (
-                <MenuItem
-                  icon={<UserCheck />}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setConfirmation("activate");
-                  }}
-                >
-                  {ui("Activate member")}
-                </MenuItem>
-              )
-            ) : canManageInvitation ? (
-              <>
-                <MenuItem
-                  icon={<RefreshCw />}
-                  disabled={invitationPending}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    void onRotate(entry, actionButtonRef.current).catch(() => undefined);
-                  }}
-                >
-                  {ui("Rotate recovery link")}
-                </MenuItem>
-                <Separator />
-                <MenuItem
-                  tone="danger"
-                  icon={<XCircle />}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setConfirmation("revoke");
-                  }}
-                >
-                  {ui("Revoke invitation")}
-                </MenuItem>
-              </>
-            ) : null}
-          </div>
-        </PopoverContent>
-      </Popover>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {canChangeGroups ? (
+            <>
+              <DropdownMenuItem onSelect={() => onEditGroups(actionButtonRef.current)}>
+                <Users />
+                {ui("Edit groups")}
+              </DropdownMenuItem>
+              {canChangeMembership ? <DropdownMenuSeparator /> : null}
+            </>
+          ) : null}
+          {canChangeMembership ? (
+            entry.status === "ACTIVE" ? (
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => setConfirmation("deactivate")}
+              >
+                <UserX />
+                {ui("Deactivate member")}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onSelect={() => setConfirmation("activate")}>
+                <UserCheck />
+                {ui("Activate member")}
+              </DropdownMenuItem>
+            )
+          ) : canManageInvitation ? (
+            <>
+              <DropdownMenuItem
+                disabled={invitationPending}
+                onSelect={() =>
+                  void onRotate(entry, actionButtonRef.current).catch(() => undefined)
+                }
+              >
+                <RefreshCw />
+                {ui("Rotate recovery link")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => setConfirmation("revoke")}>
+                <XCircle />
+                {ui("Revoke invitation")}
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <ConfirmDialog
         open={confirmation !== null}
