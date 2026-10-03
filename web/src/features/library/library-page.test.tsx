@@ -458,7 +458,7 @@ it("searches inside files and shows the matching passages", async () => {
     }),
   );
 
-  await user.click(screen.getByRole("button", { name: "Cách hiển thị" }));
+  await user.click(screen.getByRole("button", { name: "Tìm theo" }));
   await user.click(await screen.findByRole("menuitemradio", { name: "Nội dung" }));
   await user.type(screen.getByRole("textbox", { name: "Tìm trong nội dung tệp" }), "thanh toán");
 

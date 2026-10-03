@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  ChevronDown,
   Download,
   FolderPlus,
   ListFilter,
@@ -69,10 +70,11 @@ export type LibraryToolbarHandlers = {
 };
 
 /**
- * One row of three controls: what to search, what to keep and how to show it. The source, category and star
- * filters live in a popover instead of a wall of chips, and what is active comes back as removable pills
- * below, so the row stays the same height however many filters are on. How to search, the order and the layout
- * are one menu, because each is set once and then left alone. The star filter keeps the
+ * One row of three controls: what to search, what to keep and how to show it. The search field says whether it
+ * reads names or contents, since that changes what a query finds. The source, category and star filters live in
+ * a popover instead of a wall of chips, and what is active comes back as removable pills below, so the row stays
+ * the same height however many filters are on. The order and the layout are one menu, because each is set once
+ * and then left alone. The star filter keeps the
  * selection commands for starred files; Có gắn sao on the rail lists every starred row, owned or not.
  */
 export function LibraryToolbar({
@@ -98,6 +100,8 @@ export function LibraryToolbar({
         value={state.search}
         onChange={handlers.onSearch}
         label={searching ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")}
+        mode={state.mode}
+        onMode={handlers.onMode}
       />
       <Popover>
         <PopoverTrigger asChild>
@@ -112,8 +116,6 @@ export function LibraryToolbar({
         </PopoverContent>
       </Popover>
       <LibraryDisplayMenu
-        mode={state.mode}
-        onMode={handlers.onMode}
         sort={sortable ? state.sort : undefined}
         sorts={SORTS}
         onSort={handlers.onSort}
@@ -124,15 +126,22 @@ export function LibraryToolbar({
   );
 }
 
-/** The search box every library view opens with, with a way to clear what was typed. */
+/**
+ * The search box every library view opens with, with a way to clear what was typed. A view that can search
+ * inside its files says so in the field itself: names or contents.
+ */
 export function LibrarySearchField({
   value,
   onChange,
   label,
+  mode,
+  onMode,
 }: {
   value: string;
   onChange: (next: string) => void;
   label: string;
+  mode?: LibrarySearchMode;
+  onMode?: (next: LibrarySearchMode) => void;
 }) {
   const ui = useAppTranslation();
   return (
@@ -158,26 +167,43 @@ export function LibrarySearchField({
           </InputGroupButton>
         </InputGroupAddon>
       )}
+      {mode && onMode && (
+        <InputGroupAddon align="inline-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <InputGroupButton size="xs" aria-label={ui("Tìm theo")}>
+                {mode === "content" ? ui("Nội dung") : ui("Tên tệp")}
+                <ChevronDown />
+              </InputGroupButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>{ui("Tìm theo")}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={mode}
+                onValueChange={(next) => onMode(next as LibrarySearchMode)}
+              >
+                <DropdownMenuRadioItem value="name">{ui("Tên tệp")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="content">{ui("Nội dung")}</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </InputGroupAddon>
+      )}
     </InputGroup>
   );
 }
 
 /**
- * How a view is shown, in one menu on every view: how the search reads a file, the order of the list, and rows
- * or cards. A view leaves out what it does not offer: only the person's own files search by content, and the
- * trash and the processing view order themselves.
+ * How a view is shown, in one menu on every view: the order of the list, and rows or cards. The trash and the
+ * processing view order themselves, so they leave the order out.
  */
 export function LibraryDisplayMenu<S extends LibrarySort>({
-  mode,
-  onMode,
   sort,
   sorts,
   onSort,
   layout,
   onLayout,
 }: {
-  mode?: LibrarySearchMode;
-  onMode?: (next: LibrarySearchMode) => void;
   /** Absent on a view that orders itself. */
   sort?: S;
   /** The orders the view offers, in the order the menu shows them. */
@@ -204,19 +230,6 @@ export function LibraryDisplayMenu<S extends LibrarySort>({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        {mode && onMode && (
-          <>
-            <DropdownMenuLabel>{ui("Tìm theo")}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={mode}
-              onValueChange={(next) => onMode(next as LibrarySearchMode)}
-            >
-              <DropdownMenuRadioItem value="name">{ui("Tên")}</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="content">{ui("Nội dung")}</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-          </>
-        )}
         {sort && sorts && onSort && (
           <>
             <DropdownMenuLabel>{ui("Sắp xếp")}</DropdownMenuLabel>
