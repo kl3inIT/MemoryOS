@@ -1,6 +1,6 @@
 # Reasoning per task model
 
-Status: in progress 2026-10-03. Follows [no deployment Chat model](../../completed/no-deployment-chat-model/design.md) and the reasoned meeting minutes (#466).
+Status: merged 2026-10-03 (#491, with the chat composer folded in from #502); owner approved the UI the same day. Open: the staging check. Follows [no deployment Chat model](../../completed/no-deployment-chat-model/design.md) and the reasoned meeting minutes (#466).
 
 ## Problem
 
