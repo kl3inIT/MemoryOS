@@ -248,6 +248,35 @@ test("opens the separate administration shell", async ({ page }) => {
   await expectNoSeriousA11yViolations(page);
 });
 
+test("keeps the open administration page's link in view on a laptop screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route("**/api/identity/me", (route) =>
+    route.fulfill({
+      json: {
+        ...OWNER_SESSION,
+        capabilities: [
+          ...OWNER_SESSION.capabilities,
+          "MCP_MANAGE",
+          "AGENTS_MANAGE",
+          "AUDIT_READ",
+          "CHAT_HISTORY_READ",
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/audit/**", (route) =>
+    route.fulfill({ json: { items: [], nextCursor: null } }),
+  );
+
+  // Every administration page makes the menu taller than the screen; the last group's page still shows its link.
+  await page.goto("/admin/audit");
+  const open = page
+    .getByRole("navigation", { name: "Administration navigation" })
+    .getByRole("link", { name: "Audit log", exact: true });
+  await expect(open).toHaveAttribute("aria-current", "page");
+  await expect(open).toBeInViewport();
+});
+
 test("separates listing Sources from adding one in the administration menu", async ({ page }) => {
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
@@ -811,8 +840,11 @@ test("restores and updates the bounded server-driven Users view from the URL", a
   await page.getByRole("button", { name: "Show active users, 25" }).click();
   await page.getByRole("button", { name: "Sort by name" }).click();
   await expect(page).toHaveURL(/sort=NAME_ASC/);
-  await page.getByRole("searchbox", { name: "Search users" }).fill("member02");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  // The search applies once typing pauses, replacing the history entry, as Groups and Sources do.
+  const usersSearch = page.getByRole("searchbox", { name: "Search users" });
+  await usersSearch.fill("member02");
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
+  await page.clock.runFor(300);
   await expect(page).toHaveURL(/search=member02/);
   await expect(page.getByText("member02@example.com")).toBeVisible();
 

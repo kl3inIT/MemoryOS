@@ -106,7 +106,7 @@ export function LibraryPage({
 
   return (
     <>
-      <AppShellHeader title={ui("Thư viện")} />
+      <AppShellHeader title={ui("Thư viện")} pageHeader />
       <SettingsLayout wide>
         <LibraryDropZone onFiles={uploads.start}>
           <PageHeader

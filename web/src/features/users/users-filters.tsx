@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Search, X } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useEffectEvent, useState } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -13,7 +13,8 @@ type UsersFiltersProps = {
   search: UsersSearch;
   groups?: readonly UserGroupOption[];
   groupsLoading?: boolean;
-  onSearchChange: (search?: string) => void;
+  /** `settled` marks a search applied as typing paused, which replaces the history entry instead of adding one. */
+  onSearchChange: (search: string | undefined, settled?: boolean) => void;
   onRoleChange: (role?: UserRoleFilter) => void;
   onGroupChange: (groupId?: string) => void;
   onClear: () => void;
@@ -36,6 +37,15 @@ export function UsersFilters({
     setDraft({ applied: appliedSearch, value: appliedSearch });
   }
   const searchValue = draft.applied === appliedSearch ? draft.value : appliedSearch;
+
+  // Typing applies the search once it pauses, as the Groups and Sources searches do. Only a settled draft applies:
+  // Clear or history navigation changes the applied search at once, and must not be undone.
+  const settledSearch = useDebouncedValue(searchValue.trim(), 250);
+  const applySettledSearch = useEffectEvent((nextSearch: string) => {
+    if (nextSearch === appliedSearch || nextSearch !== searchValue.trim()) return;
+    onSearchChange(nextSearch || undefined, true);
+  });
+  useEffect(() => applySettledSearch(settledSearch), [settledSearch]);
   const hasFilters = Boolean(
     searchValue.trim() || search.search || search.status || search.role || search.groupId,
   );
@@ -109,11 +119,8 @@ export function UsersFilters({
         </Field>
       ) : null}
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" size="sm" prominence="secondary">
-          {ui("Search")}
-        </Button>
-        {hasFilters ? (
+      {hasFilters ? (
+        <div className="flex items-center">
           <TextButton
             type="button"
             size="sm"
@@ -125,8 +132,8 @@ export function UsersFilters({
             <X data-icon="inline-start" aria-hidden="true" />
             {ui("Clear")}
           </TextButton>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </form>
   );
 }

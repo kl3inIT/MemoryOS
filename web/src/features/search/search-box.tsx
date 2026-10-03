@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { FileStack, Files, Mic, Search, SlidersHorizontal, X } from "lucide-react";
+import { FileStack, Files, Mic, Search, X } from "lucide-react";
 import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -147,11 +147,12 @@ function SearchFilters({
     ...search.documentSets.map((set) => ({ value: set.id, label: set.name })),
   ];
   return (
-    <div className="flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
-      <span className="inline-flex h-8 items-center gap-2 px-2 font-secondary-action text-content-muted">
-        <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-        {ui("Filters")}
-      </span>
+    // Each menu names what it filters, so the row needs a name for assistive technology only.
+    <div
+      role="group"
+      aria-label={ui("Filters")}
+      className="flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none"
+    >
       <SearchUpdatedFilter
         timeRange={timeRange}
         from={search.updatedFrom}

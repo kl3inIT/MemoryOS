@@ -20,7 +20,7 @@ export function actionProblem(error: unknown): ErrorMessage {
 }
 
 export const formField =
-  "w-full rounded-lg border border-border-default bg-surface-raised p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";
+  "w-full rounded-lg border border-border-default bg-surface-raised p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-sunken disabled:text-content-disabled";
 
 export function actionErrorText(error: unknown) {
   if (error instanceof ApiError) {

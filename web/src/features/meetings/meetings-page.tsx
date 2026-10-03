@@ -76,8 +76,8 @@ export function MeetingsPage() {
 
   return (
     <>
-      <AppShellHeader title={ui("Cuộc họp")} />
-      <SettingsLayout wide className="gap-6 md:pt-8">
+      <AppShellHeader title={ui("Cuộc họp")} pageHeader />
+      <SettingsLayout wide className="gap-6">
         <PageHeader
           title={ui("Cuộc họp")}
           icon={<Mic />}
