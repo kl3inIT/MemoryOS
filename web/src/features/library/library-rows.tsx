@@ -284,7 +284,10 @@ function LibraryRow({
             className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
             onClick={() => actions.onPreview(file)}
           >
-            <span className="line-clamp-2 wrap-anywhere sm:line-clamp-1">{file.filename}</span>
+            {/* One line at any width, so every row is as tall as the next; the whole name is a hover away. */}
+            <span className="truncate" title={file.filename}>
+              {file.filename}
+            </span>
             {file.favorite && (
               <Star
                 role="img"
@@ -294,7 +297,7 @@ function LibraryRow({
             )}
           </button>
           <ItemDescription>
-            <span className="flex flex-wrap items-center gap-x-1.5">
+            <span className="flex items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
               <RowMeta file={file} view={view} dated={dated} />
             </span>
           </ItemDescription>
@@ -369,10 +372,15 @@ function RowMeta({
   const sources = sourceLabels(ui);
   const categories = categoryLabels(ui);
   const parts: string[] = [];
+  // Where a file came from is the first fact to go on a phone, so what it is and its size stay on one line.
+  let sourceFirst = false;
   if (view === "pending") parts.push(statusLabel(file, ui));
   else if (view === "trash" && file.deletedAt)
     parts.push(ui("Đã xóa {{date}}", { date: formatUiDay(file.deletedAt) }));
-  else parts.push(sources[file.source]);
+  else {
+    parts.push(sources[file.source]);
+    sourceFirst = true;
+  }
   parts.push(categories[file.category]);
   parts.push(fileSize(file.sizeBytes, i18n.language));
   if (view === "trash" && file.purgeAfter)
@@ -386,8 +394,12 @@ function RowMeta({
     <>
       {parts.map((part, index) => (
         <Fragment key={`${part}-${index}`}>
-          {index > 0 && <span aria-hidden="true">·</span>}
-          <span>{part}</span>
+          {index > 0 && (
+            <span aria-hidden="true" className={cn(sourceFirst && index === 1 && "max-sm:hidden")}>
+              ·
+            </span>
+          )}
+          <span className={cn(sourceFirst && index === 0 && "max-sm:hidden")}>{part}</span>
         </Fragment>
       ))}
     </>
