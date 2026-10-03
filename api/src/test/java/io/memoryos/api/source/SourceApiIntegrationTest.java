@@ -124,6 +124,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         "memoryos.initial-tenant.display-name=Sources",
         "memoryos.initial-tenant.change-reference=MEM-35-TEST",
         "memoryos.search.endpoint=http://127.0.0.1:1",
+        "memoryos.search.embedding-endpoint=http://127.0.0.1:1",
 })
 @Testcontainers(disabledWithoutDocker = true)
 @AutoConfigureMockMvc

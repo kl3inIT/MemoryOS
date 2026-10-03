@@ -66,6 +66,7 @@ import tools.jackson.databind.ObjectMapper;
         "memoryos.initial-tenant.display-name=Search settings",
         "memoryos.initial-tenant.change-reference=MEM-135-TEST",
         "memoryos.search.endpoint=http://127.0.0.1:1",
+        "memoryos.search.embedding-endpoint=http://127.0.0.1:1",
         "memoryos.search.provider-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 })
 @Testcontainers(disabledWithoutDocker = true)
