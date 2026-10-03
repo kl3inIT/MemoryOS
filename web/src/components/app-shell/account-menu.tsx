@@ -28,7 +28,11 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { displayName, tenant } = useApplicationSession();
   const { canAccessAdmin, adminEntryPath } = useAdminAccess();
   const membershipLabel = t(tenant.role === "OWNER" ? "owner" : "member");
-  const accountDisplayName = displayName ?? tenant.displayName;
+  // A blank name from the identity provider is no name.
+  const personName = displayName?.trim() || null;
+  const accountDisplayName = personName ?? tenant.displayName;
+  // The button names the person; the role answers only while the identity provider has sent no name.
+  const buttonLabel = personName ?? membershipLabel;
   const initials = accountDisplayName
     .trim()
     .split(/\s+/)
@@ -61,14 +65,14 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>
-        <SidebarMenuButton tooltip={membershipLabel}>
+        <SidebarMenuButton tooltip={buttonLabel}>
           <span
             aria-hidden="true"
             className="grid size-4 shrink-0 place-items-center rounded-full bg-surface-raised font-figure-small-label text-content-primary ring-1 ring-border-default"
           >
             {initials}
           </span>
-          <span>{membershipLabel}</span>
+          <span className="truncate">{buttonLabel}</span>
         </SidebarMenuButton>
       </DropdownMenuTrigger>
 
