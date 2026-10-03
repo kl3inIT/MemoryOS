@@ -131,13 +131,14 @@ export function ProviderConnectionCard({
   return (
     <Card size="sm" className="overflow-visible">
       <CardContent>
-        <div className="flex w-full items-center gap-3">
+        <div className="flex w-full flex-wrap items-center justify-end gap-x-3 gap-y-1">
           <button
             type="button"
             aria-expanded={open}
             aria-label={ui(appText("Provider {{name}}", { name: provider.name }))}
             onClick={toggle}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors hover:bg-surface-base"
+            // On a phone the name and address take the whole row and the actions wrap under them.
+            className="flex min-w-0 flex-1 basis-full items-center gap-3 rounded-lg text-left transition-colors hover:bg-surface-base sm:basis-0"
           >
             <span className={cn(providerTileClassName, "text-content-secondary")}>
               {mark ? (

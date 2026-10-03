@@ -219,3 +219,17 @@ for (const [label, width, scheme] of [
     await shot(page, `${label}-new-provider-models`);
   });
 }
+
+test("a provider's name and address keep the row's width on a phone", async ({ page }) => {
+  await open(page, 390, "light");
+  const header = page.getByRole("button", { name: /^(Provider|Nhà cung cấp) OpenRouter$/ });
+  const address = header.getByText("https://openrouter.ai/api/v1");
+  const actions = page.getByRole("button", {
+    name: /^(Edit provider|Sửa nhà cung cấp) OpenRouter$/,
+  });
+  const [addressBox, actionsBox] = [(await address.boundingBox())!, (await actions.boundingBox())!];
+  // The address fits on one line, with the row's actions under it instead of beside it.
+  expect(addressBox.height).toBeLessThan(30);
+  expect(actionsBox.y).toBeGreaterThanOrEqual(addressBox.y + addressBox.height);
+  await shot(page, "mobile-provider-card");
+});
