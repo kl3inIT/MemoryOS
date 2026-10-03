@@ -1,11 +1,19 @@
-"""Point matplotlib at a writable config directory seeded with the font cache built into the image.
+"""Executor start-up: matplotlib's writable config, chart capture, and guards that turn silent pandas mistakes in
+the model's script into errors it can read and fix.
 
-Executors run as an unprivileged user on a read-only root filesystem where only /tmp is writable. Without this,
-matplotlib warns on stderr that its config directory is not writable and rebuilds the font cache on every run.
+Matplotlib: executors run as an unprivileged user on a read-only root filesystem where only /tmp is writable.
+Without this, matplotlib warns on stderr that its config directory is not writable and rebuilds the font cache
+on every run.
 """
 
+import functools
+import importlib.machinery
+import inspect
 import os
+import re
 import shutil
+import sys
+import warnings
 
 _BUILT = "/opt/matplotlib"
 _RUNTIME = "/tmp/matplotlib"  # noqa: S108 - /tmp is the executor's only writable tmpfs
@@ -23,13 +31,80 @@ if "MPLCONFIGDIR" not in os.environ and os.path.isdir(_BUILT):
 # warns, so a run reports results computed on unchanged data. In the model's own script (__main__) the warning
 # is an error, a traceback the model fixes; inside libraries it stays a warning. Matched by message, so pandas
 # is not imported on every start.
-import warnings
-
 warnings.filterwarnings(
     "error",
     message="A value is being set on a copy of a DataFrame or Series through chained assignment",
     module=r"__main__\Z",
 )
+
+
+# Models told the user writes Vietnamese pass dayfirst=True by habit, also for ISO text such as 2024-05-01. pandas
+# then parses it as year-day-month without a word: 2024-05-01 becomes 5 January, and a filter on 2024-03-05 finds
+# nothing (a prompt evaluation on 2026-10-03: every wrong final answer came from this). For a call from the model's
+# own script whose strings are all ISO, pd.to_datetime raises instead, which the model reads and fixes. Day-first
+# text such as 05/03/2024, an explicit format other than "mixed", and calls from libraries behave as in pandas.
+# Installed when pandas is first imported, so a run that never uses pandas pays nothing.
+_ISO_DATE = re.compile(r"\s*\d{4}-\d{1,2}-\d{1,2}(?:[ T].*)?\s*\Z")
+
+
+def _all_iso(arg: object) -> bool:
+    if isinstance(arg, str):
+        values: list[object] = [arg]
+    elif isinstance(arg, (list, tuple)):
+        values = list(arg)
+    elif getattr(arg, "ndim", None) == 1 and hasattr(arg, "tolist"):
+        values = arg.tolist()
+    else:
+        return False
+    texts = [value for value in values if isinstance(value, str) and value.strip()]
+    return bool(texts) and all(_ISO_DATE.match(text) for text in texts)
+
+
+def _guard_to_datetime(pandas: object) -> None:
+    original = pandas.to_datetime  # type: ignore[attr-defined]
+    signature = inspect.signature(original)
+
+    @functools.wraps(original)
+    def to_datetime(*args: object, **kwargs: object) -> object:
+        if sys._getframe(1).f_globals.get("__name__") == "__main__":
+            try:
+                bound = signature.bind(*args, **kwargs).arguments
+            except TypeError:
+                bound = {}
+            if bound.get("dayfirst") is True and bound.get("format") in (None, "mixed") and _all_iso(bound.get("arg")):
+                raise ValueError(
+                    "dayfirst=True does not apply to ISO dates such as '2024-05-01': they are year-month-day, and "
+                    "pandas would read them as year-day-month. Remove dayfirst=True (or pass format='ISO8601')."
+                )
+        return original(*args, **kwargs)
+
+    pandas.to_datetime = to_datetime  # type: ignore[attr-defined]
+
+
+class _PandasImportHook:
+    """Wraps pandas.to_datetime right after pandas finishes importing."""
+
+    @staticmethod
+    def find_spec(name: str, path: object = None, target: object = None) -> object:
+        if name != "pandas":
+            return None
+        spec = importlib.machinery.PathFinder.find_spec(name, path)
+        if spec is None or spec.loader is None:
+            return spec
+        execute = spec.loader.exec_module
+
+        def exec_module(module: object) -> None:
+            execute(module)
+            try:
+                _guard_to_datetime(module)
+            except Exception:  # noqa: BLE001 - a guard that cannot install must never break pandas
+                pass
+
+        spec.loader.exec_module = exec_module  # type: ignore[method-assign]
+        return spec
+
+
+sys.meta_path.insert(0, _PandasImportHook())
 
 
 # Figures a run leaves open become chart data plus PNG at exit (memoryos_charts.capture).

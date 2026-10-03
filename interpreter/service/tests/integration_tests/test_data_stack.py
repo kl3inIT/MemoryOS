@@ -203,6 +203,16 @@ pivot = pd.DataFrame({'k': ['a', 'a', 'b'], 'v': [1, 2, 3]})
 pivot = pivot.pivot_table(index='k', values='v', aggfunc='sum')
 checks['pivot'] = pivot['v'].tolist() == [3, 3]
 
+# dayfirst=True on ISO text raises in this script (sitecustomize); day-first text still parses.
+try:
+    pd.to_datetime(pd.Series(['2024-05-01', '2024-05-02']), dayfirst=True)
+    checks['iso_dayfirst_raises'] = False
+except ValueError as error:
+    checks['iso_dayfirst_raises'] = 'ISO' in str(error)
+parsed = pd.to_datetime(pd.Series(['05/03/2024', '13/03/2024']), dayfirst=True)
+checks['day_first_text'] = list(parsed.dt.strftime('%Y-%m-%d')) == ['2024-03-05', '2024-03-13']
+checks['iso_plain'] = str(pd.to_datetime('2024-05-01').date()) == '2024-05-01'
+
 # numpy 2: scalars print with their type, and the removed aliases are gone.
 checks['scalar_repr'] = repr(np.float64(1.5)) == 'np.float64(1.5)'
 checks['scalar_item'] = json.dumps([np.float64(1.5).item()]) == '[1.5]'
