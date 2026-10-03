@@ -146,7 +146,8 @@ async function open(page: Page, width: number, scheme: "light" | "dark") {
   // Adding models refreshes the whole catalog, task models included.
   await page.route("**/api/chat/model-flows", (route) => route.fulfill({ json: [] }));
   await page.goto("/admin/models");
-  await expect(page.getByRole("heading", { name: /Mô hình|Models/ }).first()).toBeVisible({
+  // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
+  await expect(page.getByRole("heading", { name: /Mô hình|Models/ }).first()).toBeAttached({
     timeout: 60_000,
   });
 }

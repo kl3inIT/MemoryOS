@@ -1,6 +1,6 @@
-import { use, type ReactNode } from "react";
+import { use, useLayoutEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AppShellHeaderSlot } from "./app-shell-header-slot";
+import { AppShellHeaderSlot, ShellBarTitleSetter } from "./app-shell-header-slot";
 
 type AppShellHeaderProps = {
   title: string;
@@ -27,7 +27,7 @@ export function AppShellHeaderContent({
       <Title
         data-page-header={pageHeader || undefined}
         title={title}
-        className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary md:max-w-xl"
+        className="min-w-0 flex-1 truncate font-main-ui-action text-content-primary md:max-w-xl"
       >
         {title}
       </Title>
@@ -42,5 +42,12 @@ export function AppShellHeaderContent({
  */
 export function AppShellHeader(props: AppShellHeaderProps) {
   const slot = use(AppShellHeaderSlot);
+  const setBarTitle = use(ShellBarTitleSetter);
+  const barTitle = props.pageHeader ? props.title : undefined;
+  // Before paint, so the page header never shows a title the bar already carries.
+  useLayoutEffect(() => {
+    setBarTitle?.(barTitle);
+    return () => setBarTitle?.(undefined);
+  }, [setBarTitle, barTitle]);
   return slot ? createPortal(<AppShellHeaderContent {...props} />, slot) : null;
 }

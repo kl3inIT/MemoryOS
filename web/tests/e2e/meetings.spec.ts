@@ -665,7 +665,8 @@ for (const width of [1440, 390]) {
     const { audio, exported, shared, correcting, written } = await mockMeetings(page);
 
     await page.goto("/meetings");
-    await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeVisible({
+    // A phone names the page in the shell bar, so the heading is there for a screen reader but not on screen.
+    await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeAttached({
       timeout: 30_000,
     });
     await expect(page.getByText("Họp dự án Vinaconex 9 Tower 3")).toBeVisible();

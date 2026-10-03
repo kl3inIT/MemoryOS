@@ -27,7 +27,11 @@ import {
   type AdminPage,
 } from "@/components/app-shell/admin-pages";
 import { AppShellHeaderContent } from "@/components/app-shell/app-shell-header";
-import { AppShellHeaderSlot } from "@/components/app-shell/app-shell-header-slot";
+import {
+  AppShellHeaderSlot,
+  ShellBarTitle,
+  ShellBarTitleSetter,
+} from "@/components/app-shell/app-shell-header-slot";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import {
   useSourceSetupProgress,
@@ -464,6 +468,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         : undefined;
 
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  const [slotTitle, setSlotTitle] = useState<string>();
 
   // An administration page the person may not open is refused before any administration frame renders.
   if (area === "admin" && !adminPage.visible(authority)) return <AccessDeniedScreen />;
@@ -520,13 +525,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <AppShellHeaderSlot value={headerSlot}>
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
-          >
-            {children}
-          </main>
+          <ShellBarTitleSetter value={setSlotTitle}>
+            <ShellBarTitle value={pageTitle ?? slotTitle}>
+              <main
+                id="main-content"
+                tabIndex={-1}
+                className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
+              >
+                {children}
+              </main>
+            </ShellBarTitle>
+          </ShellBarTitleSetter>
         </AppShellHeaderSlot>
       </SidebarInset>
     </SidebarProvider>

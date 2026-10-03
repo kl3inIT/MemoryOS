@@ -253,7 +253,8 @@ for (const theme of ["light", "dark"] as const) {
 
       await page.goto("/admin/mcp");
       // Four capture tests share one dev server, so the first paint is given more room than the default.
-      await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeVisible({
+      // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
+      await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeAttached({
         timeout: 30_000,
       });
       await page.screenshot({
@@ -386,7 +387,8 @@ test("Rare server actions sit in one menu so the row fits a phone", async ({ pag
   await page.setViewportSize({ width: 390, height: 844 });
   await stub(page);
   await page.goto("/admin/mcp");
-  await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeVisible({
+  // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
+  await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeAttached({
     timeout: 30_000,
   });
 
