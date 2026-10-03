@@ -234,7 +234,9 @@ Interpreter.
   Voice pull request and recorded here.
 - The timeout of a moved call is a deadline for the whole exchange. Today the JDK calls time out until the response
   headers arrive, and the Apache calls time out per read.
-- A streamed multipart upload no longer declares its length (finding 2).
+- A multipart body no longer declares its length (finding 2); over HTTP/1.1 it is sent chunked. This applies to the
+  image edit request from pull request 1 on. No provider's endpoint refuses such a body
+  ([probe](verification.md#a-multipart-body-without-a-declared-length)).
 - A discovery document over its bound is `DISCOVERY_FAILED`. An image response with an empty 2xx body fails as "no
   image" from the adapter instead of "Empty image response" from the transport; both are an `IOException`.
 - The model list request has one deadline of the caller's timeout and connects within 5 s, where the caller's

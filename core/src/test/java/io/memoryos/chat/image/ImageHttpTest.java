@@ -68,10 +68,12 @@ class ImageHttpTest {
 
     @Test void aMultipartPostSendsTheTextFieldsInOrderAndThenTheFile() throws Exception {
         var contentType = new AtomicReference<String>();
+        var transferEncoding = new AtomicReference<String>();
         var sent = new AtomicReference<byte[]>();
         server.createContext("/images/edits", exchange -> {
             try (exchange) {
                 contentType.set(exchange.getRequestHeaders().getFirst("Content-Type"));
+                transferEncoding.set(exchange.getRequestHeaders().getFirst("Transfer-Encoding"));
                 sent.set(exchange.getRequestBody().readAllBytes());
                 exchange.sendResponseHeaders(200, 2);
                 exchange.getResponseBody().write(new byte[]{'{', '}'});
@@ -86,6 +88,8 @@ class ImageHttpTest {
         assertEquals(200, response.status());
         assertTrue(contentType.get().startsWith("multipart/form-data;"), contentType.get());
         assertTrue(contentType.get().contains("boundary="), contentType.get());
+        // Spring writes multipart as it goes, so the request declares no length.
+        assertEquals("chunked", transferEncoding.get());
         // Bytes as single characters, so the binary part can be searched as text.
         String body = new String(sent.get(), ISO_8859_1);
         int prompt = body.indexOf("Content-Disposition: form-data; name=\"prompt\"");

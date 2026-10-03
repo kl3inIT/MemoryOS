@@ -47,6 +47,23 @@ makes its chunked request stream wait for the next chunk. The test reads with a 
 
 The callers lost 40 lines net; the shared layer is new code that the later pull requests reuse.
 
+### A multipart body without a declared length
+
+Spring writes a multipart body as it goes and declares no length, so over HTTP/1.1 it is sent chunked. The image
+edit request declared its length before this change. A probe on 2026-10-03, with no credential, posted the same
+20 KB multipart form to each provider over HTTP/1.1, once with `Content-Length` and once chunked:
+
+| Endpoint | Declared | Chunked |
+| --- | --- | --- |
+| Soniox `/v1/files` | 401 | 401 |
+| ElevenLabs `/v1/speech-to-text` | 422, `model_id` missing | 422, `model_id` missing |
+| OpenAI `/v1/audio/transcriptions` | 401 | 401 |
+| OpenAI `/v1/images/edits` | 401 | 401 |
+| Cloudflare Workers AI `/ai/run/...` | 401 | 401 |
+
+No endpoint refused the chunked form (no 411 or 400), and ElevenLabs read its fields from it. What the probe cannot
+show is the answer to an authorized chunked upload; the staging checks cover that.
+
 ### Not yet verified
 
 - `clean check` in CI.
