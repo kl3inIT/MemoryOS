@@ -251,7 +251,7 @@ describe("failures", () => {
       "Provider đang được một index dùng.",
     );
     expect(searchSettingsError(new ApiError(403, {}), "load")).toBe(
-      "Chỉ quản trị model của Tenant vận hành được đổi cấu hình tìm kiếm.",
+      "Chỉ quản trị model của tổ chức được đổi cấu hình tìm kiếm.",
     );
     expect(searchSettingsError(new TypeError("offline"), "load")).toBe(
       "Không gửi được yêu cầu. Kiểm tra kết nối rồi thử lại.",

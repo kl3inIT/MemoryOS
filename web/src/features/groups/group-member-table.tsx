@@ -173,7 +173,7 @@ export function GroupMemberTable({
           detail={
             search
               ? ui("Try another name or email.")
-              : ui("Add an eligible Tenant user to this group.")
+              : ui("Add an eligible organization user to this group.")
           }
         />
         {footer}
@@ -250,7 +250,7 @@ function MemberActions({
           fallbackFocusRef={addButtonRef}
           title={ui("Remove {{v1}}?", { v1: name })}
           description={ui(
-            "They will leave “{{v1}}”. Other group memberships and their Tenant account stay unchanged.",
+            "They will leave “{{v1}}”. Other group memberships and their organization account stay unchanged.",
             { v1: group.name },
           )}
           confirmLabel={ui("Remove member")}

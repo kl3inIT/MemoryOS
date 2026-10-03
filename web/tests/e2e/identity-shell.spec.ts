@@ -642,7 +642,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   await page.getByRole("button", { name: "Retry refresh" }).click();
   await expect(page.getByText("member@example.com")).toBeVisible();
   await expect(
-    page.getByRole("table", { name: "Tenant users" }).getByText("Invited", { exact: true }),
+    page.getByRole("table", { name: "Organization users" }).getByText("Invited", { exact: true }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for member@example.com" }).click();

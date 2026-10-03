@@ -45,13 +45,13 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
       <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-surface-subtle text-content-secondary">
         <UserCheck className="size-5" aria-hidden="true" />
       </div>
-      <p className="font-secondary-body text-content-muted">{ui("Tenant invitation")}</p>
+      <p className="font-secondary-body text-content-muted">{ui("Organization invitation")}</p>
       <h1 className="mt-3 max-w-xl font-heading-h2 text-content-primary">
         {ui("Join {{name}}", { name: invitation.data.tenantDisplayName })}
       </h1>
       <p className="mt-3 font-main-ui-body text-content-muted">
         {ui(
-          "Sign in or create your local account. Once your verified email matches, MemoryOS will add you to the Tenant and take you to the application.",
+          "Sign in or create your local account. Once your verified email matches, MemoryOS will add you to the organization and take you to the application.",
         )}
       </p>
 
@@ -60,7 +60,7 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
         <AlertTitle>{ui("Your access is scoped")}</AlertTitle>
         <AlertDescription>
           {ui(
-            "This invitation grants Tenant member access. It does not grant administration permissions.",
+            "This invitation grants organization member access. It does not grant administration permissions.",
           )}
         </AlertDescription>
       </Alert>
@@ -96,7 +96,7 @@ function InvitationFailure({ reason }: { reason: string }) {
           <Link to="/">{ui("Go to MemoryOS")}</Link>
         </Button>
         <Button asChild size="lg" prominence="secondary">
-          <a href="mailto:?subject=MemoryOS invitation help">{ui("Ask a Tenant owner")}</a>
+          <a href="mailto:?subject=MemoryOS invitation help">{ui("Ask an organization owner")}</a>
         </Button>
       </div>
     </AuthFrame>
@@ -122,12 +122,12 @@ function failureCopy(reason: string) {
     return {
       title: "Sign-in was not completed",
       description:
-        "Nothing was added to the Tenant. Open the invitation link and try signing in again.",
+        "Nothing was added to the organization. Open the invitation link and try signing in again.",
     };
   }
   return {
     title: "This invitation is no longer available",
     description:
-      "The link may have expired, been revoked, rotated, or already used. Ask a Tenant owner for a fresh invitation.",
+      "The link may have expired, been revoked, rotated, or already used. Ask an organization owner for a fresh invitation.",
   };
 }

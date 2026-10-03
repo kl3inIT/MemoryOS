@@ -174,7 +174,7 @@ function AccessFields({ editor }: { editor: Editor }) {
             <RadioCard
               id="provider-access-public"
               value="public"
-              title={ui("Every Tenant member")}
+              title={ui("Every organization member")}
             />
             <RadioCard
               id="provider-access-groups"

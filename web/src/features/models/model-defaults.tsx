@@ -288,12 +288,12 @@ function LoadFailure({
 export function TenantDefault(catalog: Catalog) {
   const ui = useAppTranslation();
   const tenant = useQuery({ ...getChatModelDefaultOptions(), retry: false });
-  if (tenant.isPending) return <p role="status">{ui("Loading Tenant default…")}</p>;
+  if (tenant.isPending) return <p role="status">{ui("Loading organization default…")}</p>;
   if (tenant.isError)
     return (
       <LoadFailure
-        message={ui("Tenant default could not be loaded.")}
-        retry={ui("Retry Tenant default")}
+        message={ui("Organization default could not be loaded.")}
+        retry={ui("Retry organization default")}
         onRetry={() => void tenant.refetch()}
       />
     );
@@ -309,7 +309,7 @@ export function TenantDefault(catalog: Catalog) {
       row={{
         title: ui("Chat"),
         description: ui("Used for new conversations and assistants without their own model."),
-        ariaLabel: ui("Tenant model default"),
+        ariaLabel: ui("Organization model default"),
         unsetMessage: ui("No default chosen; Chat cannot answer until one is."),
         savedMessage: ui("Default saved. Existing transcript is unchanged."),
         save: async (revision, modelConfigurationId, _effort, signal) =>

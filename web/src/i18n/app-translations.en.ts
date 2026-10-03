@@ -1324,7 +1324,7 @@ export const vietnameseUi: Record<string, string> = {
   "Bộ tài liệu": "Document Sets",
   "Công khai bộ tài liệu này?": "Make this Document Set public?",
   "Bật thì mọi người trong tổ chức đều dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng, nên bộ công khai không cấp thêm quyền cho ai.":
-    "When set, every Tenant member can use this Document Set. Access to each Source and document is still checked separately, so a public set grants nobody extra access.",
+    "When set, every organization member can use this Document Set. Access to each Source and document is still checked separately, so a public set grants nobody extra access.",
   "Bộ tài liệu đang công khai nên ai cũng dùng được. Danh sách dưới đây chỉ có tác dụng khi bạn tắt công khai.":
     "The Document Set is public, so everyone can use it. The list below only applies once you turn public off.",
   "+{{n}} nguồn bạn không có quyền đọc": "+{{n}} Sources you cannot read",
@@ -1361,7 +1361,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xem thêm {{n}} bộ tài liệu": "Show {{n}} more Document Sets",
   "Quyền truy cập": "Access",
   "Mọi người trong tổ chức dùng được bộ tài liệu này.":
-    "Every Tenant member can use this Document Set.",
+    "Every organization member can use this Document Set.",
   "Chỉ những người và nhóm được chia sẻ mới dùng được bộ tài liệu này.":
     "Only the people and Groups it is shared with can use this Document Set.",
   "Chỉ bạn và quản trị viên trợ lý dùng được bộ tài liệu này.":
@@ -1521,8 +1521,8 @@ export const vietnameseUi: Record<string, string> = {
   "Ngoài dự án": "No project",
   "Dự án không còn khả dụng": "Project unavailable",
   "Không tải đủ cấu hình.": "Could not load all settings.",
-  "Hội thoại không khả dụng. Liên kết có thể đã bị thu hồi hoặc bạn không thuộc Tenant được chia sẻ.":
-    "Conversation unavailable. The link may have been revoked, or you may not belong to the shared Tenant.",
+  "Hội thoại không khả dụng. Liên kết có thể đã bị thu hồi hoặc bạn không thuộc tổ chức được chia sẻ.":
+    "Conversation unavailable. The link may have been revoked, or you may not belong to the organization it was shared in.",
   "Chỉ đọc · Nhánh hiện đang được chủ hội thoại chia sẻ":
     "Read only · The branch currently shared by the owner",
   "Chưa có tin nhắn đã lưu để hiển thị.": "No saved messages to display.",
@@ -1880,8 +1880,8 @@ Object.assign(vietnameseUi, {
   "Cấu hình tìm kiếm": "Search settings",
   "Model embedding dùng để index tài liệu.": "The embedding model that indexes documents.",
   "Không có quyền": "No access",
-  "Chỉ quản trị model của Tenant vận hành được đổi cấu hình tìm kiếm.":
-    "Only model managers of the operating Tenant can change search settings.",
+  "Chỉ quản trị model của tổ chức được đổi cấu hình tìm kiếm.":
+    "Only model managers of the organization can change search settings.",
   "Không tải được cấu hình tìm kiếm.": "Search settings could not be loaded.",
   "Đổi model": "Change model",
   "Đổi model embedding": "Change embedding model",

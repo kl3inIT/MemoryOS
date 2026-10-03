@@ -40,7 +40,7 @@ export function modelActionError(error: unknown): string {
   }
   switch (error.status) {
     case 400:
-      return "The configuration is not accepted. Check the endpoint, profile, capabilities, limits, options and Persona restrictions. Choose another Tenant default before hiding or deleting its model, disabling its provider or removing its required key.";
+      return "The configuration is not accepted. Check the endpoint, profile, capabilities, limits, options and Persona restrictions. Choose another organization default before hiding or deleting its model, disabling its provider or removing its required key.";
     case 401:
       return "Your session has ended. Sign in again.";
     case 403:

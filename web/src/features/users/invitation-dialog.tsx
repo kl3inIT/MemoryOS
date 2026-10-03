@@ -129,7 +129,7 @@ function InvitationForm({
       <DialogHeader>
         <DialogTitle>{ui("Invite a member")}</DialogTitle>
         <DialogDescription>
-          {ui("Invite someone to join this Tenant as a member.")}
+          {ui("Invite someone to join this organization as a member.")}
         </DialogDescription>
       </DialogHeader>
       <form.AppField name="email">

@@ -89,7 +89,7 @@ function SearchSettingsAdministration() {
           role="alert"
           icon={<ScanSearch />}
           title={ui("Không có quyền")}
-          detail={ui("Chỉ quản trị model của Tenant vận hành được đổi cấu hình tìm kiếm.")}
+          detail={ui("Chỉ quản trị model của tổ chức được đổi cấu hình tìm kiếm.")}
         />
       ) : failed ? (
         <EmptyState

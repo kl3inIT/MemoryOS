@@ -75,7 +75,7 @@ export function UserRowActions({
         : ui("Revoke the invitation for {{name}}?", { name: label });
   const confirmationDescription =
     confirmation === "activate"
-      ? "They will regain access to this Tenant. Their existing identity and membership history stay intact."
+      ? "They will regain access to this organization. Their existing identity and membership history stay intact."
       : confirmation === "deactivate"
         ? "They will lose access on their next protected request. Their identity and membership history stay intact."
         : "The current recovery link will stop working. You can invite this email again later.";

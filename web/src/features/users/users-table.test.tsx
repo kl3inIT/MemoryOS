@@ -87,7 +87,7 @@ describe("UsersTable", () => {
   it("renders identity, real groups, account type, owner presentation, and invitation boundaries", () => {
     renderTable();
 
-    expect(screen.getByRole("table", { name: "Tenant users" })).toBeVisible();
+    expect(screen.getByRole("table", { name: "Organization users" })).toBeVisible();
     expect(screen.getByText("Rowan Brooks")).toBeVisible();
     expect(screen.getByText("rowan@example.com")).toBeVisible();
     expect(screen.getAllByLabelText("Admin, Research, Support")).toHaveLength(2);

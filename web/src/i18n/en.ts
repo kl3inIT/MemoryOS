@@ -114,7 +114,7 @@ export const en = {
   identity: {
     notProvisioned: "You don’t have access yet.",
     notProvisionedDescription:
-      "Your identity was verified, but it has not been added to this MemoryOS Tenant. Ask a Tenant owner for access, or continue with another account.",
+      "Your identity was verified, but it has not been added to this MemoryOS organization. Ask an organization owner for access, or continue with another account.",
     anotherAccount: "Try another account",
     signInFailed: "Sign-in did not finish.",
     signInFailedDescription:

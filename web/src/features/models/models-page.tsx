@@ -238,10 +238,10 @@ function DeletionDialog({
       description={
         deletion.kind === "provider"
           ? ui(
-              "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.",
+              "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace an organization default first.",
             )
           : ui(
-              "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.",
+              "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace an organization default first.",
             )
       }
       confirmLabel={ui("Delete configuration")}

@@ -67,7 +67,7 @@ export const adminGroups: readonly { id: AdminGroup; label: AppText }[] = [
   { id: "configuration", label: appText("Configuration") },
   { id: "agents", label: appText("Trợ lý và công cụ") },
   { id: "knowledge", label: appText("Documents & Knowledge") },
-  { id: "tenant", label: appText("Tenant") },
+  { id: "tenant", label: appText("Tổ chức") },
   { id: "monitoring", label: appText("Monitoring") },
 ];
 

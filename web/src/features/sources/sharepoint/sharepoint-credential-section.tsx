@@ -107,7 +107,7 @@ export function SharePointCredentialSection({
             icon={<KeyRound />}
             title={ui("No SharePoint credentials yet")}
             detail={ui(
-              "Register the Entra application once, then every SharePoint Source in this Tenant can use it.",
+              "Register the Entra application once, then every SharePoint Source in this organization can use it.",
             )}
           />
         ) : null}

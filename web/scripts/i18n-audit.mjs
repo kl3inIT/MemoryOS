@@ -160,15 +160,34 @@ const toneFailures = ["vi.ts", "app-translations.vi.ts", "app-translations.en.ts
       ),
     ),
 );
+/**
+ * Copy names the Tenant "tổ chức" / "organization" (owner decision 2026-10-03); the domain, API and code keep Tenant.
+ * Microsoft Entra's own "Directory (tenant) ID" field label is quoted as Microsoft writes it.
+ */
+const tenantWord = /"[^"\n]*\btenant\b[^"\n]*"/i;
+const termFailures = ["vi.ts", "en.ts", "app-translations.vi.ts", "app-translations.en.ts"].flatMap(
+  (name) =>
+    readFileSync(join(root, "i18n", name), "utf8")
+      .split("\n")
+      .flatMap((line, index) =>
+        !line.trimStart().startsWith("//") &&
+        tenantWord.test(line.replaceAll("Directory (tenant) ID", ""))
+          ? [
+              `${root}/i18n/${name}:${index + 1} copy says Tenant; write "tổ chức" or "organization"`,
+            ]
+          : [],
+      ),
+);
 if (process.argv.includes("--check")) {
   const failures = [
     ...results.map((result) => `${result.file}:${result.line} untranslated ${result.value}`),
     ...missingKeys,
     ...toneFailures,
+    ...termFailures,
   ];
   for (const failure of failures) console.error(failure);
   console.log(
-    `i18n audit: ${failures.length} direct UI literals, missing static keys or second-vowel tones.`,
+    `i18n audit: ${failures.length} direct UI literals, missing static keys, second-vowel tones or Tenant in copy.`,
   );
   if (failures.length) process.exitCode = 1;
 } else if (process.argv.includes("--quiet") || process.argv.includes("--candidates")) {

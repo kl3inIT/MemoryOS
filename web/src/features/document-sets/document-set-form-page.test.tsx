@@ -34,7 +34,7 @@ const FINANCE_SOURCE = {
   type: "GOOGLE_DRIVE" as const,
 };
 
-const publicExplanation = /every Tenant member can use this Document Set/;
+const publicExplanation = /every organization member can use this Document Set/;
 const sharingExplanation = /Only you, agent administrators/;
 
 async function renderForm() {
