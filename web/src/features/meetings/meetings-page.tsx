@@ -103,10 +103,20 @@ export function MeetingsPage() {
                 <FileAudio aria-hidden="true" />
                 {ui("Tải file ghi âm")}
               </Button>
-              <Button onClick={() => setCreating(true)} disabled={!!live}>
-                <Mic aria-hidden="true" />
-                {ui("Ghi cuộc họp mới")}
-              </Button>
+              {live ? (
+                // One meeting records at a time, so the action leads to it rather than standing disabled.
+                <Button asChild>
+                  <Link to="/meetings/$meetingId" params={{ meetingId: live.meetingId }}>
+                    <Mic aria-hidden="true" />
+                    {ui("Mở cuộc họp đang ghi")}
+                  </Link>
+                </Button>
+              ) : (
+                <Button onClick={() => setCreating(true)}>
+                  <Mic aria-hidden="true" />
+                  {ui("Ghi cuộc họp mới")}
+                </Button>
+              )}
             </>
           }
         />
@@ -257,9 +267,7 @@ export function MeetingsPage() {
                           </StatusBadge>
                         ) : meeting.status === "TRANSCRIBING" ? (
                           <StatusBadge tone="info">{ui("Đang nhận dạng")}</StatusBadge>
-                        ) : (
-                          <StatusBadge tone="neutral">{ui("Đã kết thúc")}</StatusBadge>
-                        )}
+                        ) : null}
                       </Link>
                     </li>
                   ))}

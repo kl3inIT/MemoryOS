@@ -210,6 +210,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xóa cuộc họp": "Delete meeting",
   "Tìm theo tên cuộc họp": "Search by meeting name",
   "Mọi thời gian": "Any time",
+  "Mở cuộc họp đang ghi": "Open the meeting being recorded",
   "Mọi trạng thái": "Any status",
   "Thời gian": "Period",
   "30 ngày qua": "Last 30 days",
