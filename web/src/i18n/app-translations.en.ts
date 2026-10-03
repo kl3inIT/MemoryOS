@@ -553,9 +553,6 @@ export const vietnameseUi: Record<string, string> = {
   "Không có hội thoại nào bị xóa ngay.": "No conversation is deleted right away.",
   // MEM-153 phase 2: temporary conversations
   "Chat tạm thời": "Temporary chat",
-  "Bật chat tạm thời": "Turn on temporary chat",
-  "Tắt chat tạm thời": "Turn off temporary chat",
-  "Chat tạm thời đang bật": "Temporary chat is on",
   "Dùng khi bạn không muốn cuộc trò chuyện này được lưu lại.":
     "For when you do not want this conversation kept.",
   "Bắt đầu": "Start",
@@ -599,6 +596,7 @@ export const vietnameseUi: Record<string, string> = {
     "Archive a conversation to clear the sidebar and still keep it.",
   "Đã lưu trữ {{date}}": "Archived {{date}}",
   "Xóa hội thoại {{name}}": "Delete {{name}}",
+  "Thao tác khác": "More actions",
   "Tách sang hội thoại mới": "Branch into a new chat",
   "Tách từ hội thoại gốc": "Branched from",
   "Nhánh của {{title}}": "Branch of {{title}}",
@@ -1149,7 +1147,6 @@ export const vietnameseUi: Record<string, string> = {
   "Hữu ích": "Helpful",
   "Không hữu ích": "Not helpful",
   "Tạo lại câu trả lời": "Regenerate answer",
-  "Tạo lại bằng mô hình khác": "Regenerate with another model",
   "Tạo lại bằng": "Regenerate with",
   "Trích dẫn": "Quote",
   "Đoạn trích dẫn": "Quoted passage",
@@ -1816,7 +1813,6 @@ Object.assign(vietnameseUi, {
   "Không tải được cài đặt giọng nói.": "Voice settings could not be loaded.",
   "Đọc thành tiếng": "Read aloud",
   "Dừng đọc": "Stop reading",
-  "Đang tải âm thanh…": "Loading audio…",
   "Tốc độ đọc": "Reading speed",
   "Áp dụng khi đọc câu trả lời thành tiếng.": "Used when answers are read aloud.",
   "Đọc thành tiếng đang bận. Hãy thử lại sau ít phút.":

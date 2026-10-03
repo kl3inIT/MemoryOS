@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Clock, EyeOff, FolderX, MessageSquareOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 
@@ -25,18 +24,17 @@ export function ChatTemporaryToggle({
   const [explaining, setExplaining] = useState(false);
   return (
     <>
-      {/* A native title, not a Radix tooltip: this sits outside any TooltipProvider. */}
-      <IconButton
+      {/* Named in words at every width: it is the new chat header's only action. The state is `aria-pressed`. */}
+      <Button
         size="sm"
         prominence={value ? "secondary" : "internal"}
         aria-pressed={value}
-        aria-label={value ? ui("Tắt chat tạm thời") : ui("Bật chat tạm thời")}
-        title={value ? ui("Chat tạm thời đang bật") : ui("Chat tạm thời")}
         disabled={disabled}
         onClick={() => (value ? onChange(false) : setExplaining(true))}
       >
-        <EyeOff />
-      </IconButton>
+        <EyeOff data-icon="inline-start" aria-hidden="true" />
+        {ui("Chat tạm thời")}
+      </Button>
       {explaining && (
         <FormDialog
           open

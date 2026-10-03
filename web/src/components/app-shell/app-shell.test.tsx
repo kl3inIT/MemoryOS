@@ -108,13 +108,19 @@ it("shows only the administration pages the session may open, in their sections"
   expect(screen.getByText("History page")).toBeInTheDocument();
 });
 
-it("shows the identity-provider display name instead of the Tenant name", async () => {
+it("names the person on the account button and keeps the role in its menu", async () => {
   const user = userEvent.setup();
   await renderShell("/admin/audit", ["AUDIT_READ"], "Nhữ Nhật");
 
-  await user.click(await screen.findByRole("button", { name: /member/i }));
+  await user.click(await screen.findByRole("button", { name: "Nhữ Nhật" }));
 
-  expect(screen.getByText("Nhữ Nhật")).toBeInTheDocument();
+  expect(await screen.findByText("Member")).toBeInTheDocument();
+});
+
+it("names the role on the account button when the identity provider sent a blank name", async () => {
+  await renderShell("/admin/audit", ["AUDIT_READ"], "   ");
+
+  expect(await screen.findByRole("button", { name: "Member" })).toBeInTheDocument();
 });
 it("keeps the sidebar mounted while moving between administration pages", async () => {
   const user = userEvent.setup();

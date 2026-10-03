@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,6 +30,7 @@ export function FormDialog({
   submitDisabled = false,
   wide = false,
   fill = false,
+  restoreFocusRef,
 }: {
   title: string;
   description: string;
@@ -48,6 +49,11 @@ export function FormDialog({
    * long list scrolls on its own instead of putting a second scrollbar on the dialog.
    */
   fill?: boolean;
+  /**
+   * Where focus returns on close when the dialog has no trigger of its own, such as one opened from a menu item
+   * that is gone by then; as `ConfirmDialog` does.
+   */
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const { t } = useTranslation("common");
   const { t: statusText } = useTranslation("chatStatus");
@@ -73,6 +79,12 @@ export function FormDialog({
           // resolve against `max-height` alone, and the footer would be clipped instead of staying in view.
           fill && "flex h-[min(44rem,calc(100dvh-2rem))] flex-col overflow-hidden",
         )}
+        onCloseAutoFocus={(event) => {
+          const target = restoreFocusRef?.current;
+          if (!target?.isConnected) return;
+          event.preventDefault();
+          target.focus();
+        }}
         onEscapeKeyDown={(event) => {
           if (busy.current) event.preventDefault();
         }}
