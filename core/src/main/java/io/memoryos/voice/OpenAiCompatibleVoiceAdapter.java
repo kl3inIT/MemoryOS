@@ -1,6 +1,5 @@
 package io.memoryos.voice;
 
-import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
@@ -20,7 +19,7 @@ final class OpenAiCompatibleVoiceAdapter implements BatchTranscriptionAdapter, S
     @Override public VoiceProviderCapabilities capabilities() { return CAPABILITIES; }
     @Override public void verify(VoiceConnectionService.Probe probe) { OpenAiAudio.verify(probe); }
 
-    @Override public String transcribe(HttpClient http, VoiceConnectionService.Connection connection, String key,
+    @Override public String transcribe(VoiceConnectionService.Connection connection, String key,
                                        @Nullable String language, byte[] wav) {
         return OpenAiAudio.transcribe(CAPABILITIES.baseUrl(connection.endpoint()), connection.sttModel(), key, language, wav);
     }
@@ -28,10 +27,10 @@ final class OpenAiCompatibleVoiceAdapter implements BatchTranscriptionAdapter, S
     @Override public boolean diarizes() { return false; }
     @Override public long maxBytes() { return 500L * 1024 * 1024; }
 
-    @Override public List<LiveTranscription.Segment> segments(HttpClient http, VoiceConnectionService.Connection connection,
-            String key, LiveTranscription.Options options, boolean diarize, BatchTranscriptionService.Recording recording,
-            Duration timeout) throws IOException, InterruptedException {
-        return OpenAiAudio.segments(http, CAPABILITIES.baseUrl(connection.endpoint()), connection.sttModel(), key, options,
+    @Override public List<LiveTranscription.Segment> segments(VoiceConnectionService.Connection connection, String key,
+            LiveTranscription.Options options, boolean diarize, BatchTranscriptionService.Recording recording,
+            Duration timeout) {
+        return OpenAiAudio.segments(CAPABILITIES.baseUrl(connection.endpoint()), connection.sttModel(), key, options,
                 recording, timeout);
     }
 

@@ -1,7 +1,6 @@
 package io.memoryos.voice;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Iterator;
@@ -44,9 +43,9 @@ final class AzureVoiceAdapter implements RealtimeTranscriptionAdapter, SpeechSyn
         VoiceChecks.arrayListing(probe.baseUrl() + AzureSpeech.VOICES_PATH, "Ocp-Apim-Subscription-Key", probe.key());
     }
 
-    @Override public String transcribe(HttpClient http, VoiceConnectionService.Connection connection, String key,
-                                       @Nullable String language, byte[] wav) throws IOException, InterruptedException {
-        return AzureSpeech.transcribe(http, CAPABILITIES.baseUrl(connection.endpoint()), key, language, wav,
+    @Override public String transcribe(VoiceConnectionService.Connection connection, String key,
+                                       @Nullable String language, byte[] wav) {
+        return AzureSpeech.transcribe(CAPABILITIES.baseUrl(connection.endpoint()), key, language, wav,
                 Pcm16.WAV_HEADER_BYTES, wav.length - Pcm16.WAV_HEADER_BYTES, REQUEST_TIMEOUT);
     }
 

@@ -9,9 +9,6 @@ import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
-import java.io.IOException;
-import java.net.http.HttpClient;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -34,10 +31,6 @@ public class VoiceTranscriptionService {
     private static final Logger LOG = LoggerFactory.getLogger(VoiceTranscriptionService.class);
     /** Onyx limit per connection: about fourteen minutes of 24 kHz PCM16 audio. */
     public static final int MAX_RECORDING_BYTES = 25 * 1024 * 1024;
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
-    /** One client for every REST call; the request carries its own timeout. */
-    private static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
-            .connectTimeout(CONNECT_TIMEOUT).build();
     private static final int MAX_SESSIONS = 16;
     private static final Set<String> LANGUAGES = Set.of("vi", "en");
     private final VoiceConnectionService connections;
@@ -139,14 +132,14 @@ public class VoiceTranscriptionService {
         var observation = VoiceObservations.start(observations, connection.provider(), "transcribe");
         String outcome = "failed";
         try (var _ = observation.openScope()) {
-            String text = adapters.adapter(connection.provider()).transcribe(HTTP, connection, key, language, wav);
+            String text = adapters.adapter(connection.provider()).transcribe(connection, key, language, wav);
             outcome = "succeeded";
             return text;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             VoiceObservations.error(observation, interrupted);
             throw VoiceException.providerUnavailable();
-        } catch (IOException | RuntimeException failed) {
+        } catch (RuntimeException failed) {
             // Provider payloads may carry account detail; report unavailability instead.
             VoiceObservations.error(observation, failed);
             throw VoiceException.providerUnavailable();

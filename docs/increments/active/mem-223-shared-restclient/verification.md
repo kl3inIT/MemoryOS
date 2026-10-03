@@ -69,3 +69,60 @@ show is the answer to an authorized chunked upload; the staging checks cover tha
 - `clean check` in CI.
 - Staging: an image generated and edited with OpenAI and with Cloudflare; an identity provider added; a model list
   fetched from OpenRouter and from a local server.
+
+## Pull request 2: Voice
+
+Run on 2026-10-03 on the same machine, on top of pull request 1.
+
+### Commands and results
+
+| Command | Result |
+| --- | --- |
+| `gradlew compileJava compileTestJava` | All modules compile |
+| `gradlew :core:test --tests 'io.memoryos.shared.OutboundHttpTest'` | 11 passed (two new: an `@HttpExchange` interface, JSON read whatever its content type) |
+| `gradlew :core:test --tests 'io.memoryos.voice.*'` | All Voice classes pass, among them `SonioxAsyncTest` (5), `OpenAiAudioTest` (3, new), `ElevenLabsVoiceTest` (3), `AzureSpeechTest` (3), `VoiceProviderClientTest` (8), `VoiceTranscriptionServiceTest` (4), `BatchTranscriptionTest` (9) |
+| The above with `io.memoryos.chat.image.*`, `OidcDiscoveryClientTest`, `io.memoryos.ai.openai.*`, `io.memoryos.meeting.*`, `ModulithArchitectureTest`, `CoreDependencyRulesTest` | 258 passed in 50 classes |
+
+`clean check` is left to CI for the reason given above.
+
+### The OpenAI SDK probe
+
+A test class that was not kept sent a 64 MiB `InputStream` through `client.audio().transcriptions().create(...)`
+of `openai-java` 4.49.0 to a local server, once for each answer shape.
+
+| Question | Result |
+| --- | --- |
+| Is the upload streamed? | Yes: the server had read the first part while the source still held 63 MiB; the heap grew by 0 to 4 MiB a call |
+| Does it declare its length? | No: `Transfer-Encoding: chunked` |
+| File name and content type | `filename="meeting %22q%22.m4a"`, `Content-Type: audio/mp4`; the file part comes first |
+| `{"text"}` | Read as a plain transcription |
+| OpenAI's verbose answer, and one with a self-hosted server's extra fields | Read as verbose, segments with times |
+| `{"text", "segments"}` without `duration` and `language` | Read as a **diarized** transcription; `asVerbose()` would fail |
+| A segment without `avg_logprob` | Verbose, but reading the field throws |
+
+The last two rows are why the recording upload reads its answer as a tree instead of through the SDK.
+
+### Two things Spring is stricter about than the code it replaces
+
+- `retrieve().body(JsonNode.class)` failed against the test servers, which declare no content type. The JSON
+  converter of `OutboundHttp` now reads every content type; `OutboundHttpTest` covers an answer with none and one
+  that says `text/plain`.
+- Azure's `audio/wav; codecs=audio/pcm; samplerate=16000` is not a media type Spring parses. The body is written as
+  bytes with its length; `AzureSpeechTest` still asserts the header text exactly.
+
+### Lines
+
+| | Removed | Added |
+| --- | --- | --- |
+| Voice callers and interfaces (15 files) and the new `SonioxApi` | 275 | 247 |
+| `OutboundHttp` (`service`, the executor, the JSON converter) | 3 | 24 |
+
+`SonioxAsync` went from 203 lines to 167, `VoiceChecks` from 69 to 51. No Voice file frames a multipart body by
+hand any more, and three of the four static JDK clients are gone.
+
+### Not yet verified
+
+- `clean check` in CI.
+- Staging: a dictation clip with each Voice provider; the longest recording available with Soniox, which also checks
+  the 64 MiB transcript bound and the authorized upload without a declared length; a recording through OpenAI and
+  through an OpenAI-compatible server; a connection check of each provider.
