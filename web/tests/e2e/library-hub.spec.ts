@@ -320,3 +320,18 @@ test("a phone row shows the whole name of a file", async ({ page }) => {
   await expect(page.getByRole("menuitem", { name: "Tải về" })).toBeVisible();
   await page.screenshot({ path: "../output/playwright/library-row-phone.png" });
 });
+
+test.describe("on a touch screen", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("a tab and a view choice are tall enough for a finger", async ({ page }) => {
+    await mockLibrary(page);
+    await openLibrary(page);
+    const mine = tabs(page).getByRole("tab", { name: "Của tôi" });
+    await mine.click();
+    for (const target of [mine, page.getByRole("radio", { name: "Thùng rác" })]) {
+      await expect(target).toBeVisible();
+      expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+});

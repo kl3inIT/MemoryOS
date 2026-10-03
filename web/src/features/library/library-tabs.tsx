@@ -100,7 +100,11 @@ export function LibraryTabs({
             className="h-auto flex-wrap justify-start group-data-horizontal/tabs:h-auto"
           >
             {sections.map((entry) => (
-              <TabsTrigger key={entry.value} value={entry.value} className="flex-none">
+              <TabsTrigger
+                key={entry.value}
+                value={entry.value}
+                className="flex-none pointer-coarse:min-h-11"
+              >
                 {entry.icon}
                 {entry.label}
               </TabsTrigger>
