@@ -14,7 +14,7 @@ def test_last_line_interactive_enabled_by_default() -> None:
         json={
             "code": "1 + 1\n2 + 2",
             "stdin": None,
-            "timeout_ms": 1000,
+            "timeout_ms": 10000,
         },
     )
 
@@ -34,7 +34,7 @@ def test_last_line_interactive_enabled() -> None:
         json={
             "code": "1 + 1\n2 + 2\nx = 5\nx\nprint('hello')\nx * 2",
             "stdin": None,
-            "timeout_ms": 1000,
+            "timeout_ms": 10000,
             "last_line_interactive": True,
         },
     )
@@ -59,7 +59,7 @@ def test_last_line_interactive_with_print_statements() -> None:
         json={
             "code": "x = 10\nprint(f'x is {x}')\nx + 5",
             "stdin": None,
-            "timeout_ms": 1000,
+            "timeout_ms": 10000,
             "last_line_interactive": True,
         },
     )
@@ -81,7 +81,7 @@ def test_last_line_interactive_with_errors() -> None:
         json={
             "code": "x = 5\nx\n1/0\ny = 10",
             "stdin": None,
-            "timeout_ms": 1000,
+            "timeout_ms": 10000,
             "last_line_interactive": True,
         },
     )

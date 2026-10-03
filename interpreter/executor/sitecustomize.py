@@ -6,11 +6,8 @@ Without this, matplotlib warns on stderr that its config directory is not writab
 on every run.
 """
 
-import functools
 import importlib.machinery
-import inspect
 import os
-import re
 import shutil
 import sys
 import warnings
@@ -43,11 +40,9 @@ warnings.filterwarnings(
 # nothing (a prompt evaluation on 2026-10-03: every wrong final answer came from this). For a call from the model's
 # own script whose strings are all ISO, pd.to_datetime raises instead, which the model reads and fixes. Day-first
 # text such as 05/03/2024, an explicit format other than "mixed", and calls from libraries behave as in pandas.
-# Installed when pandas is first imported, so a run that never uses pandas pays nothing.
-_ISO_DATE = re.compile(r"\s*\d{4}-\d{1,2}-\d{1,2}(?:[ T].*)?\s*\Z")
-
-
-def _all_iso(arg: object) -> bool:
+# Installed when pandas is first imported, and its helpers (inspect, functools, re: about 35 ms of start-up) are
+# imported only then, so a run that never uses pandas pays nothing.
+def _all_iso(arg: object, iso_date: object) -> bool:
     if isinstance(arg, str):
         values: list[object] = [arg]
     elif isinstance(arg, (list, tuple)):
@@ -57,10 +52,15 @@ def _all_iso(arg: object) -> bool:
     else:
         return False
     texts = [value for value in values if isinstance(value, str) and value.strip()]
-    return bool(texts) and all(_ISO_DATE.match(text) for text in texts)
+    return bool(texts) and all(iso_date.match(text) for text in texts)  # type: ignore[attr-defined]
 
 
 def _guard_to_datetime(pandas: object) -> None:
+    import functools
+    import inspect
+    import re
+
+    iso_date = re.compile(r"\s*\d{4}-\d{1,2}-\d{1,2}(?:[ T].*)?\s*\Z")
     original = pandas.to_datetime  # type: ignore[attr-defined]
     signature = inspect.signature(original)
 
@@ -71,7 +71,8 @@ def _guard_to_datetime(pandas: object) -> None:
                 bound = signature.bind(*args, **kwargs).arguments
             except TypeError:
                 bound = {}
-            if bound.get("dayfirst") is True and bound.get("format") in (None, "mixed") and _all_iso(bound.get("arg")):
+            dayfirst_without_format = bound.get("dayfirst") is True and bound.get("format") in (None, "mixed")
+            if dayfirst_without_format and _all_iso(bound.get("arg"), iso_date):
                 raise ValueError(
                     "dayfirst=True does not apply to ISO dates such as '2024-05-01': they are year-month-day, and "
                     "pandas would read them as year-day-month. Remove dayfirst=True (or pass format='ISO8601')."
