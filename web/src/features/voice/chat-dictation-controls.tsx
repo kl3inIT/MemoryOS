@@ -1,31 +1,30 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { Link } from "@tanstack/react-router";
-import { Check, Mic, MicOff, X } from "lucide-react";
+import { Mic, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { cn } from "@/lib/utils";
 import { chatAutoPlayback, useAutoPlayback } from "./use-chat-auto-playback";
 import { useVoiceAvailability } from "./use-voice-availability";
 import { useVoiceSettings } from "./use-voice-settings";
 import { voiceFailureCopy } from "./voice-failure";
+import { RecordingControls } from "./recording-controls";
 import { chatDictationSession, useVoiceSession } from "./voice-session-store";
 
-const METER_BARS = 40;
-
-/** Microphone beside Send. A model manager without a provider gets the configuration page instead. */
+/**
+ * Microphone beside Send, shown while no dictation runs. A model manager without a provider gets the configuration
+ * page instead.
+ */
 export function ChatDictationButton({ disabled = false }: { disabled?: boolean }) {
   const ui = useAppTranslation();
   const supported = useAuiState((state) => state.thread.capabilities.dictation);
-  const dictating = useAuiState((state) => state.composer.dictation != null);
   // As in Onyx, a new recording waits for the running answer.
   const running = useAuiState((state) => state.thread.isRunning);
   // The microphone would record the answer being read aloud.
   const reading = useAutoPlayback().phase !== "idle";
   const manager = useApplicationSession().capabilities.includes("MODELS_MANAGE");
   const availability = useVoiceAvailability();
-  if (dictating) return null;
   if (supported)
     return (
       <ComposerPrimitive.Dictate asChild>
@@ -54,111 +53,28 @@ export function ChatDictationButton({ disabled = false }: { disabled?: boolean }
   return null;
 }
 
-/** Recording strip under the draft while dictation runs: status, elapsed time, level meter, mute and stop. */
-export function ChatDictationStrip() {
+/**
+ * Recording controls in the composer toolbar while dictation runs, in place of the model picker and Send: level
+ * meter, mute and stop.
+ */
+export function ChatDictationControls() {
   const ui = useAppTranslation();
+  const aui = useAui();
   const voice = useVoiceSession();
-  const status = useAuiState((state) => state.composer.dictation?.status.type);
-  if (!status) return null;
-  const finishing = voice.phase === "finishing";
-  const running = status === "running" && !finishing;
+  const statusText =
+    voice.phase === "finishing"
+      ? ui("Đang hoàn tất văn bản…")
+      : voice.phase !== "running"
+        ? ui("Đang bật micro…")
+        : voice.muted
+          ? ui("Micro đang tắt")
+          : ui("Đang nghe…");
   return (
-    <div
-      role="group"
-      aria-label={ui("Ghi âm")}
-      className="flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-raised py-1.5 pr-1.5 pl-3 shadow-xs"
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "size-2 shrink-0 rounded-full",
-          running && !voice.muted
-            ? "animate-pulse bg-status-danger-content motion-reduce:animate-none"
-            : "bg-content-muted",
-        )}
-      />
-      <span
-        role="status"
-        className="flex shrink-0 items-center gap-2 font-secondary-body text-content-secondary"
-      >
-        {running ? (
-          <>
-            <span className="hidden sm:inline">
-              {voice.muted ? ui("Micro đang tắt") : ui("Đang nghe…")}
-            </span>
-            <ElapsedTime since={voice.startedAt} />
-          </>
-        ) : finishing ? (
-          ui("Đang hoàn tất văn bản…")
-        ) : (
-          ui("Đang bật micro…")
-        )}
+    <RecordingControls session={chatDictationSession} onStop={() => aui.composer.stopDictation()}>
+      <span role="status" className="sr-only">
+        {statusText}
       </span>
-      <LevelMeter levels={running ? voice.levels : []} muted={voice.muted} />
-      <IconButton
-        size="sm"
-        aria-label={voice.muted ? ui("Bật micro") : ui("Tắt micro")}
-        aria-pressed={voice.muted}
-        disabled={!running}
-        onClick={() => chatDictationSession.setMuted(!voice.muted)}
-      >
-        {voice.muted ? <MicOff /> : <Mic />}
-      </IconButton>
-      <ComposerPrimitive.StopDictation asChild>
-        <IconButton
-          size="sm"
-          prominence="secondary"
-          aria-label={ui("Dừng ghi âm")}
-          pending={finishing}
-          disabled={status !== "running"}
-        >
-          <Check />
-        </IconButton>
-      </ComposerPrimitive.StopDictation>
-    </div>
-  );
-}
-
-function ElapsedTime({ since }: { since: number | undefined }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 250);
-    return () => window.clearInterval(timer);
-  }, []);
-  const seconds = since === undefined ? 0 : Math.max(0, Math.floor((now - since) / 1000));
-  return (
-    <time aria-hidden="true" className="tabular-nums">
-      {clock(seconds)}
-    </time>
-  );
-}
-
-/** Minutes and seconds, as on a recorder; numerals need no translation. */
-function clock(seconds: number) {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
-function LevelMeter({ levels, muted }: { levels: readonly number[]; muted: boolean }) {
-  return (
-    <div
-      aria-hidden="true"
-      className="flex h-7 min-w-0 flex-1 items-center justify-end gap-0.75 overflow-hidden"
-    >
-      {Array.from({ length: METER_BARS }, (_, index) => {
-        const level = muted ? 0 : (levels[levels.length - METER_BARS + index] ?? 0);
-        return (
-          <span
-            key={index}
-            className={cn(
-              "w-0.75 shrink-0 rounded-full transition-all duration-100 motion-reduce:transition-none",
-              muted ? "bg-content-disabled" : "bg-content-secondary",
-            )}
-            // Speech RMS sits around 0.01–0.1; the square root keeps quiet speech visible.
-            style={{ height: `${Math.max(12, Math.min(100, Math.sqrt(level) * 250))}%` }}
-          />
-        );
-      })}
-    </div>
+    </RecordingControls>
   );
 }
 
