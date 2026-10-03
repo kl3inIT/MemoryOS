@@ -17,7 +17,7 @@ Tokens live in `web/src/styles/tokens.css` (values, light in `:root`, dark in `.
 | Content | `content-primary`, `-secondary`, `-muted`, `-disabled`, `-faint`, `-inverse` | Text and icons; never a series or status colour for body text |
 | Borders | `border-subtle`, `-default`, `-strong` | Dividers, inputs, cards |
 | Actions | `action-default-*`, `action-danger-*`, `action-selection*` | Buttons by prominence and state; `action-selection` is the one accent (switch on, selection, links) |
-| Reasoning | `reasoning-{low,medium,high}-{surface,content}` | The selection accent at three strengths for an ordinal reasoning level: the level pill beside a model and the checked level in a model picker; off shows nothing |
+| Reasoning | `reasoning-surface`, `reasoning-content` | A light tint of the selection accent for a reasoning level: the level pill beside a model, whose bars tell the level, and the checked level in a model picker; off shows nothing |
 | Status | `status-{success,warning,danger,info}-{content,surface,border,strong,faint,emphasis,emphasis-border}` | State only: content is text (≥ 4.5:1), surface/faint the tinted background, border the tinted outline, strong icons and dots, emphasis the fill of a white-lettered pill (`content-on-emphasis`) |
 | Charts | `chart-1` … `chart-8`, `chart-neutral` | Data series (below) |
 | Highlights | `highlight-match`, `-active`; `evidence-highlight-surface`/`-border`, `pdf-highlight[-border]` | Search matches and the current match; a cited passage in text and PDF previews |

@@ -1,26 +1,20 @@
 import { Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const strength: Record<string, { bars: number; tone: string }> = {
-  LOW: { bars: 1, tone: "bg-reasoning-low-surface text-reasoning-low-content" },
-  MEDIUM: { bars: 2, tone: "bg-reasoning-medium-surface text-reasoning-medium-content" },
-  HIGH: { bars: 3, tone: "bg-reasoning-high-surface text-reasoning-high-content" },
-};
+const bars: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3 };
 
 /**
- * The level beside a model in its picker: the selection accent, stronger per level, with as many bars as the level
- * is high. Off and a model that does not reason show nothing, as ChatGPT shows its Think chip only while it is on.
+ * The level beside a model in its picker: a light tint of the selection accent, the same for every level, with as many
+ * bars as the level is high. Off and a model that does not reason show nothing, as ChatGPT shows its Think chip only
+ * while it is on.
  */
 export function ReasoningLevel({ level, name }: { level?: string; name?: string }) {
-  const shown = level ? strength[level] : undefined;
-  if (!shown || !name) return null;
+  const filled = level ? bars[level] : undefined;
+  if (!filled || !name) return null;
   return (
     <span
       data-slot="reasoning-level"
-      className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-1 rounded-full ps-1.5 pe-2 font-secondary-action",
-        shown.tone,
-      )}
+      className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-reasoning-surface ps-1.5 pe-2 font-secondary-action text-reasoning-content"
     >
       <Brain className="size-3" aria-hidden="true" />
       {name}
@@ -31,7 +25,7 @@ export function ReasoningLevel({ level, name }: { level?: string; name?: string 
             className={cn(
               "w-0.75 rounded-full",
               height,
-              index < shown.bars ? "bg-current" : "bg-current/30",
+              index < filled ? "bg-current" : "bg-current/30",
             )}
           />
         ))}

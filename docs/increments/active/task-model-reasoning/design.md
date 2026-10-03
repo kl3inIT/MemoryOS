@@ -41,8 +41,8 @@ assistant-ui's Model selector (`/elements/model-selector`, already installed as 
 - The Chat default row has no Reasoning row: a conversation's level is the member's (pinned on the conversation or in their preferences).
 
 **Two additions on top of the element.**
-- The trigger shows the level as a pill (`ReasoningLevel`): a brain icon, the level and one to three bars, in the selection accent at three strengths (`reasoning-{low,medium,high}-*` tokens). Off and a model that does not reason show nothing, as ChatGPT shows its Think chip only while thinking is on. The owner found the grey level text of the element hard to see, and Mobbin shows no product colouring each level differently: ChatGPT colours the chip while on, Cofounder counts marks.
-- The element's checked level used `bg-accent`, which matches the popover in dark mode (#26262b on #262626); it takes the medium reasoning tint instead, an edit in the copied element.
+- The trigger shows the level as a pill (`ReasoningLevel`): a brain icon, the level and one to three bars, in one light tint of the selection accent (`reasoning-surface`, `reasoning-content`); the bars tell the level. Off and a model that does not reason show nothing, as ChatGPT shows its Think chip only while thinking is on. The owner found the grey level text of the element hard to see, and Mobbin shows no product colouring each level differently: ChatGPT colours the chip while on, Cofounder counts marks. A first version strengthened the tint per level up to a solid fill at High; the owner found High too loud (2026-10-03), so every level shares the light tint.
+- The element's checked level used `bg-accent`, which matches the popover in dark mode (#26262b on #262626); it takes the reasoning tint instead, an edit in the copied element.
 
 ## Chat composer
 
