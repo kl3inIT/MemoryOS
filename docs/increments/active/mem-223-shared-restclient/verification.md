@@ -126,3 +126,23 @@ hand any more, and three of the four static JDK clients are gone.
 - Staging: a dictation clip with each Voice provider; the longest recording available with Soniox, which also checks
   the 64 MiB transcript bound and the authorized upload without a declared length; a recording through OpenAI and
   through an OpenAI-compatible server; a connection check of each provider.
+
+## Pull request 3: Code Interpreter and Web
+
+Run on 2026-10-03 on the same machine, on top of pull request 2.
+
+| Command | Result |
+| --- | --- |
+| `gradlew compileJava compileTestJava` | All modules compile |
+| `gradlew :core:test --tests 'io.memoryos.chat.interpreter.*' --tests 'io.memoryos.chat.tools.*' --tests 'io.memoryos.chat.web.*'` | All pass; `InterpreterClientTest` with its assertions unchanged and one case added |
+
+- **Stopping a run.** `aRunTheListenerStopsClosesTheConnectionSoTheServiceCanFreeItsSlot`: the service streams output
+  for ever, the listener throws on the first chunk, and the server's write fails; 13 ms, with a ten-minute deadline.
+- **Lines.** `InterpreterClient` 324 to 302, with `InterpreterApi` (36) new; `WebHttp` 120 to 142. Neither change
+  makes the code shorter. They remove the Apache transport from the Code Interpreter and from provider calls.
+
+### Not yet verified
+
+- `clean check` in CI.
+- Staging: Python run with a file in and a file out; a run stopped mid-output frees its slot; a Web search with two
+  providers; a page opened.

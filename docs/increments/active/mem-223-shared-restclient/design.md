@@ -2,7 +2,8 @@
 
 Status: accepted 2026-10-03, after validation against `main` at `dca7609d`, Spring Framework 7.0.9 sources and
 `openai-java` 4.49.0. Pull request 1 (the shared layer, Image, OIDC discovery, the model list) and pull request 2 (Voice) are
-implemented; the Code Interpreter has not started. Decision: [ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md).
+implemented, and so are the Code Interpreter and the Web provider transport (pull request 3). The MCP OAuth
+spike, the `sources` assessment and the staging checks are open. Decision: [ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md).
 Linear: [MEM-223](https://linear.app/memory-os/issue/MEM-223). The first pull request comes before step 3 of
 [MEM-198](https://linear.app/memory-os/issue/MEM-198), which hands the builder made here to the TypeSafe SDK.
 
@@ -78,8 +79,8 @@ Transport rules missing today:
 | Image | `ImageHttp` rewritten on `RestClient` with `MultipartBodyBuilder` | 3 | Done: 82 lines become 58 and one Apache pool goes; see finding 11 |
 | OIDC discovery | `RestClient`, JSON as a tree | 3 | Done: small; gains the bound and its first HTTP test |
 | Model list, local model details | `RestClient.exchange`, JSON as a tree | 3 | Done: small; no JDK `HttpClient` built per call |
-| Code Interpreter | `@HttpExchange` `InterpreterApi` for the five calls and the run on `RestClient.exchange`, in one change | 2 | Moderate, all or nothing; see below |
-| Web search providers | `WebCall.json` on `RestClient` | 3 | No lines saved; optional |
+| Code Interpreter | `@HttpExchange` `InterpreterApi` for four calls, health and the run on `RestClient.exchange`, in one change | 2 | Done, whole; the code is not shorter (finding 19) |
+| Web search providers | `WebHttp.provider` on `RestClient` | 3 | Done; 22 lines longer (finding 20) |
 | MCP OAuth | Unchanged; a library only after a spike | | Uncertain |
 | `sources` | Not assessed here | | Read and judged in the last pull request; no code |
 | System One | `TypeSafeClient` over `OutboundHttp.builder` | 1 | [MEM-198](https://linear.app/memory-os/issue/MEM-198) |
@@ -112,7 +113,7 @@ also carries requirements the interface has to keep:
   exceptions (an `IOException` from a status handler arrives as `UncheckedIOException`), so the class translates
   them back; `health` turns a failed status into a `Health` instead of throwing.
 
-Moving only the five plain calls would leave two HTTP stacks in one class. So the class moves whole, including
+It moved whole (finding 19). Moving only the five plain calls would leave two HTTP stacks in one class. So the class moves whole, including
 `executeStream` onto `RestClient.exchange`, or it stays. `executeStream` can move only if closing the response
 cancels the exchange, which `OutboundHttpTest` proves or disproves in the first pull request.
 
@@ -186,6 +187,20 @@ Found while implementing pull request 2:
     `Content-Length`. It now asserts the opposite, with the probe of every provider's endpoint as the evidence
     ([verification](verification.md#a-multipart-body-without-a-declared-length)) and the staging upload as the
     remaining check.
+
+Found while implementing pull request 3:
+
+19. **The Code Interpreter moved whole, and the code did not shrink.** `InterpreterClient` went from 324 lines to
+    302, and `InterpreterApi` adds 36. What it buys is not length: the Apache client, its pool and the hand-built
+    multipart entity are gone, the run and the plain calls share one transport, and stopping a run closes the
+    connection in 13 ms in the new test. Health is read with `exchange`, not through the interface, because a
+    failed status is an answer there. One method translates what `RestClient` throws back into `IOException`,
+    `BusyException` and `TooLargeException`, so no caller changed.
+20. **`WebHttp` keeps `provider` as the bean method tests replace**, as `ImageHttp` does (finding 11), now on the
+    shared client. The Apache client is left with the page reader and its DNS check. `WebHttp` is 142 lines, 22
+    more than before.
+21. **`InputStreamResource` cannot be subclassed for a streamed part.** Spring then asks the subclass for its
+    length by reading the stream. A streamed part is an `AbstractResource` that answers -1.
 
 ## The shared layer
 
