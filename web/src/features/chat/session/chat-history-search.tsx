@@ -30,6 +30,8 @@ import { searchChatSessionsInfiniteOptions } from "@/lib/hey-api/@tanstack/react
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 
 const PAGE_SIZE = 20;
+/** The palette's shortcut as the keyboard in front of the person labels it. */
+const SHORTCUT_HINT = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
 // ChatSessionMatch wraps matched tokens in U+E000/U+E001; private-use characters never render.
 const MATCH_DELIMITER = new RegExp(
   `[${String.fromCharCode(0xe000)}${String.fromCharCode(0xe001)}]`,
@@ -116,6 +118,13 @@ export function ChatHistorySearch({
           <SidebarMenuButton tooltip={label} aria-keyshortcuts="Control+K Meta+K">
             <Search />
             <span>{label}</span>
+            {/* aria-keyshortcuts already tells a screen reader; a touch screen has no keyboard to press it on. */}
+            <kbd
+              aria-hidden="true"
+              className="ml-auto font-sans text-xs text-content-muted group-data-[collapsible=icon]:hidden pointer-coarse:hidden"
+            >
+              {SHORTCUT_HINT}
+            </kbd>
           </SidebarMenuButton>
         )}
       </DialogTrigger>

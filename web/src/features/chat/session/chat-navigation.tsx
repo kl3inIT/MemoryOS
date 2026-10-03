@@ -400,7 +400,7 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
           params={{ projectId: project.id }}
           onClick={onNavigate}
           aria-current={selected ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm outline-none"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
         >
           <ProjectIcon iconName={project.iconName} className="size-4 shrink-0 text-content-muted" />
           <span className="truncate">{project.name}</span>
