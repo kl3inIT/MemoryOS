@@ -14,4 +14,5 @@ Design: [design.md](design.md).
   - the web row saves a level.
 - [x] Chat composer: the Thinking row and the level pill in `ChatModelPicker`; the first send pins a level chosen before the conversation existed.
 - [x] Docs: `docs/specs/chat-models.md` (task models), the test matrix, roadmap.
-- [ ] UI screenshots for owner approval; staging check.
+- [x] UI screenshots for owner approval (2026-10-03); CI; merge (#491).
+- [ ] Staging: V143 applied, each task row shows its level, a level saved on the Models page reaches the task's call, and a level picked in the composer before the first question applies to the first answer.
