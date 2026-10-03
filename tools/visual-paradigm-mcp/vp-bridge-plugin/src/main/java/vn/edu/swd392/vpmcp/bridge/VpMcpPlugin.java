@@ -7,6 +7,7 @@ import vn.edu.swd392.vpmcp.tools.ClassDiagramTools;
 import vn.edu.swd392.vpmcp.tools.CommonDiagramTools;
 import vn.edu.swd392.vpmcp.tools.ContextDiagramTools;
 import vn.edu.swd392.vpmcp.tools.ConceptualErdTools;
+import vn.edu.swd392.vpmcp.tools.FreeformDiagramTools;
 import vn.edu.swd392.vpmcp.tools.SequenceDiagramTools;
 import vn.edu.swd392.vpmcp.tools.StateDiagramTools;
 import vn.edu.swd392.vpmcp.tools.UseCaseDiagramTools;
@@ -29,7 +30,8 @@ public final class VpMcpPlugin implements VPPlugin {
           new ActivityDiagramTools(),
           new StateDiagramTools(),
           new UseCaseDiagramTools(),
-          new ConceptualErdTools());
+          new ConceptualErdTools(),
+          new FreeformDiagramTools());
       bridge.start();
     } catch (RuntimeException exception) {
       System.err.println("Cannot start SWD392 VP bridge: " + exception.getMessage());

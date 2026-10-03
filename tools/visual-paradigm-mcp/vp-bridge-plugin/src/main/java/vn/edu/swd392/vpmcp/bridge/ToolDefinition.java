@@ -201,6 +201,8 @@ final class ToolDefinition {
         return "Exact target activity-node name";
       case "headerHeight":
         return "Height of the activity partition header row in diagram pixels";
+      case "headerWidth":
+        return "Width of the activity partition header column in diagram pixels";
       case "visible":
         return "Whether the target diagram-element caption remains visible";
       case "asynchronous":
