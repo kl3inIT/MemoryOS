@@ -136,3 +136,103 @@ print('Graph saved successfully')
 
     # Verify the file has reasonable size (should be several KB for a plot)
     assert len(png_bytes) > 1000
+
+
+def test_the_idioms_the_prompt_teaches_hold_on_the_executor_stack() -> None:
+    # RUN_PYTHON_GUIDANCE in core's ChatPrompts names these versions and idioms. Each check
+    # proves one claim, so a relock that changes what the model is told fails here: update
+    # the prompt with it.
+    client = TestClient(create_app())
+
+    code = """
+import io
+import json
+import sys
+
+import cv2
+import numpy as np
+import openpyxl
+import pandas as pd
+
+checks = {}
+checks['python'] = list(sys.version_info[:2])
+checks['numpy'] = '.'.join(np.__version__.split('.')[:2])
+checks['pandas'] = '.'.join(pd.__version__.split('.')[:2])
+checks['opencv'] = int(cv2.__version__.split('.')[0])
+
+# Text columns are dtype str, and the helper the prompt names recognises them.
+text = pd.DataFrame({'a': ['x', 'y']})['a']
+checks['str_dtype'] = str(text.dtype) == 'str' and pd.api.types.is_string_dtype(text)
+
+# Copy-on-write: assigning back changes the frame; a chained assignment in this script raises
+# (sitecustomize turns pandas' warning into an error for __main__ only).
+df = pd.DataFrame({'a': [1.0, None]})
+df['a'] = df['a'].fillna(0)
+checks['assign_back'] = df['a'].tolist() == [1.0, 0.0]
+frame = pd.DataFrame({'a': [1, 2]})
+try:
+    frame['a'][0] = 9
+    checks['chained_raises'] = False
+except pd.errors.ChainedAssignmentError:
+    checks['chained_raises'] = frame['a'].tolist() == [1, 2]
+frame.loc[frame['a'] == 1, 'a'] = 9
+checks['loc_assign'] = frame['a'].tolist() == [9, 2]
+
+# Month-end aliases, and the removed ones fail loudly.
+checks['freq_me'] = len(pd.date_range('2024-01-01', periods=3, freq='ME')) == 3
+try:
+    pd.date_range('2024-01-01', periods=3, freq='M')
+    checks['freq_m_rejected'] = False
+except ValueError:
+    checks['freq_m_rejected'] = True
+hourly = pd.Series([1, 2], index=pd.date_range('2024-01-01', periods=2, freq='h'))
+checks['resample'] = hourly.resample('D').sum().tolist() == [3]
+checks['ffill'] = pd.Series([1.0, None]).ffill().tolist() == [1.0, 1.0]
+
+# A workbook read back keeps its text column as str and its numbers as int64.
+book = openpyxl.Workbook()
+sheet = book.active
+sheet.append(['name', 'amount'])
+sheet.append(['a', 1])
+sheet.append(['b', 2])
+buffer = io.BytesIO()
+book.save(buffer)
+read = pd.read_excel(io.BytesIO(buffer.getvalue()))
+checks['excel_dtypes'] = [str(read['name'].dtype), str(read['amount'].dtype)] == ['str', 'int64']
+pivot = pd.DataFrame({'k': ['a', 'a', 'b'], 'v': [1, 2, 3]})
+pivot = pivot.pivot_table(index='k', values='v', aggfunc='sum')
+checks['pivot'] = pivot['v'].tolist() == [3, 3]
+
+# dayfirst=True on ISO text raises in this script (sitecustomize); day-first text still parses.
+try:
+    pd.to_datetime(pd.Series(['2024-05-01', '2024-05-02']), dayfirst=True)
+    checks['iso_dayfirst_raises'] = False
+except ValueError as error:
+    checks['iso_dayfirst_raises'] = 'ISO' in str(error)
+parsed = pd.to_datetime(pd.Series(['05/03/2024', '13/03/2024']), dayfirst=True)
+checks['day_first_text'] = list(parsed.dt.strftime('%Y-%m-%d')) == ['2024-03-05', '2024-03-13']
+checks['iso_plain'] = str(pd.to_datetime('2024-05-01').date()) == '2024-05-01'
+
+# numpy 2: scalars print with their type, and the removed aliases are gone.
+checks['scalar_repr'] = repr(np.float64(1.5)) == 'np.float64(1.5)'
+checks['scalar_item'] = json.dumps([np.float64(1.5).item()]) == '[1.5]'
+checks['nan_alias_removed'] = not hasattr(np, 'NaN')
+checks['trapezoid'] = float(np.trapezoid([1.0, 1.0])) == 1.0
+
+# OpenCV 5 still encodes images; its machine-learning module left the main wheel.
+checks['cv2_encode'] = bool(cv2.imencode('.png', np.zeros((4, 4, 3), np.uint8))[0])
+checks['cv2_ml_absent'] = not hasattr(cv2, 'ml')
+checks['cv2_haar_absent'] = not hasattr(cv2, 'CascadeClassifier')
+
+print(json.dumps(checks))
+""".strip()
+
+    response = client.post("/v1/execute", json={"code": code, "stdin": None, "timeout_ms": 20000})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["exit_code"] == 0, payload["stderr"]
+    checks = json.loads(payload["stdout"].strip())
+    assert checks.pop("python") == [3, 14]
+    assert (checks.pop("numpy"), checks.pop("pandas"), checks.pop("opencv")) == ("2.5", "3.0", 5)
+    assert {name: ok for name, ok in checks.items() if not ok} == {}
