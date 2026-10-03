@@ -162,16 +162,17 @@ const toneFailures = ["vi.ts", "app-translations.vi.ts", "app-translations.en.ts
 );
 /**
  * Copy names the Tenant "tổ chức" / "organization" (owner decision 2026-10-03); the domain, API and code keep Tenant.
- * Microsoft Entra's own "Directory (tenant) ID" field label is quoted as Microsoft writes it.
+ * Microsoft Entra's own "Directory (tenant) ID" field label is quoted as Microsoft writes it. A catalog line holds only
+ * keys and copy, so the word is matched on the whole line, whichever quote the formatter chose.
  */
-const tenantWord = /"[^"\n]*\btenant\b[^"\n]*"/i;
+const tenantWord = /\btenants?\b/i;
+const commentLine = /^\s*(?:\/\/|\/\*|\*)/;
 const termFailures = ["vi.ts", "en.ts", "app-translations.vi.ts", "app-translations.en.ts"].flatMap(
   (name) =>
     readFileSync(join(root, "i18n", name), "utf8")
       .split("\n")
       .flatMap((line, index) =>
-        !line.trimStart().startsWith("//") &&
-        tenantWord.test(line.replaceAll("Directory (tenant) ID", ""))
+        !commentLine.test(line) && tenantWord.test(line.replaceAll("Directory (tenant) ID", ""))
           ? [
               `${root}/i18n/${name}:${index + 1} copy says Tenant; write "tổ chức" or "organization"`,
             ]
