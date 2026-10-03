@@ -170,6 +170,7 @@ export function ProviderConnectionCard({
               prominence="tertiary"
               size="sm"
               aria-label={ui(appText("Test connection {{name}}", { name: provider.name }))}
+              title={ui(appText("Test connection {{name}}", { name: provider.name }))}
               disabled={unavailable || connection.pending || !provider.credentialConfigured}
               onClick={() =>
                 void connection.run({
@@ -186,6 +187,7 @@ export function ProviderConnectionCard({
               prominence="tertiary"
               size="sm"
               aria-label={ui(appText("Edit provider {{name}}", { name: provider.name }))}
+              title={ui(appText("Edit provider {{name}}", { name: provider.name }))}
               disabled={unavailable}
               onClick={actions.onEdit}
             >
@@ -196,6 +198,7 @@ export function ProviderConnectionCard({
               tone="danger"
               size="sm"
               aria-label={ui(appText("Delete provider {{name}}", { name: provider.name }))}
+              title={ui(appText("Delete provider {{name}}", { name: provider.name }))}
               disabled={unavailable}
               onClick={actions.onDelete}
             >

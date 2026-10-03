@@ -129,7 +129,7 @@ function ModelsAdministration() {
       {/* Available connections — Onyx existing-provider cards */}
       {hasProviders && (
         <section aria-labelledby="available-connections" className="flex flex-col gap-3">
-          <SectionHeader id="available-connections" title={ui("Available connections")} />
+          <SectionHeader id="available-connections" title={ui("Connections")} />
           <div className="flex flex-col gap-2">
             {page.sortedProviders.map((provider) => (
               <ProviderConnectionCard

@@ -2079,7 +2079,6 @@ Object.assign(englishUi, {
   "Loading model catalog…": "Đang tải danh mục mô hình…",
   "The complete catalog could not be loaded. Displayed records may be stale. Refresh before changing configurations or defaults.":
     "Không tải được toàn bộ danh mục. Dữ liệu hiển thị có thể đã cũ. Hãy làm mới trước khi thay đổi cấu hình hoặc mặc định.",
-  "Available connections": "Kết nối khả dụng",
   "Add another": "Thêm kết nối",
   "Add another {{name}} connection": "Thêm một kết nối {{name}} nữa",
   "Add Provider": "Thêm nhà cung cấp",
@@ -2331,7 +2330,8 @@ Object.assign(englishUi, {
   "Choose an eligible model": "Chọn một mô hình đủ điều kiện",
   "(saved; hidden or unavailable)": "(đã lưu; đang ẩn hoặc không khả dụng)",
   "(draft no longer eligible)": "(bản nháp không còn đủ điều kiện)",
-  "No eligible models are available.": "Không có mô hình đủ điều kiện nào.",
+  "No eligible models are available. Add a model to a connection below.":
+    "Chưa có mô hình nào đủ điều kiện. Hãy thêm mô hình vào một kết nối bên dưới.",
   "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.":
     "Lựa chọn đã lưu đã thay đổi hoặc xung đột. Làm mới revision của nó và kiểm tra lại trước khi thử lại; revision của mô hình/nhà cung cấp không phải revision lựa chọn.",
   "Reconcile saved selection": "Đồng bộ lựa chọn đã lưu",

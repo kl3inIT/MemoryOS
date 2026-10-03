@@ -216,7 +216,11 @@ function SelectionEditor({
           ]}
         />
       </div>
-      {!candidates.length && <p role="status">{ui("No eligible models are available.")}</p>}
+      {!candidates.length && (
+        <p role="status">
+          {ui("No eligible models are available. Add a model to a connection below.")}
+        </p>
+      )}
       {!baseline.modelConfigurationId && row.unsetMessage && (
         <p role="status" className="font-secondary-body text-status-warning-content">
           {row.unsetMessage}
