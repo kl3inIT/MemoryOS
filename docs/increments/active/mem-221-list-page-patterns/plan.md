@@ -11,6 +11,8 @@
 - [x] L2-n3, L2-n6 Models: *Thêm kết nối* on a connected preset; brand loader and skeleton rows
 - [x] L2-n5, L2-n7 Web search says why it is off; Users drops a column every row repeats
 - [x] L2-n9 finger-sized tabs, view choices, selects and filter chips
+- [x] Critique 3: administration menu open while it fits and remembered; search mode in the search field
+- [x] Critique 3: Meetings opens with every meeting; shared page-size control; Library on a phone
 - [ ] L2-2b meeting detail: left to the transcript work in flight
 - [ ] L2-5b conversation count: needs a total from the API
 - [ ] Owner review of each direction in the design; `pnpm --dir web check` in CI
@@ -22,4 +24,5 @@
 - Playwright, two workers, the whole suite: 201 pass, 1 skipped. New cases: the Meetings filters survive a reload (`meetings.spec.ts`), a tab and a view choice are 44 px on a touch screen (`library-hub.spec.ts`). Changed cases: the Users filter reads its text, the phone administration menu opens *Organization* before *Users*, the 9Router preset reads *Thêm một kết nối 9Router nữa*.
 - Vitest cases added or changed: the administration menu folds every section but the open page's (`app-shell.test.tsx`); the storage figures stay in the settings until the limit is near, and an empty Library has no toolbar (`library-page.test.tsx`); the Web note names the model (`chat-web.test.tsx`); the Users table leaves out the repeated column (`users-table.test.tsx`).
 - Impeccable `detect` on the changed components reports nothing.
+- Third critique (2026-10-03, dual-agent): 25/40, detector clean; snapshot under `.impeccable/critique/`. Its five priority findings are addressed in the last five commits; the app is not rescored after them.
 - Browser evidence: the same synthetic fixtures before (`1f9f6f989`) and after, at 1440×900 and 390×844, for Users, Meetings, the Library with files and empty, Models and the administration menu. The Sources page and the composer's Web row are not captured.

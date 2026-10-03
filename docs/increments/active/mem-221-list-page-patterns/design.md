@@ -8,19 +8,19 @@ The critique left the direction of each P2 group to the owner. This batch takes 
 
 ### Controls before content
 
-- **L2-2a Library.** The tab row, a storage summary, three view choices, a search, a search-mode switch, a filter, a sort select and a layout switch stood above the first file. The toolbar is now a search, the filter and one *Cách hiển thị* menu that holds how to search, the order and the layout (`LibraryDisplayMenu`, on every view). The tab row shows the storage only when the account has used 90% of its limit, with *Xem tệp lớn nhất*; the figures already live in the Library's settings dialog.
+- **L2-2a Library.** The tab row, a storage summary, three view choices, a search, a search-mode switch, a filter, a sort select and a layout switch stood above the first file. The toolbar is now a search, the filter and one *Cách hiển thị* menu that holds the order and the layout (`LibraryDisplayMenu`, on every view). The search field itself says whether it reads names or contents, since that changes what a query finds. The tab row shows the storage only when the account has used 90% of its limit, with *Xem tệp lớn nhất*; the figures already live in the Library's settings dialog.
 - **L2-n4.** A view with no file, no search and no filter leaves the toolbar out: there is nothing to search, filter or lay out.
 - **L2-2b Meeting detail.** Not in this batch. The meeting detail page is being rebuilt by the transcript work in flight, which removes the stat strip the finding is about.
 
 ### The administration menu
 
-- **L2-3a.** The menu listed every section open, 20 links on one screen. A section folds (`Collapsible` on the sidebar group); the section of the open page is open, another opens on request, and the icon-only sidebar keeps every section open since it has no section labels.
+- **L2-3a.** The menu listed every section open, 20 links on one screen, and scrolled on a laptop. A section folds (`Collapsible` on the sidebar group). Every section is open while the menu fits the screen; when it would scroll, every section but the open page's folds. A section the person folds or opens stays that way on this browser. The icon-only sidebar keeps every section open since it has no section labels.
 - **L2-3b.** *Thêm nguồn* leaves the menu. It was an action listed as a place; the Sources page carries the same link as its primary button.
 
 ### One pattern per list page
 
 - **L2-4a.** A single-choice filter is the registry `Select` on every page: Meetings and Users join the Library. A multi-choice filter stays a menu (Search, the Library's filter popover).
-- **L2-n8.** The Meetings filters live in the address (`q`, `status`, `period`), so a reload or Back returns the same list.
+- **L2-n8.** The Meetings filters live in the address (`q`, `status`, `period`), so a reload or Back returns the same list. The list opens with every meeting; a period is a choice.
 - **L2-4b.** A page's primary button is the default size with a leading icon: Sources gains the icon, Users the size.
 - **L2-4c, L2-n1.** Two date shapes, both through `formatUiDate`: `formatUiDay` (a day) and `formatUiMoment` (a day and its time). 23 call sites stop calling `toLocaleDateString`, `toLocaleString` and `Intl` themselves. Numbers on the Sources tiles follow the UI locale.
 - **L2-4d.** The Sources page icon is a plug, as its menu entry is; the book stays with documents.
@@ -41,10 +41,14 @@ The critique left the direction of each P2 group to the owner. This batch takes 
 - **L2-n9.** On a coarse pointer the registry select trigger and the toggle group item grow to 44 px as buttons already do; the Library's tabs and filter chips follow; a checkbox takes a 44 px hit area around its 16 px box.
 - **L2-n10.** The chat page has one `h1`.
 
+### After the third critique
+
+The rescan after this batch scored 25/40 against 26: two of its three major findings were this batch's own. Folding the administration menu and moving the search mode into the display menu each traded noise for recall. Both are corrected above. The rescan's other findings in this batch: the Meetings period default, the page-size control on Users and Groups (`PageSizeSelect`), and the Library on a phone (one scrolling tab row, icon-only filter and display buttons, a 44 px filter pill).
+
 ## Reuse
 
 Registry `Select`, `DropdownMenu` radio groups, `Collapsible`, `Skeleton`, `BrandLoader`; `formatUiDate`; the coarse-pointer rule in `base.css`; the Users page's URL-search pattern (`validateSearch` with a zod schema). No new composite.
 
 ## Out of scope
 
-L2-2b and L2-5b, for the reasons above. Keyboard shortcuts and bulk selection are MEM-219 and MEM-220.
+L2-2b and L2-5b, for the reasons above. From the third critique: the Users row menu as a `DropdownMenu`, the Meetings pages' own date formatting, the Library's one-card-per-day list and its description on a phone. Keyboard shortcuts and bulk selection are MEM-219 and MEM-220.
