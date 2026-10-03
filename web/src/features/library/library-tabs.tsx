@@ -94,23 +94,27 @@ export function LibraryTabs({
     >
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border-subtle pb-1">
-          <TabsList
-            variant="line"
-            aria-label={ui("Phần của thư viện")}
-            // On a phone the tabs are one row that scrolls sideways, so the list starts a row sooner.
-            className="h-auto max-w-full justify-start overflow-x-auto group-data-horizontal/tabs:h-auto sm:flex-wrap"
-          >
-            {sections.map((entry) => (
-              <TabsTrigger
-                key={entry.value}
-                value={entry.value}
-                className="flex-none pointer-coarse:min-h-11"
-              >
-                {entry.icon}
-                {entry.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          {/* The row fades at its end on a phone, to say it scrolls. */}
+          <div className="max-w-full min-w-0 max-sm:mask-r-from-90%">
+            <TabsList
+              variant="line"
+              aria-label={ui("Phần của thư viện")}
+              // On a phone the tabs are one row that scrolls sideways, so the list starts a row sooner; the row
+              // fades at its end to say there is more, and the tabs drop their icons to fit more of it.
+              className="h-auto max-w-full justify-start overflow-x-auto group-data-horizontal/tabs:h-auto sm:flex-wrap max-sm:[&_svg]:hidden"
+            >
+              {sections.map((entry) => (
+                <TabsTrigger
+                  key={entry.value}
+                  value={entry.value}
+                  className="flex-none pointer-coarse:min-h-11"
+                >
+                  {entry.icon}
+                  {entry.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
           {usage && nearlyFull(usage) && (
             <StorageWarning usage={usage} onShowLargest={onShowLargest} />
           )}

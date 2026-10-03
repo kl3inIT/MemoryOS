@@ -220,7 +220,7 @@ function FileGroup({
           ))}
         </ul>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
           {files.map((file) => (
             <li key={file.id}>
               <LibraryRow
@@ -261,11 +261,11 @@ function LibraryRow({
     // menu (which takes the pointer off the row but still acts on its file) and, strongest, a chosen row.
     <div
       className={cn(
-        "rounded-lg transition-colors hover:bg-surface-subtle has-[[data-state=open]]:bg-surface-subtle",
-        selected && "bg-surface-subtle ring-1 ring-border-strong",
+        "transition-colors hover:bg-surface-subtle has-[[data-state=open]]:bg-surface-subtle",
+        selected && "bg-surface-sunken",
       )}
     >
-      <Item variant="outline">
+      <Item>
         <Checkbox
           aria-label={ui("Chọn {{name}}", { name: file.filename })}
           checked={selected}

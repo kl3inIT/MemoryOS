@@ -119,12 +119,7 @@ export function LibraryPage({
           <PageHeader
             icon={<FolderOpen />}
             title={ui("Thư viện")}
-            description={
-              // A phone gives the line to the list; a screen reader still hears it.
-              <span className="max-sm:sr-only">
-                {ui("Mọi tệp, cuộc họp và tài liệu bạn xem và dùng được, ở cùng một chỗ.")}
-              </span>
-            }
+            description={ui("Mọi tệp, cuộc họp và tài liệu bạn xem và dùng được, ở cùng một chỗ.")}
             actions={
               <>
                 <LibraryUploadButton onFiles={uploads.start} />
