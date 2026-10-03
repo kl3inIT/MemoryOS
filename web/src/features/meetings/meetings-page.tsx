@@ -45,18 +45,18 @@ function groupMeetings(items: readonly MeetingSummary[], now = new Date()): Grou
 }
 
 const PERIOD_DAYS = { "30d": 30, "90d": 90 } as const;
-/** The value of the entry that leaves the status open; a registry select item cannot hold an empty one. */
-const ANY_STATUS = "any";
+/** The value of the entry that leaves a filter open; a registry select item cannot hold an empty one. */
+const ANY = "any";
 
 /** The meetings a name search, a status and a period leave visible. */
 function matchingMeetings(
   meetings: readonly MeetingSummary[],
   query: string,
   status: MeetingStatusFilter | undefined,
-  period: MeetingPeriod,
+  period: MeetingPeriod | undefined,
   now = Date.now(),
 ) {
-  const since = period === "all" ? 0 : now - PERIOD_DAYS[period] * 86_400_000;
+  const since = period ? now - PERIOD_DAYS[period] * 86_400_000 : 0;
   return meetings.filter(
     (meeting) =>
       (!status || meeting.status === status) &&
@@ -74,7 +74,7 @@ export function MeetingsPage() {
   const navigate = useNavigate({ from: "/meetings" });
   const [search, setSearch] = useState(filters.q ?? "");
   const { status } = filters;
-  const period = filters.period ?? "30d";
+  const { period } = filters;
   /** A filter replaces the list's own history entry: Back leaves the list, it does not undo a choice. */
   const applyFilters = (update: Partial<MeetingsSearch>) =>
     void navigate({ replace: true, search: (current) => ({ ...current, ...update }) });
@@ -146,36 +146,34 @@ export function MeetingsPage() {
               />
             </InputGroup>
             <Select
-              value={status ?? ANY_STATUS}
+              value={status ?? ANY}
               onValueChange={(next) =>
-                applyFilters({
-                  status: next === ANY_STATUS ? undefined : (next as MeetingStatusFilter),
-                })
+                applyFilters({ status: next === ANY ? undefined : (next as MeetingStatusFilter) })
               }
             >
               <SelectTrigger aria-label={ui("Trạng thái")} className="flex-1 sm:flex-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper" sideOffset={4}>
-                <SelectItem value={ANY_STATUS}>{ui("Mọi trạng thái")}</SelectItem>
+                <SelectItem value={ANY}>{ui("Mọi trạng thái")}</SelectItem>
                 <SelectItem value="RECORDING">{ui("Chưa kết thúc")}</SelectItem>
                 <SelectItem value="TRANSCRIBING">{ui("Đang nhận dạng")}</SelectItem>
                 <SelectItem value="ENDED">{ui("Đã kết thúc")}</SelectItem>
               </SelectContent>
             </Select>
             <Select
-              value={period}
+              value={period ?? ANY}
               onValueChange={(next) =>
-                applyFilters({ period: next === "30d" ? undefined : (next as "90d" | "all") })
+                applyFilters({ period: next === ANY ? undefined : (next as MeetingPeriod) })
               }
             >
               <SelectTrigger aria-label={ui("Thời gian")} className="flex-1 sm:flex-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper" sideOffset={4}>
+                <SelectItem value={ANY}>{ui("Mọi thời gian")}</SelectItem>
                 <SelectItem value="30d">{ui("30 ngày qua")}</SelectItem>
                 <SelectItem value="90d">{ui("90 ngày qua")}</SelectItem>
-                <SelectItem value="all">{ui("Tất cả")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -201,7 +199,7 @@ export function MeetingsPage() {
                 prominence="secondary"
                 onClick={() => {
                   setSearch("");
-                  applyFilters({ q: undefined, status: undefined, period: "all" });
+                  applyFilters({ q: undefined, status: undefined, period: undefined });
                 }}
               >
                 {ui("Xóa bộ lọc")}

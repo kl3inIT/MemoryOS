@@ -9,10 +9,10 @@ export const meetingsSearchSchema = z.object({
     )
     .catch(undefined),
   status: z.enum(["RECORDING", "TRANSCRIBING", "ENDED"]).optional().catch(undefined),
-  /** Absent means the last 30 days, the period the list opens with. */
-  period: z.enum(["90d", "all"]).optional().catch(undefined),
+  /** Absent means every meeting, which the list opens with. */
+  period: z.enum(["30d", "90d"]).optional().catch(undefined),
 });
 
 export type MeetingsSearch = z.output<typeof meetingsSearchSchema>;
 export type MeetingStatusFilter = NonNullable<MeetingsSearch["status"]>;
-export type MeetingPeriod = NonNullable<MeetingsSearch["period"]> | "30d";
+export type MeetingPeriod = NonNullable<MeetingsSearch["period"]>;

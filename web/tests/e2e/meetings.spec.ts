@@ -594,11 +594,12 @@ test("the list's search keeps a row of its own on a phone", async ({ page }) => 
 
 test("the list's filters live in the address, so a reload or Back keeps them", async ({ page }) => {
   await mockMeetings(page);
-  await page.goto("/meetings?status=ENDED&period=all");
+  await page.goto("/meetings?status=ENDED");
   const status = page.getByRole("combobox", { name: "Trạng thái" });
   await expect(status).toHaveText("Đã kết thúc", { timeout: 30_000 });
   const period = page.getByRole("combobox", { name: "Thời gian" });
-  await expect(period).toHaveText("Tất cả");
+  // The list opens with every meeting: no period is chosen until the person chooses one.
+  await expect(period).toHaveText("Mọi thời gian");
 
   await period.click();
   await page.getByRole("option", { name: "90 ngày qua" }).click();
