@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +41,7 @@ export function ChatSessionSettings({
 }) {
   const [configuring, setConfiguring] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
+  const filesOpener = useRef<HTMLElement | null>(null);
   // A phone keeps the conversation's title readable: Files and Share wait in the conversation menu.
   const compact = useIsMobile();
   if (!session) return null;
@@ -53,11 +54,19 @@ export function ChatSessionSettings({
         open={filesOpen}
         onOpenChange={setFilesOpen}
         trigger={!compact}
+        restoreFocusRef={filesOpener}
       />
       {!compact && <SharingDialog sessionId={session.id} />}
       <ChatSessionMenu
         session={session}
-        onShowFiles={compact ? () => setFilesOpen(true) : undefined}
+        onShowFiles={
+          compact
+            ? (menuButton) => {
+                filesOpener.current = menuButton;
+                setFilesOpen(true);
+              }
+            : undefined
+        }
         busy={busy}
         onChange={onChange}
         deleteSession={deleteSession}

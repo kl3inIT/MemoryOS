@@ -1,6 +1,6 @@
 import { ActionBarPrimitive, useAuiState } from "@assistant-ui/react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Square, Volume2 } from "lucide-react";
-import { IconButton } from "@/components/ui/icon-button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAutoPlayback } from "./use-chat-auto-playback";
@@ -17,23 +17,22 @@ export function ChatReadAloudButton() {
   if (status === undefined)
     return (
       <ActionBarPrimitive.Speak asChild>
-        <IconButton aria-label={ui("Đọc thành tiếng")} tooltip prominence="internal" size="sm">
+        <TooltipIconButton aria-label={ui("Đọc thành tiếng")} prominence="internal" size="sm">
           <Volume2 />
-        </IconButton>
+        </TooltipIconButton>
       </ActionBarPrimitive.Speak>
     );
   const loading = status === "starting";
   return (
     <ActionBarPrimitive.StopSpeaking asChild>
-      <IconButton
+      <TooltipIconButton
         aria-label={ui("Dừng đọc")}
         aria-busy={loading || undefined}
-        tooltip
         prominence="internal"
         size="sm"
       >
         {loading ? <Spinner aria-hidden="true" /> : <Square />}
-      </IconButton>
+      </TooltipIconButton>
     </ActionBarPrimitive.StopSpeaking>
   );
 }

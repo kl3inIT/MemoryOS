@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { useAuiState } from "@assistant-ui/react";
 import { Search } from "lucide-react";
 import { ConversationSearch } from "@/components/assistant-ui/elements/conversation-search";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 
 import { findConversationHits } from "./chat-conversation-matches";
@@ -34,9 +34,9 @@ export function ChatConversationSearch() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <IconButton size="sm" prominence="internal" aria-label={ui("Tìm trong hội thoại")} tooltip>
+        <TooltipIconButton size="sm" prominence="internal" aria-label={ui("Tìm trong hội thoại")}>
           <Search />
-        </IconButton>
+        </TooltipIconButton>
       </PopoverTrigger>
       <PopoverContent
         align="end"

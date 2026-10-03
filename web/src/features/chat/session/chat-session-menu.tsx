@@ -65,8 +65,8 @@ export function ChatSessionMenu({
   archiveSession?: (archived: boolean) => Promise<void>;
   onDelete?: () => void;
   onArchive?: (archived: boolean) => void;
-  /** Opens the conversation's files; a phone header has no room for their own button. */
-  onShowFiles?: () => void;
+  /** Opens the conversation's files from this menu's button, where focus returns; a phone has no room for theirs. */
+  onShowFiles?: (menuButton: HTMLElement | null) => void;
   busy?: boolean;
 }) {
   const ui = useAppTranslation();
@@ -125,7 +125,7 @@ export function ChatSessionMenu({
         >
           <DropdownMenuGroup>
             {onShowFiles && (
-              <DropdownMenuItem onSelect={onShowFiles}>
+              <DropdownMenuItem onSelect={() => onShowFiles(trigger.current)}>
                 <Paperclip />
                 {ui("Tệp trong hội thoại")}
               </DropdownMenuItem>

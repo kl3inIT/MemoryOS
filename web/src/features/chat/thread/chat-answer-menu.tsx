@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { ActionBarMorePrimitive as More } from "@assistant-ui/react";
 import { GitBranch, MoreHorizontal } from "lucide-react";
-import { IconButton } from "@/components/ui/icon-button";
 import { useChatModels } from "@/features/chat/chat-models";
 import { useChatBranch } from "./use-chat-branch";
 
@@ -33,16 +33,15 @@ export function ChatAnswerMenu({
     <>
       <More.Root>
         <More.Trigger asChild>
-          <IconButton
+          <TooltipIconButton
             size="sm"
             prominence="internal"
             aria-label={ui("Thao tác khác")}
-            tooltip
             pending={branch.pending}
             disabled={disabled || branch.pending}
           >
             <MoreHorizontal />
-          </IconButton>
+          </TooltipIconButton>
         </More.Trigger>
         <More.Content
           align="start"

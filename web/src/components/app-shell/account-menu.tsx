@@ -28,9 +28,11 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { displayName, tenant } = useApplicationSession();
   const { canAccessAdmin, adminEntryPath } = useAdminAccess();
   const membershipLabel = t(tenant.role === "OWNER" ? "owner" : "member");
-  const accountDisplayName = displayName ?? tenant.displayName;
+  // A blank name from the identity provider is no name.
+  const personName = displayName?.trim() || null;
+  const accountDisplayName = personName ?? tenant.displayName;
   // The button names the person; the role answers only while the identity provider has sent no name.
-  const buttonLabel = displayName ?? membershipLabel;
+  const buttonLabel = personName ?? membershipLabel;
   const initials = accountDisplayName
     .trim()
     .split(/\s+/)

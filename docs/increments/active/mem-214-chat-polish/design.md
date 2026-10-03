@@ -12,16 +12,17 @@ Third fix batch of the 2026-10-02 UI critique; frontend only. Owner decisions 20
 
 ## Design
 
-- **`IconButton` names itself on hover and focus.** A `tooltip` prop shows the button's `aria-label` in the registry `Tooltip` under its own `TooltipProvider` (300 ms), as `SourceHint` does, so it works in the shell header too; the visible hint and the accessible name are the same text. The Chat actions use it instead of `title`: copy, thumbs, regenerate, edit question, branch, search in the conversation, files and the conversation menu.
+- **Icon actions name themselves on hover and focus.** `TooltipIconButton` (`components/composites`) is an `IconButton` that shows its `aria-label` in the registry `Tooltip` under its own `TooltipProvider` (300 ms), as `SourceHint` does, so it works in the shell header too; the visible hint and the accessible name are the same text. The Chat actions use it instead of `title`: copy, read aloud, thumbs, regenerate, edit question, branch, search in the conversation and files. It is a composite rather than an `IconButton` prop because `IconButton` is in the initial load: a first version put the tooltip there and pulled its positioning code into the entry chunk (+12 KiB gzip, over the 315.4 KiB budget); the composite loads with Chat, and the initial load stays at 312.7 KiB.
 - **A lighter answer bar.** *Regenerate with another model* and *Branch into a new chat* move into one "…" menu after regenerate (`ChatAnswerMenu`, assistant-ui `ActionBarMorePrimitive` like the menu it replaces). The bar reads copy, (read aloud), Sources, thumbs up, thumbs down, regenerate, "…". The branch mutation becomes `useChatBranch`, shared with the question's branch icon; a branch in progress shows on the "…" trigger and its failure under the bar.
 - **Temporary chat says what it is.** The toggle shows *Chat tạm thời* beside its icon at every width (it is the new chat header's only action), with one accessible name and `aria-pressed` for its state.
 - **The account button shows the person.** It shows the display name and falls back to the role when the identity provider sent none; the menu keeps name and role.
 - **A phone header keeps the title.** Below `md` the conversation header shows search and "…" only: Share already sits in "…", and *Tệp trong hội thoại* joins it there, opening the same sheet.
-- **Focus returns to the menu.** `FormDialog` takes a `restoreFocusRef`, as `ConfirmDialog` does, so Share opened from the "…" menu (the only way on a phone) returns focus to that menu's trigger on close.
+- **Focus returns to the menu.** `FormDialog` takes a `restoreFocusRef`, as `ConfirmDialog` does, so Share opened from the "…" menu (the only way on a phone) returns focus to that menu's trigger on close; the files sheet opened from the same menu does the same through its `SheetContent` `onCloseAutoFocus`.
+- **A blank name is no name.** The account button trims the identity provider's display name and shows the role when it is blank.
 
 ## Reuse
 
-Registry `Tooltip`/`TooltipProvider`; assistant-ui `ActionBarMorePrimitive`; `useIsMobile`; the existing `SharingDialog`, `ChatSessionFiles` sheet and `ChatSessionMenu`.
+Registry `Tooltip`/`TooltipProvider` and `IconButton` (unchanged); assistant-ui `ActionBarMorePrimitive`; `useIsMobile`; the existing `SharingDialog`, `ChatSessionFiles` sheet and `ChatSessionMenu`.
 
 ## Out of scope
 

@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { GitBranch } from "lucide-react";
-import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { useChatBranch } from "./use-chat-branch";
@@ -21,17 +21,16 @@ export function ChatBranchAction({
   const branch = useChatBranch({ sessionId, messageId, originTitle });
   return (
     <>
-      <IconButton
+      <TooltipIconButton
         size="sm"
         prominence="internal"
         aria-label={ui("Tách sang hội thoại mới")}
-        tooltip
         pending={branch.pending}
         disabled={disabled || branch.pending}
         onClick={branch.start}
       >
         <GitBranch />
-      </IconButton>
+      </TooltipIconButton>
       {branch.error && (
         <p role="alert" className="text-xs text-status-danger-content">
           {branch.error}

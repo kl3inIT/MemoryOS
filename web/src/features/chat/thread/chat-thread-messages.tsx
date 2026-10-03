@@ -1,4 +1,5 @@
 import { use, type ReactNode } from "react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Link } from "@tanstack/react-router";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ApplicationSessionContext } from "@/features/identity/application-session-context";
@@ -13,7 +14,6 @@ import { Copy, FileX, ShieldAlert } from "lucide-react";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 import { ErrorState } from "@/components/assistant-ui/elements/error-state";
-import { IconButton } from "@/components/ui/icon-button";
 import {
   ChatMarkdownLink,
   ChatSources,
@@ -195,14 +195,13 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
             }
           >
             <ActionBarPrimitive.Copy asChild>
-              <IconButton
+              <TooltipIconButton
                 aria-label={ui("Sao chép câu trả lời")}
-                tooltip
                 prominence="internal"
                 size="sm"
               >
                 <Copy />
-              </IconButton>
+              </TooltipIconButton>
             </ActionBarPrimitive.Copy>
             <ChatReadAloudButton />
           </AuiIf>

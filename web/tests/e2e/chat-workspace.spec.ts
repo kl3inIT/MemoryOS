@@ -639,6 +639,12 @@ test("shares in one dialog with manual copying fallback and restores keyboard fo
   await page.screenshot({ path: "../.tmp/mem11-ui-sharing-mobile.png", fullPage: true });
   await page.getByRole("button", { name: "Đóng", exact: true }).click();
   await expect(share).toBeFocused();
+  // The files sheet opened from the same menu returns focus to it too.
+  await share.click();
+  await page.getByRole("menuitem", { name: "Tệp trong hội thoại" }).click();
+  await expect(page.getByRole("dialog", { name: "Tệp trong hội thoại" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(share).toBeFocused();
 });
 
 test("keeps feedback drafts on failure, reloads the saved reaction and removes it", async ({

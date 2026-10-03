@@ -116,6 +116,12 @@ it("names the person on the account button and keeps the role in its menu", asyn
 
   expect(await screen.findByText("Member")).toBeInTheDocument();
 });
+
+it("names the role on the account button when the identity provider sent a blank name", async () => {
+  await renderShell("/admin/audit", ["AUDIT_READ"], "   ");
+
+  expect(await screen.findByRole("button", { name: "Member" })).toBeInTheDocument();
+});
 it("keeps the sidebar mounted while moving between administration pages", async () => {
   const user = userEvent.setup();
   await renderShell("/admin/chat-history", ["AUDIT_READ", "CHAT_HISTORY_READ"]);

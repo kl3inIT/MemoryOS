@@ -9,7 +9,6 @@ import {
   type ActionTone,
 } from "@/components/ui/action-styles";
 import { Spinner } from "@/components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const iconButtonSizes = cva(
@@ -42,8 +41,6 @@ type IconButtonProps = Omit<
     pending?: boolean;
     tone?: ActionTone;
     prominence?: ActionProminence;
-    /** Shows the button's `aria-label` on hover and keyboard focus, so sight and speech name it alike. */
-    tooltip?: boolean;
   };
 
 function IconButton({
@@ -61,7 +58,6 @@ function IconButton({
   onKeyDownCapture,
   tabIndex,
   type,
-  tooltip = false,
   ...props
 }: IconButtonProps) {
   const Comp = asChild ? Slot.Root : "button";
@@ -69,7 +65,7 @@ function IconButton({
   const blockedAsChild = asChild && blocked;
   const renderedChildren = blockedAsChild ? disableActionChild(children) : children;
 
-  const button = (
+  return (
     <Comp
       {...props}
       onClick={blockedAsChild ? undefined : onClick}
@@ -90,17 +86,6 @@ function IconButton({
     >
       {pending && !asChild ? <Spinner aria-hidden="true" /> : renderedChildren}
     </Comp>
-  );
-  const hint = props["aria-label"];
-  if (!tooltip || !hint) return button;
-  // Its own provider, as `SourceHint` has, so the hint works in the shell header and outside any provider.
-  return (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent>{hint}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
   );
 }
 

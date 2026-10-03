@@ -1,9 +1,9 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { use, useRef, useState, type ReactNode } from "react";
 import { useAuiState } from "@assistant-ui/react";
 import { Pencil } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconButton } from "@/components/ui/icon-button";
 import { EditMessage } from "@/components/assistant-ui/elements/edit-message";
 import { MessageBranches } from "@/components/assistant-ui/elements/message-branches";
 import { MessageActions, type Reaction } from "@/components/assistant-ui/elements/message-actions";
@@ -119,16 +119,15 @@ export function ChatUserMessageContent({
       )}
       {available && !editor && (
         <div className="mt-1 flex items-center gap-1">
-          <IconButton
+          <TooltipIconButton
             aria-label={ui("Chỉnh sửa câu hỏi")}
-            tooltip
             size="sm"
             prominence="internal"
             disabled={editing.busy}
             onClick={openEditor}
           >
             <Pencil />
-          </IconButton>
+          </TooltipIconButton>
           <ChatMessageActions author="user" />
         </div>
       )}

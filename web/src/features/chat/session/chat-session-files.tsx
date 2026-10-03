@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAui, useAuiState } from "@assistant-ui/react";
 import {
@@ -178,6 +179,7 @@ export function ChatSessionFiles({
   open: controlledOpen,
   onOpenChange,
   trigger = true,
+  restoreFocusRef,
 }: {
   sessionId: string;
   /** Scrolls the transcript to a message, switching versions when it is on another branch. */
@@ -187,6 +189,8 @@ export function ChatSessionFiles({
   onOpenChange?: (open: boolean) => void;
   /** Whether the paperclip button shows; a phone reaches the sheet from the conversation menu instead. */
   trigger?: boolean;
+  /** Where focus returns on close when the sheet was opened from elsewhere, such as that menu's button. */
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const ui = useAppTranslation();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -224,13 +228,12 @@ export function ChatSessionFiles({
   return (
     <>
       {trigger && (
-        <IconButton
+        <TooltipIconButton
           size="sm"
           prominence="internal"
           aria-label={
             count > 0 ? ui("Tệp trong hội thoại ({{count}})", { count }) : ui("Tệp trong hội thoại")
           }
-          tooltip
           onClick={() => setOpen(true)}
           className="relative"
         >
@@ -243,10 +246,18 @@ export function ChatSessionFiles({
               {count > 99 ? "99+" : count}
             </span>
           )}
-        </IconButton>
+        </TooltipIconButton>
       )}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right">
+        <SheetContent
+          side="right"
+          onCloseAutoFocus={(event) => {
+            const target = restoreFocusRef?.current;
+            if (!target?.isConnected) return;
+            event.preventDefault();
+            target.focus();
+          }}
+        >
           <SheetHeader>
             <SheetTitle>{ui("Tệp trong hội thoại")}</SheetTitle>
             <SheetDescription>
