@@ -1,5 +1,4 @@
 import { fileURLToPath, URL } from "node:url";
-import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
@@ -8,13 +7,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { defineConfig, type Plugin, type ProxyOptions } from "vite";
 
 const apiTarget = process.env.MEMORYOS_API_URL ?? "http://127.0.0.1:18080";
-const sentryBuildConfiguration = {
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  release: process.env.SENTRY_RELEASE,
-};
-const sentrySourceMapsEnabled = Object.values(sentryBuildConfiguration).every(Boolean);
 const apiProxy: ProxyOptions = {
   target: apiTarget,
   changeOrigin: false,
@@ -88,21 +80,6 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react(),
-    sentryVitePlugin({
-      authToken: sentryBuildConfiguration.authToken,
-      org: sentryBuildConfiguration.org,
-      project: sentryBuildConfiguration.project,
-      disable: !sentrySourceMapsEnabled,
-      telemetry: false,
-      release: {
-        name: sentryBuildConfiguration.release,
-        setCommits: false,
-      },
-      sourcemaps: {
-        assets: "./dist/**",
-        filesToDeleteAfterUpload: "./dist/**/*.map",
-      },
-    }),
   ],
   resolve: {
     alias: {
@@ -116,7 +93,6 @@ export default defineConfig({
   },
   build: {
     assetsInlineLimit: 0,
-    sourcemap: sentrySourceMapsEnabled ? "hidden" : false,
   },
   server: {
     host: "127.0.0.1",

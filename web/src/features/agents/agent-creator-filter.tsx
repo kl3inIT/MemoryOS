@@ -81,7 +81,7 @@ export function AgentCreatorFilter({
       {value.length > 0 && (
         <IconButton
           prominence="secondary"
-          aria-label={ui("Xoá bộ lọc người tạo")}
+          aria-label={ui("Xóa bộ lọc người tạo")}
           onClick={() => onChange([])}
         >
           <X />

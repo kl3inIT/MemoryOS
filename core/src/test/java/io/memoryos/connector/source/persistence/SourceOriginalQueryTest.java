@@ -37,8 +37,8 @@ class SourceOriginalQueryTest {
             var original = original(repository, tenant, reader, document).orElseThrow();
             assertEquals("handbook.pdf", original.filename());
             assertEquals(SHA, original.metadata().checksum().value());
-            assertEquals("drive-file-0001", repository.sourceMetadata(tenant, List.of(document), reader, null)
-                    .get(document).getFirst().providerFileId());
+            assertEquals("FILE drive-file-0001 null", repository.sourceMetadata(tenant, List.of(document), reader, null,
+                    (type, file, url) -> type + " " + file + " " + url).get(document).getFirst().providerUrl());
 
             // A stranger outside the Tenant has no readable mapping.
             var stranger = new ActorId(UUID.randomUUID());

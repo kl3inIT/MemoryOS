@@ -15,6 +15,7 @@ import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -23,6 +24,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -64,11 +66,11 @@ public class DocumentSearchService {
             List<SearchHit> raw;
             if (request.documentSetIds().isEmpty()) {
                 var tokens = timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.accessTokens(tenant, actor));
-                raw = search.search(tenant, actor, request.query(), request.mediaTypes(), request.updatedSince(), tokens);
+                raw = search.search(tenant, actor, request.query(), request.mediaTypes(), request.updated(), tokens);
             } else {
                 scope = timings.measure(SearchTimings.Stage.PREFETCH, () -> documentSets.narrow(actor, request.documentSetIds()));
                 if (!tenant.equals(scope.tenant())) throw new SearchDocumentUnavailableException();
-                raw = search.search(scope, request.query(), request.mediaTypes(), request.updatedSince());
+                raw = search.search(scope, request.query(), request.mediaTypes(), request.updated());
             }
             var hits = authorized(actor, tenant, raw);
             requireSearchAccess(actor, tenant);
@@ -81,24 +83,33 @@ public class DocumentSearchService {
                 return new SearchPage.Result(best.documentId(), best.generation(), best.title(), best.mediaType(),
                         best.updatedAt(), best.score(), mergeSections(group));
             }).toList();
-            // Connector counts, the connector filter and page metadata all come from the Source mappings this actor may
-            // read, so a connector the actor cannot read is neither counted nor matched.
+            // Connector counts, the connector and date filters and page metadata all come from the Source mappings this
+            // actor may read, so a connector the actor cannot read is neither counted nor matched. The index applied the
+            // date window already; this repeats it on the readable origins, and the connector counts follow it.
             var origins = scope == null ? readableOrigins(actor, candidates) : readableOrigins(scope, candidates);
-            var all = request.sourceTypes().isEmpty() ? candidates : candidates.stream()
-                    .filter(result -> origins.getOrDefault(result.documentId(), List.of()).stream()
-                            .anyMatch(origin -> request.sourceTypes().contains(origin.type())))
-                    .toList();
+            var now = Instant.now();
+            var dated = request.updated() == null ? candidates
+                    : matching(candidates, origins, new SearchFilters(Set.of(), null, request.updated()), now);
+            var all = request.sourceTypes().isEmpty() ? dated
+                    : matching(dated, origins, new SearchFilters(Set.copyOf(request.sourceTypes()), null, request.updated()), now);
             int start = Math.min(request.page() * request.pageSize(), all.size());
             int end = Math.min(start + request.pageSize(), all.size());
             var results = all.subList(start, end).stream()
                     .map(result -> result.withOrigins(origins.getOrDefault(result.documentId(), List.of()))).toList();
             outcome = "success";
             return new SearchPage(results, request.page(), end < all.size(), all.size(), search.candidateLimit(),
-                    sourceFacets(candidates, origins));
+                    sourceFacets(dated, origins));
         } finally {
             metrics.timer("memoryos.search.query.duration", "outcome", outcome)
                     .record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
         }
+    }
+
+    /** The results with a readable origin that matches every one of {@code filters} at once. */
+    private static List<SearchPage.Result> matching(List<SearchPage.Result> results,
+            Map<UUID, List<DocumentSourceMetadata>> origins, SearchFilters filters, Instant now) {
+        return results.stream().filter(result -> origins.getOrDefault(result.documentId(), List.of()).stream()
+                .anyMatch(origin -> filters.matches(origin, now))).toList();
     }
 
     private Map<UUID, List<DocumentSourceMetadata>> readableOrigins(ActorId actor, List<SearchPage.Result> candidates) {
@@ -191,6 +202,25 @@ public class DocumentSearchService {
     /** Search reader: requires SEARCH_READ plus current document eligibility. */
     public SearchDocument document(ActorId actor, UUID id, UUID generation, int from) {
         return read(actor, IamCapability.SEARCH_READ, id, generation, from);
+    }
+
+    /**
+     * MEM-114 reader for a caller that holds only a Document id: the Document's current generation, under the same
+     * checks as {@link #document}. A Document without a ready generation is as unavailable as one the actor may not read.
+     */
+    public SearchDocument currentDocument(ActorId actor, UUID id, int from) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        var generation = documents.currentGenerations(tenant, List.of(id), search.identity()).get(id);
+        if (generation == null) throw new SearchDocumentUnavailableException();
+        return document(actor, id, generation, from);
+    }
+
+    /** Where the actor opens the Document in its provider, from the Source mappings they may read; empty for uploads. */
+    public Optional<String> providerUrl(ActorId actor, UUID id) {
+        tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        authorization.require(actor, IamCapability.SEARCH_READ, false);
+        var origins = sourceSearch.readableMetadata(sourceSearch.scope(actor), List.of(id)).getOrDefault(id, List.of());
+        return Optional.ofNullable(DocumentSourceMetadata.providerUrl(origins));
     }
 
     /** Chat citation reader: Basic access (active membership) plus current document eligibility; no capability token. */

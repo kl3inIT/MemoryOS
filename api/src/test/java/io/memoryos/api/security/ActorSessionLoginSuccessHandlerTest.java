@@ -61,6 +61,17 @@ class ActorSessionLoginSuccessHandlerTest {
         assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
+
+    @Test
+    void fallsBackToKeycloakGivenAndFamilyNamesWhenTheBrokerDoesNotEmitName() throws Exception {
+        handler(new SignInOutcome.NotAdmitted()).onAuthenticationSuccess(
+                sessionRequest(),
+                new MockHttpServletResponse(),
+                login(Map.of(), Map.of("sub", "member", "given_name", "Nhữ", "family_name", "Nhật"))
+        );
+
+        assertEquals("Nhữ Nhật", seen.get().displayName());
+    }
     @Test
     void passesTheSignedClaimAndInvitationContinuationAndSignsInTheAdmittedActorOnly() throws Exception {
         var actor = new ActorId(UUID.randomUUID());

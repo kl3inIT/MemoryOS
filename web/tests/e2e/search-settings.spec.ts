@@ -144,7 +144,14 @@ type Mock = {
   onPoll?: (mock: Mock) => void;
 };
 
+/**
+ * The day after the rebuild in these fixtures. Restore is offered only while an index is retained, so the browser's
+ * clock is fixed: with the real date, the retention dates below pass and the button stays disabled.
+ */
+const NOW = new Date("2026-09-24T03:00:00Z");
+
 async function install(page: Page, initial: Partial<SearchSettingsResponse> = {}) {
+  await page.clock.setFixedTime(NOW);
   const mock: Mock = {
     settings: { present, future: null, past: [], rebuild: null, ...initial },
     providers: [openAi, serving],
@@ -395,7 +402,7 @@ for (const width of [1440, 390]) {
       await open(page, width);
       const past = page.getByRole("region", { name: "Index cũ" });
       await expect(past.getByText("BAAI/bge-m3")).toBeVisible();
-      await expect(past.getByText("Không xoá được index")).toBeVisible();
+      await expect(past.getByText("Không xóa được index")).toBeVisible();
       await expect(
         past.getByRole("button", { name: "Hoàn tác về text-embedding-3-small" }),
       ).toBeDisabled();
@@ -455,9 +462,9 @@ for (const width of [1440, 390]) {
       await expect(editor.getByRole("button", { name: "Lưu provider" })).toBeDisabled();
       await editor.getByRole("button", { name: "Đóng", exact: true }).click();
 
-      await providers.getByRole("button", { name: "Xoá provider OpenAI" }).click();
-      const confirm = page.getByRole("alertdialog", { name: "Xoá provider OpenAI?" });
-      await confirm.getByRole("button", { name: "Xoá provider" }).click();
+      await providers.getByRole("button", { name: "Xóa provider OpenAI" }).click();
+      const confirm = page.getByRole("alertdialog", { name: "Xóa provider OpenAI?" });
+      await confirm.getByRole("button", { name: "Xóa provider" }).click();
       await expect(
         confirm.getByText(
           "Provider đang được một index dùng. Generation text-embedding-3-large (PRESENT) uses this provider.",

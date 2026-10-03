@@ -6,6 +6,7 @@ import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
 import { DocumentMeta } from "@/features/documents/provider-link";
 import { ChatPanelContext as PanelContext } from "@/features/chat/thread/chat-panel-context";
+import { fileArtifactUrl } from "@/features/library/content-urls";
 import type { ChatSource } from "./chat-evidence";
 import { EvidenceContext } from "./chat-evidence-context";
 import { SourceExcerpt } from "./chat-source-excerpt";
@@ -46,7 +47,7 @@ function Citation({ source }: { source: ChatSource }) {
           <div className="flex min-w-0 items-start gap-3">
             {source.web ? (
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle">
-                <SourceIcon domain={webHost!} fallback="globe" />
+                <SourceIcon domain={webHost!} />
               </span>
             ) : (
               <DocumentSourceIcon
@@ -111,7 +112,12 @@ function textOf(node: ReactNode): string {
   return "file";
 }
 
+// Onyx extractChatImageFileId: a generated file linked under an image file name is shown in the answer itself,
+// for the types its content route serves inline.
+const INLINE_IMAGE = /\.(png|jpe?g|webp)$/i;
+
 export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
+  const ui = useAppTranslation();
   const { sources } = use(EvidenceContext);
   const panel = use(PanelContext);
   const citation = /^#citation-(\d{1,2})$/.exec(href ?? "");
@@ -124,28 +130,40 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
   const generatedId = /^\/api\/chat\/file-artifacts\/([0-9a-fA-F-]{36})\/content$/.exec(
     href ?? "",
   )?.[1];
-  if (generatedId)
+  if (generatedId) {
+    const filename = typeof children === "string" ? children : textOf(children);
+    const target = { source: "generated" as const, id: generatedId, filename };
+    if (INLINE_IMAGE.test(filename.trim()))
+      return (
+        <button
+          type="button"
+          data-slot="generated-image"
+          aria-haspopup="dialog"
+          aria-label={ui("Xem trước {{file}}", { file: filename })}
+          onClick={(event) => panel.previewFile(target, event.currentTarget)}
+          className="my-2 block max-w-full cursor-zoom-in overflow-hidden rounded-lg border border-border-subtle bg-surface-document focus-visible:ring-3 focus-visible:ring-focus-ring/30 focus-visible:outline-hidden"
+        >
+          <img
+            src={fileArtifactUrl(generatedId)}
+            alt={filename}
+            loading="lazy"
+            className="max-h-96 w-auto max-w-full object-contain"
+          />
+        </button>
+      );
     return (
       // Onyx MemoizedTextComponents: a link to a chat file opens the preview instead of downloading.
       <button
         type="button"
         data-slot="generated-file"
         aria-haspopup="dialog"
-        onClick={(event) =>
-          panel.previewFile(
-            {
-              source: "generated",
-              id: generatedId,
-              filename: typeof children === "string" ? children : textOf(children),
-            },
-            event.currentTarget,
-          )
-        }
+        onClick={(event) => panel.previewFile(target, event.currentTarget)}
         className="inline cursor-pointer text-primary underline underline-offset-2"
       >
         {children}
       </button>
     );
+  }
   if (!href || !/^https?:\/\//i.test(href)) return <span>{children}</span>;
   const domain = new URL(href).hostname.replace(/^www\./, "");
   // Only hostnames of this answer's Web sources may reach the favicon service; other links,
@@ -164,7 +182,7 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
       title={href}
       className="mx-0.5 inline-flex max-w-64 items-center gap-1.5 rounded-md border border-border-default px-1.5 py-0.5 align-middle text-xs text-content-secondary no-underline transition-colors hover:bg-surface-sunken hover:text-content-primary"
     >
-      <SourceIcon domain={domain} favicon={webSource} />
+      <SourceIcon domain={domain} brand={webSource} />
       <span data-slot="source-title" className="truncate">
         {label}
       </span>

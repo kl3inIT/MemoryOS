@@ -1,5 +1,6 @@
 package io.memoryos.ai.openai;
 
+import io.memoryos.ai.TokenizerProfiles;
 import io.memoryos.ai.AiException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;

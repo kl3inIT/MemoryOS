@@ -34,10 +34,6 @@ public record ChatResearch(boolean clarification, @Nullable String plan, List<Ag
         }
     }
 
-    public ChatResearch(boolean clarification, @Nullable String plan) {
-        this(clarification, plan, List.of());
-    }
-
     public ChatResearch {
         agents = List.copyOf(agents == null ? List.of() : agents);
         if (plan != null && (plan.isEmpty() || plan.length() > MAX_PLAN) || agents.size() > MAX_AGENTS)

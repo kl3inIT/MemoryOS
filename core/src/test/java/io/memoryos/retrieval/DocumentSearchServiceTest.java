@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -68,7 +69,7 @@ class DocumentSearchServiceTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         when(index.identity()).thenReturn("space");
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation));
-        var result = new SearchDocument(document, generation, "Private", List.of(), 5, 8, false);
+        var result = new SearchDocument(document, generation, "Private", "text/plain", List.of(), 5, 8, false);
         when(index.document(tenant, document, generation, 5, 20)).thenReturn(result);
         assertEquals(result, service.fileDocument(actor, tenant, Map.of(file, document), document, generation, 5));
         assertThrows(SearchDocumentUnavailableException.class, () -> service.fileDocument(actor, tenant, Map.of(file, document), document, UUID.randomUUID(), 5));
@@ -91,7 +92,7 @@ class DocumentSearchServiceTest {
                 hit(second, generation, 0, .9), hit(first, generation, 2, .9), hit(first, generation, 1, .9)));
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(first, generation, second, generation, hidden, generation));
         when(access.readableDocuments(any(), any())).thenReturn(Set.of(first, second));
-        var page = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 0, 1, List.of(), List.of()));
+        var page = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, null, 0, 1, List.of(), List.of()));
         assertEquals(1, page.results().size()); assertTrue(page.hasMore()); assertEquals(2, page.totalResults());
         assertEquals(first, page.results().getFirst().documentId());
         var section = page.results().getFirst().sections().getFirst();
@@ -100,7 +101,7 @@ class DocumentSearchServiceTest {
         assertEquals(2, section.endOrdinal());
         assertEquals(1, section.matchingOrdinal());
         assertEquals("Passage 1\nPassage 2", section.content());
-        var next = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 1, 1, List.of(), List.of()));
+        var next = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, null, 1, 1, List.of(), List.of()));
         assertEquals(second, next.results().getFirst().documentId()); assertFalse(next.hasMore()); assertEquals(2, next.totalResults());
         assertEquals(0, next.results().getFirst().sections().getFirst().startOrdinal());
         assertEquals(0, next.results().getFirst().sections().getFirst().endOrdinal());
@@ -112,7 +113,7 @@ class DocumentSearchServiceTest {
         givenHits(document, List.of(hit(document, generation, 11, .95), hit(document, generation, 40, .9),
                 hit(document, generation, 10, .5), hit(document, generation, 11, .4)));
 
-        var result = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 0, 10, List.of(), List.of())).results().getFirst();
+        var result = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, null, 0, 10, List.of(), List.of())).results().getFirst();
 
         assertEquals(.95, result.score());
         assertEquals(2, result.sections().size());
@@ -131,7 +132,7 @@ class DocumentSearchServiceTest {
                 hit(document, generation, 30, .8), hit(document, generation, 20, .7),
                 hit(document, generation, 12, .3), hit(document, generation, 11, .2), hit(document, generation, 10, .1)));
 
-        var sections = service.search(actor, new SearchRequest("leave", List.of(), null, 0, 10, List.of(), List.of()))
+        var sections = service.search(actor, new SearchRequest("leave", List.of(), null, null, 0, 10, List.of(), List.of()))
                 .results().getFirst().sections();
 
         assertEquals(List.of(10, 40, 30), sections.stream().map(SearchPage.Section::startOrdinal).toList());
@@ -146,7 +147,7 @@ class DocumentSearchServiceTest {
         var document = UUID.randomUUID();
         givenHits(document, List.of(hit(document, generation, 12, .9), hit(document, generation, 10, .9)));
 
-        var sections = service.search(actor, new SearchRequest("leave", List.of(), null, 0, 10, List.of(), List.of()))
+        var sections = service.search(actor, new SearchRequest("leave", List.of(), null, null, 0, 10, List.of(), List.of()))
                 .results().getFirst().sections();
 
         assertEquals(List.of(10, 12), sections.stream().map(SearchPage.Section::startOrdinal).toList());
@@ -172,12 +173,12 @@ class DocumentSearchServiceTest {
         var facets = new SearchPage.SourceFacets(3, List.of(
                 new SearchPage.SourceTypeFacet(SourceType.FILE, 2), new SearchPage.SourceTypeFacet(SourceType.GOOGLE_DRIVE, 2)));
 
-        var everything = service.search(actor, new SearchRequest("báo cáo", List.of(), null, 0, 1, List.of(), List.of()));
+        var everything = service.search(actor, new SearchRequest("báo cáo", List.of(), null, null, 0, 1, List.of(), List.of()));
         assertEquals(3, everything.totalResults());
         assertEquals(facets, everything.sourceFacets());
         assertEquals(List.of(SourceType.FILE), everything.results().getFirst().sourceTypes());
 
-        var driveOnly = service.search(actor, new SearchRequest("báo cáo", List.of(), null, 0, 10, List.of(SourceType.GOOGLE_DRIVE), List.of()));
+        var driveOnly = service.search(actor, new SearchRequest("báo cáo", List.of(), null, null, 0, 10, List.of(SourceType.GOOGLE_DRIVE), List.of()));
         assertEquals(List.of(drive, both), driveOnly.results().stream().map(SearchPage.Result::documentId).toList());
         assertEquals(2, driveOnly.totalResults());
         assertFalse(driveOnly.hasMore());
@@ -202,10 +203,66 @@ class DocumentSearchServiceTest {
         var origin = new DocumentSourceMetadata(source, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of());
         when(sourceSearch.readableMetadata(scope, List.of(document))).thenReturn(Map.of(document, List.of(origin)));
 
-        var page = service.search(actor, new SearchRequest("payroll", List.of(), null, 0, 10, List.of(), List.of(set)));
+        var page = service.search(actor, new SearchRequest("payroll", List.of(), null, null, 0, 10, List.of(), List.of(set)));
 
         assertEquals(List.of(document), page.results().stream().map(SearchPage.Result::documentId).toList());
         verify(index).search(scope, "payroll", List.of(), null);
+    }
+
+    @Test
+    void anUpdateWindowKeepsWhatTheProviderChangedInsideItAndShowsThatDate() {
+        UUID recent = UUID.randomUUID(), old = UUID.randomUUID(), undated = UUID.randomUUID();
+        var changed = Instant.parse("2026-09-20T08:00:00Z");
+        var scope = givenOrigins(Map.of(
+                recent, List.of(dated(SourceType.GOOGLE_DRIVE, changed)),
+                old, List.of(dated(SourceType.GOOGLE_DRIVE, Instant.parse("2020-01-01T00:00:00Z"))),
+                undated, List.of(dated(SourceType.SHAREPOINT, null))), recent, old, undated);
+        var from = Instant.parse("2026-09-01T00:00:00Z");
+
+        var page = service.search(actor, new SearchRequest("báo cáo", List.of(), from, null, 0, 10, List.of(), List.of()));
+
+        // The index wrote MemoryOS's own time on every hit; neither the window nor the result date reads it.
+        assertEquals(List.of(recent), page.results().stream().map(SearchPage.Result::documentId).toList());
+        assertEquals(changed, page.results().getFirst().updatedAt());
+        assertEquals(new SearchPage.SourceFacets(1, List.of(new SearchPage.SourceTypeFacet(SourceType.GOOGLE_DRIVE, 1))),
+                page.sourceFacets());
+        verify(index).search(any(), any(ActorId.class), any(), any(), eq(new SearchFilters.Interval(from, null)), any());
+        verify(sourceSearch).readableMetadata(scope, List.of(recent, old, undated));
+    }
+
+    @Test
+    void aSourceAndAnUpdateWindowMustHoldForTheSameOrigin() {
+        UUID mixed = UUID.randomUUID();
+        givenOrigins(Map.of(mixed, List.of(dated(SourceType.GOOGLE_DRIVE, Instant.parse("2020-01-01T00:00:00Z")),
+                dated(SourceType.SHAREPOINT, Instant.parse("2026-09-20T08:00:00Z")))), mixed);
+        var from = Instant.parse("2026-09-01T00:00:00Z");
+
+        var anySource = service.search(actor, new SearchRequest("báo cáo", List.of(), from, null, 0, 10, List.of(), List.of()));
+        var driveOnly = service.search(actor, new SearchRequest("báo cáo", List.of(), from, null, 0, 10,
+                List.of(SourceType.GOOGLE_DRIVE), List.of()));
+
+        assertEquals(1, anySource.totalResults());
+        assertEquals(0, driveOnly.totalResults());
+    }
+
+    private SourceSearchScope givenOrigins(Map<UUID, List<DocumentSourceMetadata>> origins, UUID... ranked) {
+        var tenant = new TenantId(UUID.randomUUID());
+        givenSearchAccess(tenant);
+        when(index.identity()).thenReturn("space"); when(index.candidateLimit()).thenReturn(500);
+        var hits = new ArrayList<SearchHit>();
+        for (int i = 0; i < ranked.length; i++) hits.add(hit(ranked[i], generation, 0, 1.0 - i * .1));
+        when(index.search(any(), any(ActorId.class), any(), any(), any(), any())).thenReturn(hits);
+        when(documents.currentGenerations(any(), any(), any())).thenReturn(
+                Set.of(ranked).stream().collect(Collectors.toMap(document -> document, _ -> generation)));
+        when(access.readableDocuments(any(), any())).thenReturn(Set.of(ranked));
+        var scope = new SourceSearchScope(tenant, actor, Map.of());
+        when(sourceSearch.scope(actor)).thenReturn(scope);
+        when(sourceSearch.readableMetadata(scope, List.of(ranked))).thenReturn(origins);
+        return scope;
+    }
+
+    private DocumentSourceMetadata dated(SourceType type, @Nullable Instant updatedAt) {
+        return new DocumentSourceMetadata(UUID.randomUUID(), UUID.randomUUID(), type, null, updatedAt, List.of());
     }
 
     private DocumentSourceMetadata origin(SourceType type) {
@@ -234,7 +291,7 @@ class DocumentSearchServiceTest {
                 .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant required"));
 
         var failure = assertThrows(IamException.class,
-                () -> service.search(actor, new SearchRequest("hello", List.of(), null, 0, 10, List.of(), List.of())));
+                () -> service.search(actor, new SearchRequest("hello", List.of(), null, null, 0, 10, List.of(), List.of())));
 
         assertEquals(IamFailureReason.ACCESS_DENIED.code(), failure.code());
         verifyNoInteractions(index, documents, access);
@@ -256,7 +313,7 @@ class DocumentSearchServiceTest {
     @Test
     void unprovisionedActorCannotReachProviderOrReadPassages() {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.empty());
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.search(actor, new SearchRequest("hello", List.of(), null, 0, 10, List.of(), List.of())));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.search(actor, new SearchRequest("hello", List.of(), null, null, 0, 10, List.of(), List.of())));
         assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, UUID.randomUUID(), generation, 0));
         verifyNoInteractions(index, documents, access, authorization);
     }
@@ -294,9 +351,9 @@ class DocumentSearchServiceTest {
         assertEquals(.7 / 52 + 1.0 / 51, result.hits().getFirst().score(), .000001);
         Mockito.clearInvocations(access);
         when(documents.isCurrent(tenant, new DocumentId(second), generation, "space")).thenReturn(true);
-        when(index.document(tenant, second, generation, 0, 1)).thenReturn(new SearchDocument(second, generation, "Title",
+        when(index.document(tenant, second, generation, 0, 1)).thenReturn(new SearchDocument(second, generation, "Title", "text/plain",
                 List.of(new SearchPage.Passage(0, "Passage 0", "[]")), 0, 4, true));
-        when(index.document(tenant, second, generation, 2, 2)).thenReturn(new SearchDocument(second, generation, "Title",
+        when(index.document(tenant, second, generation, 2, 2)).thenReturn(new SearchDocument(second, generation, "Title", "text/plain",
                 List.of(new SearchPage.Passage(2, "Passage 2", "[]")), 2, 3, false));
         assertEquals(List.of(0, 1, 2), service.window(result, result.sections().getFirst(), 2).stream().map(SearchPage.Passage::ordinal).toList());
         verifyNoInteractions(access);
@@ -315,7 +372,7 @@ class DocumentSearchServiceTest {
         when(index.identity()).thenReturn("space");
         when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
         when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
-        var window = new SearchDocument(id, generation, "Title", List.of(), 20, 20, false);
+        var window = new SearchDocument(id, generation, "Title", "text/plain", List.of(), 20, 20, false);
         when(index.document(tenant, id, generation, 20, 20)).thenReturn(window);
         assertEquals(window, service.document(actor, id, generation, 20));
         when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
@@ -334,7 +391,7 @@ class DocumentSearchServiceTest {
         when(index.identity()).thenReturn("space");
         when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
         when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
-        var window = new SearchDocument(id, generation, "Title", List.of(), 0, 1, false);
+        var window = new SearchDocument(id, generation, "Title", "text/plain", List.of(), 0, 1, false);
         when(index.document(tenant, id, generation, 0, 20)).thenReturn(window);
         assertEquals(window, service.citation(actor, id, generation, 0));
         assertThrows(IamException.class, () -> service.document(actor, id, generation, 0));
@@ -404,7 +461,7 @@ class DocumentSearchServiceTest {
                     .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant revoked"));
             return List.of();
         });
-        assertThrows(IamException.class, () -> service.search(actor, new SearchRequest("private", List.of(), null, 0, 10, List.of(), List.of())));
+        assertThrows(IamException.class, () -> service.search(actor, new SearchRequest("private", List.of(), null, null, 0, 10, List.of(), List.of())));
     }
 
     @Test
@@ -415,7 +472,7 @@ class DocumentSearchServiceTest {
             when(access.readableDocuments(any(), any())).thenReturn(Set.of());
             return List.of(hit(document, generation, 0, 1));
         });
-        assertTrue(service.search(actor, new SearchRequest("private", List.of(), null, 0, 10, List.of(), List.of())).results().isEmpty());
+        assertTrue(service.search(actor, new SearchRequest("private", List.of(), null, null, 0, 10, List.of(), List.of())).results().isEmpty());
     }
 
     @Test
@@ -428,7 +485,7 @@ class DocumentSearchServiceTest {
         when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
         when(index.document(tenant, id, generation, 0, 20)).thenAnswer(_ -> {
             when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
-            return new SearchDocument(id, generation, "Private", List.of(new SearchPage.Passage(0, "secret", "[]")), 0, 1, false);
+            return new SearchDocument(id, generation, "Private", "text/plain", List.of(new SearchPage.Passage(0, "secret", "[]")), 0, 1, false);
         });
         assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, id, generation, 0));
     }
@@ -444,7 +501,7 @@ class DocumentSearchServiceTest {
         when(index.document(tenant, id, generation, 0, 20)).thenAnswer(_ -> {
             when(authorization.require(actor, IamCapability.SEARCH_READ, false))
                     .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant revoked"));
-            return new SearchDocument(id, generation, "Private", List.of(), 0, 1, false);
+            return new SearchDocument(id, generation, "Private", "text/plain", List.of(), 0, 1, false);
         });
         assertThrows(IamException.class, () -> service.document(actor, id, generation, 0));
     }
@@ -491,11 +548,11 @@ class DocumentSearchServiceTest {
         Mockito.clearInvocations(documents, tenants);
         when(index.document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 1, 1)).thenAnswer(_ -> {
             when(sourceSearch.readableMetadata(fixture.scope(), List.of(fixture.hit().documentId()))).thenReturn(Map.of());
-            return new SearchDocument(fixture.hit().documentId(), generation, "Private",
+            return new SearchDocument(fixture.hit().documentId(), generation, "Private", "text/plain",
                     List.of(new SearchPage.Passage(1, "secret", "[]")), 1, 4, true);
         });
         when(index.document(fixture.scope().tenant(), fixture.hit().documentId(), generation, 3, 1)).thenReturn(new SearchDocument(
-                fixture.hit().documentId(), generation, "Private", List.of(new SearchPage.Passage(3, "after", "[]")), 3, 4, false));
+                fixture.hit().documentId(), generation, "Private", "text/plain", List.of(new SearchPage.Passage(3, "after", "[]")), 3, 4, false));
         assertEquals(List.of(1, 2, 3), service.window(fixture.results(), fixture.section(), 1).stream().map(SearchPage.Passage::ordinal).toList());
         verify(documents, never()).currentGenerations(any(), any(), any());
         verify(tenants, never()).findActiveTenant(any());
@@ -555,11 +612,11 @@ class DocumentSearchServiceTest {
     @Test
     void springMvcDebugFormattingCannotExpandQueriesOrDocumentText() {
         String privateText = "private compensation figures";
-        assertFalse(new SearchRequest(privateText, List.of(), null, 0, 10, List.of(), List.of()).toString().contains(privateText));
+        assertFalse(new SearchRequest(privateText, List.of(), null, null, 0, 10, List.of(), List.of()).toString().contains(privateText));
         var result = new SearchPage.Result(UUID.randomUUID(), generation, privateText, "text/plain", Instant.EPOCH, .9,
                 List.of(new SearchPage.Section(0, 0, 0, .9, privateText, List.of(new SearchPage.ChunkProvenance(0, "[]")))));
         assertFalse(new SearchPage(List.of(result), 0, false, 1, 500, new SearchPage.SourceFacets(1, List.of())).toString().contains(privateText));
-        assertFalse(new SearchDocument(result.documentId(), generation, privateText,
+        assertFalse(new SearchDocument(result.documentId(), generation, privateText, "text/plain",
                 List.of(new SearchPage.Passage(0, privateText, "[]")), 0, 1, false)
                 .toString().contains(privateText));
     }

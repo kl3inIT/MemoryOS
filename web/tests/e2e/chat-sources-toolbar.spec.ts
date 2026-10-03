@@ -17,8 +17,6 @@ for (const width of [1440, 390]) {
         },
       }),
     );
-    // Exercise fallback deterministically without contacting a favicon service.
-    await page.route("https://icons.duckduckgo.com/**", (route) => route.abort());
     const session = await (
       await page.request.post("/api/chat/test-fixture", {
         data: { title: "Nguồn tài liệu và Web" },
@@ -65,7 +63,9 @@ for (const width of [1440, 390]) {
     const sources = page.getByRole("button", { name: "Nguồn 3", exact: true });
     await expect(sources.getByText("Nguồn", { exact: true })).toBeVisible();
     await expect(sources.locator('[data-slot="source-icon-stack"] > span')).toHaveCount(3);
-    await expect(sources.locator('[data-slot="source-icon-fallback"]')).toHaveCount(2);
+    // React's site carries its bundled mark; a site without one shows the globe.
+    await expect(sources.locator('[data-slot="source-icon"]')).toHaveCount(1);
+    await expect(sources.locator('[data-slot="source-icon-fallback"]')).toHaveCount(1);
     const sourceBox = await sources.boundingBox();
     const copyBox = await page.getByRole("button", { name: "Sao chép câu trả lời" }).boundingBox();
     expect(Math.abs(sourceBox!.y - copyBox!.y)).toBeLessThan(2);

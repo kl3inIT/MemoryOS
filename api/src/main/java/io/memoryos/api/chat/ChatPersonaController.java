@@ -5,9 +5,9 @@ import io.memoryos.api.chat.contract.AvailableChatModelResponse;
 import io.memoryos.api.chat.contract.ChatAgentRefResponse;
 import io.memoryos.api.chat.contract.ChatPersonaLabelRequest;
 import io.memoryos.api.chat.contract.ChatPersonaPinsRequest;
+import io.memoryos.api.chat.contract.ChatPersonaRequest;
 import io.memoryos.chat.AgentListFilter;
 import io.memoryos.chat.ChatPersonaService.ListingInput;
-import io.memoryos.chat.ChatPersonaService.PersonaInput;
 import io.memoryos.chat.ChatPersonaService.PersonaView;
 import io.memoryos.chat.ChatPersonaService.SharingInput;
 import io.memoryos.chat.ChatPersonaService.TransferInput;
@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -76,15 +77,15 @@ class ChatPersonaController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatPersona", summary = "Create a private agent; requires AGENTS_CREATE")
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
-    PersonaView create(@CurrentActor IdentityContext identity, @RequestBody PersonaInput request) {
-        return personas.create(identity.actorId(), request);
+    PersonaView create(@CurrentActor IdentityContext identity, @Valid @RequestBody ChatPersonaRequest request) {
+        return personas.create(identity.actorId(), request.toInput());
     }
     @PutMapping("/personas/{personaId}")
     @Operation(operationId = "updateChatPersona", summary = "Update agent settings with an expected revision")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
     PersonaView update(@CurrentActor IdentityContext identity, @PathVariable UUID personaId,
-            @RequestParam long revision, @RequestBody PersonaInput request) {
-        return personas.update(identity.actorId(), personaId, revision, request);
+            @RequestParam long revision, @Valid @RequestBody ChatPersonaRequest request) {
+        return personas.update(identity.actorId(), personaId, revision, request.toInput());
     }
     @DeleteMapping("/personas/{personaId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

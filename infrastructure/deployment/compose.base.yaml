@@ -15,7 +15,7 @@ x-service-defaults: &service-defaults
 
 services:
   postgres:
-    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382}
+    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650}
     container_name: memoryos-postgres
     # Every one of these was the stock default until now, on a machine that has far more memory
     # than the defaults assume. The defaults here stay modest because one environment shares its
@@ -85,7 +85,7 @@ services:
 
 
   postgres-backup:
-    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382}
+    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650}
     profiles:
       - ops
     user: "${MEMORYOS_BACKUP_UID:-1000}:${MEMORYOS_BACKUP_GID:-1000}"
@@ -211,8 +211,7 @@ services:
   keycloak:
     <<: *service-defaults
     # Each release publishes memoryos-keycloak with the login theme inside it, and the deployment
-    # rolls it out with the rest. A host whose environment file names this variable keeps that image
-    # instead and manages Keycloak itself: staging, where the runtime is shared with OrgMemory.
+    # rolls it out with the rest; images.env names it, never a host's environment file.
     image: ${MEMORYOS_KEYCLOAK_IMAGE:?Set MEMORYOS_KEYCLOAK_IMAGE}
     container_name: memoryos-keycloak
     command:
@@ -326,6 +325,8 @@ services:
       MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI: ${MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI:?Set MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI}
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
       MEMORYOS_MCP_REDIRECT_URI: ${MEMORYOS_MCP_REDIRECT_URI:?Set MEMORYOS_MCP_REDIRECT_URI}
+      # MEM-114: optional; unset, the deployment has no MCP endpoint and its switch stays locked.
+      MEMORYOS_MCP_ENDPOINT_URL: ${MEMORYOS_MCP_ENDPOINT_URL:-}
       MEMORYOS_SESSION_COOKIE_SECURE: ${MEMORYOS_SESSION_COOKIE_SECURE:?Set MEMORYOS_SESSION_COOKIE_SECURE}
       MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}
       # An empty list admits nobody, which is the safe reading of an absent setting.
@@ -337,9 +338,11 @@ services:
       MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
       MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/mcp_credential_encryption_key
-      # One key serves chat and embedding; the launcher exports both names from this file.
-      MEMORYOS_CHAT_API_KEY_FILE: /run/secrets/model_api_key
-      MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
+      # MEM-207: the memoryos-mcp-admin client secret, with which the API keeps the trusted apps in Keycloak.
+      MEMORYOS_MCP_ADMIN_CLIENT_SECRET_FILE: /run/secrets/mcp_admin_client_secret
+      # Where the first search generation embeds: the serving node. Its key, like every Chat and embedding key, is a
+      # catalog entry (MEM-211, MEM-216); a seeded deployment ignores this.
+      MEMORYOS_EMBEDDING_ENDPOINT: ${MEMORYOS_EMBEDDING_ENDPOINT:-}
     secrets:
       - minio_api_secret_key
       - interpreter_api_key
@@ -352,7 +355,7 @@ services:
       - chat_catalog_encryption_key
       - google_drive_credential_encryption_key
       - mcp_credential_encryption_key
-      - model_api_key
+      - mcp_admin_client_secret
     depends_on:
       postgres:
         condition: service_healthy
@@ -447,7 +450,7 @@ services:
       MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
       MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE: /run/secrets/docling_api_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
-      MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
+      MEMORYOS_EMBEDDING_ENDPOINT: ${MEMORYOS_EMBEDDING_ENDPOINT:-}
       # The embedding provider chosen on the Search settings page keeps its key encrypted with the
       # catalog key (MEM-135), and the worker embeds every indexed chunk with it.
       MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
@@ -459,7 +462,6 @@ services:
       - opensearch_password
       - docling_api_key
       - google_drive_credential_encryption_key
-      - model_api_key
       - chat_catalog_encryption_key
     depends_on:
       api:
@@ -530,7 +532,7 @@ services:
 
   docling:
     <<: *service-defaults
-    image: ${MEMORYOS_DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.34.0@sha256:0525640504db7ed8a53e0e443882727888f6a3746948b1b7a8820efe95567bd3}
+    image: ${MEMORYOS_DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.36.0@sha256:225c8586e20d5d0fc6811a9e0e044fa602bcc4393f00389009bad42d6787b58f}
     environment:
       UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
       DOCLING_SERVE_ENG_LOC_NUM_WORKERS: ${DOCLING_SERVE_ENG_LOC_NUM_WORKERS:-1}
@@ -560,7 +562,7 @@ services:
   # MEM-26/MEM-43: Chat replay and the worker dispatch plane. TLS only, ACL users per deployable.
   redis:
     <<: *service-defaults
-    image: ${MEMORYOS_REDIS_IMAGE:-redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232}
+    image: ${MEMORYOS_REDIS_IMAGE:-redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0}
     container_name: memoryos-redis
     user: "0:0"
     entrypoint:
@@ -683,8 +685,8 @@ secrets:
     file: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/google-drive-credential-key.txt}
   mcp_credential_encryption_key:
     file: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/mcp-credential-key.txt}
-  model_api_key:
-    file: ${MEMORYOS_MODEL_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/model/api-key.txt}
+  mcp_admin_client_secret:
+    file: ${MEMORYOS_MCP_ADMIN_CLIENT_SECRET_SECRET_FILE:-/apps/memoryos/secrets/keycloak/mcp-admin-client-secret.txt}
   minio_root_password:
     file: ${MEMORYOS_MINIO_ROOT_PASSWORD_FILE:-/apps/memoryos/secrets/minio/root-password.txt}
   minio_api_secret_key:

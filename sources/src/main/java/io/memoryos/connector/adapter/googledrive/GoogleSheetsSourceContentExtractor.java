@@ -87,7 +87,7 @@ public final class GoogleSheetsSourceContentExtractor {
                         JsonNode value = values.get(c);
                         if (!value.isObject()) malformed();
                         output.cell();
-                        String address = RestGoogleDriveProvider.columnName(column + 1) + (row + 1);
+                        String address = RestGoogleDriveGateway.columnName(column + 1) + (row + 1);
                         String display = display(value);
                         cells.add(Cell.of(row, column, display));
                         if (!display.isEmpty()) output.append(address + ": " + display + "\n");

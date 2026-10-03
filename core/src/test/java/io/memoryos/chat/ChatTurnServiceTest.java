@@ -1,6 +1,5 @@
 package io.memoryos.chat;
 
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.TurnFailure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +25,9 @@ import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelClients;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.streaming.StreamEvents;
 import io.memoryos.chat.streaming.TestRedis;
+import io.memoryos.shared.Tokenizers;
 import java.util.Set;
 import org.mockito.Mockito;
 import org.springframework.ai.chat.model.ChatModel;
@@ -56,7 +57,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
@@ -79,8 +79,8 @@ class ChatTurnServiceTest {
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
     private void prepare() {
-        var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(
-                EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
+        var binding = ModelBinding.builder(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false).build();
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
@@ -91,10 +91,14 @@ class ChatTurnServiceTest {
                 "", "gpt-5-mini", ChatTurnOptions.DEFAULT, "0", null, List.of(),
                 Set.of("search", "web_search", "image_generation"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
-        var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
-                "Question", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
-        when(persistence.loadContext(any(), any(), any())).thenReturn(new ChatTurnPersistence.TurnContext(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question)));
+        var question = ChatMessage.builder(pair.userMessageId(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .parentMessageId(parent)
+                .latestChildMessageId(pair.assistantMessageId())
+                .content("Question")
+                .finishedAt(Instant.now())
+                .build();
+        when(persistence.loadContext(any(), any(), any())).thenReturn(ChatTurnPersistence.TurnContext.builder(actor,
+                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question)).build());
     }
 
     @Test
@@ -237,8 +241,8 @@ class ChatTurnServiceTest {
                 service.maintain();
                 var committed = reader.read();
                 assertTrue(committed.done());
-                assertEquals(ChatMessage.Status.FAILED, committed.events().getLast().status());
-                assertEquals("CHAT_INTERRUPTED", committed.events().getLast().failureCode());
+                assertEquals(ChatMessage.Status.FAILED, StreamEvents.outcome(committed.events()).status());
+                assertEquals("CHAT_INTERRUPTED", StreamEvents.outcome(committed.events()).failureCode());
             }
         }
     }
@@ -304,8 +308,9 @@ class ChatTurnServiceTest {
     }
 
     private ChatCommand mcpCommand(UUID requestId) {
-        return new ChatCommand(ChatCommand.Operation.SEND, parent, requestId, "Question", null, List.of(), WebSearchMode.off,
-                ImageMode.off, List.of(UUID.randomUUID()));
+        return ChatCommand.builder(ChatCommand.Operation.SEND, parent, requestId, "Question")
+                .mcpServerIds(List.of(UUID.randomUUID()))
+                .build();
     }
 
     /** Blocks {@code mcp.open} until released, as a slow MCP server or OAuth token endpoint would. */
@@ -438,7 +443,7 @@ class ChatTurnServiceTest {
             try (var reader = streams.subscribe(pair.assistantMessageId(), 0, () -> true)) {
                 var outcome = reader.read();
                 assertTrue(outcome.done());
-                assertEquals("CHAT_SETUP_FAILED", outcome.events().getLast().failureCode());
+                assertEquals("CHAT_SETUP_FAILED", StreamEvents.outcome(outcome.events()).failureCode());
             }
             when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
                     .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));

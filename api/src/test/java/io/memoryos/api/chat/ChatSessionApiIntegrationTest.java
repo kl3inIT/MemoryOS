@@ -1,6 +1,8 @@
 package io.memoryos.api.chat;
 
 import com.sun.net.httpserver.HttpExchange;
+import com.openai.core.http.Headers;
+import com.openai.errors.UnauthorizedException;
 import io.memoryos.ai.ModelFlow;
 import io.memoryos.ai.ModelAccounting;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -37,9 +39,14 @@ import io.memoryos.api.mcp.McpAuthorizationSessionState;
 import io.memoryos.api.mcp.McpFixtureServer;
 import io.memoryos.api.mcp.contract.McpOAuthClientRequest;
 import io.memoryos.api.mcp.contract.McpServerRequest;
+import io.memoryos.chat.streaming.ChatStreamEvent;
+import io.memoryos.chat.streaming.ToolProgress;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.ReadableSource;
+import io.memoryos.connector.SourceAccess;
+import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceType;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthService;
@@ -50,6 +57,7 @@ import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.retrieval.SearchQuery;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.opensearch.LiveSearchCorpus;
+import io.memoryos.shared.Tokenizers;
 import io.memoryos.usage.report.UsageReportService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.awt.Color;
@@ -93,7 +101,8 @@ import org.springframework.context.annotation.Bean;
 import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.openai.OpenAiProviderAdapter;
-import io.memoryos.ai.openai.OpenAiProviderConfiguration;
+import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.retrieval.SearchHit;
@@ -150,8 +159,6 @@ import com.embabel.common.ai.model.PricingModel;
 import com.embabel.chat.UserMessage;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelRequestPolicy;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.shared.TenantId;
@@ -219,7 +226,6 @@ import io.memoryos.library.LibraryArchiveService;
 import reactor.core.scheduler.Schedulers;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-        "memoryos.chat.provider.api-key=test-only-model-is-mocked",
         "memoryos.chat.catalog.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "memoryos.mcp.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         // Short enough that a stalled MCP tool can be exercised without stalling the suite.
@@ -267,8 +273,11 @@ class ChatSessionApiIntegrationTest {
     /** Which stretch the correction pass asked about, so the stubbed model can answer that one. */
     private static final AtomicReference<String> STRETCH =
             new AtomicReference<>("");
-    @MockitoBean(name = "chatProviderModel")
+    /** The model behind every catalog binding here: the stubbed adapter builds each one on it. */
+    @MockitoBean
     private ChatModel model;
+    @Autowired
+    private ProviderCredentials credentials;
     @MockitoSpyBean
     private OpenAiProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
@@ -308,10 +317,62 @@ class ChatSessionApiIntegrationTest {
         when(sourceSearch.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, SourceType.FILE)));
         doAnswer(call -> new ProviderAdapter.Client(OpenAiProviderAdapter.binding(
-                call.getArgument(1), call.getArgument(2), model, new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)), () -> {}))
+                call.getArgument(1), call.getArgument(2), model, Tokenizers.o200k()), () -> {}))
                 .when(providerAdapter).create(any(), any(), any(), any());
+        catalogFixture();
         actor = actor();
         other = actor();
+    }
+
+    /** The model the Tenant's Chat default names in this suite. */
+    private static final String DEFAULT_MODEL = "gpt-6-luna";
+
+    /**
+     * The Chat default an administrator adds first: a public OpenAI provider with a key, and one model that every task
+     * names. The catalog starts empty (MEM-211), so the first test to find no default adds it, and later tests see
+     * whatever the earlier ones left, as they did when the deployment seeded it.
+     */
+    private void catalogFixture() {
+        boolean unset = jdbc.sql("SELECT model_configuration_id IS NULL FROM chat_model_default WHERE tenant_id = :tenant")
+                .param("tenant", TENANT).query(Boolean.class).single();
+        if (!unset) return;
+        UUID provider = UUID.randomUUID(), chatModel = UUID.randomUUID();
+        String credential = credentials.update(TENANT, provider, null,
+                new ProviderCredentials.Change(ProviderCredentials.Action.REPLACE, "test-only-model-is-mocked"));
+        jdbc.sql("""
+                INSERT INTO llm_provider(id, tenant_id, name, adapter_type, base_url, enabled, is_public, credential, revision, data_boundary)
+                VALUES (:id, :tenant, 'OpenAI', 'openai', 'https://api.openai.com/v1', TRUE, TRUE, :credential, 1, 'EXTERNAL')
+                """).param("id", provider).param("tenant", TENANT).param("credential", credential).update();
+        var known = Objects.requireNonNull(ModelResolver.findKnown(DEFAULT_MODEL, providerAdapter.knownModels()));
+        var settings = Json.mapper().createObjectNode().put("contextWindow", known.contextWindow())
+                .put("maxOutputTokens", known.maxOutputTokens()).put("tokenizerProfile", "openai-o200k-v1");
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", known.capabilities().toolCalling())
+                .put("vision", known.capabilities().vision()).put("reasoning", known.capabilities().reasoning());
+        settings.putObject("options").put("maxCompletionTokens", known.capabilities().reasoning());
+        var pricing = settings.putObject("pricing").put("inputPerMillion", known.pricing().inputPerMillion())
+                .put("outputPerMillion", known.pricing().outputPerMillion());
+        if (known.pricing().cachedInputPerMillion() != null)
+            pricing.put("cachedInputPerMillion", known.pricing().cachedInputPerMillion());
+        jdbc.sql("""
+                INSERT INTO model_configuration(id, tenant_id, provider_id, model_name, display_name, visible, settings, revision)
+                VALUES (:id, :tenant, :provider, :name, :name, TRUE, CAST(:settings AS jsonb), 1)
+                """).param("id", chatModel).param("tenant", TENANT).param("provider", provider).param("name", DEFAULT_MODEL)
+                .param("settings", settings.toString()).update();
+        jdbc.sql("UPDATE chat_model_default SET model_configuration_id = :model, revision = revision + 1 WHERE tenant_id = :tenant")
+                .param("model", chatModel).param("tenant", TENANT).update();
+        jdbc.sql("UPDATE model_flow_default SET model_configuration_id = :model WHERE tenant_id = :tenant AND model_configuration_id IS NULL")
+                .param("model", chatModel).param("tenant", TENANT).update();
+    }
+
+    /** A real OpenAI model for the opt-in live checks, built by the adapter as any catalog provider's is. */
+    private ProviderAdapter.Client liveClient(String key, MeterRegistry meters) {
+        var known = Objects.requireNonNull(ModelResolver.findKnown(DEFAULT_MODEL, providerAdapter.knownModels()));
+        var settings = new ModelSettings(known.contextWindow(), known.maxOutputTokens(),
+                new ModelSettings.Capabilities(true, known.capabilities().toolCalling(), known.capabilities().vision(),
+                        known.capabilities().reasoning()),
+                Map.of("maxCompletionTokens", known.capabilities().reasoning()), known.pricing(), "openai-o200k-v1");
+        return new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters).create(
+                new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, limits.providerReadTimeout());
     }
 
     @Test
@@ -641,6 +702,131 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("DELETING"));
         for (var suffix : List.of("/text", "/content"))
             mockMvc.perform(get("/api/chat/files/"+id+suffix).with(authentication(actor))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void aReaderThroughAnAssistantDownloadsItsFileAndFindsItInTheLibraryUntilTheShareEnds() throws Exception {
+        var checksum = new ContentSha256("a".repeat(64));
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new UploadAuthorization(
+                "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(new ObjectMetadata(4,"text/plain",checksum));
+        String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","quy-che.txt",
+                "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
+        var created = mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk()).andReturn();
+        String id = Json.mapper().readTree(created.getResponse().getContentAsString()).path("file").path("id").asText();
+        mockMvc.perform(post("/api/chat/files/"+id+"/finalize").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isAccepted());
+        jdbc.sql("UPDATE chat_user_file SET status='READY',detected_media_type='text/plain' WHERE id=:id")
+                .param("id", UUID.fromString(id)).update();
+        var reader = actor();
+        UUID agent = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model,file_ids)
+                VALUES (:id,:tenant,:owner,'Trợ lý nhân sự','','model',CAST(:files AS jsonb))
+                """).param("id", agent).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value())
+                .param("files", "[\"" + id + "\"]").update();
+        jdbc.sql("INSERT INTO persona_user_share(tenant_id,persona_id,actor_id,permission) VALUES (:tenant,:agent,:actor,'VIEWER')")
+                .param("tenant", TENANT).param("agent", agent).param("actor", reader.getPrincipal().actorId().value()).update();
+        var original = mock(ObjectContent.class);
+        when(original.metadata()).thenReturn(new ObjectMetadata(4,"text/plain",checksum));
+        when(original.inputStream()).thenReturn(new ByteArrayInputStream("test".getBytes(UTF_8)));
+        when(fileStorage.open(any())).thenReturn(original);
+        String download = "/api/chat/files/" + id + "/content";
+
+        // Owner decision 2: the assistant's reader downloads the file; a member it is not shared with cannot.
+        mockMvc.perform(get(download).with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(content().string("test"))
+                .andExpect(header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"));
+        mockMvc.perform(get(download).with(authentication(other))).andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/chat/library/shared").with(authentication(reader)).param("kinds","AGENT_FILE"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(jsonPath("$.totalCount").value(1)).andExpect(jsonPath("$.hasMore").value(false))
+                .andExpect(jsonPath("$.items[0].kind").value("AGENT_FILE"))
+                .andExpect(jsonPath("$.items[0].id").value(id))
+                .andExpect(jsonPath("$.items[0].name").value("quy-che.txt"))
+                .andExpect(jsonPath("$.items[0].category").value("DOCUMENT"))
+                .andExpect(jsonPath("$.items[0].owned").value(false))
+                .andExpect(jsonPath("$.items[0].starred").value(false))
+                .andExpect(jsonPath("$.items[0].reason.kind").value("AGENT"))
+                .andExpect(jsonPath("$.items[0].reason.names[0]").value("Trợ lý nhân sự"))
+                .andExpect(jsonPath("$.items[0].agents[0].id").value(agent.toString()))
+                .andExpect(jsonPath("$.items[0].meeting").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$.items[0].document").value(Matchers.nullValue()));
+        mockMvc.perform(get("/api/chat/library/shared").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library/shared").with(authentication(reader)).param("kinds","DOCUMENT"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
+
+        String entry = "/api/chat/library/entries/AGENT_FILE/" + id;
+        mockMvc.perform(put(entry+"/star").with(authentication(reader))).andExpect(status().isForbidden());
+        mockMvc.perform(put(entry+"/star").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post(entry+"/opened").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/chat/library/starred").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(id)).andExpect(jsonPath("$.items[0].starred").value(true));
+        mockMvc.perform(get("/api/chat/library/recent").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(id)).andExpect(jsonPath("$[0].openedAt").isNotEmpty());
+        // Nobody marks what they cannot read, and an unknown kind is refused.
+        mockMvc.perform(post(entry+"/opened").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CHAT_UNAVAILABLE"));
+        mockMvc.perform(put("/api/chat/library/entries/FOLDER/"+id+"/star").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isBadRequest());
+
+        // Ending the share takes the file off every surface at the next read; the marks grant nothing.
+        jdbc.sql("DELETE FROM persona_user_share WHERE persona_id=:agent").param("agent", agent).update();
+        mockMvc.perform(get(download).with(authentication(reader))).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/chat/library/shared").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library/starred").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library/recent").with(authentication(reader)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(delete(entry+"/star").with(authentication(reader)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void libraryListsTheSourcesAReaderMayReadFromOnlyUnderSearchAuthority() throws Exception {
+        UUID source = UUID.randomUUID();
+        Instant synced = Instant.parse("2026-09-20T08:00:00Z");
+        when(sourceSearch.readableSources(new TenantId(TENANT), actor.getPrincipal().actorId(), 500)).thenReturn(List.of(
+                new ReadableSource(source, "Finance files", SourceType.GOOGLE_DRIVE, SourceAccess.PRIVATE,
+                        SourceStatus.PAUSING, 12, synced, List.of("Audit", "Finance"), "Alice Nguyen"),
+                new ReadableSource(searchSource, "Handbooks", SourceType.FILE, SourceAccess.PUBLIC,
+                        SourceStatus.NOT_STARTED, 0, null, List.of(), null)));
+
+        mockMvc.perform(get("/api/chat/library/sources")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/chat/library/sources").with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(source.toString()))
+                .andExpect(jsonPath("$[0].name").value("Finance files"))
+                .andExpect(jsonPath("$[0].type").value("GOOGLE_DRIVE"))
+                .andExpect(jsonPath("$[0].access").value("PRIVATE"))
+                .andExpect(jsonPath("$[0].status").value("PAUSED"))
+                .andExpect(jsonPath("$[0].readableDocuments").value(12))
+                .andExpect(jsonPath("$[0].lastSucceededAt").value("2026-09-20T08:00:00Z"))
+                .andExpect(jsonPath("$[0].groups[0]").value("Audit"))
+                .andExpect(jsonPath("$[0].groups[1]").value("Finance"))
+                .andExpect(jsonPath("$[0].managerName").value("Alice Nguyen"))
+                .andExpect(jsonPath("$[1].status").value("NOT_STARTED"))
+                .andExpect(jsonPath("$[1].lastSucceededAt").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$[1].managerName").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$[1].groups").isEmpty());
+
+        // Without SEARCH_READ the caller reads no Source, as they read no Source document.
+        jdbc.sql("DELETE FROM iam_group_memberships m USING iam_groups g WHERE g.tenant_id=m.tenant_id AND g.id=m.group_id AND g.system_key='BASIC' AND m.actor_id=:actor")
+                .param("actor", actor.getPrincipal().actorId().value()).update();
+        mockMvc.perform(get("/api/chat/library/sources").with(authentication(actor)))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
     }
 
     @Test
@@ -1165,9 +1351,9 @@ class ChatSessionApiIntegrationTest {
         when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(document, List.of(new DocumentSourceMetadata(
                 searchSource, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
-        when(searchIndex.document(tenant, document, generation, 0, 2)).thenReturn(new SearchDocument(document, generation, "HR policy",
+        when(searchIndex.document(tenant, document, generation, 0, 2)).thenReturn(new SearchDocument(document, generation, "HR policy", "text/plain",
                 List.of(new SearchPage.Passage(0, "Employee handbook", "[]"), new SearchPage.Passage(1, "Annual policy", "[]")), 0, 3, true));
-        when(searchIndex.document(tenant, document, generation, 3, 2)).thenReturn(new SearchDocument(document, generation, "HR policy", List.of(), 3, 3, false));
+        when(searchIndex.document(tenant, document, generation, 3, 2)).thenReturn(new SearchDocument(document, generation, "HR policy", "text/plain", List.of(), 3, 3, false));
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
             assertFalse(text.contains("PRIVATE DENIED CONTENT"));
@@ -1208,8 +1394,8 @@ class ChatSessionApiIntegrationTest {
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
         var events = replay(UUID.fromString(id));
-        assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
-                && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
+        assertTrue(events.stream().anyMatch(e -> e instanceof ToolProgress && ((ToolProgress) e).tool().source() != null
+                && ((ToolProgress) e).tool().toolCallId().equals("search-1") && ((ToolProgress) e).tool().source().citationId() == 1));
         assertEquals("outcome", events.getLast().type());
     }
 
@@ -1227,7 +1413,7 @@ class ChatSessionApiIntegrationTest {
                 searchSource, UUID.randomUUID(), SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
         when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
         when(searchIndex.document(any(), any(), any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt()))
-                .thenReturn(new SearchDocument(document, generation, "HR policy", List.of(), 0, 0, false));
+                .thenReturn(new SearchDocument(document, generation, "HR policy", "text/plain", List.of(), 0, 0, false));
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.<Prompt>getArgument(0).getContents();
             if (text.contains("provide a standalone query")) return response("{\"query\":\"leave\"}", "stop", 7);
@@ -1324,15 +1510,15 @@ class ChatSessionApiIntegrationTest {
         assertEquals(0, bogus.path("activity").path("steps").size(), "an unknown tool never runs");
         var events = replay(UUID.fromString(id));
         {
-            assertTrue(events.stream().anyMatch(e -> e.type().equals("research-plan")));
-            assertTrue(events.stream().anyMatch(e -> e.type().equals("top-level-branching")));
-            assertTrue(events.stream().anyMatch(e -> e.tool() != null && "agent-2".equals(e.tool().toolCallId())
-                    && Integer.valueOf(1).equals(e.tool().tabIndex())));
-            assertTrue(events.stream().anyMatch(e -> e.tool() != null && "search-1".equals(e.tool().toolCallId())
-                    && "agent-1".equals(e.tool().parentToolCallId())));
-            assertTrue(events.stream().anyMatch(e -> e.type().equals("intermediate-report-citations")));
-            assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
-                    && e.tool().source().citationId() == 1 && "agent-1".equals(e.tool().toolCallId())));
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("research_plan")));
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("top_level_branching")));
+            assertTrue(events.stream().anyMatch(e -> e instanceof ToolProgress && "agent-2".equals(((ToolProgress) e).tool().toolCallId())
+                    && Integer.valueOf(1).equals(((ToolProgress) e).tool().tabIndex())));
+            assertTrue(events.stream().anyMatch(e -> e instanceof ToolProgress && "search-1".equals(((ToolProgress) e).tool().toolCallId())
+                    && "agent-1".equals(((ToolProgress) e).tool().parentToolCallId())));
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("intermediate_report_citations")));
+            assertTrue(events.stream().anyMatch(e -> e instanceof ToolProgress && ((ToolProgress) e).tool().source() != null
+                    && ((ToolProgress) e).tool().source().citationId() == 1 && "agent-1".equals(((ToolProgress) e).tool().toolCallId())));
             assertEquals("outcome", events.getLast().type());
         }
         verify(searchIndex).batch(any(), any(), any(), any());
@@ -1533,8 +1719,8 @@ class ChatSessionApiIntegrationTest {
                 VALUES (:tenant, NULL, CAST(:day AS date), 'EMBEDDING_INDEXING', 'OpenAI', 'text-embedding-3-large', NULL, 2, 50000, 0, 0.01, 0)
                 """).param("tenant", TENANT).param("day", today).update();
         mockMvc.perform(get("/api/ai-costs/limits/mine").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.tokensUsed").value(0))
-                .andExpect(jsonPath("$.scope").value("PERSON"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.standing.tokensUsed").value(0))
+                .andExpect(jsonPath("$.standing.scope").value("PERSON"));
 
         jdbc.sql("""
                 INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
@@ -1770,6 +1956,17 @@ class ChatSessionApiIntegrationTest {
                      "starterPrompts":["Start here"],"sourceIds":[],"tools":[],
                      "contextTokenLimit":8000,"outputTokenLimit":1000}
                     """, 201);
+            var outOfRange = workspaceRequest(http, ownerToken, "POST", "/api/chat/personas", """
+                    {"name":"Limits","description":"","instructions":"","starterPrompts":[],"sourceIds":[],
+                     "contextTokenLimit":255,"outputTokenLimit":200001}
+                    """, 400);
+            assertEquals("REQUEST_VALIDATION", outOfRange.path("code").asText());
+            assertEquals("contextTokenLimit", outOfRange.path("errors").path(0).path("field").asText());
+            assertEquals("MIN", outOfRange.path("errors").path(0).path("code").asText());
+            assertEquals(256, outOfRange.path("errors").path(0).path("params").path("min").asInt());
+            assertEquals("outputTokenLimit", outOfRange.path("errors").path(1).path("field").asText());
+            assertEquals("MAX", outOfRange.path("errors").path(1).path("code").asText());
+            assertEquals(200000, outOfRange.path("errors").path(1).path("params").path("max").asInt());
             String projectId = project.path("id").asText(), personaId = persona.path("id").asText();
             assertTrue(persona.path("permissions").path("edit").asBoolean());
             assertTrue(persona.path("permissions").path("delete").asBoolean());
@@ -1888,7 +2085,7 @@ class ChatSessionApiIntegrationTest {
             var response = http.send(httpRequest(events, token).build(), HttpResponse.BodyHandlers.ofString(UTF_8));
             assertEquals(200, response.statusCode());
             String frames = response.body();
-            assertTrue(frames.contains("event:text-delta"), frames);
+            assertTrue(frames.contains("event:text"), frames);
             assertTrue(frames.contains("Answer 😀"), frames);
             assertTrue(frames.contains("event:outcome"), frames);
             assertTrue(frames.contains("\"status\":\"COMPLETED\""), frames);
@@ -1897,7 +2094,7 @@ class ChatSessionApiIntegrationTest {
                     HttpResponse.BodyHandlers.ofString(UTF_8));
             assertEquals(200, resumed.statusCode());
             String tail = resumed.body();
-            assertFalse(tail.contains("event:text-delta"), tail);
+            assertFalse(tail.contains("event:text"), tail);
             assertTrue(tail.contains("event:outcome"), tail);
         }
     }
@@ -1915,10 +2112,11 @@ class ChatSessionApiIntegrationTest {
         var service = new SpringAiLlmService("fixture-model", "fixture-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 null, List.of(), PricingModel.usdPer1MTokens(1, 2));
-        var binding = new ModelBinding(service, prompt -> prompt, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
+        var binding = ModelBinding.builder(service, prompt -> prompt, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p),
+                32000, 4096, true, false).build();
         for (int turn = 0; turn < 2; turn++) {
-            var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
-                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
+            var setup = ChatTurnSetup.builder(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
+                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding).build();
             var accounting = new AtomicReference<ModelAccounting>();
             var answer = new StringBuilder();
             executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {}, ignored -> {});
@@ -1944,8 +2142,7 @@ class ChatSessionApiIntegrationTest {
                 .map(line -> line.split(" ")[1]).findFirst().orElseThrow();
         String nginx = Files.readString(web.resolve("nginx.conf"))
                 .replace("proxy_pass $memoryos_api;", "proxy_pass http://host.testcontainers.internal:" + port + ";")
-                .replace("${MEMORYOS_OBJECT_STORAGE_CONNECT_SRC}", "")
-                .replace("${MEMORYOS_SENTRY_CONNECT_SRC}", "");
+                .replace("${MEMORYOS_OBJECT_STORAGE_CONNECT_SRC}", "");
         try (var proxy = new GenericContainer<>(image);
              var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
             proxy.withExposedPorts(8080).withCopyToContainer(Transferable.of(nginx), "/etc/nginx/nginx.conf");
@@ -1974,7 +2171,7 @@ class ChatSessionApiIntegrationTest {
             assertEquals(200, live.statusCode());
             try (var input = new BufferedReader(new InputStreamReader(live.body(), UTF_8))) {
                 String frame = readFrame(input);
-                assertTrue(frame.contains("event:text-delta"), frame);
+                assertTrue(frame.contains("event:text"), frame);
                 assertTrue(frame.contains("Partial"), frame);
                 assertEquals("RUNNING", jdbc.sql("SELECT status FROM chat_message WHERE id = :id")
                         .param("id", UUID.fromString(id)).query(String.class).single());
@@ -1992,7 +2189,7 @@ class ChatSessionApiIntegrationTest {
                 do { frame = readFrame(input); } while (frame.startsWith(":"));
                 assertTrue(frame.contains("event:outcome"), frame);
                 assertTrue(frame.contains("\"status\":\"CANCELED\""), frame);
-                assertFalse(frame.contains("event:text-delta"), frame);
+                assertFalse(frame.contains("event:text"), frame);
             }
             awaitOutcome(id, "CANCELED");
             assertEquals("Partial", jdbc.sql("SELECT content FROM chat_message WHERE id = :id")
@@ -2514,14 +2711,18 @@ class ChatSessionApiIntegrationTest {
         flows.forEach(flow -> listed.add(flow.path("flow").asText()));
         assertEquals(Arrays.stream(ModelFlow.values())
                 .map(Enum::name).collect(Collectors.toCollection(TreeSet::new)), listed);
-        var naming = flows.get(0);
-        assertEquals("CHAT_NAMING", naming.path("flow").asText());
+        JsonNode naming = null;
+        for (var flow : flows) if ("CHAT_NAMING".equals(flow.path("flow").asText())) naming = flow;
+        assertNotNull(naming);
         String chatModel = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-default")
                 .with(authentication(actor))).andReturn().getResponse().getContentAsString())
                 .path("modelConfigurationId").asText();
         flows.forEach(flow -> assertEquals(chatModel, flow.path("modelConfigurationId").asText(),
                 flow.path("flow").asText() + " names the model that runs it, the Chat model to begin with"));
         assertTrue(naming.path("available").asBoolean());
+        // Each task runs at its own default level until one is chosen: the minutes reason, the helper tasks do not.
+        flows.forEach(flow -> assertEquals("MEETING_MINUTES".equals(flow.path("flow").asText()) ? "MEDIUM" : "OFF",
+                flow.path("reasoningEffort").asText(), flow.path("flow").asText() + " level"));
         mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
         var internal = providerBody("http://flow.internal/v1", true).put("dataBoundary", "INTERNAL");
         var provider = Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf())
@@ -2537,14 +2738,17 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(put("/api/chat/model-flows/UNKNOWN").param("revision", revision).param("modelConfigurationId", mini)
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isBadRequest());
         var set = Json.mapper().readTree(mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", revision)
-                        .param("modelConfigurationId", mini).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                        .param("modelConfigurationId", mini).param("reasoningEffort", "HIGH")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         assertEquals(mini, set.path("modelConfigurationId").asText());
+        assertEquals("HIGH", set.path("reasoningEffort").asText(), "the model and the level are set together");
         mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", revision)
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
         mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", set.path("revision").asText())
                         .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").isEmpty());
+                .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").isEmpty())
+                .andExpect(jsonPath("$.reasoningEffort").value("OFF"));
         // Configuration is on the audit stream: where data goes before and after, and never the provider's key.
         String providerId = provider.path("id").asText();
         assertEquals("{\"adapter\": \"openai\", \"dataBoundary\": \"INTERNAL\"}", jdbc.sql("""
@@ -2941,7 +3145,10 @@ class ChatSessionApiIntegrationTest {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
                     };
-                    return new Client(new ModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
+                    return new Client(ModelBinding.builder(new SpringAiLlmService(name, "Fixture Local", nativeModel),
+                            p -> p, ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), settings.contextWindow(),
+                            settings.maxOutputTokens(), settings.capabilities().toolCalling(),
+                            settings.capabilities().vision()).build(), () -> {});
                 }
             };
         }
@@ -4136,6 +4343,62 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void minutesThatCannotBeWrittenSayWhyAndARefusedKeyIsNotRetried() throws Exception {
+        var refused = new AtomicBoolean(true);
+        when(model.call(any(Prompt.class))).thenAnswer(call -> {
+            if (refused.get()) throw UnauthorizedException.builder().headers(Headers.builder().build()).build();
+            return response("Biên bản cuộc họp: chốt ngân sách.", "stop", 10);
+        });
+        UUID meeting = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'RECORDING', NULL)
+                    """).param("tenant", TENANT).param("id", meeting).param("owner", actor.getPrincipal().actorId().value())
+                    .update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name) VALUES (:tenant, :meeting, 'MIC', '1', NULL)")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 4000, 'Chốt ngân sách quý 4 trước thứ Năm.', 0.9)
+                    """).param("tenant", TENANT).param("id", UUID.randomUUID()).param("meeting", meeting).update();
+            mockMvc.perform(post("/api/meetings/" + meeting + "/end").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+
+            // A refused key fails the same way on every attempt, so the first failure is the last.
+            assertEquals("CHAT_PROVIDER_CREDENTIAL_REJECTED", failedMinutes(meeting).path("failure").asText());
+            assertEquals(1, minutesAttempts(meeting), "a refused key is not retried");
+
+            // An answer that is not the minutes may read on the next attempt, so it is retried before it fails.
+            refused.set(false);
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+            assertEquals("CHAT_MODEL_ANSWER_UNREADABLE", failedMinutes(meeting).path("failure").asText());
+            assertEquals(3, minutesAttempts(meeting));
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+            jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'").param("tenant", TENANT).update();
+        }
+    }
+
+    private int minutesAttempts(UUID meeting) {
+        return jdbc.sql("SELECT minutes_attempts FROM meeting WHERE tenant_id=:tenant AND id=:id")
+                .param("tenant", TENANT).param("id", meeting).query(Integer.class).single();
+    }
+
+    /** The meeting's minutes once the job has given up on them. */
+    private JsonNode failedMinutes(UUID meeting) {
+        var minutes = new AtomicReference<JsonNode>();
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
+            var body = mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            minutes.set(Json.mapper().readTree(body).path("minutes"));
+            assertEquals("FAILED", minutes.get().path("status").asText());
+        });
+        return minutes.get();
+    }
+
+    @Test
     void uploadingARecordingTranscribesItAndThenDeletesTheAudio() throws Exception {
         grantModelManagement();
         byte[] audio = "fake-mp3-bytes".getBytes(UTF_8);
@@ -4627,19 +4890,39 @@ class ChatSessionApiIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"groundedAnswers\":false,\"groundedAllowWeb\":false,\"revision\":7}"))
                 .andExpect(status().isConflict());
 
+        // MEM-208: the Tenant starts from the three seed topics, off, with fixed ids.
         mockMvc.perform(get("/api/chat/settings/guardrails").with(authentication(actor))).andExpect(status().isOk())
-                .andExpect(jsonPath("$.topics.length()").value(3)).andExpect(jsonPath("$.topics[1].topic").value("LEADERS"))
+                .andExpect(jsonPath("$.topics.length()").value(3))
+                .andExpect(jsonPath("$.topics[1].id").value("0f5b6f2a-7c1d-4e8a-9b3c-000000000002"))
+                .andExpect(jsonPath("$.topics[1].name").value("Lãnh tụ và lãnh đạo"))
                 .andExpect(jsonPath("$.topics[1].enabled").value(false)).andExpect(jsonPath("$.blockedPhrases.length()").value(0));
+        // The list sent is the whole list: one left out is deleted, one without an id is new.
         mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"topics":[{"topic":"LEADERS","enabled":true,"message":"Không trả lời câu hỏi về lãnh tụ."}],
+                                {"topics":[{"id":"0f5b6f2a-7c1d-4e8a-9b3c-000000000002","name":"Lãnh tụ và lãnh đạo",
+                                            "description":"Câu hỏi về đời tư lãnh tụ.","examples":["Vợ bác Hồ là ai?"],
+                                            "message":"Không trả lời câu hỏi về lãnh tụ.","enabled":true},
+                                           {"name":" Lương thưởng ","description":"Câu hỏi về lương của từng người.",
+                                            "examples":[],"message":"","enabled":true}],
                                  "blockedPhrases":[" Dự án Phoenix ","dự án phoenix"],"blockedPhraseMessage":null,"revision":0}"""))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.topics[1].enabled").value(true))
-                .andExpect(jsonPath("$.topics[1].message").value("Không trả lời câu hỏi về lãnh tụ."))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.topics.length()").value(2))
+                .andExpect(jsonPath("$.topics[0].enabled").value(true))
+                .andExpect(jsonPath("$.topics[0].message").value("Không trả lời câu hỏi về lãnh tụ."))
+                .andExpect(jsonPath("$.topics[1].name").value("Lương thưởng")).andExpect(jsonPath("$.topics[1].id").isNotEmpty())
+                .andExpect(jsonPath("$.topics[1].message").value("Trợ lý không trả lời câu hỏi về chủ đề này."))
                 .andExpect(jsonPath("$.blockedPhrases.length()").value(1)).andExpect(jsonPath("$.blockedPhrases[0]").value("Dự án Phoenix"))
                 .andExpect(jsonPath("$.revision").value(1));
-        String tooMany = java.util.stream.IntStream.range(0, 21).mapToObj(i -> "\"phrase " + i + "\"")
-                .collect(java.util.stream.Collectors.joining(","));
+        // A name beyond 36 characters, or a topic without a description, is a bad request.
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[{\"name\":\"" + "x".repeat(37)
+                        + "\",\"description\":\"d\",\"examples\":[],\"message\":\"\",\"enabled\":true}],\"blockedPhrases\":[],\"revision\":1}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[{\"name\":\"Lương\",\"description\":\" \","
+                        + "\"examples\":[],\"message\":\"\",\"enabled\":true}],\"blockedPhrases\":[],\"revision\":1}"))
+                .andExpect(status().isBadRequest());
+        String tooMany = IntStream.range(0, 21).mapToObj(i -> "\"phrase " + i + "\"")
+                .collect(Collectors.joining(","));
         mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[],\"blockedPhrases\":[" + tooMany + "],\"revision\":1}"))
                 .andExpect(status().isBadRequest());
@@ -5456,7 +5739,8 @@ class ChatSessionApiIntegrationTest {
             runMcpTurn(serverId, "Thử lại lần ba.");
             String afterRejection = prompts.getLast();
             assertTrue(afterRejection.contains("reconnect"));
-            assertFalse(afterRejection.contains("401"));
+            // A whole-word status only: the random server slug ("fail" and five digits) can contain 401.
+            assertFalse(afterRejection.matches("(?s).*\\b401\\b.*"));
         }
     }
 
@@ -5711,8 +5995,8 @@ class ChatSessionApiIntegrationTest {
      * Every buffered event of a finished reply. One read returns one batch of at most 64 records, so a turn that
      * wrote more than that ends its batch before the outcome; draining is what a browser does too.
      */
-    private List<StreamBufferWriter.Event> replay(UUID assistant) throws InterruptedException {
-        var events = new ArrayList<StreamBufferWriter.Event>();
+    private List<ChatStreamEvent> replay(UUID assistant) throws InterruptedException {
+        var events = new ArrayList<ChatStreamEvent>();
         try (var reader = streams.subscribe(assistant, 0, () -> false)) {
             while (true) {
                 var batch = reader.read();
@@ -5738,13 +6022,10 @@ class ChatSessionApiIntegrationTest {
     void realProviderRunsThroughSendNativeRunnerAndPersistedHistory() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required for this explicitly enabled check");
-        var configuration = new OpenAiProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
+        var live = liveClient(key, meters);
         try {
-            var provider = configuration.chatProviderModel(client, sync, key,
-                    ObservationRegistry.NOOP, meters);
+            var provider = live.binding().service().getChatModel();
             when(model.stream(any(Prompt.class))).thenAnswer(call -> provider.stream(call.getArgument(0, Prompt.class)));
             var session = create();
             var reply = send(session, UUID.randomUUID().toString());
@@ -5755,8 +6036,7 @@ class ChatSessionApiIntegrationTest {
             assertTrue(jdbc.sql("SELECT input_tokens FROM chat_message WHERE id = :id")
                     .param("id", UUID.fromString(id)).query(Long.class).single() > 0);
         } finally {
-            client.close();
-            sync.close();
+            live.close();
             meters.close();
         }
     }
@@ -5845,9 +6125,7 @@ class ChatSessionApiIntegrationTest {
         assertTrue(key != null && !key.isBlank());
         String corpusFile = System.getenv("MEMORYOS_CHAT_CORPUS_FILE");
         assertTrue(corpusFile != null && !corpusFile.isBlank(), "MEMORYOS_CHAT_CORPUS_FILE is required for this opt-in check");
-        var configuration = new OpenAiProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var live = liveClient(key, meters);
         var receipts = new ArrayList<Map<String, Object>>();
         var answerChecks = new ArrayList<Executable>();
         try (var corpus = new LiveSearchCorpus(
@@ -5858,7 +6136,7 @@ class ChatSessionApiIntegrationTest {
                     call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3)));
             when(searchIndex.document(any(), any(), any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt()))
                     .thenAnswer(call -> corpus.index.document(call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3), call.getArgument(4)));
-            var provider = configuration.chatProviderModel(client, sync, key, ObservationRegistry.NOOP, meters);
+            var provider = live.binding().service().getChatModel();
             when(model.call(any(Prompt.class))).thenAnswer(call -> provider.call(call.getArgument(0, Prompt.class)));
             when(model.stream(any(Prompt.class))).thenAnswer(call -> provider.stream(call.getArgument(0, Prompt.class)));
             var questions = List.of(
@@ -5885,7 +6163,7 @@ class ChatSessionApiIntegrationTest {
                         if (!line.startsWith("data:")) continue;
                         long ms = (System.nanoTime() - started) / 1_000_000;
                         var data = Json.mapper().readTree(line.substring(5));
-                        if ("text-delta".equals(event) && firstText == null) firstText = ms;
+                        if ("text".equals(event) && firstText == null) firstText = ms;
                         if ("tool".equals(event)) events.add(Map.of("ms", ms, "stage", data.path("stage").asText(),
                                 "toolCallId", data.path("toolCallId").asText(), "queryCount", data.path("search").path("queries").size()));
                     }
@@ -5922,7 +6200,7 @@ class ChatSessionApiIntegrationTest {
             }
             Assertions.assertAll("Real corpus answer quality", answerChecks);
         } finally {
-            try (AutoCloseable _ = client::close; AutoCloseable _ = sync::close) {
+            try (AutoCloseable _ = live::close) {
                 var report = Path.of("build", "reports", "chat-corpus");
                 Files.createDirectories(report);
                 Files.writeString(report.resolve("timings.json"), Json.mapper().writeValueAsString(receipts));
@@ -5939,10 +6217,8 @@ class ChatSessionApiIntegrationTest {
     void realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "A managed OpenAI key is required for this opt-in check");
-        var configuration = new OpenAiProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
+        var live = liveClient(key, meters);
         UUID policy = UUID.randomUUID(), contractor = UUID.randomUUID(), injection = UUID.randomUUID(), hidden = UUID.randomUUID();
         var generation = UUID.randomUUID();
         var corpus = Map.of(
@@ -5979,10 +6255,10 @@ class ChatSessionApiIntegrationTest {
             int end = Math.min(start + count, content.size());
             var passages = IntStream.range(start, end)
                     .mapToObj(i -> new SearchPage.Passage(i, content.get(i), "[{\"page\":" + (i + 1) + "}]")).toList();
-            return new SearchDocument(id, generation, titles.get(id), passages, Math.min(start, content.size()), content.size(), end < content.size());
+            return new SearchDocument(id, generation, titles.get(id), "text/plain", passages, Math.min(start, content.size()), content.size(), end < content.size());
         });
         try {
-            var provider = configuration.chatProviderModel(client, sync, key, ObservationRegistry.NOOP, meters);
+            var provider = live.binding().service().getChatModel();
             when(model.stream(any(Prompt.class))).thenAnswer(call -> {
                 Prompt request = call.getArgument(0);
                 assertFalse(request.toString().contains("DENIED_ONLY_SECRET_99"));
@@ -6039,7 +6315,7 @@ class ChatSessionApiIntegrationTest {
             assertGroundedCitation(defended, injection);
             verify(sourceAccess, never()).canRead(any(), any());
         } finally {
-            try (AutoCloseable _ = client::close; AutoCloseable _ = sync::close; AutoCloseable _ = meters::close) {
+            try (AutoCloseable _ = live::close; AutoCloseable _ = meters::close) {
                 var receipts = Path.of("build", "reports", "chat-grounding");
                 Files.createDirectories(receipts);
                 Files.writeString(receipts.resolve("helpers.json"), Json.mapper().writeValueAsString(helperReceipts));

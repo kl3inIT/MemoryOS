@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./deployment-policy";
 import type {
   CurrentIdentity,
   MeetingDetail,
@@ -679,8 +680,11 @@ for (const width of [1440, 390]) {
       page.getByRole("heading", { name: "Giao ban tuần · Khối Tài chính", level: 1 }),
     ).toBeVisible();
     await expect(page.getByRole("timer")).toBeVisible();
+    // The newest line is also announced in a screen-reader live region, so the check reads the transcript list.
     await expect(
-      page.getByText("Bên nhân sự đã gửi bảng KPI tháng 9", { exact: false }),
+      page
+        .getByRole("region", { name: "Transcript" })
+        .getByText("Bên nhân sự đã gửi bảng KPI tháng 9", { exact: false }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Em sẽ gửi báo giá gói MemoryOS…")).toBeVisible();
     expect(audio.offset).toBe("0");
@@ -699,7 +703,7 @@ for (const width of [1440, 390]) {
     await confirm.getByRole("button", { name: "Dừng và kết thúc" }).click();
     // The confirmation closes at once; the last words are stored behind the recording bar.
     await expect(confirm).toBeHidden({ timeout: 1_000 });
-    await expect(page.getByRole("button", { name: "Xoá cuộc họp" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xóa cuộc họp" })).toBeVisible();
     // The minutes open on their own tab once they are written.
     await expect(
       page.getByText("Cuộc họp chốt ngân sách quý 4 trước thứ Năm", { exact: false }),
@@ -732,7 +736,7 @@ for (const width of [1440, 390]) {
     await added.hover();
     await page.screenshot({ path: `../output/playwright/meetings-added-${width}.png` });
     await added.getByRole("button", { name: "Sửa" }).click();
-    await page.getByRole("button", { name: "Xoá", exact: true }).click();
+    await page.getByRole("button", { name: "Xóa", exact: true }).click();
     await expect(page.getByText("Đặt phòng họp cho quý 4", { exact: true })).toHaveCount(0);
     await page.getByRole("tab", { name: /Quyết định/ }).click();
     await expect(

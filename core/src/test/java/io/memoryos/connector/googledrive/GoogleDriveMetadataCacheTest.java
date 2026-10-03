@@ -7,7 +7,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.connector.GoogleDriveProvider.FileMetadata;
+import io.memoryos.connector.GoogleDriveGateway.FileMetadata;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;

@@ -136,10 +136,11 @@ public class ChatModelAccess {
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
         chats.lockOwner(tenant, actor);
         chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
+        var effort = catalog.taskEffort(tenant, flow);
         var selection = catalog.flowModel(tenant, flow);
-        if (selection == null) return select(actor, sessionId, null);
+        if (selection == null) return select(actor, sessionId, null).forTask(effort);
         return new Selection(selection.model(), selection.provider(), null,
-                chats.persona(sessionId, true, agentsManage(actor)).revision());
+                chats.persona(sessionId, true, agentsManage(actor)).revision()).forTask(effort);
     }
 
     private List<AvailableModel> availableModels(ActorId actor, TenantId tenant, UUID personaId) {

@@ -132,6 +132,8 @@ class ChatWebPromptsTest {
         assertTrue(with.contains("each call to this tool runs in a fresh, stateless sandbox"));
         assertTrue(with.contains("CPU time is limited to 30 seconds per run."));
         assertTrue(with.contains("run `recalc-xlsx` via subprocess"));
+        assertTrue(with.contains("Write intermediate files, such as text extracted from a document or scratch data, under `/tmp`"));
+        assertTrue(with.contains("`pdftotext -layout file.pdf -`"));
         assertEquals(1, headings(with));
         assertFalse(ChatPrompts.forInference(prompt(Set.of("read_file"), null), false, false).toString().contains("run_python"));
     }

@@ -85,8 +85,12 @@ export function UsersPage() {
     setInvitationDialogOpen(true);
   }
 
-  function updateView(update: Partial<UsersSearch>, options: { resetPage?: boolean } = {}) {
+  function updateView(
+    update: Partial<UsersSearch>,
+    options: { resetPage?: boolean; replace?: boolean } = {},
+  ) {
     void navigate({
+      replace: options.replace,
       search: (current) => ({
         ...current,
         ...update,
@@ -138,7 +142,9 @@ export function UsersPage() {
           search={search}
           groups={canReadGroups ? groups : undefined}
           groupsLoading={groupOptions.isPending}
-          onSearchChange={(nextSearch) => updateView({ search: nextSearch }, { resetPage: true })}
+          onSearchChange={(nextSearch, settled) =>
+            updateView({ search: nextSearch }, { resetPage: true, replace: settled })
+          }
           onRoleChange={(role) => updateView({ role }, { resetPage: true })}
           onGroupChange={(groupId) => updateView({ groupId }, { resetPage: true })}
           onClear={clearFilters}

@@ -5,10 +5,24 @@ import { documentSourceTypesSchema } from "@/features/documents/document-source-
 // Presentation-only metadata recorded when the evidence was cited; older answers omit both.
 const mediaTypeSchema = z.string().min(1).max(160).nullish();
 const sourceTypesSchema = documentSourceTypesSchema.optional();
-// Only the backend-built Drive open URL is accepted; anything else would be an arbitrary outbound link.
+// Zod runs a refinement even after its own URL check failed, so a malformed URL must fail, not throw.
+function parsedUrl(url: string): URL | undefined {
+  try {
+    return new URL(url);
+  } catch {
+    return undefined;
+  }
+}
+
+// The provider's adapter builds the link from what that provider returned; only an https address is opened.
 const providerUrlSchema = z
   .string()
-  .regex(/^https:\/\/drive\.google\.com\/open\?id=[A-Za-z0-9_-]{10,256}$/)
+  .max(2048)
+  .url()
+  .refine((url) => {
+    const parsed = parsedUrl(url);
+    return parsed?.protocol === "https:" && !parsed.username && !parsed.password;
+  })
   .nullish();
 
 const documentSourceSchema = z
@@ -57,9 +71,12 @@ export const sourceSchema = z.union([
         .max(2048)
         .url()
         .refine((url) => {
-          const parsed = new URL(url);
+          const parsed = parsedUrl(url);
           return (
-            ["http:", "https:"].includes(parsed.protocol) && !parsed.username && !parsed.password
+            !!parsed &&
+            ["http:", "https:"].includes(parsed.protocol) &&
+            !parsed.username &&
+            !parsed.password
           );
         }),
       excerpt: z.string().max(4000),

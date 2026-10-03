@@ -16,6 +16,11 @@ Complete one approved scope before starting another: implement, verify, publish,
 - Never merge around a red required check, unresolved actionable review finding, conflict, or unknown scope change.
 - Passing CI does not prove that a CodeRabbit finding is a false positive.
 - Use a GitHub merge commit and an exact-head guard. Do not squash, rebase, force-push, or reconstruct reviewed history.
+- A pull request whose diff is only documentation (`docs/`, `*.md`) or project skills (`.skills/<name>/` and its links)
+  merges as soon as it is open, without waiting for CI or CodeRabbit. Any code, configuration or generated file
+  brings back every gate below.
+- Check CI once and report it. Do not block the session on `gh pr checks --watch` or `gh run watch`; when a merge waits
+  for green CI, say it is pending and let the user ask again.
 
 ## 1. Preflight
 
@@ -30,16 +35,18 @@ Complete one approved scope before starting another: implement, verify, publish,
 ## 2. Implement and verify locally
 
 1. Follow the current MemoryOS architecture decision and capability boundaries. Do not copy legacy OrgMemory infrastructure wholesale.
-2. For every edited IDE-supported file, follow `memoryos-ide-static-analysis` when JetBrains MCP is available. Include warnings. Otherwise run the documented Gradle fallback.
-3. Run focused behavioral verification while iterating, then the terminating repository gate:
+2. Run focused behavioral verification while iterating, then the terminating repository gate:
 
 ```text
 gradlew.bat clean check --no-daemon
 ```
 
-4. Exercise changed runtime surfaces. For API changes, call the affected endpoint. For worker changes, start the actual worker and observe startup or changed processing. For future UI changes, require real-browser evidence and explicit user approval before merge.
-5. Review working-tree and staged diffs, account for every path, run whitespace checks, and scan for credentials, tokens, cookies, customer data, generated junk, and machine-local configuration.
-6. Keep `.omp/mcp.json` local. Canonical project skills under `.skills/` must not contain credentials, fixed local ports, or hard-coded checkout paths. The per-skill entries under `.agents/skills/`, `.claude/skills/`, and `.omp/skills/` are relative symbolic links to that shared content.
+   When the machine is short on memory (shells reaped, JVM crashes, `hs_err_pid*.log` files), run only the cheap
+   targeted checks locally, push, and let CI run the full gate; say which gates were left to CI.
+
+3. Exercise changed runtime surfaces. For API changes, call the affected endpoint. For worker changes, start the actual worker and observe startup or changed processing. For future UI changes, require real-browser evidence and explicit user approval before merge.
+4. Review working-tree and staged diffs, account for every path, run whitespace checks, and scan for credentials, tokens, cookies, customer data, generated junk, and machine-local configuration.
+5. Keep `.omp/mcp.json` local. Canonical project skills under `.skills/` must not contain credentials, fixed local ports, or hard-coded checkout paths. The per-skill entries under `.agents/skills/`, `.claude/skills/`, and `.omp/skills/` are relative symbolic links to that shared content.
 
 ## 3. Synchronize, publish, and open the pull request
 
@@ -63,7 +70,7 @@ gh api repos/<owner>/MemoryOS/pulls/<pr>/comments --paginate
 gh api graphql -f owner=<owner> -f name=MemoryOS -F number=<pr> -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{id isResolved isOutdated comments(first:100){nodes{id author{login}body path line url}}}}}}}'
 ```
 
-Use `gh pr checks <pr> --watch --interval 10` or `gh run watch <run> --exit-status` with the bounded tool timeout. Inspect a red CI run with `gh run view <run> --log-failed`.
+Read CI with a single `gh pr checks <pr>` and report the state. Inspect a red CI run with `gh run view <run> --log-failed`.
 
 For repositories where CodeRabbit requires manual review, request `@coderabbitai full review` once. A bot acknowledgement proves the command was accepted, not that analysis completed. Never request, poll, or collect a second CodeRabbit review after this pass, including after a fix push.
 
@@ -118,10 +125,13 @@ gh pr merge <pr> --merge --delete-branch --match-head-commit "$reviewed_head_sha
 ## 6. Post-merge proof and cleanup
 
 1. Fetch and prove the merge commit is on `origin/main`.
-2. Wait for `main` CI belonging to the exact merge SHA. Do not substitute the feature-branch run.
+2. Read `main` CI for the exact merge SHA once (`gh run list --branch main --commit <sha>`) and report its state; do not
+   wait on it, and do not substitute the feature-branch run.
 3. Run applicable post-merge smoke verification. If no deployment exists, record exact-SHA deployment proof as not applicable; do not invent a release.
 4. Update the linked Linear issue with PR URL, reviewed head, merge SHA, current-head and main CI runs, review resolutions or fallback evidence, and smoke result.
-5. Mark the issue Done only after merge and required post-merge proof succeed.
+5. Mark the issue Done only after merge and required post-merge proof succeed. Linear's GitHub integration moves a
+   linked issue to Done as soon as any linked pull request merges, whatever the body says; after an intermediate pull
+   request of a multi-PR issue, set the issue back to its working state.
 6. In single-session mode, switch to `main`, fast-forward from `origin/main`, and delete the merged local feature branch. Preserve unrelated files.
 7. Stop. Do not begin the next issue without an explicit directive.
 
@@ -134,6 +144,6 @@ gh pr merge <pr> --merge --delete-branch --match-head-commit "$reviewed_head_sha
 - [ ] The single CodeRabbit review pass was captured and every finding was classified with evidence.
 - [ ] Any rate-limit fallback satisfies all six conditions and is recorded.
 - [ ] Base freshness and exact-head merge guard passed.
-- [ ] Merge commit contains the reviewed head and exact merge-SHA CI passed.
+- [ ] Merge commit contains the reviewed head and the exact merge-SHA CI state was reported.
 - [ ] Linear evidence and status match GitHub/runtime state.
 - [ ] Checkout returned cleanly to updated `main`; no next issue was started.

@@ -81,7 +81,7 @@ final class SourceController {
         return SourceSummaryResponse.from(sources.renameSource(identityContext.actorId(), new SourceId(sourceId), request.name()));
     }
 
-    @Operation(operationId = "updateSourceAccess", summary = "Update Source access; SYNC requires a Google Drive source")
+    @Operation(operationId = "updateSourceAccess", summary = "Update Source access; SYNC needs provider permissions")
     @PostMapping(value = "/{sourceId}/access", consumes = MediaType.APPLICATION_JSON_VALUE)
     SourceSummaryResponse updateSourceAccess(
             @CurrentActor IdentityContext identityContext,

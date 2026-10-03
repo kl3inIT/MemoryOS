@@ -25,8 +25,8 @@ public interface SharePointCredentialService {
     /** Re-checks a stored credential against Microsoft and records the resolved Tenant host. */
     TestResult test(ActorId actorId, CredentialId credentialId);
 
-    record Draft(String name, UUID directoryId, UUID clientId, SharePointProvider.Cloud cloud,
-                 SharePointProvider.AuthMethod authMethod, byte @Nullable [] clientSecret,
+    record Draft(String name, UUID directoryId, UUID clientId, SharePointGateway.Cloud cloud,
+                 SharePointGateway.AuthMethod authMethod, byte @Nullable [] clientSecret,
                  byte @Nullable [] pkcs12, char @Nullable [] pkcs12Password) implements AutoCloseable {
         public Draft {
             Objects.requireNonNull(name, "name");

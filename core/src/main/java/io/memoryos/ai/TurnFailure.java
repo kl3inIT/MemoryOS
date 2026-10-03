@@ -16,6 +16,8 @@ public enum TurnFailure {
     EMPTY_RESPONSE("CHAT_EMPTY_RESPONSE", true),
     CONTEXT_LIMIT("CHAT_CONTEXT_LIMIT", true),
     MODEL_OUTPUT_LIMIT("CHAT_MODEL_OUTPUT_LIMIT", true),
+    /** The provider refused the model's credential (HTTP 401 or 403), whichever call of the turn met it. */
+    PROVIDER_CREDENTIAL_REJECTED("CHAT_PROVIDER_CREDENTIAL_REJECTED", true),
     DEADLINE("CHAT_DEADLINE", false),
     PROVIDER_UNAVAILABLE("CHAT_PROVIDER_UNAVAILABLE", false);
 

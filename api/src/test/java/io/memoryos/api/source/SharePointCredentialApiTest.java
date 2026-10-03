@@ -13,7 +13,6 @@ import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
-import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.iam.IamException;

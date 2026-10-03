@@ -375,6 +375,12 @@ function AuditEvents({
       table={table}
       label={ui("Audit log")}
       className="min-w-192"
+      // The whole row opens its event; the activity's button stays the keyboard's way in.
+      rowProps={(row) => ({
+        onClick: (event) => {
+          if (!(event.target as Element).closest("button, a")) onOpen(row.original);
+        },
+      })}
       footer={
         <TablePagination
           label={ui("Audit log pages")}

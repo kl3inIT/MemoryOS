@@ -52,7 +52,7 @@ public final class LiveSearchCorpus implements AutoCloseable {
             container.start();
             var config = new SearchInfrastructureConfiguration();
             var properties = new SearchProperties(URI.create("http://" + container.getHost() + ":" + container.getMappedPort(9200)),
-                    "", "", "", "https://api.openai.com/v1", key, "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 500, .5,
+                    "", "", "", "https://api.openai.com/v1", "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 500, .5,
                     .70, Duration.ofSeconds(30), "memoryos-acceptance", 0, "", "");
             opened = config.searchTransport(properties);
             transport = opened;
@@ -76,7 +76,7 @@ public final class LiveSearchCorpus implements AutoCloseable {
             when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
             var gateway = new OpenSearchGateway(config.searchClient(transport), mapper);
             var embeddings = new ValidatedEmbeddingService(OpenAiCompatibleEmbeddings.model(properties.embeddingEndpoint(),
-                    properties.apiKey(), properties.model(), properties.dimensions(), properties.embeddingRetries(),
+                    key, properties.model(), properties.dimensions(), properties.embeddingRetries(),
                     properties.embeddingTimeout(), ObservationRegistry.NOOP), properties.model(), 3072, 32, 2);
             var now = Instant.now();
             var generation = new SearchGeneration(UUID.randomUUID(), tenant.value(), UUID.randomUUID(), properties.model(),

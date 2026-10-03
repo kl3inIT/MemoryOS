@@ -30,7 +30,7 @@ import {
   TextareaField,
   TokenLimitField,
 } from "./agent-editor-fields";
-import { effectiveModel, formatTokens, limitCaps, minContextTokenLimit } from "./agent-form";
+import { effectiveModel, formatTokens, limitCaps, tokenLimits } from "./agent-form";
 import { AgentSourcePicker } from "./agent-source-picker";
 import { toolIcons, useToolNames } from "./agent-tools";
 import type { AgentChoices, AgentFormApi } from "./use-agent-editor";
@@ -492,7 +492,7 @@ export function AdvancedSection({ form, agent, choices, editable }: SectionProps
                           "Số token tối đa gửi vào model mỗi lượt: hướng dẫn, công cụ, lịch sử hội thoại và tài liệu. Thấp hơn giúp tiết kiệm chi phí nhưng trợ lý đọc được ít hơn.",
                         )}
                         custom={custom}
-                        min={minContextTokenLimit}
+                        min={tokenLimits.contextTokenLimit.min}
                         cap={caps.context}
                         modelValue={model ? formatTokens(model.contextWindow) : ""}
                       />
@@ -507,7 +507,7 @@ export function AdvancedSection({ form, agent, choices, editable }: SectionProps
                           "Số token tối đa model được viết cho một câu trả lời, gồm cả phần suy luận. Đặt quá thấp có thể làm câu trả lời bị cắt.",
                         )}
                         custom={custom}
-                        min={1}
+                        min={tokenLimits.outputTokenLimit.min}
                         cap={caps.output}
                         modelValue={
                           model

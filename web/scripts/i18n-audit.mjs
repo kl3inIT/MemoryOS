@@ -145,13 +145,31 @@ for (const path of files(root)) {
   }
   visit(ast);
 }
+/**
+ * Vietnamese copy keeps one tone style, the older one: an open "oa", "oe" or "uy" carries the tone on its first vowel
+ * ("xóa", "khóa", "hủy", "tùy"), never on the second ("xoá"). "quý" is not such a pair, since "qu" is one consonant.
+ */
+const secondVowelTone =
+  /(?<!\p{L})\p{L}*?(?:[oO][áàảãạÁÀẢÃẠ]|[oO][éèẻẽẹÉÈẺẼẸ]|(?<![qQ])[uU][ýỳỷỹỵÝỲỶỸỴ])(?!\p{L})/gu;
+const toneFailures = ["vi.ts", "app-translations.vi.ts", "app-translations.en.ts"].flatMap((name) =>
+  readFileSync(join(root, "i18n", name), "utf8")
+    .split("\n")
+    .flatMap((line, index) =>
+      [...line.matchAll(secondVowelTone)].map(
+        ([word]) => `${root}/i18n/${name}:${index + 1} tone on the second vowel in "${word}"`,
+      ),
+    ),
+);
 if (process.argv.includes("--check")) {
   const failures = [
     ...results.map((result) => `${result.file}:${result.line} untranslated ${result.value}`),
     ...missingKeys,
+    ...toneFailures,
   ];
   for (const failure of failures) console.error(failure);
-  console.log(`i18n audit: ${failures.length} direct UI literals or missing static keys.`);
+  console.log(
+    `i18n audit: ${failures.length} direct UI literals, missing static keys or second-vowel tones.`,
+  );
   if (failures.length) process.exitCode = 1;
 } else if (process.argv.includes("--quiet") || process.argv.includes("--candidates")) {
   /* Imported by the one-off mechanical migration. */

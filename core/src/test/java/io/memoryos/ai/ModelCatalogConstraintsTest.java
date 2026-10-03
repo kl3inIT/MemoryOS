@@ -63,7 +63,7 @@ class ModelCatalogConstraintsTest {
                 VALUES (:id,:tenant,'Provider','openai','http://internal/v1',true,true,'deployment',1)""")
                 .param("id", provider).param("tenant", tenant).update(); });
         else tx(() -> { catalog.initialize(tenant); catalog.insertProvider(new LlmProvider(provider, tenant,
-                "Provider", "openai", "http://internal/v1", true, true, "deployment", 1, Set.of(), Set.of(), DataBoundary.EXTERNAL), null); });
+                "Provider", "openai", "http://internal/v1", true, true, "v1:fixture", 1, Set.of(), Set.of(), DataBoundary.EXTERNAL)); });
     }
     @AfterEach void close() { if (jpa != null) jpa.close(); if (dataSource != null) dataSource.close(); }
 
@@ -133,16 +133,25 @@ class ModelCatalogConstraintsTest {
         assertNull(unset.modelConfigurationId());
         var defaults = read(() -> catalog.flowDefaults(tenant));
         assertEquals(ModelFlow.values().length, defaults.size(), "initializing seeds one row per task flow, once");
-        assertEquals(unset, defaults.getFirst());
+        assertEquals(unset, defaults.stream().filter(flow -> flow.flow() == ModelFlow.CHAT_NAMING).findFirst().orElseThrow());
         var model = new ModelConfiguration(UUID.randomUUID(), tenant, provider, "mini", "Mini", true, settings, 1);
         tx(() -> catalog.insertModel(model));
         assertThrows(DataIntegrityViolationException.class,
-                () -> tx(() -> catalog.setFlowDefault(otherTenant, ModelFlow.CHAT_NAMING, model.id(), 1)));
-        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_NAMING, model.id(), unset.revision()));
-        assertThrows(AiException.class, () -> tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_NAMING, null, unset.revision())));
+                () -> tx(() -> catalog.setFlowDefault(otherTenant, ModelFlow.CHAT_NAMING, model.id(), null, 1)));
+        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_NAMING, model.id(), null, unset.revision()));
+        assertThrows(AiException.class, () -> tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_NAMING, null, null, unset.revision())));
         var set = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING));
         assertEquals(model.id(), set.modelConfigurationId());
         assertEquals(unset.revision() + 1, set.revision());
+        // No level is the task's own default; a chosen level is stored and read back, and clearing it restores the default.
+        assertNull(set.reasoningEffort());
+        assertEquals(ReasoningEffort.OFF, set.effort());
+        assertEquals(ReasoningEffort.MEDIUM, read(() -> catalog.flowDefault(tenant, ModelFlow.MEETING_MINUTES)).effort());
+        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_NAMING, model.id(), ReasoningEffort.HIGH, set.revision()));
+        var reasoned = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING));
+        assertEquals(ReasoningEffort.HIGH, reasoned.effort());
+        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_NAMING, model.id(), null, reasoned.revision()));
+        assertEquals(ReasoningEffort.OFF, read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING)).effort());
         tx(() -> catalog.deleteModel(tenant, model.id(), 1));
         assertNull(read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING)).modelConfigurationId());
         assertEquals(DataBoundary.EXTERNAL, read(() -> catalog.provider(tenant, provider).orElseThrow().dataBoundary()));

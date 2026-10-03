@@ -4,7 +4,7 @@ import java.util.List;
 
 /** Reads outbound HTTPS references from acquired content without provider or network access. */
 public interface GoogleDriveLinkReader {
-    List<Link> read(GoogleDriveProvider.AcquiredContent content);
+    List<Link> read(GoogleDriveGateway.AcquiredContent content);
 
     record Link(String url, String location) {}
 }

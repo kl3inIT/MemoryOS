@@ -20,6 +20,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HttpResponse } from "msw";
 import {
   handleGetChatVoiceAvailability,
+  handleGetSearchDocument,
+  handleReadSearchDocumentOriginal,
   handleListChatPersonaPins,
   handleListChatProjects,
   handleListChatSessions,
@@ -59,6 +61,7 @@ vi.mock("@/features/voice/voice-dictation", async (importOriginal) => ({
 
 const OWNER_SESSION: ApplicationSession = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: {
@@ -161,11 +164,144 @@ describe("SearchPage", () => {
     expect(screen.getByRole("textbox", { name: "Search documents" })).toHaveValue("budget");
 
     await user.click(await screen.findByRole("button", { name: "Updated: All time" }));
-    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
+    await user.click(screen.getByRole("button", { name: "Past 30 days" }));
 
     await waitFor(() =>
       expect(renderedRouter?.state.location.href).toBe("/search?q=budget&source=FILE&time=30d"),
     );
+  });
+
+  it("applies a range of days picked on the calendar in place of a preset and keeps it in the address", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        results: [],
+        page: 0,
+        hasMore: false,
+        totalResults: 0,
+        candidateLimit: 200,
+        sourceFacets: { total: 0, types: [] },
+      },
+    });
+    await renderNewSession(OWNER_SESSION, "/search?q=budget&time=7d");
+    // The calendar opens on last month beside this one, and a day after today cannot be picked.
+    const today = new Date();
+    const month = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const day = (date: number) =>
+      `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
+    const named = (date: number) =>
+      new RegExp(
+        `${month.toLocaleString("en-US", { month: "long" })} ${date}(st|nd|rd|th), ${month.getFullYear()}`,
+      );
+
+    await user.click(await screen.findByRole("button", { name: "Updated: Past 7 days" }));
+    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: named(3) }));
+    await user.click(screen.getByRole("button", { name: named(17) }));
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    await waitFor(() =>
+      expect(searchDocumentsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            query: "budget",
+            updatedFrom: `${day(3)}T00:00:00.000Z`,
+            updatedTo: `${day(17)}T23:59:59.999Z`,
+          }),
+        }),
+      ),
+    );
+    expect(renderedRouter?.state.location.href).toBe(
+      `/search?q=budget&from=${day(3)}&to=${day(17)}`,
+    );
+    expect(screen.queryByRole("button", { name: "Updated: Past 7 days" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Updated: / }));
+    await user.click(screen.getByRole("button", { name: "All time" }));
+    await waitFor(() => expect(renderedRouter?.state.location.href).toBe("/search?q=budget"));
+  });
+
+  it("opens the document a doc link names at its current generation and leaves the link on close", async () => {
+    const user = userEvent.setup();
+    const documentId = "3f2b8c1e-7a4d-4e9b-9c11-5d6e7f8a9b0c";
+    const asked: URL[] = [];
+    server.use(
+      handleGetSearchDocument(({ request }) => {
+        asked.push(new URL(request.url));
+        return HttpResponse.json({
+          documentId,
+          generation: "8a1c2e3f-4b5d-4c6e-8f70-112233445566",
+          title: "Quy chế nghỉ phép 2026",
+          // An original that can only be downloaded opens on its extracted text instead.
+          mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          passages: [
+            { ordinal: 0, content: "Nhân viên mới có 12 ngày phép năm.", provenanceJson: "{}" },
+          ],
+          firstOrdinal: 0,
+          totalChunks: 1,
+          hasMore: false,
+        });
+      }),
+    );
+    await renderNewSession(OWNER_SESSION, `/search?doc=${documentId}`);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Nhân viên mới có 12 ngày phép năm.")).toBeVisible();
+    expect(within(dialog).getAllByText("Quy chế nghỉ phép 2026")[0]).toBeVisible();
+    expect(asked[0]?.pathname).toBe(`/api/search/documents/${documentId}`);
+    expect(asked[0]?.searchParams.has("generation")).toBe(false);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(renderedRouter?.state.location.href).toBe("/search"));
+  });
+
+  it("opens an uploaded PDF a doc link names on its stored original, as a Chat citation does", async () => {
+    const documentId = "5c1d2e3f-4a5b-4c6d-8e7f-90a1b2c3d4e5";
+    const generation = "9b2d3e4f-5a6b-4c7d-8e9f-a0b1c2d3e4f5";
+    server.use(
+      handleGetSearchDocument(() =>
+        HttpResponse.json({
+          documentId,
+          generation,
+          title: "Sổ tay nhân sự 2026.pdf",
+          mediaType: "application/pdf",
+          passages: [{ ordinal: 0, content: "Chương 1. Quy định chung.", provenanceJson: "{}" }],
+          firstOrdinal: 0,
+          totalChunks: 40,
+          hasMore: true,
+        }),
+      ),
+      // jsdom cannot draw the PDF; the end-to-end case renders its pages.
+      handleReadSearchDocumentOriginal(() => new HttpResponse(null, { status: 404 })),
+    );
+    await renderNewSession(OWNER_SESSION, `/search?doc=${documentId}`);
+
+    // The dialog knows the original is a PDF, so it opens the PDF reader rather than the extracted text alone.
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(dialog).toHaveAccessibleDescription(/PDF/));
+    expect(dialog).not.toHaveAccessibleDescription(/Extracted document text/);
+  });
+
+  it("says so when a doc link names a document the reader cannot read", async () => {
+    server.use(
+      handleGetSearchDocument(() =>
+        HttpResponse.json(
+          {
+            type: "about:blank",
+            title: "Not Found",
+            status: 404,
+            code: "SEARCH_DOCUMENT_UNAVAILABLE",
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    await renderNewSession(OWNER_SESSION, "/search?doc=3f2b8c1e-7a4d-4e9b-9c11-5d6e7f8a9b0c");
+
+    expect(
+      await screen.findByText("This document is not among the documents you can read."),
+    ).toBeVisible();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("renders Search inside the authenticated application shell", async () => {
@@ -190,7 +326,7 @@ describe("SearchPage", () => {
     // Without a Tenant speech-to-text provider there is no microphone, and no browser recognition fallback.
     expect(screen.queryByRole("button", { name: "Search by voice" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("status").some((status) => status.textContent === "")).toBe(true);
-    expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Owner" })).toBeInTheDocument();
   });
 
   it("adds the MemoryOS transcript to the controlled query without searching automatically", async () => {
@@ -330,7 +466,7 @@ describe("SearchPage", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Updated: All time" }));
-    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
+    await user.click(screen.getByRole("button", { name: "Past 30 days" }));
 
     await waitFor(() =>
       expect(searchDocumentsMock).toHaveBeenCalledWith(
@@ -339,7 +475,7 @@ describe("SearchPage", () => {
             query: "nghỉ phép",
             mediaTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
             page: 0,
-            updatedSince: expect.stringMatching(/T00:00:00\.000Z$/),
+            updatedFrom: expect.stringMatching(/T00:00:00\.000Z$/),
           }),
         }),
       ),
@@ -645,7 +781,7 @@ describe("SearchPage", () => {
     expect(screen.queryByRole("region", { name: "Recent searches" })).not.toBeInTheDocument();
   });
 
-  it("removes owner administration affordances for a member", async () => {
+  it("keeps the Groups administration affordance for a member", async () => {
     await renderNewSession({
       ...OWNER_SESSION,
       tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
@@ -660,8 +796,11 @@ describe("SearchPage", () => {
       scopedCapabilities: [],
     });
 
-    expect(screen.getByRole("button", { name: "Tenant member" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Admin Panel" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Member" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
+      "href",
+      "/admin/groups",
+    );
   });
 
   it("denies Search without global SEARCH_READ and sends no Search or reader requests", async () => {
@@ -737,7 +876,7 @@ describe("SearchPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     await renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
+    await user.click(screen.getByRole("button", { name: "Owner" }));
     await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(fetchMock).toHaveBeenCalledWith("/logout", {
@@ -756,7 +895,7 @@ describe("SearchPage", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
     await renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
+    await user.click(screen.getByRole("button", { name: "Owner" }));
     await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(await screen.findByRole("alert")).toBeVisible();

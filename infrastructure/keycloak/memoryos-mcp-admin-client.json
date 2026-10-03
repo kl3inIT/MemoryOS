@@ -1,0 +1,16 @@
+{
+  "clientId": "memoryos-mcp-admin",
+  "name": "MemoryOS MCP administration",
+  "description": "Realm-local service account with which MemoryOS keeps the MCP endpoint's trusted apps in the client policy and removes their clients",
+  "enabled": true,
+  "protocol": "openid-connect",
+  "publicClient": false,
+  "clientAuthenticatorType": "client-secret",
+  "bearerOnly": false,
+  "standardFlowEnabled": false,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": true,
+  "redirectUris": [],
+  "webOrigins": []
+}

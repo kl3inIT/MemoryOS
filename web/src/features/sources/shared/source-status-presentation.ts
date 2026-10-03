@@ -1,5 +1,6 @@
 import {
   Check,
+  CircleHelp,
   Clock3,
   LoaderCircle,
   Lock,
@@ -19,15 +20,22 @@ type SourceStatusPresentation = {
   icon: LucideIcon;
 };
 
-/** Tones follow Onyx's connector status badges: indexing blue, active green, failed red. */
-export const defaultStatusPresentation: SourceStatusPresentation = {
-  label: "Scheduled",
-  tone: "neutral",
-  icon: Clock3,
+type SourceAccessPresentation = {
+  label: string;
+  title: string;
+  icon: LucideIcon;
 };
 
+/** A status this client does not know yet, rather than one it would pass off as another. */
+export const unknownStatusPresentation: SourceStatusPresentation = {
+  label: "Unknown",
+  tone: "neutral",
+  icon: CircleHelp,
+};
+
+/** Tones follow Onyx's connector status badges: indexing blue, active green, failed red. */
 export const sourceStatusPresentation: Record<string, SourceStatusPresentation> = {
-  NOT_STARTED: defaultStatusPresentation,
+  NOT_STARTED: { label: "Scheduled", tone: "neutral", icon: Clock3 },
   INDEXING: { label: "Indexing", tone: "info", icon: LoaderCircle },
   ACTIVE: { label: "Active", tone: "success", icon: Check },
   FAILED: { label: "Failed", tone: "danger", icon: TriangleAlert },
@@ -35,27 +43,21 @@ export const sourceStatusPresentation: Record<string, SourceStatusPresentation> 
   PAUSING: { label: "Pausing", tone: "warning", icon: LoaderCircle },
   DELETING: { label: "Deleting", tone: "neutral", icon: Trash2 },
 };
-/** Onyx colours access too: workspace-wide green, group-restricted amber, Drive-synced blue. */
-export const sourceAccessPresentation: Record<
-  SourceSummary["access"],
-  SourceStatusPresentation & { title: string }
-> = {
+/** Access is who may read, not a state, so it takes no status tone: its icon and label tell the modes apart. */
+export const sourceAccessPresentation: Record<SourceSummary["access"], SourceAccessPresentation> = {
   PUBLIC: {
     label: "All members",
     title: "Everyone can read it.",
-    tone: "success",
     icon: Users,
   },
   PRIVATE: {
     label: "Specific groups",
     title: "Only members of the chosen groups can read it.",
-    tone: "warning",
     icon: Lock,
   },
   SYNC: {
     label: "Sync permissions from source",
     title: "Permissions come from the source.",
-    tone: "info",
     icon: RefreshCw,
   },
 };

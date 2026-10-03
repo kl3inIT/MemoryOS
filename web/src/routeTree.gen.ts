@@ -33,6 +33,7 @@ import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
 import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/_authenticated.admin.image-generation'
 import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
+import { Route as AuthenticatedAdminMcpEndpointRouteImport } from './routes/_authenticated.admin.mcp-endpoint'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminSearchSettingsRouteImport } from './routes/_authenticated.admin.search-settings'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
@@ -46,6 +47,7 @@ import { Route as AuthenticatedSettingsArchivedChatsRouteImport } from './routes
 import { Route as AuthenticatedSettingsChatRouteImport } from './routes/_authenticated.settings.chat'
 import { Route as AuthenticatedSettingsConnectionsRouteImport } from './routes/_authenticated.settings.connections'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
+import { Route as AuthenticatedSettingsMcpRouteImport } from './routes/_authenticated.settings.mcp'
 import { Route as AuthenticatedSettingsStorageRouteImport } from './routes/_authenticated.settings.storage'
 import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated.settings.usage'
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
@@ -190,6 +192,12 @@ const AuthenticatedAdminMcpRoute = AuthenticatedAdminMcpRouteImport.update({
   path: '/mcp',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminMcpEndpointRoute =
+  AuthenticatedAdminMcpEndpointRouteImport.update({
+    id: '/mcp-endpoint',
+    path: '/mcp-endpoint',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminModelsRoute =
   AuthenticatedAdminModelsRouteImport.update({
     id: '/models',
@@ -264,6 +272,12 @@ const AuthenticatedSettingsGeneralRoute =
   AuthenticatedSettingsGeneralRouteImport.update({
     id: '/general',
     path: '/general',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsMcpRoute =
+  AuthenticatedSettingsMcpRouteImport.update({
+    id: '/mcp',
+    path: '/mcp',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsStorageRoute =
@@ -397,6 +411,7 @@ export interface FileRoutesByFullPath {
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
+  '/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -408,6 +423,7 @@ export interface FileRoutesByFullPath {
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/settings/storage': typeof AuthenticatedSettingsStorageRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -449,6 +465,7 @@ export interface FileRoutesByTo {
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
+  '/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -460,6 +477,7 @@ export interface FileRoutesByTo {
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/settings/storage': typeof AuthenticatedSettingsStorageRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -505,6 +523,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
+  '/_authenticated/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -516,6 +535,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/_authenticated/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/_authenticated/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/_authenticated/settings/storage': typeof AuthenticatedSettingsStorageRoute
   '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -563,6 +583,7 @@ export interface FileRouteTypes {
     | '/admin/identity-providers'
     | '/admin/image-generation'
     | '/admin/mcp'
+    | '/admin/mcp-endpoint'
     | '/admin/models'
     | '/admin/search-settings'
     | '/admin/users'
@@ -574,6 +595,7 @@ export interface FileRouteTypes {
     | '/settings/chat'
     | '/settings/connections'
     | '/settings/general'
+    | '/settings/mcp'
     | '/settings/storage'
     | '/settings/usage'
     | '/shared/$sessionId'
@@ -615,6 +637,7 @@ export interface FileRouteTypes {
     | '/admin/identity-providers'
     | '/admin/image-generation'
     | '/admin/mcp'
+    | '/admin/mcp-endpoint'
     | '/admin/models'
     | '/admin/search-settings'
     | '/admin/users'
@@ -626,6 +649,7 @@ export interface FileRouteTypes {
     | '/settings/chat'
     | '/settings/connections'
     | '/settings/general'
+    | '/settings/mcp'
     | '/settings/storage'
     | '/settings/usage'
     | '/shared/$sessionId'
@@ -670,6 +694,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/identity-providers'
     | '/_authenticated/admin/image-generation'
     | '/_authenticated/admin/mcp'
+    | '/_authenticated/admin/mcp-endpoint'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/search-settings'
     | '/_authenticated/admin/users'
@@ -681,6 +706,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/chat'
     | '/_authenticated/settings/connections'
     | '/_authenticated/settings/general'
+    | '/_authenticated/settings/mcp'
     | '/_authenticated/settings/storage'
     | '/_authenticated/settings/usage'
     | '/_authenticated/shared/$sessionId'
@@ -882,6 +908,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminMcpRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/mcp-endpoint': {
+      id: '/_authenticated/admin/mcp-endpoint'
+      path: '/mcp-endpoint'
+      fullPath: '/admin/mcp-endpoint'
+      preLoaderRoute: typeof AuthenticatedAdminMcpEndpointRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/models': {
       id: '/_authenticated/admin/models'
       path: '/models'
@@ -971,6 +1004,13 @@ declare module '@tanstack/react-router' {
       path: '/general'
       fullPath: '/settings/general'
       preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/mcp': {
+      id: '/_authenticated/settings/mcp'
+      path: '/mcp'
+      fullPath: '/settings/mcp'
+      preLoaderRoute: typeof AuthenticatedSettingsMcpRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/storage': {
@@ -1171,6 +1211,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
   AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
   AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
+  AuthenticatedAdminMcpEndpointRoute: typeof AuthenticatedAdminMcpEndpointRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminSearchSettingsRoute: typeof AuthenticatedAdminSearchSettingsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -1198,6 +1239,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminImageGenerationRoute:
     AuthenticatedAdminImageGenerationRoute,
   AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRoute,
+  AuthenticatedAdminMcpEndpointRoute: AuthenticatedAdminMcpEndpointRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminSearchSettingsRoute: AuthenticatedAdminSearchSettingsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
@@ -1224,6 +1266,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsChatRoute: typeof AuthenticatedSettingsChatRoute
   AuthenticatedSettingsConnectionsRoute: typeof AuthenticatedSettingsConnectionsRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
+  AuthenticatedSettingsMcpRoute: typeof AuthenticatedSettingsMcpRoute
   AuthenticatedSettingsStorageRoute: typeof AuthenticatedSettingsStorageRoute
   AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
@@ -1235,6 +1278,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsChatRoute: AuthenticatedSettingsChatRoute,
   AuthenticatedSettingsConnectionsRoute: AuthenticatedSettingsConnectionsRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
+  AuthenticatedSettingsMcpRoute: AuthenticatedSettingsMcpRoute,
   AuthenticatedSettingsStorageRoute: AuthenticatedSettingsStorageRoute,
   AuthenticatedSettingsUsageRoute: AuthenticatedSettingsUsageRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,

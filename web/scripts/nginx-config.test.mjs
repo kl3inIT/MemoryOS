@@ -1,0 +1,126 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+/**
+ * Every WebSocket the browser opens has to reach the API as an upgrade. The general `/api/` location deliberately
+ * sends `Connection ""`, so a path without its own location arrives as a plain GET and Spring answers
+ * `400 Can "Upgrade" only to "WebSocket".` — which is exactly how meeting recording broke on staging while every
+ * test passed, because the end-to-end run mocks the socket and the integration test never goes through Nginx.
+ */
+const WEBSOCKET_PATHS = [
+  "/api/chat/voice/transcribe/stream",
+  "/api/chat/voice/synthesize/stream",
+  "/api/meeting-stream",
+];
+
+// Vitest runs with the web package as its root, so the config is one directory up from scripts/.
+const config = readFileSync(join(process.cwd(), "nginx.conf"), "utf8");
+
+/** The location blocks, in file order, as Nginx reads them. */
+function locations(text) {
+  const blocks = [];
+  const header = /location\s+([^{]+?)\s*\{/g;
+  let match;
+  while ((match = header.exec(text))) {
+    let depth = 1;
+    let index = header.lastIndex;
+    while (index < text.length && depth > 0) {
+      if (text[index] === "{") depth += 1;
+      else if (text[index] === "}") depth -= 1;
+      index += 1;
+    }
+    blocks.push({ selector: match[1].trim(), body: text.slice(header.lastIndex, index - 1) });
+  }
+  return blocks;
+}
+
+/** Nginx picks an exact `=` match first, then the longest `^~` prefix, then the first matching regex. */
+function matching(selector, path) {
+  if (selector.startsWith("= ")) return selector.slice(2).trim() === path;
+  if (selector.startsWith("~ ") || selector.startsWith("~* ")) {
+    const source = selector.replace(/^~\*?\s+/, "");
+    return new RegExp(source, selector.startsWith("~*") ? "i" : "").test(path);
+  }
+  if (selector.startsWith("^~ ")) return path.startsWith(selector.slice(3).trim());
+  return path.startsWith(selector);
+}
+
+function chosen(path) {
+  const blocks = locations(config);
+  return (
+    blocks.find((block) => matching(block.selector, path) && block.selector.startsWith("= ")) ??
+    blocks.find((block) => matching(block.selector, path))
+  );
+}
+
+describe("nginx WebSocket routes", () => {
+  it.each(WEBSOCKET_PATHS)("upgrades %s", (path) => {
+    const block = chosen(path);
+    expect(block, `no location in nginx.conf matches ${path}`).toBeDefined();
+    expect(block.body, `${block.selector} does not forward the upgrade`).toMatch(
+      /proxy_set_header\s+Upgrade\s+\$http_upgrade\s*;/,
+    );
+    expect(block.body).toMatch(/proxy_set_header\s+Connection\s+"upgrade"\s*;/);
+    expect(block.body, `${block.selector} needs HTTP/1.1 to upgrade`).toMatch(
+      /proxy_http_version\s+1\.1\s*;/,
+    );
+  });
+
+  it("keeps the general API location free of the upgrade header", () => {
+    const general = locations(config).find((block) => block.selector.includes("oauth2|login"));
+    expect(general).toBeDefined();
+    expect(general.body).toMatch(/proxy_set_header\s+Connection\s+""\s*;/);
+  });
+});
+
+/**
+ * MEM-114: Claude and ChatGPT call `/mcp` and read its protected-resource metadata; MEM-112's MCP client serves its
+ * Client ID Metadata Document beside it. Without a location these fall to the web app and answer `index.html`.
+ */
+describe("nginx MCP routes", () => {
+  it.each(["/mcp", "/.well-known/oauth-protected-resource/mcp", "/mcp/oauth/client-metadata.json"])(
+    "sends %s to the API with a bounded body",
+    (path) => {
+      const block = chosen(path);
+      expect(block, `no location in nginx.conf matches ${path}`).toBeDefined();
+      expect(block.body).toMatch(/proxy_pass\s+\$memoryos_api\s*;/);
+      expect(block.body).toMatch(/client_max_body_size\s+256k\s*;/);
+    },
+  );
+
+  it.each(["/mcp/", "/mcp/settings", "/mcpx", "/.well-known/oauth-protected-resource"])(
+    "leaves %s with the web app",
+    (path) => {
+      expect(chosen(path).selector).toBe("/");
+    },
+  );
+});
+
+/**
+ * Nginx inherits `add_header` into a location only when that location declares none of its own, so one
+ * `add_header` in a location silently strips the policy headers from every response it serves.
+ */
+describe("nginx security headers", () => {
+  const server = locations(config).reduce(
+    (text, block) => text.replace(block.body, ""),
+    config.slice(config.indexOf("server {")),
+  );
+
+  it.each([
+    "Content-Security-Policy",
+    "Referrer-Policy",
+    "X-Content-Type-Options",
+    "X-Frame-Options",
+    "Permissions-Policy",
+  ])("declares %s for the whole server", (header) => {
+    expect(server).toMatch(new RegExp(`add_header\\s+${header}\\s+.+\\s+always\\s*;`));
+  });
+
+  it("lets every location inherit them", () => {
+    const overriding = locations(config)
+      .filter((block) => /(^|\s)add_header\s/.test(block.body))
+      .map((block) => block.selector);
+    expect(overriding).toEqual([]);
+  });
+});

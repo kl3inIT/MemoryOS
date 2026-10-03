@@ -10,6 +10,7 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
+import io.memoryos.connector.sync.SourceSyncAdapterRegistry;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.Authority;
 import io.memoryos.iam.GroupId;
@@ -32,9 +33,11 @@ public class SourceAccessPolicy {
     private final JdbcSourceRepository sources;
     private final GroupScopeService groupScopes;
     private final AuditTrail audit;
+    private final SourceSyncAdapterRegistry adapters;
 
     public SourceAccessPolicy(IamAuthorization authorization, JdbcSourceRepository sources,
-            GroupScopeService groupScopes, AuditTrail audit) {
+            GroupScopeService groupScopes, AuditTrail audit, SourceSyncAdapterRegistry adapters) {
+        this.adapters = Objects.requireNonNull(adapters);
         this.authorization = Objects.requireNonNull(authorization);
         this.sources = Objects.requireNonNull(sources);
         this.groupScopes = Objects.requireNonNull(groupScopes);
@@ -108,20 +111,28 @@ public class SourceAccessPolicy {
     }
 
     /**
-     * FILE defaults to PUBLIC for global managers and PRIVATE for scoped managers; Google Drive defaults to SYNC.
-     * SYNC needs provider permissions, and only global managers may publish to every member.
+     * A provider whose permissions are synchronized ({@code permissionSync}) defaults to SYNC; any other Source
+     * defaults to PUBLIC for global managers and PRIVATE for scoped managers. SYNC needs provider permissions, and
+     * only global managers may publish to every member.
      */
-    static SourceAccess access(SourceType type, boolean global, @Nullable SourceAccess requested) {
+    static SourceAccess access(boolean permissionSync, boolean global, @Nullable SourceAccess requested) {
         SourceAccess access = requested != null ? requested
-                : type == SourceType.GOOGLE_DRIVE ? SourceAccess.SYNC
+                : permissionSync ? SourceAccess.SYNC
                 : global ? SourceAccess.PUBLIC : SourceAccess.PRIVATE;
-        if (access == SourceAccess.SYNC && type != SourceType.GOOGLE_DRIVE) {
-            throw SourceException.invalid("Auto Sync requires a Google Drive source.", "sync access without provider permissions");
+        if (access == SourceAccess.SYNC && !permissionSync) {
+            throw SourceException.invalid("Auto Sync requires a source whose provider permissions are synchronized.",
+                    "sync access without provider permissions");
         }
         if (!global && access == SourceAccess.PUBLIC) {
             throw SourceException.invalid("Managed sources cannot be public.", "scoped source publication denied");
         }
         return access;
+    }
+
+    /** The access a Source changes to, under the rule of its type at creation. */
+    public SourceAccess change(IamAccess authority, SourceType type, SourceAccess requested) {
+        return access(adapters.permissionSync(type), authority.authority() == Authority.GLOBAL,
+                Objects.requireNonNull(requested, "access must not be null"));
     }
 
     private Creation resolve(IamAccess authority, ActorId actorId, SourceType type, @Nullable SourceAccess requestedAccess,
@@ -132,7 +143,7 @@ public class SourceAccessPolicy {
         }
         if (distinct.size() > 100) throw SourceException.invalid("Select no more than 100 groups.", "source group limit exceeded");
         boolean global = authority.authority() == Authority.GLOBAL;
-        SourceAccess access = access(type, global, requestedAccess);
+        SourceAccess access = access(adapters.permissionSync(type), global, requestedAccess);
         List<GroupId> groups = List.copyOf(distinct);
         if (global) {
             groupScopes.validateGroupIds(authority.tenantId(), groups);

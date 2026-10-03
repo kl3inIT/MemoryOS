@@ -12,13 +12,12 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchTasks;
 import io.memoryos.retrieval.SearchUnavailableException;
+import io.memoryos.shared.Tokenizers;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 
 class FileReaderToolTest {
     @Test
@@ -44,7 +43,7 @@ class FileReaderToolTest {
         var allowed = Set.of(UUID.randomUUID());
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tool = new FileReaderTool(files, actor, tenant, allowed, () -> {}, () -> 4000,
-                    new JTokkitTokenCountEstimator(),
+                    Tokenizers.cl100k(),
                     search, new ChatEvidence(), scope);
             when(search.search(actor, tenant, allowed, "query")).thenThrow(new SearchUnavailableException());
             assertTrue(tool.searchFiles("query").contains("Use read_file"));

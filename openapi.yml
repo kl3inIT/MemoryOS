@@ -5170,8 +5170,9 @@ paths:
     put:
       tags:
       - Chat models
-      summary: "Set a visible, publicly available task model, or omit the model ID\
-        \ to use the conversation model"
+      summary: "Set a visible, publicly available task model and how hard it thinks;\
+        \ omit the model ID to use the conversation model and the level to use the\
+        \ task's own default"
       operationId: setChatModelFlow
       parameters:
       - name: X-MemoryOS-CSRF
@@ -5189,6 +5190,7 @@ paths:
           type: string
           enum:
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - MEETING_MINUTES
           - MEETING_CORRECTION
       - name: modelConfigurationId
@@ -5197,6 +5199,16 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: reasoningEffort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
       - name: revision
         in: query
         required: true
@@ -5363,6 +5375,682 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Default"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/entries/{kind}/{id}/star:
+    put:
+      tags:
+      - Chat
+      summary: Star an entry the caller may read now; an owned file is starred as
+        its own favourite
+      operationId: starChatLibraryEntry
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+          - MEETING
+          - AGENT_FILE
+          - DOCUMENT
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Starred
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Take the caller's star off an entry they may read now
+      operationId: unstarChatLibraryEntry
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+          - MEETING
+          - AGENT_FILE
+          - DOCUMENT
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Not starred
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint:
+    get:
+      tags:
+      - MCP
+      summary: Read whether the MemoryOS MCP endpoint is configured and on for the
+        Tenant
+      operationId: getMcpEndpointSettings
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: MCP endpoint setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - MCP
+      summary: Turn the MemoryOS MCP endpoint on or off for the Tenant
+      operationId: updateMcpEndpointSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpEndpointSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved MCP endpoint setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/trusted-apps/{appId}:
+    put:
+      tags:
+      - MCP
+      summary: Switch a trusted app on or off; off removes its clients and every grant
+        to them
+      operationId: setMcpTrustedAppEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: appId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpTrustedAppEnabledRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Trusted app switched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpTrustedAppResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: "Remove an app of the organization's own, its clients and every grant\
+        \ to them"
+      operationId: removeMcpTrustedApp
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: appId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        description: The app's revision as listed
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Trusted app removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/connection:
+    get:
+      tags:
+      - MCP
+      summary: "Read whether the signed-in User can connect Claude or ChatGPT to MemoryOS,\
+        \ and the URL to use"
+      operationId: getMcpEndpointConnection
+      responses:
+        "200":
+          description: "Whether the endpoint answers, and its URL"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointConnectionResponse"
+        "403":
+          description: Search use or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/activity:
+    get:
+      tags:
+      - MCP
+      summary: "Read the MCP endpoint's activity log: who called which tool through\
+        \ which app, kept 90 days"
+      operationId: listMcpEndpointActivity
+      parameters:
+      - name: from
+        in: query
+        description: Calls at or after this instant
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        description: Calls before this instant
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: client
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+      - name: tool
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 64
+          minLength: 0
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SUCCESS
+          - REFUSED
+          - FAILED
+          - RATE_LIMITED
+      - name: person
+        in: query
+        description: Part of the person's name or e-mail address
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: cursor
+        in: query
+        description: The next value of the previous page
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Tool calls, newest first"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointCallPageResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/grants:
+    get:
+      tags:
+      - MCP
+      summary: List the outside assistants the signed-in User allowed to read MemoryOS
+      operationId: listMcpClientGrants
+      responses:
+        "200":
+          description: "Clients the User allowed, newest first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpClientGrantResponse"
+        "503":
+          description: Keycloak unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Revoke the signed-in User's grant to one outside assistant and end
+        its offline session
+      operationId: revokeMcpClientGrant
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: clientId
+        in: query
+        description: The clientId of a listed grant
+        required: true
+        schema:
+          type: string
+          maxLength: 2048
+          minLength: 1
+      responses:
+        "204":
+          description: Grant revoked
+        "400":
+          description: Invalid client ID
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: The User has no grant to this client
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Keycloak unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/insights:
+    get:
+      tags:
+      - MCP
+      summary: "Read calls, people, apps and tools of the MCP endpoint over the last\
+        \ 7 or 30 days"
+      operationId: getMcpEndpointInsights
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 7
+          maximum: 30
+          minimum: 7
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Use of the endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointInsightsResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6643,7 +7331,7 @@ paths:
     post:
       tags:
       - Sources
-      summary: Update Source access; SYNC requires a Google Drive source
+      summary: Update Source access; SYNC needs provider permissions
       operationId: updateSourceAccess
       parameters:
       - name: X-MemoryOS-CSRF
@@ -8855,6 +9543,121 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/McpOAuthAuthorization"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/trusted-apps:
+    get:
+      tags:
+      - MCP
+      summary: List the apps the MemoryOS MCP endpoint admits
+      operationId: listMcpTrustedApps
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Claude and ChatGPT, then the organization's own apps"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpTrustedAppListResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - MCP
+      summary: Trust an app of the organization's own by the domains of its client
+        metadata document
+      operationId: addMcpTrustedApp
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpTrustedAppRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Trusted app added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpTrustedAppResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -12457,6 +13260,72 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/entries/{kind}/{id}/opened:
+    post:
+      tags:
+      - Chat
+      summary: "Record that the caller opened an entry they may read now, for their\
+        \ recent list"
+      operationId: recordChatLibraryEntryOpened
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+          - MEETING
+          - AGENT_FILE
+          - DOCUMENT
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Recorded
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/library/archives:
     get:
       tags:
@@ -14247,7 +15116,9 @@ paths:
           format: uuid
       - name: generation
         in: query
-        required: true
+        description: "The generation a search result named; without one, the current\
+          \ generation, as a link that carries only the document opens it"
+        required: false
         schema:
           type: string
           format: uuid
@@ -15302,8 +16173,8 @@ paths:
       tags:
       - Chat
       summary: Read or resume reply events; reset requires persisted history
-      description: "Events: text-delta, reasoning, tool, image, research-plan, top-level-branching,\
-        \ research-agent-start, intermediate-report, intermediate-report-citations,\
+      description: "Events: text, reasoning, tool, image, code, research_plan, top_level_branching,\
+        \ research_agent_start, intermediate_report, intermediate_report_citations,\
         \ outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
         \ confirms a committed terminal state. Heartbeats are comments. A reset has\
         \ no event id."
@@ -15364,7 +16235,7 @@ paths:
             text/event-stream:
               schema:
                 oneOf:
-                - $ref: "#/components/schemas/TextDeltaEvent"
+                - $ref: "#/components/schemas/TextEvent"
                 - $ref: "#/components/schemas/OutcomeEvent"
                 - $ref: "#/components/schemas/ResetEvent"
                 - $ref: "#/components/schemas/ToolEvent"
@@ -16259,6 +17130,214 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/starred:
+    get:
+      tags:
+      - Chat
+      summary: "The caller's starred files and starred shared rows they may still\
+        \ read, most recently starred first"
+      operationId: listChatLibraryStarred
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: kinds
+        in: query
+        description: Empty means every kind
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: A page of starred entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryEntryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/sources:
+    get:
+      tags:
+      - Chat
+      summary: "Every Source the caller may read from under their Search authority,\
+        \ whatever its state except being deleted, with the documents they may read\
+        \ there, by name and at most 500"
+      operationId: listChatLibrarySources
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Sources, without error details or Groups the caller is not\
+            \ in"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibrarySource"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/shared:
+    get:
+      tags:
+      - Chat
+      summary: "Meetings shared with the caller and files of the assistants they use,\
+        \ read-only and never their own, each authorized at this read"
+      operationId: listChatLibraryShared
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: kinds
+        in: query
+        description: MEETING or AGENT_FILE; empty means both
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: categories
+        in: query
+        description: Empty means every category; a meeting has none
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - NEWEST
+          - OLDEST
+          - NAME
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: A page of what others share with the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryEntryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/library/search:
     get:
       tags:
@@ -16307,6 +17386,192 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ChatLibraryContentMatch"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/recent:
+    get:
+      tags:
+      - Chat
+      summary: "What the caller opened lately, newest first, that they may still read"
+      operationId: listChatLibraryRecent
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Up to 100 entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibraryEntry"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/documents:
+    get:
+      tags:
+      - Chat
+      summary: "Browse the Source documents the caller may read under their Search\
+        \ authority, without a search term"
+      operationId: listChatLibraryDocuments
+      parameters:
+      - name: query
+        in: query
+        description: Matches the file name or the title
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: sourceIds
+        in: query
+        description: Empty means every Source the caller may search
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            format: uuid
+      - name: categories
+        in: query
+        description: Empty means every category
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - NEWEST
+          - NAME
+      - name: cursor
+        in: query
+        description: "The nextCursor of the previous page, with the same filters and\
+          \ sort"
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: A page of documents and the cursor of the next one
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryDocumentPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/documents/sources:
+    get:
+      tags:
+      - Chat
+      summary: The Sources the caller may narrow the documents view to
+      operationId: listChatLibraryDocumentSources
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Sources, as Search offers them"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibrarySourceOption"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -16715,6 +17980,12 @@ paths:
           - NEGATIVE
           - MIXED
           - NONE
+      - name: blocked
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
       - name: cursor
         in: query
         required: false
@@ -16844,6 +18115,12 @@ paths:
           - NEGATIVE
           - MIXED
           - NONE
+      - name: blocked
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
         "400":
           description: "Invalid filter, cursor or page size"
@@ -17271,8 +18548,8 @@ paths:
     get:
       tags:
       - Chat
-      summary: "Read an owner-private xlsx attachment as CSV text per sheet, each\
-        \ cut at a row boundary"
+      summary: "Read an xlsx attachment the caller owns, or reads through an assistant\
+        \ they use, as CSV text per sheet, each cut at a row boundary"
       operationId: previewChatFileSpreadsheet
       parameters:
       - name: fileId
@@ -17395,7 +18672,8 @@ paths:
     get:
       tags:
       - Chat
-      summary: Download an owner-private original file without inline execution
+      summary: "Download an original file the caller owns, or reads through an assistant\
+        \ they use, without inline execution"
       operationId: downloadChatFile
       parameters:
       - name: fileId
@@ -18261,6 +19539,7 @@ paths:
           enum:
           - CHAT
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -18410,7 +19689,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AiUsageStanding"
+                $ref: "#/components/schemas/MyAiUsageStanding"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -18513,6 +19792,7 @@ paths:
           enum:
           - CHAT
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -18601,6 +19881,7 @@ paths:
           enum:
           - CHAT
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -20821,31 +22102,50 @@ components:
     ChatGuardrailTopic:
       type: object
       properties:
-        topic:
+        id:
           type: string
-          enum:
-          - POLITICS
-          - LEADERS
-          - RELIGION
-        enabled:
-          type: boolean
+          format: uuid
+          description: Absent for a topic this request creates
+        name:
+          type: string
+          maxLength: 36
+          minLength: 0
+        description:
+          type: string
+          description: What the model classifies a question by
+          maxLength: 350
+          minLength: 0
+        examples:
+          type: array
+          description: Example questions about the topic
+          items:
+            type: string
+            maxLength: 200
+            minLength: 0
+          maxItems: 5
+          minItems: 0
         message:
           type: string
           description: What the person is told when a question matches
           maxLength: 500
           minLength: 0
+        enabled:
+          type: boolean
       required:
+      - description
       - enabled
+      - examples
       - message
-      - topic
+      - name
     ChatGuardrailsRequest:
       type: object
       properties:
         topics:
           type: array
+          description: "Every topic of the Tenant, in order; one left out is deleted"
           items:
             $ref: "#/components/schemas/ChatGuardrailTopic"
-          maxItems: 10
+          maxItems: 30
           minItems: 0
         blockedPhrases:
           type: array
@@ -20874,7 +22174,7 @@ components:
       properties:
         topics:
           type: array
-          description: "Every built-in topic, in a fixed order"
+          description: "Every topic of the Tenant, in order"
           items:
             $ref: "#/components/schemas/ChatGuardrailTopic"
         blockedPhrases:
@@ -21397,20 +22697,24 @@ components:
             type: string
             format: uuid
         modelConfigurationId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         contextTokenLimit:
-          oneOf:
-          - type: integer
-            format: int32
-          - type: "null"
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 2000000
+          minimum: 256
         outputTokenLimit:
-          oneOf:
-          - type: integer
-            format: int32
-          - type: "null"
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 200000
+          minimum: 1
         fileIds:
           type: array
           items:
@@ -21897,6 +23201,7 @@ components:
           type: string
           enum:
           - CHAT_NAMING
+          - CHAT_GUARDRAIL
           - MEETING_MINUTES
           - MEETING_CORRECTION
         modelConfigurationId:
@@ -21908,6 +23213,16 @@ components:
           type: boolean
           description: False when the model is set but no longer eligible; the task
             then uses the conversation model
+        reasoningEffort:
+          type: string
+          description: "How hard the task's model thinks: the level chosen for the\
+            \ task, else its own default (medium for meeting minutes, off for the\
+            \ others); a model that does not reason ignores it"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
         revision:
           type: integer
           format: int64
@@ -21915,6 +23230,7 @@ components:
       - available
       - flow
       - modelConfigurationId
+      - reasoningEffort
       - revision
     Default:
       type: object
@@ -21930,6 +23246,300 @@ components:
       required:
       - modelConfigurationId
       - revision
+    McpEndpointSettingsRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - enabled
+      - revision
+    McpEndpointSettingsResponse:
+      type: object
+      properties:
+        configured:
+          type: boolean
+          description: Whether this deployment configured an MCP endpoint URL; without
+            one the switch stays off
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+        url:
+          type:
+          - string
+          - "null"
+          description: The URL people add to Claude or ChatGPT; present when configured
+      required:
+      - configured
+      - enabled
+      - revision
+      - url
+    McpTrustedAppEnabledRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      required:
+      - enabled
+      - revision
+    McpTrustedAppResponse:
+      type: object
+      description: An outside assistant the MCP endpoint admits by the URL of its
+        client metadata document
+      properties:
+        id:
+          type: string
+          format: uuid
+        preset:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - CUSTOM
+        name:
+          type: string
+        clientIdHosts:
+          type: array
+          description: Hosts the document's URL may have
+          items:
+            type: string
+        documentHosts:
+          type: array
+          description: Hosts the URIs inside the document may have
+          items:
+            type: string
+        enabled:
+          type: boolean
+        builtIn:
+          type: boolean
+          description: "Claude and ChatGPT can be switched off, not removed"
+        revision:
+          type: integer
+          format: int64
+      required:
+      - builtIn
+      - clientIdHosts
+      - documentHosts
+      - enabled
+      - id
+      - name
+      - preset
+      - revision
+    McpEndpointConnectionResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+          description: Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint
+            now
+        url:
+          type:
+          - string
+          - "null"
+          description: The URL to add to Claude or ChatGPT; present while available
+        apps:
+          type: array
+          description: The apps the administrator trusts; CUSTOM when any app of the
+            organization's own is
+          items:
+            type: string
+            enum:
+            - CLAUDE
+            - CHATGPT
+            - CUSTOM
+      required:
+      - apps
+      - available
+      - url
+    McpEndpointCallPageResponse:
+      type: object
+      properties:
+        calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCallResponse"
+        next:
+          type:
+          - string
+          - "null"
+          description: Pass as cursor for older calls; absent on the last page
+      required:
+      - calls
+      - next
+    McpEndpointCallResponse:
+      type: object
+      description: One tool call through the MemoryOS MCP endpoint; no query and no
+        document
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        actorId:
+          type: string
+          format: uuid
+        actorName:
+          type:
+          - string
+          - "null"
+        actorEmail:
+          type:
+          - string
+          - "null"
+        client:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+        clientName:
+          type: string
+        tool:
+          type: string
+        outcome:
+          type: string
+          enum:
+          - SUCCESS
+          - REFUSED
+          - FAILED
+          - RATE_LIMITED
+      required:
+      - actorEmail
+      - actorId
+      - actorName
+      - client
+      - clientName
+      - id
+      - occurredAt
+      - outcome
+      - tool
+    McpClientGrantResponse:
+      type: object
+      properties:
+        clientId:
+          type: string
+          description: Keycloak's client ID; Claude's is the URL of its client metadata
+            document
+        client:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+        name:
+          type: string
+        grantedAt:
+          type: string
+          format: date-time
+      required:
+      - client
+      - clientId
+      - grantedAt
+      - name
+    McpTrustedAppListResponse:
+      type: object
+      properties:
+        manageable:
+          type: boolean
+          description: Whether this deployment can change the list; without its Keycloak
+            account it is read-only
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpTrustedAppResponse"
+      required:
+      - apps
+      - manageable
+    McpEndpointCountResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The app's client ID or the tool's name
+        name:
+          type: string
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+      required:
+      - calls
+      - key
+      - name
+      - people
+    McpEndpointDayResponse:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+          description: A UTC day
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+      required:
+      - calls
+      - day
+      - people
+    McpEndpointInsightsResponse:
+      type: object
+      description: Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
+      properties:
+        days:
+          type: integer
+          format: int32
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+          description: Distinct people who called a tool
+        failed:
+          type: integer
+          format: int64
+        rateLimited:
+          type: integer
+          format: int64
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCountResponse"
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCountResponse"
+        daily:
+          type: array
+          description: Days with at least one call
+          items:
+            $ref: "#/components/schemas/McpEndpointDayResponse"
+      required:
+      - apps
+      - calls
+      - daily
+      - days
+      - failed
+      - people
+      - rateLimited
+      - tools
     InterpreterSettingsRequest:
       type: object
       properties:
@@ -22627,7 +24237,7 @@ components:
           type:
           - string
           - "null"
-          description: PUBLIC or PRIVATE; SYNC requires a Google Drive source.
+          description: PUBLIC or PRIVATE; a file Source cannot use SYNC.
           enum:
           - PUBLIC
           - PRIVATE
@@ -22643,7 +24253,10 @@ components:
           type: array
           items:
             type: string
-        updatedSince:
+        updatedFrom:
+          type: string
+          format: date-time
+        updatedTo:
           type: string
           format: date-time
         page:
@@ -23690,6 +25303,38 @@ components:
           description: Navigate the browser here
       required:
       - authorizationUrl
+    McpTrustedAppRequest:
+      type: object
+      description: "An app of the Tenant's own, admitted by the URL of its client\
+        \ metadata document"
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          minLength: 0
+        clientIdHosts:
+          type: array
+          description: "Domains of the document's URL, 1 to 10"
+          items:
+            type: string
+            maxLength: 253
+            minLength: 0
+          maxItems: 10
+          minItems: 1
+        documentHosts:
+          type: array
+          description: "Other domains the document lists, such as its callback or\
+            \ logo; may be empty"
+          items:
+            type: string
+            maxLength: 253
+            minLength: 0
+          maxItems: 20
+          minItems: 0
+      required:
+      - clientIdHosts
+      - documentHosts
+      - name
     McpConnectionAuthorizationInput:
       type: object
       properties:
@@ -25785,6 +27430,8 @@ components:
           format: uuid
         title:
           type: string
+        mediaType:
+          type: string
         passages:
           type: array
           items:
@@ -25802,6 +27449,7 @@ components:
       - firstOrdinal
       - generation
       - hasMore
+      - mediaType
       - passages
       - title
       - totalChunks
@@ -26054,6 +27702,12 @@ components:
           type: string
           format: uuid
           description: Stable internal MemoryOS actor identifier.
+        displayName:
+          type:
+          - string
+          - "null"
+          description: Latest display name observed from the authenticated actor's
+            identity provider.
         tenant:
           description: "Active Tenant context, or null when the actor has no active\
             \ Tenant membership."
@@ -26127,6 +27781,7 @@ components:
       - actorId
       - authorizationVersion
       - capabilities
+      - displayName
       - scopedCapabilities
       - tenant
       - uiLanguage
@@ -26876,7 +28531,7 @@ components:
         retrievedAt:
           type: string
           format: date-time
-    TextDeltaEvent:
+    TextEvent:
       type: object
       properties:
         assistantMessageId:
@@ -27508,6 +29163,310 @@ components:
             at once
       required:
       - days
+    ChatLibraryEntry:
+      type: object
+      description: "One row of a library view: an owned file, or a read-only reference\
+        \ to something the viewer may read now through a share, an assistant or a\
+        \ Source"
+      properties:
+        kind:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+          - MEETING
+          - AGENT_FILE
+          - DOCUMENT
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        mediaType:
+          type:
+          - string
+          - "null"
+          description: Null for a meeting
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: Null for a meeting
+        category:
+          type:
+          - string
+          - "null"
+          description: Null for a meeting
+          enum:
+          - DOCUMENT
+          - SPREADSHEET
+          - IMAGE
+          - PRESENTATION
+          - OTHER
+        at:
+          type: string
+          format: date-time
+          description: "When the file or meeting was created, or when a Source document\
+            \ last changed"
+        owned:
+          type: boolean
+          description: "The viewer owns it; only owned rows are renamed, trashed or\
+            \ counted toward storage"
+        starred:
+          type: boolean
+          description: Starred by the viewer
+        openedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When the viewer last opened it
+        ownerName:
+          type:
+          - string
+          - "null"
+          description: Who owns a meeting shared with the viewer or uploaded an assistant's
+            file
+        reason:
+          $ref: "#/components/schemas/ChatLibraryEntryReason"
+        sessionId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The conversation that produced a generated file or image
+        sessionTitle:
+          type:
+          - string
+          - "null"
+        messageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The answer that produced a generated file or image
+        meeting:
+          type:
+          - object
+          - "null"
+          $ref: "#/components/schemas/ChatLibraryEntryMeeting"
+          description: Set for a meeting
+        agents:
+          type: array
+          description: The assistants granting an assistant's file; empty for every
+            other kind
+          items:
+            $ref: "#/components/schemas/ChatLibraryEntryAgent"
+        document:
+          type:
+          - object
+          - "null"
+          $ref: "#/components/schemas/ChatLibraryEntryDocument"
+          description: Set for a Source document
+      required:
+      - agents
+      - at
+      - category
+      - document
+      - id
+      - kind
+      - mediaType
+      - meeting
+      - messageId
+      - name
+      - openedAt
+      - owned
+      - ownerName
+      - reason
+      - sessionId
+      - sessionTitle
+      - sizeBytes
+      - starred
+    ChatLibraryEntryAgent:
+      type: object
+      description: An assistant the viewer uses that grants them this file
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    ChatLibraryEntryDocument:
+      type: object
+      description: Where a Source document comes from and what Search serves of it
+      properties:
+        generation:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: "The generation Search serves, to preview it; null while it\
+            \ is being indexed"
+        title:
+          type:
+          - string
+          - "null"
+        sourceId:
+          type: string
+          format: uuid
+        sourceName:
+          type: string
+        sourceType:
+          type: string
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+          - SHAREPOINT
+        providerUrl:
+          type:
+          - string
+          - "null"
+          description: "The document in its provider, when it has one"
+      required:
+      - generation
+      - providerUrl
+      - sourceId
+      - sourceName
+      - sourceType
+      - title
+    ChatLibraryEntryMeeting:
+      type: object
+      description: "What a meeting row offers: its biên bản and its transcript"
+      properties:
+        status:
+          type: string
+          enum:
+          - RECORDING
+          - TRANSCRIBING
+          - ENDED
+        minutesReady:
+          type: boolean
+          description: The minutes are written
+        hasTranscript:
+          type: boolean
+          description: "Somebody spoke, so a transcript exists"
+        durationMs:
+          type: integer
+          format: int64
+          description: Milliseconds covered by the transcript
+      required:
+      - durationMs
+      - hasTranscript
+      - minutesReady
+      - status
+    ChatLibraryEntryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatLibraryEntry"
+        totalCount:
+          type: integer
+          format: int64
+          description: "Rows matching the filter, not only this page"
+        hasMore:
+          type: boolean
+      required:
+      - hasMore
+      - items
+      - totalCount
+    ChatLibraryEntryReason:
+      type: object
+      description: "Why the row is visible: the rule that admitted it"
+      properties:
+        kind:
+          type: string
+          enum:
+          - OWNER
+          - MEMBER_SHARE
+          - GROUP_SHARE
+          - AGENT
+          - PUBLIC_SOURCE
+          - GROUP_SOURCE
+          - PROVIDER_SOURCE
+        names:
+          type: array
+          description: "The viewer's Groups for GROUP_SHARE and GROUP_SOURCE, the\
+            \ assistants for AGENT; empty otherwise, where the owner or the Source\
+            \ is named on the row itself"
+          items:
+            type: string
+      required:
+      - kind
+      - names
+    ChatLibrarySource:
+      type: object
+      description: "A Source the viewer may read from, whatever its state"
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+          - SHAREPOINT
+        access:
+          type: string
+          description: "What admits the viewer: every member, a Group of theirs, or\
+            \ the provider's own grants"
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
+        status:
+          type: string
+          description: A paused Source keeps its documents out of Search until it
+            resumes
+          enum:
+          - NOT_STARTED
+          - INDEXING
+          - ACTIVE
+          - PAUSED
+          - FAILED
+        readableDocuments:
+          type: integer
+          format: int64
+          description: "Documents of this Source the viewer may read, counted whatever\
+            \ the Source status"
+          minimum: 0
+        lastSucceededAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When the last synchronization succeeded; null before the first
+            one
+        groups:
+          type: array
+          description: "The viewer's own Groups granted this PRIVATE Source, sorted;\
+            \ empty for other access"
+          items:
+            type: string
+        managerName:
+          type:
+          - string
+          - "null"
+          description: "The person responsible for this Source, when one is appointed"
+      required:
+      - access
+      - groups
+      - id
+      - lastSucceededAt
+      - managerName
+      - name
+      - readableDocuments
+      - status
+      - type
     ChatLibraryContentMatch:
       type: object
       properties:
@@ -27532,6 +29491,41 @@ components:
       required:
       - ordinal
       - text
+    ChatLibraryDocumentPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatLibraryEntry"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: "Pass as cursor, with the same filters and sort, for the next\
+            \ page; null on the last"
+      required:
+      - items
+      - nextCursor
+    ChatLibrarySourceOption:
+      type: object
+      description: A Source the viewer may narrow the documents view to
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+          - SHAREPOINT
+      required:
+      - id
+      - name
+      - type
     InterpreterHealthResponse:
       type: object
       properties:
@@ -28059,6 +30053,12 @@ components:
       - resetsAt
       - scope
       - tokensUsed
+    MyAiUsageStanding:
+      type: object
+      properties:
+        standing:
+          $ref: "#/components/schemas/AiUsageStanding"
+          description: Absent when no enabled budget binds the caller
     ApiProblem:
       type: object
       additionalProperties: false

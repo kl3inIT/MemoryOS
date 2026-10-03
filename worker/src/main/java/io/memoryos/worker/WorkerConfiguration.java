@@ -1,12 +1,11 @@
 package io.memoryos.worker;
 
-import io.memoryos.connector.SharePointSelectionProcessor;
 import io.memoryos.ingestion.ChatFileExtractor;
 import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.ConnectorSyncPort;
-import io.memoryos.connector.GoogleDriveSelectionProcessor;
+import io.memoryos.connector.SourceSelectionProcessor;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.IngestionCoordinator;
@@ -48,11 +47,10 @@ class WorkerConfiguration {
             ExtractionArtifactPort artifacts,
             MeterRegistry registry,
             ConnectorSyncPort sourceSync,
-            GoogleDriveSelectionProcessor selections,
+            SourceSelectionProcessor selections,
             SearchProjectionMaintenance searchProjection,
             UserFileWorkPort userFiles,
-            ChatFileExtractor chatFileExtractor,
-            SharePointSelectionProcessor sharePointSelections
+            ChatFileExtractor chatFileExtractor
     ) {
         var ingestion = new DefaultIngestionCoordinator(
                 indexingPort,
@@ -66,7 +64,7 @@ class WorkerConfiguration {
                 artifacts,
                 registry,
                 new SourceSyncProcessor(sourceSync, claimLeaseScheduler, registry),
-                new SelectionValidationProcessor(selections, sharePointSelections, claimLeaseScheduler, registry)
+                new SelectionValidationProcessor(selections, claimLeaseScheduler, registry)
         );
         var search = searchProjection.coordinator(new TransactionTemplate(transactionManager), claimLeaseScheduler, registry);
         var files = new UserFileIngestionCoordinator(userFiles, chatFileExtractor, storage, artifacts, claimLeaseScheduler);

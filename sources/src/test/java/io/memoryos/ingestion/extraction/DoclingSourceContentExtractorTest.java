@@ -9,6 +9,7 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.ConnectException;
@@ -284,7 +285,8 @@ class DoclingSourceContentExtractorTest {
     }
 
     private DoclingSourceContentExtractor extractor() {
-        return new DoclingSourceContentExtractor(new DoclingProperties(null, null, null, 0, null, null, false, null), mapper, client);
+        return new DoclingSourceContentExtractor(new DoclingProperties(null, null, null, 0, null, null, false, null), mapper, client,
+                new SimpleMeterRegistry());
     }
 
     @Test

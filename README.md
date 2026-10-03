@@ -14,6 +14,8 @@ from FILE uploads, Google Drive and SharePoint Sources; direct Search stays avai
 - [Vision](docs/vision.md) — product outcomes and principles.
 - [Roadmap](docs/roadmap.md) — delivered and active increments.
 - [Development runtime runbook](docs/runbooks/development-runtime.md) — environment variables, local runs and staging.
+- [MCP endpoint runbook](docs/runbooks/mcp-endpoint.md) — Keycloak 26.8 with Client ID Metadata Documents, the realm
+  scope and clients, and routing for the MemoryOS MCP endpoint.
 - [Shared PostgreSQL and Keycloak migration runbook](docs/runbooks/shared-runtime-migration.md) — backup, restore,
   cutover, rollback and shared-realm verification.
 
@@ -29,7 +31,7 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 
 - JDK 25.
 - The checked-in Gradle wrapper; no system Gradle installation.
-- Node.js 24 with Corepack; `web/package.json` and `landing/package.json` pin pnpm.
+- Node.js 26 and pnpm 11.22.0 (`npm install --global pnpm@11.22.0`); `web/package.json` and `landing/package.json` pin it. Corepack is not used: Node 25 stopped bundling it.
 - Docker with the Compose plugin for PostgreSQL, private MinIO, shared Keycloak, API, worker and web.
 
 ## Modules
@@ -62,7 +64,6 @@ Linux or macOS:
 The browser application:
 
 ```powershell
-corepack enable
 cd web
 pnpm install --frozen-lockfile
 pnpm check
@@ -102,7 +103,7 @@ endpoints.
 API and worker images build from [`Dockerfile`](Dockerfile) and read their secrets from files mounted by Compose (every
 `MEMORYOS_<NAME>_FILE` becomes `MEMORYOS_<NAME>`) before Spring Boot starts; the browser image builds from [`web/Dockerfile`](web/Dockerfile). A deployment is composed from
 [`compose.base.yaml`](infrastructure/deployment/compose.base.yaml) plus a staging or production overlay: the base owns
-PostgreSQL, private MinIO with its bucket bootstrap, the Keycloak runtime shared with OrgMemory, TLS Redis, Docling, the
+PostgreSQL, private MinIO with its bucket bootstrap, the Keycloak runtime, TLS Redis, Docling, the
 code interpreter, API, worker and web.
 API and worker hold distinct file-mounted MinIO credentials. Staging adds Mailpit, read-only pgweb and Redis
 Insight behind SSO proxies and an owner-only MinIO Console; production adds no inspection surface.

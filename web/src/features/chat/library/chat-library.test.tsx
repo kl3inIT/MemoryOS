@@ -25,6 +25,7 @@ import {
   handleListAvailableChatModels,
   handleListChatProjects,
   handlePreviewChatRetention,
+  handleRecordChatLibraryEntryOpened,
   handleUpdateChatProject,
 } from "@/lib/hey-api/msw.gen";
 import type { ChatLibraryFile, ProjectInput } from "@/lib/hey-api/types.gen";
@@ -35,6 +36,7 @@ import { ChatLibraryPage, ChatStoragePage } from "./chat-library";
 
 vi.mock("@/features/identity/application-session-context", () => ({
   useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
+  useGlobalCapability: () => false,
 }));
 
 vi.mock("@/components/app-shell/app-shell", () => ({
@@ -126,6 +128,8 @@ beforeEach(async () => {
     handleGetChatLibraryTrashWindow({ body: { days: 30 } }),
     handleGetChatRetention({ body: { days: null } }),
     handlePreviewChatRetention({ body: { days: null, affected: 0 } }),
+    // Opening a file is recorded for Gần đây; the page never waits on it.
+    handleRecordChatLibraryEntryOpened(() => new HttpResponse(null, { status: 204 })),
   );
 });
 
@@ -272,7 +276,7 @@ it("offers the person's conversation retention in the library panel", async () =
   const panel = await screen.findByRole("dialog", { name: "Cài đặt thư viện" });
   // The one setting the panel offers belongs to the person, not to an administrator.
   expect(
-    await within(panel).findByRole("combobox", { name: "Xoá hội thoại sau" }),
+    await within(panel).findByRole("combobox", { name: "Xóa hội thoại sau" }),
   ).toBeInTheDocument();
 });
 
@@ -297,6 +301,6 @@ it("offers the same retention on the storage page", async () => {
   );
 
   // The storage page holds what the library panel holds, exactly as there.
-  expect(await screen.findByRole("combobox", { name: "Xoá hội thoại sau" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Tự xoá hội thoại" })).toBeInTheDocument();
+  expect(await screen.findByRole("combobox", { name: "Xóa hội thoại sau" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Tự xóa hội thoại" })).toBeInTheDocument();
 });

@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup tương tác — Thư viện</title>
+<!-- Interactive design mockup with fake data. Tokens mirror web/src/styles/tokens.css (light). -->
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;450;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+:root{--canvas:#f0f0f1;--base:#fafafa;--raised:#fff;--subtle:#f0f0f1;--sunken:#e6e6e9;--c1:#000000e5;--c2:#000000bf;--c3:#0000008c;--b1:#e6e6e6;--b2:#cccccc;--primary:#1c1c1c;--sel:#286df8;
+--ok-s:#e6f2e7;--ok-c:#007a2d;--ok-e:#007a2d;--wa-s:#fbeae4;--wa-c:#b54204;--wa-b:#f5a88b;--wa-e:#b54204;--da-s:#fceae7;--da-c:#c12222;--da-b:#f8a59b;--da-e:#c12222;--in-s:#e7effc;--in-c:#245fda;--in-e:#245fda;--ne-e:#5c5c5c;
+--e1:0 1px 2px #0000000d;--e2:0 0 0 1px #00000005,0 4px 8px -2px #00000014,0 12px 24px -4px #00000014}
+*{box-sizing:border-box}body{margin:0;font-family:"Hanken Grotesk","Segoe UI",sans-serif;font-size:14px;line-height:20px;font-weight:500;color:var(--c1);background:var(--base);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}svg.lucide{width:16px;height:16px;stroke-width:1.75;flex:none}
+.app{display:flex;min-height:100vh}
+.side{width:240px;flex:none;background:var(--canvas);padding:14px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+.brand{font-weight:800;letter-spacing:1px;font-size:22px;padding:4px 8px 16px}
+.side a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--c2);cursor:pointer}
+.side a.on{background:var(--raised);color:var(--c1);box-shadow:var(--e1)}.side .lbl{color:var(--c3);font-size:12px;padding:18px 10px 4px}
+.main{flex:1;min-width:0}.topbar{height:56px;border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:10px;color:var(--c2)}
+.role{margin-left:auto;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--c3)}.role .seg{display:flex;background:var(--subtle);border-radius:8px;padding:2px}
+.role .seg button{border:0;background:transparent;height:26px;padding:0 10px;border-radius:6px;font-size:12px;font-weight:600;color:var(--c2)}.role .seg button.on{background:var(--raised);box-shadow:var(--e1);color:var(--c1)}
+.page{padding:36px 32px 64px;max-width:1240px}
+.ph{display:flex;justify-content:space-between;gap:16px}.ph h1{font-size:24px;line-height:36px;font-weight:600;margin:0;display:flex;gap:10px;align-items:center}
+.ph h1 svg.lucide{width:24px;height:24px}.ph p{margin:4px 0 0 34px;color:var(--c2);font-weight:450}
+.row{display:flex;gap:8px;align-items:center}.grow{flex:1;min-width:0}
+.btn{display:inline-flex;gap:6px;align-items:center;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--b1);background:var(--base);font-weight:600;white-space:nowrap}
+.btn:hover{background:var(--subtle);border-color:var(--b2)}.btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}.btn.primary:hover{background:#333}
+.btn.danger{background:var(--da-e);border-color:var(--da-e);color:#fff}.btn.ghost{border-color:transparent;background:transparent}.btn.ghost:hover{background:var(--subtle)}
+.btn.icon{width:32px;padding:0;justify-content:center}.btn.sm{height:28px;padding:0 10px;font-size:12px}.btn.sm.icon{width:28px;padding:0}.btn:disabled{opacity:.45;cursor:not-allowed}
+.body{display:flex;gap:32px;margin-top:28px}
+.rail{width:208px;flex:none;display:flex;flex-direction:column;gap:2px;position:sticky;top:16px;align-self:flex-start}
+.tab{display:flex;align-items:center;gap:10px;height:36px;padding:0 8px;border-radius:8px;color:var(--c3);cursor:pointer;user-select:none}
+.tab:hover{background:#ffffff99;color:var(--c1)}.tab.on{background:var(--raised);color:var(--c1);box-shadow:var(--e1)}
+.tab .n{margin-left:auto;font-size:12px;color:var(--c3)}.tab .dot{margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:var(--da-e);color:#fff;font-size:11px;display:grid;place-items:center;padding:0 5px}
+.sep{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--c3);padding:14px 8px 4px}
+.new{font-size:10px;font-weight:700;color:var(--in-c);background:var(--in-s);border-radius:4px;padding:0 5px}
+.storage{margin-top:18px;border:1px solid var(--b1);border-radius:12px;padding:12px;background:var(--raised);font-size:12px;color:var(--c2)}
+.bar{height:6px;background:var(--sunken);border-radius:3px;margin:8px 0;overflow:hidden}.bar>i{display:block;height:100%;background:var(--primary);border-radius:3px;transition:width .4s}
+.content{flex:1;min-width:0}
+.toolbar{display:flex;gap:8px;align-items:center}.search{flex:1;display:flex;gap:8px;align-items:center;height:36px;padding:0 12px;border:1px solid var(--b2);border-radius:8px;background:var(--raised)}
+.search input{border:0;outline:0;flex:1;background:transparent}.search:focus-within{border-color:var(--c1)}
+select.sel{height:36px;border:1px solid var(--b2);border-radius:8px;background:var(--raised);padding:0 10px}
+.chips{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}.chip{height:28px;padding:0 12px;border-radius:14px;border:1px solid var(--b1);background:var(--raised);display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}.chip .c{font-weight:500;opacity:.7}
+.list{border:1px solid var(--b1);border-radius:12px;background:var(--raised);overflow:hidden;margin-top:14px}
+.it{display:flex;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--b1)}.it:first-child{border-top:0}.it:hover{background:#fcfcfc}
+.it .acts{opacity:.0;transition:opacity .1s}.it:hover .acts,.it .acts.show{opacity:1}
+.thumb{width:40px;height:40px;border-radius:10px;border:1px solid var(--b1);display:grid;place-items:center;background:var(--base);flex:none}
+.thumb svg.lucide{width:18px;height:18px;color:var(--c2)}.thumb svg:not(.lucide){width:24px;height:24px}
+.nm{font-weight:600;cursor:pointer;display:flex;gap:8px;align-items:center}.nm:hover{text-decoration:underline}
+.meta{color:var(--c3);font-size:12px;font-weight:400;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}.meta>span+span::before{content:"· ";}
+.reason{font-size:12px;color:var(--c2);font-weight:450;margin-top:2px}
+.acts{display:flex;gap:4px;align-items:center}
+.pill{display:inline-flex;gap:5px;align-items:center;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:500;color:#fff;white-space:nowrap}.pill svg.lucide{width:12px;height:12px}
+.pill.ok{background:var(--ok-e)}.pill.in{background:var(--in-e)}.pill.wa{background:var(--wa-e)}.pill.da{background:var(--da-e)}.pill.ne{background:var(--ne-e)}
+.soft{display:inline-flex;gap:5px;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap}.soft svg.lucide{width:12px;height:12px}
+.soft.ok{background:var(--ok-s);color:var(--ok-c)}.soft.in{background:var(--in-s);color:var(--in-c)}.soft.wa{background:var(--wa-s);color:var(--wa-c)}.soft.da{background:var(--da-s);color:var(--da-c)}.soft.ne{background:var(--subtle);color:var(--c2)}
+.mine{font-size:11px;font-weight:600;color:var(--c2);background:var(--subtle);border-radius:4px;padding:0 6px}
+.star.on svg{fill:#f5b301;color:#f5b301}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--b1);border-radius:12px;background:var(--raised)}.stats.two{grid-template-columns:repeat(2,1fr)}
+.stat{padding:14px 16px;border-left:1px solid var(--b1)}.stat:first-child{border-left:0}.stat .k{display:flex;gap:6px;align-items:center;color:var(--c2);font-size:12px;font-weight:400}
+.stat .v{font-size:18px;line-height:28px;font-weight:600;font-variant-numeric:tabular-nums}.stat .s{font-size:12px;color:var(--c3);font-weight:400}
+.alert{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;margin-top:16px;background:var(--wa-s);border:1px solid var(--wa-b);color:var(--wa-c)}
+.alert .t{flex:1;color:var(--c2);font-weight:450}.alert .t strong{color:var(--wa-c);font-weight:600;display:block}
+.info{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:10px;background:var(--in-s);color:var(--in-c);font-weight:450;margin-bottom:14px}
+.group{margin-top:22px}.group h3{font-size:13px;font-weight:600;margin:0 0 8px;display:flex;gap:8px;align-items:center;color:var(--c2)}.group h3 .h{color:var(--c3);font-weight:400}
+.group .list{margin-top:0}
+.prog{width:140px}.prog small{font-size:11px;color:var(--c3)}.prog .bar{margin:4px 0 0}.prog .bar>i{background:var(--in-e)}
+.ro{display:inline-flex;gap:5px;align-items:center;color:var(--c3);font-size:12px;margin-right:6px}.ro svg.lucide{width:13px;height:13px}
+.crumb{display:flex;gap:6px;align-items:center;color:var(--c3);font-size:13px}.crumb a{cursor:pointer}.crumb a:hover{color:var(--c1);text-decoration:underline}.crumb b{color:var(--c1)}
+.dh{display:flex;gap:16px;align-items:flex-start;margin-top:16px}.dh .thumb{width:56px;height:56px;border-radius:14px}.dh .thumb svg:not(.lucide){width:32px;height:32px}.dh h1{margin:0;font-size:24px;line-height:32px;font-weight:600}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--b1);margin-top:24px}.tabs a{padding:10px 0;color:var(--c3);font-weight:600;border-bottom:2px solid transparent;cursor:pointer;display:flex;gap:6px}
+.tabs a.on{color:var(--c1);border-color:var(--c1)}.tabs a .c{font-weight:500;color:var(--c3)}
+.split{display:grid;grid-template-columns:1fr 300px;gap:24px;margin-top:18px}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--raised);border:1px solid var(--b1);border-radius:12px;overflow:hidden}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--c3);padding:10px 14px;border-bottom:1px solid var(--b1);background:var(--base);white-space:nowrap}
+td{padding:11px 14px;border-top:1px solid var(--b1);vertical-align:middle}tr:first-child td{border-top:0}.nw{white-space:nowrap}
+.fn{display:flex;gap:10px;align-items:center;font-weight:600}.fn small{display:block;font-weight:400;color:var(--c3);font-size:12px;white-space:nowrap}.err{color:var(--da-c);font-size:12px;font-weight:450}
+.card{border:1px solid var(--b1);border-radius:12px;background:var(--raised);padding:16px}.card h4{margin:0 0 12px;font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.kv{display:grid;grid-template-columns:112px 1fr;gap:10px 8px;font-size:13px}.kv dt{color:var(--c3);font-weight:400}.kv dd{margin:0}
+.switch{width:30px;height:18px;border-radius:9px;background:var(--b2);position:relative;display:inline-block;vertical-align:middle;border:0;padding:0;transition:background .15s}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:7px;background:#fff;transition:left .15s}.switch.on{background:var(--sel)}.switch.on::after{left:14px}
+.link{color:var(--sel);font-weight:600;display:inline-flex;gap:5px;align-items:center;cursor:pointer}.note{font-size:12px;color:var(--c3);font-weight:400;margin-top:10px}
+.gchip{display:inline-flex;gap:4px;align-items:center;height:24px;padding:0 8px;border-radius:12px;background:var(--subtle);font-size:12px;margin:0 4px 4px 0}
+.gchip button{border:0;background:transparent;padding:0;display:grid;place-items:center}
+.pgroup{margin-top:20px}.phead{display:flex;gap:10px;align-items:center;padding:6px 2px 10px;cursor:pointer;flex-wrap:wrap}.phead .thumb{width:28px;height:28px;border-radius:7px}.phead .thumb svg:not(.lucide){width:18px;height:18px}
+.phead .pm{margin-left:auto;display:flex;gap:18px;color:var(--c3);font-size:12px;flex-wrap:wrap}.phead .pm b{color:var(--c1);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+dl.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px 24px;margin:0}dl.facts dt{color:var(--c3);font-size:12px}dl.facts dd{margin:4px 0 0;font-weight:600}
+.hint{font-size:13px;color:var(--c2);font-weight:450}.dzone{border-color:var(--da-b)}.dzone h4{color:var(--da-c)}.menu button[disabled]{opacity:.45;cursor:not-allowed}
+.flbl{display:block;font-weight:600;font-size:13px;margin:12px 0 6px}
+.runerr td{padding:0;background:var(--base)}.runerr .in{padding:12px 14px 14px 48px}.runerr .e{display:grid;grid-template-columns:1fr 200px 140px 120px;gap:8px;padding:6px 0;border-top:1px dashed var(--b1);align-items:center;font-size:13px}.runerr .e:first-child{border-top:0}
+.counts{font-size:12px;color:var(--c2);font-weight:450}.counts b{color:var(--c1)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:14px}
+.gc{border:1px solid var(--b1);border-radius:12px;background:var(--raised);overflow:hidden;cursor:pointer}.gc .pv{height:110px;background:var(--subtle);display:grid;place-items:center}.gc .pv svg.lucide{width:30px;height:30px;color:var(--c3)}
+.gc .bt{padding:10px}.gc .bt div{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selbar{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:10px;background:var(--primary);color:#fff;margin-top:12px}.selbar .btn{background:#ffffff1a;border-color:#ffffff33;color:#fff}
+.banner{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:10px;background:var(--subtle);color:var(--c2);margin-top:14px;font-weight:450}
+.empty{padding:48px 16px;text-align:center;color:var(--c3)}.empty svg.lucide{width:28px;height:28px;margin-bottom:8px}.empty b{display:block;color:var(--c1);font-size:15px;margin-bottom:4px}
+.menuwrap{position:relative;display:inline-block}.menu{position:absolute;right:0;top:calc(100% + 4px);min-width:220px;background:var(--raised);border:1px solid var(--b1);border-radius:10px;box-shadow:var(--e2);padding:4px;z-index:30}
+.menu button{display:flex;width:100%;gap:8px;align-items:center;border:0;background:transparent;padding:8px 10px;border-radius:6px;text-align:left;font-weight:500}.menu button:hover{background:var(--subtle)}.menu .sepl{height:1px;background:var(--b1);margin:4px 0}.menu .dz{color:var(--da-c)}
+.menu.left{left:0;right:auto}
+.scrim{position:fixed;inset:0;background:#00000066;display:grid;place-items:center;z-index:50}.dlg{background:var(--raised);border-radius:14px;box-shadow:var(--e2);width:440px;max-width:92vw;padding:20px}
+.dlg.wide{width:760px}.dlg h2{margin:0 0 6px;font-size:18px}.dlg p{margin:0 0 14px;color:var(--c2);font-weight:450}.dlg .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.dlg input[type=text]{width:100%;height:36px;border:1px solid var(--b2);border-radius:8px;padding:0 10px}
+.opt{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--b1);border-radius:10px;margin-top:8px;cursor:pointer}.opt.on{border-color:var(--c1);background:var(--base)}
+.pvbox{height:380px;border-radius:10px;background:var(--subtle);display:grid;place-items:center;color:var(--c3);margin-top:8px}
+.toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:8px;z-index:60}
+.toast{min-width:280px;max-width:420px;background:var(--primary);color:#fff;border-radius:10px;padding:10px 14px;box-shadow:var(--e2);display:flex;gap:10px;align-items:center;animation:in .2s ease-out}
+.toast .grow{font-weight:450}.toast button{background:transparent;border:0;color:#8fb5ff;font-weight:700}@keyframes in{from{transform:translateY(8px);opacity:0}}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--c3);font-size:12px}
+.spin{animation:spin 1s linear infinite}
+.ltabs{display:flex;align-items:flex-end;gap:4px;border-bottom:1px solid var(--b1);margin-top:24px}
+.ltabs a{display:flex;gap:8px;align-items:center;padding:10px 12px;color:var(--c3);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
+.ltabs a:hover{color:var(--c1)}.ltabs a.on{color:var(--c1);border-color:var(--c1)}.ltabs a .n{font-size:12px;color:var(--c3);font-weight:500}
+.ltabs a .dot{min-width:18px;height:18px;border-radius:9px;background:var(--da-e);color:#fff;font-size:11px;display:grid;place-items:center;padding:0 5px}
+.meter{margin-left:auto;display:flex;gap:10px;align-items:center;padding:0 4px 10px;font-size:12px;color:var(--c2);cursor:pointer}.meter .bar{width:90px;margin:0}
+.subnav{display:flex;gap:8px;align-items:center;margin-bottom:16px}.seg2{display:flex;background:var(--subtle);border-radius:9px;padding:3px}
+.seg2 button{border:0;background:transparent;height:30px;padding:0 14px;border-radius:7px;font-weight:600;color:var(--c2);display:flex;gap:6px;align-items:center}.seg2 button.on{background:var(--raised);box-shadow:var(--e1);color:var(--c1)}
+.seg2 .dot{min-width:18px;height:18px;border-radius:9px;background:var(--da-e);color:#fff;font-size:11px;display:grid;place-items:center;padding:0 5px}
+.quiet{margin-left:auto;display:flex;gap:4px}.quiet .btn .n{font-size:12px;color:var(--c3);font-weight:500}@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app"></div><div class="toasts" id="toasts"></div>
+<script>
+/* ---------- icons ---------- */
+const DRIVE='<svg viewBox="0 0 52 52" fill="none"><path d="M7.7 43.9c.4.8 1.1 1.4 1.8 1.8 2.1-2.7 3.6-4.8 4.4-6.3.9-1.5 1.9-3.8 3.1-7-3.3-.4-5.8-.7-7.5-.7-1.7 0-4.2.2-7.6.7 0 .9.2 1.7.7 2.5l5.1 9Z" fill="#0066DA"/><path d="M42.4 45.7c.7-.4 1.4-1.1 1.8-1.8l5.1-8.9c.4-.8.7-1.6.7-2.5-3.4-.4-5.9-.7-7.5-.7-1.7 0-4.3.2-7.5.7 1.2 3.2 2.2 5.5 3.1 6.9.8 1.5 2.3 3.6 4.4 6.3Z" fill="#EA4335"/><path d="M26 16.9c2.5-3 4.2-5.3 5.1-7 .7-1.3 1.6-3.4 2.5-6.3-.7-.4-1.6-.7-2.5-.7H20.9c-.9 0-1.7.3-2.5.7 1.1 3.3 2.1 5.6 2.9 7 .9 1.6 2.4 3.6 4.7 6.3Z" fill="#00832D"/><path d="M34.9 32.5H17.1l-7.5 13.2c.7.4 1.6.7 2.5.7H40c.9 0 1.7-.3 2.5-.7l-7.6-13.2Z" fill="#2684FC"/><path d="M26 16.9 18.4 3.7c-.7.4-1.4 1.1-1.8 1.8L2.7 30c-.4.8-.7 1.6-.7 2.5h15.1L26 16.9Z" fill="#00AC47"/><path d="M35.4 5.5c-.4-.8-1.1-1.4-1.8-1.8L26 16.9l8.9 15.6H50c0-.9-.2-1.7-.7-2.5L35.4 5.5Z" fill="#FFBA00"/></svg>';
+const SP='<svg viewBox="0 0 48 48" fill="none"><circle cx="26" cy="14" r="11" fill="#036C70"/><circle cx="34" cy="26" r="10" fill="#1A9BA1"/><circle cx="26" cy="35" r="8" fill="#37C6D0"/><path d="M4 16.5A2.5 2.5 0 0 1 6.5 14h18a2.5 2.5 0 0 1 2.5 2.5v18a2.5 2.5 0 0 1-2.5 2.5h-18A2.5 2.5 0 0 1 4 34.5Z" fill="#03787C"/><path d="M15.9 24.6c-1.6-.6-2.1-1-2.1-1.7 0-.7.6-1.2 1.8-1.2 1 0 1.9.3 2.8.8v-2.3a7.4 7.4 0 0 0-2.8-.5c-2.7 0-4.4 1.4-4.4 3.4 0 1.8 1.1 2.8 3.3 3.6 1.6.6 2.1 1 2.1 1.8 0 .8-.7 1.3-1.9 1.3-1.2 0-2.4-.4-3.4-1.2v2.5c1 .5 2.2.8 3.4.8 2.9 0 4.6-1.4 4.6-3.6 0-1.8-1-2.8-3.4-3.7Z" fill="#fff"/></svg>';
+const ic=n=>`<i data-lucide="${n}"></i>`;
+const CAT={DOCUMENT:['file-text','Tài liệu'],SPREADSHEET:['file-spreadsheet','Bảng tính'],IMAGE:['image','Ảnh'],PRESENTATION:['presentation','Trình chiếu'],OTHER:['file','Khác']};
+const KIND={UPLOAD:'Đã tải lên',GENERATED:'Tệp do trợ lý tạo',IMAGE:'Ảnh do trợ lý tạo'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mb=n=>n>=1?`${n.toFixed(1).replace('.',',')} MB`:`${Math.round(n*1024)} KB`;
+const fold=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+
+/* ---------- fake data ---------- */
+const PROJECTS=['Dự án Vinaconex 9','Báo cáo tài chính','Tuyển dụng 2026'];
+const D={
+files:[
+ {id:'f1',name:'Báo cáo quý 3.xlsx',kind:'UPLOAD',cat:'SPREADSHEET',size:2.4,at:'Hôm nay 08:40',t:9,starred:true,state:'READY'},
+ {id:'f2',name:'Hợp đồng Vinaconex 9.pdf',kind:'UPLOAD',cat:'DOCUMENT',size:5.1,at:'Hôm qua',t:8,state:'READY',usedBy:'Dự án Vinaconex 9'},
+ {id:'f3',name:'bieu-do-doanh-thu.png',kind:'IMAGE',cat:'IMAGE',size:.8,at:'Hôm qua',t:7,state:'READY',conv:'Phân tích doanh thu'},
+ {id:'f4',name:'tong-hop-chi-phi.xlsx',kind:'GENERATED',cat:'SPREADSHEET',size:.2,at:'26/9',t:6,state:'READY',conv:'Tổng hợp chi phí Q3'},
+ {id:'f5',name:'Slide họp giao ban.pptx',kind:'UPLOAD',cat:'PRESENTATION',size:12.3,at:'25/9',t:5,state:'READY'},
+ {id:'f6',name:'Ghi chú khách hàng.docx',kind:'UPLOAD',cat:'DOCUMENT',size:.3,at:'24/9',t:4,state:'READY'},
+ {id:'f7',name:'Quy trình mua hàng.pdf',kind:'UPLOAD',cat:'DOCUMENT',size:3.2,at:'Vừa xong',t:10,state:'PROCESSING'},
+ {id:'f8',name:'scan-hoa-don.pdf',kind:'UPLOAD',cat:'DOCUMENT',size:8.7,at:'Hôm nay 07:55',t:9,state:'FAILED',error:'PDF quét không đọc được chữ'},
+ {id:'f9',name:'Bản nháp đề xuất cũ.docx',kind:'UPLOAD',cat:'DOCUMENT',size:.4,at:'20/9',t:2,state:'TRASH',deleted:'25/9',left:27},
+ {id:'f10',name:'anh-cong-trinh.jpg',kind:'IMAGE',cat:'IMAGE',size:1.6,at:'18/9',t:1,state:'TRASH',deleted:'22/9',left:24}],
+meetings:[
+ {id:'m1',title:'Giao ban tuần 38',mine:false,owner:'Trần Thu Hà',reason:'Qua nhóm Kế toán',status:'ENDED',dur:'42 phút',minutes:true,transcript:true,at:'26/9',t:6},
+ {id:'m2',title:'Họp khách hàng Tasco',mine:true,status:'ENDED',dur:'35 phút',minutes:true,transcript:true,at:'25/9',t:5,starred:true},
+ {id:'m3',title:'Review ngân sách Q4',mine:false,owner:'Lê Minh',reason:'Chia sẻ bởi Lê Minh',status:'TRANSCRIBING',dur:'58 phút',minutes:false,transcript:false,at:'Hôm nay',t:9},
+ {id:'m4',title:'Đào tạo nhân viên mới',mine:true,status:'RECORDING',dur:'12 phút',minutes:false,transcript:true,at:'Đang diễn ra',t:10}],
+agent:[
+ {id:'a1',name:'Nội quy lao động.pdf',cat:'DOCUMENT',size:1.2,agent:'Trợ lý nhân sự',owner:'Nguyễn Văn An',at:'20/9',t:3},
+ {id:'a2',name:'Bảng giá dịch vụ 2026.xlsx',cat:'SPREADSHEET',size:.34,agent:'Trợ lý kinh doanh',owner:'Phạm Hoa',at:'21/9',t:4}],
+sources:[
+ {id:'s1',access:'PRIVATE',t:'SP',name:'Phòng Kế toán',status:'ACTIVE',docs:1248,last:'Hôm nay 09:12',pending:false,auto:true,interval:30,prune:168,mine:true,manager:'Bạn',groups:['Kế toán','Tài chính'],scope:'https://tasco.sharepoint.com/sites/ketoan'},
+ {id:'s2',access:'PRIVATE',t:'FILE',name:'Quy trình nội bộ 2026',status:'INDEXING',docs:11,last:'Hôm qua 16:40',pending:true,mine:true,manager:'Bạn',groups:['Nhân sự']},
+ {id:'s3',access:'PRIVATE',t:'DRIVE',name:'Hồ sơ dự án Vinaconex 9',status:'PAUSED',docs:312,last:'26/9 14:05',pending:false,auto:true,interval:60,mine:false,manager:'Lê Minh',groups:['Dự án'],scopeMode:'SPECIFIC',sel:[8,40,0]},
+ {id:'s4',access:'PUBLIC',t:'DRIVE',name:'Tài liệu công ty',status:'ACTIVE',docs:1530,last:'Hôm nay 09:30',pending:false,auto:true,interval:30,mine:false,manager:null,groups:[],scopeMode:'SPECIFIC',sel:[12,5,2]},
+ {id:'s5',access:'PUBLIC',t:'FILE',name:'Sổ tay nhân viên',status:'ACTIVE',docs:48,last:'20/9 10:15',pending:false,mine:false,manager:null,groups:[]},
+ {id:'s6',access:'SYNC',t:'DRIVE',name:'Drive · Ban giám đốc',status:'FAILED',docs:284,last:'25/9 08:00',pending:false,err:'Đã tạm dừng đồng bộ. Kết nối lại tài khoản Google.',cred:'RECONNECT',auto:true,interval:15,mine:false,manager:null,groups:[],scopeMode:'GENERAL',sel:[0,0,0]}],
+docs:[
+ {id:'d1',src:'s1',name:'Báo cáo tài chính Q3.xlsx',path:'Shared Documents / Báo cáo',cat:'SPREADSHEET',state:'READY',at:'Hôm nay 08:40',size:'2,4 MB',t:9},
+ {id:'d2',src:'s1',name:'Quy chế chi tiêu 2026.docx',path:'Shared Documents / Quy chế',cat:'DOCUMENT',state:'READY',at:'Hôm qua 17:02',size:'312 KB',t:8},
+ {id:'d3',src:'s1',name:'Sổ cái tổng hợp 2025.pdf',path:'Shared Documents / Sổ sách',cat:'DOCUMENT',state:'FAILED',error:'Nội dung trích xuất vượt giới hạn văn bản được hỗ trợ.',at:'24/9 09:12',size:'86,1 MB',t:6},
+ {id:'d4',src:'s1',name:'Hóa đơn scan tháng 8.pdf',path:'Shared Documents / Hóa đơn',cat:'DOCUMENT',state:'FAILED',error:'Trích xuất tệp quá thời gian cho phép. Thử lập chỉ mục lại.',at:'23/9 09:12',size:'41,7 MB',t:5},
+ {id:'d5',src:'s1',name:'Bảng lương T8 (cũ).xlsx',path:'Shared Documents / Lương',cat:'SPREADSHEET',state:'FAILED',error:'Không thể lập chỉ mục tệp được bảo vệ bằng mật khẩu.',at:'22/9 09:12',size:'1,1 MB',t:4},
+ {id:'d6',src:'s1',name:'Biên bản kiểm kê.docx',path:'Shared Documents / Kiểm kê',cat:'DOCUMENT',state:'INDEXING',at:'5 phút trước',size:'640 KB',t:10},
+ {id:'d7',src:'s1',name:'Kế hoạch ngân sách 2027.pptx',path:'Shared Documents / Kế hoạch',cat:'PRESENTATION',state:'READY',at:'20/9 11:30',size:'8,3 MB',t:3},
+ {id:'d8',src:'s4',name:'Sơ đồ tổ chức 2026.pdf',path:'Công ty / Nhân sự',cat:'DOCUMENT',state:'READY',at:'Hôm qua 09:00',size:'1,2 MB',t:8},
+ {id:'d9',src:'s4',name:'Logo Tasco.png',path:'Công ty / Thương hiệu',cat:'IMAGE',state:'READY',at:'18/9 09:00',size:'96 KB',t:2},
+ {id:'d10',src:'s5',name:'Sổ tay nhân viên 2026.pdf',path:'Tệp tải lên',cat:'DOCUMENT',state:'READY',at:'20/9 10:15',size:'3,4 MB',t:3},
+ {id:'d11',src:'s6',name:'Nghị quyết HĐQT 09-2026.docx',path:'Ban giám đốc / Nghị quyết',cat:'DOCUMENT',state:'READY',at:'25/9 08:00',size:'220 KB',t:10},
+ {id:'d12',src:'s2',name:'Quy trình tuyển dụng.pdf',path:'Tệp tải lên',cat:'DOCUMENT',state:'READY',at:'Hôm qua 16:40',size:'1,8 MB',t:10},
+ {id:'d15',src:'s2',name:'Quy trình mua hàng.docx',path:'Tệp tải lên',cat:'DOCUMENT',state:'INDEXING',at:'Vừa xong',size:'520 KB',t:11},
+ {id:'d13',src:'s3',name:'Hồ sơ thầu gói 3.pdf',path:'Vinaconex 9 / Đấu thầu',cat:'DOCUMENT',state:'READY',at:'26/9 14:05',size:'12,6 MB',t:6},
+ {id:'d14',src:'s4',name:'Chính sách phúc lợi.docx',path:'Công ty / Nhân sự',cat:'DOCUMENT',state:'READY',at:'15/9 09:00',size:'410 KB',t:1}],
+runs:[
+ {id:'r1',src:'s1',start:'Hôm nay 09:12',st:'ERRORS',kind:'REFRESH',trig:'SCHEDULED',dur:'2 phút 14 giây',c:{checked:412,acquired:18,unchanged:391,failed:3}},
+ {id:'r2',src:'s1',start:'Hôm nay 08:42',st:'DONE',kind:'REFRESH',trig:'SCHEDULED',dur:'1 phút 02 giây',c:{checked:409,acquired:2,unchanged:407}},
+ {id:'r3',src:'s1',start:'Hôm nay 08:12',st:'SAME',kind:'REFRESH',trig:'SCHEDULED',dur:'38 giây',c:{checked:407,unchanged:407}},
+ {id:'r4',src:'s1',start:'Hôm qua 17:30',st:'DONE',kind:'REFRESH',trig:'MANUAL',dur:'3 phút 40 giây',c:{checked:407,acquired:36,unchanged:371}},
+ {id:'r5',src:'s1',start:'Hôm qua 02:00',st:'DONE',kind:'PRUNE',trig:'SCHEDULED',dur:'51 giây',c:{checked:401,removed:6}},
+ {id:'r6',src:'s4',start:'Hôm nay 09:30',st:'SAME',kind:'REFRESH',trig:'SCHEDULED',dur:'44 giây',c:{checked:1530,unchanged:1530}},
+ {id:'r7',src:'s4',start:'Hôm nay 09:00',st:'DONE',kind:'REFRESH',trig:'SCHEDULED',dur:'1 phút 12 giây',c:{checked:1530,acquired:4,unchanged:1526}},
+ {id:'r8',src:'s6',start:'Hôm nay 09:00',st:'FAILED',kind:'REFRESH',trig:'SCHEDULED',dur:'3 giây',c:{},perr:'Đã tạm dừng đồng bộ. Kết nối lại tài khoản Google.'},
+ {id:'r9',src:'s6',start:'25/9 08:00',st:'DONE',kind:'REFRESH',trig:'SCHEDULED',dur:'58 giây',c:{checked:284,acquired:1,unchanged:283}},
+ {id:'r10',src:'s3',start:'26/9 14:05',st:'DONE',kind:'REFRESH',trig:'SCHEDULED',dur:'1 phút 30 giây',c:{checked:312,acquired:3,unchanged:309}},
+ {id:'r11',src:'s3',start:'20/9 10:00',st:'DONE',kind:'REFRESH',trig:'INITIAL',dur:'14 phút 05 giây',c:{checked:309,acquired:309}}],
+recent:[['file','f1'],['meeting','m1'],['agent','a1'],['doc','d1'],['file','f3'],['doc','d11']],
+allGroups:['Kế toán','Tài chính','Nhân sự','Dự án','Kinh doanh','Ban giám đốc'],myGroups:['Kế toán','Tài chính','Nhân sự'],
+groupManagers:[['Trần Thu Hà','Kế toán'],['Lê Minh','Dự án'],['Phạm Hoa','Kinh doanh']]};
+
+/* ---------- state ---------- */
+const S={nav:'tabs',view:'ready',role:'member',seen:false,q:'',cat:'',sort:'NEWEST',layout:'list',sel:[],starOnly:false,kind:'',owner:'ALL',srcFilter:'',state:'ALL',provider:'',fStatus:'',fAccess:'',collapsed:[],
+ connector:null,tab:'content',menu:null,dialog:null,docsShown:8};
+const LIMIT=512;
+
+/* ---------- helpers ---------- */
+const byId=(list,id)=>D[list].find(x=>x.id===id);
+const manager=()=>S.role!=='member';const isAdmin=()=>S.role==='admin';const canEdit=src=>isAdmin()||(S.role==='manager'&&src.mine);const isPaused=s=>s.status==='PAUSED'||s.status==='PAUSING';
+const readySize=()=>D.files.filter(f=>f.state!=='TRASH').reduce((a,f)=>a+f.size,0);
+const attention=s=>canEdit(s)&&s.status==='FAILED';
+function toast(msg,tone='',undo){const el=document.createElement('div');el.className='toast';el.innerHTML=`${ic(tone==='err'?'triangle-alert':'check')}<span class="grow">${msg}</span>${undo?'<button>Hoàn tác</button>':''}`;
+ if(undo)el.querySelector('button').onclick=()=>{undo();el.remove();render()};document.getElementById('toasts').appendChild(el);lucide.createIcons();setTimeout(()=>el.remove(),undo?6000:3200)}
+function openRecent(kind,id){D.recent=D.recent.filter(([k,i])=>!(k===kind&&i===id));D.recent.unshift([kind,id])}
+function thumb(cat){return `<div class="thumb">${ic(CAT[cat||'OTHER'][0])}</div>`}
+function srcLogo(t){return `<div class="thumb">${t==='DRIVE'?DRIVE:t==='SP'?SP:ic('folder-up')}</div>`}
+const STATUS={NOT_STARTED:['ne','clock','Đã lên lịch'],INDEXING:['in','loader-circle','Đang lập chỉ mục'],ACTIVE:['ok','check','Hoạt động'],FAILED:['da','triangle-alert','Thất bại'],PAUSED:['wa','pause','Đã tạm dừng'],PAUSING:['wa','loader-circle','Đang tạm dừng'],DELETING:['ne','trash-2','Đang xóa']};
+const pill=s=>{const[t,i,l]=STATUS[s];return `<span class="pill ${t}">${i==='loader-circle'?'<i data-lucide="loader-circle" class="spin"></i>':ic(i)}${l}</span>`};
+const ACCESS={PUBLIC:['users','Toàn bộ thành viên','Mọi người đều đọc được.','Toàn bộ thành viên'],PRIVATE:['lock','Một số nhóm cụ thể','Chỉ thành viên các nhóm được chọn đọc được.','Thành viên các nhóm được chọn'],SYNC:['refresh-cw','Đồng bộ quyền từ nguồn','Quyền được lấy theo quyền từ nguồn.','Người có quyền trên Google Drive']};
+const PROVIDER={DRIVE:'Google Drive',SP:'SharePoint',FILE:'Tệp'};
+const RUN={DONE:['ok','check','Hoàn tất'],ERRORS:['wa','triangle-alert','Hoàn tất có lỗi'],FAILED:['da','triangle-alert','Thất bại'],SAME:['ne','minus','Không thay đổi'],RUNNING:['in','loader-circle','Đang thu thập']};
+const TRIG={SCHEDULED:'Lịch tự động',MANUAL:'Thủ công',INITIAL:'Đồng bộ lần đầu'};
+const ACT=[['checked','Đã kiểm tra'],['acquired','Đã thu thập'],['unchanged','Không đổi'],['removed','Đã xóa'],['failed','Lập chỉ mục thất bại']];
+const menuBtn=(id,items,left)=>`<span class="menuwrap"><button class="btn sm ghost icon" data-a="menu" data-id="${id}" title="Thêm thao tác">${ic('ellipsis')}</button>${S.menu===id?`<div class="menu ${left?'left':''}">${items}</div>`:''}</span>`;
+const mi=(a,id,icon,label,cls='')=>`<button class="${cls}" data-a="${a}" data-id="${id}">${ic(icon)}${label}</button>`;
+const starBtn=(kind,id,on)=>`<button class="btn sm ghost icon star ${on?'on':''}" data-a="star" data-k="${kind}" data-id="${id}" title="${on?'Bỏ gắn sao':'Gắn sao'}">${ic('star')}</button>`;
+const empty=(icon,title,hint)=>`<div class="empty">${ic(icon)}<b>${title}</b>${hint}</div>`;
+const match=name=>!S.q||fold(name).includes(fold(S.q));
+function searchBar(ph,extra=''){return `<div class="toolbar"><div class="search">${ic('search')}<input data-in="q" placeholder="${ph}" value="${esc(S.q)}"/></div>${extra}</div>`}
+function chipsRow(defs,key){return `<div class="chips">${defs.map(([v,l,c])=>`<button class="chip ${S[key]===v?'on':''}" data-a="set" data-key="${key}" data-v="${v}">${l}${c!==undefined?` <span class="c">${c}</span>`:''}</button>`).join('')}</div>`}
+const catChips=()=>chipsRow([['','Mọi loại'],...Object.entries(CAT).map(([k,[,l]])=>[k,l])],'cat');
+
+/* ---------- rows ---------- */
+function fileRow(f){const pick=S.view==='ready';const hold=f.usedBy?`<span class="soft ne">${ic('folder')}Đang dùng trong ${f.usedBy}</span>`:'';
+ return `<div class="it">${pick?`<input type="checkbox" data-a="pick" data-id="${f.id}" ${S.sel.includes(f.id)?'checked':''}/>`:''}${thumb(f.cat)}
+ <div class="grow"><div class="nm" data-a="preview" data-k="file" data-id="${f.id}">${esc(f.name)}</div><div class="meta"><span>${KIND[f.kind]}</span><span>${CAT[f.cat][1]}</span><span>${mb(f.size)}</span><span>${f.at}</span>${f.conv?`<span class="link" data-a="toastConv" data-id="${f.id}">${f.conv}</span>`:''}</div></div>${hold}
+ <div class="acts">${starBtn('file',f.id,f.starred)}<button class="btn sm ghost icon" data-a="download" data-name="${esc(f.name)}" title="Tải xuống">${ic('download')}</button>
+ ${menuBtn('fm-'+f.id,mi('preview-f',f.id,'eye','Xem trước')+mi('ask',f.id,'message-square','Hỏi Chat về tệp này')+mi('rename',f.id,'pencil','Đổi tên')+mi('project',f.id,'folder-plus','Thêm vào dự án')+(f.conv?mi('toastConv',f.id,'messages-square','Mở cuộc trò chuyện gốc'):'')+'<div class="sepl"></div>'+mi('trash',f.id,'trash-2',f.usedBy?`Đang dùng trong ${f.usedBy}`:'Xoá',f.usedBy?'':'dz'))}</div></div>`}
+function meetingRow(m){const st={ENDED:['ne','check','Đã kết thúc'],TRANSCRIBING:['in','loader-circle','Đang chép lời'],RECORDING:['da','mic','Đang ghi']}[m.status];
+ return `<div class="it">${thumb('OTHER').replace('file','mic')}<div class="grow"><div class="nm" data-a="openMeeting" data-id="${m.id}">${esc(m.title)}</div>
+ <div class="meta"><span>Cuộc họp</span><span>${m.dur}</span><span>${m.at}</span></div>${m.mine?'':`<div class="reason">${m.reason}</div>`}</div>
+ <span class="soft ${st[0]}">${ic(st[1])}${st[2]}</span><div class="acts">${starBtn('meeting',m.id,m.starred)}
+ ${menuBtn('mm-'+m.id,mi('openMeeting',m.id,'external-link','Mở cuộc họp')+(m.minutes?mi('minutes',m.id,'file-down','Tải biên bản (Word)'):'')+(m.transcript?mi('transcript',m.id,'file-text','Tải lời thoại (Word)'):'')+(m.minutes?mi('askMeeting',m.id,'message-square','Hỏi Chat về biên bản'):''))}</div></div>`}
+function agentRow(a){return `<div class="it">${thumb(a.cat)}<div class="grow"><div class="nm" data-a="preview" data-k="agent" data-id="${a.id}">${esc(a.name)}</div>
+ <div class="meta"><span>Tệp của trợ lý</span><span>${CAT[a.cat][1]}</span><span>${mb(a.size)}</span><span>Của ${a.owner}</span></div><div class="reason">Qua trợ lý ${a.agent}</div></div>
+ <div class="acts">${starBtn('agent',a.id,a.starred)}<button class="btn sm ghost icon" data-a="download" data-name="${esc(a.name)}" title="Tải xuống">${ic('download')}</button>
+ ${menuBtn('am-'+a.id,mi('preview-a',a.id,'eye','Xem trước')+mi('askAgent',a.id,'message-square','Hỏi Chat về tệp này')+mi('openAgent',a.id,'bot','Mở '+a.agent))}</div></div>`}
+function docRow(d){const s=byId('sources',d.src);const reason=s.access==='PUBLIC'?'Công khai trong tổ chức':s.access==='PRIVATE'?'Qua nhóm '+s.groups.join(', '):'Quyền từ Google Drive';
+ const ready=d.state==='READY'&&s.status!=='PAUSED';
+ return `<div class="it">${thumb(d.cat)}<div class="grow"><div class="nm" ${ready?`data-a="preview" data-k="doc" data-id="${d.id}"`:''}>${esc(d.name)}</div>
+ <div class="meta"><span>Tài liệu tổ chức</span><span>${CAT[d.cat][1]}</span><span>${d.at}</span></div><div class="reason">${s.name} · ${reason}</div></div>
+ ${!ready?`<span class="soft ne">${ic(s.status==='PAUSED'?'pause':'loader-circle')}${s.status==='PAUSED'?'Nguồn đang tạm dừng':d.state==='FAILED'?'Chưa lập chỉ mục được':'Đang lập chỉ mục'}</span>`:''}
+ <div class="acts">${starBtn('doc',d.id,d.starred)}${ready?`<button class="btn sm ghost icon" data-a="download" data-name="${esc(d.name)}" title="Tải bản gốc">${ic('download')}</button>`:''}
+ ${menuBtn('dm-'+d.id,(ready?mi('preview-d',d.id,'eye','Xem trước'):'')+mi('openInSource',d.id,'arrow-up-right','Mở trong '+(s.t==='SP'?'SharePoint':s.t==='DRIVE'?'Google Drive':'nguồn'))+mi('goSource',d.src,'plug','Xem nguồn '+s.name))}</div></div>`}
+function refRow([k,id]){const o={file:()=>fileRow(byId('files',id)),meeting:()=>meetingRow(byId('meetings',id)),agent:()=>agentRow(byId('agent',id)),doc:()=>docRow(byId('docs',id))}[k];
+ const item=k==='file'?byId('files',id):k==='meeting'?byId('meetings',id):k==='agent'?byId('agent',id):byId('docs',id);if(!item||(k==='file'&&item.state==='TRASH'))return '';return o()}
+
+/* ---------- views ---------- */
+function viewRecent(){const rows=D.recent.filter(([k,id])=>{const it=k==='file'?byId('files',id):k==='meeting'?byId('meetings',id):k==='agent'?byId('agent',id):byId('docs',id);return it&&match(it.name||it.title)}).slice(0,100).map(refRow).join('');
+ return searchBar('Tìm trong những gì bạn mở gần đây')+`<div class="list">${rows||empty('clock','Chưa mở gì gần đây','Những tệp, cuộc họp và tài liệu bạn mở sẽ hiện ở đây.')}</div>`}
+function viewReady(){let fs=D.files.filter(f=>f.state==='READY'&&match(f.name)&&(!S.cat||f.cat===S.cat)&&(!S.starOnly||f.starred));
+ fs=[...fs].sort({NEWEST:(a,b)=>b.t-a.t,OLDEST:(a,b)=>a.t-b.t,NAME:(a,b)=>a.name.localeCompare(b.name,'vi'),LARGEST:(a,b)=>b.size-a.size}[S.sort]);
+ const tb=searchBar('Tìm theo tên hoặc nội dung',`<select class="sel" data-in="sort">${[['NEWEST','Mới nhất'],['OLDEST','Cũ nhất'],['NAME','Tên A–Z'],['LARGEST','Lớn nhất']].map(([v,l])=>`<option value="${v}" ${S.sort===v?'selected':''}>${l}</option>`).join('')}</select>
+ <button class="btn icon ${S.layout==='list'?'primary':''}" data-a="set" data-key="layout" data-v="list" title="Danh sách">${ic('list')}</button><button class="btn icon ${S.layout==='grid'?'primary':''}" data-a="set" data-key="layout" data-v="grid" title="Lưới">${ic('layout-grid')}</button>`);
+ const chips=`<div class="chips">${Object.entries({'':'Mọi loại',...Object.fromEntries(Object.entries(CAT).map(([k,[,l]])=>[k,l]))}).map(([v,l])=>`<button class="chip ${S.cat===v?'on':''}" data-a="set" data-key="cat" data-v="${v}">${l}</button>`).join('')}<button class="chip ${S.starOnly?'on':''}" data-a="toggleStarOnly">${ic('star')}Chỉ tệp gắn sao</button></div>`;
+ const sel=S.sel.length?`<div class="selbar"><b>${S.sel.length} tệp đã chọn</b><span class="grow"></span><button class="btn sm" data-a="zip">${ic('file-archive')}Tải ZIP</button><button class="btn sm" data-a="projectMany">${ic('folder-plus')}Thêm vào dự án</button><button class="btn sm" data-a="trashMany">${ic('trash-2')}Xoá</button><button class="btn sm" data-a="clearSel">Bỏ chọn</button></div>`:'';
+ const body=!fs.length?`<div class="list">${empty('folder-open','Không có tệp nào khớp','Thử bỏ bớt bộ lọc.')}</div>`:S.layout==='grid'?`<div class="grid">${fs.map(f=>`<div class="gc" data-a="preview" data-k="file" data-id="${f.id}"><div class="pv">${ic(CAT[f.cat][0])}</div><div class="bt"><div>${esc(f.name)}</div><div class="meta"><span>${mb(f.size)}</span><span>${f.at}</span></div></div></div>`).join('')}</div>`:`<div class="list">${fs.map(fileRow).join('')}</div>`;
+ const total=fs.reduce((a,f)=>a+f.size,0);
+ return tb+chips+sel+body+`<div class="pager"><span>${fs.length} tệp · ${mb(total)}</span><span>Trang 1 / 1</span></div>`}
+function viewShared(){const ms=D.meetings.filter(m=>!m.mine&&(!S.kind||S.kind==='MEETING')&&match(m.title));const as=D.agent.filter(a=>(!S.kind||S.kind==='AGENT')&&match(a.name));
+ return searchBar('Tìm trong những gì được chia sẻ với bạn')+chipsRow([['','Tất cả',ms.length+as.length],['MEETING','Cuộc họp'],['AGENT','Tệp của trợ lý']],'kind')+
+ `<div class="list">${ms.map(meetingRow).join('')+as.map(agentRow).join('')||empty('users','Chưa có gì được chia sẻ','Cuộc họp và tệp trợ lý người khác chia sẻ sẽ hiện ở đây.')}</div>`}
+function viewMeetings(){const ms=D.meetings.filter(m=>(S.owner==='ALL'||(S.owner==='MINE')===m.mine)&&match(m.title));
+ return searchBar('Tìm cuộc họp',`<button class="btn primary" data-a="newMeeting">${ic('mic')}Cuộc họp mới</button>`)+chipsRow([['ALL','Tất cả'],['MINE','Của tôi'],['SHARED','Được chia sẻ']],'owner')+`<div class="list">${ms.map(meetingRow).join('')||empty('mic','Không có cuộc họp','')}</div>`}
+function viewDocuments(){const srcs=D.sources.filter(s=>manager()||s.id!=='x');const ds=D.docs.filter(d=>(!S.srcFilter||d.src===S.srcFilter)&&(!S.cat||d.cat===S.cat)&&match(d.name)).sort((a,b)=>S.sort==='NAME'?a.name.localeCompare(b.name,'vi'):b.t-a.t);
+ const shown=ds.slice(0,S.docsShown);
+ return searchBar('Tìm tài liệu tổ chức theo tên',`<select class="sel" data-in="srcFilter"><option value="">Tất cả nguồn</option>${srcs.map(s=>`<option value="${s.id}" ${S.srcFilter===s.id?'selected':''}>${s.name}</option>`).join('')}</select><select class="sel" data-in="sort"><option value="NEWEST" ${S.sort!=='NAME'?'selected':''}>Mới cập nhật</option><option value="NAME" ${S.sort==='NAME'?'selected':''}>Tên A–Z</option></select>`)+catChips()+
+ `<div class="list">${shown.map(docRow).join('')||empty('building-2','Không có tài liệu khớp','')}</div>${ds.length>shown.length?`<div style="text-align:center;margin-top:12px"><button class="btn" data-a="more">Tải thêm</button></div>`:`<div class="pager"><span>${ds.length} tài liệu</span></div>`}`}
+function allStarred(){return [...D.files.filter(f=>f.starred&&f.state!=='TRASH').map(f=>['file',f.id]),...D.meetings.filter(m=>m.starred).map(m=>['meeting',m.id]),...D.agent.filter(a=>a.starred).map(a=>['agent',a.id]),...D.docs.filter(d=>d.starred).map(d=>['doc',d.id])]}
+function viewStarred(){const refs=allStarred().filter(([k])=>!S.kind||S.kind===k);
+ return chipsRow([['','Tất cả',allStarred().length],['file','Tệp của tôi'],['meeting','Cuộc họp'],['agent','Tệp trợ lý'],['doc','Tài liệu tổ chức']],'kind')+`<div class="list">${refs.map(refRow).join('')||empty('star','Chưa gắn sao mục nào','Bấm ngôi sao ở bất kỳ mục nào để giữ nó ở đây.')}</div>`}
+function viewPending(){const fs=D.files.filter(f=>f.state==='PROCESSING'||f.state==='FAILED');
+ return `<div class="list">${fs.map(f=>`<div class="it">${thumb(f.cat)}<div class="grow"><div class="nm">${esc(f.name)}</div><div class="meta"><span>${mb(f.size)}</span><span>${f.at}</span></div>${f.error?`<div class="err">${f.error}</div>`:''}</div>
+ ${f.state==='PROCESSING'?`<span class="soft in"><i data-lucide="loader-circle" class="spin"></i>Đang xử lý</span>`:`<span class="soft da">${ic('triangle-alert')}Thất bại</span><button class="btn sm" data-a="retry" data-id="${f.id}">${ic('rotate-ccw')}Thử lại</button>`}
+ <button class="btn sm ghost" data-a="removePending" data-id="${f.id}">Gỡ</button></div>`).join('')||empty('loader-circle','Không có tệp đang xử lý','Tệp bạn tải lên sẽ hiện ở đây cho tới khi dùng được.')}</div>`}
+function viewTrash(){const fs=D.files.filter(f=>f.state==='TRASH');
+ return `<div class="banner">${ic('info')}<span class="grow">Tệp trong thùng rác được giữ 30 ngày rồi xoá vĩnh viễn.</span>${fs.length?`<button class="btn sm danger" data-a="emptyTrash">Dọn thùng rác</button>`:''}</div>
+ <div class="list">${fs.map(f=>`<div class="it">${thumb(f.cat)}<div class="grow"><div class="nm">${esc(f.name)}</div><div class="meta"><span>${mb(f.size)}</span><span>Đã xoá ${f.deleted}</span><span>Còn ${f.left} ngày</span></div></div>
+ <button class="btn sm" data-a="restore" data-id="${f.id}">${ic('undo-2')}Khôi phục</button><button class="btn sm ghost" data-a="purge" data-id="${f.id}" style="color:var(--da-c)">Xoá vĩnh viễn</button></div>`).join('')||empty('trash-2','Thùng rác trống','')}</div>`}
+
+/* ---------- sources: theo đúng mô hình Nguồn hiện có (SourceSummary, trang /admin/sources) ---------- */
+const mgrName=s=>s.manager?(s.mine&&S.role!=='manager'?'Trần Thu Hà':s.manager):null;
+const accessBadge=a=>`<span class="soft ${a==='PUBLIC'?'ok':a==='PRIVATE'?'ne':'in'}">${ic(ACCESS[a][0])}${ACCESS[a][1]}</span>`;
+const itemState=d=>d.state==='READY'?['ok','check','Đã lập chỉ mục']:d.state==='INDEXING'?['in','loader-circle','Đang xử lý']:['da','triangle-alert','Thất bại'];
+const softState=st=>`<span class="soft ${st[0]}">${st[1]==='loader-circle'?'<i data-lucide="loader-circle" class="spin"></i>':ic(st[1])}${st[2]}</span>`;
+const small=h=>h.replace('thumb','thumb" style="width:30px;height:30px;border-radius:7px');
+const autoLabel=s=>isPaused(s)?(s.t==='SP'?'Tạm dừng cùng Nguồn':'Đã tạm dừng'):s.auto?'Đang bật':'Đã tạm dừng';
+function srcRow(s){const opens=s.status!=='PAUSED'&&s.docs>0;const mg=mgrName(s);
+ return `<tr><td><div class="fn">${small(srcLogo(s.t))}<div>${opens?`<a class="nm" data-a="docsOf" data-id="${s.id}">${esc(s.name)}</a>`:`<span style="font-weight:600">${esc(s.name)}</span>`}${mg?`<small>Người phụ trách: ${mg}</small>`:''}</div></div></td>
+ <td class="nw" style="color:var(--c2)">${s.last||'Chưa có'}</td><td class="nw">${pill(s.status)}</td><td class="nw">${accessBadge(s.access)}${s.access==='PRIVATE'&&s.groups.length?`<small style="display:block;color:var(--c3);margin-top:4px">${s.groups.join(', ')}</small>`:''}</td><td class="nw num">${s.docs.toLocaleString('vi')}</td></tr>`}
+function viewSources(){if(S.connector)return viewSource();
+ const all=D.sources;const f=all.filter(s=>match(s.name)&&(!S.provider||s.t===S.provider)&&(!S.fStatus||s.status===S.fStatus)&&(!S.fAccess||s.access===S.fAccess));
+ const sel=(k,any,pairs)=>`<select class="sel" data-in="${k}" aria-label="${any}"><option value="">${any}</option>${pairs.map(([v,l])=>`<option value="${v}" ${S[k]===v?'selected':''}>${l}</option>`).join('')}</select>`;
+ const tools=sel('fStatus','Mọi trạng thái',['NOT_STARTED','INDEXING','ACTIVE','PAUSED','FAILED'].map(k=>[k,STATUS[k][2]]))+sel('provider','Mọi nhà cung cấp',Object.entries(PROVIDER))+sel('fAccess','Mọi quyền truy cập',Object.entries(ACCESS).map(([k,v])=>[k,v[1]]))
+  +(S.provider||S.fStatus||S.fAccess?`<button class="btn ghost" data-a="clearSrcFilters">Xóa bộ lọc</button>`:'')
+  +`<button class="btn ghost" data-a="toggleAllProv">${S.collapsed.length?'Mở rộng tất cả':'Thu gọn tất cả'}</button>`
+  +(S.role!=='member'?`<button class="btn primary" data-a="addSource">${ic('plus')}Thêm nguồn</button>`:'');
+ const groups=['DRIVE','SP','FILE'].map(t=>{const rows=f.filter(s=>s.t===t);if(!rows.length)return '';const open=!S.collapsed.includes(t);
+  const m=[['Tổng số nguồn',rows.length],['Nguồn đang hoạt động',`${rows.filter(s=>s.status==='ACTIVE').length}/${rows.length}`],['Nguồn hiển thị trong không gian làm việc',rows.filter(s=>s.access==='PUBLIC').length],['Tài liệu bạn đọc được',rows.reduce((a,s)=>a+s.docs,0).toLocaleString('vi')]];
+  return `<section class="pgroup"><div class="phead" data-a="toggleProv" data-v="${t}">${ic(open?'chevron-down':'chevron-right')}${srcLogo(t)}<b>${PROVIDER[t]}</b><div class="pm">${m.map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join('')}</div></div>
+  ${open?`<table><thead><tr><th>Tên</th><th>Lập chỉ mục gần nhất</th><th>Trạng thái</th><th>Truy cập</th><th class="num">Tài liệu bạn đọc được</th></tr></thead><tbody>${rows.map(srcRow).join('')}</tbody></table>`:''}</section>`}).join('');
+ return searchBar('Tìm nguồn',tools)+(groups||`<div class="list" style="margin-top:22px">${empty('plug','Không có nguồn phù hợp với tìm kiếm và bộ lọc.','')}</div>`)}
+function srcTabs(s){if(s.t==='DRIVE')return [['content','Nội dung'],['history','Lịch sử đồng bộ'],...(canEdit(s)?[['settings','Kết nối và cấu hình']]:[])];
+ return [['content','Tệp'],['history','Lịch sử lập chỉ mục'],...(s.access==='PRIVATE'?[['settings','Nhóm']]:isAdmin()?[['settings','Người quản lý']]:[])]}
+function viewSource(){const s=byId('sources',S.connector);const edit=canEdit(s);const tabs=srcTabs(s);if(!tabs.some(([v])=>v===S.tab))S.tab='content';const mg=mgrName(s);
+ const menu=(edit||isAdmin())?menuBtn('dh-'+s.id,(edit?mi('srcRename',s.id,'pencil','Đổi tên nguồn'):'')+(isAdmin()?mi('srcAccess',s.id,'eye','Thay đổi chế độ hiển thị'):'')
+  +(edit?(s.status==='PAUSING'?`<button disabled>${ic('loader-circle')}Đang tạm dừng…</button>`:mi('pause',s.id,isPaused(s)?'play':'pause',isPaused(s)?'Tiếp tục nguồn':'Tạm dừng nguồn')):'')):'';
+ const head=`<div class="crumb"><a data-a="back">${ic('arrow-left')}Thư viện</a>${ic('chevron-right')}<a data-a="back">Nguồn dữ liệu</a>${ic('chevron-right')}<b>${esc(s.name)}</b></div>
+ <div class="dh">${srcLogo(s.t)}<div class="grow"><h1>${esc(s.name)}</h1><div class="row" style="margin-top:6px">${pill(s.status)}${accessBadge(s.access)}${s.pending?`<span class="soft in"><i data-lucide="loader-circle" class="spin"></i>Có công việc đang chờ</span>`:''}</div>${mg?`<div class="meta" style="margin-top:8px">Người phụ trách: ${mg}</div>`:''}</div><div class="row">${menu}</div></div>`;
+ const err=s.err?`<div class="alert">${ic('triangle-alert')}<div class="t"><strong>${s.err}</strong></div>${isAdmin()&&s.cred==='RECONNECT'?`<button class="btn sm" data-a="reconnect" data-id="${s.id}">Kết nối lại Google Drive</button>`:''}</div>`:'';
+ const facts=[['Tài liệu đã lập chỉ mục',s.docs.toLocaleString('vi')],['Lập chỉ mục thành công gần nhất',s.last||'Chưa có'],['Ai có thể đọc',ACCESS[s.access][3]],...(s.access==='PRIVATE'?[['Nhóm',s.groups.map(g=>`<span class="gchip">${ic('users')}${g}</span>`).join('')||'—']]:[]),...(s.t!=='FILE'?[['Đồng bộ tự động',autoLabel(s)],['Chu kỳ đồng bộ',`${s.interval} phút`]]:[])];
+ const sum=`<div class="card" style="margin-top:18px"><dl class="facts">${facts.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></div>`;
+ const tb=`<div class="tabs">${tabs.map(([v,l])=>`<a class="${S.tab===v?'on':''}" data-a="set" data-key="tab" data-v="${v}">${l}</a>`).join('')}</div>`;
+ const body={content:srcContent,history:srcHistory,settings:srcSettings}[S.tab](s,edit);
+ const danger=isAdmin()&&s.status!=='DELETING'?`<div class="card dzone" style="margin-top:28px"><h4>Xoá nguồn này</h4><div class="row"><span class="grow" style="color:var(--c2);font-weight:450">Mọi tài liệu đã lập chỉ mục từ nguồn này sẽ không còn dùng được. Việc dọn dẹp chạy nền và không thể hoàn tác.</span><button class="btn danger" data-a="deleteSource" data-id="${s.id}">${ic('trash-2')}Xóa nguồn</button></div></div>`:'';
+ return head+err+sum+tb+`<div style="margin-top:18px">${body}</div>`+danger}
+function syncCard(s,edit){const p=isPaused(s);
+ const auto=s.t==='DRIVE'?`<dl class="kv" style="margin-top:12px"><dt>Đồng bộ tự động</dt><dd><button class="switch ${s.auto&&!p?'on':''}" data-a="autoSync" data-id="${s.id}" ${edit&&!p?'':'disabled'} aria-label="Đồng bộ tự động"></button> ${autoLabel(s)}</dd><dt>Chu kỳ</dt><dd>Mỗi ${s.interval} phút${edit?` <a class="link" data-a="editInterval" data-id="${s.id}" style="margin-left:8px">Sửa chu kỳ</a>`:''}</dd></dl>`:'';
+ return `<div class="card"><h4>Đồng bộ<span class="row"><button class="btn sm" data-a="refreshStatus">${ic('refresh-cw')}Làm mới trạng thái</button>${edit&&s.cred!=='RECONNECT'?`<button class="btn sm primary" data-a="sync" data-id="${s.id}" ${p||s.status==='INDEXING'?'disabled':''}>${ic('play')}Đồng bộ ngay</button>`:''}</span></h4><div class="hint">Đồng bộ tự động dùng chu kỳ đã lưu của nguồn. Đồng bộ ngay gửi yêu cầu chạy.</div>${auto}</div>`}
+function spSchedule(s,edit){const p=isPaused(s);
+ return `<div class="card" style="margin-top:12px"><h4>Lịch chạy${edit?`<span class="row"><button class="btn sm" data-a="editInterval" data-id="${s.id}">Sửa chu kỳ</button>${p?'':`<button class="btn sm" data-a="autoSync" data-id="${s.id}">${s.auto?'Tạm dừng đồng bộ tự động':'Tiếp tục đồng bộ tự động'}</button>`}</span>`:''}</h4><dl class="kv"><dt>Chu kỳ đồng bộ</dt><dd>${s.interval} phút</dd><dt>Dọn dẹp</dt><dd>${s.prune?`Dọn dẹp mỗi ${s.prune} giờ`:'Đã tắt dọn dẹp'}</dd><dt>Đồng bộ tự động</dt><dd>${autoLabel(s)}</dd></dl></div>
+ <div class="card" style="margin-top:12px"><h4>Phạm vi đã lưu${isAdmin()?`<button class="btn sm" data-a="admin" data-id="${s.id}">Sửa phạm vi</button>`:''}</h4><div style="font-size:13px">${s.scope}</div></div>`}
+function driveSelection(s){return `<div class="card" style="margin-top:12px"><h4>Lựa chọn đã lưu${isAdmin()?`<button class="btn sm" data-a="admin" data-id="${s.id}">${ic('arrow-up-right')}Mở trang quản trị</button>`:''}</h4>
+ <div class="hint">${s.scopeMode==='GENERAL'?'Toàn bộ tài khoản Google':'Các tệp và thư mục cụ thể'}${isAdmin()?'':'. Cấu hình lựa chọn ở chế độ chỉ đọc.'}</div>${s.scopeMode==='GENERAL'?'':`<div style="margin-top:6px;font-weight:500">${s.sel[0]} thư mục · ${s.sel[1]} tệp · ${s.sel[2]} tài liệu liên kết đã duyệt</div>`}
+ <div style="margin-top:12px"><a class="link" data-a="docsOf" data-id="${s.id}">Xem tài liệu của nguồn trong Tổ chức › Tài liệu${ic('arrow-right')}</a></div></div>`}
+function filesTable(s,edit){const docs=D.docs.filter(d=>d.src===s.id);const p=isPaused(s);
+ const rows=docs.map(d=>{const menu=(edit||isAdmin())&&d.state!=='INDEXING'?menuBtn('im-'+d.id,(edit?`<button data-a="reindex" data-id="${d.id}" ${p?'disabled':''}>${ic('rotate-ccw')}Lập chỉ mục lại</button>`:'')+(isAdmin()?mi('removeItem',d.id,'trash-2','Gỡ','dz'):'')):'';
+  const view=d.state==='READY'?`<button class="btn sm ghost icon" data-a="preview" data-k="doc" data-id="${d.id}" title="Xem trước">${ic('eye')}</button><button class="btn sm ghost icon" data-a="download" data-name="${esc(d.name)}" title="Tải bản gốc">${ic('download')}</button>${starBtn('doc',d.id,d.starred)}`:'';
+  return `<tr><td><div class="fn">${small(thumb(d.cat))}<div>${esc(d.name)}<small>${d.path}</small>${d.error?`<div class="err">${d.error}</div>`:''}</div></div></td><td class="nw" style="color:var(--c2)">${d.size}</td><td class="nw">${softState(itemState(d))}</td><td class="nw" style="color:var(--c2)">${d.state==='INDEXING'?'Chưa có':d.at}</td><td class="nw"><div class="acts show">${view}${menu}</div></td></tr>`}).join('');
+ return `<div class="row" style="margin-top:16px"><b class="grow">Tệp</b><button class="btn sm" data-a="refreshFiles">${ic('refresh-cw')}Làm mới tệp</button></div>
+ <table style="margin-top:10px"><thead><tr><th>Tên tệp</th><th>Dung lượng</th><th>Trạng thái</th><th>Lập chỉ mục gần nhất</th><th>Thao tác</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="color:var(--c3)">Chưa có tệp.</td></tr>'}</tbody></table>
+ <div class="pager"><span>${docs.length} / ${s.docs.toLocaleString('vi')} tệp</span></div>`}
+function srcContent(s,edit){if(s.t==='DRIVE')return syncCard(s,edit)+driveSelection(s);
+ if(s.t==='SP')return syncCard(s,edit)+spSchedule(s,edit)+filesTable(s,edit);
+ return (edit?`<div class="card"><h4>Tải nội dung lên<button class="btn sm" data-a="srcUpload" data-id="${s.id}" ${isPaused(s)?'disabled':''}>${ic('upload')}Tải tệp lên</button></h4><div class="hint">PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown · Tối đa 100 MiB mỗi tệp</div></div>`:'')+filesTable(s,edit)}
+function runsTable(s){const runs=D.runs.filter(r=>r.src===s.id);const kinds=s.t==='SP';const lastOk=runs.find(r=>r.st==='DONE'||r.st==='SAME');
+ const rows=runs.map(r=>`<tr data-a="openRun" data-id="${r.id}" style="cursor:pointer"><td class="nw">${r.start}${r===runs[0]?'<div class="meta">Lần chạy gần nhất</div>':r===lastOk?'<div class="meta">Lần chạy thành công gần nhất</div>':''}</td><td class="nw">${softState(RUN[r.st])}</td>${kinds?`<td class="nw">${r.kind==='PRUNE'?'Dọn dẹp':'Làm mới'}</td>`:''}<td class="nw">${TRIG[r.trig]}</td><td class="nw">${r.dur}</td>
+  <td class="counts">${ACT.filter(([k])=>r.c[k]).map(([k,l])=>`${l} <b ${k==='failed'?'style="color:var(--da-c)"':''}>${r.c[k].toLocaleString('vi')}</b>`).join(' · ')||'—'}</td></tr>`).join('');
+ return `<b>Lịch sử đồng bộ</b><table style="margin-top:10px"><thead><tr><th>Bắt đầu</th><th>Trạng thái</th>${kinds?'<th>Loại</th>':''}<th>Kích hoạt</th><th>Thời lượng</th><th>Hoạt động</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="color:var(--c3)">Chưa có lần chạy.</td></tr>'}</tbody></table>`}
+function attemptsTable(s){const rows=D.docs.filter(d=>d.src===s.id).map(d=>`<tr><td>${esc(d.name)}</td><td class="nw" style="color:var(--c2)">${d.at}</td><td class="nw">${softState(itemState(d))}</td><td class="nw" style="color:var(--c2)">${d.state==='INDEXING'?'—':d.state==='FAILED'?'12 giây':'4 giây'}</td><td class="err">${d.error||''}</td><td class="nw"><a class="link" data-a="attempt" data-id="${d.id}">Xem chi tiết</a></td></tr>`).join('');
+ return `<div style="margin-top:${s.t==='SP'?28:0}px"><b>Lịch sử lập chỉ mục tệp</b></div><table style="margin-top:10px"><thead><tr><th>Tệp</th><th>Bắt đầu</th><th>Trạng thái</th><th>Hoàn tất / thời gian xử lý</th><th>Thông báo lỗi</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="color:var(--c3)">Chưa có lần xử lý.</td></tr>'}</tbody></table>`}
+function srcHistory(s){return s.t==='DRIVE'?runsTable(s):s.t==='SP'?runsTable(s)+attemptsTable(s):attemptsTable(s)}
+function srcSettings(s,edit){const cards=[];
+ if(s.t==='DRIVE')cards.push(`<div class="card"><h4>Thông tin kết nối${isAdmin()&&s.cred==='RECONNECT'?`<button class="btn sm primary" data-a="reconnect" data-id="${s.id}">Kết nối lại Google Drive</button>`:''}</h4><dl class="kv"><dt>Kết nối</dt><dd>${s.cred==='RECONNECT'?'<span class="soft wa">Cần kết nối lại</span>':'<span class="soft ok">Đã kết nối</span>'}</dd></dl></div>`);
+ if(s.access==='PRIVATE')cards.push(`<div class="card"><h4>Liên kết nhóm${edit?`<button class="btn sm" data-a="srcGroups" data-id="${s.id}">${ic('pencil')}Sửa</button>`:''}</h4>${s.groups.length?s.groups.map(g=>`<span class="gchip">${ic('users')}${g}</span>`).join(''):`<div class="alert" style="margin:0">${ic('triangle-alert')}<div class="t">Nguồn này chưa thuộc nhóm nào nên chưa ai tìm hay đọc được tài liệu của nó. Hãy liên kết nguồn với một nhóm để dùng được.</div></div>`}</div>`);
+ if(isAdmin()){const mg=mgrName(s);cards.push(`<div class="card"><h4>Người quản lý nhóm phụ trách</h4><div class="row"><span class="grow">${mg?`Người phụ trách: ${mg}`:'<span style="color:var(--c3)">Chưa có người phụ trách</span>'}</span>${mg?`<button class="btn sm" data-a="mgrPick" data-id="${s.id}">Đổi người phụ trách</button><button class="btn sm" data-a="mgrClear" data-id="${s.id}">Bỏ người phụ trách</button>`:`<button class="btn sm" data-a="mgrPick" data-id="${s.id}">Chỉ định người phụ trách</button>`}</div><div class="note">Người quản lý phải là quản lý của một nhóm, và gắn nguồn vào các nhóm họ quản lý.</div></div>`)}
+ return cards.join('<div style="height:12px"></div>')}
+/* ---------- shell ---------- */
+const VIEWS={recent:['clock','Gần đây',viewRecent],ready:['folder-open','Tệp của tôi',viewReady],shared:['users','Được chia sẻ với tôi',viewShared],meetings:['mic','Cuộc họp',viewMeetings],
+ sources:['plug','Nguồn dữ liệu',viewSources],documents:['building-2','Tài liệu tổ chức',viewDocuments],starred:['star','Có gắn sao',viewStarred],pending:['loader-circle','Đang xử lý',viewPending],trash:['trash-2','Thùng rác',viewTrash]};
+function rail(){const t=v=>{const [icon,label]=VIEWS[v];let extra='';
+  if(v==='ready')extra=`<span class="n">${D.files.filter(f=>f.state==='READY').length}</span>`;
+  if(v==='pending'){const n=D.files.filter(f=>f.state==='PROCESSING'||f.state==='FAILED').length;if(n)extra=`<span class="n">${n}</span>`}
+  if(v==='trash'){const n=D.files.filter(f=>f.state==='TRASH').length;if(n)extra=`<span class="n">${n}</span>`}
+  if(v==='sources'){extra=(S.seen?'':'<span class="new">MỚI</span>')+(manager()&&D.sources.filter(attention).length?`<span class="dot">${D.sources.filter(attention).length}</span>`:'')}
+  return `<div class="tab ${S.view===v?'on':''}" data-a="view" data-v="${v}">${ic(icon)}${label}${extra}</div>`};
+ const used=readySize();
+ return `<nav class="rail" aria-label="Phần của thư viện">${['recent','ready','shared','meetings'].map(t).join('')}<div class="sep">Tổ chức</div>${['sources','documents'].map(t).join('')}<div class="sep">Của bạn</div>${['starred','pending','trash'].map(t).join('')}
+ <div class="storage">Dung lượng<div style="font-weight:600;color:var(--c1);margin-top:2px">${mb(used)} / ${LIMIT} MB</div><div class="bar"><i style="width:${Math.min(100,used/LIMIT*100)}%"></i></div>${D.files.filter(f=>f.state!=='TRASH').length} tệp<div style="margin-top:6px"><a class="link" data-a="largest">Xem tệp lớn nhất</a></div></div></nav>`}
+
+/* ---------- top tabs (recommended navigation) ---------- */
+const TABS=[['recent','clock','Gần đây',['recent']],['mine','folder-open','Của tôi',['ready','pending','trash']],['shared','users','Được chia sẻ',['shared','meetings']],['starred','star','Có gắn sao',['starred']],['org','building-2','Tổ chức',['sources','documents']]];
+function topTabs(){const att=manager()?D.sources.filter(attention).length:0;const used=readySize();
+ return `<nav class="ltabs" aria-label="Phần của thư viện">${TABS.map(([id,icon,label,views])=>{const on=views.includes(S.view);let extra='';
+  if(id==='mine')extra=`<span class="n">${D.files.filter(f=>f.state==='READY').length}</span>`;
+  if(id==='org'&&att)extra=`<span class="dot">${att}</span>`;
+  if(id==='org'&&!S.seen)extra+=`<span class="new">MỚI</span>`;
+  return `<a class="${on?'on':''}" data-a="view" data-v="${views[0]}">${ic(icon)}${label}${extra}</a>`}).join('')}
+  <div class="meter" data-a="settings" title="Dung lượng và cài đặt"><span>${mb(used)} / ${LIMIT} MB</span><div class="bar"><i style="width:${Math.min(100,used/LIMIT*100)}%"></i></div></div></nav>`}
+function subnav(){if(S.nav!=='tabs'||(S.view==='sources'&&S.connector))return '';
+ if(['ready','pending','trash'].includes(S.view)){const p=D.files.filter(f=>f.state==='PROCESSING'||f.state==='FAILED').length,t=D.files.filter(f=>f.state==='TRASH').length;
+  return `<div class="subnav"><div class="seg2"><button class="${S.view==='ready'?'on':''}" data-a="view" data-v="ready">Tệp</button><button class="${S.view==='pending'?'on':''}" data-a="view" data-v="pending">Đang xử lý${p?` <span class="n">${p}</span>`:''}</button><button class="${S.view==='trash'?'on':''}" data-a="view" data-v="trash">${ic('trash-2')}Thùng rác${t?` <span class="n">${t}</span>`:''}</button></div></div>`}
+ if(['sources','documents'].includes(S.view)){const att=manager()?D.sources.filter(attention).length:0;
+  return `<div class="subnav"><div class="seg2"><button class="${S.view==='sources'?'on':''}" data-a="view" data-v="sources">${ic('plug')}Nguồn dữ liệu${att?`<span class="dot">${att}</span>`:''}</button><button class="${S.view==='documents'?'on':''}" data-a="view" data-v="documents">${ic('file-text')}Tài liệu</button></div></div>`}
+ if(['shared','meetings'].includes(S.view))return '';
+ return ''}
+function render(){const detail=S.view==='sources'&&S.connector;
+ document.getElementById('app').innerHTML=`<div class="app"><aside class="side"><div class="brand">TASCO</div>
+ <a data-a="nav" data-v="Hội thoại mới">${ic('square-pen')}Hội thoại mới</a><a data-a="nav" data-v="Tìm tài liệu">${ic('file-search')}Tìm tài liệu</a><a data-a="nav" data-v="Trợ lý">${ic('bot')}Trợ lý</a><a data-a="nav" data-v="Cuộc họp">${ic('mic')}Cuộc họp</a><a class="on">${ic('folder-open')}Thư viện</a>
+ <div class="lbl">Dự án</div>${PROJECTS.map(p=>`<a data-a="nav" data-v="${p}">${ic('folder')}${p}</a>`).join('')}</aside>
+ <div class="main"><div class="topbar">${ic('panel-left')}<span>Thư viện${detail?' › Nguồn dữ liệu':''}</span><div class="role">Mockup — điều hướng<div class="seg"><button class="${S.nav==='tabs'?'on':''}" data-a="navmode" data-v="tabs">Tab trên (đề xuất)</button><button class="${S.nav==='rail'?'on':''}" data-a="navmode" data-v="rail">Menu trái</button></div></div></div>
+ <div class="page"><div class="ph"><div><h1>${ic('folder-open')}Thư viện</h1><p>Mọi tệp, cuộc họp, tài liệu và nguồn dữ liệu bạn xem và dùng được, ở cùng một chỗ.</p></div>
+ <div class="row"><button class="btn" data-a="upload">${ic('upload')}Tải lên</button><button class="btn icon" data-a="settings" title="Cài đặt thư viện">${ic('settings-2')}</button></div></div>
+ ${S.nav==='tabs'?(detail?'':topTabs())+`<div style="margin-top:${detail?28:20}px">${subnav()}${VIEWS[S.view][2]()}</div>`:`<div class="body">${detail?'':rail()}<div class="content">${VIEWS[S.view][2]()}</div></div>`}</div></div></div>${dialog()}`;
+ lucide.createIcons();
+ if(focusKey){const el=document.querySelector(`[data-in="${focusKey}"]`);if(el&&el.tagName==='INPUT'){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}}
+let focusKey=null;
+
+/* ---------- dialogs ---------- */
+function dialog(){const d=S.dialog;if(!d)return '';const wrap=(inner,wide)=>`<div class="scrim" data-a="closeDlg"><div class="dlg ${wide?'wide':''}" data-stop>${inner}</div></div>`;
+ const foot=(ok,label,danger)=>`<div class="foot"><button class="btn" data-a="closeDlg">Huỷ</button><button class="btn ${danger?'danger':'primary'}" data-a="${ok}">${label}</button></div>`;
+ switch(d.type){
+ case 'preview':return wrap(`<div class="row"><h2 class="grow">${esc(d.name)}</h2><button class="btn sm" data-a="download" data-name="${esc(d.name)}">${ic('download')}Tải xuống</button><button class="btn sm ghost icon" data-a="closeDlg">${ic('x')}</button></div>
+  <div class="pvbox">${ic(CAT[d.cat||'OTHER'][0])}&nbsp;Bản xem trước của ${esc(d.name)}</div>${d.ask?`<div class="toolbar" style="margin-top:12px"><div class="search">${ic('message-square')}<input data-in="askq" placeholder="Hỏi Chat về tệp này…"/></div><button class="btn primary" data-a="askSend" data-name="${esc(d.name)}">${ic('send')}Hỏi</button></div>`:''}`,true);
+ case 'rename':return wrap(`<h2>Đổi tên</h2><p>Phần mở rộng của tệp được giữ nguyên.</p><input type="text" data-in="dlgText" value="${esc(d.value)}"/>`+foot('renameOk','Lưu'));
+ case 'confirm':return wrap(`<h2>${d.title}</h2><p>${d.body}</p>`+foot('confirmOk',d.ok,d.danger));
+ case 'project':return wrap(`<h2>Thêm vào dự án</h2><p>${d.names}</p>${PROJECTS.map(p=>`<div class="opt ${d.pick===p?'on':''}" data-a="pickProject" data-v="${p}">${ic('folder')}${p}</div>`).join('')}`+foot('projectOk','Thêm'));
+ case 'access':{const s=byId('sources',d.id);const opts=s.t==='DRIVE'?['SYNC','PRIVATE','PUBLIC']:['PUBLIC','PRIVATE'];return wrap(`<h2>Chế độ hiển thị</h2><p>${esc(s.name)}</p>${opts.map(v=>`<div class="opt ${d.pick===v?'on':''}" data-a="pickAccess" data-v="${v}">${ic(ACCESS[v][0])}<div><b>${ACCESS[v][1]}</b><div style="color:var(--c3);font-weight:400;font-size:12px">${ACCESS[v][2]}</div></div></div>`).join('')}`+foot('accessOk','Lưu chế độ hiển thị'))}
+ case 'groups':{const s=byId('sources',d.id);const gs=isAdmin()?D.allGroups:D.myGroups;return wrap(`<h2>Liên kết nhóm</h2><p>${isAdmin()?esc(s.name):'Chọn các nhóm bạn quản lý, hoặc để trống.'}</p>${gs.map(g=>`<div class="opt ${d.pick.includes(g)?'on':''}" data-a="pickGroup" data-v="${g}">${ic(d.pick.includes(g)?'square-check':'square')}${g}</div>`).join('')}`+foot('groupsOk','Lưu liên kết'))}
+ case 'upload':return wrap(`<h2>${d.source?`Thêm tệp vào ${esc(byId('sources',d.source).name)}`:'Tải tệp lên thư viện'}</h2><p>PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown · Tối đa 100 MiB mỗi tệp.</p>
+  <div class="pvbox" style="height:160px;border:2px dashed var(--b2);cursor:pointer" data-a="uploadPick">${ic('upload')}&nbsp;Kéo thả tệp vào đây hoặc bấm để chọn</div>`+`<div class="foot"><button class="btn" data-a="closeDlg">Đóng</button></div>`);
+ case 'settings':return wrap(`<h2>Cài đặt thư viện</h2><dl class="kv" style="margin-top:12px"><dt>Dung lượng</dt><dd>${mb(readySize())} / ${LIMIT} MB</dd><dt>Thùng rác</dt><dd>Giữ 30 ngày</dd><dt>Lưu hội thoại</dt><dd>Không giới hạn</dd></dl><div class="bar" style="margin-top:12px"><i style="width:${Math.min(100,readySize()/LIMIT*100)}%"></i></div><div class="foot"><button class="btn" data-a="largest">${ic('arrow-down-wide-narrow')}Xem tệp lớn nhất</button><button class="btn primary" data-a="closeDlg">Xong</button></div>`);
+ case 'interval':{const s=byId('sources',d.id);const sp=s.t==='SP';return wrap(`<h2>Sửa chu kỳ</h2><p>${esc(s.name)}</p><label class="flbl">${sp?'Chu kỳ đồng bộ':'Đồng bộ mỗi'}</label><select class="sel" data-in="dlgInterval" style="width:100%">${[15,30,60,120,360,720,1440].map(v=>`<option value="${v}" ${d.pick==v?'selected':''}>${v} phút</option>`).join('')}</select>${sp?`<label class="flbl">Dọn dẹp</label><select class="sel" data-in="dlgPrune" style="width:100%">${[0,24,72,168].map(v=>`<option value="${v}" ${d.prune==v?'selected':''}>${v?`Dọn dẹp mỗi ${v} giờ`:'Đã tắt dọn dẹp'}</option>`).join('')}</select>`:''}`+foot('intervalOk','Lưu chu kỳ'))}
+ case 'run':{const r=byId('runs',d.id);const s=byId('sources',r.src);const errs=r.perr?[{stage:'Nhà cung cấp',name:s.name,msg:r.perr,cur:'—'}]:r.c.failed?D.docs.filter(x=>x.src===s.id&&(x.error||x.fixed)).map(x=>({stage:'Trích xuất',name:x.name,msg:x.error||x.fixed,cur:x.state==='FAILED'?'Thất bại':'Đã khắc phục'})):[];
+  return wrap(`<div class="row"><h2 class="grow">Chi tiết lần chạy</h2><button class="btn sm ghost icon" data-a="closeDlg">${ic('x')}</button></div><p>${esc(s.name)}</p><b>Tổng quan</b><dl class="kv" style="margin-top:8px"><dt>Bắt đầu</dt><dd>${r.start}</dd><dt>Trạng thái</dt><dd>${softState(RUN[r.st])}</dd>${s.t==='SP'?`<dt>Loại</dt><dd>${r.kind==='PRUNE'?'Dọn dẹp':'Làm mới'}</dd>`:''}<dt>Kích hoạt</dt><dd>${TRIG[r.trig]}</dd><dt>Thời lượng</dt><dd>${r.dur}</dd><dt>Hoạt động</dt><dd class="counts">${ACT.filter(([k])=>r.c[k]).map(([k,l])=>`${l} <b>${r.c[k].toLocaleString('vi')}</b>`).join(' · ')||'—'}</dd></dl>
+  <div style="margin-top:16px"><b>Lỗi của lần chạy</b></div>${errs.length?`<table style="margin-top:8px"><thead><tr><th>Giai đoạn</th><th>Tệp</th><th>Lỗi</th><th>Trạng thái hiện tại</th></tr></thead><tbody>${errs.map(e=>`<tr><td class="nw">${e.stage}</td><td>${esc(e.name)}</td><td class="err">${e.msg}</td><td class="nw">${e.cur==='Đã khắc phục'?softState(['ok','check','Đã khắc phục']):e.cur}</td></tr>`).join('')}</tbody></table>`:'<div class="hint" style="margin-top:6px">Không có lỗi.</div>'}`,true)}
+ case 'attempt':{const x=byId('docs',d.id);return wrap(`<div class="row"><h2 class="grow">${esc(x.name)}</h2><button class="btn sm ghost icon" data-a="closeDlg">${ic('x')}</button></div><p>Lần xử lý gần nhất:</p><dl class="kv"><dt>Trạng thái</dt><dd>${softState(itemState(x))}</dd><dt>Bắt đầu</dt><dd>${x.at}</dd><dt>Thông báo lỗi</dt><dd>${x.error||'—'}</dd></dl><div class="note">Để lập chỉ mục lại tệp này, dùng Lập chỉ mục lại trong tab Tệp.</div>`)}
+ case 'manager':{const s=byId('sources',d.id);return wrap(`<h2>${s.manager?'Đổi người phụ trách':'Chỉ định người phụ trách'}</h2><p>Người quản lý phải là quản lý của một nhóm, và gắn nguồn vào các nhóm họ quản lý.</p>${D.groupManagers.map(([n,g])=>`<div class="opt ${d.pick===n?'on':''}" data-a="pickMgr" data-v="${n}">${ic('user')}<div><b>${n}</b><div style="color:var(--c3);font-weight:400;font-size:12px">Quản lý nhóm ${g}</div></div></div>`).join('')}`+foot('mgrOk','Giao phụ trách'))}
+ case 'meeting':{const m=byId('meetings',d.id);return wrap(`<div class="row"><h2 class="grow">${esc(m.title)}</h2><button class="btn sm ghost icon" data-a="closeDlg">${ic('x')}</button></div><p>${m.dur} · ${m.at}${m.mine?'':' · '+m.reason}</p>
+  <div class="pvbox" style="height:260px">${ic('mic')}&nbsp;Trang cuộc họp: lời thoại, biên bản và việc cần làm</div><div class="foot">${m.minutes?`<button class="btn" data-a="minutes" data-id="${m.id}">${ic('file-down')}Tải biên bản</button>`:''}${m.transcript?`<button class="btn" data-a="transcript" data-id="${m.id}">${ic('file-text')}Tải lời thoại</button>`:''}${m.minutes?`<button class="btn primary" data-a="askMeeting" data-id="${m.id}">${ic('message-square')}Hỏi Chat</button>`:''}</div>`,true)}
+ }return ''}
+
+/* ---------- actions ---------- */
+function setStatus(s,status){s.status=status;render()}
+function runSync(s){if(isPaused(s))return toast('Nguồn đang tạm dừng — tiếp tục nguồn trước khi đồng bộ.','err');
+ const r={id:'r'+Date.now(),src:s.id,start:'Vừa xong',st:'RUNNING',kind:'REFRESH',trig:'MANUAL',dur:'—',c:{}};D.runs.unshift(r);s.status='INDEXING';s.pending=true;render();toast(`Đã gửi yêu cầu đồng bộ ${s.name}.`);
+ setTimeout(()=>{r.st='SAME';r.dur='41 giây';r.c={checked:s.docs,unchanged:s.docs};s.status='ACTIVE';s.pending=false;s.last='Vừa xong';render();toast(`${s.name} đồng bộ xong.`)},2600)}
+function simulateUpload(source){const names=['Báo cáo tháng 9.pdf','Danh sách nhà cung cấp.xlsx','Biên bản nghiệm thu.docx'];const name=names[Math.floor(Math.random()*names.length)];
+ S.dialog=null;if(source){const s=byId('sources',source);const id='d'+Date.now();D.docs.unshift({id,src:s.id,name,path:'Tệp tải lên',cat:name.endsWith('xlsx')?'SPREADSHEET':'DOCUMENT',state:'INDEXING',at:'Vừa xong',t:11});s.docs++;render();toast(`Đã tải ${name} lên ${s.name}; đang lập chỉ mục.`);
+  setTimeout(()=>{const d=D.docs.find(x=>x.id===id);if(d){d.state='READY';render();toast(`${name} đã sẵn sàng để tìm.`)}},2500);return}
+ const id='f'+Date.now();D.files.unshift({id,name,kind:'UPLOAD',cat:name.endsWith('xlsx')?'SPREADSHEET':'DOCUMENT',size:1.3,at:'Vừa xong',t:11,state:'PROCESSING'});render();toast(`Đang xử lý ${name} — xem ở Đang xử lý.`);
+ setTimeout(()=>{const f=D.files.find(x=>x.id===id);if(f&&f.state==='PROCESSING'){f.state='READY';render();toast(`${name} đã sẵn sàng trong Tệp của tôi.`)}},3000)}
+function go(v){S.view=v;S.q='';S.cat='';S.kind='';S.sel=[];S.menu=null;S.connector=null;S.tab='content';S.docsShown=8;if(v==='sources')S.seen=true;render();window.scrollTo(0,0)}
+const itemOf=(k,id)=>k==='file'?byId('files',id):k==='meeting'?byId('meetings',id):k==='agent'?byId('agent',id):byId('docs',id);
+const A={
+ view:e=>go(e.dataset.v),role:e=>{S.role=e.dataset.v;S.menu=null;render()},
+ nav:e=>toast(`Trong sản phẩm thật: mở “${e.dataset.v}”.`),
+ set:e=>{S[e.dataset.key]=e.dataset.v;if(e.dataset.key==='state'||e.dataset.key==='cat')S.sel=[];render()},
+ menu:e=>{S.menu=S.menu===e.dataset.id?null:e.dataset.id;render()},
+ toggleStarOnly:()=>{S.starOnly=!S.starOnly;render()},
+ star:e=>{const it=itemOf(e.dataset.k,e.dataset.id);it.starred=!it.starred;render();toast(it.starred?`Đã gắn sao ${it.name||it.title}.`:`Đã bỏ gắn sao ${it.name||it.title}.`)},
+ preview:e=>{const k=e.dataset.k,it=itemOf(k,e.dataset.id);openRecent(k,it.id);S.dialog={type:'preview',name:it.name,cat:it.cat,ask:k!=='doc'};render()},
+ 'preview-f':e=>A.preview({dataset:{k:'file',id:e.dataset.id}}),'preview-a':e=>A.preview({dataset:{k:'agent',id:e.dataset.id}}),'preview-d':e=>A.preview({dataset:{k:'doc',id:e.dataset.id}}),
+ download:e=>{S.menu=null;render();toast(`Đã tải xuống ${e.dataset.name}.`)},
+ ask:e=>{const f=byId('files',e.dataset.id);openRecent('file',f.id);S.dialog={type:'preview',name:f.name,cat:f.cat,ask:true};render()},
+ askSend:e=>{const q=(document.querySelector('[data-in="askq"]')||{}).value||'';S.dialog=null;render();toast(`Mở hội thoại mới “${q||e.dataset.name}” với tệp đính kèm.`)},
+ askAgent:e=>{const a=byId('agent',e.dataset.id);S.menu=null;render();toast(`Mở hội thoại mới với ${a.name} đính kèm.`)},
+ openAgent:e=>{S.menu=null;render();toast(`Trong sản phẩm thật: mở trang ${byId('agent',e.dataset.id).agent}.`)},
+ toastConv:e=>{S.menu=null;render();toast(`Mở cuộc trò chuyện “${byId('files',e.dataset.id).conv}”.`)},
+ rename:e=>{const f=byId('files',e.dataset.id);S.menu=null;S.dialog={type:'rename',id:f.id,value:f.name.replace(/\.[^.]+$/,''),ext:(f.name.match(/\.[^.]+$/)||[''])[0]};render()},
+ renameOk:()=>{const d=S.dialog,v=(document.querySelector('[data-in="dlgText"]').value||'').trim();if(!v)return toast('Tên tệp không được để trống.','err');
+  if(d.src){byId('sources',d.id).name=v}else byId('files',d.id).name=v+d.ext;S.dialog=null;render();toast('Đã đổi tên.')},
+ project:e=>{S.menu=null;S.dialog={type:'project',ids:[e.dataset.id],names:byId('files',e.dataset.id).name,pick:null};render()},
+ projectMany:()=>{S.dialog={type:'project',ids:[...S.sel],names:`${S.sel.length} tệp đã chọn`,pick:null};render()},
+ pickProject:e=>{S.dialog.pick=e.dataset.v;render()},
+ projectOk:()=>{if(!S.dialog.pick)return toast('Hãy chọn một dự án.','err');const p=S.dialog.pick;S.dialog.ids.forEach(id=>byId('files',id).usedBy=p);S.dialog=null;S.sel=[];render();toast(`Đã thêm vào ${p}.`)},
+ trash:e=>{const f=byId('files',e.dataset.id);S.menu=null;if(f.usedBy){render();return toast(`Không xoá được: ${f.name} đang dùng trong ${f.usedBy}.`,'err')}
+  f.state='TRASH';f.deleted='hôm nay';f.left=30;render();toast(`Đã chuyển ${f.name} vào thùng rác.`,'',()=>{f.state='READY'})},
+ trashMany:()=>{const ok=S.sel.map(id=>byId('files',id)).filter(f=>!f.usedBy);const no=S.sel.length-ok.length;ok.forEach(f=>{f.state='TRASH';f.deleted='hôm nay';f.left=30});S.sel=[];render();toast(`Đã chuyển ${ok.length} tệp vào thùng rác${no?` · ${no} tệp đang dùng trong dự án nên giữ lại`:''}.`)},
+ pick:e=>{const id=e.dataset.id;S.sel=S.sel.includes(id)?S.sel.filter(x=>x!==id):[...S.sel,id];render()},clearSel:()=>{S.sel=[];render()},
+ zip:()=>{const n=S.sel.length;toast(`Đang đóng gói ${n} tệp…`);S.sel=[];render();setTimeout(()=>toast(`ZIP ${n} tệp đã sẵn sàng — đã tải xuống.`),1800)},
+ openMeeting:e=>{S.menu=null;openRecent('meeting',e.dataset.id);S.dialog={type:'meeting',id:e.dataset.id};render()},
+ minutes:e=>{S.menu=null;render();toast(`Đã tải biên bản “${byId('meetings',e.dataset.id).title}.docx”.`)},
+ transcript:e=>{S.menu=null;render();toast(`Đã tải lời thoại “${byId('meetings',e.dataset.id).title}.docx”.`)},
+ askMeeting:e=>{S.menu=null;S.dialog=null;render();toast(`Đã đưa biên bản “${byId('meetings',e.dataset.id).title}” vào hội thoại mới.`)},
+ newMeeting:()=>toast('Trong sản phẩm thật: mở trang tạo cuộc họp.'),
+ more:()=>{S.docsShown+=8;render()},
+ openInSource:e=>{const d=byId('docs',e.dataset.id),s=byId('sources',d.src);S.menu=null;render();toast(`Mở “${d.name}” trong ${s.t==='SP'?'SharePoint':s.t==='DRIVE'?'Google Drive':'nguồn'}.`)},
+ goSource:e=>{S.view='sources';S.seen=true;S.connector=e.dataset.id;S.tab='content';S.q='';S.menu=null;render();window.scrollTo(0,0)},
+ back:()=>{S.connector=null;S.q='';render()},
+ sync:e=>{S.menu=null;runSync(byId('sources',e.dataset.id))},
+ pause:e=>{const s=byId('sources',e.dataset.id);S.menu=null;if(isPaused(s)){s.status='ACTIVE';render();toast(`Đã tiếp tục ${s.name}.`)}else{S.dialog={type:'confirm',title:`Tạm dừng ${s.name}?`,body:'Đồng bộ, tải tệp và lập chỉ mục của nguồn dừng lại cho tới khi tiếp tục nguồn.',ok:'Tạm dừng nguồn',action:()=>{s.status='PAUSING';s.pending=false;toast(`Đang tạm dừng ${s.name}…`);setTimeout(()=>{s.status='PAUSED';render()},1500)}};render()}},
+ confirmOk:()=>{const f=S.dialog.action;S.dialog=null;f();render()},closeDlg:()=>{S.dialog=null;render()},
+ srcUpload:e=>{S.dialog={type:'upload',source:e.dataset.id};render()},upload:()=>{S.dialog={type:'upload'};render()},uploadPick:()=>simulateUpload(S.dialog.source),
+ srcRename:e=>{const s=byId('sources',e.dataset.id);S.menu=null;S.dialog={type:'rename',src:true,id:s.id,value:s.name,ext:''};render()},
+ srcAccess:e=>{const s=byId('sources',e.dataset.id);S.menu=null;S.dialog={type:'access',id:s.id,pick:s.access};render()},pickAccess:e=>{S.dialog.pick=e.dataset.v;render()},
+ accessOk:()=>{const s=byId('sources',S.dialog.id);s.access=S.dialog.pick;S.dialog=null;render();toast(`Đã lưu chế độ hiển thị của ${s.name}.`)},
+ srcGroups:e=>{const s=byId('sources',e.dataset.id);S.menu=null;S.dialog={type:'groups',id:s.id,pick:[...s.groups]};render()},
+ pickGroup:e=>{const g=e.dataset.v,p=S.dialog.pick;S.dialog.pick=p.includes(g)?p.filter(x=>x!==g):[...p,g];render()},
+ groupsOk:()=>{const s=byId('sources',S.dialog.id);s.groups=S.dialog.pick;S.dialog=null;render();toast(`Đã lưu liên kết nhóm của ${s.name}.`)},
+ admin:e=>{S.menu=null;render();toast(`Trong sản phẩm thật: mở /admin/sources/${e.dataset.id}.`)},
+ autoSync:e=>{const s=byId('sources',e.dataset.id);s.auto=!s.auto;render();toast(s.auto?'Đã bật đồng bộ tự động.':'Đã tạm dừng đồng bộ tự động.')},
+ editInterval:e=>{const s=byId('sources',e.dataset.id);S.dialog={type:'interval',id:s.id,pick:s.interval,prune:s.prune};render()},
+ intervalOk:()=>{const s=byId('sources',S.dialog.id);s.interval=+S.dialog.pick;if(s.t==='SP')s.prune=+S.dialog.prune;S.dialog=null;render();toast('Đã lưu chu kỳ.')},
+ addSource:()=>toast('Trong sản phẩm thật: mở /admin/sources/new — chọn Tệp, Google Drive hoặc SharePoint.'),
+ clearSrcFilters:()=>{S.provider='';S.fStatus='';S.fAccess='';render()},
+ toggleProv:e=>{const t=e.dataset.v;S.collapsed=S.collapsed.includes(t)?S.collapsed.filter(x=>x!==t):[...S.collapsed,t];render()},
+ toggleAllProv:()=>{S.collapsed=S.collapsed.length?[]:['DRIVE','SP','FILE'];render()},
+ refreshStatus:()=>toast('Đã làm mới trạng thái.'),refreshFiles:()=>toast('Đã làm mới tệp.'),
+ openRun:e=>{S.dialog={type:'run',id:e.dataset.id};render()},attempt:e=>{S.dialog={type:'attempt',id:e.dataset.id};render()},
+ docsOf:e=>{S.connector=null;S.view='documents';S.srcFilter=e.dataset.id;S.docsShown=8;render();window.scrollTo(0,0)},
+ reconnect:e=>{const s=byId('sources',e.dataset.id);toast('Trong sản phẩm thật: mở Google để kết nối lại cùng tài khoản.');setTimeout(()=>{s.cred=null;s.err=null;s.status='ACTIVE';render();toast(`Đã kết nối lại ${s.name}.`)},1500)},
+ deleteSource:e=>{const s=byId('sources',e.dataset.id);S.dialog={type:'confirm',title:`Xóa ${s.name}?`,body:`Xóa “${esc(s.name)}” khiến mọi tài liệu đã lập chỉ mục từ nguồn này không còn khả dụng. Việc dọn dẹp tiếp tục trong nền và không thể hoàn tác.`,ok:'Xóa nguồn',danger:true,action:()=>{s.status='DELETING';s.pending=true;S.connector=null;toast(`Đang xóa nguồn ${s.name}.`)}};render()},
+ mgrPick:e=>{S.dialog={type:'manager',id:e.dataset.id,pick:null};render()},pickMgr:e=>{S.dialog.pick=e.dataset.v;render()},
+ mgrOk:()=>{const s=byId('sources',S.dialog.id),n=S.dialog.pick;if(!n)return toast('Chọn một người.','err');s.mine=n==='Trần Thu Hà';s.manager=s.mine?'Bạn':n;S.dialog=null;render();toast(`Đã giao phụ trách ${s.name} cho ${n}.`)},
+ mgrClear:e=>{const s=byId('sources',e.dataset.id);const prev=[s.manager,s.mine];s.manager=null;s.mine=false;render();toast('Đã bỏ người phụ trách.','',()=>{[s.manager,s.mine]=prev})},
+ reindex:e=>{const d=byId('docs',e.dataset.id);S.menu=null;const was=d.error;d.state='INDEXING';d.error=null;render();toast(`Đang lập chỉ mục lại ${d.name}.`);setTimeout(()=>{d.state='READY';d.at='Vừa xong';if(was)d.fixed=was;render();toast(`${d.name} đã lập chỉ mục xong.`)},2200)},
+ removeItem:e=>{const d=byId('docs',e.dataset.id);S.menu=null;S.dialog={type:'confirm',title:`Gỡ ${d.name}?`,body:`Xóa “${esc(d.name)}” khiến tài liệu đã lập chỉ mục không còn khả dụng. Việc dọn dẹp tiếp tục trong nền.`,ok:'Xóa tệp',danger:true,action:()=>{D.docs=D.docs.filter(x=>x.id!==d.id);byId('sources',d.src).docs--;toast(`Đã gỡ ${d.name}.`)}};render()},
+ retry:e=>{const f=byId('files',e.dataset.id);f.state='PROCESSING';f.error=null;render();toast(`Đang xử lý lại ${f.name}.`);setTimeout(()=>{f.state='READY';render();toast(`${f.name} đã sẵn sàng.`)},2500)},
+ removePending:e=>{const f=byId('files',e.dataset.id);D.files=D.files.filter(x=>x!==f);render();toast(`Đã gỡ ${f.name}.`)},
+ restore:e=>{const f=byId('files',e.dataset.id);f.state='READY';render();toast(`Đã khôi phục ${f.name} về Tệp của tôi.`)},
+ purge:e=>{const f=byId('files',e.dataset.id);S.dialog={type:'confirm',title:`Xoá vĩnh viễn ${f.name}?`,body:'Tệp bị xoá ngay và không khôi phục được.',ok:'Xoá vĩnh viễn',danger:true,action:()=>{D.files=D.files.filter(x=>x!==f);toast(`Đã xoá vĩnh viễn ${f.name}.`)}};render()},
+ emptyTrash:()=>{const n=D.files.filter(f=>f.state==='TRASH').length;S.dialog={type:'confirm',title:'Dọn thùng rác?',body:`${n} tệp bị xoá vĩnh viễn và không khôi phục được.`,ok:'Dọn thùng rác',danger:true,action:()=>{D.files=D.files.filter(f=>f.state!=='TRASH');toast(`Đã xoá vĩnh viễn ${n} tệp.`)}};render()},
+ largest:()=>{S.dialog=null;go('ready');S.sort='LARGEST';render()},navmode:e=>{S.nav=e.dataset.v;if(S.nav==='tabs'&&S.view==='meetings')S.view='shared';render()},settings:()=>{S.dialog={type:'settings'};render()}};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');const inDlg=e.target.closest('[data-stop]');
+ if(!t){if(S.menu){S.menu=null;render()}return}if(t.dataset.a==='closeDlg'&&inDlg&&t.classList.contains('scrim'))return;
+ if(t.classList.contains('scrim')&&inDlg)return;const fn=A[t.dataset.a];if(!fn)return;e.stopPropagation();if(t.disabled)return;if(S.menu&&t.dataset.a!=='menu'&&!t.closest('.menu'))S.menu=null;fn(t)});
+document.addEventListener('input',e=>{const k=e.target.dataset.in;if(!k||k==='dlgText'||k==='askq')return;
+ if(k==='dlgInterval'){S.dialog.pick=e.target.value;return}if(k==='dlgPrune'){S.dialog.prune=e.target.value;return}
+ S[k]=e.target.value;if(k==='srcFilter'||k==='q')S.docsShown=8;focusKey=e.target.tagName==='INPUT'?k:null;render();focusKey=null});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(S.dialog||S.menu)){S.dialog=null;S.menu=null;render()}});
+const start=new URLSearchParams(location.search);if(start.get('view'))S.view=start.get('view');if(start.get('role'))S.role=start.get('role');if(start.get('source')){S.view='sources';S.connector=start.get('source')}if(start.get('tab'))S.tab=start.get('tab');for(const k of ['nav','state','owner','kind','layout','fStatus','fAccess','provider','srcFilter'])if(start.get(k))S[k]=start.get(k);if(start.get('run'))S.dialog={type:'run',id:start.get('run')};if(start.get('dialog')==='upload')S.dialog={type:'upload'};if(start.get('embed')){document.documentElement.style.overflow='hidden'}if(S.view==='sources')S.seen=true;
+render();
+</script>
+</body>
+</html>

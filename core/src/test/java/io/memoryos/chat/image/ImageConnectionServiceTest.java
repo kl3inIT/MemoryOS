@@ -40,7 +40,7 @@ class ImageConnectionServiceTest {
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final ImageConnectionService service =
             new ImageConnectionService(connections,
-                    new ProviderConnections(credentials, TestDatabase.noAudit()), authorization, tenants);
+                    new ProviderConnections(credentials, TestDatabase.noAudit()), authorization, tenants, ImageClients.registry());
 
     @Test
     void providersRequireModelManagement() {
@@ -55,7 +55,8 @@ class ImageConnectionServiceTest {
     void providersListEveryInstalledProtocolForManagers() {
         when(authorization.require(actor, IamCapability.MODELS_MANAGE, false))
                 .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
-        assertEquals(List.of(ImageProvider.values()), service.providers(actor));
+        assertEquals(List.of(ImageProvider.values()),
+                service.providers(actor).stream().map(ImageConnectionService.Installed::provider).toList());
     }
 
     @Test

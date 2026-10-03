@@ -8,7 +8,7 @@ import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -41,7 +41,7 @@ class PostgresSharePointCredentialTest {
     private JdbcClient jdbc;
     private IamAuthorization authorization;
     private JdbcSharePointCredentialRepository credentials;
-    private SharePointProvider provider;
+    private SharePointGateway provider;
     private SharePointCredentialService service;
     private TenantId tenant;
     private ActorId owner;
@@ -73,7 +73,7 @@ class PostgresSharePointCredentialTest {
         authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc));
         var sources = new JdbcSourceRepository(jdbc, event -> { });
         credentials = new JdbcSharePointCredentialRepository(jdbc, sources, sharePointEncryption());
-        provider = mock(SharePointProvider.class);
+        provider = mock(SharePointGateway.class);
         service = TestDatabase.transactionalProxy(
                 new DefaultSharePointCredentialService(credentials, provider, authorization, manager, TestDatabase.noAudit()),
                 SharePointCredentialService.class, manager);
@@ -84,16 +84,16 @@ class PostgresSharePointCredentialTest {
                 Base64.getEncoder().encodeToString(new byte[32]), "sp-test-v1");
     }
 
-    private SharePointProvider.Session session() {
-        var session = mock(SharePointProvider.Session.class);
-        when(session.root()).thenReturn(new SharePointProvider.RootSite(
+    private SharePointGateway.Session session() {
+        var session = mock(SharePointGateway.Session.class);
+        when(session.root()).thenReturn(new SharePointGateway.RootSite(
                 "site-id", "https://tenant.sharepoint.com", "tenant.sharepoint.com"));
         return session;
     }
 
     private SharePointCredentialService.Draft secretDraft(String name) {
         return new SharePointCredentialService.Draft(name, UUID.randomUUID(), UUID.randomUUID(),
-                SharePointProvider.Cloud.GLOBAL, SharePointProvider.AuthMethod.CLIENT_SECRET,
+                SharePointGateway.Cloud.GLOBAL, SharePointGateway.AuthMethod.CLIENT_SECRET,
                 "secret-value".getBytes(StandardCharsets.UTF_8), null, null);
     }
 
@@ -156,12 +156,12 @@ class PostgresSharePointCredentialTest {
         service.rename(owner, id, 1, "Renamed");
         assertEquals("Renamed", credentials.readUsable(tenant, id).name());
         try (var draft = new SharePointCredentialService.Draft("Replaced", directoryId, clientId,
-                SharePointProvider.Cloud.GLOBAL, SharePointProvider.AuthMethod.CLIENT_SECRET,
+                SharePointGateway.Cloud.GLOBAL, SharePointGateway.AuthMethod.CLIENT_SECRET,
                 "new-secret".getBytes(StandardCharsets.UTF_8), null, null)) {
             assertThrows(SourceException.class, () -> service.replaceAuthentication(owner, id, 2, draft));
         }
         try (var draft = new SharePointCredentialService.Draft("Replaced", directoryId, clientId,
-                SharePointProvider.Cloud.GLOBAL, SharePointProvider.AuthMethod.CLIENT_SECRET,
+                SharePointGateway.Cloud.GLOBAL, SharePointGateway.AuthMethod.CLIENT_SECRET,
                 "new-secret".getBytes(StandardCharsets.UTF_8), null, null)) {
             assertEquals(2, service.replaceAuthentication(owner, id, 1, draft));
         }

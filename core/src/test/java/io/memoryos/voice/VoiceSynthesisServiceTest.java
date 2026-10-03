@@ -35,7 +35,7 @@ import org.springframework.beans.factory.ObjectProvider;
 class VoiceSynthesisServiceTest {
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final VoiceSynthesisService service = new VoiceSynthesisService(
-            mock(VoiceConnectionService.class), mock(IamAuthorization.class), meters);
+            mock(VoiceConnectionService.class), mock(IamAuthorization.class), meters, VoiceAdapters.registry());
     private final List<String> bodies = new CopyOnWriteArrayList<>();
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private final AtomicInteger released = new AtomicInteger();
@@ -64,7 +64,7 @@ class VoiceSynthesisServiceTest {
     @Test
     void aKeyThatCannotBeReadDoesNotKeepAStreamSlot() {
         var connections = mock(VoiceConnectionService.class);
-        var reader = new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters);
+        var reader = new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters, VoiceAdapters.registry());
         var actor = new ActorId(UUID.randomUUID());
         var tts = connection();
         Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(null, tts));
@@ -124,7 +124,7 @@ class VoiceSynthesisServiceTest {
         assertEquals("CHAT_PROVIDER_UNAVAILABLE", failure.code());
         assertFalse(failure.getMessage().contains("diagnostic"));
         assertEquals(1, released.get());
-        assertEquals("Bearer " + VoiceTranscriptionService.NO_CREDENTIAL, authorization.get());
+        assertEquals("Bearer " + OpenAiAudio.NO_CREDENTIAL, authorization.get());
         assertEquals(1, meters.get("memoryos.chat.voice.request").tag("operation", "synthesize").tag("outcome", "failed")
                 .timer().count());
     }
@@ -176,7 +176,7 @@ class VoiceSynthesisServiceTest {
         Mockito.when(connections.key(tts)).thenReturn("voice-secret");
         ObjectProvider<AiUsageRecorder> recorders = mock(ObjectProvider.class);
         Mockito.when(recorders.getIfAvailable()).thenReturn(usage);
-        return new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters, recorders,
+        return new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters, VoiceAdapters.registry(), recorders,
                 VoiceSynthesisService.DEFAULT_MAX_STREAM_DURATION);
     }
 

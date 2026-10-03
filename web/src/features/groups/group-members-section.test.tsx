@@ -52,6 +52,7 @@ const candidate: GroupMember = {
 };
 const session: ApplicationSession = {
   actorId: "owner",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },
@@ -76,6 +77,32 @@ function DeferredMembers() {
 }
 
 describe("GroupMembersSection", () => {
+  it("marks a group manager's control as pressed", async () => {
+    server.use(
+      handleListGroupMembers({
+        body: {
+          items: [existingMember],
+          page: 0,
+          size: 10,
+          totalItems: 1,
+          totalPages: 1,
+        },
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ApplicationSessionContext value={session}>
+          <DeferredMembers />
+        </ApplicationSessionContext>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Remove manager for existing@example.com" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    client.clear();
+  });
   it("keeps added members local until the page-level save and discards them on cancel", async () => {
     const additions: string[][] = [];
     const page = (items: GroupMember[]) => ({

@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 
 class ModelBindingLimitsTest {
     private static ModelBinding binding(int contextWindow, @Nullable Integer maxOutputTokens) {
-        return new ModelBinding(mock(SpringAiLlmService.class), UnaryOperator.identity(), mock(ModelRequestPolicy.class),
-                contextWindow, maxOutputTokens, true, false);
+        return ModelBinding.builder(mock(SpringAiLlmService.class), UnaryOperator.identity(), mock(ModelRequestPolicy.class),
+                contextWindow, maxOutputTokens, true, false).build();
     }
 
     @Test

@@ -134,7 +134,7 @@ it("deletes an archived conversation after the confirmation", async () => {
   show();
   const user = userEvent.setup();
 
-  await user.click(await screen.findByRole("button", { name: "Xoá hội thoại Doanh thu quý 3" }));
+  await user.click(await screen.findByRole("button", { name: "Xóa hội thoại Doanh thu quý 3" }));
   await user.click(
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xóa hội thoại" }),
   );

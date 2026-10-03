@@ -11,6 +11,8 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -19,6 +21,7 @@ import java.net.http.HttpTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -32,14 +35,17 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * MEM-191. Docling failing for a reason of its own no longer stops a document the native reader
- * can read, and never lets the native reader publish a scan it could not read.
+ * can read, and never lets the native reader publish a scan it could not read. Each fallback
+ * decision is counted, because a fallback publishes without tables while the Source reports success.
  */
 class DoclingFallbackTest {
     private static final String DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     private static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    private static final String FALLBACKS = "memoryos.extraction.docling.fallback";
     private static final String SENTENCE = "Doanh thu hop nhat quy ba tang so voi cung ky nam truoc nho mang logistics. ";
 
     private final BoundedDoclingClient client = mock(BoundedDoclingClient.class);
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
 
     @TempDir Path temporary;
 
@@ -85,6 +91,8 @@ class DoclingFallbackTest {
                     () -> extract(extractor, pdfWithSignatureOnly(3), "scan.pdf"));
             assertEquals(ExtractionFailure.CONNECTION_FAILED, error.failure(),
                     "the caller must see exactly what it saw before the fallback existed");
+            assertEquals(1, fallbacks(ExtractionFailure.CONNECTION_FAILED, "refused"));
+            assertEquals(1, allFallbacks());
         }
     }
 
@@ -96,6 +104,7 @@ class DoclingFallbackTest {
             var error = assertThrows(ExtractionException.class,
                     () -> extract(extractor, textPdf(2, 4), "large.pdf"));
             assertEquals(ExtractionFailure.WRITE_LIMIT, error.failure());
+            assertEquals(0, allFallbacks());
         }
     }
 
@@ -125,13 +134,27 @@ class DoclingFallbackTest {
             var result = extract(extractor, textPdf(1, 1), "report.pdf");
             assertEquals("docling", result.metadata().get("parser"));
             assertFalse(result.metadata().containsKey("fallback_from"));
+            assertEquals(12, registry.find(FALLBACKS).counters().size(),
+                    "four reasons by three outcomes, registered before the first fallback");
+            assertEquals(0, allFallbacks());
         }
     }
 
-    private static void assertFallback(DocumentContent result, ExtractionFailure reason) {
+    private void assertFallback(DocumentContent result, ExtractionFailure reason) {
         assertEquals("tika", result.metadata().get("parser"));
         assertEquals("docling", result.metadata().get("fallback_from"));
         assertEquals(reason.name(), result.metadata().get("fallback_reason"));
+        assertEquals(1, fallbacks(reason, "read"));
+        assertEquals(1, allFallbacks());
+    }
+
+    private double fallbacks(ExtractionFailure reason, String outcome) {
+        return registry.get(FALLBACKS).tag("reason", reason.name().toLowerCase(Locale.ROOT))
+                .tag("outcome", outcome).counter().count();
+    }
+
+    private double allFallbacks() {
+        return registry.find(FALLBACKS).counters().stream().mapToDouble(Counter::count).sum();
     }
 
     private void docling(DoclingServeClientException failure) {
@@ -144,7 +167,7 @@ class DoclingFallbackTest {
 
     private DoclingSourceContentExtractor extractor() {
         return new DoclingSourceContentExtractor(new DoclingProperties(null, null, null, 0, null, null, false, null),
-                new ObjectMapper(), client);
+                new ObjectMapper(), client, registry);
     }
 
     private static DocumentContent extract(DoclingSourceContentExtractor extractor, byte[] bytes, String name)

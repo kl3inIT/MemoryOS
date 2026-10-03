@@ -4,8 +4,12 @@ import { i18n } from "@/i18n/index";
 import {
   getChatLibraryTrashWindowQueryKey,
   getChatLibraryUsageQueryKey,
+  listChatLibraryDocumentsQueryKey,
   listChatLibraryOptions,
   listChatLibraryQueryKey,
+  listChatLibraryRecentQueryKey,
+  listChatLibrarySharedQueryKey,
+  listChatLibraryStarredQueryKey,
   searchChatLibraryContentQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import {
@@ -20,9 +24,11 @@ import type {
   SearchChatLibraryContentData,
 } from "@/lib/hey-api/types.gen";
 import type { Options } from "@/lib/hey-api/sdk.gen";
+import type { AskExtras } from "./file-ask-composer";
 import type { PreviewTarget } from "./file-preview";
-import { chatFileSchema, waitForChatFile, type ChatFile } from "./files";
+import { chatFileSchema, uploadChatFile, waitForChatFile, type ChatFile } from "./files";
 import { imageArtifactUrl } from "./content-urls";
+import type { LibraryChat } from "./library-chat";
 
 export type LibraryFile = ChatLibraryFile;
 export type LibrarySource = ChatLibraryFile["source"];
@@ -97,7 +103,8 @@ const everyContentSearch = searchChatLibraryContentQueryKey(
 
 /**
  * Refreshes every read of the library after a change: the listings, the usage, the trash window, the content
- * searches, and the queries Chat keys under {@link chatLibraryKey}.
+ * searches, the views of what reaches the person (a star on an owned file is its favourite, and a copy made for
+ * a question is a file of their own), and the queries Chat keys under {@link chatLibraryKey}.
  */
 export function invalidateLibrary(cache: QueryClient) {
   return Promise.all([
@@ -105,6 +112,10 @@ export function invalidateLibrary(cache: QueryClient) {
     cache.invalidateQueries({ queryKey: getChatLibraryUsageQueryKey() }),
     cache.invalidateQueries({ queryKey: getChatLibraryTrashWindowQueryKey() }),
     cache.invalidateQueries({ queryKey: everyContentSearch }),
+    cache.invalidateQueries({ queryKey: listChatLibraryRecentQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatLibrarySharedQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatLibraryStarredQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatLibraryDocumentsQueryKey() }),
     cache.invalidateQueries({ queryKey: chatLibraryKey }),
   ]);
 }
@@ -197,14 +208,46 @@ export async function libraryUpload(file: LibraryFile, signal: AbortSignal): Pro
       sizeBytes: file.sizeBytes,
       status: "READY",
     };
-  const { data } = await copyChatLibraryFile({
-    path: { source: file.source, id: file.id },
-    signal,
-  });
+  return libraryCopy(file.source, file.id, signal);
+}
+
+/** Copies a generated file or image into an upload of its own and waits until Chat can read it. */
+export async function libraryCopy(
+  source: "GENERATED" | "IMAGE",
+  id: string,
+  signal: AbortSignal,
+): Promise<ChatFile> {
+  const { data } = await copyChatLibraryFile({ path: { source, id }, signal });
   const copy = chatFileSchema.parse(data);
   return copy.status === "READY" ? copy : waitForChatFile(copy.id, signal);
 }
 
+/**
+ * A question asked where a file is read (MEM-152): the file becomes an upload, the files added beside it are
+ * uploaded too, and Chat opens a conversation with all of them attached and sends the question once it is open.
+ * An empty question opens that conversation with the files attached and nothing sent. A crop applied in the
+ * preview is asked about as itself, so the question is about what was on screen rather than the untouched
+ * original. `onCopied` runs once the copies exist, because they are library files too.
+ */
+export async function askLibraryQuestion(
+  chat: LibraryChat,
+  subject: (signal: AbortSignal) => Promise<ChatFile | undefined>,
+  question: string,
+  extras: AskExtras & { edited?: File },
+  onCopied: () => Promise<unknown>,
+): Promise<void> {
+  const signal = AbortSignal.timeout(120_000);
+  const file = extras.edited
+    ? await uploadChatFile(extras.edited, crypto.randomUUID(), signal, () => {})
+    : await subject(signal);
+  if (!file) return;
+  const attach = [file.id];
+  for (const chosen of extras.library) attach.push((await libraryUpload(chosen, signal)).id);
+  for (const chosen of extras.uploads)
+    attach.push((await uploadChatFile(chosen, crypto.randomUUID(), signal, () => {})).id);
+  await onCopied();
+  await chat.ask({ question, title: question || file.filename, attach }, signal);
+}
 /** The query's occurrences inside a passage, so a match can be seen without opening the file. */
 export function highlightParts(text: string, query: string): { text: string; match: boolean }[] {
   const needle = query.trim().toLocaleLowerCase(i18n.language);

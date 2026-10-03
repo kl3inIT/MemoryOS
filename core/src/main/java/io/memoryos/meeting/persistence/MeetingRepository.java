@@ -1,5 +1,6 @@
 package io.memoryos.meeting.persistence;
 
+import io.memoryos.library.ShelfMeeting;
 import io.memoryos.meeting.Meeting;
 import io.memoryos.meeting.MeetingMinutesDocument;
 import io.memoryos.shared.LeasedJob;
@@ -9,7 +10,9 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -112,6 +115,51 @@ public class MeetingRepository {
                         Meeting.Kind.valueOf(r.getString("kind")), Meeting.Status.valueOf(r.getString("status")),
                         r.getInt("participants"), r.getLong("duration_ms"), instant(r, "created_at"),
                         instant(r, "ended_at"), r.getBoolean("owned")))
+                .list();
+    }
+
+    /**
+     * The meetings the reader may read as the file library lists them, newest first; {@code ids} narrows them when
+     * given. The reader's own Groups a meeting is shared with are named, never anybody else's.
+     */
+    public List<ShelfMeeting> shelf(UUID tenant, UUID actor, @Nullable Collection<UUID> ids, int limit) {
+        if (ids != null && ids.isEmpty()) return List.of();
+        return jdbc.sql("""
+                SELECT m.id, m.title, m.status, m.minutes_status, m.created_at, m.ended_at,
+                       (m.owner_actor_id = :actor) AS owned,
+                       COALESCE(NULLIF(p.display_name, ''), p.email, '') AS owner_name,
+                       EXISTS (SELECT 1 FROM meeting_user_share user_share
+                               WHERE user_share.tenant_id = m.tenant_id AND user_share.meeting_id = m.id
+                                 AND user_share.actor_id = :actor) AS shared_with_actor,
+                       ARRAY(SELECT g.name FROM meeting_group_share group_share
+                             JOIN iam_group_memberships reader_member
+                               ON reader_member.tenant_id = group_share.tenant_id
+                              AND reader_member.group_id = group_share.group_id AND reader_member.actor_id = :actor
+                             JOIN iam_groups g ON g.tenant_id = group_share.tenant_id AND g.id = group_share.group_id
+                             WHERE group_share.tenant_id = m.tenant_id AND group_share.meeting_id = m.id
+                             ORDER BY g.name) AS group_names,
+                       spoken.last_ms
+                FROM meeting m
+                LEFT JOIN actor_profiles p ON p.actor_id = m.owner_actor_id
+                LEFT JOIN LATERAL (SELECT max(u.end_ms) AS last_ms FROM meeting_utterance u
+                                   WHERE u.tenant_id = m.tenant_id AND u.meeting_id = m.id) spoken ON TRUE
+                WHERE m.tenant_id = :tenant AND (:allIds OR m.id IN (:ids)) AND %s
+                ORDER BY m.created_at DESC, m.id LIMIT :limit
+                """.formatted(MeetingAccessSql.READS)).param("tenant", tenant).param("actor", actor)
+                .param("allIds", ids == null).param("ids", ids == null ? List.of(new UUID(0, 0)) : ids)
+                .param("limit", limit)
+                .query((r, ignored) -> {
+                    boolean owned = r.getBoolean("owned");
+                    long lastMs = r.getLong("last_ms");
+                    boolean spokenAt = !r.wasNull();
+                    var names = (String[]) r.getArray("group_names").getArray();
+                    return new ShelfMeeting(r.getObject("id", UUID.class), r.getString("title"), owned,
+                            r.getString("owner_name"), !owned && r.getBoolean("shared_with_actor"),
+                            owned ? List.of() : List.of(names), r.getString("status"),
+                            Meeting.MinutesStatus.valueOf(r.getString("minutes_status")) == Meeting.MinutesStatus.READY,
+                            spokenAt, spokenAt ? lastMs : 0, Objects.requireNonNull(instant(r, "created_at")),
+                            instant(r, "ended_at"));
+                })
                 .list();
     }
 
@@ -391,13 +439,13 @@ public class MeetingRepository {
                 """).param("max", maxAttempts).update();
     }
 
-    /** Records a failed run; the meeting waits for another attempt until the attempts run out. */
-    public void failMinutes(UUID tenant, UUID meeting, int attempt, int maxAttempts, String failure) {
+    /** Records a failed run; unless it was the last, the meeting waits for another attempt. */
+    public void failMinutes(UUID tenant, UUID meeting, int attempt, boolean last, String failure) {
         jdbc.sql("""
-                UPDATE meeting SET minutes_status = CASE WHEN :attempt >= :max THEN 'FAILED' ELSE 'PENDING' END,
+                UPDATE meeting SET minutes_status = CASE WHEN :last THEN 'FAILED' ELSE 'PENDING' END,
                        minutes_lease_until = NULL, minutes_failure = :failure
                 WHERE tenant_id = :tenant AND id = :meeting AND minutes_status = 'RUNNING' AND minutes_attempts = :attempt
-                """).param("tenant", tenant).param("meeting", meeting).param("attempt", attempt).param("max", maxAttempts)
+                """).param("tenant", tenant).param("meeting", meeting).param("attempt", attempt).param("last", last)
                 .param("failure", failure).update();
     }
 

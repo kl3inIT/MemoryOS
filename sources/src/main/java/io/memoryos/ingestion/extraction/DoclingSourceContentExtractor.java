@@ -18,6 +18,7 @@ import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,18 +72,21 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
     private final ObjectMapper mapper;
     private final @Nullable PaddleOcrVlExtractor paddle;
     private final TikaSourceContentExtractor nativeReader = new TikaSourceContentExtractor();
+    private final DoclingFallbackMetrics fallbacks;
 
-    public DoclingSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper) {
-        this(properties, PaddleOcrVlProperties.disabled(), mapper);
+    public DoclingSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper, MeterRegistry registry) {
+        this(properties, PaddleOcrVlProperties.disabled(), mapper, registry);
     }
 
-    public DoclingSourceContentExtractor(DoclingProperties properties, PaddleOcrVlProperties paddle, ObjectMapper mapper) {
+    public DoclingSourceContentExtractor(DoclingProperties properties, PaddleOcrVlProperties paddle, ObjectMapper mapper,
+            MeterRegistry registry) {
         this(properties, mapper, BoundedDoclingClient.create(properties),
-                paddle.configured() ? new PaddleOcrVlExtractor(paddle, mapper) : null);
+                paddle.configured() ? new PaddleOcrVlExtractor(paddle, mapper) : null, registry);
     }
 
-    DoclingSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper, DoclingServeApi client) {
-        this(properties, mapper, client, null);
+    DoclingSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper, DoclingServeApi client,
+            MeterRegistry registry) {
+        this(properties, mapper, client, null, registry);
     }
 
     /**
@@ -90,11 +94,12 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
      *               without it Docling keeps its own OCR (staging and local development have no GPU)
      */
     DoclingSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper, DoclingServeApi client,
-            @Nullable PaddleOcrVlExtractor paddle) {
+            @Nullable PaddleOcrVlExtractor paddle, MeterRegistry registry) {
         this.properties = properties;
         this.mapper = mapper;
         this.client = client;
         this.paddle = paddle;
+        this.fallbacks = new DoclingFallbackMetrics(registry, FALLBACK_ON);
     }
 
     public static boolean usesDocling(String mediaType) { return FORMATS.containsKey(mediaType); }
@@ -231,6 +236,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
         try {
             content = nativeRead.read();
         } catch (ExtractionException nativeFailure) {
+            fallbacks.record(docling.failure(), DoclingFallbackMetrics.Outcome.FAILED);
             LOG.atWarn().addKeyValue("event", "extraction.fallback.failed")
                     .addKeyValue("docling_failure", docling.failure().name())
                     .addKeyValue("native_failure", nativeFailure.failure().name())
@@ -240,6 +246,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
         long characters = content.normalizedText().codePoints().filter(c -> !Character.isWhitespace(c)).count();
         long required = "application/pdf".equals(mediaType) ? (long) MIN_FALLBACK_CHARACTERS_PER_PDF_PAGE * Math.max(1, pages) : 1;
         if (characters < required) {
+            fallbacks.record(docling.failure(), DoclingFallbackMetrics.Outcome.REFUSED);
             LOG.atWarn().addKeyValue("event", "extraction.fallback.refused")
                     .addKeyValue("docling_failure", docling.failure().name())
                     .addKeyValue("characters", characters).addKeyValue("required", required)
@@ -250,6 +257,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
         metadata.put("parser", "tika");
         metadata.put("fallback_from", "docling");
         metadata.put("fallback_reason", docling.failure().name());
+        fallbacks.record(docling.failure(), DoclingFallbackMetrics.Outcome.READ);
         LOG.atInfo().addKeyValue("event", "extraction.fell_back")
                 .addKeyValue("docling_failure", docling.failure().name())
                 .addKeyValue("characters", characters)

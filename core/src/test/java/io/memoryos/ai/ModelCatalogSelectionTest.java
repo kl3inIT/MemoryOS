@@ -70,6 +70,18 @@ class ModelCatalogSelectionTest {
         assertTrue(fixture.defaults().isEmpty());
     }
 
+    @Test void aTaskSelectionCarriesTheLevelChosenForTheTaskEvenOnTheConversationModel() {
+        var fixture = new Fixture();
+        when(fixture.catalog.flowDefault(fixture.tenant, ModelFlow.CHAT_NAMING))
+                .thenReturn(new FlowModelDefault(ModelFlow.CHAT_NAMING, null, ReasoningEffort.HIGH, 2));
+
+        var selected = fixture.access.selectFlow(fixture.actor, fixture.session, ModelFlow.CHAT_NAMING);
+
+        assertEquals(fixture.defaultId, selected.model().id(), "a task with no model of its own runs on the conversation model");
+        assertEquals(ReasoningEffort.HIGH, selected.taskEffort(), "and still at the level chosen for the task");
+        assertNull(fixture.access.select(fixture.actor, fixture.session, null).taskEffort(), "a conversation turn carries none");
+    }
+
     @Test void namingFlowUsesItsEligibleModelAndOtherwiseTheConversationModel() {
         var fixture = new Fixture();
         assertEquals(fixture.defaultId, fixture.access.selectFlow(fixture.actor, fixture.session, ModelFlow.CHAT_NAMING).model().id());
@@ -107,10 +119,10 @@ class ModelCatalogSelectionTest {
                 "Private", "test", "http://model.invalid", true, true, null, 2, Set.of(), Set.of(fixture.persona), DataBoundary.EXTERNAL);
         when(fixture.catalog.provider(fixture.tenant, restricted.id())).thenReturn(Optional.of(restricted));
         assertThrows(AiException.class,
-                () -> fixture.service.setFlowDefault(fixture.actor, ModelFlow.CHAT_NAMING, fixture.otherId, 1));
-        verify(fixture.catalog, never()).setFlowDefault(any(), any(), any(), anyLong());
-        fixture.service.setFlowDefault(fixture.actor, ModelFlow.CHAT_NAMING, null, 1);
-        verify(fixture.catalog).setFlowDefault(fixture.tenant, ModelFlow.CHAT_NAMING, null, 1);
+                () -> fixture.service.setFlowDefault(fixture.actor, ModelFlow.CHAT_NAMING, fixture.otherId, null, 1));
+        verify(fixture.catalog, never()).setFlowDefault(any(), any(), any(), any(), anyLong());
+        fixture.service.setFlowDefault(fixture.actor, ModelFlow.CHAT_NAMING, null, ReasoningEffort.LOW, 1);
+        verify(fixture.catalog).setFlowDefault(fixture.tenant, ModelFlow.CHAT_NAMING, null, ReasoningEffort.LOW, 1);
     }
 
     @Test void flowViewReportsASetModelThatIsNoLongerEligible() {
@@ -151,7 +163,7 @@ class ModelCatalogSelectionTest {
             when(tenants.findActiveMembership(actor)).thenReturn(Optional.of(membership));
             when(chats.usablePersona(new TenantId(tenant), actor, persona, false)).thenReturn(true);
             when(authorization.effectiveCapabilities(actor)).thenReturn(Set.of());
-            var adapters = mock(ProviderAdapters.class);
+            var adapters = mock(ProviderAdapterRegistry.class);
             var adapter = mock(ProviderAdapter.class);
             when(adapters.supports("test")).thenReturn(true);
             when(adapters.require("test")).thenReturn(adapter);
@@ -166,7 +178,8 @@ class ModelCatalogSelectionTest {
             when(catalog.provider(tenant, provider.id())).thenReturn(Optional.of(provider));
             naming(null);
             when(chats.findOwned(new TenantId(tenant), actor, session, false)).thenReturn(Optional.of(new ChatSession(
-                    session, persona, UUID.randomUUID(), "Chat", Instant.now(), Instant.now(), null)));
+                    session, persona, UUID.randomUUID(), "Chat", Instant.now(), Instant.now(), null, null, null, null, null,
+                    false)));
             when(chats.persona(session, true, false)).thenReturn(new JdbcChatRepository.Persona("", "luna",
                     ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null));
             when(agents.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, null, 1));
@@ -179,7 +192,7 @@ class ModelCatalogSelectionTest {
                     true, true, null, 1, Set.of(), Set.of(), DataBoundary.EXTERNAL);
         }
         void naming(UUID model) {
-            var value = new FlowModelDefault(ModelFlow.CHAT_NAMING, model, 1);
+            var value = new FlowModelDefault(ModelFlow.CHAT_NAMING, model, null, 1);
             when(catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING)).thenReturn(value);
             when(catalog.flowDefaults(tenant)).thenReturn(List.of(value));
         }

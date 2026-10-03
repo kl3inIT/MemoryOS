@@ -2,6 +2,11 @@ package io.memoryos.api.chat;
 
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatFileResponse;
+import io.memoryos.api.chat.contract.ChatLibraryDocumentPageResponse;
+import io.memoryos.api.chat.contract.ChatLibraryEntryPageResponse;
+import io.memoryos.api.chat.contract.ChatLibraryEntryResponse;
+import io.memoryos.api.chat.contract.ChatLibrarySourceOptionResponse;
+import io.memoryos.api.chat.contract.ChatLibrarySourceResponse;
 import io.memoryos.api.chat.contract.ChatLibraryArchiveFileRequest;
 import io.memoryos.api.chat.contract.ChatLibraryArchiveRequest;
 import io.memoryos.api.chat.contract.ChatLibraryArchiveResponse;
@@ -16,9 +21,13 @@ import io.memoryos.api.chat.contract.ChatLibraryTrashWindowResponse;
 import io.memoryos.api.chat.contract.ChatLibraryUsageResponse;
 import io.memoryos.chat.ChatException;
 import io.memoryos.library.LibraryArchiveItem;
+import io.memoryos.library.LibraryEntry;
 import io.memoryos.library.LibraryFile;
 import io.memoryos.library.LibraryService;
 import io.memoryos.library.LibraryArchiveService;
+import io.memoryos.library.LibraryShelfService;
+import io.memoryos.retrieval.DocumentShelfService;
+import io.memoryos.retrieval.ShelfQuery;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,16 +46,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -69,10 +81,14 @@ class ChatLibraryController {
     private final LibraryArchiveService archives;
     private final StorageQuotaService quotas;
     private final LibraryTrashService trash;
+    private final LibraryShelfService shelf;
+    private final DocumentShelfService documentShelf;
 
     ChatLibraryController(LibraryService library, LibraryArchiveService archives,
-            StorageQuotaService quotas, LibraryTrashService trash) {
-        this.library = library; this.archives = archives; this.quotas = quotas; this.trash = trash;
+            StorageQuotaService quotas, LibraryTrashService trash, LibraryShelfService shelf,
+            DocumentShelfService documentShelf) {
+        this.library = library; this.archives = archives; this.quotas = quotas; this.trash = trash; this.shelf = shelf;
+        this.documentShelf = documentShelf;
     }
 
     @GetMapping
@@ -238,6 +254,127 @@ class ChatLibraryController {
     ResponseEntity<ChatLibraryTrashEmptiedResponse> emptyTrash(@CurrentActor IdentityContext identity) {
         return ResponseEntity.ok()
                 .body(new ChatLibraryTrashEmptiedResponse(trash.empty(identity.actorId())));
+    }
+
+    @GetMapping("/shared")
+    @Operation(operationId = "listChatLibraryShared",
+            summary = "Meetings shared with the caller and files of the assistants they use, read-only and never their"
+                    + " own, each authorized at this read")
+    @ApiResponse(responseCode = "200", description = "A page of what others share with the caller", useReturnTypeSchema = true)
+    ResponseEntity<ChatLibraryEntryPageResponse> shared(@CurrentActor IdentityContext identity,
+            @RequestParam(defaultValue = "") String query,
+            @Parameter(description = "MEETING or AGENT_FILE; empty means both") @RequestParam(required = false) @Nullable List<String> kinds,
+            @Parameter(description = "Empty means every category; a meeting has none") @RequestParam(required = false) @Nullable List<String> categories,
+            @Parameter(schema = @Schema(allowableValues = {"NEWEST", "OLDEST", "NAME"})) @RequestParam(defaultValue = "NEWEST") String sort,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "50") int limit) {
+        var page = shelf.shared(identity.actorId(), new LibraryShelfService.SharedQuery(query,
+                parse(kinds, LibraryEntry.Kind.class), parse(categories, LibraryFile.Category.class),
+                value(sort, LibraryShelfService.Sort.class), offset, limit));
+        return ResponseEntity.ok().body(entries(page));
+    }
+
+    @GetMapping("/documents")
+    @Operation(operationId = "listChatLibraryDocuments",
+            summary = "Browse the Source documents the caller may read under their Search authority, without a search term")
+    @ApiResponse(responseCode = "200", description = "A page of documents and the cursor of the next one", useReturnTypeSchema = true)
+    ResponseEntity<ChatLibraryDocumentPageResponse> documents(@CurrentActor IdentityContext identity,
+            @Parameter(description = "Matches the file name or the title") @RequestParam(defaultValue = "") String query,
+            @Parameter(description = "Empty means every Source the caller may search") @RequestParam(required = false) @Nullable List<UUID> sourceIds,
+            @Parameter(description = "Empty means every category") @RequestParam(required = false) @Nullable List<String> categories,
+            @Parameter(schema = @Schema(allowableValues = {"NEWEST", "NAME"})) @RequestParam(defaultValue = "NEWEST") String sort,
+            @Parameter(description = "The nextCursor of the previous page, with the same filters and sort")
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(defaultValue = "50") int limit) {
+        var page = shelf.documents(identity.actorId(), new ShelfQuery(query,
+                sourceIds == null ? Set.of() : Set.copyOf(sourceIds),
+                parse(categories, LibraryFile.Category.class).stream().map(Enum::name).collect(Collectors.toSet()),
+                value(sort, ShelfQuery.Sort.class), cursor, limit));
+        return ResponseEntity.ok().body(new ChatLibraryDocumentPageResponse(
+                page.items().stream().map(ChatLibraryEntryResponse::from).toList(), page.nextCursor()));
+    }
+
+    @GetMapping("/documents/sources")
+    @Operation(operationId = "listChatLibraryDocumentSources", summary = "The Sources the caller may narrow the documents view to")
+    @ApiResponse(responseCode = "200", description = "Sources, as Search offers them", useReturnTypeSchema = true)
+    ResponseEntity<List<ChatLibrarySourceOptionResponse>> documentSources(@CurrentActor IdentityContext identity) {
+        return ResponseEntity.ok().body(shelf.documentSources(identity.actorId())
+                .stream().map(ChatLibrarySourceOptionResponse::from).toList());
+    }
+
+    @GetMapping("/sources")
+    @Operation(operationId = "listChatLibrarySources",
+            summary = "Every Source the caller may read from under their Search authority, whatever its state except"
+                    + " being deleted, with the documents they may read there, by name and at most 500")
+    @ApiResponse(responseCode = "200", description = "Sources, without error details or Groups the caller is not in",
+            useReturnTypeSchema = true)
+    ResponseEntity<List<ChatLibrarySourceResponse>> sources(@CurrentActor IdentityContext identity) {
+        return ResponseEntity.ok().body(documentShelf.catalog(identity.actorId())
+                .stream().map(ChatLibrarySourceResponse::from).toList());
+    }
+
+    @GetMapping("/recent")
+    @Operation(operationId = "listChatLibraryRecent",
+            summary = "What the caller opened lately, newest first, that they may still read")
+    @ApiResponse(responseCode = "200", description = "Up to 100 entries", useReturnTypeSchema = true)
+    ResponseEntity<List<ChatLibraryEntryResponse>> recent(@CurrentActor IdentityContext identity,
+            @RequestParam(defaultValue = "100") int limit) {
+        return ResponseEntity.ok().body(shelf.recent(identity.actorId(), limit)
+                .stream().map(ChatLibraryEntryResponse::from).toList());
+    }
+
+    @GetMapping("/starred")
+    @Operation(operationId = "listChatLibraryStarred",
+            summary = "The caller's starred files and starred shared rows they may still read, most recently starred first")
+    @ApiResponse(responseCode = "200", description = "A page of starred entries", useReturnTypeSchema = true)
+    ResponseEntity<ChatLibraryEntryPageResponse> starred(@CurrentActor IdentityContext identity,
+            @RequestParam(defaultValue = "") String query,
+            @Parameter(description = "Empty means every kind") @RequestParam(required = false) @Nullable List<String> kinds,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "50") int limit) {
+        var page = shelf.starred(identity.actorId(), new LibraryShelfService.StarredQuery(query,
+                parse(kinds, LibraryEntry.Kind.class), offset, limit));
+        return ResponseEntity.ok().body(entries(page));
+    }
+
+    @PutMapping("/entries/{kind}/{id}/star")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "starChatLibraryEntry",
+            summary = "Star an entry the caller may read now; an owned file is starred as its own favourite")
+    @ApiResponse(responseCode = "204", description = "Starred", content = @Content)
+    ResponseEntity<Void> star(@CurrentActor IdentityContext identity,
+            @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE", "MEETING", "AGENT_FILE", "DOCUMENT"}))
+            @PathVariable String kind, @PathVariable UUID id) {
+        shelf.star(identity.actorId(), value(kind, LibraryEntry.Kind.class), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/entries/{kind}/{id}/star")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "unstarChatLibraryEntry", summary = "Take the caller's star off an entry they may read now")
+    @ApiResponse(responseCode = "204", description = "Not starred", content = @Content)
+    ResponseEntity<Void> unstar(@CurrentActor IdentityContext identity,
+            @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE", "MEETING", "AGENT_FILE", "DOCUMENT"}))
+            @PathVariable String kind, @PathVariable UUID id) {
+        shelf.unstar(identity.actorId(), value(kind, LibraryEntry.Kind.class), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/entries/{kind}/{id}/opened")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "recordChatLibraryEntryOpened",
+            summary = "Record that the caller opened an entry they may read now, for their recent list")
+    @ApiResponse(responseCode = "204", description = "Recorded", content = @Content)
+    ResponseEntity<Void> opened(@CurrentActor IdentityContext identity,
+            @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE", "MEETING", "AGENT_FILE", "DOCUMENT"}))
+            @PathVariable String kind, @PathVariable UUID id) {
+        shelf.opened(identity.actorId(), value(kind, LibraryEntry.Kind.class), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    private static ChatLibraryEntryPageResponse entries(LibraryShelfService.Page page) {
+        return new ChatLibraryEntryPageResponse(page.items().stream().map(ChatLibraryEntryResponse::from).toList(),
+                page.totalCount(), page.hasMore());
     }
 
     private static <E extends Enum<E>> Set<E> parse(@Nullable List<String> values, Class<E> type) {

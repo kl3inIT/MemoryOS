@@ -109,7 +109,7 @@ class SecurityConfiguration {
         }
     }
 
-    private static final class RequiredSubjectValidator implements OAuth2TokenValidator<Jwt> {
+    static final class RequiredSubjectValidator implements OAuth2TokenValidator<Jwt> {
 
         private static final OAuth2Error MISSING_SUBJECT = new OAuth2Error(
                 BearerTokenErrorCodes.INVALID_TOKEN,

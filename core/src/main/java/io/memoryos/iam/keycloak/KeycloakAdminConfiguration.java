@@ -14,12 +14,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(KeycloakAdminProperties.class)
+@EnableConfigurationProperties({KeycloakAdminProperties.class, KeycloakMcpAdminProperties.class})
 class KeycloakAdminConfiguration {
 
     @Bean(destroyMethod = "close")
-    @SuppressWarnings("resource")
     Keycloak keycloakAdminClient(KeycloakAdminProperties properties) {
+        return client(properties, properties.clientId(), properties.clientSecret());
+    }
+
+    /** An admin client of the realm, signed in with the given service account's client credentials. */
+    @SuppressWarnings("resource")
+    static Keycloak client(KeycloakAdminProperties properties, String clientId, String clientSecret) {
         Client restClient = ResteasyClientClassicProvider.createClientBuilder()
                 .connectTimeout(properties.connectTimeout().toMillis(), MILLISECONDS)
                 .connectionCheckoutTimeout(properties.connectionRequestTimeout().toMillis(), MILLISECONDS)
@@ -30,8 +35,8 @@ class KeycloakAdminConfiguration {
                 .serverUrl(properties.serverUrl())
                 .realm(properties.realm())
                 .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-                .clientId(properties.clientId())
-                .clientSecret(properties.clientSecret())
+                .clientId(clientId)
+                .clientSecret(clientSecret)
                 .resteasyClient(restClient)
                 .build();
     }

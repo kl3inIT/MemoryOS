@@ -1,13 +1,23 @@
-import { Check, ChevronDown, ChevronRight, Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ModelLogo } from "./model-logo";
+import {
+  ModelSelectorContent,
+  ModelSelectorEffort,
+  ModelSelectorEmpty,
+  ModelSelectorGroup,
+  ModelSelectorItem,
+  ModelSelectorList,
+  ModelSelectorRoot,
+  ModelSelectorSearch,
+  ModelSelectorTrigger,
+  ModelSelectorValue,
+  type ModelOption,
+  type ModelSelectorEffortOption,
+} from "@/components/assistant-ui/elements/model-selector";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { cn } from "@/lib/utils";
 import { DataBoundaryTag } from "./data-boundary";
 import type { ManagedModel, ManagedProvider } from "./model-catalog";
+import { ModelLogo } from "./model-logo";
+import { ReasoningLevel } from "./reasoning-level";
 
 export type ModelPickerOption = {
   model: ManagedModel;
@@ -16,190 +26,94 @@ export type ModelPickerOption = {
   note?: string;
 };
 
-/** Onyx-style default-model picker: search + collapsible provider groups + model logos. */
+/**
+ * A Models page selection on assistant-ui's Model selector, as Chat's: search, one group per provider with its data
+ * boundary, model logos. With {@code efforts}, a model that reasons ends the popover in the selector's Thinking row,
+ * kept open while a level is picked, and the trigger shows the level beside the model.
+ */
 export function ModelPicker({
   value,
   options,
   disabled,
   placeholder,
   ariaLabel,
-  emptyLabel,
   onChange,
+  efforts,
+  effort,
+  onEffortChange,
 }: {
   value: string;
-  /** A clearable selection offers this first choice, which selects the empty value. */
-  emptyLabel?: string;
   options: ModelPickerOption[];
   disabled?: boolean;
   placeholder: string;
   ariaLabel: string;
   onChange: (modelId: string) => void;
+  /** The levels a model that reasons runs at; absent where the level is not chosen here. */
+  efforts?: readonly ModelSelectorEffortOption[];
+  effort?: string;
+  onEffortChange?: (effort: string) => void;
 }) {
   const ui = useAppTranslation();
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const selected = options.find((option) => option.model.id === value);
-  const groups = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const visible = needle
-      ? options.filter((option) =>
-          `${option.model.displayName} ${option.model.modelName} ${option.provider.name}`
-            .toLowerCase()
-            .includes(needle),
-        )
-      : options;
-    const byProvider = new Map<
-      string,
-      { provider: ManagedProvider; options: ModelPickerOption[] }
-    >();
-    for (const option of visible) {
-      const group = byProvider.get(option.provider.id) ?? {
-        provider: option.provider,
-        options: [],
-      };
-      group.options.push(option);
-      byProvider.set(option.provider.id, group);
-    }
-    return [...byProvider.values()];
-  }, [options, query]);
+  const choices = options.map((option): ModelOption => ({
+    id: option.model.id,
+    name: option.model.displayName,
+    description: option.note
+      ? ui(appText("{{model}} · {{note}}", { model: option.model.modelName, note: option.note }))
+      : option.model.modelName !== option.model.displayName
+        ? option.model.modelName
+        : undefined,
+    icon: <ModelLogo modelName={option.model.modelName} />,
+    disabled: option.disabled,
+    keywords: [option.model.modelName, option.provider.name],
+    efforts: option.model.settings.capabilities.reasoning ? efforts : undefined,
+  }));
+  const groups = new Map<string, { provider: ManagedProvider; choices: ModelOption[] }>();
+  options.forEach((option, index) => {
+    const group = groups.get(option.provider.id) ?? { provider: option.provider, choices: [] };
+    group.choices.push(choices[index]!);
+    groups.set(option.provider.id, group);
+  });
+  const selected = choices.find((choice) => choice.id === value);
+  const level = selected?.efforts ? efforts?.find((option) => option.id === effort) : undefined;
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setQuery("");
-      }}
+    <ModelSelectorRoot
+      models={choices}
+      value={value}
+      onValueChange={onChange}
+      effort={effort}
+      onEffortChange={onEffortChange}
     >
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={ariaLabel}
-          disabled={disabled}
-          className="flex h-10 w-fit max-w-full min-w-0 items-center gap-2.5 rounded-full border border-border-subtle bg-surface-sunken px-4 text-left font-main-ui-body text-content-primary shadow-sm transition-colors hover:border-border-default hover:bg-surface-base disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {selected ? (
-            <>
-              <span className="grid size-5 shrink-0 place-items-center [&_svg]:size-4">
-                <ModelLogo modelName={selected.model.modelName} />
-              </span>
-              <span className="min-w-0 flex-1 truncate font-medium">
-                {selected.model.displayName}
-              </span>
-            </>
-          ) : !value && emptyLabel ? (
-            <span className="min-w-0 flex-1 truncate font-medium">{emptyLabel}</span>
-          ) : (
-            <span className="min-w-0 flex-1 truncate text-content-muted">{placeholder}</span>
-          )}
-          <ChevronDown
-            className={cn(
-              "size-4 shrink-0 text-content-muted transition-transform",
-              open && "rotate-180",
-            )}
-            aria-hidden="true"
-          />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(24rem,calc(100vw-2rem))] p-2">
-        {/* The popover focuses the search on opening, as its first focusable control. */}
-        <InputGroup>
-          <InputGroupAddon>
-            <Search aria-hidden="true" />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={ui("Search models…")}
-            aria-label={ui("Search models")}
-          />
-        </InputGroup>
-        <div className="max-h-72 overflow-y-auto">
-          {emptyLabel && !query.trim() && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left font-main-ui-body hover:bg-surface-base"
-            >
-              <span className="min-w-0 flex-1 truncate">{emptyLabel}</span>
-              {!value && (
-                <Check className="size-4 shrink-0 text-content-primary" aria-hidden="true" />
-              )}
-            </button>
-          )}
-          {groups.map((group) => {
-            const isCollapsed = collapsed[group.provider.id] ?? false;
-            return (
-              <div key={group.provider.id}>
-                <button
-                  type="button"
-                  aria-expanded={!isCollapsed}
-                  onClick={() =>
-                    setCollapsed((current) => ({
-                      ...current,
-                      [group.provider.id]: !isCollapsed,
-                    }))
-                  }
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left font-main-ui-action text-content-secondary hover:bg-surface-base"
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="size-4" aria-hidden="true" />
-                  ) : (
-                    <ChevronDown className="size-4" aria-hidden="true" />
-                  )}
+      <ModelSelectorTrigger
+        aria-label={ariaLabel}
+        disabled={disabled}
+        className="max-w-full min-w-0"
+      >
+        <ModelSelectorValue placeholder={placeholder} showEffort={false} />
+        <ReasoningLevel level={level?.id} name={level?.name} />
+      </ModelSelectorTrigger>
+      <ModelSelectorContent className="w-[min(24rem,calc(100vw-2rem))]" align="end">
+        <ModelSelectorSearch aria-label={ui("Search models")} placeholder={ui("Search models…")} />
+        <ModelSelectorList>
+          <ModelSelectorEmpty>{ui("No matching models.")}</ModelSelectorEmpty>
+          {[...groups.values()].map((group) => (
+            <ModelSelectorGroup
+              key={group.provider.id}
+              heading={
+                <span className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate">{group.provider.name}</span>
                   <DataBoundaryTag boundary={group.provider.dataBoundary} />
-                </button>
-                {!isCollapsed &&
-                  group.options.map((option) => (
-                    <button
-                      key={option.model.id}
-                      type="button"
-                      disabled={option.disabled}
-                      onClick={() => {
-                        onChange(option.model.id);
-                        setOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 pl-8 text-left hover:bg-surface-base disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <ModelLogo modelName={option.model.modelName} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-main-ui-body">
-                          {option.model.displayName}
-                        </span>
-                        <span className="block truncate font-secondary-body text-content-muted">
-                          {option.note
-                            ? ui(
-                                appText("{{model}} · {{note}}", {
-                                  model: option.model.modelName,
-                                  note: option.note,
-                                }),
-                              )
-                            : option.model.modelName}
-                        </span>
-                      </span>
-                      {value === option.model.id && (
-                        <Check
-                          className="size-4 shrink-0 text-content-primary"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </button>
-                  ))}
-              </div>
-            );
-          })}
-          {!groups.length && (
-            <p role="status" className="px-2 py-3 font-secondary-body text-content-muted">
-              {ui("No matching models.")}
-            </p>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+                </span>
+              }
+            >
+              {group.choices.map((choice) => (
+                <ModelSelectorItem key={choice.id} model={choice} />
+              ))}
+            </ModelSelectorGroup>
+          ))}
+        </ModelSelectorList>
+        <ModelSelectorEffort label={ui("Reasoning")} />
+      </ModelSelectorContent>
+    </ModelSelectorRoot>
   );
 }

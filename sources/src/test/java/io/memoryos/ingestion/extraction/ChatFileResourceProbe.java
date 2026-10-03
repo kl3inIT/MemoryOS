@@ -2,6 +2,7 @@ package io.memoryos.ingestion.extraction;
 
 import ai.docling.serve.api.DoclingServeApi;
 import io.memoryos.document.application.StructuredDocumentChunker;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -34,7 +35,8 @@ public final class ChatFileResourceProbe {
                 DoclingServeApi.class.getClassLoader(),
                 new Class<?>[] {DoclingServeApi.class},
                 (_, method, _) -> { throw new AssertionError("OCR is outside this probe: " + method.getName()); });
-        var docling = new DoclingSourceContentExtractor(new DoclingProperties(null, null, null, 0), mapper, noOcr);
+        var docling = new DoclingSourceContentExtractor(new DoclingProperties(null, null, null, 0), mapper, noOcr,
+                new SimpleMeterRegistry());
         var extractor = new BoundedChatFileExtractor(docling, mapper);
         var active = new AtomicInteger(); var peakActive = new AtomicInteger(); var heapPeak = new AtomicLong();
         var memory = ManagementFactory.getMemoryMXBean();

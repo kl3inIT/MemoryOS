@@ -8,6 +8,7 @@ import {
   FolderInput,
   FolderOutput,
   MoreHorizontal,
+  Paperclip,
   Pencil,
   Settings2,
   Share2,
@@ -51,6 +52,7 @@ export function ChatSessionMenu({
   archiveSession,
   onDelete,
   onArchive,
+  onShowFiles,
   busy = false,
 }: {
   session: MenuSession;
@@ -63,6 +65,8 @@ export function ChatSessionMenu({
   archiveSession?: (archived: boolean) => Promise<void>;
   onDelete?: () => void;
   onArchive?: (archived: boolean) => void;
+  /** Opens the conversation's files from this menu's button, where focus returns; a phone has no room for theirs. */
+  onShowFiles?: (menuButton: HTMLElement | null) => void;
   busy?: boolean;
 }) {
   const ui = useAppTranslation();
@@ -120,6 +124,12 @@ export function ChatSessionMenu({
           }}
         >
           <DropdownMenuGroup>
+            {onShowFiles && (
+              <DropdownMenuItem onSelect={() => onShowFiles(trigger.current)}>
+                <Paperclip />
+                {ui("Tệp trong hội thoại")}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={() => setDialog("share")}>
               <Share2 />
               {ui("Chia sẻ")}
@@ -156,6 +166,7 @@ export function ChatSessionMenu({
       </DropdownMenu>
       <SharingDialog
         sessionId={session.id}
+        restoreFocusRef={trigger}
         open={dialog === "share"}
         onOpenChange={(next) => {
           if (!next) closeDialog();

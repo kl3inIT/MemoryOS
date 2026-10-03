@@ -3,6 +3,8 @@ import { agentTools, type Persona } from "@/features/chat/chat-personas-api";
 import { uiLocale } from "@/i18n/format";
 import type { AppTranslate } from "@/i18n/use-app-translation";
 import type { PersonaInput } from "@/lib/hey-api/types.gen";
+import { zPersonaInput } from "@/lib/hey-api/zod.gen";
+import type { ErrorMessage } from "@/lib/problem-presentation";
 
 /** A conversation starter list longer than this is refused by the API. */
 export const maxStarterPrompts = 8;
@@ -55,53 +57,63 @@ export function effectiveModel(models: ModelLimits[] | undefined, modelConfigura
   );
 }
 
-/** The highest overrides the server accepts; an output override also stays below the context window. */
+/**
+ * The highest overrides the server accepts: the contract's range, narrowed by the effective model once it is
+ * known. An output override also stays below the context window.
+ */
 export function limitCaps(model: ModelLimits | undefined) {
+  const context = tokenLimits.contextTokenLimit.max;
+  const output = tokenLimits.outputTokenLimit.max;
+  if (model === undefined) return { context, output };
   return {
-    context: model?.contextWindow,
-    output:
-      model === undefined
-        ? undefined
-        : Math.min(model.maxOutputTokens ?? Infinity, model.contextWindow - 1),
+    context: Math.min(context, model.contextWindow),
+    output: Math.min(output, model.maxOutputTokens ?? Infinity, model.contextWindow - 1),
   };
 }
 
-/** The smallest context window override the editor offers. */
-export const minContextTokenLimit = 256;
+/** The bounds the API contract declares for a token limit; a contract without both is a generation error. */
+function contractRange(schema: z.ZodNumber) {
+  const { minValue: min, maxValue: max } = schema;
+  if (min === null || max === null) throw new Error("The token limit contract declares no range.");
+  return { min, max };
+}
+
+/** The token limits the API accepts for any model; the effective model's own limits narrow them further. */
+export const tokenLimits = {
+  contextTokenLimit: contractRange(zPersonaInput.shape.contextTokenLimit.unwrap().unwrap()),
+  outputTokenLimit: contractRange(zPersonaInput.shape.outputTokenLimit.unwrap().unwrap()),
+};
+
+type ProblemMessage = (message: ErrorMessage) => string;
 
 /**
  * The editor's validation. A nameless agent cannot be submitted (the save action waits for a name), and the
- * starter list never outgrows what the API keeps. Custom token limits must be whole numbers within the effective
- * model's limits, as the server checks on every save; its field violations are placed on the controls after a
- * failed save.
+ * starter list never outgrows what the API keeps. Custom token limits must be whole numbers within the range the
+ * API accepts and within the effective model's limits, as the server checks on every save, so the field is marked
+ * before a request is sent. The server's field violations are placed on the controls after a failed save.
  */
-export function agentValidation(ui: AppTranslate, models: ModelLimits[] | undefined) {
+export function agentValidation(
+  ui: AppTranslate,
+  message: ProblemMessage,
+  models: ModelLimits[] | undefined,
+) {
   return agentValuesSchema.superRefine((values, context) => {
     if (values.limitsMode !== "custom") return;
     const caps = limitCaps(effectiveModel(models, values.modelConfigurationId));
-    const check = (
-      path: "contextTokenLimit" | "outputTokenLimit",
-      text: string,
-      min: number,
-      max: number | undefined,
-    ) => {
+    const check = (path: keyof typeof tokenLimits, cap: number) => {
+      const text = values[path];
       if (text === "") return;
       const value = Number(text);
-      if (!Number.isInteger(value) || value < min)
-        context.addIssue({
-          code: "custom",
-          path: [path],
-          message: ui("Nhập số nguyên từ {{v1}} trở lên.", { v1: min }),
-        });
-      else if (max !== undefined && value > max)
-        context.addIssue({
-          code: "custom",
-          path: [path],
-          message: ui("Tối đa {{v1}} token.", { v1: formatTokens(max) }),
-        });
+      const { min, max } = tokenLimits[path];
+      const refuse = (text: string) =>
+        context.addIssue({ code: "custom", path: [path], message: text });
+      if (!Number.isInteger(value)) refuse(message({ key: "invalid" }));
+      else if (value < min) refuse(message({ key: "min", params: { min } }));
+      else if (value > max) refuse(message({ key: "max", params: { max } }));
+      else if (value > cap) refuse(ui("Tối đa {{v1}} token.", { v1: formatTokens(cap) }));
     };
-    check("contextTokenLimit", values.contextTokenLimit, minContextTokenLimit, caps.context);
-    check("outputTokenLimit", values.outputTokenLimit, 1, caps.output);
+    check("contextTokenLimit", caps.context);
+    check("outputTokenLimit", caps.output);
   });
 }
 

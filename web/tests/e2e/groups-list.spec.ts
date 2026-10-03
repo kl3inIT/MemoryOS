@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./deployment-policy";
 
 const adminId = "00000000-0000-0000-0000-000000000001";
 const basicId = "00000000-0000-0000-0000-000000000002";

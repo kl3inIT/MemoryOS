@@ -16,6 +16,7 @@ import { VoiceSettingsSection } from "./voice-settings-section";
 
 const member: ApplicationSession = {
   actorId: "3b8c5f2e-6a8d-4b1f-9a51-2f1c8e0d7a64",
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Fixture", role: "MEMBER" },

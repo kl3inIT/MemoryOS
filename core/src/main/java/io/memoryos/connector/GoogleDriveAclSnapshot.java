@@ -17,7 +17,7 @@ public record GoogleDriveAclSnapshot(
         SourceId sourceId,
         String fileId,
         long revision,
-        List<GoogleDriveProvider.Permission> permissions,
+        List<GoogleDriveGateway.Permission> permissions,
         Status status,
         Observation lastAttempt,
         @Nullable Observation lastSuccess,

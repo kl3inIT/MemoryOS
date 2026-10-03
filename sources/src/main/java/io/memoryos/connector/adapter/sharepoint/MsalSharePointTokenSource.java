@@ -10,7 +10,7 @@ import com.microsoft.aad.msal4j.ConfidentialClientApplication;
 import com.microsoft.aad.msal4j.IClientCredential;
 import com.microsoft.aad.msal4j.MsalException;
 import com.microsoft.aad.msal4j.MsalServiceException;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import java.io.ByteArrayInputStream;
 import java.net.MalformedURLException;
@@ -49,7 +49,7 @@ final class MsalSharePointTokenSource implements SharePointTokenSource {
         this.executor = executor;
     }
 
-    @Override public String token(SharePointProvider.Credential credential) {
+    @Override public String token(SharePointGateway.Credential credential) {
         IClientCredential secret = clientCredential(credential);
         try {
             var application = ConfidentialClientApplication.builder(credential.clientId(), secret)
@@ -87,8 +87,8 @@ final class MsalSharePointTokenSource implements SharePointTokenSource {
         return base.resolve(path + directoryId + "/").toString();
     }
 
-    private IClientCredential clientCredential(SharePointProvider.Credential credential) {
-        if (credential.authMethod() == SharePointProvider.AuthMethod.CLIENT_SECRET) {
+    private IClientCredential clientCredential(SharePointGateway.Credential credential) {
+        if (credential.authMethod() == SharePointGateway.AuthMethod.CLIENT_SECRET) {
             byte[] secret = Objects.requireNonNull(credential.clientSecret());
             try {
                 return ClientCredentialFactory.createFromSecret(new String(secret, StandardCharsets.UTF_8));

@@ -8,6 +8,7 @@ import io.memoryos.ai.ModelConfiguration;
 import io.memoryos.ai.ModelDefault;
 import io.memoryos.ai.ModelFlow;
 import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.ReasoningEffort;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,21 +54,27 @@ public class ModelCatalogRepository {
                     """).param("tenant", tenant).param("flow", flow.name()).update();
     }
     public List<FlowModelDefault> flowDefaults(UUID tenant) {
-        return jdbc.sql("SELECT flow, model_configuration_id, revision FROM model_flow_default WHERE tenant_id=:tenant ORDER BY flow")
+        return jdbc.sql("SELECT flow, model_configuration_id, reasoning_effort, revision FROM model_flow_default "
+                        + "WHERE tenant_id=:tenant ORDER BY flow")
                 .param("tenant", tenant).query((r, ignored) -> new FlowModelDefault(ModelFlow.valueOf(r.getString(1)),
-                        r.getObject(2, UUID.class), r.getLong(3))).list();
+                        r.getObject(2, UUID.class), effort(r.getString(3)), r.getLong(4))).list();
     }
     public FlowModelDefault flowDefault(UUID tenant, ModelFlow flow) {
-        return jdbc.sql("SELECT model_configuration_id, revision FROM model_flow_default WHERE tenant_id=:tenant AND flow=:flow")
+        return jdbc.sql("SELECT model_configuration_id, reasoning_effort, revision FROM model_flow_default "
+                        + "WHERE tenant_id=:tenant AND flow=:flow")
                 .param("tenant", tenant).param("flow", flow.name())
-                .query((r, ignored) -> new FlowModelDefault(flow, r.getObject(1, UUID.class), r.getLong(2)))
+                .query((r, ignored) -> new FlowModelDefault(flow, r.getObject(1, UUID.class), effort(r.getString(2)), r.getLong(3)))
                 .optional().orElseThrow(AiException::unavailable);
     }
-    public void setFlowDefault(UUID tenant, ModelFlow flow, @Nullable UUID model, long revision) {
-        requireChanged(jdbc.sql("UPDATE model_flow_default SET model_configuration_id=:model, revision=revision+1 "
-                        + "WHERE tenant_id=:tenant AND flow=:flow AND revision=:revision")
+    public void setFlowDefault(UUID tenant, ModelFlow flow, @Nullable UUID model, @Nullable ReasoningEffort effort, long revision) {
+        requireChanged(jdbc.sql("UPDATE model_flow_default SET model_configuration_id=:model, reasoning_effort=:effort, "
+                        + "revision=revision+1 WHERE tenant_id=:tenant AND flow=:flow AND revision=:revision")
                 .param("tenant", tenant).param("flow", flow.name()).param("model", model, Types.OTHER)
+                .param("effort", effort == null ? null : effort.name(), Types.VARCHAR)
                 .param("revision", revision).update());
+    }
+    private static @Nullable ReasoningEffort effort(@Nullable String stored) {
+        return stored == null ? null : ReasoningEffort.valueOf(stored);
     }
 
     public List<LlmProvider> providers(UUID tenant) {
@@ -95,8 +102,8 @@ public class ModelCatalogRepository {
     public Optional<LlmProvider> provider(UUID tenant, UUID id) {
         return providers.findByTenantIdAndId(tenant, id).map(ModelCatalogRepository::provider);
     }
-    public void insertProvider(LlmProvider p, @Nullable String builtinKey) {
-        var entity = new LlmProviderEntity(p.id(), p.tenantId(), builtinKey, p.adapterType());
+    public void insertProvider(LlmProvider p) {
+        var entity = new LlmProviderEntity(p.id(), p.tenantId(), p.adapterType());
         entity.update(p.name(), p.baseUrl(), p.enabled(), p.isPublic(), p.credential(), p.groupIds(), p.personaIds(), p.dataBoundary());
         providers.saveAndFlush(entity);
     }

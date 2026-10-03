@@ -1,6 +1,7 @@
 package io.memoryos.connector;
 
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
+import io.memoryos.connector.sync.SourceSyncAdapterRegistry;
 import io.memoryos.document.DocumentId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.shared.ActorId;
@@ -20,10 +21,13 @@ import org.springframework.stereotype.Service;
 public class SourceSearchService {
     private final TenantAccessResolver tenants;
     private final JdbcSourceDocumentRepository documents;
+    private final SourceSyncAdapterRegistry adapters;
 
-    public SourceSearchService(TenantAccessResolver tenants, JdbcSourceDocumentRepository documents) {
+    public SourceSearchService(TenantAccessResolver tenants, JdbcSourceDocumentRepository documents,
+            SourceSyncAdapterRegistry adapters) {
         this.tenants = tenants;
         this.documents = documents;
+        this.adapters = adapters;
     }
 
     public SourceSearchScope scope(ActorId actor) {
@@ -62,10 +66,18 @@ public class SourceSearchService {
         return ids.isEmpty() ? List.of() : documents.sourceNames(tenant, ids);
     }
 
+    /**
+     * The Sources the actor may read from in {@code tenant}, whatever their state except DELETING, by name, at most
+     * {@code limit} (1 to 500), each with the Documents the actor may read in it. Callers check Search authority.
+     */
+    public List<ReadableSource> readableSources(TenantId tenant, ActorId actor, int limit) {
+        return documents.readableSources(tenant, actor, limit);
+    }
+
     public Map<UUID, List<DocumentSourceMetadata>> readableMetadata(SourceSearchScope scope, List<UUID> ids) {
         if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()) return Map.of();
         var metadata = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
-        documents.sourceMetadata(scope.tenant(), ids, scope.actor(), null).forEach((document, origins) -> {
+        documents.sourceMetadata(scope.tenant(), ids, scope.actor(), null, adapters::documentUrl).forEach((document, origins) -> {
             var visible = origins.stream().filter(origin -> scope.sources().containsKey(origin.sourceId())).toList();
             if (!visible.isEmpty()) metadata.put(document, visible);
         });
@@ -78,8 +90,22 @@ public class SourceSearchService {
         return documents.isEmpty() ? Map.of() : this.documents.originals(tenant, actor, documents);
     }
 
+    /**
+     * One keyset page of the Documents the actor may read now, under the same rule Search rechecks with, each once
+     * under its first readable mapping. {@code indexIdentity} is the served index; a generation written elsewhere
+     * is not reported.
+     */
+    public List<SourceDocumentEntry> browse(TenantId tenant, ActorId actor, String indexIdentity, SourceDocumentBrowse browse) {
+        return documents.browse(tenant, actor, indexIdentity, browse, adapters::documentUrl);
+    }
+
+    /** {@link #browse} entries of those Documents the actor may read now; unreadable ids are absent, any order. */
+    public List<SourceDocumentEntry> entries(TenantId tenant, ActorId actor, String indexIdentity, Collection<UUID> documents) {
+        return documents.isEmpty() ? List.of() : this.documents.entries(tenant, actor, indexIdentity, documents, adapters::documentUrl);
+    }
+
     public List<DocumentSourceMetadata> indexMetadata(TenantId tenant, DocumentId document, UUID generation) {
-        return documents.sourceMetadata(tenant, List.of(document.value()), null, generation)
+        return documents.sourceMetadata(tenant, List.of(document.value()), null, generation, adapters::documentUrl)
                 .getOrDefault(document.value(), List.of());
     }
 
@@ -90,7 +116,7 @@ public class SourceSearchService {
     public Map<DocumentId, List<DocumentSourceMetadata>> indexMetadata(TenantId tenant, Map<DocumentId, UUID> generations) {
         var byId = new HashMap<UUID, UUID>();
         generations.forEach((document, generation) -> byId.put(document.value(), generation));
-        var found = documents.indexMetadata(tenant, byId);
+        var found = documents.indexMetadata(tenant, byId, adapters::documentUrl);
         var result = new HashMap<DocumentId, List<DocumentSourceMetadata>>();
         generations.keySet().forEach(document -> result.put(document, found.getOrDefault(document.value(), List.of())));
         return Map.copyOf(result);

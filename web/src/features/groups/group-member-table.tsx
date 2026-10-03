@@ -202,7 +202,10 @@ function MemberActions({
         <ConfirmDialog
           trigger={
             <IconButton
-              size="sm"
+              size={member.isManager ? "md" : "sm"}
+              tone={member.isManager ? "success" : "default"}
+              prominence={member.isManager ? "secondary" : "tertiary"}
+              aria-pressed={member.isManager}
               disabled={locked}
               pending={draft.managerPendingFor(member.actorId)}
               aria-label={ui("{{v1}} for {{v2}}", {

@@ -23,10 +23,12 @@ import { GroupMembersSection } from "./group-members-section";
 import { GroupPermissionsSection } from "./group-permissions-section";
 import { GroupSourcesSection } from "./group-sources-section";
 import { useGroupDetail } from "./use-group-detail";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { can } from "@/lib/resource-permissions";
 
 export function GroupDetailPage() {
   const ui = useAppTranslation();
+  const canReadGroupPermissions = useGlobalCapability("GROUPS_READ");
 
   const { groupId } = useParams({ from: "/_authenticated/admin/groups/$groupId" });
   const queryClient = useQueryClient();
@@ -39,6 +41,7 @@ export function GroupDetailPage() {
     ...listGroupCapabilitiesOptions(),
     enabled:
       !!group.data &&
+      canReadGroupPermissions &&
       (group.data.systemKey === "ADMIN" ||
         group.data.systemKey === "BASIC" ||
         can(group.data, "editPermissions")),
@@ -112,6 +115,7 @@ function GroupDetail({
   cancelRef,
 }: GroupDetailProps) {
   const ui = useAppTranslation();
+  const canReadGroupPermissions = useGlobalCapability("GROUPS_READ");
 
   const {
     members,
@@ -134,6 +138,13 @@ function GroupDetail({
     cancelSettings,
     deleteSelectedGroup,
   } = useGroupDetail(group, onAuthorityChanged);
+  const canChange =
+    canRename ||
+    canManageGrants ||
+    members.canManageMembers ||
+    members.canManageManagers ||
+    sources.canManage ||
+    canDelete;
 
   return (
     <>
@@ -143,18 +154,25 @@ function GroupDetail({
         title={group.name}
         description={ui("Membership, permissions and the Sources this group may read.")}
         actions={
-          <>
-            <Button ref={cancelRef} prominence="secondary" disabled={busy} onClick={cancelSettings}>
-              {ui("Cancel")}
-            </Button>
-            <Button
-              pending={busy && !deleting}
-              disabled={!canSave || busy || !name.trim() || (capabilitiesDirty && registryError)}
-              onClick={() => void saveSettings()}
-            >
-              {busy && !deleting ? ui("Saving…") : ui("Save Changes")}
-            </Button>
-          </>
+          canChange ? (
+            <>
+              <Button
+                ref={cancelRef}
+                prominence="secondary"
+                disabled={busy}
+                onClick={cancelSettings}
+              >
+                {ui("Cancel")}
+              </Button>
+              <Button
+                pending={busy && !deleting}
+                disabled={!canSave || busy || !name.trim() || (capabilitiesDirty && registryError)}
+                onClick={() => void saveSettings()}
+              >
+                {busy && !deleting ? ui("Saving…") : ui("Save Changes")}
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -188,9 +206,8 @@ function GroupDetail({
           onChange={(event) => setNameDraft(event.target.value)}
         />
       </Field>
-
       <GroupMembersSection group={group} draft={members} />
-      {systemGroup || canManageGrants ? (
+      {canReadGroupPermissions && (systemGroup || canManageGrants) ? (
         <GroupPermissionsSection
           registry={registry}
           selected={systemGroup ? new Set(group.capabilities) : selectedCapabilities}

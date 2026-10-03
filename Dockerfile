@@ -69,6 +69,11 @@ LABEL org.opencontainers.image.title="MemoryOS API" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       io.memoryos.chat.tokenizer-profiles="openai-o200k-v1"
+# MEM-137: the Azure Speech SDK's native layer needs these even when audio flows through in-memory streams. The JVM
+# starts without them and the first Azure session fails, so the build asserts they are present. The worker loads no SDK.
+RUN apk add --no-cache libstdc++ libuuid openssl ca-certificates alsa-lib \
+    && test -e /usr/lib/libstdc++.so.6 \
+    && test -e /usr/lib/libuuid.so.1
 ENV MEMORYOS_APPLICATION_JAR=api.jar \
     JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8 --enable-native-access=ALL-UNNAMED" \
     OPT_OUT_TRACKING=true

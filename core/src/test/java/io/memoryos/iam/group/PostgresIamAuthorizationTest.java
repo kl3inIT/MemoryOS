@@ -218,7 +218,7 @@ class PostgresIamAuthorizationTest {
     }
 
     @Test
-    void scopedGroupProjectionReturnsOnlyTheManagersOwnOrdinaryGroups() {
+    void groupProjectionReturnsAllDirectMemberships() {
         jdbc.sql("""
                         UPDATE iam_group_memberships
                         SET is_manager = TRUE
@@ -232,17 +232,14 @@ class PostgresIamAuthorizationTest {
 
         var page = projections.list(TENANT, ACTOR, false, new GroupQuery(null, 0, 100));
 
-        assertEquals(1, page.totalItems());
+        assertEquals(2, page.totalItems());
         assertEquals(
-                Set.of(new GroupId(GROUP_ONE)),
+                Set.of(new GroupId(GROUP_ONE), new GroupId(GROUP_TWO)),
                 page.items().stream().map(GroupProjectionRepository.GroupRecord::id).collect(
                         Collectors.toSet()
                 )
         );
-        assertEquals(
-                Optional.empty(),
-                projections.detail(TENANT, ACTOR, new GroupId(GROUP_TWO), false)
-        );
+        assertTrue(projections.detail(TENANT, ACTOR, new GroupId(GROUP_TWO), false).isPresent());
     }
 
     @Test

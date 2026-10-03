@@ -12,6 +12,8 @@
 | Malformed/missing durable trace metadata never blocks work | `SourceOperationTraceContextTest` |
 | Worker retry spans are independent roots linked to the same origin | `OperationTracingTest` |
 | Handled extraction/cleanup failures produce ERROR processing spans while retaining database retry and Redis ACK semantics | `DefaultIngestionCoordinatorTest`, `RedisStreamWorkerTracingTest` |
+| Docling fallbacks are counted by reason and outcome, registered at zero, and not counted for a success or a document failure | `DoclingFallbackTest` |
+| Repository alert rules load | `promtool check rules` on `alerts.yaml` inside the staging Prometheus container (docling-fallback-alert, 2026-10-01: 8 rules) |
 | Keycloak token and admin requests reject redirects without forwarding credentials | `test_configure_grafana_sso.py` exercises HTTP 301/302/303/307/308 against two loopback servers; runs in CI |
 | PostgreSQL origin survives Redis rediscovery and processing of a real FILE | `WorkerFileProcessingIntegrationTest` |
 | Nullable trace columns migrate on PostgreSQL | Existing source lifecycle tests and `WorkerFileProcessingIntegrationTest`, which apply the full Flyway chain |

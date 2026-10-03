@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type ReactNode } from "react";
+import { Fragment, useId, useRef, useState, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -47,9 +47,17 @@ import {
   type LibraryDayGroup,
   type LibraryFile,
 } from "./library";
+import { recordEntryOpened } from "./library-entries";
 import { categoryIcon, categoryLabels, sourceLabels, statusLabel } from "./library-labels";
 import { type LibraryLayout } from "./library-toolbar";
-import type { LibraryView } from "./library-rail";
+import type { LibraryOwnedView } from "./library-views";
+
+/**
+ * A row's actions appear on hover and on keyboard focus, so a long list reads as names rather than as buttons; a
+ * touch screen, which cannot hover, keeps them, and an open menu keeps its row's actions on screen.
+ */
+export const rowActionsReveal =
+  "opacity-100 transition-opacity md:opacity-0 md:group-focus-within/item:opacity-100 md:group-hover/item:opacity-100 md:has-[[data-state=open]]:opacity-100";
 
 export type RowActions = {
   onPreview: (file: LibraryFile) => void;
@@ -81,7 +89,7 @@ export function LibraryList({
   onSelectDay,
 }: {
   files: LibraryFile[];
-  view: LibraryView;
+  view: LibraryOwnedView;
   layout: LibraryLayout;
   selected: string[];
   /** Day headings only make sense while the newest files come first. */
@@ -93,6 +101,8 @@ export function LibraryList({
 }) {
   const ui = useAppTranslation();
   const groups = grouped ? groupByDate(files) : [];
+  // Read once when the list mounts, so a render stays pure.
+  const [thisYear] = useState(() => new Date().getFullYear());
   /**
    * Today and yesterday read as words; any other day reads as its date, with the year only when it is not
    * this one, because a year repeated on every heading says nothing.
@@ -105,7 +115,7 @@ export function LibraryList({
       weekday: "long",
       day: "numeric",
       month: "long",
-      year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+      year: date.getFullYear() === thisYear ? undefined : "numeric",
     });
   };
   if (!grouped)
@@ -155,7 +165,7 @@ function FileGroup({
   showLabel = false,
 }: {
   files: readonly LibraryFile[];
-  view: LibraryView;
+  view: LibraryOwnedView;
   layout: LibraryLayout;
   selected: string[];
   actions: RowActions;
@@ -166,6 +176,7 @@ function FileGroup({
 }) {
   const ui = useAppTranslation();
   const chosen = files.filter((file) => selected.includes(file.id)).length;
+  const dayId = useId();
   return (
     <section aria-label={label}>
       {showLabel && (
@@ -173,12 +184,16 @@ function FileGroup({
           {onSelectDay ? (
             <>
               <Checkbox
+                id={dayId}
                 aria-label={ui("Chọn tất cả {{day}}", { day: label })}
                 checked={chosen === 0 ? false : chosen === files.length ? true : "indeterminate"}
                 onCheckedChange={(checked) => onSelectDay(files, checked === true)}
               />
+              {/* The day's heading is a larger pointer target for its checkbox. */}
               <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
-                {label}
+                <label htmlFor={dayId} className="cursor-pointer">
+                  {label}
+                </label>
               </h2>
             </>
           ) : (
@@ -229,7 +244,7 @@ function LibraryRow({
   onSelect,
 }: {
   file: LibraryFile;
-  view: LibraryView;
+  view: LibraryOwnedView;
   selected: boolean;
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
@@ -268,7 +283,7 @@ function LibraryRow({
               <Star
                 role="img"
                 className="size-3.5 shrink-0 fill-current text-status-warning-content"
-                aria-label={ui("Yêu thích")}
+                aria-label={ui("Có gắn sao")}
               />
             )}
           </button>
@@ -280,7 +295,7 @@ function LibraryRow({
           <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
         </ItemContent>
         <ItemActions>
-          <div className="opacity-100 transition-opacity md:opacity-0 md:group-focus-within/item:opacity-100 md:group-hover/item:opacity-100 md:has-[[data-state=open]]:opacity-100">
+          <div className={rowActionsReveal}>
             <RowActionButtons file={file} view={view} actions={actions} />
           </div>
         </ItemActions>
@@ -289,11 +304,7 @@ function LibraryRow({
   );
 }
 
-/**
- * The picture of a file: an image shows itself, whether it was generated or uploaded, and anything else shows
- * what it is. A thumbnail that cannot be fetched — still being written, or gone from storage — falls back to
- * the same icon instead of the browser's broken-image mark, which says nothing about the file.
- */
+/** A file's own picture, or the icon it would have without one. */
 function LibraryThumbnail({
   file,
   className,
@@ -303,9 +314,31 @@ function LibraryThumbnail({
   className?: string;
   icon?: string;
 }) {
+  return (
+    <LibraryPicture
+      source={libraryThumbnailUrl(file)}
+      fallback={categoryIcon(file, cn(icon ?? "size-4", "text-content-muted"))}
+      className={className}
+    />
+  );
+}
+
+/**
+ * The picture of a file: an image shows itself, whether it was generated or uploaded, and anything else shows
+ * what it is. A thumbnail that cannot be fetched — still being written, or gone from storage — falls back to
+ * the same icon instead of the browser's broken-image mark, which says nothing about the file.
+ */
+export function LibraryPicture({
+  source,
+  fallback,
+  className,
+}: {
+  source?: string;
+  fallback: ReactNode;
+  className?: string;
+}) {
   const [failed, setFailed] = useState(false);
-  const source = libraryThumbnailUrl(file);
-  if (!source || failed) return categoryIcon(file, cn(icon ?? "size-4", "text-content-muted"));
+  if (!source || failed) return fallback;
   return (
     <img
       src={source}
@@ -319,7 +352,7 @@ function LibraryThumbnail({
 }
 
 /** One line of facts about a file, in the order the current view makes useful. */
-function RowMeta({ file, view }: { file: LibraryFile; view: LibraryView }) {
+function RowMeta({ file, view }: { file: LibraryFile; view: LibraryOwnedView }) {
   const ui = useAppTranslation();
   const sources = sourceLabels(ui);
   const categories = categoryLabels(ui);
@@ -327,14 +360,14 @@ function RowMeta({ file, view }: { file: LibraryFile; view: LibraryView }) {
   if (view === "pending") parts.push(statusLabel(file, ui));
   else if (view === "trash" && file.deletedAt)
     parts.push(
-      ui("Đã xoá {{date}}", { date: new Date(file.deletedAt).toLocaleDateString(i18n.language) }),
+      ui("Đã xóa {{date}}", { date: new Date(file.deletedAt).toLocaleDateString(i18n.language) }),
     );
   else parts.push(sources[file.source]);
   parts.push(categories[file.category]);
   parts.push(fileSize(file.sizeBytes, i18n.language));
   if (view === "trash" && file.purgeAfter)
     parts.push(
-      ui("Xoá vĩnh viễn {{date}}", {
+      ui("Xóa vĩnh viễn {{date}}", {
         date: new Date(file.purgeAfter).toLocaleDateString(i18n.language),
       }),
     );
@@ -360,7 +393,7 @@ function LibraryCard({
   onSelect,
 }: {
   file: LibraryFile;
-  view: LibraryView;
+  view: LibraryOwnedView;
   selected: boolean;
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
@@ -420,7 +453,7 @@ function RowActionButtons({
   compact = false,
 }: {
   file: LibraryFile;
-  view: LibraryView;
+  view: LibraryOwnedView;
   actions: RowActions;
   compact?: boolean;
 }) {
@@ -466,7 +499,11 @@ export function FileActions({
           title={ui("Tải về")}
           asChild
         >
-          <a href={downloadUrl(libraryPreviewTarget(file))} download={file.filename}>
+          <a
+            href={downloadUrl(libraryPreviewTarget(file))}
+            download={file.filename}
+            onClick={() => recordEntryOpened(file.source, file.id)}
+          >
             <Download />
           </a>
         </IconButton>
@@ -477,8 +514,8 @@ export function FileActions({
         aria-pressed={file.favorite}
         aria-label={
           file.favorite
-            ? ui("Bỏ yêu thích {{name}}", { name: file.filename })
-            : ui("Đánh dấu yêu thích {{name}}", { name: file.filename })
+            ? ui("Bỏ gắn sao {{name}}", { name: file.filename })
+            : ui("Gắn sao {{name}}", { name: file.filename })
         }
         onClick={() => actions.onFavorite(file)}
       >
@@ -525,7 +562,11 @@ export function FileActions({
             </DropdownMenuItem>
           )}
           <DropdownMenuItem asChild>
-            <a href={downloadUrl(libraryPreviewTarget(file))} download={file.filename}>
+            <a
+              href={downloadUrl(libraryPreviewTarget(file))}
+              download={file.filename}
+              onClick={() => recordEntryOpened(file.source, file.id)}
+            >
               <Download />
               {ui("Tải về")}
             </a>
@@ -538,7 +579,7 @@ export function FileActions({
           >
             <Trash2 />
             {file.deletable
-              ? ui("Xoá")
+              ? ui("Xóa")
               : ui("Đang dùng trong {{name}}", { name: usageLabel(file) })}
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -582,17 +623,17 @@ function TrashActions({
           <IconButton
             size="sm"
             prominence="internal"
-            aria-label={ui("Xoá vĩnh viễn {{name}}", { name: file.filename })}
+            aria-label={ui("Xóa vĩnh viễn {{name}}", { name: file.filename })}
           >
             <Trash2 />
           </IconButton>
         }
-        title={ui("Xoá vĩnh viễn?")}
+        title={ui("Xóa vĩnh viễn?")}
         description={ui(
-          "Tệp và nội dung của nó sẽ bị xoá khỏi kho lưu trữ và không thể khôi phục.",
+          "Tệp và nội dung của nó sẽ bị xóa khỏi kho lưu trữ và không thể khôi phục.",
         )}
-        confirmLabel={ui("Xoá vĩnh viễn")}
-        pendingLabel={ui("Đang xoá…")}
+        confirmLabel={ui("Xóa vĩnh viễn")}
+        pendingLabel={ui("Đang xóa…")}
         confirmTone="danger"
         onConfirm={onPurge}
       />
@@ -696,38 +737,18 @@ export function LibraryEmpty({
   action,
   onClearFilters,
 }: {
-  view: LibraryView;
+  view: LibraryOwnedView;
   filtered: boolean;
   /** The upload control itself, which owns the browser's file dialog. */
   action?: ReactNode;
   onClearFilters: () => void;
 }) {
   const ui = useAppTranslation();
-  if (filtered)
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <FileText />
-          </EmptyMedia>
-          <EmptyTitle>{ui("Không có tệp nào khớp")}</EmptyTitle>
-          <EmptyDescription>
-            {ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.")}
-          </EmptyDescription>
-        </EmptyHeader>
-        <Button size="sm" prominence="secondary" onClick={onClearFilters}>
-          {ui("Xoá bộ lọc")}
-        </Button>
-      </Empty>
-    );
-  const copy: Record<LibraryView, { title: string; description: string }> = {
+  if (filtered) return <LibraryNoMatch onClearFilters={onClearFilters} />;
+  const copy: Record<LibraryOwnedView, { title: string; description: string }> = {
     ready: {
       title: ui("Thư viện đang trống"),
       description: ui("Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây."),
-    },
-    favorite: {
-      title: ui("Chưa có tệp yêu thích"),
-      description: ui("Bấm ngôi sao trên một tệp để giữ nó ở chỗ dễ tìm."),
     },
     pending: {
       title: ui("Không có tệp nào đang xử lý"),
@@ -735,19 +756,45 @@ export function LibraryEmpty({
     },
     trash: {
       title: ui("Thùng rác trống"),
-      description: ui("Tệp bạn xoá sẽ nằm ở đây trước khi bị xoá vĩnh viễn."),
+      description: ui("Tệp bạn xóa sẽ nằm ở đây trước khi bị xóa vĩnh viễn."),
     },
   };
   return (
     <Empty>
       <EmptyHeader>
-        <EmptyMedia variant="icon">
-          {view === "trash" ? <Trash2 /> : view === "favorite" ? <Star /> : <FileText />}
-        </EmptyMedia>
+        <EmptyMedia variant="icon">{view === "trash" ? <Trash2 /> : <FileText />}</EmptyMedia>
         <EmptyTitle>{copy[view].title}</EmptyTitle>
         <EmptyDescription>{copy[view].description}</EmptyDescription>
       </EmptyHeader>
       {view === "ready" && action}
+    </Empty>
+  );
+}
+
+/** A filter or a search that kept nothing, with the way back to everything. */
+export function LibraryNoMatch({
+  title,
+  onClearFilters,
+}: {
+  /** What found nothing; files by default. */
+  title?: string;
+  onClearFilters: () => void;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <FileText />
+        </EmptyMedia>
+        <EmptyTitle>{title ?? ui("Không có tệp nào khớp")}</EmptyTitle>
+        <EmptyDescription>
+          {ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khóa tìm kiếm.")}
+        </EmptyDescription>
+      </EmptyHeader>
+      <Button size="sm" prominence="secondary" onClick={onClearFilters}>
+        {ui("Xóa bộ lọc")}
+      </Button>
     </Empty>
   );
 }

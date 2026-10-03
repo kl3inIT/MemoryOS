@@ -102,7 +102,7 @@ export const vi = {
     settings: "Cài đặt",
     general: "Chung",
     admin: "Quản trị",
-    owner: "Chủ tổ chức",
+    owner: "Chủ sở hữu",
     member: "Thành viên",
     lightTheme: "Dùng giao diện sáng",
     darkTheme: "Dùng giao diện tối",
@@ -176,6 +176,7 @@ export const vi = {
       "Không kết nối được nhà cung cấp giọng nói hoặc khóa bị từ chối. Kiểm tra địa chỉ, khóa và mô hình rồi thử lại.",
     chatProviderUnavailable:
       "Nhà cung cấp mô hình từ chối yêu cầu hoặc không kết nối được. Kiểm tra nhà cung cấp và mô hình rồi gửi lại.",
+    chatModelNotConfigured: "Chưa có model nào. Quản trị viên thêm model ở trang Mô hình.",
     chatWebUnavailable:
       "Tìm kiếm Web chưa dùng được: chưa có nhà cung cấp Web nào đang bật, hoặc mô hình này không gọi được công cụ.",
     chatResearchUnavailable:

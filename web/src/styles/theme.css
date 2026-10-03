@@ -74,6 +74,8 @@
   --color-action-primary-foreground: var(--action-primary-foreground);
   --color-focus-ring: var(--focus-ring);
   --color-action-selection: var(--action-selection);
+  --color-reasoning-surface: var(--reasoning-surface);
+  --color-reasoning-content: var(--reasoning-content);
 
   --color-status-danger-surface: var(--status-danger-surface);
   --color-status-danger-content: var(--status-danger-content);

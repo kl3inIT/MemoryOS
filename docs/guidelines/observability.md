@@ -79,6 +79,10 @@ Four provisioned dashboards, linked by the `memoryos` tag: *overview* (the landi
 - `memoryos.chat.turn.first.text` runs from admission to the first text the person sees, a refusal included; label `grounded`. A grounded turn holds text until its first valid citation, so its first text is later by design.
 - `memoryos.chat.guardrail.check` times the MEM-195 check before the answer model; label `kind` (`conversational`, `question`, `blocked`, `unavailable`).
 
+### Extraction metrics
+
+- `memoryos.extraction.docling.fallback` counts each Docling failure that reaches the native fallback, recorded in the worker. Labels: `reason` (`connection_failed`, `timeout`, `internal`, `malformed`) and `outcome` (`read`: published from Tika without tables or boxes; `refused`: the native text was too thin and Docling's failure stands; `failed`: the native reader failed too). All twelve series are registered at zero. The `MemoryOSDoclingFallback` alert fires on any increase within 15 minutes, and the overview dashboard shows it by reason and outcome.
+
 ### Extraction lifecycle diagnostics
 
 `ingestion.started`, `ingestion.stage.started` and terminal ingestion events carry `operation_id` (from the worker delivery MDC) and monotonic `elapsed_ms` for the current claimed processing invocation. Adjacent elapsed readings delimit storage opening, extraction (including streaming input consumption), artifact storage and transactional publication. These are not page-level OCR timings. Existing Worker `delivery_id` and `traceId`/`spanId` context distinguish processing deliveries; the operation ID identifies the logical attempt and is not a retry ordinal. Persisted first-claim queue metrics remain separate from in-process elapsed time.
@@ -91,6 +95,6 @@ The bounded Docling client logs the validated `task_id` when submission is accep
 - Upgrade to the newest compatible, tested dependency train, not individual latest artifacts. Use current official documentation and the platform BOM; document required overrides and validate the complete OTLP path.
 - When Spring AI is introduced, default to model/provider identifiers, operation outcome, latency and token usage. Prompt, completion, retrieved document and tool argument/result content must remain disabled by default. Enabling content capture requires a concrete redaction, access and retention decision.
 - Grafana MCP is a separate integration: start with scoped read-only authority, separate credentials and an explicit decision about telemetry leaving the network for a model/provider. Do not reuse administrator credentials.
-- Continuous profiling is an opt-in follow-up with measured overhead and a reviewed privilege boundary. Do not copy privileged, host-PID demo agents into staging. Frontend SDK adoption has its own issue and internal-egress design.
+- Continuous profiling is an opt-in follow-up with measured overhead and a reviewed privilege boundary. Do not copy privileged, host-PID demo agents into staging. Browser error monitoring is absent: Sentry Cloud was removed on 2026-09-28 (cost), and [MEM-200](https://linear.app/memory-os/issue/MEM-200) tracks a replacement, which needs its own internal-egress design.
 
 Reference reviewed for patterns, not staging defaults: [Spring Boot OpenTelemetry LGTM demo](https://github.com/timosalm/spring-boot-opentelemetry-lgtm/tree/099509cc75d4984a26e88de6547b933666494319). Metric APIs and histogram behavior follow the [Micrometer documentation](https://docs.micrometer.io/micrometer/reference/concepts/timers.html).

@@ -50,31 +50,25 @@ public record ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nu
         }
     }
 
-    public ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nullable ChatSource source,
-            @Nullable QueryPlan search, List<ReadingDocument> documents, @Nullable Long durationMs) {
-        this(toolCallId, toolName, stage, source, search, documents, durationMs, null, null, null);
+    public static ChatToolEvent started(Call call) {
+        return at(call, Stage.STARTED);
     }
 
-    public ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nullable ChatSource source,
-            @Nullable QueryPlan search, List<ReadingDocument> documents, @Nullable Long durationMs,
-            @Nullable String parentToolCallId, @Nullable Integer tabIndex) {
-        this(toolCallId, toolName, stage, source, search, documents, durationMs, parentToolCallId, tabIndex, null);
+    /** A stage that carries nothing beyond itself. */
+    public static ChatToolEvent at(Call call, Stage stage) {
+        return new ChatToolEvent(call.id(), call.name(), stage, null, null, List.of(), null, null, null, null);
     }
 
-    public ChatToolEvent(Call call, Stage stage) {
-        this(call.id(), call.name(), stage, null, null, List.of(), null);
+    public static ChatToolEvent searching(Call call, QueryPlan search) {
+        return new ChatToolEvent(call.id(), call.name(), Stage.SEARCHING, null, search, List.of(), null, null, null, null);
     }
 
-    public ChatToolEvent(Call call, ChatSource source) {
-        this(call.id(), call.name(), Stage.SOURCE, source, null, List.of(), null);
-    }
-
-    public ChatToolEvent(Call call, QueryPlan search) {
-        this(call.id(), call.name(), Stage.SEARCHING, null, search, List.of(), null);
+    public static ChatToolEvent source(Call call, ChatSource source) {
+        return new ChatToolEvent(call.id(), call.name(), Stage.SOURCE, source, null, List.of(), null, null, null, null);
     }
 
     public static ChatToolEvent reading(Call call, List<ReadingDocument> documents) {
-        return new ChatToolEvent(call.id(), call.name(), Stage.EXPANDING, null, null, documents, null);
+        return new ChatToolEvent(call.id(), call.name(), Stage.EXPANDING, null, null, documents, null, null, null, null);
     }
 
     public static ChatToolEvent finished(Call call, boolean failed, @Nullable Long durationMs) {
@@ -89,6 +83,11 @@ public record ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nu
 
     public Call call() {
         return new Call(toolCallId, toolName);
+    }
+
+    /** The same event as the research agent's own activity records it: without its placement or failure category. */
+    public ChatToolEvent unplaced() {
+        return new ChatToolEvent(toolCallId, toolName, stage, source, search, documents, durationMs, null, null, null);
     }
 
     /** The same event as a step of the research agent call {@code parent}. */

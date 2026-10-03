@@ -2,6 +2,7 @@ package io.memoryos.retrieval.settings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -12,6 +13,7 @@ import io.memoryos.TestDatabase;
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
+import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.opensearch.SearchProperties;
 import io.memoryos.retrieval.settings.persistence.JdbcSearchSettingsRepository;
 import io.memoryos.usage.AiUsageRecorder;
@@ -86,9 +88,22 @@ class SearchGenerationsIntegrationTest {
         assertEquals(false, stored.get("automatic"));
         assertEquals(true, stored.get("activated"));
         assertEquals("https://api.openai.com/v1", stored.get("endpoint"));
-        // The seeded provider refers to the deployment key instead of copying it into the database.
-        assertEquals(EmbeddingProviderCredentials.DEPLOYMENT, stored.get("credential"));
-        assertEquals("EXTERNAL", stored.get("data_boundary"));
+        // The seed describes the deployment's serving node and holds no key: an administrator enters it (MEM-216).
+        assertEquals("Serving", stored.get("name"));
+        assertNull(stored.get("credential"));
+        assertEquals("INTERNAL", stored.get("data_boundary"));
+    }
+
+    @Test
+    void withoutAnEndpointToSeedFromSearchIsUnavailableAndNothingIsSeeded() {
+        var unset = properties("", "Qwen/Qwen3-Embedding-4B", 2560);
+        var generations = generations(unset);
+        assertThrows(SearchUnavailableException.class, generations::present);
+        assertThrows(SearchUnavailableException.class, generations::present);
+        assertEquals(0L, count("search_settings"));
+        assertEquals(0L, count("embedding_provider"));
+        when(tenants.operatingTenant()).thenReturn(Optional.empty());
+        assertThrows(SearchUnavailableException.class, generations(unset)::present);
     }
 
     @Test
@@ -192,12 +207,12 @@ class SearchGenerationsIntegrationTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<AiUsageRecorder> usage = mock(ObjectProvider.class);
         return new SearchGenerations(new JdbcSearchSettingsRepository(jdbc), tenants,
-                new EmbeddingProviderCredentials("", properties.apiKey()), properties, new JdbcTransactionManager(database),
+                new EmbeddingProviderCredentials(""), properties, new JdbcTransactionManager(database),
                 ObservationRegistry.NOOP, usage, "");
     }
 
     private static SearchProperties properties(String endpoint, String model, int dimensions) {
-        return new SearchProperties(URI.create("http://127.0.0.1:9200"), "", "", "", endpoint, "test-only-credential", model,
+        return new SearchProperties(URI.create("http://127.0.0.1:9200"), "", "", "", endpoint, model,
                 dimensions, 32, 2, Duration.ofSeconds(1), 2, 500, .5, .70, Duration.ofSeconds(3), "memoryos-chunks", 0, "", "");
     }
 

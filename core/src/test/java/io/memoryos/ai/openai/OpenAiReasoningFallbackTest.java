@@ -2,9 +2,13 @@ package io.memoryos.ai.openai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
+import io.memoryos.ai.ModelTurns;
+import io.memoryos.ai.TurnFailure;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -14,6 +18,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.tool.ToolCallback;
 import reactor.core.publisher.Flux;
 
 class OpenAiReasoningFallbackTest {
@@ -87,17 +92,71 @@ class OpenAiReasoningFallbackTest {
         assertEquals(List.of("minimal", "none", "none"), efforts());
     }
 
+    @Test void aRefusedNoneIsRetriedWithMinimalAndOnlyThatEffortIsReplacedLater() {
+        // The first GPT-5 family refuses the helper default none; an answer's own effort must still be sent as configured.
+        String rejection = "Unsupported value: 'reasoning_effort' does not support 'none' with this model. "
+                + "Supported values are: 'minimal', 'low', 'medium', and 'high'.";
+        var fallback = new OpenAiReasoningFallback(model(prompt -> "none".equals(effortOf(prompt))
+                ? Flux.error(new IllegalStateException(rejection))
+                : Flux.just(response())));
+        fallback.stream(prompt("none")).blockLast();
+        fallback.stream(prompt("none")).blockLast();
+        fallback.call(prompt("high"));
+        assertEquals(List.of("none", "minimal", "minimal", "high"), efforts());
+    }
+
+    @Test void aToolRefusalIsRememberedOnlyForTheSameEffortWithTools() {
+        var fallback = new OpenAiReasoningFallback(model(prompt -> {
+            var options = (OpenAiChatOptions) prompt.getOptions();
+            return !options.getToolCallbacks().isEmpty() && !"none".equals(options.getReasoningEffort())
+                    ? Flux.error(new IllegalStateException(REJECTION))
+                    : Flux.just(response());
+        }));
+        fallback.stream(prompt("medium", true)).blockLast();
+        fallback.stream(prompt("medium", true)).blockLast();
+        fallback.stream(prompt("medium", false)).blockLast();
+        assertEquals(List.of("medium", "none", "none", "medium"), efforts());
+    }
+
+    @Test void aRefusalTheResponsesRouteReportsIsRetriedAndATurnKeepsWhatWasLearned() {
+        // The Responses route fails without provider text; its cause names only the effort the model accepts.
+        var route = new Route(model(prompt -> "none".equals(effortOf(prompt))
+                ? Flux.error(TurnFailure.PROVIDER_UNAVAILABLE.exception().initCause(new OpenAiReasoningFallback.Refused("minimal")))
+                : Flux.just(response())));
+        var fallback = new OpenAiReasoningFallback(route);
+        assertTrue(fallback.nativeWebSearch());
+        fallback.stream(prompt("none")).blockLast();
+        fallback.forTurn(new ModelTurns.Turn(ModelTurns.Listener.NONE, true, () -> {})).stream(prompt("none")).blockLast();
+        assertEquals(List.of("none", "minimal", "minimal"), efforts());
+    }
+
     private List<String> efforts() {
         return sent.stream().map(prompt -> ((OpenAiChatOptions) prompt.getOptions()).getReasoningEffort()).toList();
     }
 
+    private static String effortOf(Prompt prompt) {
+        return ((OpenAiChatOptions) prompt.getOptions()).getReasoningEffort();
+    }
+
     private static Prompt prompt(String effort) {
-        return new Prompt(List.of(new UserMessage("Question")),
-                OpenAiChatOptions.builder().model("gpt-5.6-luna").reasoningEffort(effort).build());
+        return prompt(effort, false);
+    }
+
+    private static Prompt prompt(String effort, boolean tools) {
+        return new Prompt(List.of(new UserMessage("Question")), OpenAiChatOptions.builder().model("gpt-5.6-luna")
+                .reasoningEffort(effort).toolCallbacks(tools ? List.of(mock(ToolCallback.class)) : List.of()).build());
     }
 
     private static ChatResponse response() {
         return new ChatResponse(List.of(new Generation(new AssistantMessage("OK"))));
+    }
+
+    /** A provider route with a per-turn view, as the Responses route is. */
+    private record Route(ChatModel model) implements ChatModel, ModelTurns {
+        @Override public ChatResponse call(Prompt prompt) { return model.call(prompt); }
+        @Override public Flux<ChatResponse> stream(Prompt prompt) { return model.stream(prompt); }
+        @Override public ChatModel forTurn(Turn turn) { return this; }
+        @Override public boolean nativeWebSearch() { return true; }
     }
 
     private ChatModel model(Function<Prompt, Flux<ChatResponse>> responses) {

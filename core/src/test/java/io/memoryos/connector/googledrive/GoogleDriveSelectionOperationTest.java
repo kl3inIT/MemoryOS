@@ -10,12 +10,11 @@ import io.memoryos.connector.googledrive.persistence.GoogleDriveCredentialConfig
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveCredentialRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
-import io.memoryos.connector.sharepoint.SharePointConnectionService;
 import io.memoryos.connector.source.SourceAccessPolicy;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
-import io.memoryos.connector.sync.ProviderAuthorityService;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.iam.group.DefaultGroupScopeService;
@@ -37,7 +36,6 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -223,13 +221,13 @@ public class GoogleDriveSelectionOperationTest {
                 oldDraft.discoveryRevision(),oldDraft.credentialRevision(),ScopeMode.SPECIFIC,links,List.of()));
         assertEquals("SOURCE_GOOGLE_REVISION_CONFLICT",staleDiscovery.code());
         var currentDraft=fixture.service.selectionDraft(fixture.owner,created.sourceId());
-        fixture.jdbc.sql("UPDATE google_drive_credentials SET credential_revision=credential_revision+1 WHERE credential_id=:id")
+        fixture.jdbc.sql("UPDATE credentials SET credential_revision=credential_revision+1 WHERE id=:id")
                 .param("id",fixture.credential.value()).update();
         var staleCredential=assertThrows(SourceException.class,() -> fixture.service.replaceRoots(
                 fixture.owner,UUID.randomUUID(),created.sourceId(),currentDraft.revision(),
                 currentDraft.discoveryRevision(),currentDraft.credentialRevision(),ScopeMode.SPECIFIC,links,List.of()));
         assertEquals("SOURCE_GOOGLE_REVISION_CONFLICT",staleCredential.code());
-        assertEquals(1,fixture.jdbc.sql("SELECT count(*) FROM google_drive_selection_operations").query(Integer.class).single());
+        assertEquals(1,fixture.jdbc.sql("SELECT count(*) FROM source_selection_operations").query(Integer.class).single());
         assertEquals(oldDraft.links(),fixture.service.selectionDraft(fixture.owner,created.sourceId()).links());
     }
 
@@ -258,11 +256,11 @@ public class GoogleDriveSelectionOperationTest {
         UUID delivery=UUID.randomUUID();
         fixture.deliver(receipt,delivery);
         var old=fixture.processor.claim(fixture.tenant,receipt.operation().id(),delivery).orElseThrow();
-        fixture.jdbc.sql("UPDATE google_drive_selection_operations SET lease_expires_at=CURRENT_TIMESTAMP-INTERVAL '1 second' WHERE id=:id")
+        fixture.jdbc.sql("UPDATE source_selection_operations SET lease_expires_at=CURRENT_TIMESTAMP-INTERVAL '1 second' WHERE id=:id")
                 .param("id",receipt.operation().id().value()).update();
         var recovered=fixture.processor.claim(fixture.tenant,receipt.operation().id(),delivery).orElseThrow();
-        assertEquals(GoogleDriveSelectionProcessor.Result.SUPERSEDED,fixture.processor.execute(old));
-        assertEquals(GoogleDriveSelectionProcessor.Result.CONTINUED,fixture.processor.execute(recovered));
+        assertEquals(SourceSelectionProcessor.Result.SUPERSEDED,fixture.processor.execute(old));
+        assertEquals(SourceSelectionProcessor.Result.CONTINUED,fixture.processor.execute(recovered));
         fixture.jdbc.sql("DELETE FROM iam_group_capability_grants WHERE tenant_id=:tenant")
                 .param("tenant",fixture.tenant.value()).update();
         fixture.batch(receipt);
@@ -295,11 +293,11 @@ public class GoogleDriveSelectionOperationTest {
         public final DefaultGoogleDriveSourceService service;
         public final GoogleDriveConnectionService connections;
         public final CredentialId credential;
-        public final Map<String,GoogleDriveProvider.FileMetadata> files=new HashMap<>();
-        public final Map<String,GoogleDriveProvider.FilePage> pages=new HashMap<>();
+        public final Map<String,GoogleDriveGateway.FileMetadata> files=new HashMap<>();
+        public final Map<String,GoogleDriveGateway.FilePage> pages=new HashMap<>();
         public final List<String> listedParents=new ArrayList<>();
         public Runnable afterProviderRead=() -> {};
-        public GoogleDriveSelectionProcessor processor;
+        public GoogleDriveSelectionAdapter processor;
         public int calls;
         private final DataSourceTransactionManager manager;
 
@@ -324,8 +322,8 @@ public class GoogleDriveSelectionOperationTest {
             var documents=new JdbcSourceDocumentRepository(jdbc);
             credentials=new JdbcGoogleDriveCredentialRepository(jdbc,sources,
                     new GoogleDriveCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]),"fixture"),documents,sync);
-            GoogleDriveProvider provider=_ -> new GoogleDriveProvider.Session() {
-                @Override public GoogleDriveProvider.FileMetadata metadata(String id) {
+            GoogleDriveGateway provider=_ -> new GoogleDriveGateway.Session() {
+                @Override public GoogleDriveGateway.FileMetadata metadata(String id) {
                     if (TransactionSynchronizationManager.isActualTransactionActive()) throw new AssertionError("Provider call held a transaction");
                     calls++;
                     var file=files.get(id);
@@ -333,7 +331,7 @@ public class GoogleDriveSelectionOperationTest {
                     afterProviderRead.run();
                     return file;
                 }
-                @Override public GoogleDriveProvider.FilePage listFiles(String parent,String cursor) {
+                @Override public GoogleDriveGateway.FilePage listFiles(String parent,String cursor) {
                     if (TransactionSynchronizationManager.isActualTransactionActive()) throw new AssertionError("Provider call held a transaction");
                     listedParents.add(parent);
                     var page=pages.get(parent+"|"+(cursor==null?"":cursor));
@@ -341,19 +339,19 @@ public class GoogleDriveSelectionOperationTest {
                     afterProviderRead.run();
                     return page;
                 }
-                @Override public GoogleDriveProvider.AcquiredContent acquire(GoogleDriveProvider.FileMetadata file) { throw new AssertionError("Selection cannot acquire content"); }
-                @Override public List<GoogleDriveProvider.Permission> permissions(String id) { throw new AssertionError("Selection cannot collect permissions"); }
-                @Override public GoogleDriveProvider.DirectoryUser directoryUser(String email) { throw new AssertionError("Selection cannot read the Directory"); }
-                @Override public GoogleDriveProvider.DirectoryPage groups(String domain,String cursor) { throw new AssertionError("Selection cannot read the Directory"); }
-                @Override public GoogleDriveProvider.MemberPage groupMembers(String group,String cursor) { throw new AssertionError("Selection cannot read the Directory"); }
+                @Override public GoogleDriveGateway.AcquiredContent acquire(GoogleDriveGateway.FileMetadata file) { throw new AssertionError("Selection cannot acquire content"); }
+                @Override public List<GoogleDriveGateway.Permission> permissions(String id) { throw new AssertionError("Selection cannot collect permissions"); }
+                @Override public GoogleDriveGateway.DirectoryUser directoryUser(String email) { throw new AssertionError("Selection cannot read the Directory"); }
+                @Override public GoogleDriveGateway.DirectoryPage groups(String domain,String cursor) { throw new AssertionError("Selection cannot read the Directory"); }
+                @Override public GoogleDriveGateway.MemberPage groupMembers(String group,String cursor) { throw new AssertionError("Selection cannot read the Directory"); }
                 @Override public byte[] rotatedRefreshToken() { return null; }
                 @Override public void close() {}
             };
             connections=TestDatabase.transactionalProxy(new GoogleDriveConnectionService(credentials,provider,manager),GoogleDriveConnectionService.class,manager);
             selections=new JdbcGoogleDriveSelectionRepository(jdbc);
             var indexing=new JdbcIndexAttemptRepository(jdbc,sources,documents,
-                    new ProviderAuthorityService(connections, Mockito.mock(SharePointConnectionService.class)));
-            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
+                    SourceSyncAdapters.registry(SourceSyncAdapters.credentials(SourceType.GOOGLE_DRIVE, connections::current)));
+            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
             try (var grant=new GoogleDriveAuthorizationService.Grant("subject","fixture@example.com",GoogleDriveAuthorizationService.REQUIRED_SCOPES,
                     "refresh".getBytes(StandardCharsets.UTF_8));
                  var client=new GoogleDriveOAuthClient("fixture.apps.googleusercontent.com","secret".getBytes(StandardCharsets.UTF_8))) {
@@ -362,7 +360,7 @@ public class GoogleDriveSelectionOperationTest {
             restartProcessor();
         }
 
-        public void restartProcessor() { processor=new DefaultGoogleDriveSelectionProcessor(selections,service,connections,manager); }
+        public void restartProcessor() { processor=new GoogleDriveSelectionAdapter(selections,service,connections,manager); }
         public List<String> mixedRoots(int count,int depth) {
             for (int i=0;i<depth;i++) files.put("ancestor"+i,file("ancestor"+i,true,i+1<depth?List.of("ancestor"+(i+1)):List.of()));
             var links=new ArrayList<String>();
@@ -384,7 +382,7 @@ public class GoogleDriveSelectionOperationTest {
         }
         public SourceOperationView operation(SelectionReceipt receipt) { return selections.find(tenant,receipt.operation().id()).orElseThrow(); }
         public void deliver(SelectionReceipt receipt,UUID delivery) {
-            jdbc.sql("UPDATE google_drive_selection_operations SET delivery_id=:delivery WHERE id=:id")
+            jdbc.sql("UPDATE source_selection_operations SET delivery_id=:delivery WHERE id=:id")
                     .param("delivery",delivery).param("id",receipt.operation().id().value()).update();
         }
         public void batch(SelectionReceipt receipt) {
@@ -401,8 +399,8 @@ public class GoogleDriveSelectionOperationTest {
             throw new AssertionError("Selection did not finish");
         }
         public static String link(String id) { return "https://drive.google.com/file/d/"+id+"/view"; }
-        public static GoogleDriveProvider.FileMetadata file(String id,boolean folder,List<String> parents) {
-            return new GoogleDriveProvider.FileMetadata(id,id,folder?"application/vnd.google-apps.folder":"text/plain","1",null,null,false,parents,null,null);
+        public static GoogleDriveGateway.FileMetadata file(String id,boolean folder,List<String> parents) {
+            return new GoogleDriveGateway.FileMetadata(id,id,folder?"application/vnd.google-apps.folder":"text/plain","1",null,null,false,parents,null,null);
         }
     }
 }

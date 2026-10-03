@@ -2,6 +2,7 @@ package io.memoryos.ai.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.memoryos.ai.TokenizerProfiles;
 import io.memoryos.ai.ModelPricing;
 import io.memoryos.ai.AiException;
 import com.embabel.agent.openai.CapabilityAwareOpenAiOptionsConverter;
@@ -44,13 +45,13 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
     }
     @Override public String type() { return "openai"; }
     @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.REQUIRED; }
-    @Override public List<TokenizerProfile> tokenizerProfiles() { return TokenizerProfiles.METADATA; }
+    @Override public List<TokenizerProfile> tokenizerProfiles() { return TokenizerProfiles.HOSTED_METADATA; }
     @Override public List<KnownModel> knownModels() { return KnownModels.models(); }
     @Override public boolean nativeWebSearch() { return true; }
 
     @Override public void validate(String baseUrl, String modelName, ModelSettings settings) {
         ModelCatalogService.validateEndpoint(baseUrl);
-        TokenizerProfiles.validate(settings);
+        TokenizerProfiles.estimator(settings.tokenizerProfile());
         if (modelName == null || modelName.isBlank() || modelName.length() > 200 || !settings.capabilities().streaming())
             throw AiException.invalid("Invalid streaming model configuration.");
         var options = settings.options();
@@ -238,30 +239,35 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                 boolean openAi = servedByOpenAi(connection.baseUrl());
                 boolean hostedSearch = supportsNativeWebSearch(settings);
                 boolean summaries = openAi || "auto".equals(settings.options().get("reasoningSummary"));
+                // Either route retries a refused reasoning effort once; only Chat Completions also refuses tools
+                // beside an effort, and its providers stream reasoning beside the answer, published to the turn as
+                // the Responses route does.
                 var model = openAi || hostedSearch || summaries
-                        ? async.decorateNative(view -> new OpenAiResponsesChatModel(
+                        ? new OpenAiReasoningFallback(async.decorateNative(view -> new OpenAiResponsesChatModel(
                                 OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
                                         .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                         .observationRegistry(observations).meterRegistry(meters).build(),
-                                view, settings.capabilities().reasoning(), hostedSearch, summaries, openAi, meters))
-                        // Only the Chat Completions route carries the tools-with-reasoning constraint; its providers
-                        // stream reasoning beside the answer, published to the turn as the Responses route does.
+                                view, settings.capabilities().reasoning(), hostedSearch, summaries, openAi, meters)))
                         : new ChatCompletionsReasoning(new OpenAiReasoningFallback(async.decorate(view -> OpenAiChatModel.builder()
                                 .openAiClient(sync).openAiClientAsync(view)
                                 .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                 .observationRegistry(observations).meterRegistry(meters).build())));
-                return new Client(binding(modelName, settings, model, TokenizerProfiles.hostedTokens()),
+                return new Client(binding(modelName, settings, model, TokenizerProfiles.estimator(settings.tokenizerProfile())),
                         () -> { try { async.close(); } finally { sync.close(); } });
             } catch (RuntimeException | Error failure) { async.close(); throw failure; }
         } catch (RuntimeException | Error failure) { sync.close(); throw failure; }
     }
 
     public static ModelBinding binding(String name, ModelSettings settings, ChatModel model, TokenCountEstimator tokens) {
-        TokenizerProfiles.validate(settings);
+        TokenizerProfiles.estimator(settings.tokenizerProfile());
         boolean completionTokens = Boolean.TRUE.equals(settings.options().get("maxCompletionTokens"));
         var nativeConverter = new CapabilityAwareOpenAiOptionsConverter(completionTokens ? ModelCapabilities.GPT5_FAMILY : ModelCapabilities.DEFAULT);
         OptionsConverter converter = (options, modelName) -> {
-            var effective = options.withTemperature(null);
+            // A helper call may name its own temperature (the guardrail check asks for 0); an answer's comes from the
+            // configuration and the turn's creativity, and a model that takes no temperature gets none.
+            boolean helper = options.getThinking() != null && !options.getThinking().getEnabled();
+            var effective = options.withTemperature(
+                    helper && OpenAiRequestPolicy.takesTemperature(settings) ? options.getTemperature() : null);
             var configured = settings.options();
             if (configured.get("temperature") instanceof Number value) effective = effective.withTemperature(value.doubleValue());
             if (configured.get("topP") instanceof Number value) effective = effective.withTopP(value.doubleValue());
@@ -270,9 +276,10 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
             var converted = (OpenAiChatOptions) nativeConverter.convertOptions(effective, modelName);
             if (configured.get("reasoningEffort") instanceof String effort) converted = converted.mutate().reasoningEffort(effort).build();
             if (settings.capabilities().reasoning() && options.getThinking() != null && !options.getThinking().getEnabled()) {
-                // This override is applied after binding options. The verified GPT-5 mini baseline supports
-                // minimal, not none; other model configurations declare their supported lowest effort.
-                String effort = (String) configured.getOrDefault("helperReasoningEffort", "minimal");
+                // This override is applied after binding options. None turns reasoning off on GPT-5.1 and later
+                // and on gateways that map it to no thinking; a model that refuses it, as the first GPT-5 family
+                // does, is retried once with the lowest effort it lists (OpenAiReasoningFallback).
+                String effort = (String) configured.getOrDefault("helperReasoningEffort", "none");
                 converted = converted.mutate().reasoningEffort(effort).build();
             }
             return converted;
@@ -286,7 +293,8 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                 (llmService, sampling) -> llmService.withOptionsConverter((requested, requestedModel) ->
                         OpenAiRequestPolicy.withSampling(
                                 llmService.getOptionsConverter().convertOptions(requested, requestedModel),
-                                requested, sampling, settings)));
+                                requested, sampling, settings)),
+                OpenAiFailures::credentialRejected, null);
     }
 
     /** Onyx {@code is_true_openai_model}: the OpenAI API host, not a compatible gateway reusing this adapter. */

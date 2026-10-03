@@ -14,14 +14,6 @@ x-staging-service-defaults: &staging-service-defaults
       max-file: "5"
 
 services:
-  web:
-    environment:
-      MEMORYOS_SENTRY_DSN: ${MEMORYOS_SENTRY_DSN:-}
-      MEMORYOS_SENTRY_CONNECT_SRC: ${MEMORYOS_SENTRY_CONNECT_SRC:-}
-      MEMORYOS_SENTRY_ENVIRONMENT: ${MEMORYOS_SENTRY_ENVIRONMENT:-staging}
-      MEMORYOS_SENTRY_REPLAY_ENABLED: ${MEMORYOS_SENTRY_REPLAY_ENABLED:-true}
-      MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
-
   postgres:
     networks:
       postgres-inspection:
@@ -44,34 +36,21 @@ services:
       keycloak:
         condition: service_healthy
 
-  # Staging shares its Keycloak, api and worker with the OrgMemory runtime on the same host.
+  # Staging's Keycloak, api and worker are reachable by the other services of the same host.
   # Production shares nothing, so the shared-infra network is declared here rather than in the base.
   #
-  # Its Keycloak runs the OrgMemory image, named in .env.staging: the orgmemory realm uses a theme
-  # that image carries. That image lacks the MemoryOS theme, so it is mounted here, and the
-  # deployment leaves this Keycloak to its operator.
+  # Keycloak itself is the release's memoryos-keycloak image, as in production; staging only adds
+  # trust in Mailpit's certificate and its place on the shared network.
   keycloak:
     environment:
       KC_TRUSTSTORE_PATHS: /run/secrets/mailpit_smtp_ca
     secrets:
       - mailpit_smtp_ca
-    volumes:
-      - ../keycloak/themes/memoryos:/opt/keycloak/themes/memoryos:ro
     networks:
-      memoryos-internal:
-        aliases:
-          - shared-keycloak
-      proxy:
-        aliases:
-          - orgmemory-keycloak
       shared-infra:
         aliases:
           - keycloak
-          - orgmemory-keycloak
           - memoryos-keycloak
-          # The container was called memoryos-shared-keycloak until MEM-171; anything on the
-          # shared host still resolving that name keeps working.
-          - memoryos-shared-keycloak
 
   api:
     networks:
@@ -202,7 +181,7 @@ services:
           - redis
 
   postgres-inspector-bootstrap:
-    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382}
+    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650}
     container_name: memoryos-postgres-inspector-bootstrap
     entrypoint:
       - /bin/sh

@@ -21,6 +21,7 @@ import {
   updateChatPersonaMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { can } from "@/lib/resource-permissions";
+import { useProblemMessage } from "@/lib/use-problem-message";
 import {
   agentRequest,
   agentValidation,
@@ -30,6 +31,7 @@ import {
   type ModelLimits,
 } from "./agent-form";
 import { agentDocumentSetsOptions } from "./agent-queries";
+import { withRequestTimeout } from "@/lib/api";
 
 /** The choices the editor offers: Sources, Document Sets, models, labels and MCP servers. */
 export function useAgentChoices(agent?: Persona) {
@@ -59,16 +61,17 @@ export function useAgentForm(agent: Persona | undefined, models: ModelLimits[] |
   const cache = useQueryClient();
   const navigate = useNavigate();
   const problemErrors = useProblemErrors();
+  const problemMessage = useProblemMessage();
   const { actorId } = useApplicationSession();
-  const create = useMutation(createChatPersonaMutation());
-  const update = useMutation(updateChatPersonaMutation());
+  const create = useMutation(withRequestTimeout(createChatPersonaMutation()));
+  const update = useMutation(withRequestTimeout(updateChatPersonaMutation()));
   const [initial] = useState(() => initialValues(agent));
   const [restored, setRestored] = useState(() => (agent ? undefined : readDraft(actorId)));
   const saved = useRef(false);
   const form = useAppForm({
     defaultValues: restored ?? initial,
     validationLogic: revalidateLogic(),
-    validators: { onDynamic: agentValidation(ui, models) },
+    validators: { onDynamic: agentValidation(ui, problemMessage, models) },
     onSubmit: async ({ value, formApi }) => {
       if (!value.name.trim()) return;
       const body = agentRequest(value, agent);

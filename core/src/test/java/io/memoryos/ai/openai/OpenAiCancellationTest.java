@@ -2,6 +2,7 @@ package io.memoryos.ai.openai;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.memoryos.ai.TokenizerProfiles;
 import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ModelSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;

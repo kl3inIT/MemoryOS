@@ -40,13 +40,13 @@ public class ModelCatalogService {
     private final ApplicationEventPublisher events;
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
-    private final ProviderAdapters adapters;
+    private final ProviderAdapterRegistry adapters;
     private final ProviderCredentials credentials;
     private final GroupScopeService groups;
     private final AuditTrail audit;
 
     public ModelCatalogService(ModelCatalogRepository catalog, AgentDirectory agents, ApplicationEventPublisher events,
-            TenantAccessResolver tenants, IamAuthorization authorization, ProviderAdapters adapters,
+            TenantAccessResolver tenants, IamAuthorization authorization, ProviderAdapterRegistry adapters,
             ProviderCredentials credentials, GroupScopeService groups, AuditTrail audit) {
         this.audit = audit;
         this.catalog = catalog;
@@ -59,7 +59,6 @@ public class ModelCatalogService {
         this.groups = groups;
     }
 
-    public record Deployment(String baseUrl, String modelName, ModelSettings settings) {}
     public record ProviderInput(String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
                                 Set<UUID> groupIds, Set<UUID> personaIds, ProviderCredentials.Change credential,
                                 DataBoundary dataBoundary) {
@@ -76,12 +75,24 @@ public class ModelCatalogService {
                                Set<UUID> groupIds, Set<UUID> personaIds, boolean credentialConfigured, long revision,
                                DataBoundary dataBoundary) {}
     /** A flow model is unavailable when it is set but no longer eligible; its flow then uses the conversation model. */
-    public record FlowView(ModelFlow flow, @Nullable UUID modelConfigurationId, boolean available, long revision) {}
+    /** One task's model and the reasoning level it runs at (its own default until one is chosen). */
+    public record FlowView(ModelFlow flow, @Nullable UUID modelConfigurationId, boolean available,
+                           ReasoningEffort reasoningEffort, long revision) {}
     public record AvailableModel(UUID id, UUID providerId, String providerName, String modelName, String displayName,
                                  ModelSettings.Capabilities capabilities, int contextWindow, @Nullable Integer maxOutputTokens,
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
-    public record Selection(ModelConfiguration model, LlmProvider provider, @Nullable String fallbackReason, @Nullable String contextRevision) {
+    /** A model to run on; {@code taskEffort} is set when the model runs a task, at the level chosen for that task. */
+    public record Selection(ModelConfiguration model, LlmProvider provider, @Nullable String fallbackReason,
+                            @Nullable String contextRevision, @Nullable ReasoningEffort taskEffort) {
+        public Selection(ModelConfiguration model, LlmProvider provider, @Nullable String fallbackReason, @Nullable String contextRevision) {
+            this(model, provider, fallbackReason, contextRevision, null);
+        }
         public Selection(ModelConfiguration model, LlmProvider provider, @Nullable String fallbackReason) { this(model, provider, fallbackReason, null); }
+
+        /** This selection running a task at {@code effort}. */
+        public Selection forTask(ReasoningEffort effort) {
+            return new Selection(model, provider, fallbackReason, contextRevision, effort);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -99,7 +110,7 @@ public class ModelCatalogService {
         if (catalog.providers(tenant).size() >= 64) throw AiException.invalid("Provider limit reached.");
         UUID id = UUID.randomUUID();
         var provider = validated(tenant, id, input, null, 1);
-        catalog.insertProvider(provider, null);
+        catalog.insertProvider(provider);
         record(tenant, actor, AuditAction.PROVIDER_CREATE, "LLM_PROVIDER", id, provider.name(), event -> event
                 .detail("adapter", provider.adapterType()).detail("dataBoundary", provider.dataBoundary().name()));
         return view(provider);
@@ -245,20 +256,31 @@ public class ModelCatalogService {
         return catalog.flowDefaults(tenant).stream().map(value -> flowView(tenant, value)).toList();
     }
 
-    /** Sets or, with no model, clears a flow model; eligibility is the Chat default rule. */
+    /**
+     * Sets or, with no model, clears a flow model, and its reasoning level; no level returns the task to its own
+     * default. Eligibility is the Chat default rule.
+     */
     @Transactional
-    public FlowView setFlowDefault(ActorId actor, ModelFlow flow, @Nullable UUID id, long revision) {
+    public FlowView setFlowDefault(ActorId actor, ModelFlow flow, @Nullable UUID id, @Nullable ReasoningEffort effort,
+                                   long revision) {
         UUID tenant = admin(actor, true);
         if (id != null && flowSelection(tenant, id) == null)
             throw AiException.invalid("A task model must be visible and available to the Tenant without Group or Persona restrictions.");
-        UUID before = catalog.flowDefault(tenant, flow).modelConfigurationId();
-        catalog.setFlowDefault(tenant, flow, id, revision);
-        if (!Objects.equals(before, id)) {
+        var before = catalog.flowDefault(tenant, flow);
+        catalog.setFlowDefault(tenant, flow, id, effort, revision);
+        var after = catalog.flowDefault(tenant, flow);
+        if (!Objects.equals(before.modelConfigurationId(), id) || before.effort() != after.effort()) {
             record(tenant, actor, AuditAction.MODEL_FLOW_CHANGE, "MODEL_FLOW", flow.name(), null,
-                    event -> event.detail("flow", flow.name()).detail("before", modelFacts(tenant, before))
-                            .detail("after", modelFacts(tenant, id)));
+                    event -> event.detail("flow", flow.name()).detail("before", flowFacts(tenant, before))
+                            .detail("after", flowFacts(tenant, after)));
         }
-        return flowView(tenant, catalog.flowDefault(tenant, flow));
+        return flowView(tenant, after);
+    }
+
+    /** The reasoning level a task's model runs at: the one an administrator chose, else the task's own default. */
+    @Transactional(readOnly = true)
+    public ReasoningEffort taskEffort(TenantId tenantId, ModelFlow flow) {
+        return catalog.flowDefault(tenantId.value(), flow).effort();
     }
 
     /** Groups a model manager may associate with a provider; scoped managers see only their own. */
@@ -333,7 +355,7 @@ public class ModelCatalogService {
         var selection = accessible(tenant, preferred, personaId, manager, groups);
         if (selection != null) return new Selection(selection.model(), selection.provider(), null, contextRevision);
         var fallback = accessible(tenant, defaultId, personaId, manager, groups);
-        if (fallback == null) throw AiException.providerUnavailable();
+        if (fallback == null) throw defaultId == null ? AiException.modelNotConfigured() : AiException.providerUnavailable();
         return new Selection(fallback.model(), fallback.provider(), "SELECTION_UNAVAILABLE", contextRevision);
     }
 
@@ -361,11 +383,13 @@ public class ModelCatalogService {
     public Selection resolveFlow(ActorId actor, ModelFlow flow) {
         var membership = tenants.lockActiveMembership(actor).orElseThrow(AiException::unavailable);
         UUID tenant = membership.tenantId().value();
-        UUID id = catalog.flowDefault(tenant, flow).modelConfigurationId();
+        var task = catalog.flowDefault(tenant, flow);
+        UUID id = task.modelConfigurationId();
+        UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
         var selection = id == null ? null : flowSelection(tenant, id);
-        if (selection == null) selection = flowSelection(tenant, catalog.defaultModel(tenant).modelConfigurationId());
-        if (selection == null) throw AiException.providerUnavailable();
-        return new Selection(selection.model(), selection.provider(), null);
+        if (selection == null && defaultId != null) selection = flowSelection(tenant, defaultId);
+        if (selection == null) throw defaultId == null ? AiException.modelNotConfigured() : AiException.providerUnavailable();
+        return new Selection(selection.model(), selection.provider(), null).forTask(task.effort());
     }
 
     @Transactional(readOnly = true)
@@ -401,7 +425,7 @@ public class ModelCatalogService {
     }
     private FlowView flowView(UUID tenant, FlowModelDefault value) {
         UUID id = value.modelConfigurationId();
-        return new FlowView(value.flow(), id, id == null || flowSelection(tenant, id) != null, value.revision());
+        return new FlowView(value.flow(), id, id == null || flowSelection(tenant, id) != null, value.effort(), value.revision());
     }
     private boolean available(LlmProvider p, UUID personaId, boolean manager, Set<UUID> groups) {
         if (!p.enabled() || !credentialUsable(p) || (!p.personaIds().isEmpty() && !p.personaIds().contains(personaId))) return false;
@@ -455,7 +479,7 @@ public class ModelCatalogService {
     private void validateModel(LlmProvider provider, String name, ModelSettings settings) {
         validateModel(adapters, provider, name, settings);
     }
-    static void validateModel(ProviderAdapters adapters, LlmProvider provider, String name, ModelSettings settings) {
+    static void validateModel(ProviderAdapterRegistry adapters, LlmProvider provider, String name, ModelSettings settings) {
         if (settings == null || !settings.capabilities().streaming()) throw AiException.invalid("Chat requires a streaming model.");
         var adapter = adapters.require(provider.adapterType());
         if (adapter.tokenizerProfiles().stream().noneMatch(profile -> profile.id().equals(settings.tokenizerProfile())))
@@ -500,6 +524,15 @@ public class ModelCatalogService {
         facts.put("enabled", provider.enabled());
         facts.put("public", provider.isPublic());
         facts.put("groups", provider.groupIds().size());
+        return facts;
+    }
+
+    /** A task's model facts and the level it runs at, so a change of either reads in the audit. */
+    private Map<String, Object> flowFacts(UUID tenant, FlowModelDefault value) {
+        var facts = new LinkedHashMap<String, Object>();
+        var model = modelFacts(tenant, value.modelConfigurationId());
+        if (model != null) facts.putAll(model);
+        facts.put("reasoningEffort", value.effort().name());
         return facts;
     }
 

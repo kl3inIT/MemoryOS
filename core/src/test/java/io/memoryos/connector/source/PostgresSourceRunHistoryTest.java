@@ -15,24 +15,22 @@ import io.memoryos.connector.*;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.googledrive.GoogleDriveConnectionService;
-import io.memoryos.connector.googledrive.GoogleDriveSyncTraversal;
+import io.memoryos.connector.googledrive.GoogleDriveSyncAdapter;
 import io.memoryos.connector.googledrive.GoogleGroupSynchronizer;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveAclRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
-import io.memoryos.connector.sharepoint.SharePointConnectionService;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRunHistoryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRunRetentionRepository;
-import io.memoryos.connector.sync.ProviderAuthorityService;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import io.memoryos.connector.sync.SourceSyncEngine;
 import io.memoryos.connector.sync.persistence.JdbcCleanupAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
-import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
@@ -103,8 +101,8 @@ class PostgresSourceRunHistoryTest {
     private TenantId tenant;
     private SourceId source;
     private final ActorId owner = new ActorId(UUID.randomUUID());
-    private final Map<String, GoogleDriveProvider.FileMetadata> files = new HashMap<>();
-    private List<GoogleDriveProvider.FileMetadata> listing = List.of();
+    private final Map<String, GoogleDriveGateway.FileMetadata> files = new HashMap<>();
+    private List<GoogleDriveGateway.FileMetadata> listing = List.of();
     private final Map<ObjectKey, byte[]> bytes = new HashMap<>();
     private final Map<ObjectKey, ObjectMetadata> metadata = new HashMap<>();
     private boolean extractionFails;
@@ -148,25 +146,26 @@ class PostgresSourceRunHistoryTest {
                 .param("nonce", new byte[12]).update();
         jdbc.sql("UPDATE connector_credential_pairs SET credential_id = :credential WHERE id = :id")
                 .param("credential", credential).param("id", source.value()).update();
-        jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
+        jdbc.sql("WITH state AS (INSERT INTO source_sync_state (tenant_id, source_id) VALUES (:tenant, :source)) "
+                + "INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
         jdbc.sql("INSERT INTO google_drive_roots(tenant_id,source_id,file_id,name,mime_type) VALUES (:tenant,:source,'folder','Folder','application/vnd.google-apps.folder')")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
-        files.put("folder", new GoogleDriveProvider.FileMetadata("folder", "Folder", "application/vnd.google-apps.folder", "1",
+        files.put("folder", new GoogleDriveGateway.FileMetadata("folder", "Folder", "application/vnd.google-apps.folder", "1",
                 null, null, false, List.of("my-drive"), null, null));
-        var session = mock(GoogleDriveProvider.Session.class);
+        var session = mock(GoogleDriveGateway.Session.class);
         when(session.metadata(any())).thenAnswer(call -> {
             var file = files.get(call.getArgument(0));
             if (file == null) throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.NOT_FOUND);
             return file;
         });
-        when(session.listFiles(any(), any())).thenAnswer(_ -> new GoogleDriveProvider.FilePage(listing, null));
-        when(session.permissions(any())).thenReturn(List.of(new GoogleDriveProvider.Permission(
+        when(session.listFiles(any(), any())).thenAnswer(_ -> new GoogleDriveGateway.FilePage(listing, null));
+        when(session.permissions(any())).thenReturn(List.of(new GoogleDriveGateway.Permission(
                 "fixture-owner", "user", "owner", "owner@example.test", null, null,
                 null, false, false, List.of(), null, null)));
         when(session.acquire(any())).thenAnswer(call -> {
-            GoogleDriveProvider.FileMetadata file = call.getArgument(0);
-            return new GoogleDriveProvider.AcquiredContent(file.name(), "text/plain", (file.id() + ":" + file.version()).getBytes(StandardCharsets.UTF_8),
+            GoogleDriveGateway.FileMetadata file = call.getArgument(0);
+            return new GoogleDriveGateway.AcquiredContent(file.name(), "text/plain", (file.id() + ":" + file.version()).getBytes(StandardCharsets.UTF_8),
                     new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(), "https://drive.google.com/file/d/" + file.id() + "/view"));
         });
         var connections = mock(GoogleDriveConnectionService.class);
@@ -174,11 +173,11 @@ class PostgresSourceRunHistoryTest {
         when(connections.open(any(), any())).thenReturn(new GoogleDriveConnectionService.Connection(session, 1));
         when(connections.state(any(), any())).thenReturn(new GoogleDriveConnectionService.State(
                 new CredentialId(UUID.randomUUID()), "owner@example.test", "ACTIVE", 1, true, "OAUTH"));
-        items = new JdbcSourceItemRepository(jdbc);
+        items = new JdbcSourceItemRepository(jdbc, _ -> { });
         mappings = new JdbcSourceDocumentRepository(jdbc);
         sync = new JdbcSourceSyncRepository(jdbc);
         attempts = new JdbcIndexAttemptRepository(jdbc, sources, mappings,
-                new ProviderAuthorityService(connections, mock(SharePointConnectionService.class)));
+                SourceSyncAdapters.registry(SourceSyncAdapters.credentials(SourceType.GOOGLE_DRIVE, connections::current)));
         storage = mock(ObjectStorage.class);
         doAnswer(call -> {
             ObjectKey key = call.getArgument(0);
@@ -200,7 +199,7 @@ class PostgresSourceRunHistoryTest {
         var writes = new DefaultObjectWriteService(new JdbcStoredObjectRepository(jdbc), new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5), Duration.ofMinutes(1), 16), manager);
         service = new SourceSyncEngine(sync, sources, items, attempts, mappings, writes,
-                List.of(new GoogleDriveSyncTraversal(new JdbcGoogleDriveSyncRepository(jdbc, sync),
+                SourceSyncAdapters.registry(new GoogleDriveSyncAdapter(new JdbcGoogleDriveSyncRepository(jdbc, sync),
                         new JdbcGoogleDriveSourceRepository(jdbc), new JdbcGoogleDriveAclRepository(jdbc, event -> {}),
                         connections, Mockito.mock(GoogleGroupSynchronizer.class))), manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
@@ -329,7 +328,8 @@ class PostgresSourceRunHistoryTest {
                     .param("id", pair.connectorId()).update();
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id")
                     .param("id", pair.sourceId().value()).update();
-            jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
+            jdbc.sql("WITH state AS (INSERT INTO source_sync_state (tenant_id, source_id) VALUES (:tenant, :source)) "
+                + "INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
                     .param("tenant", errorTenant.value()).param("source", pair.sourceId().value()).update();
             UUID runId = UUID.randomUUID();
             jdbc.sql("""
@@ -536,7 +536,7 @@ class PostgresSourceRunHistoryTest {
         list(file("one", "1"));
         var first = finish(enqueue());
         var work = claimIndex();
-        jdbc.sql("UPDATE google_drive_sources SET revision=revision+1 WHERE source_id=:source").param("source", source.value()).update();
+        jdbc.sql("UPDATE source_sync_state SET scope_revision=scope_revision+1 WHERE source_id=:source").param("source", source.value()).update();
         tx.executeWithoutResult(_ -> attempts.supersede(work));
         tx.executeWithoutResult(_ -> attempts.supersede(work));
         var settled = run(first.id());
@@ -583,7 +583,7 @@ class PostgresSourceRunHistoryTest {
         UUID legacy = UUID.randomUUID();
         jdbc.sql("""
                 INSERT INTO source_sync_attempts(id,tenant_id,source_id,scope_revision,credential_revision,generation)
-                SELECT :id,tenant_id,source_id,revision,1,generation FROM google_drive_sources WHERE source_id=:source
+                SELECT :id,tenant_id,source_id,scope_revision,1,generation FROM source_sync_state WHERE source_id=:source
                 """).param("id", legacy).param("source", source.value()).update();
         var resumed = finish(new SourceOperationId(legacy));
         assertThat(resumed.counts().acquired()).isNull();
@@ -600,7 +600,7 @@ class PostgresSourceRunHistoryTest {
     private SourceOperationId enqueue() {
         return Objects.requireNonNull(tx.execute(_ -> {
             sources.lock(tenant, source);
-            return sync.enqueue(SyncTarget.GOOGLE_DRIVE, tenant, source, 1, SourceRunTrigger.MANUAL, owner).id();
+            return sync.enqueue(tenant, source, 1, SourceRunTrigger.MANUAL, owner).id();
         }));
     }
 
@@ -643,12 +643,12 @@ class PostgresSourceRunHistoryTest {
     private static SourceRunHistoryService.Query query(String cursor, int size) {
         return new SourceRunHistoryService.Query(cursor, size, Set.of(), null, null, null);
     }
-    private void list(GoogleDriveProvider.FileMetadata... values) {
+    private void list(GoogleDriveGateway.FileMetadata... values) {
         listing = List.of(values);
         for (var file : values) files.put(file.id(), file);
     }
-    private static GoogleDriveProvider.FileMetadata file(String id, String version) {
-        return new GoogleDriveProvider.FileMetadata(id, id + ".txt", "text/plain", version, null, null, false, List.of("folder"), null, null);
+    private static GoogleDriveGateway.FileMetadata file(String id, String version) {
+        return new GoogleDriveGateway.FileMetadata(id, id + ".txt", "text/plain", version, null, null, false, List.of("folder"), null, null);
     }
     private static ContentSha256 checksum(byte[] value) throws Exception {
         return new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value)));

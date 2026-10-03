@@ -8,12 +8,13 @@ import { FormDialog } from "@/components/composites/form-dialog";
 import { personLabel } from "@/features/identity/principals";
 import { invalidateAgents, type Persona } from "@/features/chat/chat-personas-api";
 import { PrincipalPicker, type Principal } from "@/features/identity/principal-picker";
+import { withRequestTimeout } from "@/lib/api";
 
 export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClose: () => void }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const transfer = useMutation({
-    ...transferChatPersonaMutation(),
+    ...withRequestTimeout(transferChatPersonaMutation()),
     onSuccess: () => invalidateAgents(cache, agent.id),
   });
   const [target, setTarget] = useState<Principal>();

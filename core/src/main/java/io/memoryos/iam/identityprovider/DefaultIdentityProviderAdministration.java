@@ -39,6 +39,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class DefaultIdentityProviderAdministration implements IdentityProviderAdministration {
 
     private static final String OIDC = "oidc";
+    private static final String STANDARD_OIDC_PROFILE_SCOPE = "openid email profile";
 
     private final IamAuthorization authorization;
     private final IdentityProviderGateway gateway;
@@ -207,7 +208,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         config.put("clientId", command.clientId());
         config.put("clientSecret", command.clientSecret());
         config.put("syncMode", "IMPORT");
-        config.put("defaultScope", "openid");
+        config.put("defaultScope", STANDARD_OIDC_PROFILE_SCOPE);
         config.put("hideOnLoginPage", "false");
         syncBackchannelLogout(config);
         representation.setConfig(config);
@@ -250,6 +251,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
                 existing.getConfig() == null ? Map.of() : existing.getConfig()
         );
         config.put("clientId", update.clientId());
+        config.put("defaultScope", STANDARD_OIDC_PROFILE_SCOPE);
         if (update.clientSecret() != null) {
             config.put("clientSecret", update.clientSecret());
         }

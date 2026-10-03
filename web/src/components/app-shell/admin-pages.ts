@@ -3,6 +3,7 @@ import {
   AudioLines,
   Blocks,
   Bot,
+  Cable,
   CloudUpload,
   Globe,
   ImageIcon,
@@ -39,6 +40,7 @@ export type AdminPage =
   | "models"
   | "searchSettings"
   | "mcp"
+  | "mcpEndpoint"
   | "agents"
   | "costs"
   | "audit";
@@ -147,9 +149,18 @@ export const adminPages: readonly AdminPageEntry[] = [
     visible: (authority) => authority.canManageMcp,
   },
   {
+    id: "mcpEndpoint",
+    to: "/admin/mcp-endpoint",
+    label: appText("MemoryOS MCP"),
+    title: appText("MemoryOS MCP"),
+    icon: Cable,
+    group: "agents",
+    visible: (authority) => authority.canManageMcp,
+  },
+  {
     id: "sources",
     to: "/admin",
-    label: appText("Existing sources"),
+    label: appText("Sources"),
     title: appText("Sources"),
     icon: Plug,
     group: "knowledge",
@@ -250,7 +261,6 @@ export function adminPage(id: AdminPage) {
 /** Where the administration entry lands: the first page of this order the person may open. */
 const entryOrder: readonly AdminPage[] = [
   "sources",
-  "groups",
   "users",
   "providers",
   "models",
@@ -258,6 +268,7 @@ const entryOrder: readonly AdminPage[] = [
   "agents",
   "audit",
   "chatHistory",
+  "groups",
 ];
 
 export function adminEntryPage(authority: AdminAuthority) {

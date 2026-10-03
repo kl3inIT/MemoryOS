@@ -217,8 +217,9 @@ public final class SearchTool implements AutoCloseable {
             queries.forEach(q -> addQuery(requests, new SearchQuery(q, false, .7)));
             if (preparation.reuseExpansion()) expansion.keywords().forEach(q -> addQuery(requests, new SearchQuery(q, true, 1)));
             if (question.length() <= 2000) addQuery(requests, new SearchQuery(question, false, .5));
-            events.accept(new ChatToolEvent(call(),
-                    new ChatToolEvent.QueryPlan(requests.values().stream().map(SearchQuery::text).distinct().toList(), filters)));
+            events.accept(ChatToolEvent.searching(call(),
+                    new ChatToolEvent.QueryPlan(requests.values().stream().map(SearchQuery::text).distinct().toList(),
+                    filters)));
             scopeNote = scopeNote(filters.sources(), requests.values().stream().map(SearchQuery::text).distinct().toList());
             if (preparation.beforeCutoff()) return "No authorized evidence found. Do not invent an organization-specific answer.";
             var ranked = search.ranked(scope, List.copyOf(requests.values()), filters, checkActive);
@@ -648,11 +649,11 @@ public final class SearchTool implements AutoCloseable {
         String key = hit.documentId() + ":" + hit.generation() + ":" + included.getFirst().ordinal() + ":" + included.getLast().ordinal();
         if (tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included, sandboxName)) > budget) return;
         checkActive.run();
-        var source = evidence.register(key, id -> new ChatSource(id, hit.documentId(), hit.generation(), hit.title(),
-                included.getFirst().ordinal(), included.getLast().ordinal(), included.stream()
-                .map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList(), null, null, null,
-                hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
-                DocumentSourceMetadata.providerUrl(hit.origins())), call());
+        var source = evidence.register(key, id -> ChatSource.document(id, hit.documentId(), hit.generation(), hit.title(),
+                included.getFirst().ordinal(), included.getLast().ordinal(),
+                included.stream().map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList())
+                .described(hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
+                        DocumentSourceMetadata.providerUrl(hit.origins())), call());
         if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included, sandboxName));
     }
 
@@ -669,7 +670,7 @@ public final class SearchTool implements AutoCloseable {
         return title.substring(0, end);
     }
 
-    private void progress(ChatToolEvent.Stage stage) { events.accept(new ChatToolEvent(call(), stage)); }
+    private void progress(ChatToolEvent.Stage stage) { events.accept(ChatToolEvent.at(call(), stage)); }
     private ChatToolEvent.Call call() {
         var current = activity.current();
         return current == null ? SEARCH_CALL : current;

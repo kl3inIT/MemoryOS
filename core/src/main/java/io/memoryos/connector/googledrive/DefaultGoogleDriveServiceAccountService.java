@@ -2,7 +2,7 @@ package io.memoryos.connector.googledrive;
 
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveException;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveServiceAccountKey;
 import io.memoryos.connector.GoogleDriveServiceAccountService;
@@ -25,12 +25,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class DefaultGoogleDriveServiceAccountService implements GoogleDriveServiceAccountService {
     private static final Pattern EMAIL = Pattern.compile("[^@\\s]{1,64}@[A-Za-z0-9.-]{1,253}");
     private final JdbcGoogleDriveCredentialRepository credentials;
-    private final GoogleDriveProvider provider;
+    private final GoogleDriveGateway provider;
     private final IamAuthorization authorization;
     private final JdbcGoogleGroupRepository groups;
     private final TransactionTemplate transactions;
 
-    public DefaultGoogleDriveServiceAccountService(JdbcGoogleDriveCredentialRepository credentials, GoogleDriveProvider provider,
+    public DefaultGoogleDriveServiceAccountService(JdbcGoogleDriveCredentialRepository credentials, GoogleDriveGateway provider,
             IamAuthorization authorization, JdbcGoogleGroupRepository groups, PlatformTransactionManager transactionManager) {
         this.credentials = credentials;
         this.groups = groups;
@@ -81,7 +81,7 @@ public class DefaultGoogleDriveServiceAccountService implements GoogleDriveServi
             key.close();
             throw GoogleDriveException.serviceAccountAdminRequired();
         }
-        try (var credential = new GoogleDriveProvider.ServiceAccountCredential(key, admin);
+        try (var credential = new GoogleDriveGateway.ServiceAccountCredential(key, admin);
              var session = provider.open(credential)) {
             GoogleDriveRootValidation.resolveMyDriveRoot(session);
             var user = session.directoryUser(admin);

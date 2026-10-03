@@ -15,10 +15,11 @@ import {
   type ChatHistory,
   type ChatUiMessage,
 } from "@/features/chat/chat-api";
-import { MemoryOsChatTransport, type ConnectionState } from "./chat-transport";
+import { COMMITTED_FAILURE, MemoryOsChatTransport, type ConnectionState } from "./chat-transport";
 
 const sendProblems = {
   CHAT_PROVIDER_UNAVAILABLE: { key: "chatProviderUnavailable" },
+  CHAT_MODEL_NOT_CONFIGURED: { key: "chatModelNotConfigured" },
   CHAT_CAPACITY_EXCEEDED: { key: "chatBusy" },
   CHAT_INVALID_REQUEST: { key: "chatRejected" },
   CHAT_WEB_UNAVAILABLE: { key: "chatWebUnavailable" },
@@ -262,6 +263,8 @@ export class ChatThreadController {
 
   /** A named rejection tells the actor what to change; an unnamed transport failure keeps the generic notice. */
   markUnfinished(cause?: unknown) {
+    // A failure the server committed is shown on the answer; nothing about the reply is unconfirmed.
+    if (cause instanceof Error && cause.message === COMMITTED_FAILURE) return;
     const presented =
       cause === undefined ? undefined : presentProblem(cause, "mutation", sendProblems);
     this.set({ error: presented?.code ? presented.message : "unfinished" });

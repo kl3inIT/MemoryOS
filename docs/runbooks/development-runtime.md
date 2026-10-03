@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - JDK 25 and the checked-in Gradle wrapper.
-- Node.js 24 with Corepack for the `web/` application.
+- Node.js 26 and pnpm 11.22.0, installed with `npm install --global pnpm@11.22.0`, for the `web/` application. Corepack is not used.
 - Docker with the Compose plugin. Direct development uses one named, persistent PostgreSQL and Redis pair from `infrastructure/deployment/compose.development.yaml`.
 - Access to the developer-scoped Infisical `dev` environment, its configured development Keycloak realm and clients, and its explicitly provisioned S3/MinIO bucket and readiness sentinel. Staging access is not required for a local direct run.
 - A reachable Docling Serve endpoint is required only when the worker processes PDF, DOCX, or PPTX; an idle worker and TXT/Markdown extraction do not require it.
@@ -82,7 +82,7 @@ The image entrypoint fetches nothing over the network: its launcher turns every 
 | `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
 | `SPRING_PROFILES_ACTIVE` | No | Local Gradle and IntelliJ launches use Arconia development bootstrap mode, whose checked-in bootstrap properties activate `development`. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
-`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
+`MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT` (8 hours unused; a session also ends 7 days after the password, with Keycloak's SSO session), object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
 
 ### Provider credential keys
 
@@ -97,6 +97,8 @@ unreadable.
 | `MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY` | API and worker | Base64 32-byte AES key sealing the Entra client secret or certificate private key; pair it with `MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION`. |
 | `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` | API | Base64 32-byte AES key sealing MCP OAuth client secrets, header templates and User credentials. Missing configuration disables MCP secret writes and reads. |
 | `MEMORYOS_MCP_REDIRECT_URI` | API | HTTPS (or loopback HTTP locally) ending in `/login/oauth2/code/mcp`, registered on each MCP OAuth client. |
+| `MEMORYOS_MCP_ENDPOINT_URL` | API | Optional (MEM-114). The browser origin followed by `/mcp`; it is the token audience and the protected resource Claude and ChatGPT are given. Unset, there is no MCP endpoint and the Tenant switch stays locked. Its Keycloak side is in the [MCP endpoint runbook](mcp-endpoint.md). |
+| `MEMORYOS_MCP_ADMIN_CLIENT_SECRET` | API | MEM-207. The `memoryos-mcp-admin` secret the realm script gave Keycloak; with it the API keeps Keycloak's trusted MCP app hosts, without it the list is read-only. On a server it is the `mcp_admin_client_secret` secret file. |
 
 There is no server-wide default Google client: a manager uploads a Google **Web application OAuth client JSON** of at
 most 16 KiB and enables the Drive, Sheets and Docs APIs in that project. SharePoint takes an **Entra application** with
@@ -130,7 +132,7 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 ## Reconcile Keycloak owner and clients
 
-`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, selects the repository-owned `memoryos` login theme, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, `memoryos-redisinsight`, and `memoryos-minio-console`, and creates confidential service-account client `memoryos-user-provisioner`. The application and OAuth2 Proxy clients require S256 PKCE. The pinned native MinIO Console does not emit a `code_challenge`, so its confidential client instead relies on its secret, exact `/oauth_callback`, OIDC state, and claim-based authorization without a Keycloak PKCE requirement. The script creates realm role `memoryos-inspector`, assigns it only to the realm-local initial owner, exposes that role only to the three inspection clients, and maps it to the MinIO `policy` claim. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, selects the repository-owned `memoryos` login theme, offers Vietnamese (the default) and English with the language following the browser, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, `memoryos-redisinsight`, and `memoryos-minio-console`, and creates confidential service-account client `memoryos-user-provisioner`. The application and OAuth2 Proxy clients require S256 PKCE. The pinned native MinIO Console does not emit a `code_challenge`, so its confidential client instead relies on its secret, exact `/oauth_callback`, OIDC state, and claim-based authorization without a Keycloak PKCE requirement. The script creates realm role `memoryos-inspector`, assigns it only to the realm-local initial owner, exposes that role only to the three inspection clients, and maps it to the MinIO `policy` claim. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
 
 ### Deploy or update the MemoryOS login theme
 
@@ -149,7 +151,7 @@ docker compose \
 
 Reconciliation first reads Keycloak `serverinfo` and requires exactly one login theme named `memoryos`; it then updates only the `memoryos` realm and reads the realm back to require `loginTheme=memoryos`. Do not disable theme or template caching in staging or production. For local theme development only, Keycloak's documented `--spi-theme--static-max-age=-1 --spi-theme--cache-themes=false --spi-theme--cache-templates=false` flags may be supplied to a disposable local server and must not enter Compose.
 
-Verify sign-in, forgot-password, invitation `VERIFY_EMAIL` and `UPDATE_PASSWORD`, success, invalid/expired action-token, and mobile layouts. Roll back by checking out the prior repository revision, recreating shared Keycloak, and rerunning the prior reconciliation script; do not edit the OrgMemory realm or change the public issuer.
+Verify sign-in, forgot-password, invitation `VERIFY_EMAIL` and `UPDATE_PASSWORD`, success, invalid/expired action-token, and mobile layouts. Roll back by checking out the prior repository revision, recreating Keycloak, and rerunning the prior reconciliation script; do not change the public issuer.
 
 The script also selects the `memoryos` login theme. Its source is `infrastructure/keycloak/themes/memoryos/`, which compose bind-mounts read-only into `keycloak`. Keycloak caches themes outside development mode, so after the mount is added or the theme changes, recreate the service (`docker compose ... up -d --no-deps --wait keycloak`) before replaying the realm script. A missing theme falls back to the Keycloak default rather than breaking sign-in.
 
@@ -184,7 +186,12 @@ MEMORYOS_KEYCLOAK_SMTP_USERNAME # required when auth is true
 MEMORYOS_KEYCLOAK_SMTP_PASSWORD # required when auth is true
 MEMORYOS_KEYCLOAK_SMTP_STARTTLS # defaults to true
 MEMORYOS_KEYCLOAK_SMTP_SSL # defaults to false; exactly one transport flag is true
+MEMORYOS_MCP_ENDPOINT_URL # optional; exactly the browser origin followed by /mcp (MEM-114)
+MEMORYOS_MCP_ADMIN_CLIENT_SECRET   # required with MEMORYOS_MCP_ENDPOINT_URL and only with it
 ```
+
+With `MEMORYOS_MCP_ENDPOINT_URL` the script also configures the MCP endpoint's scope, audience, Claude client policy
+and the ChatGPT client; the [MCP endpoint runbook](mcp-endpoint.md) owns that part.
 
 Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set all three inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb and Redis Insight OAuth secrets remain separate from the MinIO OIDC secret. Store every client secret outside Git; mount pgweb/Redis Insight secrets into their OAuth2 Proxies and the MinIO OIDC secret directly into MinIO.
 
@@ -301,7 +308,6 @@ Production HTTPS keeps `MEMORYOS_SESSION_COOKIE_SECURE` unset so it defaults to 
 With the API on loopback port `18080`:
 
 ```powershell
-corepack enable
 cd web
 pnpm install --frozen-lockfile
 pnpm dev
@@ -309,14 +315,7 @@ pnpm dev
 
 The `dev` script generates the API client before starting Vite. Keep pnpm's `--package=...` options **before** `dlx` in `generate:api`; pnpm 11 can otherwise interpret `--package` as the package name and fail with `ERR_PNPM_FETCH_404`. Preserve the pinned generator and its TypeScript 6 package; the application uses its separately pinned TypeScript version.
 
-On Windows, an `Unsupported engine` warning can identify a different Node version from `node --version`: a Corepack `.cmd` launcher prefers a `node.exe` beside itself over `PATH`. For example, a tool-bundled Corepack may use Node 22 while the shell selects Node 26. With a supported Node selected by the shell, run the installed Corepack JavaScript entry point directly from `web/`:
-
-```powershell
-$corepackRoot = Split-Path (Get-Command corepack.cmd -ErrorAction Stop).Source
-node (Join-Path $corepackRoot 'node_modules/corepack/dist/corepack.js') pnpm dev
-```
-
-This retains the repository-pinned pnpm and normal API generation without modifying the other tool's runtime or lowering the project's Node requirement. Node 24 remains the CI baseline.
+Node 26 is the CI and image baseline; `package.json` accepts Node 24 and later.
 
 Vite listens on `127.0.0.1:8080` and proxies `/api`, `/oauth2`, `/login/oauth2`, `/logout`, and `/actuator` to `MEMORYOS_API_URL`, which defaults to `http://127.0.0.1:18080`. Open the exact loopback origin registered in Keycloak so the generated callback uses the same host. The loopback-only development proxy removes the production `Secure` attribute from response cookies because local verification uses HTTP; it preserves every other cookie attribute. Production Nginx never performs this rewrite.
 
@@ -462,7 +461,7 @@ docker compose \
   up -d --wait
 ```
 
-Only shared Keycloak, web, and the three OAuth2 Proxies join the external proxy network; Mailpit, pgweb, and Redis Insight remain on private backends. PostgreSQL binds to server loopback port `5556` by default; Keycloak, API, and web diagnostics default to `18180`, `18080`, and `18081`, while the inspection proxies also bind loopback ports `18026` and `18027`. Shared Keycloak keeps `orgmemory-keycloak`, `memoryos-keycloak`, and `keycloak` aliases while public issuers remain under `https://auth.kl3in.tech`.
+Only Keycloak, web, and the three OAuth2 Proxies join the external proxy network; Mailpit, pgweb, and Redis Insight remain on private backends. PostgreSQL binds to server loopback port `5556` by default; Keycloak, API, and web diagnostics default to `18180`, `18080`, and `18081`, while the inspection proxies also bind loopback ports `18026` and `18027`. Keycloak answers to the `memoryos-keycloak` and `keycloak` aliases, and the public issuer remains under `https://auth.kl3in.tech`.
 
 For local database access:
 

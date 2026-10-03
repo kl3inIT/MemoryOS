@@ -254,7 +254,7 @@ class BearerAuthenticationIntegrationTest {
         assertEquals(200, response.statusCode());
         assertEquals(
                 "{\"actorId\":\"" + ACTOR_ID
-                        + "\",\"tenant\":null,\"capabilities\":[],\"scopedCapabilities\":[],\"authorizationVersion\":0,\"uiLanguage\":\"vi\"}",
+                        + "\",\"displayName\":null,\"tenant\":null,\"capabilities\":[],\"scopedCapabilities\":[],\"authorizationVersion\":0,\"uiLanguage\":\"vi\"}",
                 response.body()
         );
     }

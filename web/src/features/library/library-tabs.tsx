@@ -1,0 +1,187 @@
+import type { ReactNode } from "react";
+import { Building2, Clock, FolderOpen, Star, Users } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TextButton } from "@/components/ui/text-button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { i18n } from "@/i18n/index";
+import { cn } from "@/lib/utils";
+import { fileSize } from "@/lib/file-size";
+import type { LibraryView } from "./library-views";
+import type { LibraryUsage } from "./storage-meter";
+
+/** Where the storage summary turns into a warning: the owner still has room, but not much. */
+const NEARLY_FULL = 90;
+
+type Section = {
+  value: string;
+  label: string;
+  icon: ReactNode;
+  /** The views the tab holds; the first opens when the tab is chosen. */
+  views: readonly [LibraryView, ...LibraryView[]];
+};
+
+/**
+ * The library's navigation: one row of tabs under the page title, so the application sidebar stays the only menu
+ * beside the page. What the person owns — their files, what is arriving, the trash — is one tab, and so are the
+ * organisation's Sources and documents; the views inside such a tab are one choice above its content, as the
+ * toolbar's other choices are. The organisation's tab needs Search, so a person without it never sees it. What the
+ * account has stored ends the row. The view on screen is the open tab's panel.
+ */
+export function LibraryTabs({
+  view,
+  count,
+  usage,
+  sources,
+  onView,
+  onShowLargest,
+  children,
+}: {
+  view: LibraryView;
+  /** How many items the view on screen holds, when it counts them. */
+  count?: number;
+  usage?: LibraryUsage;
+  /** Whether the organisation's tab lists its Sources, which the composing page supplies. */
+  sources: boolean;
+  onView: (next: LibraryView) => void;
+  onShowLargest: () => void;
+  /** The view on screen. */
+  children: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  const canReadDocuments = useGlobalCapability("SEARCH_READ");
+  const sections: Section[] = [
+    { value: "recent", label: ui("Gần đây"), icon: <Clock />, views: ["recent"] },
+    {
+      value: "mine",
+      label: ui("Của tôi"),
+      icon: <FolderOpen />,
+      views: ["ready", "pending", "trash"],
+    },
+    { value: "shared", label: ui("Được chia sẻ"), icon: <Users />, views: ["shared"] },
+    { value: "starred", label: ui("Có gắn sao"), icon: <Star />, views: ["starred"] },
+    ...(canReadDocuments
+      ? [
+          {
+            value: "organisation",
+            label: ui("Tổ chức"),
+            icon: <Building2 />,
+            views: sources ? (["sources", "documents"] as const) : (["documents"] as const),
+          },
+        ]
+      : []),
+  ];
+  const viewLabels: Record<LibraryView, string> = {
+    recent: ui("Gần đây"),
+    ready: ui("Tệp"),
+    pending: ui("Đang xử lý"),
+    trash: ui("Thùng rác"),
+    shared: ui("Được chia sẻ"),
+    starred: ui("Có gắn sao"),
+    sources: ui("Nguồn dữ liệu"),
+    documents: ui("Tài liệu"),
+  };
+  const section = sections.find((entry) => entry.views.includes(view));
+
+  return (
+    <Tabs
+      value={section?.value ?? ""}
+      onValueChange={(next) => {
+        const chosen = sections.find((entry) => entry.value === next);
+        if (chosen) onView(chosen.views[0]);
+      }}
+    >
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border-subtle pb-1">
+          <TabsList
+            variant="line"
+            aria-label={ui("Phần của thư viện")}
+            className="h-auto flex-wrap justify-start group-data-horizontal/tabs:h-auto"
+          >
+            {sections.map((entry) => (
+              <TabsTrigger key={entry.value} value={entry.value} className="flex-none">
+                {entry.icon}
+                {entry.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {usage && usage.fileCount > 0 && (
+            <StorageSummary usage={usage} onShowLargest={onShowLargest} />
+          )}
+        </div>
+        {section ? (
+          <TabsContent value={section.value}>
+            <div className="flex min-w-0 flex-col gap-4">
+              {section.views.length > 1 && (
+                <ToggleGroup
+                  type="single"
+                  size="sm"
+                  value={view}
+                  aria-label={section.label}
+                  // Choosing the view on screen again keeps it rather than leaving no view.
+                  onValueChange={(next) => next && onView(next as LibraryView)}
+                >
+                  {section.views.map((entry) => (
+                    <ToggleGroupItem key={entry} value={entry} size="sm">
+                      {viewLabels[entry]}
+                      {entry === view && (count ?? 0) > 0 && (
+                        <span className="text-content-muted tabular-nums">{count}</span>
+                      )}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              )}
+              {children}
+            </div>
+          </TabsContent>
+        ) : (
+          children
+        )}
+      </div>
+    </Tabs>
+  );
+}
+
+/** What the account has stored against what it may store, with the one action that helps when it runs out. */
+function StorageSummary({
+  usage,
+  onShowLargest,
+}: {
+  usage: LibraryUsage;
+  onShowLargest: () => void;
+}) {
+  const ui = useAppTranslation();
+  const limit = usage.limitBytes ?? null;
+  const percent = limit ? Math.min(100, Math.round((usage.usedBytes / limit) * 100)) : 0;
+  const nearlyFull = limit !== null && percent >= NEARLY_FULL;
+  return (
+    <section aria-label={ui("Dung lượng đã dùng")} className="flex items-center gap-3">
+      <p
+        className={cn(
+          "font-secondary-body tabular-nums",
+          nearlyFull ? "text-status-danger-content" : "text-content-muted",
+        )}
+      >
+        {fileSize(usage.usedBytes, i18n.language)}
+        {limit === null ? (
+          <span> · {ui("Không giới hạn")}</span>
+        ) : (
+          <span> / {fileSize(limit, i18n.language)}</span>
+        )}
+      </p>
+      {limit !== null && (
+        <Progress
+          value={percent}
+          aria-label={ui("Dung lượng đã dùng")}
+          tone={nearlyFull ? "danger" : "default"}
+          className="w-24"
+        />
+      )}
+      <TextButton size="sm" onClick={onShowLargest}>
+        {ui("Xem tệp lớn nhất")}
+      </TextButton>
+    </section>
+  );
+}

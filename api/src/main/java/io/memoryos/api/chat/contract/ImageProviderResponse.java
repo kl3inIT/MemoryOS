@@ -1,5 +1,6 @@
 package io.memoryos.api.chat.contract;
 
+import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProvider;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
@@ -14,10 +15,11 @@ public record ImageProviderResponse(
         @Nullable ImageKnownModelResponse editModel,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageKnownModelResponse> knownModels
 ) {
-    public static ImageProviderResponse from(ImageProvider value) {
-        var edit = value.editModel();
-        return new ImageProviderResponse(value, value.requiresKey(), value.defaultEndpoint(), value.endpointRequired(),
-                edit == null ? null : ImageKnownModelResponse.from(edit),
-                value.knownModels().stream().map(ImageKnownModelResponse::from).toList());
+    public static ImageProviderResponse from(ImageConnectionService.Installed value) {
+        var capabilities = value.capabilities();
+        var edit = capabilities.editModel();
+        return new ImageProviderResponse(value.provider(), capabilities.requiresKey(), capabilities.defaultEndpoint(),
+                capabilities.endpointRequired(), edit == null ? null : ImageKnownModelResponse.from(edit),
+                capabilities.knownModels().stream().map(ImageKnownModelResponse::from).toList());
     }
 }

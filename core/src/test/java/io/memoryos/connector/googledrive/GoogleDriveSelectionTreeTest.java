@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.SourceException;
@@ -45,8 +45,8 @@ class GoogleDriveSelectionTreeTest {
         f.files.put(nested.id(), nested);
         f.files.put(plain.id(), plain);
         f.files.put(document.id(), document);
-        f.pages.put("root0|", new GoogleDriveProvider.FilePage(List.of(nested), null));
-        f.pages.put("nested|", new GoogleDriveProvider.FilePage(List.of(plain, document), null));
+        f.pages.put("root0|", new GoogleDriveGateway.FilePage(List.of(nested), null));
+        f.pages.put("nested|", new GoogleDriveGateway.FilePage(List.of(plain, document), null));
         var locations = List.of(new LinkOrigin("root0", "document", "Document", "Sheet!B2"),
                 new LinkOrigin("root0", "document", "Document", "Sheet!B3"),
                 new LinkOrigin("root1", "document", "Document", "Sheet!B2"));
@@ -151,10 +151,10 @@ class GoogleDriveSelectionTreeTest {
     void providerPagesRetainEveryUnseenChildAcrossSmallerApiPagesAndRejectChangedPageOrder() throws Exception {
         var f = fixture();
         var source = create(f, 1);
-        var files = new ArrayList<GoogleDriveProvider.FileMetadata>();
+        var files = new ArrayList<GoogleDriveGateway.FileMetadata>();
         for (int i = 0; i < 105; i++) files.add(file("child" + i, false, List.of("root0")));
-        f.pages.put("root0|", new GoogleDriveProvider.FilePage(files.subList(0, 100), "next-provider-page"));
-        f.pages.put("root0|next-provider-page", new GoogleDriveProvider.FilePage(files.subList(100, 105), null));
+        f.pages.put("root0|", new GoogleDriveGateway.FilePage(files.subList(0, 100), "next-provider-page"));
+        f.pages.put("root0|next-provider-page", new GoogleDriveGateway.FilePage(files.subList(100, 105), null));
         var all = new ArrayList<String>();
         String cursor = null;
         for (int i = 0; i < 5; i++) {
@@ -163,11 +163,11 @@ class GoogleDriveSelectionTreeTest {
             cursor = page.nextCursor();
         }
         assertNull(cursor);
-        assertEquals(files.stream().map(GoogleDriveProvider.FileMetadata::id).toList(), all);
+        assertEquals(files.stream().map(GoogleDriveGateway.FileMetadata::id).toList(), all);
         var first = tree(f, source, "root0", null, 25);
         var changed = new ArrayList<>(files.subList(0, 100));
         Collections.swap(changed, 0, 1);
-        f.pages.put("root0|", new GoogleDriveProvider.FilePage(changed, "next-provider-page"));
+        f.pages.put("root0|", new GoogleDriveGateway.FilePage(changed, "next-provider-page"));
         assertThrows(SourceException.class, () -> tree(f, source, "root0", first.nextCursor(), 25));
     }
 
@@ -191,15 +191,18 @@ class GoogleDriveSelectionTreeTest {
     void authorityChangesDuringMetadataIoDiscardTheWholePage(String authority) throws Exception {
         var f = fixture();
         var source = create(f, 1);
-        f.pages.put("root0|", new GoogleDriveProvider.FilePage(List.of(file("child", false, List.of("root0"))), null));
+        f.pages.put("root0|", new GoogleDriveGateway.FilePage(List.of(file("child", false, List.of("root0"))), null));
         f.afterProviderRead = () -> {
             f.afterProviderRead = () -> {};
             if (authority.equals("credential")) {
-                f.jdbc.sql("UPDATE google_drive_credentials SET credential_revision=credential_revision+1 WHERE tenant_id=:tenant AND credential_id=:credential")
+                f.jdbc.sql("UPDATE credentials SET credential_revision=credential_revision+1 WHERE tenant_id=:tenant AND id=:credential")
                         .param("tenant", f.tenant.value()).param("credential", f.credential.value()).update();
             } else if (authority.equals("owner")) {
                 f.jdbc.sql("UPDATE tenant_memberships SET status='INACTIVE' WHERE tenant_id=:tenant AND actor_id=:owner")
                         .param("tenant", f.tenant.value()).param("owner", f.owner.value()).update();
+            } else if (authority.equals("revision")) {
+                f.jdbc.sql("UPDATE source_sync_state SET scope_revision=scope_revision+1 WHERE tenant_id=:tenant AND source_id=:source")
+                        .param("tenant", f.tenant.value()).param("source", source.value()).update();
             } else {
                 f.jdbc.sql("UPDATE google_drive_sources SET " + authority + "=" + authority + "+1 WHERE tenant_id=:tenant AND source_id=:source")
                         .param("tenant", f.tenant.value()).param("source", source.value()).update();
@@ -231,7 +234,7 @@ class GoogleDriveSelectionTreeTest {
         f.jdbc.sql("DELETE FROM iam_group_memberships WHERE group_id=:admin AND actor_id=:actor")
                 .param("admin", f.tenant.value()).param("actor", f.owner.value()).update();
         assertEquals(source, f.service.configuration(f.owner, source).sourceId());
-        f.pages.put("root0|", new GoogleDriveProvider.FilePage(List.of(file("child", false, List.of("root0"))), null));
+        f.pages.put("root0|", new GoogleDriveGateway.FilePage(List.of(file("child", false, List.of("root0"))), null));
         f.afterProviderRead = () -> f.jdbc.sql("DELETE FROM iam_group_memberships WHERE group_id=:group AND actor_id=:actor")
                 .param("group", visible).param("actor", f.owner.value()).update();
         assertThrows(SourceException.class, () -> tree(f, source, "root0", null, 25));
@@ -250,9 +253,9 @@ class GoogleDriveSelectionTreeTest {
         f.finish(receipt);
         var source = receipt.sourceId();
         assertEquals(List.of("my-drive"), ids(tree(f, source, null, null, 25)));
-        f.pages.put("my-drive|", new GoogleDriveProvider.FilePage(List.of(file("inside", false, List.of("my-drive"))), null));
+        f.pages.put("my-drive|", new GoogleDriveGateway.FilePage(List.of(file("inside", false, List.of("my-drive"))), null));
         assertEquals(List.of("inside"), ids(tree(f, source, "my-drive", null, 25)));
-        f.pages.put("my-drive|", new GoogleDriveProvider.FilePage(List.of(new GoogleDriveProvider.FileMetadata(
+        f.pages.put("my-drive|", new GoogleDriveGateway.FilePage(List.of(new GoogleDriveGateway.FileMetadata(
                 "foreign", "Foreign", "text/plain", "1", null, null, false, List.of("my-drive"), "shared-drive", null)), null));
         assertEquals(GoogleDriveProviderException.Failure.INCONSISTENT,
                 assertThrows(GoogleDriveProviderException.class, () -> tree(f, source, "my-drive", null, 25)).failure());

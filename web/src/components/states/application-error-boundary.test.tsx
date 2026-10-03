@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApplicationErrorBoundary } from "./application-error-boundary";
 
@@ -7,24 +8,20 @@ function BrokenView(): never {
 }
 
 describe("ApplicationErrorBoundary", () => {
-  it("reports a render exception once and preserves the application fallback", () => {
-    const onError = vi.fn();
+  it("replaces a failed render with the application fallback and retries through onReset", async () => {
     const onReset = vi.fn();
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     try {
       render(
-        <ApplicationErrorBoundary onError={onError} onReset={onReset}>
+        <ApplicationErrorBoundary onReset={onReset}>
           <BrokenView />
         </ApplicationErrorBoundary>,
       );
 
       expect(screen.getByText("MemoryOS stopped unexpectedly.")).toBeVisible();
-      expect(onError).toHaveBeenCalledOnce();
-      expect(onError.mock.calls[0]?.[0]).toMatchObject({
-        message: "intentional root boundary smoke",
-      });
-      expect(onError.mock.calls[0]?.[1]).toContain("BrokenView");
+      await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(onReset).toHaveBeenCalledOnce();
     } finally {
       consoleError.mockRestore();
     }

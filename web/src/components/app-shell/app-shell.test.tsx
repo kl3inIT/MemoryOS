@@ -19,18 +19,25 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import { AppShell } from "./app-shell";
 
-function session(capabilities: ApplicationCapability[]): ApplicationSession {
+function session(
+  capabilities: ApplicationCapability[],
+  displayName: string | null = null,
+): ApplicationSession {
   return {
     actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
     authorizationVersion: 1,
     uiLanguage: "en",
+    displayName,
     tenant: { displayName: "Tasco", role: "MEMBER" },
     capabilities,
     scopedCapabilities: [],
   };
 }
-
-async function renderShell(path: string, capabilities: ApplicationCapability[]) {
+async function renderShell(
+  path: string,
+  capabilities: ApplicationCapability[],
+  displayName: string | null = null,
+) {
   vi.stubGlobal("scrollTo", vi.fn());
   const root = createRootRoute();
   const authenticated = createRoute({
@@ -44,7 +51,7 @@ async function renderShell(path: string, capabilities: ApplicationCapability[]) 
     pendingMinMs: 0,
     pendingComponent: () => <p>Opening</p>,
     component: () => (
-      <ApplicationSessionProvider session={session(capabilities)}>
+      <ApplicationSessionProvider session={session(capabilities, displayName)}>
         <ThemeProvider>
           <AppShell>
             <Outlet />
@@ -93,7 +100,7 @@ it("shows only the administration pages the session may open, in their sections"
     within(navigation)
       .getAllByRole("link")
       .map((link) => link.textContent),
-  ).toEqual(["Conversation history", "Audit log"]);
+  ).toEqual(["Groups", "Conversation history", "Audit log"]);
   expect(within(navigation).getByRole("link", { name: "Conversation history" })).toHaveAttribute(
     "aria-current",
     "page",
@@ -101,6 +108,20 @@ it("shows only the administration pages the session may open, in their sections"
   expect(screen.getByText("History page")).toBeInTheDocument();
 });
 
+it("names the person on the account button and keeps the role in its menu", async () => {
+  const user = userEvent.setup();
+  await renderShell("/admin/audit", ["AUDIT_READ"], "Nhữ Nhật");
+
+  await user.click(await screen.findByRole("button", { name: "Nhữ Nhật" }));
+
+  expect(await screen.findByText("Member")).toBeInTheDocument();
+});
+
+it("names the role on the account button when the identity provider sent a blank name", async () => {
+  await renderShell("/admin/audit", ["AUDIT_READ"], "   ");
+
+  expect(await screen.findByRole("button", { name: "Member" })).toBeInTheDocument();
+});
 it("keeps the sidebar mounted while moving between administration pages", async () => {
   const user = userEvent.setup();
   await renderShell("/admin/chat-history", ["AUDIT_READ", "CHAT_HISTORY_READ"]);

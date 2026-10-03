@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./deployment-policy";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) =>
@@ -35,6 +36,31 @@ async function preview(page: Page, filename: string) {
 
 async function shot(page: Page, name: string) {
   if (shots) await page.screenshot({ path: `${shots}/${name}.png` });
+}
+
+for (const [label, viewport, colorScheme] of [
+  ["desktop", { width: 1440, height: 900 }, "light"],
+  ["desktop-dark", { width: 1440, height: 900 }, "dark"],
+  ["mobile", { width: 390, height: 844 }, "light"],
+] as const) {
+  test(`shows a generated image the answer links to inside the answer on ${label}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ colorScheme });
+    await openFiles(page);
+    const image = page.getByRole("img", { name: "Biểu đồ doanh thu theo miền.png" });
+    await image.scrollIntoViewIfNeeded();
+    await expect(image).toBeVisible();
+    await expect
+      .poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth))
+      .toBeGreaterThan(0);
+    await shot(page, `${label}-inline-image`);
+    await preview(page, "Biểu đồ doanh thu theo miền.png");
+    await expect(
+      page.getByRole("dialog", { name: "Biểu đồ doanh thu theo miền.png" }),
+    ).toBeVisible();
+  });
 }
 
 for (const [label, viewport, colorScheme] of [
@@ -152,12 +178,20 @@ test("charts and file previews work under the deployment CSP", async ({ page }) 
     .filter({ hasText: "Doanh thu theo tháng" });
   await line.scrollIntoViewIfNeeded();
   await expect(line.locator(".recharts-line")).toHaveCount(3);
-  // Series colors survive: an inline <style> would be dropped by style-src 'self'.
-  const stroke = await line
+  // Series colors survive: an inline <style> would be dropped by style-src 'self'. The first series is --chart-1.
+  const [stroke, chartOne] = await line
     .locator(".recharts-line-curve")
     .first()
-    .evaluate((path) => getComputedStyle(path).stroke);
-  expect(stroke).toBe("rgb(59, 130, 246)");
+    .evaluate((path) => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--chart-1)";
+      document.body.append(probe);
+      const expected = getComputedStyle(probe).color;
+      probe.remove();
+      return [getComputedStyle(path).stroke, expected];
+    });
+  expect(stroke).toBe(chartOne);
+  expect(stroke).not.toBe("rgb(0, 0, 0)");
   await line.screenshot(shots ? { path: `${shots}/csp-chart.png` } : {});
 
   await preview(page, "bieu_do_doanh_thu.png");

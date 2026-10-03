@@ -11,10 +11,9 @@ import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointSourceService;
-import io.memoryos.connector.googledrive.GoogleDriveConnectionService;
+import io.memoryos.connector.SourceType;
 import io.memoryos.connector.sync.LockingStatementCounter;
-import io.memoryos.connector.sync.ProviderAuthorityService;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SharePointSourceService.Scope;
 import io.memoryos.connector.SharePointSourceService.ScopeMode;
@@ -23,6 +22,8 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.SourceStatus;
+import io.memoryos.connector.sync.SourceSyncAdapterRegistry;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository;
@@ -33,7 +34,6 @@ import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
-import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.connector.sync.SourceSyncEngine;
 import io.memoryos.connector.sharepoint.persistence.SharePointCredentialConfiguration;
 import io.memoryos.document.DocumentId;
@@ -95,12 +95,12 @@ class PostgresSharePointSyncTest {
     private ActorId owner;
     private SourceId source;
     private CredentialId credential;
-    private SharePointProvider.Session session;
+    private SharePointGateway.Session session;
     private JdbcSharePointSyncRepository runs;
     private JdbcSharePointSourceRepository sharePoint;
     private JdbcSourceSyncRepository attempts;
     private JdbcIndexAttemptRepository indexing;
-    private ProviderAuthorityService authority;
+    private SourceSyncAdapterRegistry authority;
     private OperationDispatchPort dispatch;
     private SourceSyncEngine service;
     private TransactionTemplate tx;
@@ -127,22 +127,22 @@ class PostgresSharePointSyncTest {
 
         var sources = new JdbcSourceRepository(jdbc, event -> { });
         var documents = new JdbcSourceDocumentRepository(jdbc);
-        var items = new JdbcSourceItemRepository(jdbc);
+        var items = new JdbcSourceItemRepository(jdbc, _ -> { });
         attempts = new JdbcSourceSyncRepository(jdbc);
         runs = new JdbcSharePointSyncRepository(jdbc);
         sharePoint = new JdbcSharePointSourceRepository(jdbc, sources);
         var credentialRows = new JdbcSharePointCredentialRepository(jdbc, sources,
                 new SharePointCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test"));
         var currentConnections = new SharePointConnectionService(credentialRows, sharePoint,
-                mock(SharePointProvider.class), manager);
-        authority = new ProviderAuthorityService(
-                mock(GoogleDriveConnectionService.class), currentConnections);
+                mock(SharePointGateway.class), manager);
+        authority = SourceSyncAdapters.registry(
+                SourceSyncAdapters.credentials(SourceType.SHAREPOINT, currentConnections::current));
         indexing = new JdbcIndexAttemptRepository(jdbc, sources, documents, authority);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc),
                 OperationDispatchPort.class, manager);
 
-        session = mock(SharePointProvider.Session.class);
-        when(session.root()).thenReturn(new SharePointProvider.RootSite(SITE, "https://contoso.sharepoint.com",
+        session = mock(SharePointGateway.Session.class);
+        when(session.root()).thenReturn(new SharePointGateway.RootSite(SITE, "https://contoso.sharepoint.com",
                 "contoso.sharepoint.com"));
         var connections = mock(SharePointConnectionService.class);
         when(connections.state(any(), any())).thenReturn(new SharePointConnectionService.State(credential,
@@ -172,7 +172,7 @@ class PostgresSharePointSyncTest {
                         Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), manager);
         service = new SourceSyncEngine(attempts, sources, items, indexing, documents, writes,
-                List.of(new SharePointSyncTraversal(runs, sharePoint, attempts, connections)), manager);
+                SourceSyncAdapters.registry(new SharePointSyncAdapter(runs, sharePoint, attempts, connections)), manager);
         seedSource();
     }
 
@@ -180,10 +180,10 @@ class PostgresSharePointSyncTest {
     void currentSharePointVersionCanReplayAndPublish() {
         var file = file("file-current", "Current.pdf", Instant.now());
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(file), null, "delta-link"));
         when(session.item(DRIVE, "file-current")).thenReturn(file);
         when(session.content(any(), eq("contoso.sharepoint.com"), anyInt()))
-                .thenReturn(new SharePointProvider.Content("Current.pdf", "application/pdf", "current".getBytes()));
+                .thenReturn(new SharePointGateway.Content("Current.pdf", "application/pdf", "current".getBytes()));
 
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
         UUID version = jdbc.sql("""
@@ -208,8 +208,8 @@ class PostgresSharePointSyncTest {
         assertEquals("ACTIVE", jdbc.sql("SELECT status FROM connector_credential_pairs WHERE id=:id")
                 .param("id", source.value()).query(String.class).single());
         jdbc.sql("""
-                UPDATE sharepoint_credentials SET credential_revision = credential_revision + 1
-                WHERE tenant_id = :tenant AND credential_id = :credential
+                UPDATE credentials SET credential_revision = credential_revision + 1
+                WHERE tenant_id = :tenant AND id = :credential
                 """).param("tenant", tenant.value()).param("credential", credential.value()).update();
         assertFalse(Boolean.TRUE.equals(tx.execute(_ -> indexing.canReplay(tenant, source, version))));
     }
@@ -218,10 +218,10 @@ class PostgresSharePointSyncTest {
     void refreshStoresChangedContentAndQueuesItForIndexing() {
         var file = file("file-new", "Bao cao.pdf", Instant.now());
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(file), null, "delta-link"));
         when(session.item(DRIVE, "file-new")).thenReturn(file);
         when(session.content(any(), eq("contoso.sharepoint.com"), anyInt()))
-                .thenReturn(new SharePointProvider.Content("Bao cao.pdf", "application/pdf",
+                .thenReturn(new SharePointGateway.Content("Bao cao.pdf", "application/pdf",
                         "noi dung bao cao".getBytes(StandardCharsets.UTF_8)));
 
         var result = service.execute(claim(enqueue()));
@@ -246,12 +246,12 @@ class PostgresSharePointSyncTest {
     void refreshCollectsSitePagesWhenTheSourceAsksForThem() {
         collectPages();
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
-        var metadata = new SharePointProvider.SitePageMetadata("page-1", "Trang chủ",
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
+        var metadata = new SharePointGateway.SitePageMetadata("page-1", "Trang chủ",
                 "https://contoso.sharepoint.com/sites/Finance/SitePages/Home.aspx", "etag-1", Instant.now());
         when(session.pages(eq(SITE), any()))
-                .thenReturn(new SharePointProvider.SitePageList(List.of(metadata), null));
-        when(session.page(SITE, "page-1")).thenReturn(new SharePointProvider.PageContent(metadata,
+                .thenReturn(new SharePointGateway.SitePageList(List.of(metadata), null));
+        when(session.page(SITE, "page-1")).thenReturn(new SharePointGateway.PageContent(metadata,
                 "{\"schema\":\"memoryos-sharepoint-page-v1\"}".getBytes(StandardCharsets.UTF_8)));
 
         var result = service.execute(claim(enqueue()));
@@ -276,9 +276,9 @@ class PostgresSharePointSyncTest {
         seedItem("page-gone", "Trang cũ");
         pruneDue();
         when(session.delta(eq(DRIVE), isNull(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
         when(session.pages(eq(SITE), any()))
-                .thenReturn(new SharePointProvider.SitePageList(List.of(), null));
+                .thenReturn(new SharePointGateway.SitePageList(List.of(), null));
 
         assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(enqueue())));
 
@@ -295,7 +295,7 @@ class PostgresSharePointSyncTest {
     @Test
     void refreshRemovesWhatATombstoneReports() {
         seedItem("file-gone", "Gone.docx");
-        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointProvider.DeltaPage(
+        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointGateway.DeltaPage(
                 List.of(tombstone("file-gone")), null, "delta-link"));
 
         var result = service.execute(claim(enqueue()));
@@ -315,7 +315,7 @@ class PostgresSharePointSyncTest {
                 .param("end", Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)))
                 .param("tenant", tenant.value()).update();
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(moved), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(moved), null, "delta-link"));
         // Reading the item back is where acquisition starts; one unreadable item does not fail the run.
         when(session.item(any(), any())).thenThrow(new SharePointProviderException(
                 SharePointProviderException.Failure.NOT_FOUND));
@@ -334,7 +334,7 @@ class PostgresSharePointSyncTest {
         seedItem("file-vanished", "Vanished.docx");
         pruneDue();
         when(session.delta(eq(DRIVE), isNull(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(present), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(present), null, "delta-link"));
 
         var work = claim(enqueue());
         var first = service.execute(work);
@@ -367,15 +367,15 @@ class PostgresSharePointSyncTest {
     void aRunLeftOpenByACancelledAttemptDoesNotBlockTheNextOne() {
         // An endless change log hands the run back with its checkpoint, so the run is still open.
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(), "next-page", null));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), "next-page", null));
         assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(enqueue())));
         tx.executeWithoutResult(_ -> attempts.supersede(tenant, source));
 
         reset(session);
-        when(session.root()).thenReturn(new SharePointProvider.RootSite(SITE, "https://contoso.sharepoint.com",
+        when(session.root()).thenReturn(new SharePointGateway.RootSite(SITE, "https://contoso.sharepoint.com",
                 "contoso.sharepoint.com"));
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
 
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
         assertEquals(List.of("CANCELLED", "SUCCEEDED"), runStatuses());
@@ -405,10 +405,10 @@ class PostgresSharePointSyncTest {
     void aStorageFailureIsAnItemErrorThatTheNextRunRetriesAndResolves() {
         var file = file("file-stored", "Stored.pdf", Instant.now());
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(file), null, "delta-link"));
         when(session.item(DRIVE, "file-stored")).thenReturn(file);
         when(session.content(any(), eq("contoso.sharepoint.com"), anyInt()))
-                .thenReturn(new SharePointProvider.Content("Stored.pdf", "application/pdf", "stored".getBytes()));
+                .thenReturn(new SharePointGateway.Content("Stored.pdf", "application/pdf", "stored".getBytes()));
         doThrow(new ObjectStorageException(ObjectStorageFailureCode.UNAVAILABLE, true, null))
                 .doAnswer(storeObject).when(storage).write(any(), any(), any());
         var first = enqueue();
@@ -440,10 +440,10 @@ class PostgresSharePointSyncTest {
 
     @Test
     void failuresOfMoreThanThreeItemsAndATenthOfTheRunAbortItAndRetryTheAttempt() {
-        var files = new ArrayList<SharePointProvider.DriveItem>();
+        var files = new ArrayList<SharePointGateway.DriveItem>();
         for (int index = 0; index < 5; index++) files.add(file("file-" + index, "Report " + index + ".pdf", Instant.now()));
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(files, null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(files, null, "delta-link"));
         when(session.item(eq(DRIVE), any())).thenThrow(new SharePointProviderException(
                 SharePointProviderException.Failure.MALFORMED));
         var operation = enqueue();
@@ -490,12 +490,12 @@ class PostgresSharePointSyncTest {
                 UPDATE sharepoint_roots SET kind = 'SITE', drive_id = NULL
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
-        when(session.libraries(SITE)).thenReturn(List.of(new SharePointProvider.Library(DRIVE, "Documents",
+        when(session.libraries(SITE)).thenReturn(List.of(new SharePointGateway.Library(DRIVE, "Documents",
                 "/sites/Finance/Shared Documents")));
         var pages = new AtomicInteger();
         when(session.delta(eq(DRIVE), any(), any())).thenAnswer(_ -> pages.incrementAndGet() < 20
-                ? new SharePointProvider.DeltaPage(List.of(), "next-page", null)
-                : new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+                ? new SharePointGateway.DeltaPage(List.of(), "next-page", null)
+                : new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
         var operation = enqueue();
 
         assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(operation)));
@@ -507,22 +507,22 @@ class PostgresSharePointSyncTest {
 
     @Test
     void anUnchangedFileTakesOneFenceOfFourLocks() {
-        var files = new ArrayList<SharePointProvider.DriveItem>();
+        var files = new ArrayList<SharePointGateway.DriveItem>();
         for (int index = 0; index < 10; index++) {
             var file = file("file-" + index, "Report " + index + ".pdf", Instant.now());
             files.add(file);
             when(session.item(DRIVE, file.id())).thenReturn(file);
         }
         when(session.content(any(), eq("contoso.sharepoint.com"), anyInt())).thenAnswer(call ->
-                new SharePointProvider.Content(((SharePointProvider.DriveItem) call.getArgument(0)).name(),
-                        "application/pdf", ((SharePointProvider.DriveItem) call.getArgument(0)).id().getBytes()));
-        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "l"));
+                new SharePointGateway.Content(((SharePointGateway.DriveItem) call.getArgument(0)).name(),
+                        "application/pdf", ((SharePointGateway.DriveItem) call.getArgument(0)).id().getBytes()));
+        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "l"));
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
         locks.reset();
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
         int empty = locks.count();
 
-        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointProvider.DeltaPage(files, null, "l"));
+        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointGateway.DeltaPage(files, null, "l"));
         locks.reset();
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
         int acquiring = locks.count() - empty;
@@ -542,7 +542,7 @@ class PostgresSharePointSyncTest {
         seedItem("file-vanished", "Vanished.docx");
         pruneDue();
         when(session.delta(eq(DRIVE), isNull(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
 
         assertEquals(1, service.enqueueDue(10));
         var operation = new SourceOperationId(jdbc.sql("""
@@ -558,7 +558,7 @@ class PostgresSharePointSyncTest {
     void aPruneThatCannotStartWaitsForTheNextRefreshSlot() {
         pruneDue();
         tx.executeWithoutResult(_ -> {
-            attempts.postpone(SyncTarget.SHAREPOINT, tenant, source);
+            attempts.postpone(tenant, source);
             runs.postponePrune(tenant, source);
         });
 
@@ -574,7 +574,7 @@ class PostgresSharePointSyncTest {
     void aScopeChangeRereadsTheWholeNewScope() {
         jdbc.sql("UPDATE sharepoint_sources SET refresh_window_end = CURRENT_TIMESTAMP WHERE tenant_id = :tenant")
                 .param("tenant", tenant.value()).update();
-        long revision = jdbc.sql("SELECT scope_revision FROM sharepoint_sources WHERE tenant_id = :tenant")
+        long revision = jdbc.sql("SELECT scope_revision FROM source_sync_state WHERE tenant_id = :tenant")
                 .param("tenant", tenant.value()).query(Long.class).single();
         var scope = new Scope(ScopeMode.SPECIFIC, List.of("https://contoso.sharepoint.com/sites/Finance/Shared Documents"),
                 List.of(), List.of(), true, false, 30, 168);
@@ -585,7 +585,7 @@ class PostgresSharePointSyncTest {
         assertNull(refreshWindowEnd(), "the documents of the old scope were hidden, so nothing may be skipped");
 
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
         verify(session).delta(DRIVE, null, null);
     }
@@ -596,11 +596,11 @@ class PostgresSharePointSyncTest {
         // A chain deeper than one execution's step budget, one file per folder.
         int depth = 20;
         for (int level = 0; level < depth; level++) {
-            var children = new ArrayList<SharePointProvider.DriveItem>();
+            var children = new ArrayList<SharePointGateway.DriveItem>();
             children.add(file("file-" + level, "Report " + level + ".pdf", Instant.now()));
             if (level + 1 < depth) children.add(folder("folder-" + (level + 1)));
             when(session.children(DRIVE, "folder-" + level, null))
-                    .thenReturn(new SharePointProvider.ItemPage(children, null));
+                    .thenReturn(new SharePointGateway.ItemPage(children, null));
         }
         when(session.item(any(), any())).thenThrow(new SharePointProviderException(
                 SharePointProviderException.Failure.NOT_FOUND));
@@ -620,7 +620,7 @@ class PostgresSharePointSyncTest {
         collectPages();
         jdbc.sql("UPDATE sharepoint_sources SET include_documents = FALSE WHERE tenant_id = :tenant")
                 .param("tenant", tenant.value()).update();
-        when(session.pages(eq(SITE), any())).thenReturn(new SharePointProvider.SitePageList(List.of(), null));
+        when(session.pages(eq(SITE), any())).thenReturn(new SharePointGateway.SitePageList(List.of(), null));
 
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
         verify(session, never()).delta(any(), any(), any());
@@ -635,7 +635,7 @@ class PostgresSharePointSyncTest {
         when(session.delta(eq(DRIVE), notNull(), any())).thenThrow(new SharePointProviderException(
                 SharePointProviderException.Failure.RESYNC_REQUIRED));
         when(session.delta(DRIVE, null, null))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(file), null, "delta-link"));
         when(session.item(any(), any())).thenThrow(new SharePointProviderException(
                 SharePointProviderException.Failure.NOT_FOUND));
 
@@ -646,7 +646,7 @@ class PostgresSharePointSyncTest {
     @Test
     void aPausedSourceIsNeitherScheduledNorWrittenBy() {
         when(session.delta(eq(DRIVE), any(), any()))
-                .thenReturn(new SharePointProvider.DeltaPage(List.of(file("file-late", "Late.pdf", Instant.now())),
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(file("file-late", "Late.pdf", Instant.now())),
                         null, "delta-link"));
         var work = claim(enqueue());
         jdbc.sql("UPDATE connector_credential_pairs SET status = 'PAUSED' WHERE tenant_id = :tenant AND id = :source")
@@ -669,8 +669,8 @@ class PostgresSharePointSyncTest {
                 """).param("item", itemId).param("tenant", tenant.value()).param("source", source.value()).update();
     }
 
-    private static SharePointProvider.DriveItem folder(String id) {
-        return new SharePointProvider.DriveItem(id, id, true, false, 0, null, null, "etag-" + id, Instant.now(),
+    private static SharePointGateway.DriveItem folder(String id) {
+        return new SharePointGateway.DriveItem(id, id, true, false, 0, null, null, "etag-" + id, Instant.now(),
                 Instant.now(), "root-1", "/Reports", null, null, DRIVE);
     }
 
@@ -694,7 +694,7 @@ class PostgresSharePointSyncTest {
     }
 
     private SourceOperationId enqueue() {
-        return Objects.requireNonNull(tx.execute(_ -> attempts.enqueue(SyncTarget.SHAREPOINT, tenant, source, 1L, SourceRunTrigger.MANUAL, owner).id()));
+        return Objects.requireNonNull(tx.execute(_ -> attempts.enqueue(tenant, source, 1L, SourceRunTrigger.MANUAL, owner).id()));
     }
 
     /** Stands in for the relay, which stamps the delivery a worker then claims. */
@@ -710,14 +710,14 @@ class PostgresSharePointSyncTest {
         }));
     }
 
-    private SharePointProvider.DriveItem file(String id, String name, Instant modified) {
-        return new SharePointProvider.DriveItem(id, name, false, false, 12, "application/pdf", "hash-" + id,
+    private SharePointGateway.DriveItem file(String id, String name, Instant modified) {
+        return new SharePointGateway.DriveItem(id, name, false, false, 12, "application/pdf", "hash-" + id,
                 "etag-" + id, modified, modified, "root-1", "/Reports",
                 "https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/" + name, null, DRIVE);
     }
 
-    private static SharePointProvider.DriveItem tombstone(String id) {
-        return new SharePointProvider.DriveItem(id, null, false, true, 0, null, null, null, null, null,
+    private static SharePointGateway.DriveItem tombstone(String id) {
+        return new SharePointGateway.DriveItem(id, null, false, true, 0, null, null, null, null, null,
                 "root-1", null, null, null, DRIVE);
     }
 
@@ -738,8 +738,8 @@ class PostgresSharePointSyncTest {
                 .param("actor", owner.value()).update();
         jdbc.sql("""
                 INSERT INTO sharepoint_credentials (tenant_id, credential_id, directory_id, client_id, cloud,
-                    auth_method, connection_status, secret_ciphertext, secret_nonce, secret_key_version)
-                VALUES (:tenant, :credential, :directory, :client, 'GLOBAL', 'CLIENT_SECRET', 'ACTIVE',
+                    auth_method, secret_ciphertext, secret_nonce, secret_key_version)
+                VALUES (:tenant, :credential, :directory, :client, 'GLOBAL', 'CLIENT_SECRET',
                     :ciphertext, :nonce, 'v1')
                 """).param("tenant", tenant.value()).param("credential", credential.value())
                 .param("directory", UUID.randomUUID()).param("client", UUID.randomUUID())

@@ -193,7 +193,7 @@ export function McpServerEditor({
                 description={
                   editing && values.url.trim() !== server.url ? (
                     <span className="text-status-warning-content">
-                      {ui("Đổi địa chỉ sẽ xoá thông tin đăng nhập đã lưu và danh sách công cụ.")}
+                      {ui("Đổi địa chỉ sẽ xóa thông tin đăng nhập đã lưu và danh sách công cụ.")}
                     </span>
                   ) : undefined
                 }
@@ -235,7 +235,7 @@ export function McpServerEditor({
 
         <div className="flex justify-end gap-2">
           <Button prominence="secondary" onClick={onClose}>
-            {ui("Huỷ")}
+            {ui("Hủy")}
           </Button>
           <Button type="submit" pending={saving} disabled={!complete || saving}>
             {ui(editing ? "Lưu" : "Thêm")}
@@ -267,7 +267,7 @@ function AuthFields({
             onChange={field.handleChange}
             options={[
               { value: "OAUTH", label: ui("OAuth") },
-              { value: "API_TOKEN", label: ui("Khoá API") },
+              { value: "API_TOKEN", label: ui("Khóa API") },
               { value: "NONE", label: ui("Không cần") },
             ]}
           />
@@ -276,7 +276,7 @@ function AuthFields({
       {server && values.authType !== server.authType ? (
         <FieldDescription>
           <span className="text-status-warning-content">
-            {ui("Đổi cách đăng nhập sẽ xoá thông tin đăng nhập đã lưu.")}
+            {ui("Đổi cách đăng nhập sẽ xóa thông tin đăng nhập đã lưu.")}
           </span>
         </FieldDescription>
       ) : null}
@@ -320,10 +320,10 @@ function AuthFields({
         <form.AppField name="apiKey">
           {(field) => (
             <field.TextField
-              label={ui("Khoá API dùng chung")}
+              label={ui("Khóa API dùng chung")}
               type="password"
               autoComplete="off"
-              placeholder={server ? ui("Để trống để giữ khoá đã lưu") : ""}
+              placeholder={server ? ui("Để trống để giữ khóa đã lưu") : ""}
             />
           )}
         </form.AppField>

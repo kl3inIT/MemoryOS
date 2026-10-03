@@ -681,15 +681,30 @@ export type ChatHistoryVisibilityRequest = {
 };
 
 export type ChatGuardrailTopic = {
-    topic: 'POLITICS' | 'LEADERS' | 'RELIGION';
-    enabled: boolean;
+    /**
+     * Absent for a topic this request creates
+     */
+    id?: string;
+    name: string;
+    /**
+     * What the model classifies a question by
+     */
+    description: string;
+    /**
+     * Example questions about the topic
+     */
+    examples: Array<string>;
     /**
      * What the person is told when a question matches
      */
     message: string;
+    enabled: boolean;
 };
 
 export type ChatGuardrailsRequest = {
+    /**
+     * Every topic of the Tenant, in order; one left out is deleted
+     */
     topics: Array<ChatGuardrailTopic>;
     /**
      * Exact phrases no question or answer may contain; at most 20 of at most 100 characters
@@ -704,7 +719,7 @@ export type ChatGuardrailsRequest = {
 
 export type ChatGuardrailsResponse = {
     /**
-     * Every built-in topic, in a fixed order
+     * Every topic of the Tenant, in order
      */
     topics: Array<ChatGuardrailTopic>;
     blockedPhrases: Array<string>;
@@ -1130,18 +1145,163 @@ export type Pricing = {
  * Tenant model for one task; no model uses the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
      */
     available: boolean;
+    /**
+     * How hard the task's model thinks: the level chosen for the task, else its own default (medium for meeting minutes, off for the others); a model that does not reason ignores it
+     */
+    reasoningEffort: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     revision: number;
 };
 
 export type Default = {
     modelConfigurationId: string | null;
     revision: number;
+};
+
+export type McpEndpointSettingsRequest = {
+    enabled: boolean;
+    revision: number;
+};
+
+export type McpEndpointSettingsResponse = {
+    /**
+     * Whether this deployment configured an MCP endpoint URL; without one the switch stays off
+     */
+    configured: boolean;
+    enabled: boolean;
+    revision: number;
+    /**
+     * The URL people add to Claude or ChatGPT; present when configured
+     */
+    url: string | null;
+};
+
+export type McpTrustedAppEnabledRequest = {
+    enabled: boolean;
+    revision: number;
+};
+
+/**
+ * An outside assistant the MCP endpoint admits by the URL of its client metadata document
+ */
+export type McpTrustedAppResponse = {
+    id: string;
+    preset: 'CLAUDE' | 'CHATGPT' | 'CUSTOM';
+    name: string;
+    /**
+     * Hosts the document's URL may have
+     */
+    clientIdHosts: Array<string>;
+    /**
+     * Hosts the URIs inside the document may have
+     */
+    documentHosts: Array<string>;
+    enabled: boolean;
+    /**
+     * Claude and ChatGPT can be switched off, not removed
+     */
+    builtIn: boolean;
+    revision: number;
+};
+
+export type McpEndpointConnectionResponse = {
+    /**
+     * Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint now
+     */
+    available: boolean;
+    /**
+     * The URL to add to Claude or ChatGPT; present while available
+     */
+    url: string | null;
+    /**
+     * The apps the administrator trusts; CUSTOM when any app of the organization's own is
+     */
+    apps: Array<'CLAUDE' | 'CHATGPT' | 'CUSTOM'>;
+};
+
+export type McpEndpointCallPageResponse = {
+    calls: Array<McpEndpointCallResponse>;
+    /**
+     * Pass as cursor for older calls; absent on the last page
+     */
+    next: string | null;
+};
+
+/**
+ * One tool call through the MemoryOS MCP endpoint; no query and no document
+ */
+export type McpEndpointCallResponse = {
+    id: string;
+    occurredAt: string;
+    actorId: string;
+    actorName: string | null;
+    actorEmail: string | null;
+    client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+    clientName: string;
+    tool: string;
+    outcome: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
+};
+
+export type McpClientGrantResponse = {
+    /**
+     * Keycloak's client ID; Claude's is the URL of its client metadata document
+     */
+    clientId: string;
+    client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+    name: string;
+    grantedAt: string;
+};
+
+export type McpTrustedAppListResponse = {
+    /**
+     * Whether this deployment can change the list; without its Keycloak account it is read-only
+     */
+    manageable: boolean;
+    apps: Array<McpTrustedAppResponse>;
+};
+
+export type McpEndpointCountResponse = {
+    /**
+     * The app's client ID or the tool's name
+     */
+    key: string;
+    name: string;
+    calls: number;
+    people: number;
+};
+
+export type McpEndpointDayResponse = {
+    /**
+     * A UTC day
+     */
+    day: string;
+    calls: number;
+    people: number;
+};
+
+/**
+ * Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
+ */
+export type McpEndpointInsightsResponse = {
+    days: number;
+    calls: number;
+    /**
+     * Distinct people who called a tool
+     */
+    people: number;
+    failed: number;
+    rateLimited: number;
+    apps: Array<McpEndpointCountResponse>;
+    tools: Array<McpEndpointCountResponse>;
+    /**
+     * Days with at least one call
+     */
+    daily: Array<McpEndpointDayResponse>;
 };
 
 export type InterpreterSettingsRequest = {
@@ -1408,7 +1568,7 @@ export type CreateFileSourceRequest = {
      */
     groupIds?: Array<string> | null;
     /**
-     * PUBLIC or PRIVATE; SYNC requires a Google Drive source.
+     * PUBLIC or PRIVATE; a file Source cannot use SYNC.
      */
     access?: 'PUBLIC' | 'PRIVATE' | 'SYNC';
 };
@@ -1416,7 +1576,8 @@ export type CreateFileSourceRequest = {
 export type SearchRequest = {
     query?: string;
     mediaTypes?: Array<string>;
-    updatedSince?: string;
+    updatedFrom?: string;
+    updatedTo?: string;
     page?: number;
     pageSize?: number;
     sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
@@ -1846,6 +2007,21 @@ export type McpOAuthAuthorization = {
      * Navigate the browser here
      */
     authorizationUrl: string;
+};
+
+/**
+ * An app of the Tenant's own, admitted by the URL of its client metadata document
+ */
+export type McpTrustedAppRequest = {
+    name: string;
+    /**
+     * Domains of the document's URL, 1 to 10
+     */
+    clientIdHosts: Array<string>;
+    /**
+     * Other domains the document lists, such as its callback or logo; may be empty
+     */
+    documentHosts: Array<string>;
 };
 
 export type McpConnectionAuthorizationInput = {
@@ -2562,6 +2738,7 @@ export type SearchDocument = {
     documentId: string;
     generation: string;
     title: string;
+    mediaType: string;
     passages: Array<Passage>;
     firstOrdinal: number;
     totalChunks: number;
@@ -2665,6 +2842,10 @@ export type CurrentIdentity = {
      * Stable internal MemoryOS actor identifier.
      */
     actorId: string;
+    /**
+     * Latest display name observed from the authenticated actor's identity provider.
+     */
+    displayName: string | null;
     /**
      * Active Tenant context, or null when the actor has no active Tenant membership.
      */
@@ -2946,7 +3127,7 @@ export type WebLocation = {
     retrievedAt?: string;
 };
 
-export type TextDeltaEvent = {
+export type TextEvent = {
     assistantMessageId: string;
     sequence: number;
     text: string;
@@ -3178,6 +3359,167 @@ export type ChatLibraryTrashWindow = {
     days: number;
 };
 
+/**
+ * One row of a library view: an owned file, or a read-only reference to something the viewer may read now through a share, an assistant or a Source
+ */
+export type ChatLibraryEntry = {
+    kind: 'UPLOAD' | 'GENERATED' | 'IMAGE' | 'MEETING' | 'AGENT_FILE' | 'DOCUMENT';
+    id: string;
+    name: string;
+    /**
+     * Null for a meeting
+     */
+    mediaType: string | null;
+    /**
+     * Null for a meeting
+     */
+    sizeBytes: number | null;
+    /**
+     * Null for a meeting
+     */
+    category: 'DOCUMENT' | 'SPREADSHEET' | 'IMAGE' | 'PRESENTATION' | 'OTHER';
+    /**
+     * When the file or meeting was created, or when a Source document last changed
+     */
+    at: string;
+    /**
+     * The viewer owns it; only owned rows are renamed, trashed or counted toward storage
+     */
+    owned: boolean;
+    /**
+     * Starred by the viewer
+     */
+    starred: boolean;
+    /**
+     * When the viewer last opened it
+     */
+    openedAt: string | null;
+    /**
+     * Who owns a meeting shared with the viewer or uploaded an assistant's file
+     */
+    ownerName: string | null;
+    reason: ChatLibraryEntryReason;
+    /**
+     * The conversation that produced a generated file or image
+     */
+    sessionId: string | null;
+    sessionTitle: string | null;
+    /**
+     * The answer that produced a generated file or image
+     */
+    messageId: string | null;
+    /**
+     * Set for a meeting
+     */
+    meeting: ChatLibraryEntryMeeting | null;
+    /**
+     * The assistants granting an assistant's file; empty for every other kind
+     */
+    agents: Array<ChatLibraryEntryAgent>;
+    /**
+     * Set for a Source document
+     */
+    document: ChatLibraryEntryDocument | null;
+};
+
+/**
+ * An assistant the viewer uses that grants them this file
+ */
+export type ChatLibraryEntryAgent = {
+    id: string;
+    name: string;
+};
+
+/**
+ * Where a Source document comes from and what Search serves of it
+ */
+export type ChatLibraryEntryDocument = {
+    /**
+     * The generation Search serves, to preview it; null while it is being indexed
+     */
+    generation: string | null;
+    title: string | null;
+    sourceId: string;
+    sourceName: string;
+    sourceType: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    /**
+     * The document in its provider, when it has one
+     */
+    providerUrl: string | null;
+};
+
+/**
+ * What a meeting row offers: its biên bản and its transcript
+ */
+export type ChatLibraryEntryMeeting = {
+    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
+    /**
+     * The minutes are written
+     */
+    minutesReady: boolean;
+    /**
+     * Somebody spoke, so a transcript exists
+     */
+    hasTranscript: boolean;
+    /**
+     * Milliseconds covered by the transcript
+     */
+    durationMs: number;
+};
+
+export type ChatLibraryEntryPage = {
+    items: Array<ChatLibraryEntry>;
+    /**
+     * Rows matching the filter, not only this page
+     */
+    totalCount: number;
+    hasMore: boolean;
+};
+
+/**
+ * Why the row is visible: the rule that admitted it
+ */
+export type ChatLibraryEntryReason = {
+    kind: 'OWNER' | 'MEMBER_SHARE' | 'GROUP_SHARE' | 'AGENT' | 'PUBLIC_SOURCE' | 'GROUP_SOURCE' | 'PROVIDER_SOURCE';
+    /**
+     * The viewer's Groups for GROUP_SHARE and GROUP_SOURCE, the assistants for AGENT; empty otherwise, where the owner or the Source is named on the row itself
+     */
+    names: Array<string>;
+};
+
+/**
+ * A Source the viewer may read from, whatever its state
+ */
+export type ChatLibrarySource = {
+    id: string;
+    name: string;
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    /**
+     * What admits the viewer: every member, a Group of theirs, or the provider's own grants
+     */
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
+    /**
+     * A paused Source keeps its documents out of Search until it resumes
+     */
+    status: 'NOT_STARTED' | 'INDEXING' | 'ACTIVE' | 'PAUSED' | 'FAILED';
+    /**
+     * Documents of this Source the viewer may read, counted whatever the Source status
+     */
+    readableDocuments: number;
+    /**
+     * When the last synchronization succeeded; null before the first one
+     */
+    lastSucceededAt: string | null;
+    /**
+     * The viewer's own Groups granted this PRIVATE Source, sorted; empty for other access
+     */
+    groups: Array<string>;
+    /**
+     * The person responsible for this Source, when one is appointed
+     */
+    managerName: string | null;
+};
+
 export type ChatLibraryContentMatch = {
     file: ChatLibraryFile;
     /**
@@ -3189,6 +3531,23 @@ export type ChatLibraryContentMatch = {
 export type ChatLibraryPassage = {
     text: string;
     ordinal: number;
+};
+
+export type ChatLibraryDocumentPage = {
+    items: Array<ChatLibraryEntry>;
+    /**
+     * Pass as cursor, with the same filters and sort, for the next page; null on the last
+     */
+    nextCursor: string | null;
+};
+
+/**
+ * A Source the viewer may narrow the documents view to
+ */
+export type ChatLibrarySourceOption = {
+    id: string;
+    name: string;
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
 };
 
 export type InterpreterHealthResponse = {
@@ -3400,6 +3759,13 @@ export type AiUsageStanding = {
     costUsed: number;
     periodDays: number;
     resetsAt: string;
+};
+
+export type MyAiUsageStanding = {
+    /**
+     * Absent when no enabled budget binds the caller
+     */
+    standing?: AiUsageStanding;
 };
 
 export type ApiProblem = {
@@ -7147,10 +7513,11 @@ export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatM
 export type SetChatModelFlowData = {
     body?: never;
     path: {
-        flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
         modelConfigurationId?: string;
+        reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
         revision: number;
     };
     url: '/api/chat/model-flows/{flow}';
@@ -7286,6 +7653,504 @@ export type SetChatModelDefaultResponses = {
 };
 
 export type SetChatModelDefaultResponse = SetChatModelDefaultResponses[keyof SetChatModelDefaultResponses];
+
+export type UnstarChatLibraryEntryData = {
+    body?: never;
+    path: {
+        kind: 'UPLOAD' | 'GENERATED' | 'IMAGE' | 'MEETING' | 'AGENT_FILE' | 'DOCUMENT';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/entries/{kind}/{id}/star';
+};
+
+export type UnstarChatLibraryEntryErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UnstarChatLibraryEntryError = UnstarChatLibraryEntryErrors[keyof UnstarChatLibraryEntryErrors];
+
+export type UnstarChatLibraryEntryResponses = {
+    /**
+     * Not starred
+     */
+    204: void;
+};
+
+export type UnstarChatLibraryEntryResponse = UnstarChatLibraryEntryResponses[keyof UnstarChatLibraryEntryResponses];
+
+export type StarChatLibraryEntryData = {
+    body?: never;
+    path: {
+        kind: 'UPLOAD' | 'GENERATED' | 'IMAGE' | 'MEETING' | 'AGENT_FILE' | 'DOCUMENT';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/entries/{kind}/{id}/star';
+};
+
+export type StarChatLibraryEntryErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type StarChatLibraryEntryError = StarChatLibraryEntryErrors[keyof StarChatLibraryEntryErrors];
+
+export type StarChatLibraryEntryResponses = {
+    /**
+     * Starred
+     */
+    204: void;
+};
+
+export type StarChatLibraryEntryResponse = StarChatLibraryEntryResponses[keyof StarChatLibraryEntryResponses];
+
+export type GetMcpEndpointSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint';
+};
+
+export type GetMcpEndpointSettingsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetMcpEndpointSettingsError = GetMcpEndpointSettingsErrors[keyof GetMcpEndpointSettingsErrors];
+
+export type GetMcpEndpointSettingsResponses = {
+    /**
+     * MCP endpoint setting
+     */
+    200: McpEndpointSettingsResponse;
+};
+
+export type GetMcpEndpointSettingsResponse = GetMcpEndpointSettingsResponses[keyof GetMcpEndpointSettingsResponses];
+
+export type UpdateMcpEndpointSettingsData = {
+    body: McpEndpointSettingsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint';
+};
+
+export type UpdateMcpEndpointSettingsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateMcpEndpointSettingsError = UpdateMcpEndpointSettingsErrors[keyof UpdateMcpEndpointSettingsErrors];
+
+export type UpdateMcpEndpointSettingsResponses = {
+    /**
+     * Saved MCP endpoint setting
+     */
+    200: McpEndpointSettingsResponse;
+};
+
+export type UpdateMcpEndpointSettingsResponse = UpdateMcpEndpointSettingsResponses[keyof UpdateMcpEndpointSettingsResponses];
+
+export type RemoveMcpTrustedAppData = {
+    body?: never;
+    path: {
+        appId: string;
+    };
+    query: {
+        /**
+         * The app's revision as listed
+         */
+        revision: number;
+    };
+    url: '/api/mcp/endpoint/trusted-apps/{appId}';
+};
+
+export type RemoveMcpTrustedAppErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RemoveMcpTrustedAppError = RemoveMcpTrustedAppErrors[keyof RemoveMcpTrustedAppErrors];
+
+export type RemoveMcpTrustedAppResponses = {
+    /**
+     * Trusted app removed
+     */
+    204: void;
+};
+
+export type RemoveMcpTrustedAppResponse = RemoveMcpTrustedAppResponses[keyof RemoveMcpTrustedAppResponses];
+
+export type SetMcpTrustedAppEnabledData = {
+    body: McpTrustedAppEnabledRequest;
+    path: {
+        appId: string;
+    };
+    query?: never;
+    url: '/api/mcp/endpoint/trusted-apps/{appId}';
+};
+
+export type SetMcpTrustedAppEnabledErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpTrustedAppEnabledError = SetMcpTrustedAppEnabledErrors[keyof SetMcpTrustedAppEnabledErrors];
+
+export type SetMcpTrustedAppEnabledResponses = {
+    /**
+     * Trusted app switched
+     */
+    200: McpTrustedAppResponse;
+};
+
+export type SetMcpTrustedAppEnabledResponse = SetMcpTrustedAppEnabledResponses[keyof SetMcpTrustedAppEnabledResponses];
+
+export type GetMcpEndpointConnectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint/connection';
+};
+
+export type GetMcpEndpointConnectionErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Search use or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+};
+
+export type GetMcpEndpointConnectionError = GetMcpEndpointConnectionErrors[keyof GetMcpEndpointConnectionErrors];
+
+export type GetMcpEndpointConnectionResponses = {
+    /**
+     * Whether the endpoint answers, and its URL
+     */
+    200: McpEndpointConnectionResponse;
+};
+
+export type GetMcpEndpointConnectionResponse = GetMcpEndpointConnectionResponses[keyof GetMcpEndpointConnectionResponses];
+
+export type ListMcpEndpointActivityData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Calls at or after this instant
+         */
+        from?: string;
+        /**
+         * Calls before this instant
+         */
+        to?: string;
+        client?: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+        tool?: string;
+        outcome?: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
+        /**
+         * Part of the person's name or e-mail address
+         */
+        person?: string;
+        /**
+         * The next value of the previous page
+         */
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/mcp/endpoint/activity';
+};
+
+export type ListMcpEndpointActivityErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpEndpointActivityError = ListMcpEndpointActivityErrors[keyof ListMcpEndpointActivityErrors];
+
+export type ListMcpEndpointActivityResponses = {
+    /**
+     * Tool calls, newest first
+     */
+    200: McpEndpointCallPageResponse;
+};
+
+export type ListMcpEndpointActivityResponse = ListMcpEndpointActivityResponses[keyof ListMcpEndpointActivityResponses];
+
+export type RevokeMcpClientGrantData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The clientId of a listed grant
+         */
+        clientId: string;
+    };
+    url: '/api/mcp/grants';
+};
+
+export type RevokeMcpClientGrantErrors = {
+    /**
+     * Invalid client ID
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * The User has no grant to this client
+     */
+    404: ApiProblem;
+    /**
+     * Keycloak unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RevokeMcpClientGrantError = RevokeMcpClientGrantErrors[keyof RevokeMcpClientGrantErrors];
+
+export type RevokeMcpClientGrantResponses = {
+    /**
+     * Grant revoked
+     */
+    204: void;
+};
+
+export type RevokeMcpClientGrantResponse = RevokeMcpClientGrantResponses[keyof RevokeMcpClientGrantResponses];
+
+export type ListMcpClientGrantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/grants';
+};
+
+export type ListMcpClientGrantsErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Keycloak unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpClientGrantsError = ListMcpClientGrantsErrors[keyof ListMcpClientGrantsErrors];
+
+export type ListMcpClientGrantsResponses = {
+    /**
+     * Clients the User allowed, newest first
+     */
+    200: Array<McpClientGrantResponse>;
+};
+
+export type ListMcpClientGrantsResponse = ListMcpClientGrantsResponses[keyof ListMcpClientGrantsResponses];
+
+export type GetMcpEndpointInsightsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        days?: number;
+    };
+    url: '/api/mcp/endpoint/insights';
+};
+
+export type GetMcpEndpointInsightsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetMcpEndpointInsightsError = GetMcpEndpointInsightsErrors[keyof GetMcpEndpointInsightsErrors];
+
+export type GetMcpEndpointInsightsResponses = {
+    /**
+     * Use of the endpoint
+     */
+    200: McpEndpointInsightsResponse;
+};
+
+export type GetMcpEndpointInsightsResponse = GetMcpEndpointInsightsResponses[keyof GetMcpEndpointInsightsResponses];
 
 export type GetChatInterpreterSettingsData = {
     body?: never;
@@ -9701,6 +10566,96 @@ export type StartMcpServerOAuthAuthorizationResponses = {
 };
 
 export type StartMcpServerOAuthAuthorizationResponse = StartMcpServerOAuthAuthorizationResponses[keyof StartMcpServerOAuthAuthorizationResponses];
+
+export type ListMcpTrustedAppsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint/trusted-apps';
+};
+
+export type ListMcpTrustedAppsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpTrustedAppsError = ListMcpTrustedAppsErrors[keyof ListMcpTrustedAppsErrors];
+
+export type ListMcpTrustedAppsResponses = {
+    /**
+     * Claude and ChatGPT, then the organization's own apps
+     */
+    200: McpTrustedAppListResponse;
+};
+
+export type ListMcpTrustedAppsResponse = ListMcpTrustedAppsResponses[keyof ListMcpTrustedAppsResponses];
+
+export type AddMcpTrustedAppData = {
+    body: McpTrustedAppRequest;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint/trusted-apps';
+};
+
+export type AddMcpTrustedAppErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type AddMcpTrustedAppError = AddMcpTrustedAppErrors[keyof AddMcpTrustedAppErrors];
+
+export type AddMcpTrustedAppResponses = {
+    /**
+     * Trusted app added
+     */
+    201: McpTrustedAppResponse;
+};
+
+export type AddMcpTrustedAppResponse = AddMcpTrustedAppResponses[keyof AddMcpTrustedAppResponses];
 
 export type StartMcpConnectionAuthorizationData = {
     body: McpConnectionAuthorizationInput;
@@ -12225,6 +13180,50 @@ export type EmptyChatLibraryTrashResponses = {
 
 export type EmptyChatLibraryTrashResponse = EmptyChatLibraryTrashResponses[keyof EmptyChatLibraryTrashResponses];
 
+export type RecordChatLibraryEntryOpenedData = {
+    body?: never;
+    path: {
+        kind: 'UPLOAD' | 'GENERATED' | 'IMAGE' | 'MEETING' | 'AGENT_FILE' | 'DOCUMENT';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/entries/{kind}/{id}/opened';
+};
+
+export type RecordChatLibraryEntryOpenedErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RecordChatLibraryEntryOpenedError = RecordChatLibraryEntryOpenedErrors[keyof RecordChatLibraryEntryOpenedErrors];
+
+export type RecordChatLibraryEntryOpenedResponses = {
+    /**
+     * Recorded
+     */
+    204: void;
+};
+
+export type RecordChatLibraryEntryOpenedResponse = RecordChatLibraryEntryOpenedResponses[keyof RecordChatLibraryEntryOpenedResponses];
+
 export type ListChatLibraryArchivesData = {
     body?: never;
     path?: never;
@@ -13506,8 +14505,11 @@ export type GetSearchDocumentData = {
     path: {
         documentId: string;
     };
-    query: {
-        generation: string;
+    query?: {
+        /**
+         * The generation a search result named; without one, the current generation, as a link that carries only the document opens it
+         */
+        generation?: string;
         from?: number;
     };
     url: '/api/search/documents/{documentId}';
@@ -14410,7 +15412,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
+    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];
@@ -15094,6 +16096,150 @@ export type GetChatLibraryTrashWindowResponses = {
 
 export type GetChatLibraryTrashWindowResponse = GetChatLibraryTrashWindowResponses[keyof GetChatLibraryTrashWindowResponses];
 
+export type ListChatLibraryStarredData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        /**
+         * Empty means every kind
+         */
+        kinds?: Array<string>;
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/library/starred';
+};
+
+export type ListChatLibraryStarredErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryStarredError = ListChatLibraryStarredErrors[keyof ListChatLibraryStarredErrors];
+
+export type ListChatLibraryStarredResponses = {
+    /**
+     * A page of starred entries
+     */
+    200: ChatLibraryEntryPage;
+};
+
+export type ListChatLibraryStarredResponse = ListChatLibraryStarredResponses[keyof ListChatLibraryStarredResponses];
+
+export type ListChatLibrarySourcesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/sources';
+};
+
+export type ListChatLibrarySourcesErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibrarySourcesError = ListChatLibrarySourcesErrors[keyof ListChatLibrarySourcesErrors];
+
+export type ListChatLibrarySourcesResponses = {
+    /**
+     * Sources, without error details or Groups the caller is not in
+     */
+    200: Array<ChatLibrarySource>;
+};
+
+export type ListChatLibrarySourcesResponse = ListChatLibrarySourcesResponses[keyof ListChatLibrarySourcesResponses];
+
+export type ListChatLibrarySharedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        /**
+         * MEETING or AGENT_FILE; empty means both
+         */
+        kinds?: Array<string>;
+        /**
+         * Empty means every category; a meeting has none
+         */
+        categories?: Array<string>;
+        sort?: 'NEWEST' | 'OLDEST' | 'NAME';
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/library/shared';
+};
+
+export type ListChatLibrarySharedErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibrarySharedError = ListChatLibrarySharedErrors[keyof ListChatLibrarySharedErrors];
+
+export type ListChatLibrarySharedResponses = {
+    /**
+     * A page of what others share with the caller
+     */
+    200: ChatLibraryEntryPage;
+};
+
+export type ListChatLibrarySharedResponse = ListChatLibrarySharedResponses[keyof ListChatLibrarySharedResponses];
+
 export type SearchChatLibraryContentData = {
     body?: never;
     path?: never;
@@ -15136,6 +16282,150 @@ export type SearchChatLibraryContentResponses = {
 };
 
 export type SearchChatLibraryContentResponse = SearchChatLibraryContentResponses[keyof SearchChatLibraryContentResponses];
+
+export type ListChatLibraryRecentData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/chat/library/recent';
+};
+
+export type ListChatLibraryRecentErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryRecentError = ListChatLibraryRecentErrors[keyof ListChatLibraryRecentErrors];
+
+export type ListChatLibraryRecentResponses = {
+    /**
+     * Up to 100 entries
+     */
+    200: Array<ChatLibraryEntry>;
+};
+
+export type ListChatLibraryRecentResponse = ListChatLibraryRecentResponses[keyof ListChatLibraryRecentResponses];
+
+export type ListChatLibraryDocumentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Matches the file name or the title
+         */
+        query?: string;
+        /**
+         * Empty means every Source the caller may search
+         */
+        sourceIds?: Array<string>;
+        /**
+         * Empty means every category
+         */
+        categories?: Array<string>;
+        sort?: 'NEWEST' | 'NAME';
+        /**
+         * The nextCursor of the previous page, with the same filters and sort
+         */
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/chat/library/documents';
+};
+
+export type ListChatLibraryDocumentsErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryDocumentsError = ListChatLibraryDocumentsErrors[keyof ListChatLibraryDocumentsErrors];
+
+export type ListChatLibraryDocumentsResponses = {
+    /**
+     * A page of documents and the cursor of the next one
+     */
+    200: ChatLibraryDocumentPage;
+};
+
+export type ListChatLibraryDocumentsResponse = ListChatLibraryDocumentsResponses[keyof ListChatLibraryDocumentsResponses];
+
+export type ListChatLibraryDocumentSourcesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/documents/sources';
+};
+
+export type ListChatLibraryDocumentSourcesErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryDocumentSourcesError = ListChatLibraryDocumentSourcesErrors[keyof ListChatLibraryDocumentSourcesErrors];
+
+export type ListChatLibraryDocumentSourcesResponses = {
+    /**
+     * Sources, as Search offers them
+     */
+    200: Array<ChatLibrarySourceOption>;
+};
+
+export type ListChatLibraryDocumentSourcesResponse = ListChatLibraryDocumentSourcesResponses[keyof ListChatLibraryDocumentSourcesResponses];
 
 export type GetChatLibraryArchiveData = {
     body?: never;
@@ -15460,6 +16750,7 @@ export type ListChatHistoryData = {
         q?: string;
         actorId?: string;
         feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
+        blocked?: boolean;
         cursor?: string;
         size?: number;
     };
@@ -15544,6 +16835,7 @@ export type ExportChatHistoryData = {
         q?: string;
         actorId?: string;
         feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
+        blocked?: boolean;
     };
     url: '/api/chat/history/export';
 };
@@ -16622,7 +17914,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/summary';
 };
@@ -16756,7 +18048,7 @@ export type GetMyAiUsageStandingResponses = {
     /**
      * The binding budget, or nothing when the Tenant sets no limit
      */
-    200: AiUsageStanding;
+    200: MyAiUsageStanding;
 };
 
 export type GetMyAiUsageStandingResponse = GetMyAiUsageStandingResponses[keyof GetMyAiUsageStandingResponses];
@@ -16807,7 +18099,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/daily';
 };
@@ -16847,7 +18139,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/breakdown';
 };

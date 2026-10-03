@@ -26,7 +26,6 @@ import org.springframework.data.domain.Persistable;
 public class LlmProviderEntity implements Persistable<UUID> {
     @Id private UUID id;
     @Column(name = "tenant_id", nullable = false, updatable = false) private UUID tenantId;
-    @Column(name = "builtin_key", length = 32, updatable = false) private @Nullable String builtinKey;
     @Column(nullable = false, length = 200) private String name;
     @Column(name = "adapter_type", nullable = false, length = 64, updatable = false) private String adapterType;
     @Column(name = "base_url", nullable = false, length = 2048) private String baseUrl;
@@ -45,8 +44,8 @@ public class LlmProviderEntity implements Persistable<UUID> {
     @Version private long revision = 1;
     @Transient private boolean fresh = true;
     protected LlmProviderEntity() {}
-    public LlmProviderEntity(UUID id, UUID tenant, @Nullable String builtinKey, String adapterType) {
-        this.id = id; this.tenantId = tenant; this.builtinKey = builtinKey; this.adapterType = adapterType;
+    public LlmProviderEntity(UUID id, UUID tenant, String adapterType) {
+        this.id = id; this.tenantId = tenant; this.adapterType = adapterType;
     }
     public void update(String name, String baseUrl, boolean enabled, boolean publicAccess, @Nullable String credential, Set<UUID> groups, Set<UUID> personas,
                        DataBoundary dataBoundary) {

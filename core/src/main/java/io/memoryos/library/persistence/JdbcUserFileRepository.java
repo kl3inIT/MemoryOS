@@ -1,7 +1,9 @@
 package io.memoryos.library.persistence;
 
 import io.memoryos.connector.SourceOperationTraceContext;
+import io.memoryos.library.LibraryFile;
 import io.memoryos.library.UserFile;
+import io.memoryos.shared.FileCategorySql;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ContentSha256;
@@ -14,6 +16,7 @@ import io.memoryos.objectstorage.StoredObjectReference;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.HashMap;
@@ -78,6 +81,30 @@ public class JdbcUserFileRepository {
                         + " AND id IN (:ids) AND status='READY'")
                 .param("tenant", tenant.value()).param("actor", actor.value()).param("ids", ids)
                 .query((row, ignored) -> map(row)).list();
+    }
+
+    /** A READY upload another member owns, as the library lists it for someone an agent grants it to. */
+    public record Granted(UUID id, String filename, String mediaType, long sizeBytes, LibraryFile.Category category,
+                          Instant createdAt, UUID ownerId) {}
+
+    /**
+     * The READY uploads among {@code ids} that someone other than {@code actor} owns. The caller has already
+     * resolved which ids an agent grants the actor; their own uploads are their owned rows, never these.
+     */
+    public List<Granted> granted(TenantId tenant, ActorId actor, Collection<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        return jdbc.sql("""
+                SELECT f.id, f.filename, COALESCE(f.detected_media_type, f.media_type) AS media_type, f.size_bytes,
+                       f.created_at, f.owner_actor_id, %s AS category
+                FROM chat_user_file f
+                WHERE f.tenant_id = :tenant AND f.id IN (:ids) AND f.status = 'READY' AND f.owner_actor_id <> :actor
+                """.formatted(FileCategorySql.caseExpression("COALESCE(f.detected_media_type, f.media_type)", "f.filename")))
+                .param("tenant", tenant.value()).param("actor", actor.value()).param("ids", ids)
+                .query((row, ignored) -> new Granted(row.getObject("id", UUID.class), row.getString("filename"),
+                        row.getString("media_type"), row.getLong("size_bytes"),
+                        LibraryFile.Category.valueOf(row.getString("category")),
+                        row.getTimestamp("created_at").toInstant(), row.getObject("owner_actor_id", UUID.class)))
+                .list();
     }
 
     /** The owner's most recent READY uploads that have an indexed document, the scope of a content search. */

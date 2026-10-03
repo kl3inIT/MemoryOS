@@ -8,6 +8,7 @@ import io.memoryos.iam.ExternalIdentityResolver;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,21 @@ public class JpaExternalIdentityRegistry implements ExternalIdentityResolver, Ex
     public Optional<ActorId> resolve(ExternalIdentity identity) {
         Objects.requireNonNull(identity, "identity must not be null");
         return findBinding(identity).map(binding -> new ActorId(binding.getActor().getId()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ExternalIdentity> identities(ActorId actor) {
+        Objects.requireNonNull(actor, "actor must not be null");
+        return entityManager.createQuery("""
+                        select binding from ExternalIdentityBindingEntity binding
+                        where binding.actor.id = :actor
+                        order by binding.createdAt, binding.id.issuer, binding.id.subject
+                        """, ExternalIdentityBindingEntity.class)
+                .setParameter("actor", actor.value())
+                .getResultStream()
+                .map(binding -> new ExternalIdentity(binding.getIssuer(), binding.getSubject()))
+                .toList();
     }
 
     @Override

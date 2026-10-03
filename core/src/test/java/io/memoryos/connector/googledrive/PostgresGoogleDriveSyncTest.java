@@ -1,22 +1,21 @@
 package io.memoryos.connector.googledrive;
 
 import io.memoryos.connector.SourceAccess;
+import io.memoryos.connector.SourceMetadataChanged;
 import io.memoryos.connector.googledrive.persistence.GoogleDriveCredentialConfiguration;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveAclRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveCredentialRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
-import io.memoryos.connector.sharepoint.SharePointConnectionService;
 import io.memoryos.connector.source.SourceAccessPolicy;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
+import io.memoryos.connector.sync.SourceSyncAdapters;
 import io.memoryos.connector.sync.SourceSyncEngine;
-import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
-import io.memoryos.connector.sync.ProviderAuthorityService;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.iam.group.DefaultGroupScopeService;
@@ -68,6 +67,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -114,7 +114,7 @@ class PostgresGoogleDriveSyncTest {
     private JdbcIndexAttemptRepository attempts;
     private GoogleDriveConnectionService connections;
     private final GoogleGroupSynchronizer groupSynchronizer = mock(GoogleGroupSynchronizer.class);
-    private GoogleDriveProvider.Session session;
+    private GoogleDriveGateway.Session session;
     private ObjectWriteService writes;
     private OperationDispatchPort dispatch;
     private TenantId tenant;
@@ -122,8 +122,8 @@ class PostgresGoogleDriveSyncTest {
     private IamAuthorization authorization;
     private final ActorId scheduleOwner = new ActorId(UUID.randomUUID());
     private final AtomicLong revision = new AtomicLong(1);
-    private final Map<String, GoogleDriveProvider.FileMetadata> files = new HashMap<>();
-    private final Map<String, GoogleDriveProvider.FilePage> pages = new HashMap<>();
+    private final Map<String, GoogleDriveGateway.FileMetadata> files = new HashMap<>();
+    private final Map<String, GoogleDriveGateway.FilePage> pages = new HashMap<>();
     private final Map<ObjectKey, byte[]> bytes = new HashMap<>();
     private final Map<String, byte[]> contents = new HashMap<>();
     private final Map<ObjectKey, ObjectMetadata> metadata = new HashMap<>();
@@ -161,7 +161,7 @@ class PostgresGoogleDriveSyncTest {
         source = Objects.requireNonNull(pair).sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();
         jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id").param("id", source.value()).update();
-        items = new JdbcSourceItemRepository(jdbc);
+        items = new JdbcSourceItemRepository(jdbc, published::add);
         mappings = new JdbcSourceDocumentRepository(jdbc);
         roots = new JdbcGoogleDriveSourceRepository(jdbc);
         syncRows = new JdbcSourceSyncRepository(jdbc);
@@ -176,7 +176,7 @@ class PostgresGoogleDriveSyncTest {
         }
         jdbc.sql("UPDATE connector_credential_pairs SET credential_id=:credential WHERE id=:source")
                 .param("credential", credentialId.value()).param("source", source.value()).update();
-        session = mock(GoogleDriveProvider.Session.class);
+        session = mock(GoogleDriveGateway.Session.class);
         connections = mock(GoogleDriveConnectionService.class);
         when(connections.current(any(), any(), anyLong())).thenAnswer(i -> (long) i.getArgument(2) == revision.get());
         when(connections.state(any(), any())).thenAnswer(_ -> new GoogleDriveConnectionService.State(credentialId, "owner@example.test", "ACTIVE", revision.get(), true, "OAUTH"));
@@ -184,11 +184,11 @@ class PostgresGoogleDriveSyncTest {
         when(connections.openCredential(any(), any())).thenAnswer(_ -> new GoogleDriveConnectionService.Connection(session, revision.get()));
         when(linkReader.read(any())).thenAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            GoogleDriveProvider.AcquiredContent content = invocation.getArgument(0);
+            GoogleDriveGateway.AcquiredContent content = invocation.getArgument(0);
             return links.getOrDefault(content.descriptor().providerFileId(), List.of());
         });
         attempts = new JdbcIndexAttemptRepository(jdbc, sources, mappings,
-                new ProviderAuthorityService(connections, mock(SharePointConnectionService.class)));
+                SourceSyncAdapters.registry(SourceSyncAdapters.credentials(SourceType.GOOGLE_DRIVE, connections::current)));
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         storage = mock(ObjectStorage.class);
         doAnswer(i -> {
@@ -218,7 +218,8 @@ class PostgresGoogleDriveSyncTest {
             files.put("my-drive", files.get("root"));
             files.put("folder", child("folder", true, "my-drive"));
         }
-        jdbc.sql("INSERT INTO google_drive_sources (tenant_id, source_id, scope_mode, revision) VALUES (:tenant, :source, :mode, 2)")
+        jdbc.sql("WITH state AS (INSERT INTO source_sync_state (tenant_id, source_id, scope_revision) VALUES (:tenant, :source, 2)) "
+                        + "INSERT INTO google_drive_sources (tenant_id, source_id, scope_mode) VALUES (:tenant, :source, :mode)")
                 .param("tenant", tenant.value()).param("source", source.value()).param("mode", scopeMode.name()).update();
         jdbc.sql("""
                 INSERT INTO google_drive_roots (tenant_id, source_id, file_id, name, mime_type)
@@ -244,10 +245,10 @@ class PostgresGoogleDriveSyncTest {
             return pages.get(page == null ? "first" : page);
         });
         when(session.acquire(any())).thenAnswer(i -> {
-            GoogleDriveProvider.FileMetadata file = i.getArgument(0);
+            GoogleDriveGateway.FileMetadata file = i.getArgument(0);
             if (unsupported.contains(file.id())) throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.UNSUPPORTED);
             if (failing.contains(file.id())) throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.MALFORMED);
-            return new GoogleDriveProvider.AcquiredContent(file.name(), "text/plain",
+            return new GoogleDriveGateway.AcquiredContent(file.name(), "text/plain",
                     contents.getOrDefault(file.id(), (file.id() + ":" + file.version()).getBytes(StandardCharsets.UTF_8)),
                     new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(), "https://drive.google.com/file/d/" + file.id() + "/view"));
         });
@@ -310,7 +311,7 @@ class PostgresGoogleDriveSyncTest {
         files.put("sub", child("sub", true, "folder"));
         files.put("deep", child("deep", false, "sub"));
         listing(files.get("sub"));
-        pages.put("sub:first", new GoogleDriveProvider.FilePage(List.of(files.get("deep")), null));
+        pages.put("sub:first", new GoogleDriveGateway.FilePage(List.of(files.get("deep")), null));
 
         finish(enqueue());
 
@@ -374,11 +375,34 @@ class PostgresGoogleDriveSyncTest {
 
         var updated = acls.read(tenant, source, "one").orElseThrow();
         assertThat(updated.revision()).isEqualTo(first.revision() + 1);
-        assertThat(updated.permissions()).extracting(GoogleDriveProvider.Permission::id).containsExactly("reader");
+        assertThat(updated.permissions()).extracting(GoogleDriveGateway.Permission::id).containsExactly("reader");
         assertThat(updated.documentIds()).isEqualTo(first.documentIds());
         assertThat(updated.contextStatus()).isEqualTo(GoogleDriveAclSnapshot.ContextStatus.CURRENT);
         verify(session, never()).acquire(any());
         assertThat(dispatch.claim(OperationWorkload.INGESTION, 1)).isEmpty();
+    }
+
+    @Test
+    void driveModificationTimeIsRecordedAndAnUnchangedFileGainingOneRefreshesItsSearchFields() {
+        var modified = Instant.parse("2025-03-04T05:06:07Z");
+        listing(modifiedAt(file("one", false, "1"), modified));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        assertThat(sourceUpdatedAt("one")).isEqualTo(modified);
+        // An item synchronized before provider dates were kept has none; the next run fills it without a download.
+        jdbc.sql("UPDATE connector_items SET source_updated_at = NULL").update();
+        published.clear();
+        Mockito.clearInvocations(session);
+
+        finish(enqueue());
+
+        verify(session, never()).acquire(any());
+        assertThat(sourceUpdatedAt("one")).isEqualTo(modified);
+        assertThat(published).filteredOn(SourceMetadataChanged.class::isInstance).singleElement()
+                .satisfies(event -> assertThat(((SourceMetadataChanged) event).documentIds()).hasSize(1));
+        published.clear();
+        finish(enqueue());
+        assertThat(published).noneMatch(SourceMetadataChanged.class::isInstance);
     }
 
     @Test
@@ -406,8 +430,8 @@ class PostgresGoogleDriveSyncTest {
     void metadataVersionBumpWithIdenticalBinaryBytesRefreshesTheAclAndReusesExtraction() {
         byte[] content = "unchanged binary content".getBytes(StandardCharsets.UTF_8);
         doAnswer(i -> {
-            GoogleDriveProvider.FileMetadata file = i.getArgument(0);
-            return new GoogleDriveProvider.AcquiredContent(file.name(), "text/plain", content,
+            GoogleDriveGateway.FileMetadata file = i.getArgument(0);
+            return new GoogleDriveGateway.AcquiredContent(file.name(), "text/plain", content,
                     new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(),
                             "https://drive.google.com/file/d/" + file.id() + "/view"));
         }).when(session).acquire(any());
@@ -425,7 +449,7 @@ class PostgresGoogleDriveSyncTest {
         assertThat(scalar("SELECT COUNT(*) FROM object_writes WHERE status='ADOPTED'")).isEqualTo(1);
         var after = new JdbcGoogleDriveAclRepository(jdbc, event -> {}).read(tenant, source, "one").orElseThrow();
         assertThat(after.documentIds()).isEqualTo(before.documentIds());
-        assertThat(after.permissions()).extracting(GoogleDriveProvider.Permission::id).containsExactly("reader");
+        assertThat(after.permissions()).extracting(GoogleDriveGateway.Permission::id).containsExactly("reader");
         Mockito.clearInvocations(session);
         finish(enqueue());
         verify(session, never()).acquire(any());
@@ -463,16 +487,16 @@ class PostgresGoogleDriveSyncTest {
 
         var promoted = acls.read(tenant, source, "one").orElseThrow();
         assertThat(promoted.revision()).isEqualTo(first.revision() + 1);
-        assertThat(promoted.permissions()).extracting(GoogleDriveProvider.Permission::role).containsExactly("writer");
-        assertThat(aclChanges()).extracting(GoogleDriveAclChanged::revision).containsExactly(promoted.revision());
+        assertThat(promoted.permissions()).extracting(GoogleDriveGateway.Permission::role).containsExactly("writer");
+        assertThat(aclChanges()).extracting(SourceAclChanged::revision).containsExactly(promoted.revision());
 
         published.clear();
         when(session.permissions("one")).thenReturn(List.of(permission("shared", "writer"), permission("added", "commenter")));
         finish(enqueue());
 
         var added = acls.read(tenant, source, "one").orElseThrow();
-        assertThat(added.permissions()).extracting(GoogleDriveProvider.Permission::id).containsExactly("shared", "added");
-        assertThat(aclChanges()).extracting(GoogleDriveAclChanged::revision).containsExactly(added.revision());
+        assertThat(added.permissions()).extracting(GoogleDriveGateway.Permission::id).containsExactly("shared", "added");
+        assertThat(aclChanges()).extracting(SourceAclChanged::revision).containsExactly(added.revision());
 
         published.clear();
         finish(enqueue());
@@ -540,27 +564,27 @@ class PostgresGoogleDriveSyncTest {
         assertThat(acls.readByDocument(tenant, new DocumentId(UUID.randomUUID()))).isEmpty();
     }
 
-    private List<GoogleDriveAclChanged> aclChanges() {
-        return published.stream().filter(GoogleDriveAclChanged.class::isInstance)
-                .map(GoogleDriveAclChanged.class::cast).toList();
+    private List<SourceAclChanged> aclChanges() {
+        return published.stream().filter(SourceAclChanged.class::isInstance)
+                .map(SourceAclChanged.class::cast).toList();
     }
 
-    private static GoogleDriveProvider.Permission permission(String id, String role) {
-        return new GoogleDriveProvider.Permission(id, "user", role, id + "@example.test",
+    private static GoogleDriveGateway.Permission permission(String id, String role) {
+        return new GoogleDriveGateway.Permission(id, "user", role, id + "@example.test",
                 null, null, null, false, false, List.of(), null, null);
     }
 
     @Test
     @Tag("general-scope")
     void generalTraversesOnlyMyDriveThroughNestedPaginatedAndResumedFrontiers() {
-        pages.put("my-drive:first", new GoogleDriveProvider.FilePage(List.of(files.get("folder")), "root-next"));
-        pages.put("my-drive:root-next", new GoogleDriveProvider.FilePage(List.of(child("direct", false, "my-drive")), null));
+        pages.put("my-drive:first", new GoogleDriveGateway.FilePage(List.of(files.get("folder")), "root-next"));
+        pages.put("my-drive:root-next", new GoogleDriveGateway.FilePage(List.of(child("direct", false, "my-drive")), null));
         files.put("direct", child("direct", false, "my-drive"));
         for (int page = 0; page < 20; page++) {
             var child = child("nested" + page, false, "folder");
             files.put(child.id(), child);
             pages.put(page == 0 ? "first" : "p" + page,
-                    new GoogleDriveProvider.FilePage(List.of(child), page == 19 ? null : "p" + (page + 1)));
+                    new GoogleDriveGateway.FilePage(List.of(child), page == 19 ? null : "p" + (page + 1)));
         }
         var operation = enqueue();
         assertThat(service().execute(claim(operation))).isEqualTo(ConnectorSyncPort.Result.CONTINUED);
@@ -584,14 +608,14 @@ class PostgresGoogleDriveSyncTest {
     @ValueSource(strings = {"missing", "changed", "trashed", "shared-drive"})
     @Tag("general-scope")
     void resumedGeneralTraversalCannotPruneWhenCurrentMyDriveRootCannotBeVerified(String failure) {
-        pages.put("my-drive:first", new GoogleDriveProvider.FilePage(List.of(files.get("folder")), null));
+        pages.put("my-drive:first", new GoogleDriveGateway.FilePage(List.of(files.get("folder")), null));
         listing(file("document", false, "1"));
         finish(enqueue());
         assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
         var documentsBefore = jdbc.sql("SELECT to_jsonb(d)::text FROM documents d").query(String.class).list();
         for (int page = 0; page < 20; page++) {
             pages.put(page == 0 ? "first" : "p" + page,
-                    new GoogleDriveProvider.FilePage(List.of(), page == 19 ? null : "p" + (page + 1)));
+                    new GoogleDriveGateway.FilePage(List.of(), page == 19 ? null : "p" + (page + 1)));
         }
         var operation = enqueue();
         assertThat(service().execute(claim(operation))).isEqualTo(ConnectorSyncPort.Result.CONTINUED);
@@ -600,9 +624,9 @@ class PostgresGoogleDriveSyncTest {
         switch (failure) {
             case "missing" -> files.remove("root");
             case "changed" -> files.put("root", file("other-account-root", true, "1"));
-            case "trashed" -> files.put("root", new GoogleDriveProvider.FileMetadata("my-drive", "My Drive",
+            case "trashed" -> files.put("root", new GoogleDriveGateway.FileMetadata("my-drive", "My Drive",
                     "application/vnd.google-apps.folder", "2", null, null, true, List.of(), null, null));
-            case "shared-drive" -> files.put("root", new GoogleDriveProvider.FileMetadata("my-drive", "Shared Drive",
+            case "shared-drive" -> files.put("root", new GoogleDriveGateway.FileMetadata("my-drive", "Shared Drive",
                     "application/vnd.google-apps.folder", "2", null, null, false, List.of(), "my-drive", null));
             default -> throw new AssertionError(failure);
         }
@@ -619,20 +643,20 @@ class PostgresGoogleDriveSyncTest {
     @ValueSource(strings = {"missing-metadata", "trashed-metadata", "missing-list", "after-list"})
     @Tag("general-scope")
     void generalRootLossDuringEnumerationDoesNotTurnIntoAnEmptyCompletedGeneration(String failure) {
-        pages.put("my-drive:first", new GoogleDriveProvider.FilePage(List.of(files.get("folder")), null));
+        pages.put("my-drive:first", new GoogleDriveGateway.FilePage(List.of(files.get("folder")), null));
         listing(file("document", false, "1"));
         finish(enqueue());
         assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
         var documentsBefore = jdbc.sql("SELECT to_jsonb(d)::text FROM documents d").query(String.class).list();
         switch (failure) {
             case "missing-metadata" -> files.remove("my-drive");
-            case "trashed-metadata" -> files.put("my-drive", new GoogleDriveProvider.FileMetadata("my-drive", "My Drive",
+            case "trashed-metadata" -> files.put("my-drive", new GoogleDriveGateway.FileMetadata("my-drive", "My Drive",
                     "application/vnd.google-apps.folder", "2", null, null, true, List.of(), null, null));
             case "missing-list" -> doThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.NOT_FOUND))
                     .when(session).listFiles("my-drive", null);
             case "after-list" -> doAnswer(_ -> {
                 files.remove("root");
-                return new GoogleDriveProvider.FilePage(List.of(), null);
+                return new GoogleDriveGateway.FilePage(List.of(), null);
             }).when(session).listFiles("folder", null);
             default -> throw new AssertionError(failure);
         }
@@ -648,12 +672,12 @@ class PostgresGoogleDriveSyncTest {
     @Test
     @Tag("general-scope")
     void incompleteGeneralEnumerationRetainsUnseenDocumentsUntilACompleteGeneration() {
-        pages.put("my-drive:first", new GoogleDriveProvider.FilePage(List.of(files.get("folder")), null));
+        pages.put("my-drive:first", new GoogleDriveGateway.FilePage(List.of(files.get("folder")), null));
         listing(file("document", false, "1"));
         finish(enqueue());
         assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
         var documentsBefore = jdbc.sql("SELECT to_jsonb(d)::text FROM documents d").query(String.class).list();
-        pages.put("first", new GoogleDriveProvider.FilePage(List.of(), "incomplete"));
+        pages.put("first", new GoogleDriveGateway.FilePage(List.of(), "incomplete"));
         doThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.INCONSISTENT))
                 .when(session).listFiles("folder", "incomplete");
         var incomplete = enqueue();
@@ -688,7 +712,7 @@ class PostgresGoogleDriveSyncTest {
         assertThat(service().execute(oldSync)).isEqualTo(ConnectorSyncPort.Result.SUPERSEDED);
         assertThat(jdbc.sql("SELECT to_jsonb(d)::text FROM documents d").query(String.class).list()).isEqualTo(documentsBefore);
         assertThat(scalar("SELECT COUNT(*) FROM connector_items WHERE status='DELETING'")).isZero();
-        pages.put("first", new GoogleDriveProvider.FilePage(List.of(files.get("document")), "incomplete"));
+        pages.put("first", new GoogleDriveGateway.FilePage(List.of(files.get("document")), "incomplete"));
         doThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.INCONSISTENT))
                 .when(session).listFiles("folder", "incomplete");
         var incomplete = enqueue();
@@ -716,7 +740,7 @@ class PostgresGoogleDriveSyncTest {
                 .param("source", source.value()).update();
         listing(file("descendant", false, "1"));
         for (String id : List.of("direct", "removed-root", "first-link", "second-link")) {
-            files.put(id, new GoogleDriveProvider.FileMetadata(id, id + ".txt", "text/plain", "1",
+            files.put(id, new GoogleDriveGateway.FileMetadata(id, id + ".txt", "text/plain", "1",
                     null, null, false, List.of(), null, null));
         }
         var configuration = scheduleConfiguration();
@@ -825,7 +849,7 @@ class PostgresGoogleDriveSyncTest {
         var version = jdbc.sql("SELECT current_version_id FROM connector_items").query(UUID.class).single();
         switch (revoked) {
             case "credential" -> {
-                jdbc.sql("UPDATE google_drive_credentials SET credential_revision=credential_revision+1").update();
+                jdbc.sql("UPDATE credentials SET credential_revision=credential_revision+1").update();
                 revision.incrementAndGet();
             }
             case "scope" -> jdbc.sql("UPDATE connector_item_versions SET scope_revision=1").update();
@@ -846,12 +870,12 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void rejectsOverlappingAndUnsupportedRootsWithoutChangingTheAcceptedScope() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, Mockito.mock(GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, Mockito.mock(GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
         files.put("document", file("document", false, "1"));
         var overlap = finishSelection(configuration, submitSelection(configuration, owner, 2, ScopeMode.SPECIFIC, List.of(link("folder"), link("document")), List.of()));
         assertThat(overlap.status()).isEqualTo(SourceOperationStatus.FAILED);
         assertThat(overlap.errorCode()).isEqualTo("SOURCE_GOOGLE_ROOTS_OVERLAP");
-        files.put("shortcut", new GoogleDriveProvider.FileMetadata("shortcut", "Shortcut",
+        files.put("shortcut", new GoogleDriveGateway.FileMetadata("shortcut", "Shortcut",
                 "application/vnd.google-apps.shortcut", "1", null, null, false, List.of(), null, "elsewhere"));
         var unsupportedRoot = finishSelection(configuration, submitSelection(configuration, owner, 2, ScopeMode.SPECIFIC, List.of(link("shortcut")), List.of()));
         assertThat(unsupportedRoot.status()).isEqualTo(SourceOperationStatus.FAILED);
@@ -887,13 +911,13 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void rejectsDuplicateLinksAndWholeDriveRootsWithoutChangingSelection() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, Mockito.mock(GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, Mockito.mock(GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
         Assertions.assertThrows(SourceException.class,
                 () -> replaceAndActivate(configuration, owner, 2, List.of(link("folder"), "https://drive.google.com/open?id=folder"), List.of()));
         assertThat(calls).isEmpty();
         files.put("my-drive", files.get("root"));
         assertThat(finishSelection(configuration, submitSelection(configuration, owner, 2, ScopeMode.SPECIFIC, List.of(link("my-drive")), List.of())).status()).isEqualTo(SourceOperationStatus.FAILED);
-        files.put("workspace-drive", new GoogleDriveProvider.FileMetadata("workspace-drive", "Entire team drive",
+        files.put("workspace-drive", new GoogleDriveGateway.FileMetadata("workspace-drive", "Entire team drive",
                 "application/vnd.google-apps.folder", "1", null, null, false, List.of(), "workspace-drive", null));
         assertThat(finishSelection(configuration, submitSelection(configuration, owner, 2, ScopeMode.SPECIFIC, List.of(link("workspace-drive")), List.of())).status()).isEqualTo(SourceOperationStatus.FAILED);
         assertThat(selected(configuration, GoogleDriveSourceService.SelectionKind.FOLDER))
@@ -904,7 +928,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void legacyPhysicalDriveRootsFailClosedBeforeEnumerationOrAcquisition() {
         files.put("my-drive", files.get("root"));
-        files.put("workspace-drive", new GoogleDriveProvider.FileMetadata("workspace-drive", "Entire team drive",
+        files.put("workspace-drive", new GoogleDriveGateway.FileMetadata("workspace-drive", "Entire team drive",
                 "application/vnd.google-apps.folder", "1", null, null, false, List.of(), "workspace-drive", null));
         tx.executeWithoutResult(_ -> roots.replace(tenant, source, 2, revision.get(), GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(
                 new GoogleDriveSourceService.Root("my-drive", "My Drive", "application/vnd.google-apps.folder"),
@@ -925,10 +949,10 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void acceptsAnExplicitSharedDriveFolderAndIndexesOnlyItsChildren() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, Mockito.mock(GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
-        files.put("shared-folder", new GoogleDriveProvider.FileMetadata("shared-folder", "Team folder",
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, Mockito.mock(GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
+        files.put("shared-folder", new GoogleDriveGateway.FileMetadata("shared-folder", "Team folder",
                 "application/vnd.google-apps.folder", "1", null, null, false, List.of(), "workspace-drive", null));
-        listing(new GoogleDriveProvider.FileMetadata("document", "Team document", "text/plain", "1",
+        listing(new GoogleDriveGateway.FileMetadata("document", "Team document", "text/plain", "1",
                 null, null, false, List.of("shared-folder"), "workspace-drive", null));
         replaceAndActivate(configuration, owner, 2, List.of(link("shared-folder")), List.of());
         finish(enqueue());
@@ -940,7 +964,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void unconfiguredSourceCannotScheduleAccountWideSynchronization() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, Mockito.mock(GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, Mockito.mock(GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
         jdbc.sql("DELETE FROM google_drive_roots").update();
         Assertions.assertThrows(SourceException.class,
                 () -> configuration.synchronize(owner, source));
@@ -955,7 +979,7 @@ class PostgresGoogleDriveSyncTest {
             var file = file("file" + page, false, "1");
             files.put(file.id(), file);
             pages.put(page == 0 ? "first" : "p" + page,
-                    new GoogleDriveProvider.FilePage(List.of(file), page == 19 ? null : "p" + (page + 1)));
+                    new GoogleDriveGateway.FilePage(List.of(file), page == 19 ? null : "p" + (page + 1)));
         }
         var operation = enqueue();
         var first = claim(operation);
@@ -973,7 +997,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void synchronizesOnlyExplicitRootsWithoutReadingUnrelatedFiles() {
         listing(file("document", false, "1"));
-        files.put("shortcut", new GoogleDriveProvider.FileMetadata("shortcut", "Unrelated shortcut",
+        files.put("shortcut", new GoogleDriveGateway.FileMetadata("shortcut", "Unrelated shortcut",
                 "application/vnd.google-apps.shortcut", "1", null, null, false, List.of(), null, "elsewhere"));
         doThrow(new AssertionError("Unselected metadata must not be requested")).when(session).metadata("shortcut");
         var operation = enqueue();
@@ -991,7 +1015,7 @@ class PostgresGoogleDriveSyncTest {
         listing(file("document", false, "1"));
         finish(enqueue());
         assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
-        files.put("folder", new GoogleDriveProvider.FileMetadata("folder", "Folder",
+        files.put("folder", new GoogleDriveGateway.FileMetadata("folder", "Folder",
                 "application/vnd.google-apps.folder", "2", null, null, true, List.of(), null, null));
         var operation = enqueue();
         finish(operation);
@@ -1111,13 +1135,13 @@ class PostgresGoogleDriveSyncTest {
         var operation = enqueue();
         assertScheduledFrom(operation, "created_at", 17);
         tx.executeWithoutResult(_ -> syncRows.supersede(tenant, source));
-        jdbc.sql("UPDATE google_drive_sources SET next_sync_at = CURRENT_TIMESTAMP - INTERVAL '1 minute'").update();
+        jdbc.sql("UPDATE source_sync_state SET next_sync_at = CURRENT_TIMESTAMP - INTERVAL '1 minute'").update();
         when(connections.current(any(), any(), anyLong())).thenReturn(false);
         tx.executeWithoutResult(_ -> {
             assertThat(service().enqueueDue(10)).isZero();
             assertThat(jdbc.sql("""
                     SELECT next_sync_at = CURRENT_TIMESTAMP + INTERVAL '17 minutes'
-                    FROM google_drive_sources WHERE source_id = :source
+                    FROM source_sync_state WHERE source_id = :source
                     """).param("source", source.value()).query(Boolean.class).single()).isTrue();
         });
         assertThat(scalar("SELECT COUNT(*) FROM source_sync_attempts")).isEqualTo(1);
@@ -1186,7 +1210,7 @@ class PostgresGoogleDriveSyncTest {
             assertThat(updated.revision()).isEqualTo(work.scopeRevision());
             assertThat(updated.pendingWork()).isTrue();
             assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.IN_PROGRESS);
-            assertThat(scalar("SELECT generation FROM google_drive_sources")).isEqualTo(work.generation());
+            assertThat(scalar("SELECT generation FROM source_sync_state")).isEqualTo(work.generation());
             return pages.get("first");
         }).when(session).listFiles(any(), any());
 
@@ -1241,15 +1265,15 @@ class PostgresGoogleDriveSyncTest {
         assertThat(roots.configuration(tenant, source).errorCode()).isEqualTo("SOURCE_GOOGLE_UNAVAILABLE");
     }
 
-    private static GoogleDriveProvider.FileMetadata child(String id, boolean folder, String parent) {
-        return new GoogleDriveProvider.FileMetadata(id, id, folder ? "application/vnd.google-apps.folder" : "text/plain",
+    private static GoogleDriveGateway.FileMetadata child(String id, boolean folder, String parent) {
+        return new GoogleDriveGateway.FileMetadata(id, id, folder ? "application/vnd.google-apps.folder" : "text/plain",
                 "1", null, null, false, List.of(parent), null, null);
     }
 
     @Test
     void discoveryRequiresApprovalAndSelectedOrphansUseTheSameDeduplicatedSyncPipeline() {
         listing(file("left", false, "1"), file("right", false, "1"));
-        files.put("remote", new GoogleDriveProvider.FileMetadata("remote", "Remote document", "text/plain",
+        files.put("remote", new GoogleDriveGateway.FileMetadata("remote", "Remote document", "text/plain",
                 "1", null, null, false, List.of(), null, null));
         var link = new GoogleDriveLinkReader.Link(link("remote"), "Sheet one!B2");
         links.put("left", List.of(link, link,
@@ -1292,7 +1316,7 @@ class PostgresGoogleDriveSyncTest {
         Mockito.verifyNoInteractions(linkReader);
 
         links.clear();
-        files.put("child-link", new GoogleDriveProvider.FileMetadata("child-link", "Child", "text/plain", "1",
+        files.put("child-link", new GoogleDriveGateway.FileMetadata("child-link", "Child", "text/plain", "1",
                 null, null, false, List.of(), null, null));
         links.put("remote", List.of(new GoogleDriveLinkReader.Link(link("child-link"), "Paragraph 2")));
         configuration.discoverLinkedDocuments(scheduleOwner, source, 3);
@@ -1305,7 +1329,7 @@ class PostgresGoogleDriveSyncTest {
                             "remote", "remote", "Remote document", "Paragraph 2"));
                 });
         Mockito.clearInvocations(linkReader);
-        jdbc.sql("UPDATE google_drive_sources SET next_sync_at=CURRENT_TIMESTAMP - INTERVAL '1 minute'").update();
+        jdbc.sql("UPDATE source_sync_state SET next_sync_at=CURRENT_TIMESTAMP - INTERVAL '1 minute'").update();
         assertThat(service().enqueueDue(10)).isEqualTo(1);
         finish(new SourceOperationId(jdbc.sql("SELECT id FROM source_sync_attempts WHERE status='NOT_STARTED'").query(UUID.class).single()));
         Mockito.verifyNoInteractions(linkReader);
@@ -1353,7 +1377,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void approvedTargetBecomingAFolderCannotGrantTraversalOrPruneOnAnIncompleteGeneration() {
         listing(file("document", false, "1"));
-        files.put("remote", new GoogleDriveProvider.FileMetadata("remote", "Remote", "text/plain", "1",
+        files.put("remote", new GoogleDriveGateway.FileMetadata("remote", "Remote", "text/plain", "1",
                 null, null, false, List.of(), null, null));
         links.put("document", List.of(new GoogleDriveLinkReader.Link(link("remote"), "Paragraph 1")));
         var configuration = scheduleConfiguration();
@@ -1362,7 +1386,7 @@ class PostgresGoogleDriveSyncTest {
         finish(enqueue());
         files.put("remote", file("remote", true, "2"));
         files.put("unapproved-descendant", child("unapproved-descendant", false, "remote"));
-        pages.put("remote:first", new GoogleDriveProvider.FilePage(List.of(files.get("unapproved-descendant")), null));
+        pages.put("remote:first", new GoogleDriveGateway.FilePage(List.of(files.get("unapproved-descendant")), null));
         listing();
         var operation = enqueue();
         finish(operation);
@@ -1376,10 +1400,10 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void candidateFailuresAndFreshMetadataCannotBeTurnedIntoArbitraryApprovals() {
         listing(file("document", false, "1"));
-        files.put("remote", new GoogleDriveProvider.FileMetadata("remote", "Remote", "text/plain", "1",
+        files.put("remote", new GoogleDriveGateway.FileMetadata("remote", "Remote", "text/plain", "1",
                 null, null, false, List.of(), null, null));
         files.put("linked-folder", file("linked-folder", true, "1"));
-        files.put("unsupported-type", new GoogleDriveProvider.FileMetadata("unsupported-type", "Image", "image/png",
+        files.put("unsupported-type", new GoogleDriveGateway.FileMetadata("unsupported-type", "Image", "image/png",
                 "1", null, null, false, List.of(), null, null));
         links.put("document", List.of(
                 new GoogleDriveLinkReader.Link(link("remote"), "A1"), new GoogleDriveLinkReader.Link(link("linked-folder"), "A2"),
@@ -1409,14 +1433,14 @@ class PostgresGoogleDriveSyncTest {
         var previous = configuration.discoverLinkedDocuments(scheduleOwner, source, 2);
         switch (bound) {
             case "content" -> listing(IntStream.range(0, 101).mapToObj(i -> file("input" + i, false, "1"))
-                    .toArray(GoogleDriveProvider.FileMetadata[]::new));
+                    .toArray(GoogleDriveGateway.FileMetadata[]::new));
             case "targets" -> links.put("document", IntStream.range(0, 501)
                     .mapToObj(i -> new GoogleDriveLinkReader.Link(link("target" + i), "Cell " + i)).toList());
             case "edges" -> links.put("document", IntStream.range(0, 2001)
                     .mapToObj(i -> new GoogleDriveLinkReader.Link(link("document"), "Cell " + i)).toList());
             case "operations" -> {
                 for (int i = 0; i < 513; i++) pages.put(i == 0 ? "first" : "page" + i,
-                        new GoogleDriveProvider.FilePage(List.of(), i == 512 ? null : "page" + (i + 1)));
+                        new GoogleDriveGateway.FilePage(List.of(), i == 512 ? null : "page" + (i + 1)));
             }
             default -> throw new AssertionError(bound);
         }
@@ -1427,16 +1451,16 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private GoogleDriveSourceService scheduleConfiguration() {
-        return new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, linkReader, manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
+        return new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, linkReader, manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
     }
 
     private SourceOperationView finishSelection(GoogleDriveSourceService configuration, GoogleDriveSourceService.SelectionReceipt receipt) {
         var rows = new JdbcGoogleDriveSelectionRepository(jdbc);
-        var processor = new DefaultGoogleDriveSelectionProcessor(rows, (DefaultGoogleDriveSourceService) configuration, connections, manager);
+        var processor = new GoogleDriveSelectionAdapter(rows, (DefaultGoogleDriveSourceService) configuration, connections, manager);
         for (int batch = 0; batch < 256; batch++) {
             var state = rows.find(tenant, receipt.operation().id()).orElseThrow();
             if (state.status() != SourceOperationStatus.NOT_STARTED && state.status() != SourceOperationStatus.IN_PROGRESS) return state;
-            var delivery = dispatch.claim(OperationWorkload.GOOGLE_DRIVE_SELECTION_VALIDATION, 1).getFirst().delivery();
+            var delivery = dispatch.claim(OperationWorkload.SELECTION_VALIDATION, 1).getFirst().delivery();
             processor.execute(processor.claim(tenant, receipt.operation().id(), delivery.deliveryId()).orElseThrow());
         }
         throw new AssertionError("Selection did not terminate within fixture budget");
@@ -1463,7 +1487,7 @@ class PostgresGoogleDriveSyncTest {
     private void assertScheduledFrom(SourceOperationId operation, String timestamp, int minutes) {
         assertThat(jdbc.sql("""
                 SELECT s.next_sync_at = a.%s + :minutes * INTERVAL '1 minute'
-                FROM google_drive_sources s JOIN source_sync_attempts a
+                FROM source_sync_state s JOIN source_sync_attempts a
                   ON a.tenant_id = s.tenant_id AND a.source_id = s.source_id
                 WHERE a.id = :operation
                 """.formatted(timestamp)).param("minutes", minutes).param("operation", operation.value())
@@ -1502,13 +1526,13 @@ class PostgresGoogleDriveSyncTest {
 
     /** A newer credential revision, as reconnecting the account records it. */
     private void revokeCredentialRevision() {
-        jdbc.sql("UPDATE google_drive_credentials SET credential_revision = credential_revision + 1").update();
+        jdbc.sql("UPDATE credentials SET credential_revision = credential_revision + 1").update();
         revision.incrementAndGet();
     }
 
     private SourceSyncEngine service() {
         return new SourceSyncEngine(syncRows, sources, items, attempts, mappings, writes,
-                List.of(new GoogleDriveSyncTraversal(googleRows, roots,
+                SourceSyncAdapters.registry(new GoogleDriveSyncAdapter(googleRows, roots,
                         new JdbcGoogleDriveAclRepository(jdbc, published::add), connections, groupSynchronizer)),
                 manager);
     }
@@ -1516,7 +1540,7 @@ class PostgresGoogleDriveSyncTest {
     private SourceOperationId enqueue() {
         return Objects.requireNonNull(tx.execute(_ -> {
             sources.lock(tenant, source);
-            return syncRows.enqueue(SyncTarget.GOOGLE_DRIVE, tenant, source, revision.get(), SourceRunTrigger.MANUAL, scheduleOwner).id();
+            return syncRows.enqueue(tenant, source, revision.get(), SourceRunTrigger.MANUAL, scheduleOwner).id();
         }));
     }
 
@@ -1535,18 +1559,28 @@ class PostgresGoogleDriveSyncTest {
         throw new AssertionError("sync did not terminate within bounded fixture executions");
     }
 
-    private void listing(GoogleDriveProvider.FileMetadata... values) {
+    private void listing(GoogleDriveGateway.FileMetadata... values) {
         for (var value : values) files.put(value.id(), value);
-        pages.put("first", new GoogleDriveProvider.FilePage(List.of(values), null));
+        pages.put("first", new GoogleDriveGateway.FilePage(List.of(values), null));
     }
 
-    private static GoogleDriveProvider.FileMetadata file(String id, boolean folder, String version) {
-        return new GoogleDriveProvider.FileMetadata(id, id + (folder ? "" : ".txt"),
+    private static GoogleDriveGateway.FileMetadata file(String id, boolean folder, String version) {
+        return new GoogleDriveGateway.FileMetadata(id, id + (folder ? "" : ".txt"),
                 folder ? "application/vnd.google-apps.folder" : "text/plain", version, null, null,
                 false, folder ? List.of() : List.of("folder"), null, null);
     }
 
     private long scalar(String query) { return jdbc.sql(query).query(Long.class).single(); }
+
+    private Instant sourceUpdatedAt(String fileId) {
+        return jdbc.sql("SELECT source_updated_at FROM connector_items WHERE provider_file_id = :file")
+                .param("file", fileId).query(OffsetDateTime.class).single().toInstant();
+    }
+
+    private static GoogleDriveGateway.FileMetadata modifiedAt(GoogleDriveGateway.FileMetadata file, Instant at) {
+        return new GoogleDriveGateway.FileMetadata(file.id(), file.name(), file.mimeType(), file.version(), file.checksum(),
+                at, file.trashed(), file.parents(), file.driveId(), file.shortcutTargetId());
+    }
     private static String link(String id) { return "https://drive.google.com/drive/folders/" + id; }
     private static ContentSha256 checksum(byte[] value) {
         try { return new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value))); }

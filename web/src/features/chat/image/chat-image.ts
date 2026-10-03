@@ -24,30 +24,31 @@ export function parseGeneratedImages(value: unknown): GeneratedImage[] {
     .parse(value ?? []);
 }
 
-/** Browser preference only; the API independently authorizes every command. No messages or keys. */
+/**
+ * What the person chose for this conversation, or undefined when they chose nothing and the default applies. Browser
+ * preference only; the API independently authorizes every command. No messages or keys.
+ */
 export function readImagePreference(
   owner: string | undefined,
   sessionId: string | undefined,
-): ImageMode {
-  if (!owner || !sessionId) return "off";
+): ImageMode | undefined {
+  if (!owner || !sessionId) return undefined;
   try {
     const value = localStorage.getItem(`memoryos:image:${owner}:${sessionId}`);
-    return value === "auto" || value === "required" ? value : "off";
+    return value === "auto" || value === "required" || value === "off" ? value : undefined;
   } catch {
-    return "off";
+    return undefined;
   }
 }
 
 export function writeImagePreference(
   owner: string | undefined,
   sessionId: string | undefined,
-  mode: ImageMode,
+  mode: ImageMode | undefined,
 ) {
-  if (!owner || !sessionId) return;
+  if (!owner || !sessionId || !mode) return;
   try {
-    const key = `memoryos:image:${owner}:${sessionId}`;
-    if (mode === "off") localStorage.removeItem(key);
-    else localStorage.setItem(key, mode);
+    localStorage.setItem(`memoryos:image:${owner}:${sessionId}`, mode);
   } catch {
     // Disabled/full browser storage must not prevent a chat turn.
   }

@@ -13,28 +13,32 @@ class SearchPropertiesTest {
     void rejectsEmbeddingEndpointsCarryingCredentialsQueriesFragmentsOrNoHttpHost() {
         for (String endpoint : List.of("https://user:password@provider.example/v1", "https://provider.example/v1?key=secret",
                 "https://provider.example/v1#fragment", "file:///tmp/provider", "/v1", "ftp://provider.example/v1")) {
-            assertThrows(IllegalArgumentException.class, () -> properties(endpoint, "test-only-credential"));
+            assertThrows(IllegalArgumentException.class, () -> properties(endpoint));
         }
     }
 
     @Test
-    void acceptsAKeyOverInternalHttpAsTheChatProviderPolicyDoes() {
+    void acceptsInternalHttpAsTheChatProviderPolicyDoes() {
         // docs/specs/chat-models.md#credentials-and-provider-extension: the serving node's TEI is plain HTTP on the
-        // private network, with a key.
-        assertDoesNotThrow(() -> properties("http://172.24.244.79:18090/v1", "test-only-credential"));
-        assertDoesNotThrow(() -> properties("http://127.0.0.1:8080/v1", "test-only-credential"));
-        assertDoesNotThrow(() -> properties("https://api.openai.com/v1", "test-only-credential"));
-        assertDoesNotThrow(() -> properties("http://127.0.0.1:8080/v1", ""));
+        // private network.
+        assertDoesNotThrow(() -> properties("http://172.24.244.79:18090/v1"));
+        assertDoesNotThrow(() -> properties("http://127.0.0.1:8080/v1"));
+        assertDoesNotThrow(() -> properties("https://api.openai.com/v1"));
+    }
+
+    @Test
+    void aSeededDeploymentNeedsNoEmbeddingEndpoint() {
+        // The endpoint only seeds the first generation (MEM-216); search reports itself unavailable if one is needed.
+        assertDoesNotThrow(() -> properties(""));
     }
 
     @Test
     void rejectsSemanticScoresOutsideCosineScoreRange() {
         for (double score : new double[] {-0.01, 1.01, Double.NaN, Double.POSITIVE_INFINITY}) {
-            assertThrows(IllegalArgumentException.class,
-                    () -> properties("https://api.openai.com/v1", "test-only-credential", score));
+            assertThrows(IllegalArgumentException.class, () -> properties("https://api.openai.com/v1", score));
         }
-        assertDoesNotThrow(() -> properties("https://api.openai.com/v1", "test-only-credential", 0));
-        assertDoesNotThrow(() -> properties("https://api.openai.com/v1", "test-only-credential", 1));
+        assertDoesNotThrow(() -> properties("https://api.openai.com/v1", 0));
+        assertDoesNotThrow(() -> properties("https://api.openai.com/v1", 1));
     }
 
     @Test
@@ -47,21 +51,21 @@ class SearchPropertiesTest {
         assertThrows(IllegalArgumentException.class, () -> properties(Duration.ofSeconds(1), 4));
     }
 
-    private static SearchProperties properties(String embeddingEndpoint, String apiKey) {
-        return properties(embeddingEndpoint, apiKey, .70);
+    private static SearchProperties properties(String embeddingEndpoint) {
+        return properties(embeddingEndpoint, .70);
     }
 
-    private static SearchProperties properties(String embeddingEndpoint, String apiKey, double minimumSemanticScore) {
-        return properties(embeddingEndpoint, apiKey, minimumSemanticScore, Duration.ofSeconds(1), 2);
+    private static SearchProperties properties(String embeddingEndpoint, double minimumSemanticScore) {
+        return properties(embeddingEndpoint, minimumSemanticScore, Duration.ofSeconds(1), 2);
     }
 
     private static SearchProperties properties(Duration embeddingTimeout, int embeddingRetries) {
-        return properties("https://api.openai.com/v1", "test-only-credential", .70, embeddingTimeout, embeddingRetries);
+        return properties("https://api.openai.com/v1", .70, embeddingTimeout, embeddingRetries);
     }
 
-    private static SearchProperties properties(String embeddingEndpoint, String apiKey, double minimumSemanticScore,
+    private static SearchProperties properties(String embeddingEndpoint, double minimumSemanticScore,
                                                Duration embeddingTimeout, int embeddingRetries) {
-        return new SearchProperties(URI.create("http://127.0.0.1:9200"), "", "", "", embeddingEndpoint, apiKey,
+        return new SearchProperties(URI.create("http://127.0.0.1:9200"), "", "", "", embeddingEndpoint,
                 "text-embedding-3-large", 3072, 32, 2, embeddingTimeout, embeddingRetries, 500, .5, minimumSemanticScore,
                 Duration.ofSeconds(3), "memoryos-test", 0, "", "");
     }

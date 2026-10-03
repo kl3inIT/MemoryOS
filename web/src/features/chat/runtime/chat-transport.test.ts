@@ -82,7 +82,7 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 function packet(sequence: number, event: string, data: object) {
   return `id: ${runId}:${sequence}\nevent: ${event}\ndata: ${JSON.stringify({ assistantMessageId: runId, sequence, ...data })}\n\n`;
 }
-const delta = packet(1, "text-delta", { text: "Hello 👋" });
+const delta = packet(1, "text", { text: "Hello 👋" });
 const terminal = (status = "COMPLETED") => packet(2, "outcome", { status, failureCode: null });
 const sse = (body: string) =>
   new Response(body, { headers: { "content-type": "text/event-stream" } });
@@ -133,22 +133,65 @@ async function collect(stream: ReadableStream<UIMessageChunk>) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
-  it("captures Web intent for one send and keeps missing intent off", async () => {
+  async function submitted(fetch: ReturnType<typeof fixture>) {
+    const requests = fetch.mock.calls.map(([input, init]) =>
+      input instanceof Request ? input : new Request(input, init),
+    );
+    const request = requests.findLast(
+      (candidate) =>
+        candidate.method === "POST" && new URL(candidate.url).pathname.endsWith("/messages"),
+    );
+    expect(request).toBeDefined();
+    return (await request!.clone().json()) as Record<string, unknown>;
+  }
+  it("captures Web intent for one send and makes no choice of its own", async () => {
     const fetch = fixture(() => sse(delta + terminal()));
     const transport = new MemoryOsChatTransport(session);
     transport.selectWeb("auto");
     const pending = send(transport);
     transport.selectWeb("off");
     await collect(await pending);
-    const requests = fetch.mock.calls.map(([input, init]) =>
-      input instanceof Request ? input : new Request(input, init),
-    );
-    const submitted = requests.find(
-      (request) => request.method === "POST" && new URL(request.url).pathname.endsWith("/messages"),
-    );
-    expect(submitted).toBeDefined();
-    expect(await submitted!.clone().json()).toMatchObject({ webSearch: "auto" });
-    expect(new MemoryOsChatTransport(session).webSearch).toBe("off");
+    expect(await submitted(fetch)).toMatchObject({ webSearch: "auto" });
+    expect(new MemoryOsChatTransport(session).webSearch).toBeUndefined();
+  });
+  it("sends every tool off until the conversation says which tools can be used", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    await collect(await send(new MemoryOsChatTransport(session)));
+    expect(await submitted(fetch)).toMatchObject({
+      webSearch: "off",
+      image: "off",
+      mcpServerIds: [],
+    });
+  });
+  it("sends the conversation's defaults for the tools the person has not chosen", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const server = crypto.randomUUID();
+    const transport = new MemoryOsChatTransport(session);
+    transport.defaultTools({ web: "auto", image: "auto", mcpServerIds: [server] });
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({
+      webSearch: "auto",
+      image: "auto",
+      mcpServerIds: [server],
+    });
+  });
+  it("keeps a tool the person turned off against the default, and never sends one the agent forbids", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const [allowed, forbidden] = [crypto.randomUUID(), crypto.randomUUID()];
+    const transport = new MemoryOsChatTransport(session);
+    transport.defaultTools({ web: "auto", image: "auto", mcpServerIds: [allowed, forbidden] });
+    transport.restrictTools({ web: true, image: false, mcpServerIds: [allowed] });
+    transport.selectWeb("off");
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({
+      webSearch: "off",
+      image: "off",
+      mcpServerIds: [allowed],
+    });
+    // Turning every server off is a choice too: the default does not bring them back.
+    transport.selectMcpServers([]);
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({ mcpServerIds: [] });
   });
   it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
     const artifacts = [
@@ -288,6 +331,62 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(accepted).toHaveBeenCalledWith({ userMessageId: userId, assistantMessageId: runId });
   });
 
+  it("pins a level chosen before the conversation existed before its first answer", async () => {
+    const order: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input.clone() : new Request(input, init);
+        const path = new URL(request.url).pathname;
+        order.push(`${request.method} ${path}`);
+        if (path === "/api/chat/sessions") return json(session, 201);
+        if (path.endsWith("/reasoning"))
+          return json({ ...session, reasoningEffort: (await request.json()).reasoningEffort });
+        if (path.endsWith("/events")) return sse(delta + terminal());
+        if (request.method === "POST")
+          return json({ userMessageId: userId, assistantMessageId: runId }, 202);
+        if (path.endsWith("/messages")) return json([row]);
+        return json(session);
+      }),
+    );
+    const transport = new MemoryOsChatTransport();
+    const created = vi.fn();
+    transport.onSessionCreated = created;
+    transport.selectReasoning("HIGH");
+    await collect(await send(transport));
+    expect(order.slice(0, 3)).toEqual([
+      "POST /api/chat/sessions",
+      `PUT /api/chat/sessions/${session.id}/reasoning`,
+      `POST /api/chat/sessions/${session.id}/messages`,
+    ]);
+    expect(created).toHaveBeenCalledWith(expect.objectContaining({ reasoningEffort: "HIGH" }));
+  });
+
+  it("still announces the conversation when its level cannot be pinned, and sends no question", async () => {
+    const order: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input.clone() : new Request(input, init);
+        const path = new URL(request.url).pathname;
+        order.push(`${request.method} ${path}`);
+        if (path === "/api/chat/sessions") return json(session, 201);
+        if (path.endsWith("/reasoning")) return json({ title: "Unavailable" }, 503);
+        return json(session);
+      }),
+    );
+    const transport = new MemoryOsChatTransport();
+    const created = vi.fn();
+    const failed = vi.fn();
+    transport.onSessionCreated = created;
+    transport.onSessionFailed = failed;
+    transport.selectReasoning("HIGH");
+    await expect(send(transport)).rejects.toBeDefined();
+    expect(created).toHaveBeenCalledExactlyOnceWith(session);
+    expect(failed).not.toHaveBeenCalled();
+    expect(order).not.toContain(`POST /api/chat/sessions/${session.id}/messages`);
+  });
+
   it("sends a composer quote as a leading blockquote of the question", async () => {
     const fetch = fixture(() => sse(delta + terminal()));
     await collect(
@@ -392,7 +491,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
           stage: "STARTED",
           source: null,
         }) +
-          packet(2, "text-delta", { text: "Answer [1]" }) +
+          packet(2, "text", { text: "Answer [1]" }) +
           packet(3, "outcome", { status: "COMPLETED", failureCode: null }),
       ),
     );
@@ -420,7 +519,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
           packet(3, "tool", { ...call, stage: "STARTED" }) +
           packet(4, "future-event", { anything: true }) +
           packet(5, "tool", { ...call, stage: "COMPLETED", durationMs: 1200 }) +
-          packet(6, "text-delta", { text: "Answer" }) +
+          packet(6, "text", { text: "Answer" }) +
           packet(7, "outcome", { status: "COMPLETED", failureCode: null }),
       ),
     );
@@ -466,9 +565,9 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     };
     fixture(() =>
       sse(
-        packet(1, "research-plan", { text: "1. Revenue" }) +
+        packet(1, "research_plan", { text: "1. Revenue" }) +
           packet(2, "tool", { ...agent, stage: "STARTED" }) +
-          packet(3, "research-agent-start", {
+          packet(3, "research_agent_start", {
             toolCallId: "call_a",
             tabIndex: 0,
             task: "Revenue in 2025",
@@ -484,13 +583,13 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
           }) +
           packet(6, "tool", { ...step, stage: "COMPLETED", durationMs: 40 }) +
           packet(7, "reasoning", { text: "Check margins", parentToolCallId: "call_a" }) +
-          packet(8, "intermediate-report", { toolCallId: "call_a", text: "Revenue grew [1]." }) +
-          packet(9, "intermediate-report-citations", {
+          packet(8, "intermediate_report", { toolCallId: "call_a", text: "Revenue grew [1]." }) +
+          packet(9, "intermediate_report_citations", {
             toolCallId: "call_a",
             citations: [{ marker: 1, citationId: 3 }],
           }) +
           packet(10, "tool", { ...agent, stage: "COMPLETED", durationMs: 900 }) +
-          packet(11, "text-delta", { text: "Report [3]" }) +
+          packet(11, "text", { text: "Report [3]" }) +
           packet(12, "outcome", { status: "COMPLETED", failureCode: null }),
       ),
     );
@@ -693,7 +792,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     const fetch = fixture(() => {
       call += 1;
       return call <= 5
-        ? sse(packet(call, "text-delta", { text: `part ${call} ` }))
+        ? sse(packet(call, "text", { text: `part ${call} ` }))
         : sse(packet(6, "outcome", { status: "COMPLETED", failureCode: null }));
     });
     const chunks = await collect(await send(new MemoryOsChatTransport(session)));

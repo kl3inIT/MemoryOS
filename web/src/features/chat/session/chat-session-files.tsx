@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAui, useAuiState } from "@assistant-ui/react";
 import {
@@ -175,13 +176,29 @@ function useSessionFiles(
 export function ChatSessionFiles({
   sessionId,
   onShowMessage,
+  open: controlledOpen,
+  onOpenChange,
+  trigger = true,
+  restoreFocusRef,
 }: {
   sessionId: string;
   /** Scrolls the transcript to a message, switching versions when it is on another branch. */
   onShowMessage?: (messageId: string) => Promise<boolean>;
+  /** Opens the sheet from elsewhere, such as the conversation menu on a phone. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Whether the paperclip button shows; a phone reaches the sheet from the conversation menu instead. */
+  trigger?: boolean;
+  /** Where focus returns on close when the sheet was opened from elsewhere, such as that menu's button. */
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const ui = useAppTranslation();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (next: boolean) => {
+    setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [search, setSearch] = useState("");
   const query = useDebouncedValue(search.trim(), 250);
   const [categories, setCategories] = useState<LibraryCategory[]>([]);
@@ -210,28 +227,37 @@ export function ChatSessionFiles({
 
   return (
     <>
-      <IconButton
-        size="sm"
-        prominence="internal"
-        aria-label={
-          count > 0 ? ui("Tệp trong hội thoại ({{count}})", { count }) : ui("Tệp trong hội thoại")
-        }
-        title={ui("Tệp trong hội thoại")}
-        onClick={() => setOpen(true)}
-        className="relative"
-      >
-        <Paperclip />
-        {count > 0 && (
-          <span
-            aria-hidden="true"
-            className="absolute -top-1 -right-1 min-w-4 rounded-full bg-primary px-1 text-xs leading-4 font-medium text-primary-foreground"
-          >
-            {count > 99 ? "99+" : count}
-          </span>
-        )}
-      </IconButton>
+      {trigger && (
+        <TooltipIconButton
+          size="sm"
+          prominence="internal"
+          aria-label={
+            count > 0 ? ui("Tệp trong hội thoại ({{count}})", { count }) : ui("Tệp trong hội thoại")
+          }
+          onClick={() => setOpen(true)}
+          className="relative"
+        >
+          <Paperclip />
+          {count > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-1 -right-1 min-w-4 rounded-full bg-primary px-1 text-xs leading-4 font-medium text-primary-foreground"
+            >
+              {count > 99 ? "99+" : count}
+            </span>
+          )}
+        </TooltipIconButton>
+      )}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right">
+        <SheetContent
+          side="right"
+          onCloseAutoFocus={(event) => {
+            const target = restoreFocusRef?.current;
+            if (!target?.isConnected) return;
+            event.preventDefault();
+            target.focus();
+          }}
+        >
           <SheetHeader>
             <SheetTitle>{ui("Tệp trong hội thoại")}</SheetTitle>
             <SheetDescription>
@@ -287,7 +313,7 @@ export function ChatSessionFiles({
                   </EmptyTitle>
                   <EmptyDescription>
                     {filtered
-                      ? ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.")
+                      ? ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khóa tìm kiếm.")
                       : ui("Tệp bạn đính kèm và tệp Chat tạo ra sẽ xuất hiện ở đây.")}
                   </EmptyDescription>
                 </EmptyHeader>
@@ -325,15 +351,15 @@ export function ChatSessionFiles({
       <ConfirmDialog
         open={confirming !== undefined}
         onOpenChange={(next) => !next && setConfirming(undefined)}
-        title={ui("Xoá tệp?")}
+        title={ui("Xóa tệp?")}
         description={ui(
-          "Tệp sẽ bị xoá khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
+          "Tệp sẽ bị xóa khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
           {
             count: 1,
           },
         )}
-        confirmLabel={ui("Xoá")}
-        pendingLabel={ui("Đang xoá…")}
+        confirmLabel={ui("Xóa")}
+        pendingLabel={ui("Đang xóa…")}
         confirmTone="danger"
         onConfirm={async () => {
           const file = confirming;
@@ -459,7 +485,7 @@ function SessionFileRow({
                   onSelect={onDelete}
                 >
                   <Trash2 />
-                  {ui("Xoá")}
+                  {ui("Xóa")}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>

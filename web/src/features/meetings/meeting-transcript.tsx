@@ -10,7 +10,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import type { MeetingTrack } from "./meeting-socket";
-import { slug } from "./meeting-file-name";
+import { slug } from "@/lib/meeting-file-name";
 import { exportMeetingTranscript } from "@/lib/hey-api/sdk.gen";
 import { formatClock, saveDocument, type MeetingDetail } from "./meetings-api";
 import { useRecorderValue } from "./recorder-state";
@@ -57,6 +57,8 @@ export function Transcript({
   const [starredOnly, setStarredOnly] = useState(false);
   const [at, setAt] = useState(0);
   const listening = useRecorderValue(recorder, (snapshot) => snapshot.phase === "recording");
+  // A shared reader has no local recorder, but the server still streams its utterances while recording.
+  const recording = meeting.status === "RECORDING";
   const speaking = useRecorderValue(
     recorder,
     (snapshot) => livePreviews(snapshot.previews).length > 0,
@@ -94,16 +96,16 @@ export function Transcript({
     getItemKey: (index) => shown[index]?.id ?? index,
   });
 
-  /** Keeps the newest line in view while recording, unless the reader scrolled away from the end. */
+  /** Keeps the newest server or local line in view while recording, unless the reader scrolled away from the end. */
   const follow = useCallback(() => {
     const element = scroller.current;
-    if (!listening || !following.current || !element) return;
+    if (!recording || !following.current || !element) return;
     if (count > 0) rows.scrollToIndex(count - 1, { align: "end" });
     // The unfinished sentences sit below the list, so the view ends at the very bottom.
     requestAnimationFrame(() => {
       element.scrollTop = element.scrollHeight;
     });
-  }, [listening, count, rows]);
+  }, [recording, count, rows]);
   useEffect(follow, [follow]);
 
   // A search hit is reached in two steps: its line is scrolled into the rendered window, then the hit itself

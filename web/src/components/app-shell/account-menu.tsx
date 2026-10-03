@@ -25,10 +25,15 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation("common");
   const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
-  const { tenant } = useApplicationSession();
+  const { displayName, tenant } = useApplicationSession();
   const { canAccessAdmin, adminEntryPath } = useAdminAccess();
   const membershipLabel = t(tenant.role === "OWNER" ? "owner" : "member");
-  const initials = tenant.displayName
+  // A blank name from the identity provider is no name.
+  const personName = displayName?.trim() || null;
+  const accountDisplayName = personName ?? tenant.displayName;
+  // The button names the person; the role answers only while the identity provider has sent no name.
+  const buttonLabel = personName ?? membershipLabel;
+  const initials = accountDisplayName
     .trim()
     .split(/\s+/)
     .slice(0, 2)
@@ -60,14 +65,14 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>
-        <SidebarMenuButton tooltip={membershipLabel}>
+        <SidebarMenuButton tooltip={buttonLabel}>
           <span
             aria-hidden="true"
             className="grid size-4 shrink-0 place-items-center rounded-full bg-surface-raised font-figure-small-label text-content-primary ring-1 ring-border-default"
           >
             {initials}
           </span>
-          <span>{membershipLabel}</span>
+          <span className="truncate">{buttonLabel}</span>
         </SidebarMenuButton>
       </DropdownMenuTrigger>
 
@@ -80,7 +85,7 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
       >
         <DropdownMenuLabel className="flex flex-col">
           <span className="font-main-ui-body break-words text-content-primary">
-            {tenant.displayName}
+            {accountDisplayName}
           </span>
           <span className="font-secondary-body text-content-muted">{membershipLabel}</span>
         </DropdownMenuLabel>

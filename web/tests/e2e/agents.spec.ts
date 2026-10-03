@@ -355,7 +355,7 @@ test("browses, filters and pins agents with visibility and owners at desktop and
   await page.getByRole("checkbox", { name: "Lê Thu Hà" }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("article")).toHaveCount(2);
-  await page.getByRole("button", { name: "Xoá bộ lọc người tạo" }).click();
+  await page.getByRole("button", { name: "Xóa bộ lọc người tạo" }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("article")).toHaveCount(6);

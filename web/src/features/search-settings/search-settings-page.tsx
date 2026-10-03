@@ -279,7 +279,7 @@ function Loaded({
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="break-all">{past.model}</span>
                     {past.cleanupBlocked && (
-                      <StatusBadge tone="danger">{ui("Không xoá được index")}</StatusBadge>
+                      <StatusBadge tone="danger">{ui("Không xóa được index")}</StatusBadge>
                     )}
                   </span>
                 }

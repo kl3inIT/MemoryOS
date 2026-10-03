@@ -153,7 +153,7 @@ export function MyUsagePage() {
         )}
       />
 
-      {standing.data ? <Budget standing={standing.data} /> : null}
+      {standing.data?.standing ? <Budget standing={standing.data.standing} /> : null}
 
       {usage.isError ? (
         <EmptyState

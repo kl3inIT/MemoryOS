@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.TestDatabase;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
@@ -53,6 +52,7 @@ import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
+import io.memoryos.shared.Tokenizers;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -75,7 +75,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -453,8 +452,10 @@ class ChatPersistenceIntegrationTest {
         var elsewhere = sessions.create(owner, "Nơi khác");
         var attached = readyFile(owner);
         var unattached = readyFile(owner);
-        var reply = turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.SEND,
-                session.rootMessageId(), UUID.randomUUID(), "Xem tệp này", null, List.of(attached)),
+        var reply = turns.reserve(owner, session.id(), ChatCommand.builder(ChatCommand.Operation.SEND,
+                session.rootMessageId(), UUID.randomUUID(), "Xem tệp này")
+                .fileIds(List.of(attached))
+                .build(),
                 Duration.ofMinutes(2), 32000, null);
         var image = UUID.randomUUID();
         images.insert(scope, reply.assistantMessageId(), image, UUID.randomUUID(),
@@ -582,7 +583,7 @@ class ChatPersistenceIntegrationTest {
         turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "First answer");
         var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Follow-up");
         turns.finish(session.id(), second.assistantMessageId(), ChatMessage.Status.COMPLETED, "Second answer");
-        var regenerate = new ChatCommand(ChatCommand.Operation.REGENERATE, first.userMessageId(), UUID.randomUUID(), "", null);
+        var regenerate = ChatCommand.builder(ChatCommand.Operation.REGENERATE, first.userMessageId(), UUID.randomUUID(), "").build();
         var retryAnswer = turns.reserve(owner, session.id(), regenerate, Duration.ofMinutes(2), 32000, null);
         assertEquals(first.userMessageId(), retryAnswer.userMessageId());
         assertEquals(2L, jdbc.sql("SELECT count(*) FROM chat_message WHERE session_id=:session AND role='USER'")
@@ -592,7 +593,7 @@ class ChatPersistenceIntegrationTest {
         assertEquals(2, sessions.history(owner, session.id(), null, 100).size());
         sessions.selectBranch(owner, session.id(), first.assistantMessageId(), retryAnswer.assistantMessageId());
         assertEquals(4, sessions.history(owner, session.id(), null, 100).size());
-        var edit = new ChatCommand(ChatCommand.Operation.EDIT, first.userMessageId(), UUID.randomUUID(), "Edited question", null);
+        var edit = ChatCommand.builder(ChatCommand.Operation.EDIT, first.userMessageId(), UUID.randomUUID(), "Edited question").build();
         var edited = turns.reserve(owner, session.id(), edit, Duration.ofMinutes(2), 32000, null);
         assertNotEquals(first.userMessageId(), edited.userMessageId());
         assertEquals("Edited question", turns.loadContext(owner, session.id(), edited).newestFirst().getFirst().content());
@@ -600,7 +601,8 @@ class ChatPersistenceIntegrationTest {
         turns.finish(session.id(), edited.assistantMessageId(), ChatMessage.Status.COMPLETED, "Edited answer");
         assertEquals(retryAnswer.assistantMessageId(), turns.reserve(owner, session.id(), regenerate, Duration.ofMinutes(2), 32000, null).assistantMessageId());
         assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(),
-                new ChatCommand(ChatCommand.Operation.EDIT, first.userMessageId(), regenerate.requestId(), "Other", null), Duration.ofMinutes(2), 32000, null));
+                ChatCommand.builder(ChatCommand.Operation.EDIT, first.userMessageId(), regenerate.requestId(),
+                        "Other").build(), Duration.ofMinutes(2), 32000, null));
         sessions.selectBranch(owner, session.id(), first.userMessageId(), edited.userMessageId());
         assertEquals(second.assistantMessageId(), sessions.history(owner, session.id(), null, 100).getLast().id());
     }
@@ -620,8 +622,8 @@ class ChatPersistenceIntegrationTest {
         collaboration.feedback(owner, session.id(), first.assistantMessageId(), false, "Incomplete", "missing_context");
         assertEquals(1, collaboration.feedback(owner, session.id(), List.of(first.assistantMessageId())).size());
         assertEquals(Boolean.FALSE, collaboration.feedback(owner, session.id(), List.of(first.assistantMessageId())).getFirst().positive());
-        var regeneration = turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.REGENERATE, first.userMessageId(),
-                UUID.randomUUID(), "", null), Duration.ofMinutes(2), 32000, null);
+        var regeneration = turns.reserve(owner, session.id(), ChatCommand.builder(ChatCommand.Operation.REGENERATE,
+                first.userMessageId(), UUID.randomUUID(), "").build(), Duration.ofMinutes(2), 32000, null);
         assertTrue(collaboration.feedback(owner, session.id(), List.of(regeneration.assistantMessageId())).isEmpty());
         collaboration.removeFeedback(owner, session.id(), first.assistantMessageId());
         collaboration.removeFeedback(owner, session.id(), first.assistantMessageId());
@@ -641,10 +643,10 @@ class ChatPersistenceIntegrationTest {
                 "Question ".repeat(500), Duration.ofMinutes(2), 100));
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET instructions = 'Answer' WHERE id = :id").param("id", session.personaId()).update();
-        var tokens = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
+        var tokens = Tokenizers.o200k();
         var policy = ModelRequestPolicy.hosted(tokens, p -> p);
-        var binding = new ModelBinding(new SpringAiLlmService("fixture", "fixture",
-                Mockito.mock(ChatModel.class)), p -> p, policy, 32000, 4096, false, false);
+        var binding = ModelBinding.builder(new SpringAiLlmService("fixture", "fixture", Mockito.mock(ChatModel.class)),
+                p -> p, policy, 32000, 4096, false, false).build();
         String contribution = "Current date: 2026-09-11\n";
         // Reservation validates and stores the resolved prompt, including the account-language block.
         String instructions = ChatTurnSetup.instructions(
@@ -674,7 +676,7 @@ class ChatPersistenceIntegrationTest {
     void sourcesCommitWithTheTerminalWinnerAndRemainHistoricalEvidence() {
         var session = sessions.create(owner, "Evidence");
         var pair = turns.reserve(owner, session.id(), session.rootMessageId(), UUID.randomUUID(), "Leave policy?", Duration.ofMinutes(2), 32000);
-        var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
+        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[{\"page\":3}]")));
         var artifact = new ChatArtifact(UUID.randomUUID(), "Allowance", "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"Days\",\"value\":\"12\"}}}");
         var activity = new ChatActivity(List.of(new ChatActivity.ActivityStep(1, "call_1", "search_knowledge", ChatActivity.StepStatus.COMPLETED,
@@ -769,7 +771,7 @@ class ChatPersistenceIntegrationTest {
         var session = sessions.create(owner, "Many sources");
         var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
         var sources = IntStream.rangeClosed(1, 30)
-                .mapToObj(index -> new ChatSource(index, null, null, "File " + index, 0, 0, List.of(), UUID.randomUUID())).toList();
+                .mapToObj(index -> ChatSource.file(index, UUID.randomUUID(), "File " + index, null, null)).toList();
         assertTrue(new JdbcChatRepository(jdbc).finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "Answer [30]", null, null, null, null, null, sources));
         assertEquals(30, sessions.history(owner, session.id(), null, 20).getLast().sources().size());
@@ -798,23 +800,23 @@ class ChatPersistenceIntegrationTest {
         assertThrows(DataAccessException.class, () -> jdbc.sql(
                 "UPDATE chat_message SET research_plan = repeat('x', 100001) WHERE id = :id")
                 .param("id", pair.assistantMessageId()).update(), "The stored plan stays bounded");
-        assertThrows(IllegalArgumentException.class, () -> new ChatResearch(false, "x".repeat(ChatResearch.MAX_PLAN + 1)));
+        assertThrows(IllegalArgumentException.class, () -> new ChatResearch(false, "x".repeat(ChatResearch.MAX_PLAN + 1), List.of()));
     }
 
     @Test
     void deepResearchModeIsPartOfCommandIdentity() {
         var session = sessions.create(owner, "Research identity");
         var request = UUID.randomUUID();
-        var research = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), request, "Question", null, List.of(),
-                WebSearchMode.off, ImageMode.off, true);
+        var research = ChatCommand.builder(ChatCommand.Operation.SEND, session.rootMessageId(), request, "Question")
+                .deepResearch(true)
+                .build();
         var reserved = turns.reserve(owner, session.id(), research, Duration.ofMinutes(30), 32000, null);
         assertTrue(reserved.created());
         assertTrue(jdbc.sql("SELECT deep_research FROM chat_command WHERE session_id = :session AND request_id = :request")
                 .param("session", session.id()).param("request", request).query(Boolean.class).single());
         var replay = turns.reserve(owner, session.id(), research, Duration.ofMinutes(30), 32000, null);
         assertEquals(reserved.assistantMessageId(), replay.assistantMessageId());
-        var ordinary = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), request, "Question", null, List.of(),
-                WebSearchMode.off, ImageMode.off, false);
+        var ordinary = ChatCommand.builder(ChatCommand.Operation.SEND, session.rootMessageId(), request, "Question").build();
         assertEquals("CHAT_CONFLICT", assertThrows(ChatException.class,
                 () -> turns.reserve(owner, session.id(), ordinary, Duration.ofMinutes(30), 32000, null)).code());
     }
@@ -1284,9 +1286,8 @@ class ChatPersistenceIntegrationTest {
     @Test
     void aSendReadsItsAgentOnceAndTheReservationOnlyRechecksItsRevision() {
         var session = sessions.create(owner, "Persona");
-        var binding = new ModelBinding(new SpringAiLlmService("fixture", "fixture",
-                Mockito.mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(
-                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, false, false);
+        var binding = ModelBinding.builder(new SpringAiLlmService("fixture", "fixture", Mockito.mock(ChatModel.class)),
+                p -> p, ModelRequestPolicy.hosted( Tokenizers.o200k(), p -> p), 32000, 4096, false, false).build();
 
         clearInvocations(authorization);
         statements.reset();
@@ -1352,28 +1353,35 @@ class ChatPersistenceIntegrationTest {
     void orderedMessageFilesSurviveReplayRegenerationEditingAndSharedHistoryWithoutNewUploads() {
         var a = readyFile(owner); var b = readyFile(owner); var foreign = readyFile(other);
         var session = sessions.create(owner, "Files");
-        var denied = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "", null, List.of(foreign));
+        var denied = ChatCommand.builder(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "")
+                .fileIds(List.of(foreign))
+                .build();
         // The library refuses the file; its failure answers the same CHAT_UNAVAILABLE problem Chat's would.
         var refused = assertThrows(LibraryException.class, () -> turns.reserve(owner, session.id(), denied, Duration.ofMinutes(2), 32000, null));
         assertEquals("CHAT_UNAVAILABLE", refused.code());
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
-        var command = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "", null, List.of(b, a));
+        var command = ChatCommand.builder(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "")
+                .fileIds(List.of(b, a))
+                .build();
         var first = turns.reserve(owner, session.id(), command, Duration.ofMinutes(2), 32000, null);
         var replay = turns.reserve(owner, session.id(), command, Duration.ofMinutes(2), 32000, null);
         assertFalse(replay.created());
         assertEquals(first.assistantMessageId(), replay.assistantMessageId());
         assertEquals(List.of(b, a), turns.loadContext(owner, session.id(), replay).newestFirst().getFirst().files().stream().map(ChatFileDescriptor::id).toList());
-        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), new ChatCommand(command.operation(),
-                command.targetMessageId(), command.requestId(), "", null, List.of(a, b)), Duration.ofMinutes(2), 32000, null));
+        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), ChatCommand.builder(command.operation(),
+                command.targetMessageId(), command.requestId(), "")
+                .fileIds(List.of(a, b))
+                .build(), Duration.ofMinutes(2), 32000, null));
         turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "File answer");
-        var regenerated = turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.REGENERATE,
-                first.userMessageId(), UUID.randomUUID(), "", null), Duration.ofMinutes(2), 32000, null);
+        var regenerated = turns.reserve(owner, session.id(), ChatCommand.builder(ChatCommand.Operation.REGENERATE,
+                first.userMessageId(), UUID.randomUUID(), "").build(), Duration.ofMinutes(2), 32000, null);
         assertEquals(first.userMessageId(), regenerated.userMessageId());
         assertNotNull(regenerated.context());
         assertEquals(List.of(b, a), regenerated.context().newestFirst().getFirst().files().stream().map(ChatFileDescriptor::id).toList());
         turns.finish(session.id(), regenerated.assistantMessageId(), ChatMessage.Status.COMPLETED, "Regenerated answer");
-        var edited = turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.EDIT,
-                first.userMessageId(), UUID.randomUUID(), "", null, List.of(a)), Duration.ofMinutes(2), 32000, null);
+        var edited = turns.reserve(owner, session.id(), ChatCommand.builder(ChatCommand.Operation.EDIT, first.userMessageId(), UUID.randomUUID(), "")
+                .fileIds(List.of(a))
+                .build(), Duration.ofMinutes(2), 32000, null);
         turns.finish(session.id(), edited.assistantMessageId(), ChatMessage.Status.COMPLETED, "Edited answer");
         assertEquals(List.of(a), sessions.history(owner, session.id(), null, 100).getFirst().files().stream().map(ChatFileDescriptor::id).toList());
         var original = new JdbcChatRepository(jdbc).message(session.id(), first.userMessageId()).orElseThrow();

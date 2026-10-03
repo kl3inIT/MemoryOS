@@ -22,7 +22,6 @@ import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
-import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.iam.Authority;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
@@ -235,7 +234,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             sharePoint.lock(tenant, source);
             var state = connections.state(tenant, source);
             sharePoint.requestSynchronization(tenant, source);
-            return sync.enqueue(SyncTarget.SHAREPOINT, tenant, source, state.credentialRevision(),
+            return sync.enqueue(tenant, source, state.credentialRevision(),
                     SourceRunTrigger.MANUAL, actor);
         }));
     }
@@ -270,7 +269,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
                     creation.authority().authority() == Authority.GLOBAL ? null : intent.actorId(), intent.name(),
                     new CredentialId(Objects.requireNonNull(intent.credentialId())), access, scope, roots, tenantHost);
             sourceGroups.replace(tenant, source, creation.groupIds());
-            sync.enqueue(SyncTarget.SHAREPOINT, tenant, source, intent.credentialRevision(),
+            sync.enqueue(tenant, source, intent.credentialRevision(),
                     SourceRunTrigger.INITIAL, intent.actorId());
         } else {
             sync.supersede(tenant, source);

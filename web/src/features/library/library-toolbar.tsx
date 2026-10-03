@@ -55,6 +55,8 @@ export type LibraryToolbarState = {
   categories: LibraryCategory[];
   sort: LibrarySort;
   layout: LibraryLayout;
+  /** Only the starred files of Tệp của tôi, so a selection of them keeps the bulk commands. */
+  starredOnly: boolean;
 };
 
 export type LibraryToolbarHandlers = {
@@ -64,52 +66,39 @@ export type LibraryToolbarHandlers = {
   onCategories: (next: LibraryCategory[]) => void;
   onSort: (next: LibrarySort) => void;
   onLayout: (next: LibraryLayout) => void;
+  onStarredOnly: (next: boolean) => void;
 };
 
 /**
- * One row of controls: what to search, how to search it, what to keep and how to show it. The source and
- * category filters live in a popover instead of a wall of chips, and what is active comes back as removable
- * pills below, so the row stays the same height however many filters are on. Favourites are a view on the
- * rail rather than a filter here, so one thing is not asked for in two places.
+ * One row of controls: what to search, how to search it, what to keep and how to show it. The source, category
+ * and star filters live in a popover instead of a wall of chips, and what is active comes back as removable
+ * pills below, so the row stays the same height however many filters are on. The star filter keeps the
+ * selection commands for starred files; Có gắn sao on the rail lists every starred row, owned or not.
  */
 export function LibraryToolbar({
   state,
   handlers,
   sortable,
+  starrable,
 }: {
   state: LibraryToolbarState;
   handlers: LibraryToolbarHandlers;
   /** The trash and the processing view order themselves, so they hide the sort control. */
   sortable: boolean;
+  /** Only the usable files can be narrowed to the starred ones. */
+  starrable: boolean;
 }) {
   const ui = useAppTranslation();
   const searching = state.mode === "content";
-  const activeFilters = state.sources.length + state.categories.length;
+  const activeFilters =
+    state.sources.length + state.categories.length + (starrable && state.starredOnly ? 1 : 0);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <InputGroup className="min-w-56 flex-1">
-        <InputGroupAddon>
-          <Search />
-        </InputGroupAddon>
-        <InputGroupInput
-          value={state.search}
-          onChange={(event) => handlers.onSearch(event.target.value)}
-          placeholder={searching ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")}
-          aria-label={searching ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")}
-          maxLength={200}
-        />
-        {state.search.length > 0 && (
-          <InputGroupAddon align="inline-end">
-            <InputGroupButton
-              size="icon-xs"
-              aria-label={ui("Xoá từ khoá tìm kiếm")}
-              onClick={() => handlers.onSearch("")}
-            >
-              <X />
-            </InputGroupButton>
-          </InputGroupAddon>
-        )}
-      </InputGroup>
+      <LibrarySearchField
+        value={state.search}
+        onChange={handlers.onSearch}
+        label={searching ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")}
+      />
       <ToggleGroup
         type="single"
         size="sm"
@@ -133,25 +122,77 @@ export function LibraryToolbar({
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72">
-          <LibraryFilterPanel state={state} handlers={handlers} />
+          <LibraryFilterPanel state={state} handlers={handlers} starrable={starrable} />
         </PopoverContent>
       </Popover>
-      {sortable && <LibrarySortSelect sort={state.sort} onSort={handlers.onSort} />}
-      <ToggleGroup
-        type="single"
-        size="sm"
-        value={state.layout}
-        aria-label={ui("Cách hiển thị")}
-        onValueChange={(value) => value && handlers.onLayout(value as LibraryLayout)}
-      >
-        <ToggleGroupItem value="list" size="sm" aria-label={ui("Dạng danh sách")}>
-          <List />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="grid" size="sm" aria-label={ui("Dạng lưới")}>
-          <LayoutGrid />
-        </ToggleGroupItem>
-      </ToggleGroup>
+      {sortable && <LibrarySortSelect sort={state.sort} sorts={SORTS} onSort={handlers.onSort} />}
+      <LibraryLayoutToggle layout={state.layout} onLayout={handlers.onLayout} />
     </div>
+  );
+}
+
+/** The search box every library view opens with, with a way to clear what was typed. */
+export function LibrarySearchField({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  label: string;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <InputGroup className="min-w-56 flex-1">
+      <InputGroupAddon>
+        <Search />
+      </InputGroupAddon>
+      <InputGroupInput
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={label}
+        aria-label={label}
+        maxLength={200}
+      />
+      {value.length > 0 && (
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            aria-label={ui("Xóa từ khóa tìm kiếm")}
+            onClick={() => onChange("")}
+          >
+            <X />
+          </InputGroupButton>
+        </InputGroupAddon>
+      )}
+    </InputGroup>
+  );
+}
+
+/** Rows or cards, the same choice on every view. */
+export function LibraryLayoutToggle({
+  layout,
+  onLayout,
+}: {
+  layout: LibraryLayout;
+  onLayout: (next: LibraryLayout) => void;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <ToggleGroup
+      type="single"
+      size="sm"
+      value={layout}
+      aria-label={ui("Cách hiển thị")}
+      onValueChange={(value) => value && onLayout(value as LibraryLayout)}
+    >
+      <ToggleGroupItem value="list" size="sm" aria-label={ui("Dạng danh sách")}>
+        <List />
+      </ToggleGroupItem>
+      <ToggleGroupItem value="grid" size="sm" aria-label={ui("Dạng lưới")}>
+        <LayoutGrid />
+      </ToggleGroupItem>
+    </ToggleGroup>
   );
 }
 
@@ -161,12 +202,15 @@ export function LibraryToolbar({
  * filter, the search mode and the layout switch. The panel is anchored under the trigger rather than over
  * it, because this trigger carries an icon and the item-aligned default then covers the control it belongs to.
  */
-function LibrarySortSelect({
+export function LibrarySortSelect<S extends LibrarySort>({
   sort,
+  sorts,
   onSort,
 }: {
-  sort: LibrarySort;
-  onSort: (next: LibrarySort) => void;
+  sort: S;
+  /** The orders the view offers, in the order the list shows them. */
+  sorts: readonly S[];
+  onSort: (next: S) => void;
 }) {
   const ui = useAppTranslation();
   const labels: Record<LibrarySort, string> = {
@@ -175,16 +219,16 @@ function LibrarySortSelect({
     NAME: ui("Tên A → Z"),
     LARGEST: ui("Dung lượng giảm dần"),
     SMALLEST: ui("Dung lượng tăng dần"),
-    DELETED: ui("Xoá gần nhất"),
+    DELETED: ui("Xóa gần nhất"),
   };
   return (
-    <Select value={sort} onValueChange={(next) => onSort(next as LibrarySort)}>
+    <Select value={sort} onValueChange={(next) => onSort(next as S)}>
       <SelectTrigger aria-label={ui("Sắp xếp")} className="w-44">
         <ArrowDownUp className="size-4 text-content-muted" aria-hidden="true" />
         <SelectValue />
       </SelectTrigger>
       <SelectContent position="popper" align="end" sideOffset={4}>
-        {SORTS.map((value) => (
+        {sorts.map((value) => (
           <SelectItem key={value} value={value}>
             {labels[value]}
           </SelectItem>
@@ -194,20 +238,23 @@ function LibrarySortSelect({
   );
 }
 
-/** The filters themselves: where a file came from and what kind of file it is. */
+/** The filters themselves: where a file came from, what kind of file it is, and whether it is starred. */
 function LibraryFilterPanel({
   state,
   handlers,
+  starrable,
 }: {
   state: LibraryToolbarState;
   handlers: LibraryToolbarHandlers;
+  starrable: boolean;
 }) {
   const ui = useAppTranslation();
   const sources = sourceLabels(ui);
   const categories = categoryLabels(ui);
   const toggle = <T extends string>(values: T[], value: T) =>
     values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
-  const clearable = state.sources.length > 0 || state.categories.length > 0;
+  const starred = starrable && state.starredOnly;
+  const clearable = state.sources.length > 0 || state.categories.length > 0 || starred;
   return (
     <div className="flex flex-col gap-3">
       <fieldset className="flex flex-col gap-2">
@@ -237,6 +284,21 @@ function LibraryFilterPanel({
           ))}
         </div>
       </fieldset>
+      {starrable && (
+        <>
+          <Separator />
+          <fieldset className="flex flex-col gap-2">
+            <legend className="font-secondary-body text-content-muted">{ui("Gắn sao")}</legend>
+            <div className="flex flex-wrap gap-1.5">
+              <FilterChip
+                label={ui("Chỉ tệp gắn sao")}
+                pressed={state.starredOnly}
+                onToggle={() => handlers.onStarredOnly(!state.starredOnly)}
+              />
+            </div>
+          </fieldset>
+        </>
+      )}
       {clearable && (
         <Button
           size="sm"
@@ -245,9 +307,10 @@ function LibraryFilterPanel({
           onClick={() => {
             handlers.onSources([]);
             handlers.onCategories([]);
+            handlers.onStarredOnly(false);
           }}
         >
-          {ui("Xoá bộ lọc")}
+          {ui("Xóa bộ lọc")}
         </Button>
       )}
     </div>
@@ -258,14 +321,25 @@ function LibraryFilterPanel({
 export function LibraryFilterPills({
   state,
   handlers,
+  starrable,
 }: {
   state: LibraryToolbarState;
   handlers: LibraryToolbarHandlers;
+  starrable: boolean;
 }) {
   const ui = useAppTranslation();
   const sources = sourceLabels(ui);
   const categories = categoryLabels(ui);
   const pills = [
+    ...(starrable && state.starredOnly
+      ? [
+          {
+            key: "starred",
+            label: ui("Chỉ tệp gắn sao"),
+            remove: () => handlers.onStarredOnly(false),
+          },
+        ]
+      : []),
     ...state.sources.map((source) => ({
       key: `source:${source}`,
       label: sources[source],
@@ -300,9 +374,10 @@ export function LibraryFilterPills({
           onClick={() => {
             handlers.onSources([]);
             handlers.onCategories([]);
+            handlers.onStarredOnly(false);
           }}
         >
-          {ui("Xoá tất cả")}
+          {ui("Xóa tất cả")}
         </Button>
       </li>
     </ul>
@@ -406,7 +481,7 @@ export function LibrarySelectionBar({
             </Button>
             <Button size="sm" tone="danger" prominence="secondary" onClick={onPurge}>
               <Trash2 data-icon="inline-start" />
-              {ui("Xoá vĩnh viễn")}
+              {ui("Xóa vĩnh viễn")}
             </Button>
           </>
         ) : (
@@ -423,7 +498,7 @@ export function LibrarySelectionBar({
             )}
             <Button size="sm" tone="danger" prominence="secondary" onClick={onDelete}>
               <Trash2 data-icon="inline-start" />
-              {ui("Xoá")}
+              {ui("Xóa")}
             </Button>
           </>
         )}
@@ -491,7 +566,7 @@ export function LibraryCategoryFilter({
               className="self-start"
               onClick={() => onCategories([])}
             >
-              {ui("Xoá bộ lọc")}
+              {ui("Xóa bộ lọc")}
             </Button>
           )}
         </fieldset>

@@ -363,24 +363,28 @@ public class OpenSearchIndexService implements SearchIndex {
         return result;
     }
 
-    public List<SearchHit> search(TenantId tenant, String query, List<String> mediaTypes, Instant since, Collection<String> accessTokens) {
-        return search(tenant, null, query, mediaTypes, since, accessTokens);
+    /** {@code updated} bounds the provider update date of a matching origin, as {@link SearchFilters} does. */
+    public List<SearchHit> search(TenantId tenant, String query, List<String> mediaTypes,
+            SearchFilters.@Nullable Interval updated, Collection<String> accessTokens) {
+        return search(tenant, null, query, mediaTypes, updated, accessTokens);
     }
 
     /** As above; a known actor's query embedding is added to the AI usage ledger. */
-    public List<SearchHit> search(TenantId tenant, @Nullable ActorId actor, String query, List<String> mediaTypes, Instant since,
-                                  Collection<String> accessTokens) {
+    public List<SearchHit> search(TenantId tenant, @Nullable ActorId actor, String query, List<String> mediaTypes,
+            SearchFilters.@Nullable Interval updated, Collection<String> accessTokens) {
         var active = generations.present();
-        return searchPrepared(active, tenant, query, active.embeddings().query(query, queryCaller(tenant, actor)), mediaTypes, since,
-                SearchFilters.NONE, List.of(), accessTokens);
+        return searchPrepared(active, tenant, query, active.embeddings().query(query, queryCaller(tenant, actor)), mediaTypes,
+                new SearchFilters(Set.of(), null, updated), List.of(), accessTokens);
     }
 
     /** Search a pre-authorized Source scope; an empty scope intentionally produces no indexed results. */
-    public List<SearchHit> search(SourceSearchScope scope, String query, List<String> mediaTypes, Instant since) {
+    public List<SearchHit> search(SourceSearchScope scope, String query, List<String> mediaTypes,
+            SearchFilters.@Nullable Interval updated) {
         var active = generations.present();
         if (scope.sources().isEmpty()) return List.of();
-        return searchPrepared(active, scope.tenant(), query, active.embeddings().query(query), mediaTypes, since, SearchFilters.NONE,
-                scope.sources().keySet().stream().map(UUID::toString).toList(), scope.accessTokens());
+        return searchPrepared(active, scope.tenant(), query, active.embeddings().query(query), mediaTypes,
+                new SearchFilters(Set.of(), null, updated), scope.sources().keySet().stream().map(UUID::toString).toList(),
+                scope.accessTokens());
     }
 
     /** Embed each distinct text once for this Search call. */
@@ -398,7 +402,7 @@ public class OpenSearchIndexService implements SearchIndex {
             for (int i = 0; i < inputs.size(); i++) vectors.put(inputs.get(i), output.get(i));
         }
         List<Callable<List<SearchHit>>> tasks = texts.stream().<Callable<List<SearchHit>>>map(text ->
-                () -> timings.measure(SearchTimings.Stage.HYBRID, () -> searchPrepared(active, scope.tenant(), text, vectors.get(text), List.of(), null, filters,
+                () -> timings.measure(SearchTimings.Stage.HYBRID, () -> searchPrepared(active, scope.tenant(), text, vectors.get(text), List.of(), filters,
                         scope.sources().keySet().stream().map(UUID::toString).toList(), scope.accessTokens()))).toList();
         var results = SearchTasks.run(tasks, checkActive);
         // The adapter uses the same hybrid request for both groups. Reuse identical IO but retain
@@ -407,8 +411,8 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     private List<SearchHit> searchPrepared(SearchGenerations.Active active, TenantId tenant, String query, float[] vector,
-            List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds, Collection<String> accessTokens) {
-        return searchPrepared(active, tenant, query, vector, mediaTypes, since, restrictions, sourceIds, List.of(), accessTokens);
+            List<String> mediaTypes, SearchFilters restrictions, List<String> sourceIds, Collection<String> accessTokens) {
+        return searchPrepared(active, tenant, query, vector, mediaTypes, restrictions, sourceIds, List.of(), accessTokens);
     }
 
     private static ValidatedEmbeddingService.@Nullable Caller queryCaller(TenantId tenant, @Nullable ActorId actor) {
@@ -426,12 +430,12 @@ public class OpenSearchIndexService implements SearchIndex {
         });
         if (allowed.isEmpty()) return List.of();
         // Owner-private files are authorized by the explicit owner file mappings, not by Source access.
-        return searchPrepared(active, tenant, query, active.embeddings().query(query, queryCaller(tenant, actor)), List.of(), null,
+        return searchPrepared(active, tenant, query, active.embeddings().query(query, queryCaller(tenant, actor)), List.of(),
                 SearchFilters.NONE, List.of(), allowed, null);
     }
 
     private List<SearchHit> searchPrepared(SearchGenerations.Active active, TenantId tenant, String query, float[] vector,
-            List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles,
+            List<String> mediaTypes, SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles,
             @Nullable Collection<String> accessTokens) {
         String identity = active.identity();
         List<Object> filters = new ArrayList<>();
@@ -441,20 +445,19 @@ public class OpenSearchIndexService implements SearchIndex {
                 : Map.of("bool", Map.of("should", privateFiles, "minimum_should_match", 1)));
         if (accessTokens != null) filters.add(accessFilter(accessTokens));
         if (!mediaTypes.isEmpty()) filters.add(Map.of("terms", Map.of("media_type", mediaTypes)));
-        if (since != null) filters.add(Map.of("range", Map.of("updated_at", Map.of("gte", since.toString()))));
-        if (!sourceIds.isEmpty()) {
-            List<Object> origins = new ArrayList<>();
-            origins.add(Map.of("terms", Map.of("source_metadata.source_id", sourceIds)));
-            if (!restrictions.sources().isEmpty()) origins.add(Map.of("terms", Map.of("source_metadata.type",
-                    restrictions.sources().stream().map(Enum::name).sorted().toList())));
-            // A window must not remove a document that carries no date; see the undated-documents increment.
-            if (restrictions.created() != null)
-                origins.add(dateRange("source_metadata.created_at", restrictions.created(), true));
-            if (restrictions.updated() != null)
-                origins.add(dateRange("source_metadata.updated_at", restrictions.updated(),
-                        SearchFilters.keepsUndated(restrictions.updated(), Instant.now())));
+        // One origin must satisfy every source condition at once; the dates are the provider's, never MemoryOS's.
+        List<Object> origins = new ArrayList<>();
+        if (!sourceIds.isEmpty()) origins.add(Map.of("terms", Map.of("source_metadata.source_id", sourceIds)));
+        if (!restrictions.sources().isEmpty()) origins.add(Map.of("terms", Map.of("source_metadata.type",
+                restrictions.sources().stream().map(Enum::name).sorted().toList())));
+        // A window must not remove a document that carries no date; see the undated-documents increment.
+        if (restrictions.created() != null)
+            origins.add(dateRange("source_metadata.created_at", restrictions.created(), true));
+        if (restrictions.updated() != null)
+            origins.add(dateRange("source_metadata.updated_at", restrictions.updated(),
+                    SearchFilters.keepsUndated(restrictions.updated(), Instant.now())));
+        if (!origins.isEmpty())
             filters.add(Map.of("nested", Map.of("path", "source_metadata", "query", Map.of("bool", Map.of("filter", origins)))));
-        }
         // No existence check first: an index not created yet (a fresh deployment before its first write) has no results.
         // The normalization travels with the request, so a search depends on no cluster-side pipeline object.
         var response = gateway.jsonOrMissing("POST", "/" + readAlias(identity) + "/_search", Map.of(), Map.of(
@@ -492,7 +495,7 @@ public class OpenSearchIndexService implements SearchIndex {
                 "query", Map.of("bool", Map.of("filter", List.of(term("tenant_id", tenant.value().toString()),
                         term("document_id", id.toString()), term("generation", generation.toString()), term("index_identity", identity)))),
                 "aggs", Map.of(
-                        "header", Map.of("top_hits", Map.of("size", 1, "_source", List.of("title"))),
+                        "header", Map.of("top_hits", Map.of("size", 1, "_source", List.of("title", "media_type"))),
                         "last", Map.of("max", Map.of("field", "ordinal")),
                         "window", Map.of("filter", Map.of("range", Map.of("ordinal", Map.of("gte", from, "lt", from + limit))),
                                 "aggs", Map.of("chunks", Map.of("top_hits", Map.of("size", limit,
@@ -511,8 +514,9 @@ public class OpenSearchIndexService implements SearchIndex {
         }
         int start = Math.min(from, total);
         if (passages.size() != Math.min(limit, total - start)) throw new SearchUnavailableException();
-        String title = aggregations.path("header").path("hits").path("hits").path(0).path("_source").path("title").asString();
-        return new SearchDocument(id, generation, title, List.copyOf(passages), start, total, start + passages.size() < total);
+        var header = aggregations.path("header").path("hits").path("hits").path(0).path("_source");
+        return new SearchDocument(id, generation, header.path("title").asString(), header.path("media_type").asString(),
+                List.copyOf(passages), start, total, start + passages.size() < total);
     }
 
     /**

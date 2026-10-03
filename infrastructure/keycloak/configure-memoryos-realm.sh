@@ -103,6 +103,30 @@ case "$MEMORYOS_BROWSER_REDIRECT_URI" in
 esac
 MEMORYOS_BROWSER_PUBLIC_URL=${MEMORYOS_BROWSER_REDIRECT_URI%/login/oauth2/code/memoryos}
 
+# MEM-114: the MemoryOS MCP endpoint. Left unset, the realm gets no MCP scope, policy or client and its
+# default scopes are left alone. With it, MemoryOS keeps the hosts of the apps an administrator trusts in the
+# endpoint's client policy through the memoryos-mcp-admin service account, whose secret is then required.
+MEMORYOS_MCP_ENDPOINT_URL=${MEMORYOS_MCP_ENDPOINT_URL:-}
+MEMORYOS_MCP_ADMIN_CLIENT_SECRET=${MEMORYOS_MCP_ADMIN_CLIENT_SECRET:-}
+MCP_ENABLED=false
+if [ -n "$MEMORYOS_MCP_ENDPOINT_URL" ]; then
+    # The token audience, the protected-resource metadata and the URL a person pastes into Claude must be
+    # one string, so the endpoint is pinned to the browser origin rather than chosen freely.
+    if [ "$MEMORYOS_MCP_ENDPOINT_URL" != "$MEMORYOS_BROWSER_PUBLIC_URL/mcp" ]; then
+        echo "MEMORYOS_MCP_ENDPOINT_URL must be the browser origin followed by /mcp" >&2
+        exit 1
+    fi
+    if [ -z "$MEMORYOS_MCP_ADMIN_CLIENT_SECRET" ]; then
+        echo "MEMORYOS_MCP_ENDPOINT_URL needs MEMORYOS_MCP_ADMIN_CLIENT_SECRET" >&2
+        exit 1
+    fi
+    MCP_ENABLED=true
+elif [ -n "$MEMORYOS_MCP_ADMIN_CLIENT_SECRET" ]; then
+    echo "MEMORYOS_MCP_ADMIN_CLIENT_SECRET needs MEMORYOS_MCP_ENDPOINT_URL" >&2
+    exit 1
+fi
+export MEMORYOS_MCP_ADMIN_CLIENT_SECRET
+
 if [ "$MAILPIT_ENABLED" = true ]; then
 case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
     https://*.nip.io)
@@ -150,6 +174,9 @@ PGWEB_CLIENT_FILE=$(mktemp)
 REDISINSIGHT_CLIENT_FILE=$(mktemp)
 MINIO_CONSOLE_CLIENT_FILE=$(mktemp)
 PROVISIONER_CLIENT_FILE=$(mktemp)
+MCP_AUDIENCE_MAPPER_FILE=$(mktemp)
+MCP_POLICIES_FILE=$(mktemp)
+MCP_ADMIN_CLIENT_FILE=$(mktemp)
 cleanup() {
     rm -f \
         "$CONFIG_FILE" \
@@ -158,7 +185,10 @@ cleanup() {
         "$PGWEB_CLIENT_FILE" \
         "$REDISINSIGHT_CLIENT_FILE" \
         "$MINIO_CONSOLE_CLIENT_FILE" \
-        "$PROVISIONER_CLIENT_FILE"
+        "$PROVISIONER_CLIENT_FILE" \
+        "$MCP_AUDIENCE_MAPPER_FILE" \
+        "$MCP_POLICIES_FILE" \
+        "$MCP_ADMIN_CLIENT_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -238,6 +268,9 @@ configure_realm() {
             loginWithEmailAllowed: true,
             duplicateEmailsAllowed: false,
             verifyEmail: false,
+            internationalizationEnabled: true,
+            supportedLocales: ["vi", "en"],
+            defaultLocale: "vi",
             smtpServer: {}
         }' |
             "$KCADM" update "realms/$TARGET_REALM" \
@@ -253,6 +286,9 @@ configure_realm() {
         loginWithEmailAllowed: true,
         duplicateEmailsAllowed: false,
         verifyEmail: true,
+        internationalizationEnabled: true,
+        supportedLocales: ["vi", "en"],
+        defaultLocale: "vi",
         smtpServer: ({
             host: env.MEMORYOS_KEYCLOAK_SMTP_HOST,
             port: env.MEMORYOS_KEYCLOAK_SMTP_PORT,
@@ -273,6 +309,11 @@ configure_realm() {
             --config "$CONFIG_FILE" \
             -f - >/dev/null
     fi
+    # The browser keeps no provider token, so only a sign-in touches Keycloak's SSO session: its lifetime is how long
+    # signing in again stays silent. Seven days from the password, as Onyx keeps a session; the API ends a browser
+    # session at the same age (memoryos.browser.session-max-lifetime).
+    jq -cn '{ssoSessionIdleTimeout: 604800, ssoSessionMaxLifespan: 604800}' |
+        "$KCADM" update "realms/$TARGET_REALM"             --config "$CONFIG_FILE"             -f - >/dev/null
     configured_theme=$("$KCADM" get "realms/$TARGET_REALM" \
         --config "$CONFIG_FILE" \
         --fields loginTheme |
@@ -283,9 +324,9 @@ configure_realm() {
     fi
     # Say which realm was built, not which one the staging shape would have been.
     if [ "$SMTP_ENABLED" = true ]; then
-        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=required smtp=configured"
+        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=required smtp=configured locales=vi,en default-locale=vi"
     else
-        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=disabled smtp=none"
+        echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=disabled smtp=none locales=vi,en default-locale=vi"
     fi
 }
 
@@ -385,16 +426,24 @@ provision_initial_owner() {
     echo "user=$MEMORYOS_INITIAL_OWNER_USERNAME subject=$INITIAL_OWNER_UUID action=$action profile=verified"
 }
 
+# The scopes a client receives when this script creates it. They are pinned because the MCP endpoint
+# narrows the realm's default scopes for clients Keycloak builds from metadata documents, and the
+# clients below must keep what they were always given. An existing client's scopes are never touched.
+SCRIPT_CLIENT_DEFAULT_SCOPES='["acr","basic","email","profile","roles","web-origins"]'
+SCRIPT_CLIENT_OPTIONAL_SCOPES='["address","microprofile-jwt","offline_access","organization","phone"]'
+
 upsert_client() {
     CLIENT_ID=$1
     CLIENT_FILE=$2
     CLIENT_UUID=$(find_client_uuid)
 
     if [ -z "$CLIENT_UUID" ]; then
-        "$KCADM" create clients \
-            --config "$CONFIG_FILE" \
-            -r "$TARGET_REALM" \
-            -f "$CLIENT_FILE" >/dev/null
+        jq --argjson default "$SCRIPT_CLIENT_DEFAULT_SCOPES" --argjson optional "$SCRIPT_CLIENT_OPTIONAL_SCOPES" \
+            '.defaultClientScopes //= $default | .optionalClientScopes //= $optional' "$CLIENT_FILE" |
+            "$KCADM" create clients \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f - >/dev/null
         CLIENT_UUID=$(find_client_uuid)
         if [ -z "$CLIENT_UUID" ]; then
             echo "client creation did not converge" >&2
@@ -669,4 +718,286 @@ jq -cn '{secret: env.MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET}' |
 grant_inspector_role_to_client
 upsert_mapper memoryos-minio-policy memoryos-minio-policy-mapper.json
 echo "client=memoryos-minio-console secret=updated role=memoryos-inspector mapper=policy"
+fi
+
+# MEM-114: the MemoryOS MCP endpoint.
+
+find_scope_uuid() {
+    "$KCADM" get client-scopes \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --fields id,name |
+        jq -r --arg name "$1" '[.[] | select(.name == $name)]
+            | if length > 1 then error("duplicate client scope: " + $name) else (.[0].id // empty) end'
+}
+
+upsert_scope_mapper() {
+    MAPPER_NAME=$1
+    MAPPER_FILE=$2
+    MAPPER_UUID=$("$KCADM" get "client-scopes/$SCOPE_UUID/protocol-mappers/models" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --fields id,name |
+        jq -r --arg name "$MAPPER_NAME" '[.[] | select(.name == $name)]
+            | if length > 1 then error("duplicate mapper name: " + $name) else (.[0].id // empty) end')
+    if [ -z "$MAPPER_UUID" ]; then
+        "$KCADM" create "client-scopes/$SCOPE_UUID/protocol-mappers/models" \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f "$MAPPER_FILE" >/dev/null
+        echo "client-scope=$SCOPE_NAME mapper=$MAPPER_NAME action=created"
+        return
+    fi
+    current_contract=$("$KCADM" get "client-scopes/$SCOPE_UUID/protocol-mappers/models/$MAPPER_UUID" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" |
+        jq -cS '{name, protocol, protocolMapper, consentRequired, config}')
+    desired_contract=$(jq -cS '{name, protocol, protocolMapper, consentRequired, config}' "$MAPPER_FILE")
+    if [ "$current_contract" = "$desired_contract" ]; then
+        echo "client-scope=$SCOPE_NAME mapper=$MAPPER_NAME action=unchanged"
+    else
+        jq --arg id "$MAPPER_UUID" '.id = $id' "$MAPPER_FILE" |
+            "$KCADM" update "client-scopes/$SCOPE_UUID/protocol-mappers/models/$MAPPER_UUID" \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f - >/dev/null
+        echo "client-scope=$SCOPE_NAME mapper=$MAPPER_NAME action=updated"
+    fi
+}
+
+# Makes the default or optional scopes of $CLIENT_UUID exactly the names given after the kind.
+reconcile_client_scopes() {
+    kind=$1
+    shift
+    desired=$(printf '%s\n' "$@" | jq -R . | jq -cs 'sort')
+    current=$("$KCADM" get "clients/$CLIENT_UUID/$kind-client-scopes" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM")
+    printf '%s\n' "$current" |
+        jq -r --argjson desired "$desired" '.[] | select(.name as $n | $desired | index($n) | not) | .id' |
+        while IFS= read -r scope_id; do
+            [ -n "$scope_id" ] || continue
+            "$KCADM" delete "clients/$CLIENT_UUID/$kind-client-scopes/$scope_id" \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" >/dev/null
+        done
+    for name in "$@"; do
+        if ! printf '%s\n' "$current" | jq -e --arg name "$name" 'any(.[]; .name == $name)' >/dev/null; then
+            scope_id=$(find_scope_uuid "$name")
+            if [ -z "$scope_id" ]; then
+                echo "client scope does not exist: $name" >&2
+                exit 1
+            fi
+            "$KCADM" update "clients/$CLIENT_UUID/$kind-client-scopes/$scope_id" \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" >/dev/null
+        fi
+    done
+    converged=$("$KCADM" get "clients/$CLIENT_UUID/$kind-client-scopes" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" |
+        jq -cS '[.[].name] | sort')
+    if [ "$converged" != "$desired" ]; then
+        echo "client=$CLIENT_ID $kind client scopes did not converge: $converged" >&2
+        exit 1
+    fi
+}
+
+# Replaces this script's entry, by name, in the realm's client profiles or policies and keeps the rest.
+# Replaces the script's own profiles and policies and keeps any other. The hosts the memoryos-mcp-cimd profile and
+# policy trust are seeded from the file once; afterwards MemoryOS owns them (an administrator's trusted apps), so a
+# rerun keeps the hosts it finds.
+merge_client_policies() {
+    section=$1
+    "$KCADM" get "realms/$TARGET_REALM/client-policies/$section" --config "$CONFIG_FILE" |
+        jq -c --arg section "$section" --slurpfile ours "$MCP_POLICIES_FILE" '
+            ($ours[0][$section] | map(.name)) as $names
+            | (.[$section] // []) as $current
+            | .[$section] = ([$current[] | select(.name as $n | $names | index($n) | not)]
+                + ($ours[0][$section] | map(. as $mine
+                    | ($current | map(select(.name == $mine.name)) | .[0]) as $live
+                    | if $mine.name != "memoryos-mcp-cimd" or $live == null then .
+                      elif $section == "profiles" then
+                        .executors[0].configuration["cimd-allow-permitted-domains"] =
+                            ($live.executors[0].configuration["cimd-allow-permitted-domains"]
+                                // .executors[0].configuration["cimd-allow-permitted-domains"])
+                      else
+                        .conditions[0].configuration["client-id-uri-allow-permitted-domains"] =
+                            ($live.conditions[0].configuration["client-id-uri-allow-permitted-domains"]
+                                // .conditions[0].configuration["client-id-uri-allow-permitted-domains"])
+                      end)))' |
+        "$KCADM" update "realms/$TARGET_REALM/client-policies/$section" \
+            --config "$CONFIG_FILE" \
+            -f - >/dev/null
+}
+
+configure_mcp_endpoint() {
+    SCOPE_NAME=knowledge:read
+    SCOPE_UUID=$(find_scope_uuid "$SCOPE_NAME")
+    if [ -z "$SCOPE_UUID" ]; then
+        "$KCADM" create client-scopes \
+            --config "$CONFIG_FILE" \
+            -r "$TARGET_REALM" \
+            -f "$SCRIPT_DIR/memoryos-mcp-knowledge-scope.json" >/dev/null
+        SCOPE_UUID=$(find_scope_uuid "$SCOPE_NAME")
+        if [ -z "$SCOPE_UUID" ]; then
+            echo "client scope creation did not converge: $SCOPE_NAME" >&2
+            exit 1
+        fi
+        echo "client-scope=$SCOPE_NAME action=created"
+    else
+        jq --arg id "$SCOPE_UUID" '.id = $id' "$SCRIPT_DIR/memoryos-mcp-knowledge-scope.json" |
+            "$KCADM" update "client-scopes/$SCOPE_UUID" \
+                --config "$CONFIG_FILE" \
+                -r "$TARGET_REALM" \
+                -f - >/dev/null
+        echo "client-scope=$SCOPE_NAME action=updated"
+    fi
+
+    # The endpoint's audience reaches a token only through this scope, so a token not issued for the
+    # endpoint cannot be replayed against it, and an endpoint token cannot call /api.
+    jq --arg audience "$MEMORYOS_MCP_ENDPOINT_URL" '.config["included.custom.audience"] = $audience' \
+        "$SCRIPT_DIR/memoryos-mcp-audience-mapper.json" >"$MCP_AUDIENCE_MAPPER_FILE"
+    upsert_scope_mapper memoryos-mcp-endpoint-audience "$MCP_AUDIENCE_MAPPER_FILE"
+
+    # A client Keycloak builds from a metadata document receives the realm's default scopes and may
+    # request its optional ones. The endpoint needs only `sub`, so roles, profile, e-mail and web origins
+    # stay out of MCP tokens and off the consent page; the script's own clients pinned theirs at creation.
+    # Keycloak answers a repeated assignment with 409, so assign only what is missing.
+    if ! "$KCADM" get "realms/$TARGET_REALM/default-optional-client-scopes" --config "$CONFIG_FILE" |
+        jq -e --arg id "$SCOPE_UUID" 'any(.[]; .id == $id)' >/dev/null; then
+        "$KCADM" update "realms/$TARGET_REALM/default-optional-client-scopes/$SCOPE_UUID" \
+            --config "$CONFIG_FILE" >/dev/null
+    fi
+    for trimmed in profile email roles web-origins; do
+        trimmed_id=$("$KCADM" get "realms/$TARGET_REALM/default-default-client-scopes" --config "$CONFIG_FILE" |
+            jq -r --arg name "$trimmed" '.[] | select(.name == $name) | .id')
+        if [ -n "$trimmed_id" ]; then
+            "$KCADM" delete "realms/$TARGET_REALM/default-default-client-scopes/$trimmed_id" \
+                --config "$CONFIG_FILE" >/dev/null
+        fi
+    done
+    realm_defaults=$("$KCADM" get "realms/$TARGET_REALM/default-default-client-scopes" --config "$CONFIG_FILE" |
+        jq -cS '[.[].name] | sort')
+    if ! printf '%s\n' "$realm_defaults" |
+        jq -e 'index("basic") and (map(select(. == "profile" or . == "email" or . == "roles" or . == "web-origins")) | length == 0)' \
+            >/dev/null; then
+        echo "realm default client scopes did not converge: $realm_defaults" >&2
+        exit 1
+    fi
+    echo "realm=$TARGET_REALM default-client-scopes=$realm_defaults optional-client-scope=$SCOPE_NAME"
+
+    # ChatGPT's authorization request asks for `email` too, and Keycloak refuses the whole request when a
+    # client lacks one scope it asks for. `email` is therefore an optional scope of a client built from a
+    # metadata document: it reaches a token, and the consent page, only when the client asks for it, so
+    # Claude, which asks for the endpoint's scope and offline access, still receives no e-mail address.
+    EMAIL_SCOPE_UUID=$(find_scope_uuid email)
+    if [ -z "$EMAIL_SCOPE_UUID" ]; then
+        echo "client scope email is missing from realm $TARGET_REALM" >&2
+        exit 1
+    fi
+    if ! "$KCADM" get "realms/$TARGET_REALM/default-optional-client-scopes" --config "$CONFIG_FILE" |
+        jq -e --arg id "$EMAIL_SCOPE_UUID" 'any(.[]; .id == $id)' >/dev/null; then
+        "$KCADM" update "realms/$TARGET_REALM/default-optional-client-scopes/$EMAIL_SCOPE_UUID" \
+            --config "$CONFIG_FILE" >/dev/null
+    fi
+    # The realm's optional scopes reach only clients created afterwards; a document's client Keycloak
+    # already stores gains `email` here. Its client ID is the document's https URL.
+    "$KCADM" get clients --config "$CONFIG_FILE" -r "$TARGET_REALM" --fields id,clientId |
+        jq -r '.[] | select(.clientId | startswith("https://")) | .id' |
+        while read -r document_client; do
+            if ! "$KCADM" get "clients/$document_client/optional-client-scopes" \
+                --config "$CONFIG_FILE" -r "$TARGET_REALM" | jq -e 'any(.[]; .name == "email")' >/dev/null; then
+                "$KCADM" update "clients/$document_client/optional-client-scopes/$EMAIL_SCOPE_UUID" \
+                    --config "$CONFIG_FILE" -r "$TARGET_REALM" >/dev/null
+            fi
+        done
+    echo "realm=$TARGET_REALM metadata-document-optional-client-scope=email"
+
+    # The consent page lists scopes by gui.order and puts unordered entries last. Ordering the
+    # permissions keeps the client's own line (Claude's hostname, ChatGPT's origin) at the end:
+    # the endpoint's scope, then ChatGPT's e-mail address, then offline access.
+    for ordered in email:15 offline_access:20; do
+        ordered_id=$(find_scope_uuid "${ordered%%:*}")
+        if [ -n "$ordered_id" ]; then
+            "$KCADM" get "client-scopes/$ordered_id" --config "$CONFIG_FILE" -r "$TARGET_REALM" |
+                jq -c --arg order "${ordered#*:}" '.attributes["gui.order"] = $order' |
+                "$KCADM" update "client-scopes/$ordered_id" \
+                    --config "$CONFIG_FILE" \
+                    -r "$TARGET_REALM" \
+                    -f - >/dev/null
+        fi
+    done
+
+    # A grant to an MCP client is an offline session; it lapses after 30 days without use and, used or not, after
+    # 180 days, when the person connects again (Glean's refresh tokens last 180 days). The browser takes no offline
+    # session, so this bounds only the MCP grants.
+    jq -cn '{offlineSessionIdleTimeout: 2592000, offlineSessionMaxLifespanEnabled: true, offlineSessionMaxLifespan: 15552000}' |
+        "$KCADM" update "realms/$TARGET_REALM" \
+            --config "$CONFIG_FILE" \
+            -f - >/dev/null
+
+    # Claude and ChatGPT identify themselves by a metadata document on claude.ai or chatgpt.com. Keycloak
+    # stores one client per document, so nothing is registered per connection. The executor is the image's
+    # memoryos-client-id-metadata-document, which needs the `cimd` feature; without either this update fails
+    # and the script stops.
+    jq --arg resource "$MEMORYOS_MCP_ENDPOINT_URL" \
+        '.profiles[0].executors[0].configuration["cimd-resource-indicator-allow-list"] = [$resource]' \
+        "$SCRIPT_DIR/memoryos-mcp-client-policies.json" >"$MCP_POLICIES_FILE"
+    merge_client_policies profiles
+    merge_client_policies policies
+    echo "realm=$TARGET_REALM client-policy=memoryos-mcp-cimd resource=$MEMORYOS_MCP_ENDPOINT_URL"
+}
+
+if [ "$MCP_ENABLED" = true ]; then
+configure_mcp_endpoint
+
+# MemoryOS changes the policy's hosts and removes the clients of an app it no longer trusts, which needs
+# manage-realm and manage-clients. They sit on an account of their own rather than on the provisioner, whose
+# manage-users would otherwise share one secret with the right to rewrite the realm.
+cp "$SCRIPT_DIR/memoryos-mcp-admin-client.json" "$MCP_ADMIN_CLIENT_FILE"
+upsert_client memoryos-mcp-admin "$MCP_ADMIN_CLIENT_FILE"
+MCP_ADMIN_CLIENT_UUID=$CLIENT_UUID
+jq -cn '{secret: env.MEMORYOS_MCP_ADMIN_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$MCP_ADMIN_CLIENT_UUID" \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        -f - >/dev/null
+MCP_ADMIN_ACCOUNT_ID=$("$KCADM" get "clients/$MCP_ADMIN_CLIENT_UUID/service-account-user" \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --fields id |
+    jq -r '.id')
+if [ -z "$MCP_ADMIN_ACCOUNT_ID" ] || [ "$MCP_ADMIN_ACCOUNT_ID" = "null" ]; then
+    echo "memoryos-mcp-admin service account did not converge" >&2
+    exit 1
+fi
+for role in manage-realm manage-clients; do
+    "$KCADM" add-roles \
+        --config "$CONFIG_FILE" \
+        -r "$TARGET_REALM" \
+        --uid "$MCP_ADMIN_ACCOUNT_ID" \
+        --cclientid realm-management \
+        --rolename "$role" >/dev/null
+done
+MCP_ADMIN_ROLES=$("$KCADM" get \
+    "users/$MCP_ADMIN_ACCOUNT_ID/role-mappings/clients/$REALM_MANAGEMENT_UUID" \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --fields name |
+    jq -cS '[.[].name] | sort')
+if [ "$MCP_ADMIN_ROLES" != '["manage-clients","manage-realm"]' ]; then
+    echo "memoryos-mcp-admin must have only realm-management manage-realm and manage-clients" >&2
+    exit 1
+fi
+echo "client=memoryos-mcp-admin secret=updated roles=manage-realm,manage-clients"
+
+# ChatGPT now connects through its metadata document; the client once registered for it by hand is removed,
+# with every grant to it.
+CLIENT_ID=memoryos-chatgpt
+STATIC_CHATGPT_UUID=$(find_client_uuid)
+if [ -n "$STATIC_CHATGPT_UUID" ]; then
+    "$KCADM" delete "clients/$STATIC_CHATGPT_UUID" --config "$CONFIG_FILE" -r "$TARGET_REALM" >/dev/null
+    echo "client=memoryos-chatgpt action=removed"
+fi
 fi

@@ -3,26 +3,30 @@ package io.memoryos.chat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
-import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.ai.ModelClients;
+import io.memoryos.ai.ModelFlow;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.TurnFailure;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.grounding.ChatGuardrailCheck;
@@ -34,6 +38,7 @@ import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.streaming.TestRedis;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import io.memoryos.shared.Tokenizers;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,10 +48,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 
 /** MEM-195: a grounded turn answers only with a citation, and a blocked question never reaches the answer model. */
 class ChatGroundedTurnTest {
@@ -67,28 +72,49 @@ class ChatGroundedTurnTest {
     private final UUID parent = UUID.randomUUID();
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
+    /** What the fixture binding's adapter reads as a refused credential. */
+    private static final class Refused extends RuntimeException {
+        Refused() {
+            super("Incorrect API key provided: sk-fixture");
+        }
+    }
+
+    /** Messages before the question in the context, newest first, as the conversation's history holds them. */
+    private List<ChatMessage> earlierNewestFirst = List.of();
+
     private void prepare(boolean toolCalling, ChatSettingsService.TurnPolicy policy, ChatGuardrailCheck.Kind kind) {
-        var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
-                ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, toolCalling, false);
+        var binding = ModelBinding.builder(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false)
+                .credentialRejection(failure -> failure instanceof Refused || failure.getCause() instanceof Refused).build();
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
+        // The guardrail task model; a test that needs its own model replaces this.
+        when(models.resolveFlow(any(), any(), eq(ModelFlow.CHAT_GUARDRAIL)))
+                .thenAnswer(call -> new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         // The agent itself does not search; grounded mode adds the search tool only while it applies.
-        var grounded = new ChatTurnOptions(false, List.of(), null, null).withGrounded(true);
+        var grounded = ChatTurnOptions.builder().searchEnabled(false).grounded(true).build();
         when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
                 "", "gpt-5-mini", grounded, "0", null, List.of(), Set.of("search", "web_search"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
-        var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
-                "Vợ bác Hồ là ai?", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
-        when(persistence.loadContext(any(), any(), any())).thenReturn(new ChatTurnPersistence.TurnContext(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question), grounded, java.util.Map.of(), List.of(), null));
+        var question = ChatMessage.builder(pair.userMessageId(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .parentMessageId(parent)
+                .latestChildMessageId(pair.assistantMessageId())
+                .content("Vợ bác Hồ là ai?")
+                .finishedAt(Instant.now())
+                .build();
+        when(persistence.loadContext(any(), any(), any())).thenReturn(ChatTurnPersistence.TurnContext.builder(actor,
+                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer",
+                Stream.concat(Stream.of(question), earlierNewestFirst.stream()).toList())
+                .options(grounded)
+                .build());
         when(settings.turnPolicy(any())).thenReturn(policy);
         when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), 0));
-        when(guardrails.check(any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
+        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
                 kind == ChatGuardrailCheck.Kind.BLOCKED ? "Trợ lý không trả lời câu hỏi về lãnh tụ." : null,
-                kind == ChatGuardrailCheck.Kind.BLOCKED ? ChatGuardrails.Topic.LEADERS : null, null));
+                kind == ChatGuardrailCheck.Kind.BLOCKED ? ChatGuardrails.BUILT_IN.get(1) : null, null));
     }
 
     private ChatTurnService service(AtomicReference<Runnable> queued) {
@@ -101,7 +127,7 @@ class ChatGroundedTurnTest {
     private void answers(String text, ChatSource... sources) {
         doAnswer(call -> {
             Consumer<ChatActivityEvent> events = call.getArgument(5);
-            for (var source : sources) events.accept(new ChatToolEvent(ChatEvidence.FILE_CONTEXT, source));
+            for (var source : sources) events.accept(ChatToolEvent.source(ChatEvidence.FILE_CONTEXT, source));
             call.<Consumer<String>>getArgument(3).accept(text);
             return null;
         }).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
@@ -111,6 +137,177 @@ class ChatGroundedTurnTest {
         verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq(content),
                 isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), any(), any(), eq(ChatResearch.EMPTY),
                 refusal == null ? isNull() : eq(refusal), any());
+    }
+
+    private void verifyFailed(String code) {
+        verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), anyString(),
+                eq(code), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aCredentialTheProviderRefusesWhileAnsweringFailsTheTurnWithItsOwnCode() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        doThrow(new Refused()).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verifyFailed("CHAT_PROVIDER_CREDENTIAL_REJECTED");
+        }
+    }
+
+    private static final ChatSettingsService.TurnPolicy TOPICS = new ChatSettingsService.TurnPolicy(true, false,
+            new ChatGuardrails(ChatGuardrails.BUILT_IN.subList(0, 2).stream().map(topic -> new ChatGuardrails.Topic(topic.id(),
+                    topic.name(), topic.description(), topic.examples(), topic.message(), true)).toList(), List.of(), null));
+
+    /** The guardrail task runs on its own model, so a test can fail it apart from the conversation model. */
+    private ModelBinding taskModel() {
+        var checker = ModelBinding.builder(new SpringAiLlmService("gpt-5-nano", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false).build();
+        var checkerLease = mock(ModelClients.Lease.class);
+        when(checkerLease.binding()).thenReturn(checker);
+        when(models.resolveFlow(any(), any(), eq(ModelFlow.CHAT_GUARDRAIL)))
+                .thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, checkerLease));
+        return checker;
+    }
+
+    @Test
+    void aCheckThatFailsIsNotAskedAgainOnAnotherModel() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        var checker = taskModel();
+        when(guardrails.check(eq(checker), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException(new Refused()));
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            // As no guardrail project falls back to a second classifier: the answer model carries the rules instead.
+            verify(guardrails).check(any(), any(), any(), any(), any(), any());
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertTrue(setup.getValue().options().topicRules().contains("Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo."));
+        }
+    }
+
+    @Test
+    void theCheckReadsTheConversationBeforeTheQuestion() {
+        var asked = ChatMessage.builder(UUID.randomUUID(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
+                .content("Chủ tịch nước hiện nay là ai?").build();
+        var declined = ChatMessage.builder(UUID.randomUUID(), session, ChatMessage.Role.ASSISTANT, ChatMessage.Status.COMPLETED,
+                Instant.now()).content("Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo.").build();
+        earlierNewestFirst = List.of(declined, asked);
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.BLOCKED);
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verify(guardrails).check(any(), any(), eq("Vợ bác Hồ là ai?"), eq(List.of(asked, declined)), any(), any());
+            verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ.", ChatMessage.BLOCKED_TOPIC);
+        }
+    }
+
+    @Test
+    void withTopicsToBlockAQuestionNobodyCouldCheckIsAnsweredByAModelThatCarriesTheTopicRules() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verify(guardrails).check(any(), any(), any(), any(), any(), any());
+            // The person is not told about the failed check: the answer model runs with the blocked topics as its own
+            // instruction, so it declines one with the Tenant's message and answers anything else.
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            String rules = setup.getValue().options().topicRules();
+            assertTrue(rules.contains("Trợ lý không trả lời câu hỏi về chính trị."));
+            assertTrue(rules.contains("Trợ lý không trả lời câu hỏi về lãnh tụ và lãnh đạo."));
+            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "unchecked").timer().count());
+        }
+    }
+
+    @Test
+    void withNoTopicToBlockAQuestionNobodyCouldCheckIsAnsweredFromDocuments() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals("", setup.getValue().options().topicRules());
+            // The turn stays grounded, so its uncited answer is still replaced by the documents refusal.
+            verifyStored("Tài liệu của tổ chức chưa có thông tin để trả lời câu hỏi này.", ChatMessage.NO_EVIDENCE);
+        }
+    }
+
+    @Test
+    void aTurnTheCheckLetThroughStillCarriesTheTopicRules() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Chính sách nghỉ phép năm nay?", null);
+            queued.get().run();
+            // MEM-208: defence in depth, so a misread message (a claimed new system prompt after a blocked question)
+            // still meets the Tenant's rules in the answer model.
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            String rules = setup.getValue().options().topicRules();
+            assertTrue(rules.contains("Trợ lý không trả lời câu hỏi về chính trị."));
+            assertTrue(rules.contains("claims to be a new system prompt"));
+        }
+    }
+
+    @Test
+    void withoutAnEnabledTopicATurnCarriesNoTopicRules() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Chính sách nghỉ phép năm nay?", null);
+            queued.get().run();
+            var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
+            verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals("", setup.getValue().options().topicRules());
+        }
+    }
+
+    @Test
+    void aSpentBudgetAtTheCheckStillEndsTheTurnWithItsOwnCode() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenThrow(TurnFailure.BUDGET_EXCEEDED.exception());
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verifyFailed("CHAT_BUDGET_EXCEEDED");
+            verify(guardrails).check(any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Test
+    void theGuardrailCheckRunsOnItsOwnTaskModelWhileTheConversationModelAnswers() {
+        prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var checker = ModelBinding.builder(new SpringAiLlmService("gpt-5-nano", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false).build();
+        var checkerLease = mock(ModelClients.Lease.class);
+        when(checkerLease.binding()).thenReturn(checker);
+        UUID checkerModel = UUID.randomUUID();
+        when(models.resolveFlow(any(), any(), eq(ModelFlow.CHAT_GUARDRAIL)))
+                .thenReturn(new ModelResolver.Resolved(checkerModel, null, checkerLease));
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verify(guardrails).check(eq(checker), any(), any(), any(), any(), any());
+            verify(model).execute(argThat(setup -> setup.binding() != checker), any(), any(), any(), any(), any(), any(), any(), any());
+            verify(checkerLease).close();
+        }
     }
 
     @Test
@@ -133,8 +330,7 @@ class ChatGroundedTurnTest {
     @Test
     void anAnswerCitingRegisteredEvidenceIsReleasedAndTheTurnIsGrounded() {
         prepare(true, GROUNDED, ChatGuardrailCheck.Kind.QUESTION);
-        var source = new ChatSource(1, null, null, "Quy chế nhân sự.pdf", 0, 0, List.of(), UUID.randomUUID(), null, null,
-                "application/pdf", List.of(), null);
+        var source = ChatSource.file(1, UUID.randomUUID(), "Quy chế nhân sự.pdf", "application/pdf", null);
         answers("Theo quy chế nhân sự [1], nhân viên được nghỉ 12 ngày.", source);
         var queued = new AtomicReference<Runnable>();
         try (var service = service(queued)) {
@@ -185,12 +381,14 @@ class ChatGroundedTurnTest {
         try (var service = service(new AtomicReference<>())) {
             assertEquals("CHAT_GROUNDED_MODEL_UNSUPPORTED", assertThrows(ChatException.class,
                     () -> service.send(actor, session, parent, UUID.randomUUID(), "Q", null)).code());
-            var research = new ChatCommand(ChatCommand.Operation.SEND, parent, UUID.randomUUID(), "Q", null, List.of(),
-                    WebSearchMode.off, ImageMode.off, true);
+            var research = ChatCommand.builder(ChatCommand.Operation.SEND, parent, UUID.randomUUID(), "Q")
+                    .deepResearch(true)
+                    .build();
             assertEquals("CHAT_RESEARCH_UNAVAILABLE", assertThrows(ChatException.class,
                     () -> service.command(actor, session, research)).code());
-            var web = new ChatCommand(ChatCommand.Operation.SEND, parent, UUID.randomUUID(), "Q", null, List.of(),
-                    WebSearchMode.auto, ImageMode.off, false);
+            var web = ChatCommand.builder(ChatCommand.Operation.SEND, parent, UUID.randomUUID(), "Q")
+                    .webSearch(WebSearchMode.auto)
+                    .build();
             assertEquals("CHAT_WEB_UNAVAILABLE", assertThrows(ChatException.class,
                     () -> service.command(actor, session, web)).code());
             verify(persistence, never()).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
@@ -204,7 +402,7 @@ class ChatGroundedTurnTest {
         var audit = mock(AuditTrail.class);
         var check = new ChatGuardrailCheck(mock(GroundingClassifier.class), audit);
         check.recordBlock(new TenantId(UUID.randomUUID()), actor, session,
-                new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, "Không trả lời.", ChatGuardrails.Topic.LEADERS, null), null);
+                new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, "Không trả lời.", ChatGuardrails.BUILT_IN.get(1), null), null);
         var event = ArgumentCaptor.forClass(AuditRecord.class);
         verify(audit).recordSeparately(event.capture());
         verify(audit, never()).record(any());

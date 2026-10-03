@@ -262,6 +262,8 @@ public class JdbcGoogleDriveSourceRepository {
     }
 
     private void initialize(TenantId tenant, SourceId source, ScopeMode scopeMode) {
+        jdbc.sql("INSERT INTO source_sync_state (tenant_id, source_id) VALUES (:tenant, :source) ON CONFLICT DO NOTHING")
+                .param("tenant", tenant.value()).param("source", source.value()).update();
         jdbc.sql("""
                 INSERT INTO google_drive_sources (tenant_id, source_id, scope_mode) VALUES (:tenant, :source, :scopeMode)
                 ON CONFLICT DO NOTHING
@@ -277,7 +279,8 @@ public class JdbcGoogleDriveSourceRepository {
 
     public ConfigurationRow configuration(TenantId tenant, SourceId source) {
         return jdbc.sql("""
-                SELECT s.*, (SELECT p.sync_error_code FROM connector_credential_pairs p
+                SELECT s.*, y.scope_revision, y.sync_interval_minutes, y.schedule_revision, y.sync_paused,
+                  y.last_synced_at, (SELECT p.sync_error_code FROM connector_credential_pairs p
                   WHERE p.tenant_id = s.tenant_id AND p.id = s.source_id) AS error_code,
                   EXISTS (SELECT 1 FROM source_sync_attempts a
                   WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
@@ -287,11 +290,13 @@ public class JdbcGoogleDriveSourceRepository {
                   JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
                     AND m.file_id = v.provider_file_id
                   WHERE a.tenant_id = s.tenant_id AND a.connector_credential_pair_id = s.source_id
-                    AND a.status IN ('NOT_STARTED','IN_PROGRESS') AND v.scope_revision = s.revision
+                    AND a.status IN ('NOT_STARTED','IN_PROGRESS') AND v.scope_revision = y.scope_revision
                     AND m.eligible AND NOT m.excluded) AS pending
-                FROM google_drive_sources s WHERE tenant_id = :tenant AND source_id = :source
+                FROM google_drive_sources s
+                JOIN source_sync_state y ON y.tenant_id = s.tenant_id AND y.source_id = s.source_id
+                WHERE s.tenant_id = :tenant AND s.source_id = :source
                 """).param("tenant", tenant.value()).param("source", source.value())
-                .query((r, _) -> new ConfigurationRow(r.getLong("revision"), r.getInt("sync_interval_minutes"),
+                .query((r, _) -> new ConfigurationRow(r.getLong("scope_revision"), r.getInt("sync_interval_minutes"),
                         r.getLong("schedule_revision"), r.getBoolean("sync_paused"), ScopeMode.valueOf(r.getString("scope_mode")),
                         r.getLong("discovery_revision"), JdbcSourceRepository.instant(r, "discovered_at"),
                         r.getLong("discovery_scope_revision"), r.getLong("discovery_credential_revision"),
@@ -349,11 +354,13 @@ public class JdbcGoogleDriveSourceRepository {
     public void saveDiscovery(TenantId tenant, SourceId source, long scopeRevision, long credentialRevision,
             long discoveryRevision, List<LinkedDocument> documents, List<DiscoveryError> errors) {
         if (jdbc.sql("""
-                UPDATE google_drive_sources SET discovery_revision = discovery_revision + 1,
+                UPDATE google_drive_sources s SET discovery_revision = discovery_revision + 1,
                   discovered_at = clock_timestamp(), discovery_scope_revision = :scope,
                   discovery_credential_revision = :credential
-                WHERE tenant_id = :tenant AND source_id = :source AND revision = :scope
-                  AND discovery_revision = :discovery AND scope_mode = 'SPECIFIC'
+                FROM source_sync_state y
+                WHERE s.tenant_id = :tenant AND s.source_id = :source
+                  AND y.tenant_id = s.tenant_id AND y.source_id = s.source_id AND y.scope_revision = :scope
+                  AND s.discovery_revision = :discovery AND s.scope_mode = 'SPECIFIC'
                 """).param("tenant", tenant.value()).param("source", source.value()).param("scope", scopeRevision)
                 .param("credential", credentialRevision).param("discovery", discoveryRevision).update() != 1)
             throw SourceException.staleConfiguration();
@@ -386,11 +393,13 @@ public class JdbcGoogleDriveSourceRepository {
                 INSERT INTO google_drive_link_approvals (tenant_id, source_id, file_id) VALUES (:tenant, :source, :file)
                 """).param("tenant", tenant.value()).param("source", source.value()).param("file", id).update();
         jdbc.sql("""
-                UPDATE google_drive_sources SET discovery_revision = discovery_revision + 1,
+                UPDATE google_drive_sources s SET discovery_revision = discovery_revision + 1,
                   discovered_at = CASE WHEN :changed THEN NULL ELSE discovered_at END,
-                  discovery_scope_revision = CASE WHEN :changed THEN NULL ELSE revision END,
+                  discovery_scope_revision = CASE WHEN :changed THEN NULL ELSE y.scope_revision END,
                   discovery_credential_revision = CASE WHEN :changed THEN NULL ELSE discovery_credential_revision END
-                WHERE tenant_id = :tenant AND source_id = :source AND scope_mode = 'SPECIFIC'
+                FROM source_sync_state y
+                WHERE s.tenant_id = :tenant AND s.source_id = :source AND s.scope_mode = 'SPECIFIC'
+                  AND y.tenant_id = s.tenant_id AND y.source_id = s.source_id
                 """).param("tenant", tenant.value()).param("source", source.value()).param("changed", rootsChanged).update();
         if (rootsChanged) {
             clearOriginsAndErrors(tenant, source);
@@ -435,10 +444,10 @@ public class JdbcGoogleDriveSourceRepository {
         var approvedIds = approvals.stream().map(LinkedDocument::id).toList();
         boolean rootsChanged = !Set.copyOf(roots(tenant, source).stream().map(Root::id).toList()).equals(Set.copyOf(rootIds));
         if (jdbc.sql("""
-                UPDATE google_drive_sources SET revision = revision + 1, next_sync_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant AND source_id = :source AND revision = :revision AND scope_mode = :scopeMode
+                UPDATE source_sync_state SET scope_revision = scope_revision + 1, next_sync_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND source_id = :source AND scope_revision = :revision
                 """).param("tenant", tenant.value()).param("source", source.value())
-                .param("scopeMode", scopeMode.name()).param("revision", expected).update() != 1) throw SourceException.staleConfiguration();
+                .param("revision", expected).update() != 1) throw SourceException.staleConfiguration();
         jdbc.sql("UPDATE connector_credential_pairs SET sync_error_code = NULL WHERE tenant_id = :tenant AND id = :source")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
         retainSelectionMembership(tenant, source, expected, credentialRevision, rootIds, approvedIds, rootsChanged);
@@ -526,7 +535,7 @@ public class JdbcGoogleDriveSourceRepository {
 
     public void updateSchedule(TenantId tenant, SourceId source, long expectedRevision, int syncIntervalMinutes) {
         if (jdbc.sql("""
-                UPDATE google_drive_sources SET sync_interval_minutes = :minutes,
+                UPDATE source_sync_state SET sync_interval_minutes = :minutes,
                   schedule_revision = schedule_revision + 1,
                   next_sync_at = statement_timestamp() + :minutes * INTERVAL '1 minute'
                 WHERE tenant_id = :tenant AND source_id = :source AND schedule_revision = :revision
@@ -538,7 +547,7 @@ public class JdbcGoogleDriveSourceRepository {
 
     public void setPaused(TenantId tenant, SourceId source, long expectedRevision, boolean paused) {
         if (jdbc.sql("""
-                UPDATE google_drive_sources SET sync_paused = :paused, schedule_revision = schedule_revision + 1
+                UPDATE source_sync_state SET sync_paused = :paused, schedule_revision = schedule_revision + 1
                 WHERE tenant_id = :tenant AND source_id = :source AND schedule_revision = :revision
                 """).param("tenant", tenant.value()).param("source", source.value())
                 .param("revision", expectedRevision).param("paused", paused).update() != 1)

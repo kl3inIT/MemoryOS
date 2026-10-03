@@ -64,9 +64,10 @@ class ChatHistoryController {
               @RequestParam(required = false) @Nullable String q,
               @RequestParam(required = false) @Nullable UUID actorId,
               @RequestParam(required = false) @Nullable ChatHistoryFeedback feedback,
+              @RequestParam(defaultValue = "false") boolean blocked,
               @RequestParam(required = false) @Nullable String cursor,
               @RequestParam(defaultValue = "30") int size) {
-        var page = history.page(identity.actorId(), query(from, to, q, actorId, feedback), cursor, size);
+        var page = history.page(identity.actorId(), query(from, to, q, actorId, feedback, blocked), cursor, size);
         return new ChatHistoryPageResponse(page.items().stream().map(ChatHistoryEntryResponse::from).toList(), page.nextCursor(),
                 page.totals().conversations(), page.totals().positive(), page.totals().negative());
     }
@@ -90,6 +91,7 @@ class ChatHistoryController {
                 @RequestParam(required = false) @Nullable String q,
                 @RequestParam(required = false) @Nullable UUID actorId,
                 @RequestParam(required = false) @Nullable ChatHistoryFeedback feedback,
+                @RequestParam(defaultValue = "false") boolean blocked,
                 HttpServletResponse response) throws IOException {
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Content-Disposition", ContentDisposition.attachment()
@@ -102,7 +104,7 @@ class ChatHistoryController {
         var csv = new CSVPrinter(writer, CSVFormat.DEFAULT);
         csv.printRecord("session_id", "updated_at", "person", "email", "title", "first_question", "first_answer",
                 "model", "messages", "feedback", "deleted");
-        history.export(identity.actorId(), query(from, to, q, actorId, feedback), conversation -> {
+        history.export(identity.actorId(), query(from, to, q, actorId, feedback, blocked), conversation -> {
             try {
                 csv.printRecord(conversation.id(), conversation.updatedAt(), guard(conversation.person()),
                         guard(conversation.email()), guard(conversation.title()), guard(conversation.question()),
@@ -117,9 +119,9 @@ class ChatHistoryController {
 
     private static ChatHistoryQuery query(@Nullable Instant from, @Nullable Instant to,
                                                          @Nullable String q, @Nullable UUID actorId,
-                                                         @Nullable ChatHistoryFeedback feedback) {
+                                                         @Nullable ChatHistoryFeedback feedback, boolean blocked) {
         return new ChatHistoryQuery(from, to, q == null || q.isBlank() ? null : q.trim(), actorId,
-                feedback);
+                feedback, blocked);
     }
 
     private static @Nullable String guard(@Nullable String value) {

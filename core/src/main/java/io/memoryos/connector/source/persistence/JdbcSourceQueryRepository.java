@@ -42,24 +42,31 @@ public class JdbcSourceQueryRepository {
                   AND member.group_id = requested_grant.group_id
                   AND member.actor_id = :actorId AND member.is_manager = TRUE)
             """;
+    /**
+     * The status a Source summary reports for pair {@code pair}: a PAUSED pair reads PAUSING while a worker holds a
+     * live lease, queued or running synchronization reads INDEXING, and a synchronization error reads FAILED.
+     */
+    static final String DERIVED_STATUS = """
+            CASE WHEN pair.status = 'PAUSED' AND (EXISTS (
+                SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
+                  AND sync.source_id = pair.id AND sync.status = 'IN_PROGRESS'
+                  AND sync.lease_expires_at > CURRENT_TIMESTAMP
+            ) OR EXISTS (
+                SELECT 1 FROM index_attempts attempt WHERE attempt.tenant_id = pair.tenant_id
+                  AND attempt.connector_credential_pair_id = pair.id AND attempt.status = 'IN_PROGRESS'
+                  AND attempt.lease_expires_at > CURRENT_TIMESTAMP
+            )) THEN 'PAUSING' WHEN pair.status <> 'DELETING' AND EXISTS (
+                SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
+                  AND sync.source_id = pair.id AND sync.status IN ('NOT_STARTED', 'IN_PROGRESS')
+            ) THEN 'INDEXING' WHEN pair.status <> 'DELETING' AND pair.status <> 'PAUSED'
+              AND pair.sync_error_code IS NOT NULL THEN 'FAILED' ELSE pair.status END""";
+
     private static final String SOURCE_SELECT = """
             SELECT pair.id AS source_id,
                    connector.name,
                    connector.connector_type,
                    pair.access_type,
-                   CASE WHEN pair.status = 'PAUSED' AND (EXISTS (
-                       SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
-                         AND sync.source_id = pair.id AND sync.status = 'IN_PROGRESS'
-                         AND sync.lease_expires_at > CURRENT_TIMESTAMP
-                   ) OR EXISTS (
-                       SELECT 1 FROM index_attempts attempt WHERE attempt.tenant_id = pair.tenant_id
-                         AND attempt.connector_credential_pair_id = pair.id AND attempt.status = 'IN_PROGRESS'
-                         AND attempt.lease_expires_at > CURRENT_TIMESTAMP
-                   )) THEN 'PAUSING' WHEN pair.status <> 'DELETING' AND EXISTS (
-                       SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
-                         AND sync.source_id = pair.id AND sync.status IN ('NOT_STARTED', 'IN_PROGRESS')
-                   ) THEN 'INDEXING' WHEN pair.status <> 'DELETING' AND pair.status <> 'PAUSED'
-                     AND pair.sync_error_code IS NOT NULL THEN 'FAILED' ELSE pair.status END AS status,
+                   %s AS status,
                    EXISTS (
                        SELECT 1 FROM connector_cleanup_attempts cleanup
                        WHERE cleanup.tenant_id = pair.tenant_id AND cleanup.target_pair_id = pair.id
@@ -89,7 +96,8 @@ public class JdbcSourceQueryRepository {
             JOIN actors requesting_actor
               ON requesting_actor.id = requesting_membership.actor_id
              AND requesting_actor.account_type = 'STANDARD'
-            """.formatted(SourceScopeSql.WRITE, SourceScopeSql.ACTIVE_MANAGER, SourceScopeSql.OWNER_GROUPLESS);
+            """.formatted(DERIVED_STATUS, SourceScopeSql.WRITE, SourceScopeSql.ACTIVE_MANAGER,
+            SourceScopeSql.OWNER_GROUPLESS);
 
     private static final String ITEM_CANDIDATES = """
             SELECT item.id, item.tenant_id, item.current_version_id,
@@ -236,7 +244,8 @@ public class JdbcSourceQueryRepository {
             GroupId groupId,
             boolean globalRead,
             boolean globalManage,
-            boolean globalDelete
+            boolean globalDelete,
+            boolean groupMember
     ) {
         return jdbcClient.sql(SOURCE_SELECT + """
                         JOIN source_group_grants requested_grant
@@ -244,7 +253,7 @@ public class JdbcSourceQueryRepository {
                          AND requested_grant.connector_credential_pair_id = pair.id
                          AND requested_grant.group_id = :groupId
                         WHERE pair.tenant_id = :tenantId
-                          AND (:globalRead OR %s)
+                          AND (:globalRead OR :groupMember OR %s)
                         ORDER BY connector.created_at, pair.id
                         """.formatted(MANAGED_REQUESTED_GROUP_SCOPE))
                 .param("tenantId", tenantId.value())
@@ -252,6 +261,7 @@ public class JdbcSourceQueryRepository {
                 .param("groupId", groupId.value())
                 .param("globalRead", globalRead)
                 .param("globalManage", globalManage)
+                .param("groupMember", groupMember)
                 .query((resultSet, ignored) -> summary(resultSet, globalManage, globalDelete))
                 .list();
     }

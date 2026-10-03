@@ -69,6 +69,7 @@ const file = {
 };
 const session: ApplicationSession = {
   actorId: id,
+  displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
   capabilities: [],

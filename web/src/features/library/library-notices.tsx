@@ -63,7 +63,7 @@ export function LibraryNotices({
       )}
       {refusals.length > 0 && (
         <Alert variant="destructive">
-          <AlertTitle>{ui("Một số tệp không xoá được")}</AlertTitle>
+          <AlertTitle>{ui("Một số tệp không xóa được")}</AlertTitle>
           <AlertAction>
             <IconButton size="sm" prominence="internal" aria-label={ui("Đóng")} onClick={onDismiss}>
               <X />
@@ -89,8 +89,8 @@ export function TrashBanner({ days, onEmpty }: { days?: number; onEmpty: () => P
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-subtle px-3 py-2">
       <p className="font-secondary-body text-content-secondary">
         {days === 0
-          ? ui("Máy chủ này xoá tệp ngay, không giữ trong thùng rác.")
-          : ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", { days: days ?? 30 })}
+          ? ui("Máy chủ này xóa tệp ngay, không giữ trong thùng rác.")
+          : ui("Tệp đã xóa được giữ {{days}} ngày rồi xóa vĩnh viễn.", { days: days ?? 30 })}
       </p>
       <ConfirmDialog
         trigger={
@@ -100,7 +100,7 @@ export function TrashBanner({ days, onEmpty }: { days?: number; onEmpty: () => P
           </Button>
         }
         title={ui("Dọn sạch thùng rác?")}
-        description={ui("Mọi tệp trong thùng rác sẽ bị xoá vĩnh viễn và không thể khôi phục.")}
+        description={ui("Mọi tệp trong thùng rác sẽ bị xóa vĩnh viễn và không thể khôi phục.")}
         confirmLabel={ui("Dọn sạch")}
         pendingLabel={ui("Đang dọn…")}
         confirmTone="danger"

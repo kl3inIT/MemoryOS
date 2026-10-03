@@ -14,8 +14,8 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceSummary;
-import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
-import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
+import io.memoryos.connector.sync.SourceSyncAdapters;
+import io.memoryos.connector.sync.persistence.JdbcSourceSelectionRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.iam.GroupIdentity;
 import io.memoryos.objectstorage.ObjectWriteService;
@@ -33,9 +33,7 @@ import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceUploadReceipt;
-import io.memoryos.connector.googledrive.GoogleDriveConnectionService;
 import io.memoryos.connector.sync.DefaultConnectorCleanupService;
-import io.memoryos.connector.sync.ProviderAuthorityService;
 import io.memoryos.connector.sync.persistence.JdbcCleanupAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
@@ -52,6 +50,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.GroupId;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IamException;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.DefaultGroupScopeService;
 import io.memoryos.iam.group.DefaultIamAuthorization;
@@ -92,6 +91,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -170,7 +170,7 @@ class PostgresSourceLifecycleTest {
         var sourceRepository = new JdbcSourceRepository(jdbcClient, event -> { });
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
         attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
-                Mockito.mock(ProviderAuthorityService.class));
+                SourceSyncAdapters.registry());
         var documents = new JdbcDocumentRepository(jdbcClient, objectMapper, _ -> { });
         sourceUploads = new JdbcSourceUploadRepository(jdbcClient);
         objectStorage = new InMemoryObjectStorage();
@@ -204,7 +204,7 @@ class PostgresSourceLifecycleTest {
                         documents,
                         objectUploads,
                         storedObjects,
-                        new JdbcSourceItemRepository(jdbcClient),
+                        new JdbcSourceItemRepository(jdbcClient, _ -> { }),
                         Mockito.mock(ObjectWriteService.class)
                 ),
                 ConnectorCleanupPort.class,
@@ -397,6 +397,17 @@ class PostgresSourceLifecycleTest {
             assertEquals(mode.name(), jdbcClient.sql("SELECT access_type FROM connector_credential_pairs WHERE id=:source")
                     .param("source", shared.id().value()).query(String.class).single());
         }
+
+        // A provider without synchronized permissions changes like an upload: PUBLIC or PRIVATE, never SYNC.
+        jdbcClient.sql("""
+                UPDATE connectors SET connector_type='SHAREPOINT'
+                WHERE id=(SELECT connector_id FROM connector_credential_pairs WHERE id=:source)
+                """).param("source", shared.id().value()).update();
+        for (var mode : List.of(SourceAccess.PUBLIC, SourceAccess.PRIVATE)) {
+            assertEquals(mode, service.updateSourceAccess(owner, shared.id(), mode).access());
+        }
+        assertThrows(SourceException.class, () -> service.updateSourceAccess(owner, shared.id(), SourceAccess.SYNC));
+        assertEquals(SourceAccess.PRIVATE, service.getSource(owner, shared.id()).access());
     }
 
     @Test
@@ -457,31 +468,37 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void deletingASourceCancelsItsPendingSelectionInEveryProviderTable() {
-        var deleted = service.createFileSource(owner, "Deleted", List.of(), SourceAccess.PRIVATE);
-        var kept = service.createFileSource(owner, "Kept", List.of(), SourceAccess.PRIVATE);
-        UUID googleDeleted = pendingGoogleSelection(deleted.id());
-        UUID sharePointDeleted = pendingSharePointSelection(deleted.id());
-        UUID googleKept = pendingGoogleSelection(kept.id());
-        UUID sharePointKept = pendingSharePointSelection(kept.id());
+    void deletingASourceCancelsItsPendingSelectionOfEveryProvider() {
+        var deletedDrive = service.createFileSource(owner, "Deleted Drive", List.of(), SourceAccess.PRIVATE);
+        var deletedSharePoint = service.createFileSource(owner, "Deleted SharePoint", List.of(), SourceAccess.PRIVATE);
+        var keptDrive = service.createFileSource(owner, "Kept Drive", List.of(), SourceAccess.PRIVATE);
+        var keptSharePoint = service.createFileSource(owner, "Kept SharePoint", List.of(), SourceAccess.PRIVATE);
+        UUID googleDeleted = pendingGoogleSelection(deletedDrive.id());
+        UUID sharePointDeleted = pendingSharePointSelection(deletedSharePoint.id());
+        UUID googleKept = pendingGoogleSelection(keptDrive.id());
+        UUID sharePointKept = pendingSharePointSelection(keptSharePoint.id());
 
-        service.deleteSource(owner, deleted.id());
+        service.deleteSource(owner, deletedDrive.id());
+        service.deleteSource(owner, deletedSharePoint.id());
 
-        assertEquals("CANCELLED/SOURCE_DELETING", selectionOutcome("google_drive_selection_operations", googleDeleted));
-        assertEquals("CANCELLED/SOURCE_DELETING", selectionOutcome("sharepoint_selection_operations", sharePointDeleted));
-        assertEquals("NOT_STARTED/null", selectionOutcome("google_drive_selection_operations", googleKept));
-        assertEquals("NOT_STARTED/null", selectionOutcome("sharepoint_selection_operations", sharePointKept));
+        assertEquals("CANCELLED/SOURCE_DELETING", selectionOutcome(googleDeleted));
+        assertEquals("CANCELLED/SOURCE_DELETING", selectionOutcome(sharePointDeleted));
+        assertEquals("NOT_STARTED/null", selectionOutcome(googleKept));
+        assertEquals("NOT_STARTED/null", selectionOutcome(sharePointKept));
     }
 
     private UUID pendingGoogleSelection(SourceId source) {
         UUID operation = UUID.randomUUID();
         jdbcClient.sql("""
-                INSERT INTO google_drive_selection_operations (
-                    id, tenant_id, source_id, actor_id, request_id, request_hash,
-                    credential_revision, scope_revision, discovery_revision, scope_mode,
-                    max_requests, max_metadata, max_roots, max_request_bytes)
-                VALUES (:operation, :tenant, :source, :actor, :request, 'hash',
-                    1, 0, 0, 'SPECIFIC', 100, 100, 100, 10000)
+                WITH operation AS (
+                    INSERT INTO source_selection_operations (
+                        id, tenant_id, source_id, source_type, actor_id, request_id, request_hash,
+                        credential_revision, scope_revision, max_requests, max_roots, max_request_bytes)
+                    VALUES (:operation, :tenant, :source, 'GOOGLE_DRIVE', :actor, :request, 'hash',
+                        1, 0, 100, 100, 10000))
+                INSERT INTO google_drive_selection_details (tenant_id, operation_id, scope_mode, discovery_revision,
+                    max_metadata)
+                VALUES (:tenant, :operation, 'SPECIFIC', 0, 100)
                 """).param("operation", operation).param("tenant", tenantId).param("source", source.value())
                 .param("actor", owner.value()).param("request", UUID.randomUUID()).update();
         return operation;
@@ -490,19 +507,22 @@ class PostgresSourceLifecycleTest {
     private UUID pendingSharePointSelection(SourceId source) {
         UUID operation = UUID.randomUUID();
         jdbcClient.sql("""
-                INSERT INTO sharepoint_selection_operations (
-                    id, tenant_id, source_id, actor_id, request_id, request_hash, credential_revision,
-                    scope_revision, scope_mode, sync_interval_minutes, prune_interval_hours,
-                    max_requests, max_roots, max_request_bytes)
-                VALUES (:operation, :tenant, :source, :actor, :request, 'hash', 1,
-                    0, 'SPECIFIC', 60, 24, 100, 100, 10000)
+                WITH operation AS (
+                    INSERT INTO source_selection_operations (
+                        id, tenant_id, source_id, source_type, actor_id, request_id, request_hash,
+                        credential_revision, scope_revision, max_requests, max_roots, max_request_bytes)
+                    VALUES (:operation, :tenant, :source, 'SHAREPOINT', :actor, :request, 'hash',
+                        1, 0, 100, 100, 10000))
+                INSERT INTO sharepoint_selection_details (tenant_id, operation_id, scope_mode,
+                    sync_interval_minutes, prune_interval_hours)
+                VALUES (:tenant, :operation, 'SPECIFIC', 60, 24)
                 """).param("operation", operation).param("tenant", tenantId).param("source", source.value())
                 .param("actor", owner.value()).param("request", UUID.randomUUID()).update();
         return operation;
     }
 
-    private String selectionOutcome(String table, UUID operation) {
-        return jdbcClient.sql("SELECT status || '/' || COALESCE(error_code, 'null') FROM " + table + " WHERE id = :id")
+    private String selectionOutcome(UUID operation) {
+        return jdbcClient.sql("SELECT status || '/' || COALESCE(error_code, 'null') FROM source_selection_operations WHERE id = :id")
                 .param("id", operation).query(String.class).single();
     }
 
@@ -513,12 +533,15 @@ class PostgresSourceLifecycleTest {
         ActorId stranger = addScopedManager(new GroupId(UUID.randomUUID()));
         var operation = new SourceOperationId(UUID.randomUUID());
         jdbcClient.sql("""
-                INSERT INTO google_drive_selection_operations (
-                    id, tenant_id, source_id, actor_id, request_id, request_hash,
-                    credential_revision, scope_revision, discovery_revision, scope_mode,
-                    max_requests, max_metadata, max_roots, max_request_bytes)
-                VALUES (:operation, :tenant, :source, :actor, :request, 'hash',
-                    1, 0, 0, 'SPECIFIC', 100, 100, 100, 10000)
+                WITH operation AS (
+                    INSERT INTO source_selection_operations (
+                        id, tenant_id, source_id, source_type, actor_id, request_id, request_hash,
+                        credential_revision, scope_revision, max_requests, max_roots, max_request_bytes)
+                    VALUES (:operation, :tenant, :source, 'GOOGLE_DRIVE', :actor, :request, 'hash',
+                        1, 0, 100, 100, 10000))
+                INSERT INTO google_drive_selection_details (tenant_id, operation_id, scope_mode, discovery_revision,
+                    max_metadata)
+                VALUES (:tenant, :operation, 'SPECIFIC', 0, 100)
                 """).param("operation", operation.value()).param("tenant", tenantId)
                 .param("source", UUID.randomUUID()).param("actor", manager.value())
                 .param("request", UUID.randomUUID()).update();
@@ -648,6 +671,28 @@ class PostgresSourceLifecycleTest {
         assertThat(service.listSourceGroups(owner, unmanaged.id())).isEmpty();
         assertThat(service.listSourceGroups(owner, managed.id()))
                 .extracting(GroupIdentity::id).containsExactly(sharedGroup);
+    }
+
+    @Test
+    void directGroupMemberViewsAssociatedSourcesWithoutSourceAdministration() {
+        GroupId groupId = new GroupId(UUID.randomUUID());
+        ActorId member = addScopedManager(groupId);
+        jdbcClient.sql("""
+                        UPDATE iam_group_memberships
+                        SET is_manager = FALSE
+                        WHERE tenant_id = :tenantId AND group_id = :groupId AND actor_id = :actorId
+                        """)
+                .param("tenantId", tenantId)
+                .param("groupId", groupId.value())
+                .param("actorId", member.value())
+                .update();
+        var source = service.createFileSource(owner, "Member-visible", List.of(groupId), SourceAccess.PRIVATE);
+
+        assertThat(service.listGroupSources(member, groupId).sources())
+                .extracting(SourceSummary::id)
+                .containsExactly(source.id());
+        assertThat(service.listGroupSources(member, groupId).removableSourceIds()).isEmpty();
+        assertThrows(IamException.class, () -> service.getSource(member, source.id()));
     }
 
     @Test
@@ -1357,11 +1402,13 @@ class PostgresSourceLifecycleTest {
 
     private SourceManagementService service(JdbcSourceRepository sourceRepository) {
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
+        TenantAccessResolver tenants = Mockito.mock(TenantAccessResolver.class);
+        Mockito.when(tenants.findActiveTenant(Mockito.any())).thenReturn(Optional.of(new TenantId(tenantId)));
         var target = new DefaultSourceManagementService(
                 sourceRepository,
-                new JdbcSourceItemRepository(jdbcClient),
+                new JdbcSourceItemRepository(jdbcClient, _ -> { }),
                 new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
-                        Mockito.mock(ProviderAuthorityService.class)),
+                        SourceSyncAdapters.registry()),
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
                 new JdbcSourceOperationQueryRepository(jdbcClient),
@@ -1372,17 +1419,16 @@ class PostgresSourceLifecycleTest {
                         new IamAuthorizationRepository(jdbcClient),
                         new IamLockRepository(jdbcClient)
                 ),
+                tenants,
                 new DefaultGroupScopeService(
                         new GroupInvariantRepository(jdbcClient),
                         new GroupProjectionRepository(jdbcClient)
                 ),
                 transactionManager,
                 new JdbcSourceSyncRepository(jdbcClient),
-                new JdbcGoogleDriveSyncRepository(jdbcClient,
-                        new JdbcSourceSyncRepository(jdbcClient)),
-                new JdbcGoogleDriveSelectionRepository(jdbcClient),
-                Mockito.mock(GoogleDriveConnectionService.class),
-                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)), TestDatabase.noAudit())
+                SourceSyncAdapters.registry(),
+                new JdbcSourceSelectionRepository(jdbcClient),
+                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)), TestDatabase.noAudit(), SourceSyncAdapters.registry())
         , TestDatabase.noAudit());
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
     }

@@ -1,4 +1,4 @@
-import { Boxes } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { SectionHeader } from "@/components/composites/section-header";
@@ -62,7 +62,7 @@ function ModelsAdministration() {
     <SettingsLayout wide>
       <PageHeader
         title={ui("Models")}
-        icon={<Boxes />}
+        icon={<Sparkles />}
         actions={
           <Button
             prominence="secondary"

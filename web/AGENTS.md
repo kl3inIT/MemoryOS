@@ -11,7 +11,7 @@ Run from the repository root with `pnpm --dir web <script>`, or inside `web/`.
 - `pnpm typecheck` and `pnpm build` are the type check; `tsc -p` is not.
 - `pnpm test:e2e` runs the Playwright suite against synthetic fixtures ([testing guideline](../docs/guidelines/testing.md)).
 - `pnpm generate:api` regenerates `src/lib/hey-api` from `../openapi.yml`; never edit generated files or `src/routeTree.gen.ts` by hand.
-- `pnpm exec knip` reports unused files, exports and dependencies (configured in `knip.json`).
+- `pnpm exec knip` reports unused files, exports and dependencies (configured in `knip.jsonc`).
 
 ## Where things live
 
@@ -22,7 +22,7 @@ Run from the repository root with `pnpm --dir web <script>`, or inside `web/`.
 | `src/components/app-shell`  | `AppShell`, `AppShellHeader`, the administration table `admin-pages.ts`                                                                                                                                                                                       |
 | `src/features/<capability>` | Screens of one backend capability; `preview` and `theme` are shared kits                                                                                                                                                                                      |
 | `src/routes`                | TanStack Router file routes; `_authenticated` is the signed-in layout                                                                                                                                                                                         |
-| `src/lib`                   | The Hey API client setup (`api.ts`), generated client (`hey-api/`), query client, Sentry, helpers                                                                                                                                                             |
+| `src/lib`                   | The Hey API client setup (`api.ts`), generated client (`hey-api/`), query client, helpers                                                                                                                                                                     |
 | `src/hooks`                 | Hooks shared by several features                                                                                                                                                                                                                              |
 | `src/i18n`                  | Catalogs and the translation helpers                                                                                                                                                                                                                          |
 | `src/styles`                | `tokens.css` (semantic tokens, light and dark) and `theme.css`                                                                                                                                                                                                |
@@ -43,6 +43,8 @@ Run from the repository root with `pnpm --dir web <script>`, or inside `web/`.
 ## Common mistakes
 
 - Hand-rolling a checkbox, table, tab strip, tooltip or disclosure instead of the registry component.
+- Deleting a file under `src/components/ui` because nothing imports it: the registry components are the project's kit,
+  which is why `knip.jsonc` ignores them.
 - Raw palette classes, hex colours or opacity as a disabled state.
 - Rendering `AppShell` in a page, or adding an administration page without a row in `admin-pages.ts`.
 - Keeping filter state in component state when it belongs in the URL, or reading search params without `validateSearch`.

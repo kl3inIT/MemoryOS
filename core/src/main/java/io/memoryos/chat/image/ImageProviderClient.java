@@ -1,51 +1,39 @@
 package io.memoryos.chat.image;
 
+import io.memoryos.shared.ActorId;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
-import java.time.Instant;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.modulith.NamedInterface;
-import io.memoryos.shared.ActorId;
-
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
-import java.net.URI;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
+import java.time.Instant;
 import org.jspecify.annotations.Nullable;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/** Small protocol adapters; provider errors and credentials never become model/UI output. */
+/**
+ * Image generation and editing for Chat. The connection's adapter shapes each request; this client owns the
+ * credential lookup, the endpoint default, usage records and one observation per provider call. Provider errors and
+ * credentials never become model/UI output.
+ */
 @Component
 @NamedInterface("image")
 public final class ImageProviderClient {
-    /**
-     * Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109.
-     * Klein 9B is preferred over 4B for quality at about 1,300 neurons per 1024 px edit; declared once in the
-     * image model catalog.
-     */
-    static final String CLOUDFLARE_EDIT_MODEL = Objects.requireNonNull(ImageProvider.CLOUDFLARE_WORKERS_AI.editModel()).modelName();
-    private static final String OPENAI_ENDPOINT = Objects.requireNonNull(ImageProvider.OPENAI_IMAGE.defaultEndpoint());
-    private static final ObjectMapper JSON = new ObjectMapper();
-    private final ImageHttp http;
     private final ImageConnectionService connections;
-    private final MeterRegistry meters;
+    private final ImageAdapterRegistry adapters;
+    private final ImageCall call;
+    private final ObservationRegistry observations;
     private final @Nullable AiUsageRecorder usage;
-    public ImageProviderClient(ImageHttp http, ImageConnectionService connections, MeterRegistry meters) {
-        this(http, connections, meters, null);
+
+    public ImageProviderClient(ImageHttp http, ImageConnectionService connections, ImageAdapterRegistry adapters,
+                               ObjectMapper json, ObservationRegistry observations, @Nullable AiUsageRecorder usage) {
+        this.connections = connections; this.adapters = adapters; this.observations = observations; this.usage = usage;
+        this.call = new ImageCall(http, json);
     }
-    @Autowired
-    public ImageProviderClient(ImageHttp http, ImageConnectionService connections, MeterRegistry meters,
-                               @Nullable AiUsageRecorder usage) {
-        this.http = http; this.connections = connections; this.meters = meters; this.usage = usage;
-    }
+
+    public record Result(byte[] bytes, String mediaType, @Nullable String revisedPrompt) {}
 
     /**
      * Adds one delivered image to the AI usage ledger. Image connections carry no price, so the cost is unknown;
@@ -53,19 +41,11 @@ public final class ImageProviderClient {
      */
     public void recordImage(ImageConnectionService.Connection connection, @Nullable ActorId actor, boolean edit) {
         if (usage == null) return;
-        String model = edit && connection.provider() == ImageProvider.CLOUDFLARE_WORKERS_AI ? CLOUDFLARE_EDIT_MODEL
-                : resolvedModel(connection.provider(), connection.model());
+        String model = adapters.adapter(connection.provider()).usageModel(connection.model(), edit);
         usage.record(new AiUsage(connection.tenantId(), actor == null ? null : actor.value(),
                 edit ? AiUsageFlow.IMAGE_EDIT : AiUsageFlow.IMAGE_GENERATION,
                 connection.provider().name(), model, connection.id(), null, null, 1, 0, 0, 0, 1, 0, null, Instant.now()));
     }
-    /** The model a request names: the connection's, or the provider default when it names none. */
-    static String resolvedModel(ImageProvider provider, String model) {
-        if (!model.isBlank()) return model;
-        return provider == ImageProvider.CLOUDFLARE_WORKERS_AI ? "@cf/black-forest-labs/flux-1-schnell" : "gpt-image-1";
-    }
-
-    public record Result(byte[] bytes, String mediaType, @Nullable String revisedPrompt) {}
 
     public Result generate(ImageConnectionService.Connection connection, String prompt, @Nullable String shape) throws IOException {
         return generate(connection, prompt, shape, null);
@@ -73,120 +53,59 @@ public final class ImageProviderClient {
 
     /** An override key authenticates an unsaved probe; null resolves the connection's stored credential. */
     public Result generate(ImageConnectionService.Connection connection, String prompt, @Nullable String shape, @Nullable String key) throws IOException {
-        return measured(connection.provider().name(), "generate", () -> generateRequest(connection, prompt, shape, key));
+        return measured(connection.provider().name(), "generate", () -> {
+            validate(prompt);
+            var adapter = adapters.adapter(connection.provider());
+            // The tool shape maps to a declared size of the configured model; unknown models and models without
+            // declared sizes keep the provider default.
+            String size = adapter.capabilities().sizeFor(connection.model(), shape);
+            return adapter.generate(call, base(adapter, connection), key != null ? key : connections.key(connection),
+                    connection.model(), prompt, size);
+        });
     }
 
     /** Edits a normalized working image from an English instruction; a mask is applied afterwards by the caller. */
     public Result edit(ImageConnectionService.Connection connection, String prompt, ImageEditImages.Working image) throws IOException {
-        return measured(connection.provider().name(), "edit", () -> editRequest(connection, prompt, image));
+        return measured(connection.provider().name(), "edit", () -> {
+            validate(prompt);
+            var adapter = adapters.adapter(connection.provider());
+            return adapter.edit(call, base(adapter, connection), connections.key(connection), connection.model(), prompt, image);
+        });
     }
 
-    private Result generateRequest(ImageConnectionService.Connection connection, String prompt, @Nullable String shape, @Nullable String key) throws IOException {
-        validate(prompt);
-        String credential = key != null ? key : connections.key(connection);
+    /** The configured endpoint without trailing slashes, else the provider's public API, else empty. */
+    private static String base(ImageGenerationAdapter adapter, ImageConnectionService.Connection connection) {
         String base = connection.endpoint().replaceAll("/+$", "");
-        // The tool shape maps to a declared size of the configured model; unknown models and
-        // models without declared sizes keep the provider default.
-        String size = connection.provider().sizeFor(connection.model(), shape);
-        return switch (connection.provider()) {
-            case OPENAI_IMAGE -> openAi(base.isEmpty() ? OPENAI_ENDPOINT : base, credential, connection.model(), prompt, size);
-            case CLOUDFLARE_WORKERS_AI -> cloudflare(base, credential, connection.model(), prompt);
-        };
+        String fallback = adapter.capabilities().defaultEndpoint();
+        return base.isEmpty() && fallback != null ? fallback : base;
     }
-    private Result editRequest(ImageConnectionService.Connection connection, String prompt, ImageEditImages.Working image) throws IOException {
-        validate(prompt);
-        var auth = Map.of("Authorization", "Bearer " + connections.key(connection));
-        String base = connection.endpoint().replaceAll("/+$", "");
-        return switch (connection.provider()) {
-            case OPENAI_IMAGE -> openAiEdit(base.isEmpty() ? OPENAI_ENDPOINT : base, auth, connection.model(), prompt, image);
-            case CLOUDFLARE_WORKERS_AI -> cloudflareEdit(base, auth, prompt, image);
-        };
-    }
+
     private static void validate(@Nullable String prompt) {
         if (prompt == null || prompt.isBlank() || prompt.length() > 4000) throw new IllegalArgumentException("Invalid image prompt");
     }
 
-    private Result openAi(String base, String key, String model, String prompt, @Nullable String size) throws IOException {
-        var body = new LinkedHashMap<String, Object>();
-        body.put("model", resolvedModel(ImageProvider.OPENAI_IMAGE, model));
-        body.put("prompt", prompt);
-        body.put("n", 1);
-        if (size != null && !size.isBlank()) body.put("size", size);
-        var first = json(base + "/images/generations", Map.of("Authorization", "Bearer " + key), body).path("data").path(0);
-        String revised = first.path("revised_prompt").asString("");
-        return new Result(base64(first.path("b64_json").asString("")), "image/png", revised.isBlank() ? null : revised);
-    }
-    private Result cloudflare(String base, String key, String model, String prompt) throws IOException {
-        if (base.isEmpty()) throw new IOException("Cloudflare Workers AI requires an account endpoint");
-        String m = resolvedModel(ImageProvider.CLOUDFLARE_WORKERS_AI, model);
-        var body = new LinkedHashMap<String, Object>();
-        body.put("prompt", prompt);
-        body.put("steps", 4);
-        // Cloudflare wraps run output in {"result": {...}}; text-to-image returns base64 JPEG.
-        var root = json(base + "/ai/run/" + m, Map.of("Authorization", "Bearer " + key), body);
-        return new Result(base64(root.path("result").path("image").asString("")), "image/jpeg", null);
-    }
-
-    /** OpenAI image edits: the whole image is edited; input fidelity keeps faces and features for gpt-image models. */
-    private Result openAiEdit(String base, Map<String, String> auth, String model, String prompt, ImageEditImages.Working image) throws IOException {
-        String m = resolvedModel(ImageProvider.OPENAI_IMAGE, model);
-        var fields = new LinkedHashMap<String, String>();
-        fields.put("model", m);
-        fields.put("prompt", prompt);
-        fields.put("n", "1");
-        if (m.startsWith("gpt-image") && !m.endsWith("-mini")) fields.put("input_fidelity", "high");
-        var first = parse(http.postMultipart(URI.create(base + "/images/edits"), auth, fields,
-                List.of(new ImageHttp.FilePart("image", "image.png", "image/png", image.png())))).path("data").path(0);
-        byte[] bytes = base64(first.path("b64_json").asString(""));
-        String revised = first.path("revised_prompt").asString("");
-        return new Result(bytes, mediaType(bytes), revised.isBlank() ? null : revised);
-    }
-
-    /** FLUX.2 [klein] reference editing: multipart input image; the output keeps the requested working size. */
-    private Result cloudflareEdit(String base, Map<String, String> auth, String prompt, ImageEditImages.Working image) throws IOException {
-        if (base.isEmpty()) throw new IOException("Cloudflare Workers AI requires an account endpoint");
-        var fields = new LinkedHashMap<String, String>();
-        fields.put("prompt", prompt);
-        fields.put("width", Integer.toString(image.width()));
-        fields.put("height", Integer.toString(image.height()));
-        var root = parse(http.postMultipart(URI.create(base + "/ai/run/" + CLOUDFLARE_EDIT_MODEL), auth, fields,
-                List.of(new ImageHttp.FilePart("input_image_0", "image.png", "image/png", image.png()))));
-        byte[] bytes = base64(root.path("result").path("image").asString(""));
-        return new Result(bytes, mediaType(bytes), null);
-    }
-
-    private JsonNode json(String url, Map<String, String> headers, Map<String, Object> body) throws IOException {
-        return parse(http.post(URI.create(url), headers, JSON.writeValueAsString(body)));
-    }
-    private static JsonNode parse(ImageHttp.Response response) throws IOException {
-        if (response.status() < 200 || response.status() >= 300) throw new IOException("Image provider request failed");
-        return JSON.readTree(response.bytes());
-    }
-    private static byte[] base64(String value) throws IOException {
-        if (value.isEmpty()) throw new IOException("Image provider returned no image");
-        try { return Base64.getDecoder().decode(value); }
-        catch (IllegalArgumentException invalid) { throw new IOException("Invalid image encoding"); }
-    }
-    /** The stored media type follows the returned bytes, not the provider's documentation. */
-    private static String mediaType(byte[] bytes) throws IOException {
-        if (bytes.length >= 8 && bytes[0] == (byte) 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') return "image/png";
-        if (bytes.length >= 3 && bytes[0] == (byte) 0xFF && bytes[1] == (byte) 0xD8 && bytes[2] == (byte) 0xFF) return "image/jpeg";
-        if (bytes.length >= 12 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
-                && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P') return "image/webp";
-        throw new IOException("Unsupported image format");
-    }
     @FunctionalInterface private interface Request<T> { T run() throws IOException; }
+
+    /**
+     * One observation per provider call, {@code memoryos.chat.image.request} with bounded {@code provider},
+     * {@code operation} and {@code outcome} keys; its timer is what the Chat & AI dashboard reads. Calls are not a
+     * provider billing or token-usage estimate.
+     */
     private <T> T measured(String provider, String operation, Request<T> request) throws IOException {
-        long start = System.nanoTime();
+        var observation = Observation.createNotStarted("memoryos.chat.image.request", observations)
+                .lowCardinalityKeyValue("provider", provider).lowCardinalityKeyValue("operation", operation);
+        observation.start();
         String outcome = "failed";
-        try {
+        try (var _ = observation.openScope()) {
             T result = request.run();
             outcome = "succeeded";
             return result;
+        } catch (IOException | RuntimeException failure) {
+            // The exception type only: provider failures can carry request details.
+            observation.error(new IllegalStateException(failure.getClass().getSimpleName()));
+            throw failure;
         } finally {
-            // Bounded dimensions only. Calls are not a provider billing or token-usage estimate.
-            meters.timer("memoryos.chat.image.request", "provider", provider, "operation", operation, "outcome", outcome)
-                    .record(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+            observation.lowCardinalityKeyValue("outcome", outcome).stop();
         }
     }
 }

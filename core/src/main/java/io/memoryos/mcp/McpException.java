@@ -45,6 +45,30 @@ public final class McpException extends BusinessException {
                 "This tool's name cannot be exposed to the model.");
     }
 
+    public static McpException endpointChanged() {
+        return new McpException("MCP_ENDPOINT_CHANGED", FailureCategory.CONFLICT,
+                "The MCP endpoint setting changed. Reload it and try again.");
+    }
+
+    public static McpException trustedAppChanged() {
+        return new McpException("MCP_TRUSTED_APP_CHANGED", FailureCategory.CONFLICT,
+                "The trusted app changed. Reload the list and try again.");
+    }
+
+    public static McpException trustedAppNotFound() {
+        return new McpException("MCP_TRUSTED_APP_NOT_FOUND", FailureCategory.NOT_FOUND, "The trusted app was not found.");
+    }
+
+    public static McpException trustedAppsNotManageable() {
+        return new McpException("MCP_TRUSTED_APPS_NOT_MANAGEABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "This deployment has no account to change trusted apps. Contact the deployment owner.");
+    }
+
+    public static McpException endpointNotConfigured() {
+        return new McpException("MCP_ENDPOINT_NOT_CONFIGURED", FailureCategory.SERVICE_UNAVAILABLE,
+                "This deployment has no MCP endpoint URL. Contact the deployment owner.");
+    }
+
     public static McpException notConfigured() {
         return new McpException("MCP_NOT_CONFIGURED", FailureCategory.SERVICE_UNAVAILABLE,
                 "MCP credentials are not configured. Contact the deployment owner.");

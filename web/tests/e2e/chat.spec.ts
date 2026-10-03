@@ -593,12 +593,60 @@ for (const mode of ["slow", "disconnect", "gap", "failed"]) {
       await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
       if (mode === "failed")
-        await expect(
-          page.getByText("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại."),
-        ).toBeVisible();
+        await expect(page.getByRole("alert")).toContainText("Câu trả lời bị gián đoạn");
     }
     const stats = await page.request.get(`/api/chat/sessions/${session.id}/stats`);
     expect((await stats.json()).sends).toBe(1);
+  });
+}
+
+for (const manager of [false, true]) {
+  test(`names a refused provider credential without the unconfirmed notice ${manager ? "for a model manager" : "for a member"}`, async ({
+    page,
+  }) => {
+    await page.route("**/api/identity/me", (route) =>
+      route.fulfill({
+        json: {
+          ...identity,
+          capabilities: manager
+            ? [...identity.capabilities, "MODELS_MANAGE"]
+            : identity.capabilities,
+        },
+      }),
+    );
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", {
+        data: { title: "Rejected key", mode: "rejected" },
+      })
+    ).json();
+    await page.goto(`/chat/${session.id}`);
+    await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("VETC có những ai");
+    await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
+    if (manager) {
+      await expect(page.getByRole("alert")).toContainText("Provider từ chối API key");
+      await expect(page.getByRole("link", { name: "Cập nhật API key" })).toHaveAttribute(
+        "href",
+        "/admin/models",
+      );
+    } else {
+      await expect(page.getByRole("alert")).toContainText("Model không dùng được");
+      await expect(page.getByRole("alert")).toContainText(
+        "Hãy chọn model khác hoặc báo quản trị viên.",
+      );
+      await expect(page.getByRole("link", { name: "Cập nhật API key" })).toHaveCount(0);
+    }
+    await expect(page.getByText("Câu trả lời bị gián đoạn")).toHaveCount(0);
+    await expect(page.getByText("Chưa xác nhận được trạng thái câu trả lời")).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
+    // Reloaded from history, the answer still names the cause: the server status drives the notice.
+    await page.reload();
+    await expect(page.getByRole("alert")).toContainText(
+      manager ? "Provider từ chối API key" : "Model không dùng được",
+    );
+    if (process.env.MEMORYOS_PREVIEW_SHOTS)
+      await page.screenshot({
+        path: `${process.env.MEMORYOS_PREVIEW_SHOTS}/rejected-${manager ? "manager" : "member"}.png`,
+      });
   });
 }
 

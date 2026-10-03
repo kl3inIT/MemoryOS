@@ -1,29 +1,6 @@
 {
   "properties": [
     {
-      "name": "memoryos.chat.provider.api-key",
-      "type": "java.lang.String",
-      "description": "Credential for the configured Chat provider. Inject from the runtime secret store."
-    },
-    {
-      "name": "memoryos.chat.provider.base-url",
-      "type": "java.lang.String",
-      "defaultValue": "https://api.openai.com/v1",
-      "description": "Base URL of the supported OpenAI protocol endpoint."
-    },
-    {
-      "name": "memoryos.chat.provider.input-price-per-million",
-      "type": "java.lang.Double",
-      "defaultValue": -1,
-      "description": "Input price in USD per million tokens; -1 means unknown."
-    },
-    {
-      "name": "memoryos.chat.provider.output-price-per-million",
-      "type": "java.lang.Double",
-      "defaultValue": -1,
-      "description": "Output price in USD per million tokens; -1 means unknown."
-    },
-    {
       "name": "memoryos.chat.execution.maintenance-interval",
       "type": "java.time.Duration",
       "defaultValue": "1s",
@@ -39,26 +16,6 @@
       "type": "java.lang.Integer",
       "defaultValue": 32,
       "description": "Maximum live native model clients, including retired clients retained by active turns."
-    },
-    {
-      "name": "memoryos.chat.provider.max-completion-tokens",
-      "type": "java.lang.Boolean",
-      "description": "Explicit deployment model max-completion-tokens setting; unset retains the legacy GPT-5 default. Catalog edits remain authoritative after import."
-    },
-    {
-      "name": "memoryos.chat.provider.tool-calling",
-      "type": "java.lang.Boolean",
-      "description": "Explicit deployment model tool-calling setting; unset retains the legacy GPT-5 default. Catalog edits remain authoritative after import."
-    },
-    {
-      "name": "memoryos.chat.provider.vision",
-      "type": "java.lang.Boolean",
-      "description": "Explicit deployment model vision setting; unset retains the legacy GPT-5 default. Catalog edits remain authoritative after import."
-    },
-    {
-      "name": "memoryos.chat.provider.reasoning",
-      "type": "java.lang.Boolean",
-      "description": "Explicit deployment model reasoning setting; unset retains the legacy GPT-5 default. Catalog edits remain authoritative after import."
     }
   ]
 }

@@ -1,0 +1,64 @@
+{
+  "profiles": [
+    {
+      "name": "memoryos-mcp-cimd",
+      "description": "MEM-114: external MCP clients identified by a Client ID Metadata Document",
+      "executors": [
+        {
+          "executor": "memoryos-client-id-metadata-document",
+          "configuration": {
+            "cimd-allow-http-scheme": false,
+            "only-allow-confidential-client": false,
+            "accept-public-client-with-confidential-client-only-grant": true,
+            "cimd-allow-permitted-domains": ["claude.ai", "claude.com", "localhost", "127.0.0.1", "chatgpt.com", "persistent.oaistatic.com"],
+            "cimd-restrict-same-domain": false,
+            "cimd-resource-indicator-allow-list": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "memoryos-mcp-cimd-pkce",
+      "description": "MEM-114: S256 PKCE for public clients, including those built from metadata documents",
+      "executors": [
+        {
+          "executor": "pkce-enforcer",
+          "configuration": {
+            "auto-configure": true
+          }
+        }
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "name": "memoryos-mcp-cimd",
+      "description": "MEM-114: admit trusted MCP Client ID Metadata Documents",
+      "enabled": true,
+      "conditions": [
+        {
+          "condition": "client-id-uri",
+          "configuration": {
+            "client-id-uri-scheme": ["https"],
+            "client-id-uri-allow-permitted-domains": ["claude.ai", "claude.com", "chatgpt.com"]
+          }
+        }
+      ],
+      "profiles": ["memoryos-mcp-cimd"]
+    },
+    {
+      "name": "memoryos-mcp-cimd-pkce",
+      "description": "MEM-114: S256 PKCE for every public client of the realm. The client-id-uri condition votes only on the pre-authorization event, so it cannot carry PKCE enforcement (Keycloak #52795)",
+      "enabled": true,
+      "conditions": [
+        {
+          "condition": "client-access-type",
+          "configuration": {
+            "type": ["public"]
+          }
+        }
+      ],
+      "profiles": ["memoryos-mcp-cimd-pkce"]
+    }
+  ]
+}

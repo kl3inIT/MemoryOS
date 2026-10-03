@@ -36,7 +36,7 @@ for (const title of ["Chat", "Search"]) {
     // Search has its own sidebar entry; no page offers a header Chat/Search mode menu.
     await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
     await page.goto("/");
-    await expect(header).toContainText("Trò chuyện");
+    await expect(header).toContainText("Chat");
     await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
     await page.goto("/search");
     await expect(header).toContainText("Tìm tài liệu");
@@ -617,8 +617,14 @@ test("shares in one dialog with manual copying fallback and restores keyboard fo
   );
   await page.goto(`/chat/${session.id}`);
   await page.setViewportSize({ width: 390, height: 844 });
-  const share = page.getByRole("button", { name: "Chia sẻ", exact: true });
+  // A phone keeps the title readable: Share waits in the conversation menu, with the files.
+  await expect(page.getByRole("banner").getByRole("button", { name: "Chia sẻ" })).toHaveCount(0);
+  const share = page
+    .getByRole("banner")
+    .getByRole("button", { name: "Thao tác hội thoại Sharing clipboard fallback" });
   await share.click();
+  await expect(page.getByRole("menuitem", { name: "Tệp trong hội thoại" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Chia sẻ", exact: true }).click();
   const privateChoice = page.getByRole("radio", { name: "Riêng tư", exact: true });
   await expect(privateChoice).toBeChecked();
   await page.getByRole("radio", { name: "Chia sẻ trong tổ chức", exact: true }).check();
@@ -632,6 +638,12 @@ test("shares in one dialog with manual copying fallback and restores keyboard fo
   );
   await page.screenshot({ path: "../.tmp/mem11-ui-sharing-mobile.png", fullPage: true });
   await page.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect(share).toBeFocused();
+  // The files sheet opened from the same menu returns focus to it too.
+  await share.click();
+  await page.getByRole("menuitem", { name: "Tệp trong hội thoại" }).click();
+  await expect(page.getByRole("dialog", { name: "Tệp trong hội thoại" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(share).toBeFocused();
 });
 
@@ -699,17 +711,18 @@ test("regenerates with another catalog model and reveals answer timing on hover"
   await page.goto(`/chat/${session.id}`);
   await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Compare models");
   await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-  const menu = page.getByRole("button", { name: "Tạo lại bằng mô hình khác" });
+  // Another model sits in the answer's "…" menu with Branch into a new chat.
+  const menu = page.getByRole("button", { name: "Thao tác khác" });
   await expect(menu).toBeEnabled();
   const timing = page.locator('[data-slot="message-timing"]');
   await expect(timing).toHaveCSS("opacity", "0");
   await page.getByText("Hello 👋", { exact: true }).hover();
   await expect(timing).toHaveCSS("opacity", "1");
   await expect(timing).toHaveText(/^\d{1,2}:\d{2}$/);
-  // A Markdown link renders as a source chip; its host is not a Web source, so no favicon request.
+  // A Markdown link renders as a source chip; an unknown host shows the generic globe, never a fetched favicon.
   const link = page.getByRole("link", { name: "Reference" });
   await expect(link).toHaveAttribute("data-slot", "source");
-  await expect(link.locator('[data-slot="source-icon-fallback"]')).toHaveText("E");
+  await expect(link.locator('svg[data-slot="source-icon-fallback"]')).toHaveCount(1);
   await expect(link.locator("img")).toHaveCount(0);
   await menu.click();
   await page.getByRole("menuitem", { name: "Qwen3.5 9B" }).click();

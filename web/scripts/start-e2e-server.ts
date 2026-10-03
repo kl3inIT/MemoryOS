@@ -40,8 +40,9 @@ if (!backendAddress || typeof backendAddress === "string") {
 // noinspection HttpUrlsUsage
 process.env.MEMORYOS_API_URL = `http://${host}:${backendAddress.port}`;
 
-// MEMORYOS_E2E_PREVIEW=1 serves the production build with the deployment Content-Security-Policy from nginx.conf,
-// so previews and charts are checked under the policy staging enforces; the dev server cannot run under it.
+// MEMORYOS_E2E_PREVIEW=1 serves the production build with the deployment policy headers from nginx.conf
+// (Content-Security-Policy, Permissions-Policy, nosniff, framing), so specs are checked under the policy staging
+// enforces; the dev server cannot run under it.
 const previewMode = process.env.MEMORYOS_E2E_PREVIEW === "1";
 const vite = previewMode ? await startPreview() : await startDevServer();
 
@@ -62,8 +63,21 @@ async function startPreview() {
   const { readFileSync } = await import("node:fs");
   const { build, preview } = await import("vite");
   const nginx = readFileSync(new URL("../nginx.conf", import.meta.url), "utf8");
-  const policy = /add_header Content-Security-Policy "([^"]+)"/.exec(nginx)?.[1];
-  if (!policy) throw new Error("nginx.conf declares no Content-Security-Policy.");
+  // The deployment sets the object-storage origin; the fixtures presign uploads to these stand-ins.
+  const placeholders: Record<string, string> = {
+    MEMORYOS_OBJECT_STORAGE_CONNECT_SRC: "https://objects.example.test https://storage.invalid",
+  };
+  // Every header nginx sends with a literal value (the policy headers), placeholders filled as above.
+  const headers = Object.fromEntries(
+    [...nginx.matchAll(/^\s*add_header ([\w-]+) "([^"]+)" always;/gm)].map((match) => [
+      match[1],
+      (match[2] ?? "")
+        .replace(/\$\{([A-Z_]+)\}/g, (_, name: string) => placeholders[name] ?? "")
+        .replace(/ +/g, " "),
+    ]),
+  );
+  if (!headers["Content-Security-Policy"])
+    throw new Error("nginx.conf declares no Content-Security-Policy.");
   await build({ logLevel: "warn" });
   // preview.proxy defaults to server.proxy, so /api reaches the fixture backend as in dev.
   return preview({
@@ -71,9 +85,7 @@ async function startPreview() {
       host,
       port: frontendPort,
       strictPort: true,
-      headers: {
-        "Content-Security-Policy": policy.replace(/\$\{[A-Z_]+\}/g, "").replace(/ +/g, " "),
-      },
+      headers,
     },
   });
 }

@@ -7,12 +7,15 @@ const defaultDisabledVariables =
   "[--action-disabled-surface:var(--action-default-disabled-surface)] [--action-disabled-content:var(--action-default-disabled-content)] [--action-disabled-border:var(--action-default-disabled-border)]";
 const dangerDisabledVariables =
   "[--action-disabled-surface:var(--action-danger-disabled-surface)] [--action-disabled-content:var(--action-danger-disabled-content)] [--action-disabled-border:var(--action-danger-disabled-border)]";
+const successVariables =
+  "[--action-border-active:var(--status-success-emphasis-border)] [--action-border-hover:var(--status-success-emphasis-border)] [--action-border:var(--status-success-emphasis-border)] [--action-content-active:var(--content-on-emphasis)] [--action-content-hover:var(--content-on-emphasis)] [--action-content:var(--content-on-emphasis)] [--action-surface-active:var(--status-success-emphasis)] [--action-surface-hover:var(--status-success-emphasis)] [--action-surface:var(--status-success-emphasis)] [--action-disabled-surface:var(--status-success-emphasis)] [--action-disabled-content:var(--content-on-emphasis)] [--action-disabled-border:var(--status-success-emphasis-border)]";
 
 const actionVariants = cva(actionStateClasses, {
   variants: {
     tone: {
       default: defaultDisabledVariables,
       danger: dangerDisabledVariables,
+      success: successVariables,
     },
     prominence: {
       primary: "",

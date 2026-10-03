@@ -402,7 +402,7 @@ export function StarterPromptsField({
               <IconButton
                 type="button"
                 prominence="tertiary"
-                aria-label={ui("Xoá câu hỏi gợi ý {{v1}}", { v1: index + 1 })}
+                aria-label={ui("Xóa câu hỏi gợi ý {{v1}}", { v1: index + 1 })}
                 onClick={() => onChange(rows.filter((_, i) => i !== index))}
               >
                 <X />
@@ -446,12 +446,13 @@ export function TokenLimitField({
   help: string;
   custom: boolean;
   min: number;
-  cap: number | undefined;
+  cap: number;
   modelValue: string;
 }) {
   const ui = useAppTranslation();
   const { field, invalid, errors } = useFieldValidity<string>();
   const shown = custom && invalid;
+  const errorId = `${id}-error`;
   return (
     <Field data-invalid={shown || undefined} className="min-w-0">
       <div className="flex items-center gap-1">
@@ -469,9 +470,10 @@ export function TokenLimitField({
           max={custom ? cap : undefined}
           readOnly={!custom}
           aria-invalid={shown || undefined}
+          aria-describedby={shown ? errorId : undefined}
           className={cn(!custom && "cursor-default pr-28")}
           value={custom ? field.state.value : modelValue}
-          placeholder={custom && cap !== undefined ? formatTokens(cap) : undefined}
+          placeholder={custom ? formatTokens(cap) : undefined}
           onBlur={field.handleBlur}
           onChange={(event) => field.handleChange(event.target.value)}
         />
@@ -483,14 +485,12 @@ export function TokenLimitField({
         )}
       </div>
       {shown ? (
-        <FieldError errors={errors} />
+        <FieldError id={errorId} errors={errors} />
       ) : (
         <FieldDescription>
-          {!custom
-            ? ui("Giới hạn tối đa của model hiện tại.")
-            : cap !== undefined
-              ? ui("Tối đa {{v1}} token.", { v1: formatTokens(cap) })
-              : ui("Không giới hạn")}
+          {custom
+            ? ui("Tối đa {{v1}} token.", { v1: formatTokens(cap) })
+            : ui("Giới hạn tối đa của model hiện tại.")}
         </FieldDescription>
       )}
     </Field>

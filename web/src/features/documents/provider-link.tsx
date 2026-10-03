@@ -6,7 +6,7 @@ import { documentSourceLabels, type DocumentSourceType } from "./document-source
 
 /**
  * The provider name doubles as the deep link, so a source never shows "Google Drive" next to
- * "Open in Google Drive". Provider URLs are validated Drive links; uploaded files have none.
+ * "Open in Google Drive". The connector adapter of each provider builds the URL; uploaded files have none.
  */
 export function ProviderLink({
   href,

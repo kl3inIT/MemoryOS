@@ -15,10 +15,17 @@ tasks.withType<Test>().configureEach {
     // Modulith/ArchUnit metadata, the full persistence corpus and the OOXML schema type system the biên bản
     // renderer loads all live in one test JVM; a gigabyte stopped being enough once every capability had tests.
     maxHeapSize = "1536m"
-    // Core is the longest test task; two JVMs each own a PostgreSQL container and template (TestDatabase).
-    maxParallelForks = 2
+    // Core is the longest test task; each JVM owns a PostgreSQL container and template (TestDatabase). Two fit a
+    // developer machine; CI runs core alone on its runner and raises it through MEMORYOS_CORE_TEST_FORKS.
+    maxParallelForks = providers.environmentVariable("MEMORYOS_CORE_TEST_FORKS").map(String::toInt).getOrElse(2)
     // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
     inputs.property("memoryosSearchAuthzMeasure", providers.environmentVariable("MEMORYOS_SEARCH_AUTHZ_MEASURE").orElse("false"))
+    // MEM-199: a fork that runs out of heap leaves its heap dump and GC log for CI to upload. Attaching jcmd from
+    // -XX:OnOutOfMemoryError hangs, because it runs while the JVM is stopped at the error.
+    val diagnostics = layout.buildDirectory.dir("test-diagnostics/$name").get().asFile
+    jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=$diagnostics",
+            "-Xlog:gc*:file=$diagnostics/gc-%p.log:time,uptime,level,tags:filecount=0")
+    doFirst { diagnostics.mkdirs() }
 }
 
 dependencies {
@@ -40,6 +47,11 @@ dependencies {
     implementation(libs.pdfbox)
     implementation(libs.poi.ooxml)
     implementation(libs.commons.csv)
+    // Published as an AAR; its JAR carries the Java API and the native libraries for Linux, Windows and macOS. azure-core
+    // comes with it: SpeechConfig's endpoint overloads name its TokenCredential.
+    implementation(libs.azure.speech) {
+        artifact { type = "jar" }
+    }
     implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.spring.security.crypto)

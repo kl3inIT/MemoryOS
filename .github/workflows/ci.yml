@@ -35,11 +35,18 @@ jobs:
     name: Detect changed areas
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read # Read the revision and the pull requests a main commit came from.
+      actions: read # Find the pull request run that verified this tree.
     outputs:
       backend: ${{ steps.scope.outputs.backend }}
       web: ${{ steps.scope.outputs.web }}
       landing: ${{ steps.scope.outputs.landing }}
       interpreter: ${{ steps.scope.outputs.interpreter }}
+      tree: ${{ steps.scope.outputs.tree }}
+      backend_verified: ${{ steps.verified.outputs.backend }}
+      web_verified: ${{ steps.verified.outputs.web }}
+      interpreter_verified: ${{ steps.verified.outputs.interpreter }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -57,7 +64,7 @@ jobs:
           web=true
           landing=true
           interpreter=true
-          # Main pushes always verify and publish every area. A pull request selects areas from its merge
+          # Main pushes build and publish every area. A pull request selects areas from its merge
           # commit, whose first parent is the base branch tip; unknown paths or an empty diff select all.
           if [[ "$EVENT_NAME" == pull_request ]]; then
             mapfile -t changed < <(git diff --name-only HEAD^1 HEAD)
@@ -105,22 +112,73 @@ jobs:
             fi
           fi
           printf 'backend=%s\nweb=%s\nlanding=%s\ninterpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_OUTPUT"
+          printf 'tree=%s\n' "$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
           printf 'Verification areas: backend=%s web=%s landing=%s interpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_STEP_SUMMARY"
 
-  check:
+      # A main commit whose tree a same-repository pull request run already verified does not run those tests
+      # again; its images are still built, because their revision label names the main commit (ADR 0021). A fork's
+      # artifact is never trusted: it could carry the name of another pull request's tree. Any failure to prove the
+      # match leaves every test in place.
+      - name: Reuse the verification of an identical pull request tree
+        id: verified
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TREE: ${{ steps.scope.outputs.tree }}
+        run: |
+          set -uo pipefail
+          areas() {
+            local heads runs run
+            heads=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" | jq --compact-output --arg repo "$GITHUB_REPOSITORY" \
+              '[.[] | select(.head.repo.full_name == $repo) | .head.sha]') || return 1
+            runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=ci-verified-$TREE&per_page=100" \
+              | jq --raw-output '[.artifacts[] | select(.expired | not) | .workflow_run.id] | unique | .[]') || return 1
+            for run in $runs; do
+              gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" | jq --exit-status --arg repo "$GITHUB_REPOSITORY" --argjson heads "$heads" '
+                .path == ".github/workflows/ci.yml" and .event == "pull_request" and .conclusion == "success"
+                and .repository.full_name == $repo and .head_repository.full_name == $repo
+                and (.head_sha as $sha | $heads | index($sha) != null)
+              ' > /dev/null || continue
+              gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "ci-verified-$TREE" --dir "$RUNNER_TEMP/verified" > /dev/null || return 1
+              printf '%s\n' "$run"
+              return 0
+            done
+            return 1
+          }
+          if run=$(areas); then
+            for area in backend web interpreter; do
+              verified=false
+              if grep -qx "$area=true" "$RUNNER_TEMP/verified/areas"; then verified=true; fi
+              printf '%s=%s\n' "$area" "$verified" >> "$GITHUB_OUTPUT"
+            done
+            printf 'Tests already passed for this tree in pull request run %s: %s\n' "$run" \
+              "$(grep -x '[a-z]*=true' "$RUNNER_TEMP/verified/areas" | tr '\n' ' ')" >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'No same-repository pull request run verified tree %s; every test runs.\n' "$TREE" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # Deployment, monitoring and workflow checks need no JVM, so they run beside the Gradle legs instead of before them.
+  infrastructure:
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    if: ${{ needs.changes.outputs.backend == 'true' && needs.changes.outputs.backend_verified != 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
+      # The released binary, as actionlint's own CI guidance and the gitleaks step below: `go run` compiled it on
+      # every run and, needing Go 1.25 on a runner that defaults to 1.24, first downloaded a Go toolchain (#158).
       - name: Validate workflows and shell scripts
         run: |
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          curl --fail --silent --show-error --location \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$RUNNER_TEMP/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint"
           bash -n infrastructure/deployment/deploy.sh
           bash -n infrastructure/deployment/deploy-serving.sh
           sh -n infrastructure/deployment/serving-firewall.sh
@@ -163,18 +221,6 @@ jobs:
             prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0 \
             check config /etc/prometheus/prometheus.yaml
 
-      - name: Set up Java 25
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
-
-      - name: Build and verify
-        run: ./gradlew clean check --no-daemon
-
       - name: Verify Grafana SSO credential boundary
         run: python3 -m unittest discover -s infrastructure/observability -p 'test_*.py'
 
@@ -190,12 +236,56 @@ jobs:
       - name: Verify off-host backup and retention
         run: python3 -m unittest discover -s infrastructure/backup -p 'test_*.py'
 
+      - name: Verify the run_python evaluation's scoring
+        run: python3 -m unittest discover -s tools/interpreter-eval/tests -t tools/interpreter-eval
+
+  # One runner held all four modules' tests, and core alone took eight of its ten minutes while api, sources and
+  # worker competed for the same four CPUs. Each leg now owns a runner; together they are the repository's `check`.
+  backend:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' && needs.changes.outputs.backend_verified != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Core has the runner to itself: three JVMs, each with its PostgreSQL container and up to 1.5 GiB heap.
+          - leg: core
+            tasks: ':core:check'
+          - leg: api
+            tasks: ':api:check'
+          - leg: sources-worker
+            tasks: ':sources:check :worker:check'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 25
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+
+      - name: Build and verify
+        env:
+          MEMORYOS_CORE_TEST_FORKS: 3
+          TASKS: ${{ matrix.tasks }}
+        run: |
+          read -ra tasks <<< "$TASKS"
+          ./gradlew clean "${tasks[@]}" --no-daemon
+
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: backend-tests
+          name: backend-tests-${{ matrix.leg }}
           path: |
             core/build/test-results/test/*.xml
             sources/build/test-results/test/*.xml
@@ -204,9 +294,19 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
+      - name: Upload core test heap diagnostics
+        if: ${{ failure() && matrix.leg == 'core' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: core-test-diagnostics
+          path: core/build/test-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 3
+
   frontend-check:
     needs: changes
-    if: ${{ needs.changes.outputs.web == 'true' }}
+    if: ${{ needs.changes.outputs.web == 'true' && needs.changes.outputs.web_verified != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -244,14 +344,14 @@ jobs:
 
   frontend:
     needs: changes
-    if: ${{ needs.changes.outputs.web == 'true' }}
+    if: ${{ needs.changes.outputs.web == 'true' && needs.changes.outputs.web_verified != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         # Playwright's CI guidance: one worker per runner, scale with shards. fullyParallel splits by test.
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
       options: --user 1001
@@ -269,39 +369,65 @@ jobs:
       - name: Exercise browser states
         run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-
-  frontend-image:
+  # The shards run the dev server, which sends no deployment policy. These specs run once against the production
+  # build served with nginx.conf's CSP and Permissions-Policy, and fail on any violation the browser reports.
+  frontend-preview:
     needs: changes
-    if: ${{ needs.changes.outputs.web == 'true' }}
+    if: ${{ needs.changes.outputs.web == 'true' && needs.changes.outputs.web_verified != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --user 1001
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - name: Resolve image and Sentry build configuration
-        id: config
+      - name: Install the frontend toolchain and dependencies
+        uses: ./.github/actions/pnpm-project
+        with:
+          directory: web
+
+      - name: Exercise the production build under the deployment policy
         env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-        run: |
-          sentry=false
-          if [[ -n "$SENTRY_AUTH_TOKEN" && -n "$SENTRY_ORG" && -n "$SENTRY_PROJECT" ]]; then
-            sentry=true
-          elif [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            echo "Sentry source-map configuration is required for a main release." >&2
-            exit 1
-          fi
-          printf 'sentry=%s\nbuild-date=%s\n' "$sentry" "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+          MEMORYOS_E2E_PREVIEW: "1"
+        run: >-
+          pnpm --dir web test:e2e
+          chat-generated-file-preview identity-shell groups-list search meetings
+
+
+  frontend-image:
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read # Check out the revision the images are built from.
+      packages: write # Push the verified images to GHCR on a main push; no pull request step pushes.
+    outputs:
+      images: ${{ steps.push.outputs.images }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve image metadata
+        id: meta
+        run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      # Layers are cached in the Actions cache; the source-map upload step still reruns for every commit
-      # because SENTRY_RELEASE is part of its cache key.
+      # Layer caches live in GHCR beside the images, outside the Actions cache and its 10 GB eviction. Every run
+      # reads them; only a main push writes them.
+      - name: Authenticate to GHCR for layer caches
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
       - name: Build production frontend image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -313,15 +439,11 @@ jobs:
           sbom: false
           build-args: |
             VCS_REF=${{ github.sha }}
-            BUILD_DATE=${{ steps.config.outputs.build-date }}
-            SENTRY_ORG=${{ steps.config.outputs.sentry == 'true' && vars.SENTRY_ORG || '' }}
-            SENTRY_PROJECT=${{ steps.config.outputs.sentry == 'true' && vars.SENTRY_PROJECT || '' }}
-            SENTRY_RELEASE=${{ steps.config.outputs.sentry == 'true' && github.sha || '' }}
-          secrets: ${{ steps.config.outputs.sentry == 'true' && format('sentry_auth_token={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-web:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-web:buildcache,mode=max,ignore-error=true' || '' }}
 
-      - name: Verify and preserve the frontend image
+      - name: Verify the frontend image
         run: |
           image="memoryos-web:sha-$GITHUB_SHA"
           if docker run --rm --entrypoint /bin/sh "$image" \
@@ -345,20 +467,30 @@ jobs:
               exit 1
             fi
           done <<< "$modules"
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            mkdir -p candidate
-            docker save --output candidate/web.tar "memoryos-web:sha-$GITHUB_SHA"
-          fi
+          # A location with its own add_header silently drops the server's security headers; check the page, a
+          # nested-location asset (.mjs) and the SPA fallback on the real nginx.
+          worker=$(grep -m 1 '\.mjs$' <<< "$modules")
+          for path in / "${worker#/usr/share/nginx/html}" /admin/users; do
+            headers=$(curl --silent --fail --output /dev/null --dump-header - "http://127.0.0.1:18080$path")
+            for header in content-security-policy x-content-type-options x-frame-options referrer-policy permissions-policy; do
+              if ! grep -qi "^$header:" <<< "$headers"; then
+                echo "$path is served without $header." >&2
+                exit 1
+              fi
+            done
+          done
 
-      - name: Preserve verified frontend image
+      - name: Push verified frontend image to GHCR
+        id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: ./.github/actions/push-release-images
         with:
-          name: candidate-web
-          path: candidate/web.tar
-          if-no-files-found: error
-          compression-level: 1
-          retention-days: 2
+          components: web
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
 
   landing:
     needs: changes
@@ -423,7 +555,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
-      # Named outside candidate-* so the application publication never downloads it.
       - name: Preserve verified landing image
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -439,6 +570,11 @@ jobs:
     if: ${{ needs.changes.outputs.interpreter == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    permissions:
+      contents: read # Check out the revision the images are built from.
+      packages: write # Push the verified images to GHCR on a main push; no pull request step pushes.
+    outputs:
+      images: ${{ steps.push.outputs.images }}
     defaults:
       run:
         working-directory: interpreter/service
@@ -449,7 +585,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: interpreter/service/uv.lock
@@ -459,6 +595,7 @@ jobs:
         run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Verify interpreter service
+        if: ${{ needs.changes.outputs.interpreter_verified != 'true' }}
         run: |
           uv sync --frozen
           uv run ruff check .
@@ -467,6 +604,13 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Layer caches live in GHCR beside the images, outside the Actions cache and its 10 GB eviction. Every run
+      # reads them; only a main push writes them.
+      - name: Authenticate to GHCR for layer caches
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
       # Integration and e2e tests start real executor containers from this image on the runner's daemon.
       - name: Build executor image
@@ -482,10 +626,11 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: type=gha,scope=interpreter-executor
-          cache-to: type=gha,mode=max,scope=interpreter-executor
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-interpreter-executor:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-interpreter-executor:buildcache,mode=max,ignore-error=true' || '' }}
 
       - name: Run integration tests
+        if: ${{ needs.changes.outputs.interpreter_verified != 'true' }}
         run: uv run pytest tests/integration_tests --tb=short
 
       - name: Build service image
@@ -501,11 +646,12 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: type=gha,scope=interpreter-service
-          cache-to: type=gha,mode=max,scope=interpreter-service
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-interpreter:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-interpreter:buildcache,mode=max,ignore-error=true' || '' }}
 
       # test_concurrent_execute.py sends 5 requests at once; the default limit of 4 would reject one.
       - name: Run e2e tests against the service container
+        if: ${{ needs.changes.outputs.interpreter_verified != 'true' }}
         run: |
           docker run --detach --name memoryos-interpreter-ci --publish 127.0.0.1:8000:8000 \
             --user root --volume /var/run/docker.sock:/var/run/docker.sock \
@@ -520,28 +666,28 @@ jobs:
         if: ${{ failure() }}
         run: docker logs memoryos-interpreter-ci || true
 
-      - name: Save interpreter images for publication
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/candidate"
-          docker save --output "$GITHUB_WORKSPACE/candidate/interpreter.tar" \
-            "memoryos-interpreter:sha-$GITHUB_SHA" "memoryos-interpreter-executor:sha-$GITHUB_SHA"
-
-      - name: Preserve verified interpreter images
+      - name: Push verified interpreter images to GHCR
+        id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: ./.github/actions/push-release-images
         with:
-          name: candidate-interpreter
-          path: candidate/interpreter.tar
-          if-no-files-found: error
-          compression-level: 1
-          retention-days: 2
+          components: interpreter interpreter-executor
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
 
   backend-images:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read # Check out the revision the images are built from.
+      packages: write # Push the verified images to GHCR on a main push; no pull request step pushes.
+    outputs:
+      images: ${{ steps.push.outputs.images }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -554,6 +700,13 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Layer caches live in GHCR beside the images, outside the Actions cache and its 10 GB eviction. Every run
+      # reads them; only a main push writes them.
+      - name: Authenticate to GHCR for layer caches
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
       # Both targets share the Gradle build stage; each keeps its own cache scope and reads the other's.
       - name: Build production API image
@@ -569,9 +722,9 @@ jobs:
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
           cache-from: |
-            type=gha,scope=backend-api
-            type=gha,scope=backend-worker
-          cache-to: type=gha,mode=max,scope=backend-api
+            type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache
+            type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache,mode=max,ignore-error=true' || '' }}
 
       - name: Build production worker image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -586,9 +739,9 @@ jobs:
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
           cache-from: |
-            type=gha,scope=backend-api
-            type=gha,scope=backend-worker
-          cache-to: type=gha,mode=max,scope=backend-worker
+            type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache
+            type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache,mode=max,ignore-error=true' || '' }}
 
       # The login theme is inside this image, so a release carries its own sign-in page.
       - name: Build production Keycloak image
@@ -602,27 +755,23 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: type=gha,scope=keycloak
-          cache-to: type=gha,mode=max,scope=keycloak
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-keycloak:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-keycloak:buildcache,mode=max,ignore-error=true' || '' }}
 
       - name: Prove the Keycloak image serves the MemoryOS login theme
         run: infrastructure/keycloak/smoke-test-image.sh "memoryos-keycloak:sha-$GITHUB_SHA"
 
-      - name: Save backend images for publication
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          mkdir -p candidate
-          docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"             "memoryos-keycloak:sha-$GITHUB_SHA"
-
-      - name: Preserve verified backend images
+      - name: Push verified backend images to GHCR
+        id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: ./.github/actions/push-release-images
         with:
-          name: candidate-backend
-          path: candidate/backend.tar
-          if-no-files-found: error
-          compression-level: 1
-          retention-days: 2
+          components: api worker keycloak
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
 
   secrets:
     runs-on: ubuntu-24.04
@@ -651,7 +800,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, check, frontend-check, frontend, frontend-image, backend-images, landing, interpreter, secrets]
+    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -659,66 +808,84 @@ jobs:
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          # An area job may be skipped only when change detection succeeded and did not select that area.
+          # An area job may be skipped only when change detection succeeded and did not select that area, or, for
+          # a test-only job, when it found the area already verified on this tree.
           jq --exit-status '
             . as $jobs
             | ($jobs.changes.outputs // {}) as $area
-            | def selected(name; jobs): if $area[name] == "true"
-                then all(jobs[]; $jobs[.].result == "success")
-                else all(jobs[]; $jobs[.].result == "skipped") end;
-            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "interpreter", "landing", "secrets"]
+            | def ok(jobs; result): all(jobs[]; $jobs[.].result == result);
+              def selected(name; tests; images):
+                if $area[name] != "true" then ok(tests + images; "skipped")
+                elif $area[name + "_verified"] == "true" then ok(tests; "skipped") and ok(images; "success")
+                else ok(tests + images; "success") end;
+            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
-            and selected("backend"; ["check", "backend-images"])
-            and selected("web"; ["frontend-check", "frontend", "frontend-image"])
-            and selected("landing"; ["landing"])
-            and selected("interpreter"; ["interpreter"])
+            and selected("backend"; ["infrastructure", "backend"]; ["backend-images"])
+            and selected("web"; ["frontend-check", "frontend", "frontend-preview"]; ["frontend-image"])
+            and selected("landing"; []; ["landing"])
+            and selected("interpreter"; []; ["interpreter"])
           ' <<< "$RESULTS"
+
+      # A main commit with this exact tree can reuse these results instead of running the tests again.
+      - name: Record the areas this pull request verified
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          AREAS: ${{ toJSON(needs.changes.outputs) }}
+        run: |
+          mkdir -p verified
+          jq --raw-output '"backend=\(.backend)\nweb=\(.web)\nlanding=\(.landing)\ninterpreter=\(.interpreter)"' <<< "$AREAS" > verified/areas
+
+      - name: Preserve the verified tree for main
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ci-verified-${{ needs.changes.outputs.tree }}
+          path: verified/areas
+          if-no-files-found: error
+          retention-days: 14
 
   publish:
     name: Publish verified release
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    needs: gate
+    # Without a status function the condition would also require every job behind the gate to have run, and a main
+    # push whose tree a pull request verified skips the test jobs, which skipped this job too (run 37041478495). The
+    # gate already judged those jobs, so the gate and the three image jobs are checked by name.
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.gate.result == 'success' && needs.backend-images.result == 'success'
+      && needs.frontend-image.result == 'success' && needs.interpreter.result == 'success' }}
+    # The image jobs already pushed what they verified; this job only names those digests as a release, and only
+    # after CI Gate. A tag in GHCR without this job's artifact is not deployable.
+    needs: [gate, backend-images, frontend-image, interpreter]
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 10
     permissions:
       contents: read # Read the verified main revision for the release bundle.
-      packages: write # Publish the preserved images to GHCR after CI Gate succeeds.
+      packages: read # Confirm every recorded digest resolves in GHCR.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: candidate-*
-          merge-multiple: true
-          path: candidate
       - name: Authenticate to GHCR for this job
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Publish the preserved images and record their digests
+      - name: Record the verified image digests
+        env:
+          IMAGES: |
+            ${{ needs.backend-images.outputs.images }}
+            ${{ needs.frontend-image.outputs.images }}
+            ${{ needs.interpreter.outputs.images }}
         run: |
-          docker load --input candidate/backend.tar
-          docker load --input candidate/web.tar
-          docker load --input candidate/interpreter.tar
           mkdir release
           for component in api worker web interpreter interpreter-executor keycloak; do
-            image="memoryos-$component:sha-$GITHUB_SHA"
-            docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
-              .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha
-              and .["org.opencontainers.image.source"] == "https://github.com/kl3inIT/MemoryOS"
-            '
-            repository="ghcr.io/kl3init/memoryos-$component"
-            tag="$repository:sha-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-            docker tag "$image" "$tag"
-            docker push "$tag"
-            digest=$(docker image inspect "$tag" | jq --exit-status --raw-output --arg repo "$repository@" '
-              [.[0].RepoDigests[] | select(startswith($repo))] | if length == 1 then .[0] else error("Ambiguous digest") end
-            ')
-            [[ "$digest" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
+            # Compose rejects a hyphen in an environment key.
             key=${component//-/_}
-            printf 'MEMORYOS_%s_IMAGE=%s\n' "${key^^}" "$digest" >> release/images.env
+            key="MEMORYOS_${key^^}_IMAGE"
+            line=$(grep -x "$key=ghcr\.io/kl3init/memoryos-$component@sha256:[0-9a-f]\{64\}" <<< "$IMAGES")
+            [[ $(wc -l <<< "$line") == 1 ]] || { echo "Expected one $component digest" >&2; exit 1; }
+            docker buildx imagetools inspect "${line#*=}" > /dev/null
+            printf '%s\n' "$line" >> release/images.env
           done
           printf 'MEMORYOS_RELEASE=%s\n' "$GITHUB_SHA" >> release/images.env
           git archive --format=tar --output=release/configuration.tar HEAD infrastructure core/src/main/resources/db/migration

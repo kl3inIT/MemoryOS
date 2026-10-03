@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Clock, EyeOff, FolderX, MessageSquareOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 
@@ -25,18 +24,17 @@ export function ChatTemporaryToggle({
   const [explaining, setExplaining] = useState(false);
   return (
     <>
-      {/* A native title, not a Radix tooltip: this sits outside any TooltipProvider. */}
-      <IconButton
+      {/* Named in words at every width: it is the new chat header's only action. The state is `aria-pressed`. */}
+      <Button
         size="sm"
         prominence={value ? "secondary" : "internal"}
         aria-pressed={value}
-        aria-label={value ? ui("Tắt chat tạm thời") : ui("Bật chat tạm thời")}
-        title={value ? ui("Chat tạm thời đang bật") : ui("Chat tạm thời")}
         disabled={disabled}
         onClick={() => (value ? onChange(false) : setExplaining(true))}
       >
-        <EyeOff />
-      </IconButton>
+        <EyeOff data-icon="inline-start" aria-hidden="true" />
+        {ui("Chat tạm thời")}
+      </Button>
       {explaining && (
         <FormDialog
           open
@@ -57,8 +55,8 @@ export function ChatTemporaryToggle({
             />
             <TemporaryFact
               icon={<Clock />}
-              title={ui("Tự xoá")}
-              description={ui("Cuộc trò chuyện và tệp bạn gửi vào đó bị xoá sau khi bạn dừng hỏi.")}
+              title={ui("Tự xóa")}
+              description={ui("Cuộc trò chuyện và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.")}
             />
             <TemporaryFact
               icon={<FolderX />}
@@ -118,7 +116,7 @@ export function ChatTemporaryNotice({ onLeave }: { onLeave: () => void }) {
       className="mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface-subtle px-3 py-1 font-secondary-body text-content-secondary"
     >
       <EyeOff className="size-3.5 shrink-0" aria-hidden="true" />
-      {ui("Cuộc trò chuyện này không được lưu và sẽ tự xoá cùng tệp của nó.")}
+      {ui("Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó.")}
       <Button size="sm" prominence="internal" onClick={onLeave}>
         {ui("Hội thoại mới")}
       </Button>

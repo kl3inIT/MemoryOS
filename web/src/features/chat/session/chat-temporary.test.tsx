@@ -18,14 +18,13 @@ it("mounts on its own and explains temporary chat before turning it on", async (
   render(<ChatTemporaryToggle value={false} onChange={onChange} />);
   const user = userEvent.setup();
 
-  const toggle = screen.getByRole("button", { name: "Bật chat tạm thời" });
+  const toggle = screen.getByRole("button", { name: "Chat tạm thời" });
   expect(toggle).toHaveAttribute("aria-pressed", "false");
-  expect(toggle).toHaveAttribute("title", "Chat tạm thời");
 
   await user.click(toggle);
   // Turning it on is explained once, in the terms that matter.
   expect(await screen.findByText("Không vào lịch sử")).toBeInTheDocument();
-  expect(screen.getByText("Tự xoá")).toBeInTheDocument();
+  expect(screen.getByText("Tự xóa")).toBeInTheDocument();
   expect(screen.getByText("Không chia sẻ, không dự án")).toBeInTheDocument();
   expect(onChange).not.toHaveBeenCalled();
 
@@ -38,7 +37,9 @@ it("turns itself off without asking again", async () => {
   render(<ChatTemporaryToggle value onChange={onChange} />);
   const user = userEvent.setup();
 
-  await user.click(screen.getByRole("button", { name: "Tắt chat tạm thời" }));
+  const toggle = screen.getByRole("button", { name: "Chat tạm thời" });
+  expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await user.click(toggle);
 
   expect(onChange).toHaveBeenCalledWith(false);
   expect(screen.queryByText("Không vào lịch sử")).not.toBeInTheDocument();
@@ -56,7 +57,7 @@ it("marks a temporary conversation and offers the way out of it", async () => {
 
   expect(screen.getByText("Tạm thời")).toBeInTheDocument();
   expect(
-    screen.getByText("Cuộc trò chuyện này không được lưu và sẽ tự xoá cùng tệp của nó."),
+    screen.getByText("Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó."),
   ).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Hội thoại mới" }));

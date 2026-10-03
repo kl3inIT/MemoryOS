@@ -17,6 +17,7 @@ import {
   listChatPersonaLabelsOptions,
   renameChatPersonaLabelMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { withRequestTimeout } from "@/lib/api";
 
 /**
  * The Tenant's agent labels, which only AGENTS_MANAGE creates, renames or removes; agent editors assign them to
@@ -42,11 +43,11 @@ export function AgentLabelsAdministration() {
     (label) => label.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase(),
   );
   const rename = useMutation({
-    ...renameChatPersonaLabelMutation(),
+    ...withRequestTimeout(renameChatPersonaLabelMutation()),
     onSuccess: () => invalidateAgents(cache),
   });
   const remove = useMutation({
-    ...deleteChatPersonaLabelMutation(),
+    ...withRequestTimeout(deleteChatPersonaLabelMutation()),
     onSuccess: () => invalidateAgents(cache),
   });
   return (

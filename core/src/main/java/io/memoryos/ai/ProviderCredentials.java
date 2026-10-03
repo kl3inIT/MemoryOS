@@ -15,11 +15,8 @@ import org.springframework.stereotype.Component;
 /** Spring Security AES-GCM; master key stays in deployment secret management, not the database. */
 @Component
 public final class ProviderCredentials {
-    public static final String DEPLOYMENT = "deployment";
     private final @Nullable AesGcmBytesEncryptor encryptor;
-    private final String deploymentKey;
-    public ProviderCredentials(@Value("${memoryos.chat.catalog.encryption-key:}") String masterKey,
-                               @Value("${memoryos.chat.provider.api-key:}") String deploymentKey) {
+    public ProviderCredentials(@Value("${memoryos.chat.catalog.encryption-key:}") String masterKey) {
         if (masterKey.isBlank()) this.encryptor = null;
         else {
             byte[] key;
@@ -29,7 +26,6 @@ public final class ProviderCredentials {
             this.encryptor = AesGcmBytesEncryptor.withSecretKey(new SecretKeySpec(key, "AES")).build();
             Arrays.fill(key, (byte) 0);
         }
-        this.deploymentKey = deploymentKey;
     }
 
     public enum Action { KEEP, REPLACE, REMOVE }
@@ -56,12 +52,11 @@ public final class ProviderCredentials {
     }
 
     public boolean configured(@Nullable String stored) {
-        return stored != null && (!DEPLOYMENT.equals(stored) || !deploymentKey.isBlank());
+        return stored != null;
     }
 
     public String resolve(UUID tenant, UUID provider, @Nullable String stored) {
         if (stored == null) return "";
-        if (DEPLOYMENT.equals(stored)) return deploymentKey;
         try {
             var parts = stored.split(":", 2);
             if (parts.length != 2 || !"v1".equals(parts[0])) throw AiException.providerUnavailable();

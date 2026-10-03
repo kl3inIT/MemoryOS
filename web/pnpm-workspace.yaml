@@ -1,5 +1,18 @@
 allowBuilds:
   msw: false
-  "@sentry/cli": true
 patchedDependencies:
   "@assistant-ui/ai-sdk@0.0.8": patches/@assistant-ui__ai-sdk@0.0.8.patch
+# rehype-katex (through @streamdown/math) asks for katex ^0.16, but the stylesheet comes from the direct
+# katex 0.18 dependency, whose class names changed; one version keeps markup and styles in step.
+overrides:
+  katex: 0.18.9
+  # Patched releases for advisories reached only through the shadcn CLI (GHSA-rpw4-54j3-4h4q, GHSA-2vr4-cq9g-pvrc,
+  # GHSA-j6r3-76f7-8jcv, GHSA-h3mg-xc3c-68pw, GHSA-hrr3-gc8f-f4qj); both stay inside the ranges their dependents ask for.
+  ip-address: 10.7.3
+  fast-uri: 3.1.8
+auditConfig:
+  ignoreGhsas:
+    # braces <=3.0.3 can exhaust the stack on a deeply nested pattern, and no patched release exists (2026-10-03).
+    # It is reached only through the shadcn CLI (fast-glob > micromatch), run by developers on their own patterns;
+    # the browser bundle and the nginx image carry no Node. Remove this once braces 3.0.4 is published.
+    - GHSA-vfj7-8cjw-p6xm

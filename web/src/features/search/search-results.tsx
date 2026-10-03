@@ -88,7 +88,7 @@ export function SearchResults({
         className={cn("min-w-0 transition-opacity", result.isPlaceholderData && "opacity-60")}
       >
         <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border-subtle pb-3">
-          <h2 id="search-results-heading" className="font-main-ui-action text-content-primary">
+          <h2 id="search-results-heading" className="font-heading-h3 text-content-primary">
             {totalLabel === "1"
               ? ui("{{count}} result for “{{query}}”", { count: totalLabel, query: request.query })
               : ui("{{count}} results for “{{query}}”", {

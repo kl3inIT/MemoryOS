@@ -22,8 +22,9 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Synchronization attempts of every connector: queueing, the claim fence, the run's file outcomes and item
- * errors, and how an attempt ends. Provider traversal state lives in each provider's own repository; the
- * provider Source and credential rows an attempt is fenced against are named by a {@link SyncTarget}.
+ * errors, and how an attempt ends. An attempt is fenced against the Source's {@code source_sync_state} row and
+ * its {@code credentials} row, whatever the provider; provider traversal state lives in each provider's own
+ * repository.
  */
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -44,29 +45,34 @@ public class JdbcSourceSyncRepository {
     }
 
     /** Queues a run, or returns the one already queued or running for the Source. */
-    public SourceOperationView enqueue(SyncTarget target, TenantId tenant, SourceId source, long credentialRevision,
+    public SourceOperationView enqueue(TenantId tenant, SourceId source, long credentialRevision,
             SourceRunTrigger trigger, @Nullable ActorId actor) {
         var live = live(tenant, source);
         if (live.isPresent()) return live.get();
         UUID id = UUID.randomUUID();
         var trace = SourceOperationTraceContext.current();
-        jdbc.sql("UPDATE " + target.sourceTable() + """
-                 SET generation = generation + 1,
-                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
-                WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", tenant.value()).param("source", source.value()).update();
+        startGeneration(tenant, source);
         clearSyncError(tenant, source);
         jdbc.sql("""
                 INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
                     generation, origin_trace_id, origin_span_id, history_version, trigger_kind, actor_id,
-                """ + COUNTERS + ")\nSELECT :id, s.tenant_id, s.source_id, s." + target.scopeRevisionColumn()
-                + ", :credential, s.generation, :trace, :span, 1, :trigger, :actor, " + ZERO_COUNTERS
-                + "\nFROM " + target.sourceTable() + " s WHERE s.tenant_id = :tenant AND s.source_id = :source")
+                """ + COUNTERS + ")\nSELECT :id, s.tenant_id, s.source_id, s.scope_revision, :credential, "
+                + "s.generation, :trace, :span, 1, :trigger, :actor, " + ZERO_COUNTERS
+                + "\nFROM source_sync_state s WHERE s.tenant_id = :tenant AND s.source_id = :source")
                 .param("id", id).param("tenant", tenant.value()).param("source", source.value())
                 .param("credential", credentialRevision).param("trace", trace == null ? null : trace.traceId())
                 .param("span", trace == null ? null : trace.spanId()).param("trigger", trigger.name())
                 .param("actor", actor == null ? null : actor.value()).update();
         return find(tenant, new SourceOperationId(id)).orElseThrow();
+    }
+
+    /** Starts a new generation of runs and schedules the next automatic run one interval ahead. */
+    public void startGeneration(TenantId tenant, SourceId source) {
+        jdbc.sql("""
+                UPDATE source_sync_state SET generation = generation + 1,
+                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
     }
 
     public Optional<SourceOperationView> live(TenantId tenant, SourceId source) {
@@ -81,17 +87,17 @@ public class JdbcSourceSyncRepository {
                 .param("tenant", tenant.value()).param("id", id.value()).query(this::operation).optional();
     }
 
-    public boolean automaticSyncEnabled(SyncTarget target, TenantId tenant, SourceId source) {
-        return jdbc.sql("SELECT NOT sync_paused FROM " + target.sourceTable()
-                        + " WHERE tenant_id = :tenant AND source_id = :source")
+    public boolean automaticSyncEnabled(TenantId tenant, SourceId source) {
+        return jdbc.sql("SELECT NOT sync_paused FROM source_sync_state WHERE tenant_id = :tenant AND source_id = :source")
                 .param("tenant", tenant.value()).param("source", source.value())
                 .query(Boolean.class).optional().orElse(false);
     }
 
     /** Moves the next scheduled run one interval ahead. */
-    public void postpone(SyncTarget target, TenantId tenant, SourceId source) {
-        jdbc.sql("UPDATE " + target.sourceTable() + """
-                 SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
+    public void postpone(TenantId tenant, SourceId source) {
+        jdbc.sql("""
+                UPDATE source_sync_state
+                SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
     }
@@ -112,23 +118,22 @@ public class JdbcSourceSyncRepository {
     /**
      * Whether the claim may still write: it holds a live lease, the Source still has the scope, generation and
      * usable credential revision the attempt captured, and neither the Source nor its Tenant stopped. Locks the
-     * attempt and the provider Source row; the caller already holds the Source lock.
+     * attempt and the Source's synchronization state; the caller already holds the Source lock.
      */
-    public boolean current(SyncTarget target, Work work) {
+    public boolean current(Work work) {
         return jdbc.sql("""
                 SELECT a.id FROM source_sync_attempts a
                 JOIN connector_credential_pairs p ON p.tenant_id = a.tenant_id AND p.id = a.source_id
                 JOIN tenants t ON t.id = a.tenant_id
                 JOIN credentials c ON c.tenant_id = p.tenant_id AND c.id = p.credential_id
-                """ + "JOIN " + target.sourceTable() + " s ON s.tenant_id = a.tenant_id AND s.source_id = a.source_id\n"
-                + "JOIN " + target.credentialTable() + " pc ON pc.tenant_id = c.tenant_id AND pc.credential_id = c.id\n"
-                + """
+                JOIN source_sync_state s ON s.tenant_id = a.tenant_id AND s.source_id = a.source_id
                 WHERE a.tenant_id = :tenant AND a.id = :id AND a.claim_token = :token
                   AND a.status = 'IN_PROGRESS' AND a.lease_expires_at > CURRENT_TIMESTAMP
                   AND s.generation = a.generation AND p.status NOT IN ('DELETING', 'PAUSED') AND t.status = 'ACTIVE'
-                  AND c.status = 'ACTIVE' AND pc.connection_status = 'ACTIVE'
-                  AND pc.credential_revision = a.credential_revision
-                """ + "  AND s." + target.scopeRevisionColumn() + " = a.scope_revision\nFOR UPDATE OF a, s")
+                  AND c.status = 'ACTIVE' AND c.credential_revision = a.credential_revision
+                  AND s.scope_revision = a.scope_revision
+                FOR UPDATE OF a, s
+                """)
                 .param("tenant", work.tenantId().value()).param("id", work.operationId().value())
                 .param("token", work.claimToken()).query(UUID.class).optional().isPresent();
     }
@@ -172,7 +177,7 @@ public class JdbcSourceSyncRepository {
      * Ends the attempt with {@code status}. A failure is recorded on the Source, whose next scheduled run then
      * waits one interval. Returns false when the claim was already lost.
      */
-    public boolean terminal(SyncTarget target, Work work, String status, @Nullable String code,
+    public boolean terminal(Work work, String status, @Nullable String code,
             @Nullable String errorMessage, @Nullable String errorDetail) {
         int updated = jdbc.sql("""
                 UPDATE source_sync_attempts SET status = :status, error_code = :code, completed_at = CURRENT_TIMESTAMP,
@@ -185,16 +190,18 @@ public class JdbcSourceSyncRepository {
                 .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
                 .param("tenant", work.tenantId().value())
                 .param("id", work.operationId().value()).param("token", work.claimToken()).update();
-        if (updated == 1 && "FAILED".equals(status) && code != null) recordFailure(target, work, code);
+        if (updated == 1 && "FAILED".equals(status) && code != null) recordFailure(work, code);
         return updated == 1;
     }
 
     /** Records a failed attempt on the Source it still belongs to, and waits one interval before the next run. */
-    public void recordFailure(SyncTarget target, Work work, String code) {
-        int current = jdbc.sql("UPDATE " + target.sourceTable() + """
-                 SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
+    public void recordFailure(Work work, String code) {
+        int current = jdbc.sql("""
+                UPDATE source_sync_state
+                SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
                 WHERE tenant_id = :tenant AND source_id = :source AND generation = :generation
-                """ + "  AND " + target.scopeRevisionColumn() + " = :scope")
+                  AND scope_revision = :scope
+                """)
                 .param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
                 .param("scope", work.scopeRevision()).param("generation", work.generation()).update();
         if (current == 1) {
@@ -211,7 +218,7 @@ public class JdbcSourceSyncRepository {
      * otherwise {@code SUCCEEDED}.
      * Either way the Source synchronized, so its error clears and its next run is one interval away.
      */
-    public Optional<String> complete(SyncTarget target, Work work) {
+    public Optional<String> complete(Work work) {
         var status = jdbc.sql("""
                 UPDATE source_sync_attempts a SET
                     status = CASE WHEN acquisition_failed > 0 OR EXISTS (
@@ -227,8 +234,8 @@ public class JdbcSourceSyncRepository {
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
                 .param("token", work.claimToken()).query(String.class).optional();
         if (status.isEmpty()) return status;
-        jdbc.sql("UPDATE " + target.sourceTable() + """
-                 SET last_synced_at = CURRENT_TIMESTAMP,
+        jdbc.sql("""
+                UPDATE source_sync_state SET last_synced_at = CURRENT_TIMESTAMP,
                     next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).update();

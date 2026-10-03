@@ -30,6 +30,7 @@ import {
   useShortcuts,
   type Shortcut,
 } from "./prompt-shortcuts-api";
+import { withRequestTimeout } from "@/lib/api";
 
 /** The menu row shared by "/" and the `+` menu (Onyx `LineItemButton`: name, then content). */
 function ShortcutMenuRow({ name, content }: { name: string; content: string }) {
@@ -126,7 +127,7 @@ export function PersonalPromptShortcuts() {
   const cache = useQueryClient();
   const notify = useActionNotifications();
   const savePreferences = useMutation({
-    ...setChatPromptShortcutPreferencesMutation(),
+    ...withRequestTimeout(setChatPromptShortcutPreferencesMutation()),
     onSuccess: () => invalidateShortcuts(cache),
     onError: (cause) => notify({ title: actionErrorText(cause), tone: "error" }),
   });

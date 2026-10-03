@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Clock3, FileStack, Files, Mic, Search, SlidersHorizontal, X } from "lucide-react";
+import { FileStack, Files, Mic, Search, X } from "lucide-react";
 import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -9,12 +9,8 @@ import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
 import { useDictationInput } from "@/features/voice/use-dictation-input";
 import { cn } from "@/lib/utils";
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
-import {
-  TIME_RANGE_OPTIONS,
-  voiceStatusMessage,
-  withResultFileTypes,
-  type SearchTimeRange,
-} from "./search-options";
+import { SearchUpdatedFilter } from "./search-updated-filter";
+import { voiceStatusMessage, withResultFileTypes } from "./search-options";
 import type { SearchSourceOption } from "./search-source-rail";
 import type { DocumentSearch } from "./use-document-search";
 
@@ -151,21 +147,18 @@ function SearchFilters({
     ...search.documentSets.map((set) => ({ value: set.id, label: set.name })),
   ];
   return (
-    <div className="flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
-      <span className="inline-flex h-8 items-center gap-2 px-2 font-secondary-action text-content-muted">
-        <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-        {ui("Filters")}
-      </span>
-      <SearchFilterMenu
-        label={ui("Updated")}
-        value={timeRange}
-        options={TIME_RANGE_OPTIONS}
-        icon={<Clock3 />}
-        onChange={(value) =>
-          setFilter({
-            time: value === "all" ? undefined : (value as Exclude<SearchTimeRange, "all">),
-          })
-        }
+    // Each menu names what it filters, so the row needs a name for assistive technology only.
+    <div
+      role="group"
+      aria-label={ui("Filters")}
+      className="flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none"
+    >
+      <SearchUpdatedFilter
+        timeRange={timeRange}
+        from={search.updatedFrom}
+        to={search.updatedTo}
+        onPreset={search.setUpdated}
+        onRange={search.setUpdatedRange}
       />
       <SearchFilterMenu
         label={ui("File type")}

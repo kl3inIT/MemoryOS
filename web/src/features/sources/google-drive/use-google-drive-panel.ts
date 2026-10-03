@@ -20,7 +20,6 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GetGoogleDriveConfigurationResponse, SourceSummary } from "@/lib/hey-api/types.gen";
 import { can } from "@/lib/resource-permissions";
-import { captureWorkflowFailure } from "@/lib/sentry";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { googleDriveConfigurationConnected } from "./google-drive-credential";
@@ -302,12 +301,6 @@ export function useGoogleDrivePanel({
   function run(action: DriveAction, task: (signal: AbortSignal) => Promise<void>) {
     setError(null);
     void perform(action, task).catch((cause: unknown) => {
-      if (action === "sync")
-        captureWorkflowFailure(cause, {
-          workflow: "google-drive-sync",
-          stage: "request",
-          failureKind: "api-or-network",
-        });
       setError(sourceMutationError(cause, "google-drive"));
     });
   }

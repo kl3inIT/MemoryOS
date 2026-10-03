@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./deployment-policy";
 import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
 
 const documentId = "73835d74-d386-4b4e-b392-ad7f81e3b55a";
@@ -72,13 +72,14 @@ test("searches merged sections, filters, pages and opens each best match with es
         hasMore: request.page === 0,
         totalResults: 11,
         candidateLimit: 500,
+        sourceFacets: { total: 11, types: [{ type: "FILE", count: 11 }] },
         results: [
           {
             documentId,
             generation,
             title: request.page === 0 ? "HR-2026 Quy định nghỉ phép" : "Quy định bổ sung",
             mediaType: "application/pdf",
-            sourceTypes: [],
+            sourceTypes: ["FILE"],
             authors: [],
             providerUrl: null,
             updatedAt: "2026-09-08T00:00:00Z",
@@ -126,6 +127,8 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(
     page.getByRole("heading", { name: "11 results for “chính sách nghỉ phép”" }),
   ).toBeVisible();
+  // The source rail counts the candidates the API reports per connector.
+  await expect(page.getByRole("button", { name: "All sources: 11 results" })).toBeVisible();
   await expect(page.getByRole("button", { name: "File type: PDF" })).toBeVisible();
   await expect(page.getByText("application/pdf", { exact: true })).toHaveCount(0);
   await expect(
@@ -185,6 +188,161 @@ test("searches merged sections, filters, pages and opens each best match with es
   await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
 });
 
+test("picks a range of update days on the calendar beside the presets", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-02T09:00:00+07:00"));
+  await page.route("**/api/identity/me", (route) =>
+    route.fulfill({
+      json: {
+        actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+        authorizationVersion: 1,
+        uiLanguage: "vi",
+        tenant: { displayName: "Tasco", role: "MEMBER" },
+        capabilities: ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE"],
+        scopedCapabilities: [],
+      },
+    }),
+  );
+  const requests: { updatedFrom?: string; updatedTo?: string }[] = [];
+  const result = (
+    id: string,
+    title: string,
+    mediaType: string,
+    updatedAt: string,
+    type: string,
+  ) => ({
+    documentId: id,
+    generation,
+    title,
+    mediaType,
+    sourceTypes: [type],
+    authors: ["Phòng Tài chính"],
+    providerUrl: null,
+    updatedAt,
+    score: 0.8,
+    sections: [
+      {
+        startOrdinal: 0,
+        endOrdinal: 0,
+        matchingOrdinal: 0,
+        score: 0.8,
+        content: "Doanh thu quý III tăng 12% so với cùng kỳ, chủ yếu nhờ mảng logistics.",
+        provenance: [{ ordinal: 0, provenanceJson: "[]" }],
+      },
+    ],
+  });
+  await page.route("**/api/search", async (route) => {
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 2,
+        candidateLimit: 500,
+        sourceFacets: {
+          total: 2,
+          types: [
+            { type: "GOOGLE_DRIVE", count: 1 },
+            { type: "SHAREPOINT", count: 1 },
+          ],
+        },
+        results: [
+          result(
+            documentId,
+            "Báo cáo tài chính quý III 2026",
+            "application/pdf",
+            "2026-09-17T03:00:00Z",
+            "SHAREPOINT",
+          ),
+          result(
+            "2f1c6a37-5b2e-4f43-9d55-0b7e1c9a4d10",
+            "Kế hoạch ngân sách 2027",
+            "application/vnd.google-apps.spreadsheet",
+            "2026-09-05T08:30:00Z",
+            "GOOGLE_DRIVE",
+          ),
+        ],
+      },
+    });
+  });
+  await page.goto("/search?q=b%C3%A1o%20c%C3%A1o%20doanh%20thu");
+  await page.getByRole("button", { name: "Đã cập nhật: Mọi thời điểm" }).click();
+  const apply = page.getByRole("button", { name: "Áp dụng" });
+  await expect(apply).toBeDisabled();
+  // A day after today cannot be picked.
+  await expect(page.locator('td[data-day="2026-10-05"] button')).toBeDisabled();
+  await page.locator('td[data-day="2026-09-03"]:not([data-outside]) button').click();
+  await page.locator('td[data-day="2026-09-18"]:not([data-outside]) button').click();
+  await expect(page.locator('[data-slot="popover-content"]')).toHaveCSS("opacity", "1");
+  // The picked day eases into its colours over 150 ms; capture what the person then sees.
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: "test-results/screens/search-updated-range-desktop.png" });
+  await apply.click();
+
+  await expect(page).toHaveURL(/from=2026-09-03&to=2026-09-18/);
+  await expect(
+    page.getByRole("button", { name: "Đã cập nhật: 03/09/2026 – 18/09/2026" }),
+  ).toBeVisible();
+  expect(requests.at(-1)).toMatchObject({
+    updatedFrom: "2026-09-03T00:00:00.000Z",
+    updatedTo: "2026-09-18T23:59:59.999Z",
+  });
+  await page.screenshot({ path: "test-results/screens/search-updated-range-applied.png" });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Đã cập nhật: 03/09/2026 – 18/09/2026" }).click();
+  await expect(page.locator('td[data-day="2026-09-03"]:not([data-outside])')).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.locator('[data-slot="popover-content"]')).toHaveCSS("opacity", "1");
+  await page.screenshot({ path: "test-results/screens/search-updated-range-mobile.png" });
+  await page.getByRole("button", { name: "7 ngày qua" }).click();
+  await expect(page).toHaveURL(/time=7d/);
+  await expect(page).not.toHaveURL(/from=/);
+});
+
+test("opens the pages of an uploaded PDF that a MemoryOS MCP document link names", async ({
+  page,
+}) => {
+  const originalPdf = rangedHandbookPdf();
+  // Claude and ChatGPT link an upload to /search?doc=<id>; the read names the original's media type.
+  await page.route(
+    (url) => url.pathname === `/api/search/documents/${documentId}`,
+    (route) =>
+      route.fulfill({
+        json: {
+          documentId,
+          generation,
+          title: "Sổ tay nhân sự 2026.pdf",
+          mediaType: "application/pdf",
+          passages: [{ ordinal: 0, content: "Chương 1. Quy định chung.", provenanceJson: "[]" }],
+          firstOrdinal: 0,
+          totalChunks: 40,
+          hasMore: true,
+        },
+      }),
+  );
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    fulfillPdfRange(route, originalPdf),
+  );
+  await page.goto(`/search?doc=${documentId}`);
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="1"]')).toHaveAttribute(
+    "data-rendered",
+    "true",
+  );
+  await expect(dialog.getByText("/ 12")).toBeVisible();
+  await expect(dialog.locator('[data-slot="pdf-page"]')).toHaveCount(12);
+  await page.screenshot({ path: "test-results/screens/doc-link-pdf-desktop.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="1"]')).toHaveAttribute(
+    "data-rendered",
+    "true",
+  );
+  await page.screenshot({ path: "test-results/screens/doc-link-pdf-mobile.png" });
+});
+
 test("handles unavailable, retry, empty and a pending search", async ({ page }) => {
   let failures = 1;
   await page.route("**/api/search", async (route) => {
@@ -201,6 +359,7 @@ test("handles unavailable, retry, empty and a pending search", async ({ page }) 
           hasMore: false,
           totalResults: request.query === "slow" ? 1 : 0,
           candidateLimit: 500,
+          sourceFacets: { total: request.query === "slow" ? 1 : 0, types: [] },
           results:
             request.query === "slow"
               ? [
@@ -248,6 +407,7 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
         hasMore: false,
         totalResults: 1,
         candidateLimit: 500,
+        sourceFacets: { total: 1, types: [] },
         results: [
           {
             documentId,
@@ -317,8 +477,15 @@ test("shows source type, provider and authors, links to Google Drive and outline
       json: {
         page: 0,
         hasMore: false,
-        totalResults: 1,
+        totalResults: 3,
         candidateLimit: 500,
+        sourceFacets: {
+          total: 3,
+          types: [
+            { type: "GOOGLE_DRIVE", count: 2 },
+            { type: "FILE", count: 1 },
+          ],
+        },
         results: [
           {
             documentId,

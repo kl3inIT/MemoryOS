@@ -39,7 +39,8 @@ public class JdbcGoogleDriveSyncRepository {
 
     public List<DueSource> due(int limit) {
         return jdbc.sql("""
-                SELECT s.tenant_id, s.source_id FROM google_drive_sources s
+                SELECT s.tenant_id, s.source_id FROM source_sync_state s
+                JOIN google_drive_sources g ON g.tenant_id = s.tenant_id AND g.source_id = s.source_id
                 JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
                 JOIN tenants t ON t.id = s.tenant_id
                 WHERE t.status = 'ACTIVE' AND p.status NOT IN ('DELETING', 'PAUSED') AND s.next_sync_at <= CURRENT_TIMESTAMP
@@ -220,28 +221,24 @@ public class JdbcGoogleDriveSyncRepository {
         if (live.isPresent()) return live;
         UUID id = UUID.randomUUID();
         var trace = SourceOperationTraceContext.current();
-        jdbc.sql("""
-                UPDATE google_drive_sources SET generation = generation + 1,
-                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
-                WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", tenant.value()).param("source", source.value()).update();
+        attempts.startGeneration(tenant, source);
         attempts.clearSyncError(tenant, source);
         int created = jdbc.sql("""
                 INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
                     generation, phase, history_version, trigger_kind, actor_id,
                 """ + JdbcSourceSyncRepository.COUNTERS + """
                 )
-                SELECT :id, s.tenant_id, s.source_id, s.revision, :credential, s.generation,
+                SELECT :id, s.tenant_id, s.source_id, s.scope_revision, :credential, s.generation,
                     donor.phase, 1, 'RESUMED', :actor,
                     donor.scanned, donor.acquired, donor.unchanged, donor.already_pending,
                     donor.acquisition_failed, donor.skipped, donor.removed,
                     0, 0, 0, 0, 0
-                FROM google_drive_sources s
+                FROM source_sync_state s
                 JOIN LATERAL (
                     SELECT * FROM source_sync_attempts a
                     WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
                       AND a.status = 'CANCELLED' AND a.error_code = 'SOURCE_PAUSED'
-                      AND a.scope_revision = s.revision AND a.credential_revision = :credential
+                      AND a.scope_revision = s.scope_revision AND a.credential_revision = :credential
                     ORDER BY a.created_at DESC LIMIT 1
                 ) donor ON TRUE
                 WHERE s.tenant_id = :tenant AND s.source_id = :source
@@ -254,9 +251,9 @@ public class JdbcGoogleDriveSyncRepository {
                         generation, origin_trace_id, origin_span_id, history_version, trigger_kind, actor_id,
                     """ + JdbcSourceSyncRepository.COUNTERS + """
                     )
-                    SELECT :id, s.tenant_id, s.source_id, s.revision, :credential, s.generation, :trace, :span,
+                    SELECT :id, s.tenant_id, s.source_id, s.scope_revision, :credential, s.generation, :trace, :span,
                         1, 'RESUMED', :actor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                    FROM google_drive_sources s WHERE s.tenant_id = :tenant AND s.source_id = :source
+                    FROM source_sync_state s WHERE s.tenant_id = :tenant AND s.source_id = :source
                     """).param("id", id).param("tenant", tenant.value()).param("source", source.value())
                     .param("credential", credentialRevision).param("trace", trace == null ? null : trace.traceId())
                     .param("span", trace == null ? null : trace.spanId())

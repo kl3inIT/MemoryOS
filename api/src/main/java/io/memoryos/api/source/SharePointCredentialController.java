@@ -8,7 +8,7 @@ import io.memoryos.api.source.contract.SharePointCredentialTestResponse;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
-import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SourceException;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -145,7 +145,7 @@ final class SharePointCredentialController {
         byte[] pkcs12 = null;
         char[] password = null;
         try {
-            if (body.authMethod() == SharePointProvider.AuthMethod.CLIENT_SECRET) {
+            if (body.authMethod() == SharePointGateway.AuthMethod.CLIENT_SECRET) {
                 if (body.clientSecret() == null || body.clientSecret().isBlank()) throw SharePointException.invalidSecret();
                 secret = body.clientSecret().getBytes(StandardCharsets.UTF_8);
             } else {

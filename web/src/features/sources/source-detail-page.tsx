@@ -16,10 +16,7 @@ import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
-import {
-  SourceAccessBadge,
-  SourceStatusBadge,
-} from "@/features/sources/shared/source-status-badge";
+import { SourceAccess, SourceStatusBadge } from "@/features/sources/shared/source-status-badge";
 import { SourceSummaryCard } from "@/features/sources/shared/source-summary-card";
 import { SourceActionsMenu } from "./source-actions-menu";
 import { SourceDetailSections } from "./source-detail-sections";
@@ -70,7 +67,7 @@ function SourceDetailContent({ sourceId }: { sourceId: string }) {
           source ? (
             <span className="flex flex-wrap items-center gap-2">
               <SourceStatusBadge status={source.status} />
-              <SourceAccessBadge access={source.access} />
+              <SourceAccess access={source.access} />
               {/* The header icon shows the provider but is hidden from assistive technology. */}
               {provider ? <span className="sr-only">{ui(provider.name)}</span> : null}
             </span>

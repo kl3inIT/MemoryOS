@@ -2,14 +2,14 @@ package io.memoryos.connector.googledrive.persistence;
 
 import io.memoryos.connector.ConnectorSyncPort.Work;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.connector.GoogleDriveAclChanged;
 import io.memoryos.connector.GoogleDriveAclReader;
 import io.memoryos.connector.GoogleDriveAclSnapshot;
 import io.memoryos.connector.GoogleDriveAclSnapshot.ContextStatus;
 import io.memoryos.connector.GoogleDriveAclSnapshot.CurrentContext;
 import io.memoryos.connector.GoogleDriveAclSnapshot.Observation;
 import io.memoryos.connector.GoogleDriveAclSnapshot.Status;
-import io.memoryos.connector.GoogleDriveProvider.Permission;
+import io.memoryos.connector.GoogleDriveGateway.Permission;
+import io.memoryos.connector.SourceAclChanged;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
@@ -35,11 +35,11 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
     private static final String CONTEXT_COLUMNS = """
             t.status = 'ACTIVE' AS tenant_active,
             p.status <> 'DELETING' AND c.status = 'ACTIVE' AND c.connector_type = 'GOOGLE_DRIVE' AS source_active,
-            p.credential_id AS current_credential_id, COALESCE(g.credential_revision, 0) AS current_credential_revision,
+            p.credential_id AS current_credential_id, CASE WHEN g.credential_id IS NULL THEN 0 ELSE credential.credential_revision END AS current_credential_revision,
             credential.status = 'ACTIVE' AND g.connection_status = 'ACTIVE'
                 AND ((g.auth_method = 'OAUTH' AND g.oauth_client_ciphertext IS NOT NULL AND g.refresh_token_ciphertext IS NOT NULL)
                     OR (g.auth_method = 'SERVICE_ACCOUNT' AND g.service_account_key_ciphertext IS NOT NULL)) AS credential_active,
-            s.revision AS current_scope_revision, s.generation AS current_generation,
+            s.scope_revision AS current_scope_revision, s.generation AS current_generation,
             m.generation AS membership_generation,
             COALESCE(NOT m.excluded AND m.root_id IS NOT NULL AND (
                 EXISTS (SELECT 1 FROM google_drive_roots r WHERE r.tenant_id = p.tenant_id
@@ -67,7 +67,7 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
                 statement_timestamp() AS read_at,
             """ + CONTEXT_COLUMNS + """
             FROM files f
-            JOIN google_drive_sources s ON s.tenant_id = :tenant AND s.source_id = f.source_id
+            JOIN source_sync_state s ON s.tenant_id = :tenant AND s.source_id = f.source_id
             JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
             """ + CONTEXT_TAIL + """
             LEFT JOIN documents_by_connector_credential_pair mapping ON mapping.tenant_id = p.tenant_id
@@ -157,8 +157,8 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
                         AND i.provider_file_id = :file
                     """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
                     .param("file", fileId).query((r, _) -> new DocumentId(r.getObject(1, UUID.class))).list();
-            events.publishEvent(new GoogleDriveAclChanged(work.tenantId(), work.sourceId(), fileId,
-                    documentIds, (Long) result[0], Status.valueOf((String) result[1]), (String) result[2]));
+            events.publishEvent(new SourceAclChanged(work.tenantId(), work.sourceId(), fileId, documentIds,
+                    (Long) result[0]));
         }
     }
 

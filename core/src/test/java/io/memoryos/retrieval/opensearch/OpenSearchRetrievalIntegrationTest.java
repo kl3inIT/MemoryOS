@@ -83,7 +83,7 @@ class OpenSearchRetrievalIntegrationTest {
     void indexes3072DimensionsFusesKeywordAndSemanticResultsReusesVectorsAndRepairsProjection() throws Exception {
         var config = new SearchInfrastructureConfiguration();
         var properties = new SearchProperties(new URI("http", null, OPENSEARCH.getHost(), OPENSEARCH.getMappedPort(9200), null, null, null),
-                "", "", "", "https://api.openai.com/v1", "", "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
+                "", "", "", "https://api.openai.com/v1", "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
                 .70, Duration.ofSeconds(30), "memoryos-test", 0, "", "");
         var mapper = new ObjectMapper();
         var documents = mock(DocumentChunkPort.class);
@@ -242,7 +242,7 @@ class OpenSearchRetrievalIntegrationTest {
             assertTrue(index.batch(driveOnly, queries, SearchFilters.NONE, () -> {}).stream()
                     .allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())));
             // A window keeps a Drive item that carries no source date: a bare range never matches an absent field.
-            var january = new SearchFilters(java.util.Set.of(),
+            var january = new SearchFilters(Set.of(),
                     new SearchFilters.Interval(Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-31T23:59:59Z")), null);
             assertTrue(index.batch(driveOnly, queries, january, () -> {}).stream().allMatch(List::isEmpty),
                     "A dated item outside the window is filtered");
@@ -267,6 +267,11 @@ class OpenSearchRetrievalIntegrationTest {
             assertTrue(hits.stream().noneMatch(h -> h.documentId().equals(unrelated.documentId().value())));
             assertTrue(hits.stream().noneMatch(h -> h.documentId().equals(foreign.documentId().value())));
             assertTrue(index.search(tenant, "HR-2026", List.of("application/pdf"), null, Set.of()).isEmpty());
+            // The Search page's window reads the update date an origin's provider reported.
+            assertEquals(1, index.search(tenant, "quy định nghỉ phép", List.of(), new SearchFilters.Interval(
+                    Instant.parse("2026-09-14T00:00:00Z"), Instant.parse("2026-09-16T00:00:00Z")), Set.of()).size());
+            assertTrue(index.search(tenant, "quy định nghỉ phép", List.of(), new SearchFilters.Interval(
+                    Instant.parse("2026-09-11T00:00:00Z"), Instant.parse("2026-09-12T00:00:00Z")), Set.of()).isEmpty());
             var replacement = new DocumentChunkSet(tenant, leave.documentId(), UUID.randomUUID(), leave.title(), leave.mediaType(), Instant.now(), leave.chunks());
             clearInvocations(model);
             var replacementState = new DocumentIndexState(tenant, replacement.documentId(), replacement.generation(), 1, true);
@@ -362,7 +367,7 @@ class OpenSearchRetrievalIntegrationTest {
     void anIndexThatDisagreesWithItsGenerationFailsLoudlyAndAnIndexFromBeforeGenerationsIsRecordedOnce() throws Exception {
         var config = new SearchInfrastructureConfiguration();
         var properties = new SearchProperties(new URI("http", null, OPENSEARCH.getHost(), OPENSEARCH.getMappedPort(9200), null, null, null),
-                "", "", "", "https://api.openai.com/v1", "", "text-embedding-3-small", 8, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
+                "", "", "", "https://api.openai.com/v1", "text-embedding-3-small", 8, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
                 .70, Duration.ofSeconds(30), "memoryos-meta", 0, "", "");
         var mapper = new ObjectMapper();
         var embeddings = new ValidatedEmbeddingService(mock(EmbeddingModel.class), properties.model(), 8, 32, 2);

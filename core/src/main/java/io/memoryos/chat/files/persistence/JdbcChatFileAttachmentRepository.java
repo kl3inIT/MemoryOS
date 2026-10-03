@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -40,6 +41,34 @@ public class JdbcChatFileAttachmentRepository {
                 .param("texts", texts(files)).param("ids", files)
                 .query((row, ignored) -> row.getObject("file_id", UUID.class)).list();
         return Set.copyOf(new HashSet<>(found));
+    }
+
+    /**
+     * The knowledge files of non-deleted agents the actor can use, one row per agent and file, for at most
+     * {@code limit} files; {@code files} narrows them when given. The same rule as {@link #usableThroughAgents}
+     * without the avatar branch: an avatar is the agent's icon, not a file it hands its users.
+     */
+    public List<FileAttachments.AgentFile> agentFiles(TenantId tenant, ActorId actor, @Nullable Collection<UUID> files,
+                                                      int limit) {
+        if (files != null && files.isEmpty()) return List.of();
+        String uses = AgentAccessSql.USES.replace(":agentsManage", "FALSE");
+        return jdbc.sql("""
+                WITH granted AS (
+                    SELECT DISTINCT CAST(attached.file_id AS uuid) AS file_id, p.id AS agent_id, p.name
+                    FROM persona p CROSS JOIN LATERAL jsonb_array_elements_text(p.file_ids) AS attached(file_id)
+                    WHERE p.tenant_id = :tenant AND p.deleted_at IS NULL
+                      AND (:allFiles OR attached.file_id IN (:texts)) AND %s
+                ), bounded AS (
+                    SELECT DISTINCT file_id FROM granted ORDER BY file_id LIMIT :limit
+                )
+                SELECT g.file_id, g.agent_id, g.name FROM granted g JOIN bounded b ON b.file_id = g.file_id
+                ORDER BY g.file_id, g.name, g.agent_id
+                """.formatted(uses)).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("allFiles", files == null).param("texts", files == null ? List.of("") : texts(files))
+                .param("limit", limit)
+                .query((row, ignored) -> new FileAttachments.AgentFile(row.getObject("file_id", UUID.class),
+                        row.getObject("agent_id", UUID.class), row.getString("name")))
+                .list();
     }
 
     /** What attaches each of {@code files}, as the library labels it; ordered by kind and name. */

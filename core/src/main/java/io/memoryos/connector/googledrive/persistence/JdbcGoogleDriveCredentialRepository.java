@@ -7,7 +7,7 @@ import io.memoryos.connector.GoogleDriveAuthorizationService.Preparation;
 import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.googledrive.GoogleDriveConnectionService.State;
 import io.memoryos.connector.GoogleDriveException;
-import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveGateway;
 import io.memoryos.connector.GoogleDriveServiceAccountKey;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -37,7 +37,8 @@ public class JdbcGoogleDriveCredentialRepository {
     private static final String REFRESH_TOKEN = "refresh-token";
     private static final String SERVICE_ACCOUNT_KEY = "service-account-key";
     private static final String SELECT = """
-            SELECT google.*, credential.owner_actor_id, credential.status AS credential_status, tenant.status AS tenant_status
+            SELECT google.*, credential.owner_actor_id, credential.status AS credential_status,
+                   credential.credential_revision, credential.payload_revision, tenant.status AS tenant_status
             FROM credentials credential
             JOIN google_drive_credentials google ON google.tenant_id = credential.tenant_id AND google.credential_id = credential.id
             JOIN tenants tenant ON tenant.id = credential.tenant_id
@@ -102,7 +103,7 @@ public class JdbcGoogleDriveCredentialRepository {
                     :ciphertext, :nonce, :version)
                 """).param("tenant", tenantId.value()).param("credential", credentialId)
                 .param("subject", key.clientId()).param("email", adminEmail)
-                .param("scopes", String.join(" ", new TreeSet<>(GoogleDriveProvider.SERVICE_ACCOUNT_SCOPES)))
+                .param("scopes", String.join(" ", new TreeSet<>(GoogleDriveGateway.SERVICE_ACCOUNT_SCOPES)))
                 .param("serviceAccount", key.clientEmail()).param("ciphertext", encrypted.ciphertext())
                 .param("nonce", encrypted.nonce()).param("version", encrypted.keyVersion()).update();
         return new CredentialId(credentialId);
@@ -122,13 +123,12 @@ public class JdbcGoogleDriveCredentialRepository {
         jdbc.sql("""
                 UPDATE google_drive_credentials SET account_email = :email, connection_status = 'ACTIVE',
                     service_account_key_ciphertext = :ciphertext, service_account_key_nonce = :nonce,
-                    service_account_key_version = :version, credential_revision = credential_revision + 1,
-                    payload_revision = payload_revision + 1, updated_at = CURRENT_TIMESTAMP
+                    service_account_key_version = :version, updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND credential_id = :credential
                 """).param("email", adminEmail).param("ciphertext", encrypted.ciphertext())
                 .param("nonce", encrypted.nonce()).param("version", encrypted.keyVersion())
                 .param("tenant", tenantId.value()).param("credential", row.credentialId()).update();
-        status(tenantId, row, "ACTIVE");
+        revise(tenantId, row, "ACTIVE");
         jdbc.sql("UPDATE credentials SET name = :name WHERE tenant_id = :tenant AND id = :credential")
                 .param("name", name).param("tenant", tenantId.value()).param("credential", credentialId.value()).update();
         invalidateSources(tenantId, credentialId);
@@ -156,7 +156,7 @@ public class JdbcGoogleDriveCredentialRepository {
 
     public List<CredentialView> list(TenantId tenantId, @Nullable ActorId owner) {
         return jdbc.sql("""
-                SELECT c.id, c.name, g.account_email, g.connection_status, g.credential_revision, g.auth_method,
+                SELECT c.id, c.name, g.account_email, c.status AS connection_status, c.credential_revision, g.auth_method,
                   g.service_account_email,
                   g.oauth_client_ciphertext IS NOT NULL AS configured, c.created_at, c.updated_at,
                   (SELECT COUNT(*) FROM connector_credential_pairs p
@@ -229,7 +229,7 @@ public class JdbcGoogleDriveCredentialRepository {
     }
 
     private Optional<Stored> read(TenantId tenantId, CredentialId credentialId, boolean lock) {
-        return jdbc.sql(SELECT + (lock ? " FOR UPDATE OF google" : ""))
+        return jdbc.sql(SELECT + (lock ? " FOR UPDATE OF google, credential" : ""))
                 .param("tenantId", tenantId.value()).param("credentialId", credentialId.value())
                 .query((row, ignored) -> new Stored(row.getObject("credential_id", UUID.class),
                         row.getString("account_subject"), row.getString("account_email"),
@@ -263,11 +263,10 @@ public class JdbcGoogleDriveCredentialRepository {
         var encryptedClient = encryptClient(tenantId, row.credentialId(), oauthClient);
         jdbc.sql("""
                 UPDATE google_drive_credentials SET account_email = :email, granted_scopes = :scopes,
-                    connection_status = 'ACTIVE', credential_revision = credential_revision + 1,
+                    connection_status = 'ACTIVE',
                     oauth_client_ciphertext = :clientCiphertext, oauth_client_nonce = :clientNonce,
                     oauth_client_key_version = :clientVersion, refresh_token_ciphertext = :ciphertext,
-                    refresh_token_nonce = :nonce, key_version = :version, payload_revision = payload_revision + 1,
-                    updated_at = CURRENT_TIMESTAMP
+                    refresh_token_nonce = :nonce, key_version = :version, updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND credential_id = :credential
                 """).param("email", grant.accountEmail().toLowerCase(Locale.ROOT))
                 .param("scopes", String.join(" ", new TreeSet<>(grant.scopes())))
@@ -275,7 +274,7 @@ public class JdbcGoogleDriveCredentialRepository {
                 .param("clientVersion", encryptedClient.keyVersion())
                 .param("ciphertext", encrypted.ciphertext()).param("nonce", encrypted.nonce()).param("version", encrypted.keyVersion())
                 .param("tenant", tenantId.value()).param("credential", row.credentialId()).update();
-        status(tenantId, row, "ACTIVE");
+        revise(tenantId, row, "ACTIVE");
         jdbc.sql("UPDATE credentials SET name = :name WHERE tenant_id = :tenant AND id = :credential")
                 .param("name", name).param("tenant", tenantId.value()).param("credential", credentialId.value()).update();
         invalidateSources(tenantId, credentialId);
@@ -292,16 +291,18 @@ public class JdbcGoogleDriveCredentialRepository {
     private void replaceToken(TenantId tenantId, Stored row, byte[] token) {
         var encrypted = encryption.cipher().encrypt(tenantId, row.credentialId(), REFRESH_TOKEN, token);
         int changed = jdbc.sql("""
+                UPDATE credentials SET payload_revision = payload_revision + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND id = :credential AND payload_revision = :expected
+                """).param("tenant", tenantId.value()).param("credential", row.credentialId())
+                .param("expected", row.payloadRevision()).update();
+        if (changed != 1) throw SourceException.conflict("Google credential changed concurrently");
+        jdbc.sql("""
                 UPDATE google_drive_credentials SET refresh_token_ciphertext = :ciphertext,
-                    refresh_token_nonce = :nonce, key_version = :version, payload_revision = payload_revision + 1,
-                    connection_status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant AND credential_id = :credential AND payload_revision = :expected
+                    refresh_token_nonce = :nonce, key_version = :version, updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND credential_id = :credential
                 """).param("ciphertext", encrypted.ciphertext()).param("nonce", encrypted.nonce())
                 .param("version", encrypted.keyVersion()).param("tenant", tenantId.value())
-                .param("credential", row.credentialId()).param("expected", row.payloadRevision()).update();
-        if (changed != 1) throw SourceException.conflict("Google credential changed concurrently");
-        jdbc.sql("UPDATE credentials SET updated_at = CURRENT_TIMESTAMP WHERE tenant_id = :tenant AND id = :credential")
-                .param("tenant", tenantId.value()).param("credential", row.credentialId()).update();
+                .param("credential", row.credentialId()).update();
     }
 
     public boolean authenticationFailed(TenantId tenantId, CredentialId credentialId, long expectedRevision) {
@@ -321,13 +322,10 @@ public class JdbcGoogleDriveCredentialRepository {
     private void markAuthenticationFailed(TenantId tenantId, Stored row) {
         jdbc.sql("""
                 UPDATE google_drive_credentials SET connection_status = 'NEEDS_REAUTHORIZATION',
-                    credential_revision = credential_revision + 1,
-                    payload_revision = payload_revision + 1, updated_at = CURRENT_TIMESTAMP
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND credential_id = :credential
-                    AND credential_revision = :revision AND payload_revision = :payloadRevision
-                """).param("tenant", tenantId.value()).param("credential", row.credentialId())
-                .param("revision", row.revision()).param("payloadRevision", row.payloadRevision()).update();
-        status(tenantId, row, "NEEDS_REAUTHORIZATION");
+                """).param("tenant", tenantId.value()).param("credential", row.credentialId()).update();
+        revise(tenantId, row, "NEEDS_REAUTHORIZATION");
         invalidateSources(tenantId, new CredentialId(row.credentialId()));
     }
 
@@ -344,11 +342,9 @@ public class JdbcGoogleDriveCredentialRepository {
                     UPDATE google_drive_credentials SET connection_status = 'REVOKED', refresh_token_ciphertext = NULL,
                         refresh_token_nonce = NULL, key_version = NULL, service_account_key_ciphertext = NULL,
                         service_account_key_nonce = NULL, service_account_key_version = NULL,
-                        credential_revision = credential_revision + 1,
-                        payload_revision = payload_revision + 1,
                         updated_at = CURRENT_TIMESTAMP WHERE tenant_id = :tenant AND credential_id = :credential
                     """).param("tenant", tenantId.value()).param("credential", row.credentialId()).update();
-            status(tenantId, row, "REVOKED");
+            revise(tenantId, row, "REVOKED");
             invalidateSources(tenantId, credentialId);
         } catch (RuntimeException exception) {
             Arrays.fill(token, (byte) 0);
@@ -357,9 +353,16 @@ public class JdbcGoogleDriveCredentialRepository {
         return token;
     }
 
-    private void status(TenantId tenantId, Stored row, String status) {
-        jdbc.sql("UPDATE credentials SET status = :status, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = :tenant AND id = :id")
-                .param("status", status).param("tenant", tenantId.value()).param("id", row.credentialId()).update();
+    /**
+     * Records a change of authority on the credential row every engine fence reads: its connection status, and a
+     * new credential and payload revision. The caller holds the credential lock and checked the revision it read.
+     */
+    private void revise(TenantId tenantId, Stored row, String status) {
+        jdbc.sql("""
+                UPDATE credentials SET status = :status, credential_revision = credential_revision + 1,
+                    payload_revision = payload_revision + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND id = :id
+                """).param("status", status).param("tenant", tenantId.value()).param("id", row.credentialId()).update();
     }
 
     public List<SourceId> attachedSources(TenantId tenantId, CredentialId credentialId) {
@@ -387,7 +390,11 @@ public class JdbcGoogleDriveCredentialRepository {
             jdbc.sql("UPDATE google_drive_membership SET eligible = FALSE WHERE tenant_id = :tenant AND source_id = :source")
                     .param("tenant", tenantId.value()).param("source", source.value()).update();
             jdbc.sql("""
-                    UPDATE google_drive_sources SET next_sync_at = CURRENT_TIMESTAMP,
+                    UPDATE source_sync_state SET next_sync_at = CURRENT_TIMESTAMP
+                    WHERE tenant_id = :tenant AND source_id = :source
+                    """).param("tenant", tenantId.value()).param("source", source.value()).update();
+            jdbc.sql("""
+                    UPDATE google_drive_sources SET
                       discovery_revision = discovery_revision + CASE WHEN scope_mode = 'SPECIFIC' THEN 1 ELSE 0 END,
                       discovered_at = NULL, discovery_scope_revision = NULL, discovery_credential_revision = NULL
                     WHERE tenant_id = :tenant AND source_id = :source

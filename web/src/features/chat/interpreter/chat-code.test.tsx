@@ -62,7 +62,7 @@ describe("files run_python generated", () => {
 
     const row = screen.getByRole("listitem");
     expect(within(row).getByText(file.filename)).toBeVisible();
-    expect(within(row).getByText("Tệp đã bị xoá")).toBeVisible();
+    expect(within(row).getByText("Tệp đã bị xóa")).toBeVisible();
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.queryByRole("button", { name: `Xem trước ${file.filename}` })).toBeNull();
     // A deleted PNG has no chart to open either: its bytes and chart data are both gone.

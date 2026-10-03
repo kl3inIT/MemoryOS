@@ -3,9 +3,11 @@ package io.memoryos.ai;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -17,17 +19,47 @@ import org.jspecify.annotations.Nullable;
 public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
                                ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
                                UnaryOperator<Prompt> requiredTools,
-                               BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling) {
-    public ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                            ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
-        this(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, UnaryOperator.identity());
+                               BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling,
+                               Predicate<Throwable> credentialRejection, @Nullable ReasoningEffort taskEffort) {
+    /** A binding that leaves tool requests unchanged and has no per-turn sampling. */
+    public static Builder builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
+                                  int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
+        return new Builder(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision);
     }
-    public ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                            ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
-                            UnaryOperator<Prompt> requiredTools) {
-        this(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, requiredTools,
-                (llmService, ignored) -> llmService);
+
+    public static final class Builder {
+        private final SpringAiLlmService service;
+        private final UnaryOperator<Prompt> finalRequest;
+        private final ModelRequestPolicy policy;
+        private final int contextWindow;
+        private final @Nullable Integer maxOutputTokens;
+        private final boolean toolCalling;
+        private final boolean vision;
+        private UnaryOperator<Prompt> requiredTools = UnaryOperator.identity();
+        private BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling = (llmService, ignored) -> llmService;
+        private Predicate<Throwable> credentialRejection = failure -> false;
+
+        private Builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
+                        int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
+            this.service = service;
+            this.finalRequest = finalRequest;
+            this.policy = policy;
+            this.contextWindow = contextWindow;
+            this.maxOutputTokens = maxOutputTokens;
+            this.toolCalling = toolCalling;
+            this.vision = vision;
+        }
+
+        public Builder requiredTools(UnaryOperator<Prompt> value) { requiredTools = value; return this; }
+        public Builder sampling(BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> value) { sampling = value; return this; }
+        public Builder credentialRejection(Predicate<Throwable> value) { credentialRejection = value; return this; }
+
+        public ModelBinding build() {
+            return new ModelBinding(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
+                    requiredTools, sampling, credentialRejection, null);
+        }
     }
+
     /**
      * This turn's output bound, creativity and reasoning level. The sampling values wrap the options converter, which
      * runs per inference and can still tell a helper call from an answer, so the cached client and its lease are
@@ -39,7 +71,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
      */
     public UnaryOperator<Prompt> requireTool(String name) {
         return prompt -> {
-            if (!(prompt.getOptions() instanceof org.springframework.ai.model.tool.ToolCallingChatOptions options)
+            if (!(prompt.getOptions() instanceof ToolCallingChatOptions options)
                     || options.getToolCallbacks() == null) return prompt;
             var kept = options.getToolCallbacks().stream()
                     .filter(callback -> callback.getToolDefinition().name().equals(name)).toList();
@@ -53,13 +85,36 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
                 turnSampling.isEmpty() ? service : sampling.apply(service, turnSampling),
                 finalRequest, policy, contextWindow,
                 outputTokenLimit == null ? maxOutputTokens : Integer.valueOf(outputAtMost(outputTokenLimit)),
-                toolCalling, vision, requiredTools, sampling);
+                toolCalling, vision, requiredTools, sampling, credentialRejection, taskEffort);
     }
+
+    /**
+     * This binding for a task beside the conversation (naming, the question check, the minutes, corrections) at the
+     * level chosen for it. {@link ReasoningEffort#OFF} keeps the helper path, thinking off; any other level keeps
+     * thinking on and asks for that level, which a level named in the model's configuration still outranks.
+     */
+    public ModelBinding forTask(ReasoningEffort effort) {
+        var base = effort == ReasoningEffort.OFF ? this : forOptions(new ModelSampling(null, effort, false), null);
+        return new ModelBinding(base.service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
+                requiredTools, sampling, credentialRejection, effort);
+    }
+
+    /** Whether a task call through this binding thinks rather than running as a helper. */
+    public boolean reasons() {
+        return taskEffort != null && taskEffort != ReasoningEffort.OFF;
+    }
+
+    /** Whether a failure of a call through this binding means the provider refused its credential (the adapter's rule). */
+    public boolean credentialRejected(Throwable failure) {
+        return credentialRejection.test(failure);
+    }
+
     public ModelBinding {
         Objects.requireNonNull(service);
         Objects.requireNonNull(finalRequest);
         Objects.requireNonNull(requiredTools);
         Objects.requireNonNull(sampling);
+        Objects.requireNonNull(credentialRejection);
         Objects.requireNonNull(policy);
         if (maxOutputTokens != null && (maxOutputTokens < 1 || contextWindow <= maxOutputTokens))
             throw new IllegalArgumentException("Invalid model limits");

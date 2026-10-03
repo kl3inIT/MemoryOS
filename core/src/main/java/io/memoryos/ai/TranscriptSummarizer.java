@@ -1,5 +1,6 @@
 package io.memoryos.ai;
 
+import com.embabel.agent.core.support.InvalidLlmReturnFormatException;
 import io.memoryos.shared.ActorId;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
@@ -26,7 +27,8 @@ import org.springframework.stereotype.Service;
 public class TranscriptSummarizer {
     /** A long meeting still answers within a person's patience; the job retries a timeout. */
     static final Duration TIMEOUT = Duration.ofMinutes(4);
-    static final int MAX_OUTPUT_TOKENS = 4096;
+    /** Room for the reasoning as well as the minutes: at 4,096 a reasoning model cut the JSON of a long meeting off. */
+    static final int MAX_OUTPUT_TOKENS = 16_384;
     /** Enough for about two hours of speech; beyond that the middle is dropped, and the summary says so. */
     static final int MAX_INPUT_CHARS = 120_000;
     /** A table of contents longer than this is a transcript again. */
@@ -57,11 +59,23 @@ public class TranscriptSummarizer {
     public TranscriptSummary summarize(ActorId actor, UUID tenant, Subject subject, List<Line> lines) {
         if (lines.isEmpty()) throw AiException.invalid("A transcript is required.");
         try (var selected = models.resolveFlow(actor, ModelFlow.MEETING_MINUTES)) {
-            var summary = calls.generateObject(selected.binding(), instructions(subject), transcript(subject, lines),
-                    TranscriptSummary.class, TIMEOUT, MAX_OUTPUT_TOKENS,
-                    accounting -> record(tenant, actor, selected, accounting));
+            TranscriptSummary summary;
+            try {
+                // The binding carries the level chosen for the minutes task, medium unless an administrator changed it.
+                summary = calls.generateObject(selected.binding(), instructions(subject), transcript(subject, lines),
+                        TranscriptSummary.class, TIMEOUT, MAX_OUTPUT_TOKENS, accounting -> record(tenant, actor, selected, accounting));
+            } catch (RuntimeException failure) {
+                throw named(selected.binding(), failure);
+            }
             return clean(summary, lines.size());
         }
+    }
+
+    /** A refused key and an answer that is not the minutes are named, so the owner sees why. */
+    private static RuntimeException named(ModelBinding binding, RuntimeException failure) {
+        if (binding.credentialRejected(failure)) return AiException.providerCredentialRejected();
+        if (failure instanceof InvalidLlmReturnFormatException) return AiException.answerUnreadable();
+        return failure;
     }
 
     /** The system half of the prompt: what to produce and what never to produce. */
@@ -165,7 +179,7 @@ public class TranscriptSummarizer {
                     selected.provenance().providerId(), selected.modelConfigurationId(),
                     selected.provenance().dataBoundary(), accounting.input() == null ? 0 : accounting.input(),
                     accounting.output() == null ? 0 : accounting.output(), accounting.cacheRead(),
-                    accounting.cost(), Instant.now()));
+                    accounting.cost(), accounting.complete(), Instant.now()));
         } catch (RuntimeException failure) {
             LOG.atWarn().addKeyValue("event", "meeting.minutes.usage_not_recorded")
                     .addKeyValue("error_type", failure.getClass().getName()).log("Minutes usage not recorded");
