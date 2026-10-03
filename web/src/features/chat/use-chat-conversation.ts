@@ -140,12 +140,12 @@ export function useChatConversation(controller: ChatThreadController, project?: 
   const pinnedEffort = effort ?? session?.reasoningEffort ?? undefined;
   const pinReasoning = useMutation(pinChatReasoningEffortMutation());
   const pinEffort = (level: string) => {
+    const reasoningEffort = level as ReasoningSelection["reasoningEffort"];
     setEffort(level);
+    // Before the conversation exists, the transport pins the level on the conversation the first send creates.
     if (session)
-      pinReasoning.mutate({
-        path: { sessionId: session.id },
-        body: { reasoningEffort: level as ReasoningSelection["reasoningEffort"] },
-      });
+      pinReasoning.mutate({ path: { sessionId: session.id }, body: { reasoningEffort } });
+    else transport.selectReasoning(reasoningEffort);
   };
 
   const chatSettings = useQuery({ ...getChatSettingsOptions(), retry: false });

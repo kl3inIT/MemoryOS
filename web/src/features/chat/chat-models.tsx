@@ -52,6 +52,7 @@ export function useChatModels(sessionId?: string) {
     ...listAvailableChatModelsOptions({ query: { sessionId } }),
     retry: false,
   });
+  const efforts = REASONING_EFFORTS.map((level) => ({ id: level.id, name: ui(level.name) }));
   const entries = (catalog.data ?? []).flatMap((model) =>
     model.id
       ? [
@@ -63,7 +64,7 @@ export function useChatModels(sessionId?: string) {
               keywords: [model.modelName ?? "", model.providerName ?? ""],
               icon: <ModelLogo modelName={model.modelName ?? ""} />,
               // Only a reasoning model offers levels, and the request carries none for any other model.
-              efforts: model.capabilities?.reasoning ? REASONING_EFFORTS : undefined,
+              efforts: model.capabilities?.reasoning ? efforts : undefined,
             },
           },
         ]

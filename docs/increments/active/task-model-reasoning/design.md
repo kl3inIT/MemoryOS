@@ -44,6 +44,15 @@ assistant-ui's Model selector (`/elements/model-selector`, already installed as 
 - The trigger shows the level as a pill (`ReasoningLevel`): a brain icon, the level and one to three bars, in one light tint of the selection accent (`reasoning-surface`, `reasoning-content`); the bars tell the level. Off and a model that does not reason show nothing, as ChatGPT shows its Think chip only while thinking is on. The owner found the grey level text of the element hard to see, and Mobbin shows no product colouring each level differently: ChatGPT colours the chip while on, Cofounder counts marks. A first version strengthened the tint per level up to a solid fill at High; the owner found High too loud (2026-10-03), so every level shares the light tint.
 - The element's checked level used `bg-accent`, which matches the popover in dark mode (#26262b on #262626); it takes the reasoning tint instead, an edit in the copied element.
 
+## Chat composer
+
+Found while reviewing the levels with the owner (2026-10-03): the composer could not pin a conversation's level. `ChatModelPicker` composed its own popover content without the selector's Thinking row, so `pinEffort` (wired since 20/09) had no control, and only Settings › Chat set a level.
+
+- The picker ends with the Thinking row, labelled Reasoning, as the Models page does, and its trigger shows the pinned level with the same pill.
+- A level chosen before the conversation exists was kept in the page only: creating a conversation takes no level. The transport now pins it right after the first send creates the conversation, before the question is sent.
+- The pill shows only a pinned level. A conversation without one runs at the model configuration's level, then the member's default, and the browser does not know the first, so showing the member default could be wrong.
+- The level names reach the English UI translated ("Low", "Medium", "High" were missing).
+
 ## Out of scope
 
 - A level for the Chat default.

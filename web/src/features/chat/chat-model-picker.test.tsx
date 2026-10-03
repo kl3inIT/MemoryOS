@@ -114,3 +114,35 @@ it("groups models under their provider once there is more than one, as Onyx", as
   expect(headings).toEqual(["9Router", "Deployment OpenAI"]);
   expect(screen.getByRole("option", { name: /deepseek-v4-flash/ })).toBeInTheDocument();
 });
+
+it("offers a reasoning model's levels, shows the pinned one beside it and pins another", async () => {
+  const thinking = {
+    ...catalog[0]!,
+    capabilities: { ...catalog[0]!.capabilities, reasoning: true },
+  };
+  server.use(handleListAvailableChatModels({ body: [thinking, catalog[1]!] }));
+  const onEffortChange = vi.fn();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ChatModelPicker
+        onChange={vi.fn()}
+        disabled={false}
+        effort="MEDIUM"
+        onEffortChange={onEffortChange}
+      />
+    </QueryClientProvider>,
+  );
+  await screen.findByText("GPT-5.6 Luna");
+  expect(await picker()).toHaveTextContent("Medium");
+  await userEvent.click(await picker());
+  expect(screen.getByRole("radio", { name: "Medium" })).toBeChecked();
+  await userEvent.click(screen.getByRole("radio", { name: "High" }));
+  expect(onEffortChange).toHaveBeenCalledExactlyOnceWith("HIGH");
+});
+
+it("offers no level for a model that does not reason", async () => {
+  renderPicker({ value: "mini" });
+  await userEvent.click(await picker());
+  expect(screen.getByRole("option", { name: /GPT-5 mini/ })).toBeInTheDocument();
+  expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+});
