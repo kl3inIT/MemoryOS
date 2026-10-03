@@ -1056,6 +1056,7 @@ export const vietnameseUi: Record<string, string> = {
   "Cấp quyền không thành công.": "Authorization failed.",
   "Mô hình": "Models",
   "Tìm kiếm và đọc trang Web": "Search and read the Web",
+  "Mô hình đang chọn không dùng được tìm kiếm Web.": "The selected model cannot use Web search.",
   "Chưa kết nối công cụ tìm kiếm.": "No search engine connected.",
   "Chọn một công cụ tìm kiếm để bật tìm kiếm Web.": "Select a search engine to enable web search.",
   "Cài đặt tìm kiếm bên ngoài trên internet.":

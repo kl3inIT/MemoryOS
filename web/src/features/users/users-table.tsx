@@ -274,6 +274,12 @@ export function UsersTable({
   }
 
   const isMobile = useIsMobile();
+  // A column that says the same thing on every row tells nothing, so the account type shows once rows differ.
+  const accountTypes = new Set(entries.flatMap((entry) => entry.accountType ?? []));
+  const columnVisibility = {
+    ...(isMobile ? phoneColumnVisibility : {}),
+    ...(accountTypes.size < 2 ? { accountType: false } : {}),
+  };
   const sorting = sortingOf(sort);
   const pagination = { pageIndex: page, pageSize: size };
   const table = useTable({
@@ -299,7 +305,7 @@ export function UsersTable({
     enableSortingRemoval: false,
     manualPagination: true,
     pageCount: totalPages,
-    state: { sorting, pagination, columnVisibility: isMobile ? phoneColumnVisibility : {} },
+    state: { sorting, pagination, columnVisibility },
     onSortingChange: (updater) => {
       const next = sortOf(typeof updater === "function" ? updater(sorting) : updater);
       if (next) onSortChange(next);

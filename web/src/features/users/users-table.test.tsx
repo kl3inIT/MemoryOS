@@ -84,17 +84,16 @@ function renderTable(overrides: Partial<ComponentProps<typeof UsersTable>> = {})
 }
 
 describe("UsersTable", () => {
-  it("renders identity, real groups, account type, owner presentation, and invitation boundaries", () => {
+  it("renders identity, real groups, owner presentation, and invitation boundaries, without a column every row repeats", () => {
     renderTable();
 
     expect(screen.getByRole("table", { name: "Organization users" })).toBeVisible();
     expect(screen.getByText("Rowan Brooks")).toBeVisible();
     expect(screen.getByText("rowan@example.com")).toBeVisible();
     expect(screen.getAllByLabelText("Admin, Research, Support")).toHaveLength(2);
-    expect(screen.getAllByText("Standard")).toHaveLength(2);
-    expect(
-      screen.getByLabelText("Account type assigned after invitation acceptance"),
-    ).toBeVisible();
+    // Every member here is a Standard account, so the column would repeat one word down the table.
+    expect(screen.queryByRole("columnheader", { name: "Account type" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Standard")).not.toBeInTheDocument();
     expect(screen.getByText("Owner")).toBeVisible();
     expect(screen.getByLabelText("No actions available for Alex Morgan")).toBeVisible();
   });
