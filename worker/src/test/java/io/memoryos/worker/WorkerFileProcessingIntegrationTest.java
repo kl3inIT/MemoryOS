@@ -116,6 +116,7 @@ import io.memoryos.library.LibraryTrashProperties;
                 "db-scheduler.polling-interval=50ms",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
                 "memoryos.worker.enabled=true",
+                "memoryos.search.embedding-endpoint=http://127.0.0.1:1",
                 "memoryos.redis.relay-interval=50ms",
                 "memoryos.redis.rediscovery-delay=750ms",
                 "memoryos.redis.transport-backoff=100ms",

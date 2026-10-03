@@ -340,8 +340,9 @@ services:
       MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/mcp_credential_encryption_key
       # MEM-207: the memoryos-mcp-admin client secret, with which the API keeps the trusted apps in Keycloak.
       MEMORYOS_MCP_ADMIN_CLIENT_SECRET_FILE: /run/secrets/mcp_admin_client_secret
-      # The embedding key. Chat holds no key of its own: every Chat provider and its key is a catalog entry (MEM-211).
-      MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
+      # Where the first search generation embeds: the serving node. Its key, like every Chat and embedding key, is a
+      # catalog entry (MEM-211, MEM-216); a seeded deployment ignores this.
+      MEMORYOS_EMBEDDING_ENDPOINT: ${MEMORYOS_EMBEDDING_ENDPOINT:-}
     secrets:
       - minio_api_secret_key
       - interpreter_api_key
@@ -355,7 +356,6 @@ services:
       - google_drive_credential_encryption_key
       - mcp_credential_encryption_key
       - mcp_admin_client_secret
-      - model_api_key
     depends_on:
       postgres:
         condition: service_healthy
@@ -450,7 +450,7 @@ services:
       MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
       MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE: /run/secrets/docling_api_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
-      MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
+      MEMORYOS_EMBEDDING_ENDPOINT: ${MEMORYOS_EMBEDDING_ENDPOINT:-}
       # The embedding provider chosen on the Search settings page keeps its key encrypted with the
       # catalog key (MEM-135), and the worker embeds every indexed chunk with it.
       MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
@@ -462,7 +462,6 @@ services:
       - opensearch_password
       - docling_api_key
       - google_drive_credential_encryption_key
-      - model_api_key
       - chat_catalog_encryption_key
     depends_on:
       api:
@@ -688,8 +687,6 @@ secrets:
     file: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/mcp-credential-key.txt}
   mcp_admin_client_secret:
     file: ${MEMORYOS_MCP_ADMIN_CLIENT_SECRET_SECRET_FILE:-/apps/memoryos/secrets/keycloak/mcp-admin-client-secret.txt}
-  model_api_key:
-    file: ${MEMORYOS_MODEL_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/model/api-key.txt}
   minio_root_password:
     file: ${MEMORYOS_MINIO_ROOT_PASSWORD_FILE:-/apps/memoryos/secrets/minio/root-password.txt}
   minio_api_secret_key:
