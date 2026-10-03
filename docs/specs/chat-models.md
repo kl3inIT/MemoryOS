@@ -27,7 +27,7 @@ Each task row also stores a reasoning level (V143 `model_flow_default.reasoning_
 - A model that does not reason is sent no level.
 - The question check keeps its 20-second bound at every level. A reasoning check that runs past it leaves the turn without a verdict, and the answer model still carries the blocked topics.
 
-The Models page rows use assistant-ui's Model selector, as Chat does: search, one group per provider with its data boundary tag, model logos. A task row whose model reasons ends its picker with the selector's Thinking row, labelled Reasoning, of the four levels. The trigger shows the level beside the model as a pill in the selection accent, stronger per level with one to three bars; off shows none. Choosing a level saves at once, with the model, against the row's revision, and the picker stays open. The Chat default has no level: a conversation's level is the member's.
+The Models page rows use assistant-ui's Model selector, as Chat does: search, one group per provider with its data boundary tag, model logos. A task row whose model reasons ends its picker with the selector's Thinking row, labelled Reasoning, of the four levels. The trigger shows the level beside the model as a pill in a light tint of the selection accent, with one to three bars for the level; off shows none. Choosing a level saves at once, with the model, against the row's revision, and the picker stays open. The Chat default has no level: a conversation's level is the member's.
 
 ### Provider data boundary
 
