@@ -10,19 +10,27 @@ type AppShellHeaderProps = {
    * title, as it does on administration and settings pages.
    */
   pageHeader?: boolean;
+  /** The page has no heading of its own, so this title is its `h1`. */
+  heading?: boolean;
 };
 
 /** The title and actions of the open page, as the shell header shows them. */
-export function AppShellHeaderContent({ title, actions, pageHeader = false }: AppShellHeaderProps) {
+export function AppShellHeaderContent({
+  title,
+  actions,
+  pageHeader = false,
+  heading = false,
+}: AppShellHeaderProps) {
+  const Title = heading ? "h1" : "span";
   return (
     <>
-      <span
+      <Title
         data-page-header={pageHeader || undefined}
         title={title}
         className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary md:max-w-xl"
       >
         {title}
-      </span>
+      </Title>
       <div className="ml-auto flex shrink-0 items-center">{actions}</div>
     </>
   );
