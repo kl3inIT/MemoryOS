@@ -236,6 +236,9 @@ jobs:
       - name: Verify off-host backup and retention
         run: python3 -m unittest discover -s infrastructure/backup -p 'test_*.py'
 
+      - name: Verify the run_python evaluation's scoring
+        run: python3 -m unittest discover -s tools/interpreter-eval/tests -t tools/interpreter-eval
+
   # One runner held all four modules' tests, and core alone took eight of its ten minutes while api, sources and
   # worker competed for the same four CPUs. Each leg now owns a runner; together they are the repository's `check`.
   backend:
