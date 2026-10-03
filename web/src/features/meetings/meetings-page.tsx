@@ -115,7 +115,7 @@ export function MeetingsPage() {
           />
         ) : (
           <div className="flex flex-wrap gap-2">
-            <InputGroup className="min-w-0 flex-1 sm:max-w-80">
+            <InputGroup className="w-full sm:w-auto sm:max-w-80 sm:min-w-56 sm:flex-1">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
@@ -129,7 +129,7 @@ export function MeetingsPage() {
             <NativeSelect
               value={status}
               aria-label={ui("Trạng thái")}
-              className="w-auto"
+              className="w-auto flex-1 sm:flex-none"
               onChange={(event) => setStatus(event.target.value as typeof status)}
             >
               <option value="all">{ui("Mọi trạng thái")}</option>
@@ -140,7 +140,7 @@ export function MeetingsPage() {
             <NativeSelect
               value={period}
               aria-label={ui("Thời gian")}
-              className="w-auto"
+              className="w-auto flex-1 sm:flex-none"
               onChange={(event) => setPeriod(event.target.value as typeof period)}
             >
               <option value="30">{ui("30 ngày qua")}</option>
