@@ -156,7 +156,7 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 | Capability | Owns | Detailed contract |
 | --- | --- | --- |
 | `iam` | Actor identity, Tenant membership, invitations, Users, Groups and authorization | [Identity](docs/specs/identity.md), [Tenant](docs/specs/tenant.md), [Invitation](docs/specs/invitation.md) |
-| `shared` | The shared kernel: `TenantId` and `ActorId`, the identifiers every capability carries and none owns, and the technical utilities several capabilities repeated (`LeasedJob`, `Sha256`, `LikePattern`, `PdfText`); no module dependencies and no domain rule (owner decision 2026-09-25, phase 3) | [ADR 0015](docs/decisions/0015-capability-module-map.md#shared-kernel) |
+| `shared` | The shared kernel: `TenantId` and `ActorId`, the identifiers every capability carries and none owns, and the technical utilities several capabilities repeated (`LeasedJob`, `Sha256`, `LikePattern`, `PdfText`, and `OutboundHttp`, the bounded `RestClient` for calls to configured endpoints); no module dependencies and no domain rule (owner decision 2026-09-25, phase 3) | [ADR 0015](docs/decisions/0015-capability-module-map.md#shared-kernel), [ADR 0025](docs/decisions/0025-outbound-http-through-the-highest-level-client.md) |
 | `audit` | The Tenant's append-only audit stream every administrative change records into, its reader, export and retention sweep | [Audit](docs/specs/audit.md) |
 | `objectstorage` | Upload reservations, stored objects, adoption, discard and cleanup | [Object storage](docs/specs/object-storage.md) |
 | `connector` | Sources, credentials, provider selection, items, synchronization and Source–Group associations | [Connector](docs/specs/connector.md) |
