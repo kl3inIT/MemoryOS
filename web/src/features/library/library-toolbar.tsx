@@ -105,9 +105,10 @@ export function LibraryToolbar({
       />
       <Popover>
         <PopoverTrigger asChild>
-          <Button size="sm" prominence="secondary">
+          <Button size="sm" prominence="secondary" aria-label={ui("Bộ lọc")}>
             <ListFilter data-icon="inline-start" />
-            {ui("Bộ lọc")}
+            {/* A phone keeps the icon and the count; the search field needs the width. */}
+            <span className="hidden sm:inline">{ui("Bộ lọc")}</span>
             {activeFilters > 0 && <Badge variant="secondary">{activeFilters}</Badge>}
           </Button>
         </PopoverTrigger>
@@ -224,9 +225,9 @@ export function LibraryDisplayMenu<S extends LibrarySort>({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" prominence="secondary">
+        <Button size="sm" prominence="secondary" aria-label={ui("Cách hiển thị")}>
           <SlidersHorizontal data-icon="inline-start" />
-          {ui("Cách hiển thị")}
+          <span className="hidden sm:inline">{ui("Cách hiển thị")}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -378,7 +379,7 @@ export function LibraryFilterPills({
             type="button"
             onClick={pill.remove}
             aria-label={ui("Bỏ lọc {{name}}", { name: pill.label })}
-            className="flex h-7 items-center gap-1 rounded-full border border-border-subtle bg-surface-subtle px-2.5 font-secondary-body text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+            className="flex h-7 items-center gap-1 rounded-full border border-border-subtle bg-surface-subtle px-2.5 font-secondary-body text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 pointer-coarse:h-11 pointer-coarse:px-3.5"
           >
             {pill.label}
             <X className="size-3.5" aria-hidden="true" />

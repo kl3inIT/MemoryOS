@@ -97,7 +97,8 @@ export function LibraryTabs({
           <TabsList
             variant="line"
             aria-label={ui("Phần của thư viện")}
-            className="h-auto flex-wrap justify-start group-data-horizontal/tabs:h-auto"
+            // On a phone the tabs are one row that scrolls sideways, so the list starts a row sooner.
+            className="h-auto max-w-full justify-start overflow-x-auto group-data-horizontal/tabs:h-auto sm:flex-wrap"
           >
             {sections.map((entry) => (
               <TabsTrigger
