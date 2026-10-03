@@ -61,6 +61,17 @@ public final class OutboundHttp {
      * that carries the status and no body. {@code exchange} hands the response to the caller instead, still bounded.
      */
     public static RestClient.Builder builder(Limits limits) {
+        return builder(limits, (request, response) -> {
+            throw new RestClientResponseException("Outbound request failed", response.getStatusCode(), "", null, null,
+                    null);
+        });
+    }
+
+    /**
+     * The same client for an API whose failed answers must be read: {@code failed} receives every answer but 2xx and
+     * may read its body, within the bound. An {@code IOException} it throws reaches the caller unchecked.
+     */
+    public static RestClient.Builder builder(Limits limits, RestClient.ResponseSpec.ErrorHandler failed) {
         var requests = new JdkClientHttpRequestFactory(HTTP, BODY_WRITERS);
         requests.setReadTimeout(limits.timeout());
         // Compression would add a request header no call sends today and make Content-Length count other bytes.
@@ -68,10 +79,7 @@ public final class OutboundHttp {
         return RestClient.builder()
                 .requestFactory(new BoundedRequestFactory(requests, limits.maxResponseBytes()))
                 .configureMessageConverters(converters -> CONVERTERS.forEach(converters::addCustomConverter))
-                .defaultStatusHandler(status -> !status.is2xxSuccessful(), (request, response) -> {
-                    throw new RestClientResponseException("Outbound request failed", response.getStatusCode(), "", null,
-                            null, null);
-                });
+                .defaultStatusHandler(status -> !status.is2xxSuccessful(), failed);
     }
 
     /** The implementation of an {@code @HttpExchange} interface over a client built here. */
