@@ -23,12 +23,15 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Soniox realtime transcription with an in-memory batch fallback, following the Soniox WebSocket API as Anarlog uses
  * it: the key and configuration travel in the first text message, audio as raw PCM16 binary frames, and the stream
- * ends with a finalize message and an empty frame, answered by {@code finished}. Final tokens are committed text;
- * non-final tokens only extend the current preview. Provider text and audio are never logged.
+ * ends with a short silence, a finalize message and an empty frame. The {@code <fin>} marker that answers finalize
+ * completes the transcript, so the session does not wait for the stream's own {@code finished}. Final tokens are
+ * committed text; non-final tokens only extend the current preview. Provider text and audio are never logged.
  */
 final class SonioxRealtimeTranscriber implements TranscriptionSession {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration FINAL_TIMEOUT = Duration.ofSeconds(8);
+    /** Soniox asks for about 200 ms of silence after speech before finalize, for accuracy without added delay. */
+    static final int FINAL_SILENCE_BYTES = Pcm16.BYTES_PER_SECOND / 5;
     private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT)
             .followRedirects(HttpClient.Redirect.NEVER).build();
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -132,7 +135,8 @@ final class SonioxRealtimeTranscriber implements TranscriptionSession {
             finishing = true;
             if (failed || fallback != null) return finishFallback();
             String finalize = JSON.writeValueAsString(Map.of("type", "finalize"));
-            result = sends.thenCompose(ignored -> socket.sendText(finalize, true))
+            result = sends.thenCompose(ignored -> socket.sendBinary(ByteBuffer.allocate(FINAL_SILENCE_BYTES), true))
+                    .thenCompose(ignored -> socket.sendText(finalize, true))
                     .thenCompose(ignored -> socket.sendBinary(ByteBuffer.allocate(0), true))
                     .thenCompose(ignored -> finalTranscript)
                     .orTimeout(FINAL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
@@ -209,10 +213,15 @@ final class SonioxRealtimeTranscriber implements TranscriptionSession {
             synchronized (this) {
                 if (failed || closed) return;
                 var pending = new StringBuilder();
+                boolean finalized = false;
                 for (JsonNode token : event.path("tokens")) {
                     String text = token.path("text").asString("");
                     // <fin> answers a finalize request and <end> an endpoint; neither is spoken text.
-                    if (text.isEmpty() || "<fin>".equals(text) || "<end>".equals(text)) continue;
+                    if ("<fin>".equals(text)) {
+                        finalized = true;
+                        continue;
+                    }
+                    if (text.isEmpty() || "<end>".equals(text)) continue;
                     if (token.path("is_final").asBoolean(false)) committed.append(text);
                     else pending.append(text);
                 }
@@ -221,7 +230,10 @@ final class SonioxRealtimeTranscriber implements TranscriptionSession {
                     preview = next;
                     update = next.strip();
                 }
-                if (event.path("finished").asBoolean(false)) finalTranscript.complete(committed.toString().strip());
+                // The marker that answers this session's finalize means every spoken token is committed; one that
+                // arrives before finish was not asked for and must not end the transcript early.
+                if ((finalized && finishing) || event.path("finished").asBoolean(false))
+                    finalTranscript.complete(committed.toString().strip());
             }
         } catch (RuntimeException malformed) {
             providerFailed();

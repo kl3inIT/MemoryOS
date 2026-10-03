@@ -88,7 +88,8 @@ test("dictation streams microphone audio, previews interim text and holds Send u
   await expect(recording).toBeVisible();
   await expect(input).toHaveAttribute("placeholder", "Listening…");
   await expect(input).toHaveValue("hello", { timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "Send question" })).toBeDisabled();
+  // The toolbar shows the recording controls instead of the model and Send until the final transcript.
+  await expect(page.getByRole("button", { name: "Send question" })).toHaveCount(0);
   expect(tickets).toEqual(["1"]);
   expect(new URL(stream.url).searchParams.get("ticket")).toBe("synthetic-ticket");
   expect(new URL(stream.url).searchParams.get("language")).toBe("en");

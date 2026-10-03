@@ -6,6 +6,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { InputGroupInput } from "@/components/ui/input-group";
 import type { DocumentSourceType } from "@/features/documents/document-source-presentation";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
+import { RecordingControls } from "@/features/voice/recording-controls";
 import { useDictationInput } from "@/features/voice/use-dictation-input";
 import { cn } from "@/lib/utils";
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
@@ -16,7 +17,7 @@ import type { DocumentSearch } from "./use-document-search";
 
 /**
  * The search box: the question, clearing it, dictating it and asking it, and once a question is on screen the
- * compact filters under it. Dictation uses the Tenant's speech-to-text provider through MemoryOS, never browser
+ * compact filters under it. While a dictation runs its recording controls stand in for those actions. Dictation uses the Tenant's speech-to-text provider through MemoryOS, never browser
  * recognition.
  */
 export function SearchBox({
@@ -65,52 +66,62 @@ export function SearchBox({
           className="min-w-0"
           onChange={(event) => setQuery(event.target.value)}
         />
-        {query ? (
-          <IconButton
-            type="button"
-            size="sm"
-            prominence="internal"
-            aria-label={ui("Clear search")}
-            onClick={() => {
-              setQuery("");
-              inputRef.current?.focus();
-            }}
-          >
-            <X />
-          </IconButton>
-        ) : null}
-        {voiceAvailable ? (
-          <IconButton
-            type="button"
+        {dictation.recording ? (
+          <RecordingControls
+            session={dictation.session}
             size="lg"
-            prominence="internal"
-            tone={dictation.listening ? "danger" : "default"}
-            aria-label={dictation.listening ? ui("Stop voice search") : ui("Search by voice")}
-            aria-pressed={dictation.listening}
-            aria-describedby="voice-search-status"
-            pending={dictation.status === "starting" || dictation.status === "finishing"}
-            title={dictation.listening ? ui("Stop listening") : ui("Search by voice")}
-            onClick={() => void dictation.toggle()}
-          >
-            <Mic
-              className={cn(dictation.listening && "animate-pulse motion-reduce:animate-none")}
-            />
-          </IconButton>
-        ) : null}
-        {updating ? (
-          <IconButton
-            type="button"
-            size="lg"
-            aria-label={ui("Search is loading")}
-            title={ui("Searching documents")}
-            pending
-          >
-            <Search />
-          </IconButton>
+            onStop={() => void dictation.toggle()}
+          />
         ) : (
-          <IconButton type="submit" size="lg" aria-label={ui("Search")} disabled={!query.trim()}>
-            <Search />
-          </IconButton>
+          <>
+            {query ? (
+              <IconButton
+                type="button"
+                size="sm"
+                prominence="internal"
+                aria-label={ui("Clear search")}
+                onClick={() => {
+                  setQuery("");
+                  inputRef.current?.focus();
+                }}
+              >
+                <X />
+              </IconButton>
+            ) : null}
+            {voiceAvailable ? (
+              <IconButton
+                type="button"
+                size="lg"
+                prominence="internal"
+                aria-label={ui("Search by voice")}
+                aria-describedby="voice-search-status"
+                title={ui("Search by voice")}
+                onClick={() => void dictation.toggle()}
+              >
+                <Mic />
+              </IconButton>
+            ) : null}
+            {updating ? (
+              <IconButton
+                type="button"
+                size="lg"
+                aria-label={ui("Search is loading")}
+                title={ui("Searching documents")}
+                pending
+              >
+                <Search />
+              </IconButton>
+            ) : (
+              <IconButton
+                type="submit"
+                size="lg"
+                aria-label={ui("Search")}
+                disabled={!query.trim()}
+              >
+                <Search />
+              </IconButton>
+            )}
+          </>
         )}
       </div>
 
@@ -121,7 +132,8 @@ export function SearchBox({
           aria-live="polite"
           className={cn(
             "px-4 pb-2 font-secondary-body",
-            dictation.status === "idle" && "sr-only",
+            // Only a failure is shown; the recording controls and the query itself show the rest.
+            dictation.status !== "failed" && "sr-only",
             dictation.status === "failed" ? "text-status-danger-content" : "text-content-secondary",
           )}
         >

@@ -350,22 +350,20 @@ describe("SearchPage", () => {
     await user.type(input, "quy định");
     await user.click(await screen.findByRole("button", { name: "Search by voice" }));
 
-    expect(await screen.findByRole("button", { name: "Stop voice search" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByText("Listening… Speak now, then review your query.")).toBeVisible();
+    const recording = await screen.findByRole("group", { name: "Recording" });
+    expect(within(recording).getByRole("button", { name: "Mute microphone" })).toBeEnabled();
+    // While recording, the controls stand in for clearing, the microphone and Search.
+    expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+    expect(screen.getByText("Listening… Speak now, then review your query.")).toBeInTheDocument();
     expect(options?.language).toBe("en");
 
     act(() => options?.onInterim("nghỉ phép"));
     expect(input).toHaveValue("quy định nghỉ phép");
 
-    await user.click(screen.getByRole("button", { name: "Stop voice search" }));
+    await user.click(within(recording).getByRole("button", { name: "Stop recording" }));
     await waitFor(() => expect(input).toHaveValue("quy định nghỉ phép năm"));
-    expect(screen.getByRole("button", { name: "Search by voice" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(screen.getByRole("button", { name: "Search by voice" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
     expect(input).toHaveFocus();
     expect(searchDocumentsMock).not.toHaveBeenCalled();
   });
@@ -385,10 +383,7 @@ describe("SearchPage", () => {
         "Microphone access is not allowed in this browser. Allow it, then try again.",
       ),
     ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Search by voice" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(screen.getByRole("button", { name: "Search by voice" })).toBeEnabled();
   });
 
   it("renders the result workspace and applies the compact filter menus", async () => {

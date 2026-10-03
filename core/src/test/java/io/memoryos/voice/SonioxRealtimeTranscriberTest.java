@@ -83,12 +83,27 @@ class SonioxRealtimeTranscriberTest {
 
             var finalText = session.finish();
             assertEquals("finalize", JSON.readTree(texts.getLast()).path("type").asString());
-            assertEquals(0, binaries.getLast());
-            receive("{\"tokens\":[{\"text\":\"<fin>\",\"is_final\":true}],\"finished\":true}");
+            // Trailing silence, then finalize, then the empty frame that ends the stream.
+            assertEquals(List.of(4, SonioxRealtimeTranscriber.FINAL_SILENCE_BYTES, 0), binaries);
+            receive("{\"tokens\":[],\"finished\":true}");
             assertEquals("Xin chào.", finalText.get(1, TimeUnit.SECONDS));
             assertEquals(0, meters.find("memoryos.chat.voice.realtime.fallback").counters().size());
         }
         assertEquals(1, released.get());
+    }
+
+    @Test
+    void theFinalizeMarkerCompletesTheTranscriptWithoutWaitingForFinished() throws Exception {
+        try (var session = session(ignored -> "batch must not run")) {
+            session.append(new byte[] {1, 0, 2, 0});
+            receive("{\"tokens\":[{\"text\":\"Xin\",\"is_final\":true},{\"text\":\" chào\",\"is_final\":false}]}");
+
+            var finalText = session.finish();
+            assertFalse(finalText.isDone());
+            receive("{\"tokens\":[{\"text\":\" chào.\",\"is_final\":true},{\"text\":\"<fin>\",\"is_final\":true}]}");
+            assertEquals("Xin chào.", finalText.get(1, TimeUnit.SECONDS));
+            assertEquals(0, meters.find("memoryos.chat.voice.realtime.fallback").counters().size());
+        }
     }
 
     @Test
