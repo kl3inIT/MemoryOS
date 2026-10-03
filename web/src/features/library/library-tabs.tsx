@@ -7,7 +7,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
-import { cn } from "@/lib/utils";
 import { fileSize } from "@/lib/file-size";
 import type { LibraryView } from "./library-views";
 import type { LibraryUsage } from "./storage-meter";
@@ -27,8 +26,8 @@ type Section = {
  * The library's navigation: one row of tabs under the page title, so the application sidebar stays the only menu
  * beside the page. What the person owns — their files, what is arriving, the trash — is one tab, and so are the
  * organisation's Sources and documents; the views inside such a tab are one choice above its content, as the
- * toolbar's other choices are. The organisation's tab needs Search, so a person without it never sees it. What the
- * account has stored ends the row. The view on screen is the open tab's panel.
+ * toolbar's other choices are. The organisation's tab needs Search, so a person without it never sees it. A nearly
+ * full storage ends the row. The view on screen is the open tab's panel.
  */
 export function LibraryTabs({
   view,
@@ -107,8 +106,8 @@ export function LibraryTabs({
               </TabsTrigger>
             ))}
           </TabsList>
-          {usage && usage.fileCount > 0 && (
-            <StorageSummary usage={usage} onShowLargest={onShowLargest} />
+          {usage && nearlyFull(usage) && (
+            <StorageWarning usage={usage} onShowLargest={onShowLargest} />
           )}
         </div>
         {section ? (
@@ -144,8 +143,17 @@ export function LibraryTabs({
   );
 }
 
-/** What the account has stored against what it may store, with the one action that helps when it runs out. */
-function StorageSummary({
+/** Whether the account has used so much of its limit that the list should say so. */
+function nearlyFull(usage: LibraryUsage) {
+  const limit = usage.limitBytes ?? 0;
+  return limit > 0 && (usage.usedBytes / limit) * 100 >= NEARLY_FULL;
+}
+
+/**
+ * The storage running out, with the one action that helps. With room to spare the figures stay in the library's
+ * settings, so the tab row holds the tabs alone.
+ */
+function StorageWarning({
   usage,
   onShowLargest,
 }: {
@@ -153,32 +161,18 @@ function StorageSummary({
   onShowLargest: () => void;
 }) {
   const ui = useAppTranslation();
-  const limit = usage.limitBytes ?? null;
-  const percent = limit ? Math.min(100, Math.round((usage.usedBytes / limit) * 100)) : 0;
-  const nearlyFull = limit !== null && percent >= NEARLY_FULL;
+  const limit = usage.limitBytes ?? 0;
   return (
     <section aria-label={ui("Dung lượng đã dùng")} className="flex items-center gap-3">
-      <p
-        className={cn(
-          "font-secondary-body tabular-nums",
-          nearlyFull ? "text-status-danger-content" : "text-content-muted",
-        )}
-      >
-        {fileSize(usage.usedBytes, i18n.language)}
-        {limit === null ? (
-          <span> · {ui("Không giới hạn")}</span>
-        ) : (
-          <span> / {fileSize(limit, i18n.language)}</span>
-        )}
+      <p className="font-secondary-body text-status-danger-content tabular-nums">
+        {fileSize(usage.usedBytes, i18n.language)} / {fileSize(limit, i18n.language)}
       </p>
-      {limit !== null && (
-        <Progress
-          value={percent}
-          aria-label={ui("Dung lượng đã dùng")}
-          tone={nearlyFull ? "danger" : "default"}
-          className="w-24"
-        />
-      )}
+      <Progress
+        value={Math.min(100, Math.round((usage.usedBytes / limit) * 100))}
+        aria-label={ui("Dung lượng đã dùng")}
+        tone="danger"
+        className="w-24"
+      />
       <TextButton size="sm" onClick={onShowLargest}>
         {ui("Xem tệp lớn nhất")}
       </TextButton>

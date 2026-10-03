@@ -212,8 +212,8 @@ it("sends the filters, the search and the sort to the server", async () => {
   await user.click(await screen.findByRole("button", { name: "Ảnh AI" }));
   await user.keyboard("{Escape}");
   await user.type(screen.getByRole("textbox", { name: "Tìm theo tên tệp" }), "doanh");
-  await user.click(screen.getByRole("combobox", { name: "Sắp xếp" }));
-  await user.click(await screen.findByRole("option", { name: "Dung lượng giảm dần" }));
+  await user.click(screen.getByRole("button", { name: "Cách hiển thị" }));
+  await user.click(await screen.findByRole("menuitemradio", { name: "Dung lượng giảm dần" }));
 
   await waitFor(() =>
     expect(lastListed()).toMatchObject({
@@ -230,8 +230,8 @@ it("opens the list the address names and keeps a changed order in it, leaving de
   const user = userEvent.setup();
   expect(lastListed()).toMatchObject({ categories: "IMAGE", offset: "0" });
 
-  await user.click(screen.getByRole("combobox", { name: "Sắp xếp" }));
-  await user.click(await screen.findByRole("option", { name: "Dung lượng giảm dần" }));
+  await user.click(screen.getByRole("button", { name: "Cách hiển thị" }));
+  await user.click(await screen.findByRole("menuitemradio", { name: "Dung lượng giảm dần" }));
 
   await waitFor(() =>
     expect(router.state.location.search).toEqual({ category: ["IMAGE"], sort: "LARGEST" }),
@@ -458,7 +458,8 @@ it("searches inside files and shows the matching passages", async () => {
     }),
   );
 
-  await user.click(screen.getByRole("radio", { name: "Nội dung" }));
+  await user.click(screen.getByRole("button", { name: "Cách hiển thị" }));
+  await user.click(await screen.findByRole("menuitemradio", { name: "Nội dung" }));
   await user.type(screen.getByRole("textbox", { name: "Tìm trong nội dung tệp" }), "thanh toán");
 
   await waitFor(() => expect(searched.at(-1)).toEqual({ query: "thanh toán" }));
@@ -530,17 +531,35 @@ it("packs a selection into a ZIP, then downloads it and names what was skipped",
   click.mockRestore();
 });
 
-it("shows what the library holds against its limit and links to the largest files", async () => {
+it("keeps the storage figures in the settings until the limit is near, then links to the largest files", async () => {
   await show();
   const user = userEvent.setup();
+  expect(screen.queryByRole("region", { name: "Dung lượng đã dùng" })).not.toBeInTheDocument();
+  cleanup();
 
+  server.use(
+    handleGetChatLibraryUsage({
+      body: { usedBytes: 9728, fileCount: 2, limitBytes: 10240, byCategory: [] },
+    }),
+  );
+  await show();
   const bar = await screen.findByRole("region", { name: "Dung lượng đã dùng" });
-  expect(within(bar).getByText(/3 KB/)).toBeInTheDocument();
+  expect(within(bar).getByText(/9,5 KB/)).toBeInTheDocument();
   expect(within(bar).getByText(/10 KB/)).toBeInTheDocument();
 
   await user.click(within(bar).getByRole("button", { name: "Xem tệp lớn nhất" }));
 
   await waitFor(() => expect(lastListed()).toMatchObject({ sort: "LARGEST" }));
+});
+
+it("leaves the search, the filter and the display menu out of a library with no file", async () => {
+  await show([]);
+
+  expect(await screen.findByRole("button", { name: "Cài đặt thư viện" })).toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByRole("button", { name: "Cách hiển thị" })).not.toBeInTheDocument(),
+  );
+  expect(screen.queryByRole("textbox", { name: "Tìm theo tên tệp" })).not.toBeInTheDocument();
 });
 
 it("says a deleted file goes to the trash, and restores or ends it from there", async () => {
@@ -615,12 +634,9 @@ it("narrows Tệp của tôi to its starred files, and takes that filter off lik
 });
 
 it("says what an empty view means and offers the way out of a filter", async () => {
-  await show([]);
+  await show([], false, "/library?q=khong-co");
   const user = userEvent.setup();
 
-  expect(await screen.findByText("Thư viện đang trống")).toBeInTheDocument();
-
-  await user.type(screen.getByRole("textbox", { name: "Tìm theo tên tệp" }), "khong-co");
   expect(await screen.findByText("Không có tệp nào khớp")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
   expect(await screen.findByText("Thư viện đang trống")).toBeInTheDocument();
