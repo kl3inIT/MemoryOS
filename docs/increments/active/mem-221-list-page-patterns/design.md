@@ -49,6 +49,10 @@ The rescan after this batch scored 25/40 against 26: two of its three major find
 
 The rescan scored 27/40. What it changed: a select is as tall as the field beside it (`--control-height-md`); a Library row always shows its menu and reveals only the star and the download on hover (`rowShortcutReveal`); a stat tile that filters carries a filter mark from `sm` up; the chat search entry shows its shortcut; a row under a day heading does not repeat the date. Left out by the owner's choice: a Help entry in the account menu and the product name in copy.
 
+### A phone names the page once
+
+Owner feedback on the 390 px captures: the page looked unfinished, and the title sat twice, in the shell bar and in the page header below it. Below `md` the shell bar is the page's name. A `PageHeader` whose title equals the bar's (`ShellBarTitle`) keeps its title and description for a screen reader and leaves the screen to its actions and the content; a header with a different title (a detail or a create page) stays. In the same batch: the Library's upload is a primary action as on the other list pages, its tabs drop their icons and fade at the end of the row, a day's files are one divided card as a day of meetings is, the Users search takes a row and its two filters share the next, and a field is as tall as the buttons beside it on a touch screen.
+
 ## Reuse
 
 Registry `Select`, `DropdownMenu` radio groups, `Collapsible`, `Skeleton`, `BrandLoader`; `formatUiDate`; the coarse-pointer rule in `base.css`; the Users page's URL-search pattern (`validateSearch` with a zod schema). No new composite.

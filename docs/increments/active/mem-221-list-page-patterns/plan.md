@@ -15,6 +15,7 @@
 - [x] Critique 3: Meetings opens with every meeting; shared page-size control; Library on a phone
 - [x] Critique 3, the rest: Users row menu as the shared menu; Meetings drops the ended badge and leads to the live meeting; Models guidance and tooltips; a finger-sized image chip
 - [x] Critique 4: one height for a select and a field; the Library row menu always visible; a stat tile marked as a filter; the search shortcut shown; a focus ring on project links; no date under a day heading
+- [x] Phone, owner feedback 2026-10-03: the shell bar names the page once; the Library's day is one card; the Users filters share a row
 - [ ] L2-2b meeting detail: left to the transcript work in flight
 - [ ] L2-5b conversation count: needs a total from the API
 - [ ] Owner review of each direction in the design; `pnpm --dir web check` in CI
@@ -28,4 +29,5 @@
 - Impeccable `detect` on the changed components reports nothing.
 - Third critique (2026-10-03, dual-agent): 25/40, detector clean; snapshot under `.impeccable/critique/`. Its five priority findings are addressed in the last five commits; the app is not rescored after them.
 - Fourth critique (2026-10-03, dual-agent, after the third's remaining fixes): 27/40, detector clean. Its findings on control heights, hidden row actions, unmarked filter tiles and the unshown shortcut are addressed after it; the app is not rescored after them. Whole Playwright suite after those changes: 200 pass, 1 skipped, and the one failure (the search trigger's accessible name took the shortcut text) is fixed and its spec passes. Vitest: 847 of 849; both failures are in `mcp-endpoint-admin-page.test.tsx`, one of which passes alone.
+- Fifth critique (2026-10-03, dual-agent, before the phone batch): 27/40, detector clean. Phone batch after it: whole Playwright suite 200 pass, 1 skipped, 1 failed (`meetings.spec.ts` recording at 1440 px, which passes alone and failed the same way before the batch). Eight 390 px waits on a page `h1` now wait for its presence, since the heading is off screen there.
 - Browser evidence: the same synthetic fixtures before (`1f9f6f989`) and after, at 1440×900 and 390×844, for Users, Meetings, the Library with files and empty, Models and the administration menu. The Sources page and the composer's Web row are not captured.
