@@ -5,6 +5,7 @@ import {
   Blocks,
   Cable,
   ChartColumn,
+  ChevronDown,
   HardDrive,
   Menu,
   MessageSquare,
@@ -21,6 +22,7 @@ import {
   adminGroups,
   adminPages,
   useCurrentAdminPage,
+  type AdminGroup,
   type AdminPage,
 } from "@/components/app-shell/admin-pages";
 import { AppShellHeaderContent } from "@/components/app-shell/app-shell-header";
@@ -31,6 +33,7 @@ import {
   type SourceSetupProgress,
 } from "@/components/app-shell/source-setup-progress";
 import { Brand } from "@/components/brand";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IconButton } from "@/components/ui/icon-button";
 import { SheetClose } from "@/components/ui/sheet";
 import {
@@ -154,6 +157,49 @@ function NavigationGroup({ title, children }: { title: string; children: ReactNo
   );
 }
 
+/**
+ * A section of the administration menu that folds under its heading, so every section's name fits a laptop
+ * screen. The rail has no headings, so there every row stays.
+ */
+function FoldingNavigationGroup({
+  title,
+  open,
+  onOpenChange,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  const headingId = useId();
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange} asChild>
+      <SidebarGroup role="group" aria-labelledby={headingId}>
+        <SidebarGroupLabel asChild>
+          <h2 id={headingId}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="group/trigger flex flex-1 items-center gap-2 rounded-sm text-left outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+              >
+                <span className="flex-1">{title}</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="size-4 shrink-0 transition-transform group-data-[state=open]/trigger:rotate-180"
+                />
+              </button>
+            </CollapsibleTrigger>
+          </h2>
+        </SidebarGroupLabel>
+        <CollapsibleContent>
+          <SidebarMenu>{children}</SidebarMenu>
+        </CollapsibleContent>
+      </SidebarGroup>
+    </Collapsible>
+  );
+}
+
 function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: SidebarContentsProps) {
   const ui = useAppTranslation();
   const { state, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
@@ -166,6 +212,26 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
 
   // The administration menu outgrows a laptop screen, and its resting scrollbar is invisible: on every navigation
   // the open page's own link scrolls into view, and nothing moves when it is already visible.
+  // The open page's section is open, and so is any other the person opened; the rest stay folded.
+  const currentGroup = appArea
+    ? undefined
+    : adminPages.find((page) => page.id === adminPage)?.group;
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<AdminGroup>>(
+    () => new Set(currentGroup ? [currentGroup] : []),
+  );
+  const [followedGroup, setFollowedGroup] = useState(currentGroup);
+  if (followedGroup !== currentGroup) {
+    setFollowedGroup(currentGroup);
+    if (currentGroup) setOpenGroups((open) => new Set(open).add(currentGroup));
+  }
+  const setGroupOpen = (group: AdminGroup, open: boolean) =>
+    setOpenGroups((current) => {
+      const next = new Set(current);
+      if (open) next.add(group);
+      else next.delete(group);
+      return next;
+    });
+
   const navigation = useRef<HTMLElement>(null);
   useEffect(() => {
     if (appArea) return;
@@ -272,7 +338,12 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
                 (page) => page.group === group.id && page.visible(authority),
               );
               return pages.length > 0 ? (
-                <NavigationGroup key={group.id} title={ui(group.label)}>
+                <FoldingNavigationGroup
+                  key={group.id}
+                  title={ui(group.label)}
+                  open={collapsed || openGroups.has(group.id)}
+                  onOpenChange={(open) => setGroupOpen(group.id, open)}
+                >
                   {pages.map((page) => (
                     <SidebarLink
                       key={page.id}
@@ -285,7 +356,7 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
                       onNavigate={onNavigate}
                     />
                   ))}
-                </NavigationGroup>
+                </FoldingNavigationGroup>
               ) : null;
             })
           )}

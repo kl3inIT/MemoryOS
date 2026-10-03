@@ -4,7 +4,6 @@ import {
   Blocks,
   Bot,
   Cable,
-  CloudUpload,
   Globe,
   ImageIcon,
   KeyRound,
@@ -27,7 +26,6 @@ import type { AdminAuthority } from "@/features/identity/application-session-con
 export type AdminPage =
   | "chatHistory"
   | "sources"
-  | "addSource"
   | "documentSets"
   | "users"
   | "groups"
@@ -165,16 +163,6 @@ export const adminPages: readonly AdminPageEntry[] = [
     icon: Plug,
     group: "knowledge",
     visible: readSources,
-  },
-  {
-    id: "addSource",
-    to: "/admin/sources/new",
-    label: appText("Add a source"),
-    title: appText("Add a source"),
-    icon: CloudUpload,
-    group: "knowledge",
-    visible: readSources,
-    fuzzy: true,
   },
   {
     id: "documentSets",

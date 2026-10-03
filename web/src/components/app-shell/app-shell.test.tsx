@@ -100,12 +100,31 @@ it("shows only the administration pages the session may open, in their sections"
     within(navigation)
       .getAllByRole("link")
       .map((link) => link.textContent),
-  ).toEqual(["Groups", "Conversation history", "Audit log"]);
+  ).toEqual(["Conversation history", "Audit log"]);
   expect(within(navigation).getByRole("link", { name: "Conversation history" })).toHaveAttribute(
     "aria-current",
     "page",
   );
   expect(screen.getByText("History page")).toBeInTheDocument();
+});
+
+it("folds every administration section but the open page's, and opens one on request", async () => {
+  const user = userEvent.setup();
+  await renderShell("/admin/chat-history", ["AUDIT_READ", "CHAT_HISTORY_READ"]);
+
+  const navigation = await screen.findByRole("navigation", { name: "Administration navigation" });
+  expect(within(navigation).getByRole("button", { name: "Monitoring" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  const organization = within(navigation).getByRole("button", { name: "Organization" });
+  expect(organization).toHaveAttribute("aria-expanded", "false");
+  expect(within(navigation).queryByRole("link", { name: "Groups" })).not.toBeInTheDocument();
+
+  await user.click(organization);
+
+  expect(within(navigation).getByRole("link", { name: "Groups" })).toBeInTheDocument();
+  expect(within(navigation).getByRole("link", { name: "Audit log" })).toBeInTheDocument();
 });
 
 it("names the person on the account button and keeps the role in its menu", async () => {

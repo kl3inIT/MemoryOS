@@ -277,7 +277,7 @@ test("keeps the open administration page's link in view on a laptop screen", asy
   await expect(open).toBeInViewport();
 });
 
-test("separates listing Sources from adding one in the administration menu", async ({ page }) => {
+test("adds a Source from the Sources page, which stays the open menu entry", async ({ page }) => {
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
       status: 200,
@@ -292,14 +292,14 @@ test("separates listing Sources from adding one in the administration menu", asy
   const knowledge = navigation.getByRole("group", { name: "Documents & Knowledge" });
   await expect(knowledge.getByRole("link", { name: "Search settings", exact: true })).toBeVisible();
   const list = navigation.getByRole("link", { name: "Sources", exact: true });
-  const add = navigation.getByRole("link", { name: "Add a source", exact: true });
   await expect(list).toHaveAttribute("aria-current", "page");
+  // Adding a Source is an action of the Sources page, not a page of the menu.
+  await expect(navigation.getByRole("link", { name: "Add a source", exact: true })).toHaveCount(0);
 
-  await add.click();
+  await page.getByRole("link", { name: "Add source", exact: true }).click();
 
   await expect(page).toHaveURL(/\/admin\/sources\/new$/);
-  await expect(add).toHaveAttribute("aria-current", "page");
-  await expect(list).not.toHaveAttribute("aria-current", "page");
+  await expect(list).toHaveAttribute("aria-current", "page");
 });
 
 test("keeps one document, identity session, and admin shell across internal routes", async ({
