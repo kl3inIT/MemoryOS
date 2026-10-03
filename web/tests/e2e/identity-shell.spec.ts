@@ -387,9 +387,12 @@ test("closes mobile administration navigation after a client route change", asyn
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
   await expectNoSeriousA11yViolations(page);
-  // The menu opens with the current page's section only; another section unfolds on request.
-  await page.getByRole("button", { name: "Organization", exact: true }).click();
-  await page.getByRole("link", { name: "Users", exact: true }).click();
+  // A menu taller than the phone folds every section but the open page's; another unfolds on request.
+  const users = page.getByRole("link", { name: "Users", exact: true });
+  if (!(await users.isVisible())) {
+    await page.getByRole("button", { name: "Organization", exact: true }).click();
+  }
+  await users.click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
 

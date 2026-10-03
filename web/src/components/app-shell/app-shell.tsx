@@ -16,8 +16,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { AccountMenu } from "@/components/app-shell/account-menu";
+import { readFoldedGroups, rememberFoldedGroups } from "@/components/app-shell/admin-menu-folds";
 import {
   adminGroups,
   adminPages,
@@ -158,8 +159,8 @@ function NavigationGroup({ title, children }: { title: string; children: ReactNo
 }
 
 /**
- * A section of the administration menu that folds under its heading, so every section's name fits a laptop
- * screen. The rail has no headings, so there every row stays.
+ * A section of the administration menu that folds under its heading: by the person, or by the menu itself when
+ * its rows would not fit the screen. The rail has no headings, so there every row stays.
  */
 function FoldingNavigationGroup({
   title,
@@ -212,27 +213,43 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
 
   // The administration menu outgrows a laptop screen, and its resting scrollbar is invisible: on every navigation
   // the open page's own link scrolls into view, and nothing moves when it is already visible.
-  // The open page's section is open, and so is any other the person opened; the rest stay folded.
+  // Every section is open while the menu fits the screen, so a page is found by reading rather than by
+  // remembering its section. A section folds when the person folds it, which the browser remembers, or, before
+  // they ever chose, when the menu would otherwise scroll. The open page's section is always open.
   const currentGroup = appArea
     ? undefined
     : adminPages.find((page) => page.id === adminPage)?.group;
-  const [openGroups, setOpenGroups] = useState<ReadonlySet<AdminGroup>>(
-    () => new Set(currentGroup ? [currentGroup] : []),
+  const [foldedGroups, setFoldedGroups] = useState<ReadonlySet<AdminGroup>>(
+    () => readFoldedGroups() ?? new Set(),
   );
   const [followedGroup, setFollowedGroup] = useState(currentGroup);
   if (followedGroup !== currentGroup) {
     setFollowedGroup(currentGroup);
-    if (currentGroup) setOpenGroups((open) => new Set(open).add(currentGroup));
+    if (currentGroup && foldedGroups.has(currentGroup)) {
+      setFoldedGroups((folded) => new Set([...folded].filter((group) => group !== currentGroup)));
+    }
   }
-  const setGroupOpen = (group: AdminGroup, open: boolean) =>
-    setOpenGroups((current) => {
-      const next = new Set(current);
-      if (open) next.add(group);
-      else next.delete(group);
-      return next;
-    });
+  const setGroupOpen = (group: AdminGroup, open: boolean) => {
+    const next = new Set(foldedGroups);
+    if (open) next.delete(group);
+    else next.add(group);
+    setFoldedGroups(next);
+    rememberFoldedGroups(next);
+  };
 
   const navigation = useRef<HTMLElement>(null);
+  // Measured once per menu: a later navigation opens its section and leaves the rest as they are.
+  const measured = useRef(false);
+  useLayoutEffect(() => {
+    if (measured.current || appArea || collapsed) return;
+    measured.current = true;
+    if (readFoldedGroups() !== undefined) return;
+    const scroller = navigation.current?.closest<HTMLElement>('[data-slot="sidebar-content"]');
+    if (!scroller || scroller.scrollHeight <= scroller.clientHeight) return;
+    setFoldedGroups(
+      new Set(adminGroups.map((group) => group.id).filter((group) => group !== currentGroup)),
+    );
+  }, [appArea, collapsed, currentGroup]);
   useEffect(() => {
     if (appArea) return;
     navigation.current
@@ -341,7 +358,7 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
                 <FoldingNavigationGroup
                   key={group.id}
                   title={ui(group.label)}
-                  open={collapsed || openGroups.has(group.id)}
+                  open={collapsed || !foldedGroups.has(group.id)}
                   onOpenChange={(open) => setGroupOpen(group.id, open)}
                 >
                   {pages.map((page) => (
