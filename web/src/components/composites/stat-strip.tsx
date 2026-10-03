@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { ListFilter, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -150,12 +150,21 @@ export function StatToggleTile({
       onClick={onToggle}
       className={cn(
         tileClass,
-        "relative text-left transition-colors duration-150 outline-none hover:bg-surface-subtle focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-focus-ring/40",
+        "relative cursor-pointer text-left transition-colors duration-150 outline-none hover:bg-surface-subtle focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-focus-ring/40 sm:pr-8",
         selected && "bg-surface-sunken",
         props.className,
       )}
     >
       <StatBody {...props} />
+      {/* The mark of a filter, so the tile does not read as a figure only. */}
+      <ListFilter
+        aria-hidden="true"
+        className={cn(
+          // Three tiles share a phone's width, which the label needs whole.
+          "absolute top-3 right-3 size-3.5 text-content-muted transition-colors duration-150 max-sm:hidden",
+          selected && "text-content-primary",
+        )}
+      />
       <span
         aria-hidden="true"
         className={cn(
