@@ -1,4 +1,5 @@
 import { Fragment, useRef, type ReactNode } from "react";
+import { formatUiDay } from "@/i18n/format";
 import { Link } from "@tanstack/react-router";
 import {
   Bot,
@@ -208,8 +209,8 @@ function EntryMeta({ entry, view }: { entry: LibraryEntry; view: LibraryEntryVie
   }
   parts.push(
     view === "recent" && entry.openedAt
-      ? ui("Đã mở {{date}}", { date: new Date(entry.openedAt).toLocaleDateString(i18n.language) })
-      : new Date(entry.at).toLocaleDateString(i18n.language),
+      ? ui("Đã mở {{date}}", { date: formatUiDay(entry.openedAt) })
+      : formatUiDay(entry.at),
   );
   return (
     <>

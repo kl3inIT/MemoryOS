@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
@@ -468,7 +468,7 @@ function UserStatus({
       ) : entry.status === "INVITED" && entry.invitationExpiresAt ? (
         <time
           dateTime={entry.invitationExpiresAt}
-          title={new Date(entry.invitationExpiresAt).toLocaleString(uiLocale())}
+          title={formatUiMoment(entry.invitationExpiresAt)}
           className="max-w-full font-secondary-body text-content-muted"
         >
           {ui("Expires")} {formatInvitationDate(entry.invitationExpiresAt)}

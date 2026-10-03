@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { appText } from "@/i18n/app-text";
-import { formatUiDate } from "@/i18n/format";
+import { formatUiDate, formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ApiError } from "@/lib/api";
 import {
@@ -297,10 +297,7 @@ function Loaded({
                       {past.retainedUntil && retained(past)
                         ? ui(
                             appText("Giữ đến {{date}}", {
-                              date: formatUiDate(past.retainedUntil, {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              }),
+                              date: formatUiMoment(past.retainedUntil),
                             }),
                           )
                         : ui("Hết hạn giữ")}

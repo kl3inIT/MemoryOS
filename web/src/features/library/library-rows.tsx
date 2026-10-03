@@ -1,4 +1,5 @@
 import { Fragment, useId, useRef, useState, type ReactNode } from "react";
+import { formatUiDay } from "@/i18n/format";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -359,19 +360,17 @@ function RowMeta({ file, view }: { file: LibraryFile; view: LibraryOwnedView }) 
   const parts: string[] = [];
   if (view === "pending") parts.push(statusLabel(file, ui));
   else if (view === "trash" && file.deletedAt)
-    parts.push(
-      ui("Đã xóa {{date}}", { date: new Date(file.deletedAt).toLocaleDateString(i18n.language) }),
-    );
+    parts.push(ui("Đã xóa {{date}}", { date: formatUiDay(file.deletedAt) }));
   else parts.push(sources[file.source]);
   parts.push(categories[file.category]);
   parts.push(fileSize(file.sizeBytes, i18n.language));
   if (view === "trash" && file.purgeAfter)
     parts.push(
       ui("Xóa vĩnh viễn {{date}}", {
-        date: new Date(file.purgeAfter).toLocaleDateString(i18n.language),
+        date: formatUiDay(file.purgeAfter),
       }),
     );
-  else parts.push(new Date(file.createdAt).toLocaleDateString(i18n.language));
+  else parts.push(formatUiDay(file.createdAt));
   return (
     <>
       {parts.map((part, index) => (

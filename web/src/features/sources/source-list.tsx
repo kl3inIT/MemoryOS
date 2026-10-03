@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiDay, formatUiMoment, uiLocale } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
 import {
   ChevronDown,
@@ -149,13 +149,13 @@ export function SourceList<T extends SourceListItem>({
           icon={<Plug />}
           iconClass="text-chart-1"
           label={ui("Total sources")}
-          value={sources.length}
+          value={sources.length.toLocaleString(uiLocale())}
         />
         <StatToggleTile
           icon={<TriangleAlert />}
           iconClass="text-status-danger-content"
           label={ui("Failed")}
-          value={failedCount}
+          value={failedCount.toLocaleString(uiLocale())}
           tone={failedCount > 0 ? "danger" : undefined}
           selected={showingFailed}
           onToggle={() => onFilters({ ...filters, status: showingFailed ? "" : "FAILED" })}
@@ -165,7 +165,7 @@ export function SourceList<T extends SourceListItem>({
           icon={<FileText />}
           iconClass="text-chart-2"
           label={documentsLabel}
-          value={documentCount}
+          value={documentCount.toLocaleString(uiLocale())}
         />
       </StatStrip>
 
@@ -478,8 +478,8 @@ function groupSources<T extends SourceListItem>(sources: T[]): SourceGroup<T>[] 
 function LastIndexed({ value }: { value: string }) {
   const date = new Date(value);
   return (
-    <time dateTime={value} title={date.toLocaleString(uiLocale())}>
-      {new Intl.DateTimeFormat(uiLocale(), { dateStyle: "medium" }).format(date)}
+    <time dateTime={value} title={formatUiMoment(date)}>
+      {formatUiDay(date)}
     </time>
   );
 }

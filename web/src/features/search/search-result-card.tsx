@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiDay } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { CornerDownRight } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
@@ -200,5 +200,5 @@ function Snippet({
 function readableDate(value: string): string | null {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(uiLocale());
+  return formatUiDay(date);
 }
