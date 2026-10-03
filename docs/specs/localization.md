@@ -11,3 +11,5 @@ Shared error descriptors map stable RFC 9457 status/business/validation codes to
 Chat snapshots a server-side language hint per turn. Vietnamese preference suggests Vietnamese unless the user asks otherwise; English follows the message language. No retrieval/document translation or Persona override. Saved content keeps its original language.
 
 `pnpm check:i18n` scans direct JSX text, presentation attributes and static `ui`/`appText` keys. Catalog tests enforce key/parameter parity and registry/provider coverage. This AST gate is a regression guard, not proof about arbitrary dynamically assembled copy; browser tests complement it. New sentences should use whole-message interpolation.
+
+Copy calls the Tenant *tổ chức* in Vietnamese and *organization* in English. The domain, API, database and code keep Tenant, and Microsoft Entra's *Directory (tenant) ID* is quoted as Microsoft writes it. `check:i18n` fails a catalog string that says Tenant otherwise.

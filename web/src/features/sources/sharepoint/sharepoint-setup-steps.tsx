@@ -237,7 +237,7 @@ export function SharePointReviewStep({
             </ReviewFact>
             <ReviewFact label={ui("Visibility")}>
               {values.access === "PUBLIC"
-                ? ui("Public · everyone in this Tenant")
+                ? ui("Public · everyone in this organization")
                 : ui("Private · selected group members")}
             </ReviewFact>
             {values.access === "PRIVATE" ? (

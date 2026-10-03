@@ -312,7 +312,7 @@ export function UsersTable({
     <>
       <DataTable
         table={table}
-        label={ui("Tenant users")}
+        label={ui("Organization users")}
         className="md:min-w-224"
         footer={
           <TablePagination
