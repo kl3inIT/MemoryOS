@@ -592,6 +592,21 @@ test("the list's search keeps a row of its own on a phone", async ({ page }) => 
   await page.screenshot({ path: "../output/playwright/meetings-list-phone.png" });
 });
 
+test("the list's filters live in the address, so a reload or Back keeps them", async ({ page }) => {
+  await mockMeetings(page);
+  await page.goto("/meetings?status=ENDED&period=all");
+  const status = page.getByRole("combobox", { name: "Trạng thái" });
+  await expect(status).toHaveText("Đã kết thúc", { timeout: 30_000 });
+  const period = page.getByRole("combobox", { name: "Thời gian" });
+  await expect(period).toHaveText("Tất cả");
+
+  await period.click();
+  await page.getByRole("option", { name: "90 ngày qua" }).click();
+  await expect(page).toHaveURL(/status=ENDED&period=90d/);
+  await page.reload();
+  await expect(period).toHaveText("90 ngày qua", { timeout: 30_000 });
+});
+
 test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const { uploaded } = await mockMeetings(page);

@@ -806,7 +806,7 @@ test("restores and updates the bounded server-driven Users view from the URL", a
   );
 
   await expect(page.getByRole("searchbox", { name: "Search users" })).toHaveValue("member");
-  await expect(page.getByRole("combobox", { name: "Filter by role" })).toHaveValue("MEMBER");
+  await expect(page.getByRole("combobox", { name: "Filter by role" })).toHaveText("Member");
   await expect(page.getByText("member21@example.com")).toBeVisible();
   await expect(page.getByText("Showing 21–24 of 24")).toBeVisible();
   await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
