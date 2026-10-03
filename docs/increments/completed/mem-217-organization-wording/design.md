@@ -40,7 +40,7 @@ Only the term changes. Sentences are not otherwise rewritten.
 - **English source keys.** One old → new mapping is applied with an exact-count check: each English source key changes at its call sites, its `app-translations.vi.ts` key and its Vietnamese value. Seven of these keys have no call site left. They are renamed for consistency, not deleted.
 - **Vietnamese source keys.** Four Vietnamese source keys get their `app-translations.en.ts` value changed. Two of them also change their key and call site.
 - **Session catalog.** The session catalog's `identity.notProvisionedDescription` (`i18n/en.ts`) changes too.
-- **Guard.** `check:i18n` fails a catalog line whose string says *tenant*, apart from *Directory (tenant) ID*. On the old catalogs it reports 58 lines.
+- **Guard.** `check:i18n` fails a catalog line that says *tenant* or *tenants* outside a comment, whichever quote the string uses, apart from *Directory (tenant) ID*. On the old catalogs it reports 58 lines.
 
 ## Acceptance
 
