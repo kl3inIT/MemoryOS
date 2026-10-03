@@ -45,6 +45,10 @@ The critique left the direction of each P2 group to the owner. This batch takes 
 
 The rescan after this batch scored 25/40 against 26: two of its three major findings were this batch's own. Folding the administration menu and moving the search mode into the display menu each traded noise for recall. Both are corrected above. The rescan's other findings in this batch: the Meetings period default, the page-size control on Users and Groups (`PageSizeSelect`), and the Library on a phone (one scrolling tab row, icon-only filter and display buttons, a 44 px filter pill).
 
+### After the fourth critique
+
+The rescan scored 27/40. What it changed: a select is as tall as the field beside it (`--control-height-md`); a Library row always shows its menu and reveals only the star and the download on hover (`rowShortcutReveal`); a stat tile that filters carries a filter mark from `sm` up; the chat search entry shows its shortcut; a row under a day heading does not repeat the date. Left out by the owner's choice: a Help entry in the account menu and the product name in copy.
+
 ## Reuse
 
 Registry `Select`, `DropdownMenu` radio groups, `Collapsible`, `Skeleton`, `BrandLoader`; `formatUiDate`; the coarse-pointer rule in `base.css`; the Users page's URL-search pattern (`validateSearch` with a zod schema). No new composite.
