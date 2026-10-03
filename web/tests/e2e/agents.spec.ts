@@ -576,3 +576,26 @@ test("sends a starter prompt from the agent's detail view into a new conversatio
   await expect(page.getByText("Xếp loại KPI tháng 8 của các đơn vị").first()).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Câu hỏi" })).toHaveValue("");
 });
+
+test.describe("on a phone", () => {
+  // A touch screen cannot hover, so the card's actions are always shown there.
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("keeps a card's actions clear of its name and description", async ({ page }) => {
+    await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+    await page.goto("/agents");
+    const card = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
+    const edit = card.getByRole("button", { name: "Sửa Chính sách nhân sự" });
+    await expect(edit).toBeVisible();
+    const actions = (await edit.boundingBox())!;
+    for (const text of [
+      card.getByRole("heading", { name: "Chính sách nhân sự" }),
+      card.getByText("Giải đáp chính sách lương, nghỉ phép và mẫu hợp đồng đang có hiệu lực."),
+    ]) {
+      const box = (await text.boundingBox())!;
+      expect(box.y + box.height).toBeLessThanOrEqual(actions.y);
+    }
+    await card.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: "../output/playwright/agents-card-phone.png" });
+  });
+});

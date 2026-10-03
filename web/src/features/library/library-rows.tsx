@@ -278,7 +278,7 @@ function LibraryRow({
             className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
             onClick={() => actions.onPreview(file)}
           >
-            <span className="truncate">{file.filename}</span>
+            <span className="line-clamp-2 wrap-anywhere sm:line-clamp-1">{file.filename}</span>
             {file.favorite && (
               <Star
                 role="img"
@@ -495,6 +495,8 @@ export function FileActions({
         <IconButton
           size="sm"
           prominence="internal"
+          // The "…" menu also downloads, so a phone row gives this width to the file's name.
+          className="hidden sm:inline-flex"
           aria-label={ui("Tải về {{name}}", { name: file.filename })}
           title={ui("Tải về")}
           asChild

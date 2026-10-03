@@ -579,6 +579,19 @@ async function mockMeetings(page: Page) {
   return { audio, exported, uploaded, shared, correcting, written };
 }
 
+test("the list's search keeps a row of its own on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockMeetings(page);
+  await page.goto("/meetings");
+  const search = page.getByRole("textbox", { name: "Tìm theo tên cuộc họp" });
+  await expect(search).toBeVisible({ timeout: 30_000 });
+  const status = page.getByRole("combobox", { name: "Trạng thái" });
+  const [searchBox, statusBox] = [(await search.boundingBox())!, (await status.boundingBox())!];
+  expect(searchBox.width).toBeGreaterThan(280);
+  expect(statusBox.y).toBeGreaterThanOrEqual(searchBox.y + searchBox.height);
+  await page.screenshot({ path: "../output/playwright/meetings-list-phone.png" });
+});
+
 test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const { uploaded } = await mockMeetings(page);
