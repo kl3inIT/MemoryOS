@@ -1,36 +1,36 @@
 package io.memoryos.chat.interpreter;
 
-import jakarta.annotation.PreDestroy;
+import io.memoryos.shared.OutboundHttp;
+import io.memoryos.shared.OutboundHttp.Limits;
+import io.memoryos.shared.OutboundHttp.ResponseTooLargeException;
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import org.apache.hc.core5.http.HttpEntity;
-import org.springframework.modulith.NamedInterface;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
-import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
-import org.apache.hc.client5.http.config.ConnectionConfig;
-import org.apache.hc.client5.http.config.RequestConfig;
-import org.apache.hc.client5.http.entity.mime.HttpMultipartMode;
-import org.apache.hc.client5.http.entity.mime.InputStreamBody;
-import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
-import org.apache.hc.core5.http.ContentType;
-import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.apache.hc.core5.util.Timeout;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.AbstractResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -40,7 +40,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 @NamedInterface("interpreter")
-public class InterpreterClient implements AutoCloseable {
+public class InterpreterClient {
     /** Largest generated file copied into MemoryOS object storage (MEM-110 design). */
     public static final int MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
     private static final int JSON_LIMIT = 8 * 1024 * 1024;
@@ -52,7 +52,6 @@ public class InterpreterClient implements AutoCloseable {
 
     private final InterpreterProperties properties;
     private final LongSupplier nanos;
-    private final CloseableHttpClient client;
     private volatile @Nullable CachedHealth cached;
 
     public record Health(boolean connected, String error, String version) {
@@ -80,14 +79,6 @@ public class InterpreterClient implements AutoCloseable {
     InterpreterClient(InterpreterProperties properties, LongSupplier nanos) {
         this.properties = properties;
         this.nanos = nanos;
-        var pool = PoolingHttpClientConnectionManagerBuilder.create()
-                .setMaxConnTotal(20).setMaxConnPerRoute(20)
-                .setDefaultConnectionConfig(ConnectionConfig.custom().setConnectTimeout(Timeout.ofSeconds(5))
-                        .setSocketTimeout(Timeout.ofSeconds(90)).build());
-        this.client = HttpClients.custom().setConnectionManager(pool.build()).disableAutomaticRetries()
-                .disableCookieManagement().disableRedirectHandling()
-                .setDefaultRequestConfig(RequestConfig.custom().setConnectionRequestTimeout(Timeout.ofSeconds(5))
-                        .setResponseTimeout(Timeout.ofSeconds(30)).build()).build();
     }
 
     public boolean configured() { return properties.configured(); }
@@ -98,15 +89,17 @@ public class InterpreterClient implements AutoCloseable {
         if (!configured()) health = new Health(false, "Code Interpreter is not configured", "0.0.0");
         else {
             try {
-                health = send(request("GET", "/health", 5), response -> {
-                    if (response.status() < 200 || response.status() >= 300)
-                        return new Health(true, "Code Interpreter service returned HTTP " + response.status(), "0.0.0");
-                    var body = JSON.readTree(response.body());
+                // Read with exchange: a failed status is a health answer here, not a failure.
+                health = client(5, JSON_LIMIT).get().uri("/health").exchange((request, response) -> {
+                    int status = response.getStatusCode().value();
+                    if (status < 200 || status >= 300)
+                        return new Health(true, "Code Interpreter service returned HTTP " + status, "0.0.0");
+                    var body = JSON.readTree(response.getBody().readAllBytes());
                     return "ok".equals(body.path("status").asString(""))
                             ? new Health(true, "", body.path("version").asString("0.0.0"))
                             : new Health(true, "Code Interpreter service is not healthy", body.path("version").asString("0.0.0"));
                 });
-            } catch (IOException | RuntimeException unreachable) {
+            } catch (RuntimeException unreachable) {
                 health = new Health(false, "Unable to reach the Code Interpreter service", "0.0.0");
             }
         }
@@ -123,32 +116,24 @@ public class InterpreterClient implements AutoCloseable {
 
     /** Streams one file to {@code POST /v1/files}; returns the service file id. */
     public String upload(String filename, String mediaType, InputStream content) throws IOException {
-        var request = request("POST", "/v1/files", 30);
-        request.setEntity(MultipartEntityBuilder.create().setMode(HttpMultipartMode.EXTENDED)
-                .addPart("file", new InputStreamBody(content, ContentType.parse(mediaType), filename)).build());
-        return send(request, response -> {
-            requireSuccess(response.status(), response.body());
-            return text(JSON.readTree(response.body()).path("file_id"), "file_id");
-        });
+        var part = new HttpHeaders();
+        part.setContentType(MediaType.parseMediaType(mediaType));
+        var file = new AbstractResource() {
+            @Override public InputStream getInputStream() { return content; }
+            @Override public long contentLength() { return -1; }
+            @Override public String getFilename() { return filename; }
+            @Override public String getDescription() { return "interpreter upload"; }
+        };
+        JsonNode stored = call(() -> api(30, JSON_LIMIT).upload(new HttpEntity<>(file, part)));
+        if (stored == null) throw new IOException("Interpreter response missing file_id");
+        return text(stored.path("file_id"), "file_id");
     }
 
     /** Runs code with {@code POST /v1/execute}; the HTTP timeout is 10 seconds longer than the execution timeout. */
     public Execution execute(String code, int timeoutMs, List<StagedFile> files) throws IOException {
-        var request = request("POST", "/v1/execute", timeoutMs / 1000 + 10);
-        request.setEntity(new StringEntity(JSON.writeValueAsString(body(code, timeoutMs, files)), ContentType.APPLICATION_JSON));
-        return send(request, response -> {
-            requireSuccess(response.status(), response.body());
-            var json = JSON.readTree(response.body());
-            var workspace = new ArrayList<WorkspaceFile>();
-            for (var file : json.path("files")) {
-                var id = file.path("file_id");
-                workspace.add(new WorkspaceFile(file.path("path").asString(""), file.path("kind").asString(""),
-                        id.isString() ? id.asString() : null));
-            }
-            var exit = json.path("exit_code");
-            return new Execution(json.path("stdout").asString(""), json.path("stderr").asString(""),
-                    exit.isNumber() ? exit.asInt() : null, json.path("timed_out").asBoolean(false), List.copyOf(workspace));
-        });
+        JsonNode result = call(() -> api(timeoutMs / 1000 + 10, JSON_LIMIT).execute(body(code, timeoutMs, files)));
+        if (result == null) throw new IOException("Interpreter returned no result");
+        return execution(result, result.path("stdout").asString(""), result.path("stderr").asString(""));
     }
 
     /** Receives one stdout/stderr chunk while the code runs; throwing aborts the run. */
@@ -158,24 +143,19 @@ public class InterpreterClient implements AutoCloseable {
 
     /**
      * Runs code with {@code POST /v1/execute/stream}, reporting output as it is produced. Aborting the read (a listener
-     * that throws, or an interrupted thread) closes the connection, which kills the executor container and frees the
-     * service's execution slot instead of holding it until the timeout.
+     * that throws, or an interrupted thread) closes the response without reading the rest of it, which closes the
+     * connection, kills the executor container and frees the service's execution slot instead of holding it until the
+     * timeout.
      */
     public Execution executeStream(String code, int timeoutMs, List<StagedFile> files, OutputListener listener) throws IOException {
-        if (!configured()) throw new IOException("Interpreter not configured");
-        var request = request("POST", "/v1/execute/stream", timeoutMs / 1000L + 10);
-        request.setEntity(new StringEntity(JSON.writeValueAsString(body(code, timeoutMs, files)), ContentType.APPLICATION_JSON));
-        return client.execute(request, response -> {
-            requireSuccess(response.getCode(), response.getEntity());
-            var entity = response.getEntity();
-            if (entity == null) throw new IOException("Interpreter returned no stream");
-            try (var reader = new BufferedReader(new InputStreamReader(entity.getContent(), StandardCharsets.UTF_8))) {
-                return consume(reader, listener);
-            } catch (IOException | RuntimeException failure) {
-                request.cancel(); // Abandoning the body kills the container; never leave the slot held.
-                throw failure;
-            }
-        });
+        // The stream has its own limits on a frame and on the output it accumulates.
+        return Objects.requireNonNull(call(() -> client(timeoutMs / 1000L + 10, Integer.MAX_VALUE).post().uri("/v1/execute/stream")
+                .contentType(MediaType.APPLICATION_JSON).body(body(code, timeoutMs, files)).exchange((request, response) -> {
+                    if (!response.getStatusCode().is2xxSuccessful()) failed(request, response);
+                    try (var reader = new BufferedReader(new InputStreamReader(response.getBody(), StandardCharsets.UTF_8))) {
+                        return consume(reader, listener);
+                    }
+                })));
     }
 
     /** Reads {@code event:}/{@code data:} frames until the terminal {@code result}, accumulating output as Onyx does. */
@@ -205,21 +185,24 @@ public class InterpreterClient implements AutoCloseable {
                     listener.output(stream, chunk);
                 }
                 case "error" -> throw new IOException("Code interpreter error: " + json.path("message").asString(""));
-                case "result" -> {
-                    var workspace = new ArrayList<WorkspaceFile>();
-                    for (var file : json.path("files")) {
-                        var id = file.path("file_id");
-                        workspace.add(new WorkspaceFile(file.path("path").asString(""), file.path("kind").asString(""),
-                                id.isString() ? id.asString() : null));
-                    }
-                    var exit = json.path("exit_code");
-                    return new Execution(stdout.toString(), stderr.toString(), exit.isNumber() ? exit.asInt() : null,
-                            json.path("timed_out").asBoolean(false), List.copyOf(workspace));
-                }
+                case "result" -> { return execution(json, stdout.toString(), stderr.toString()); }
                 default -> { } // A newer service may add events; the terminal result still decides the outcome.
             }
         }
         throw new IOException("Code interpreter stream ended without a result event");
+    }
+
+    /** The outcome and workspace files of a run, as the plain call and the stream's result event both report them. */
+    private static Execution execution(JsonNode json, String stdout, String stderr) {
+        var workspace = new ArrayList<WorkspaceFile>();
+        for (var file : json.path("files")) {
+            var id = file.path("file_id");
+            workspace.add(new WorkspaceFile(file.path("path").asString(""), file.path("kind").asString(""),
+                    id.isString() ? id.asString() : null));
+        }
+        var exit = json.path("exit_code");
+        return new Execution(stdout, stderr, exit.isNumber() ? exit.asInt() : null,
+                json.path("timed_out").asBoolean(false), List.copyOf(workspace));
     }
 
     /**
@@ -247,66 +230,64 @@ public class InterpreterClient implements AutoCloseable {
 
     /** Downloads a generated file of at most {@link #MAX_DOWNLOAD_BYTES}. */
     public byte[] download(String fileId) throws IOException {
-        var request = request("GET", "/v1/files/" + pathSegment(fileId), 30);
-        return client.execute(request, response -> {
-            requireSuccess(response.getCode(), response.getEntity());
-            var entity = response.getEntity();
-            if (entity == null) return new byte[0];
-            if (entity.getContentLength() > MAX_DOWNLOAD_BYTES) { request.cancel(); throw new TooLargeException(); }
-            try (var stream = entity.getContent()) {
-                var bytes = stream.readNBytes(MAX_DOWNLOAD_BYTES + 1);
-                if (bytes.length > MAX_DOWNLOAD_BYTES) { request.cancel(); throw new TooLargeException(); }
-                return bytes;
-            }
-        });
+        String id = pathSegment(fileId);
+        try {
+            byte[] bytes = call(() -> api(30, MAX_DOWNLOAD_BYTES).download(id));
+            return bytes == null ? new byte[0] : bytes;
+        } catch (ResponseTooLargeException large) {
+            throw new TooLargeException();
+        }
     }
 
     public void delete(String fileId) throws IOException {
-        send(request("DELETE", "/v1/files/" + pathSegment(fileId), 10), response -> {
-            if (response.status() != 404) requireSuccess(response.status(), response.body());
+        String id = pathSegment(fileId);
+        call(() -> {
+            api(10, JSON_LIMIT).delete(id);
             return null;
         });
     }
 
-    private record Response(int status, byte[] body) {}
-    private interface Handler<T> { T handle(Response response) throws IOException; }
-
-    private HttpUriRequestBase request(String method, String path, long timeoutSeconds) {
-        var request = new HttpUriRequestBase(method, URI.create(properties.baseUrl() + path));
-        if (!properties.apiKey().isEmpty()) request.setHeader("X-Api-Key", properties.apiKey());
-        request.setConfig(RequestConfig.custom().setConnectionRequestTimeout(Timeout.ofSeconds(5))
-                .setResponseTimeout(Timeout.ofSeconds(timeoutSeconds)).build());
-        return request;
+    /** A client for one call: the service's address and key, the call's deadline and the largest answer it may read. */
+    private RestClient client(long timeoutSeconds, int maxResponseBytes) {
+        return OutboundHttp.builder(new Limits(Duration.ofSeconds(timeoutSeconds), maxResponseBytes), InterpreterClient::failed)
+                .baseUrl(properties.baseUrl())
+                .defaultHeaders(headers -> { if (!properties.apiKey().isEmpty()) headers.set("X-Api-Key", properties.apiKey()); })
+                .build();
     }
 
-    private <T> T send(HttpUriRequestBase request, Handler<T> handler) throws IOException {
-        if (!configured()) throw new IOException("Interpreter not configured");
-        return client.execute(request, response -> {
-            var entity = response.getEntity();
-            byte[] body = new byte[0];
-            if (entity != null) {
-                try (var stream = entity.getContent()) { body = stream.readNBytes(JSON_LIMIT + 1); }
-                if (body.length > JSON_LIMIT) { request.cancel(); throw new IOException("Interpreter response too large"); }
-            }
-            return handler.handle(new Response(response.getCode(), body));
-        });
+    private InterpreterApi api(long timeoutSeconds, int maxResponseBytes) {
+        return OutboundHttp.service(InterpreterApi.class, client(timeoutSeconds, maxResponseBytes));
     }
 
     /** Onyx surfaces the HTTP error text as it is; the service's response body is kept, bounded. */
-    private static void requireSuccess(int status, byte[] body) throws IOException {
-        if (status >= 200 && status < 300) return;
+    private static void failed(HttpRequest request, ClientHttpResponse response) throws IOException {
+        int status = response.getStatusCode().value();
+        // A file that is already gone is deleted.
+        if (status == 404 && request.getMethod() == HttpMethod.DELETE) return;
+        byte[] body = response.getBody().readNBytes(ERROR_BODY_BYTES);
         String detail = "Code interpreter returned HTTP " + status;
-        String text = new String(body, 0, Math.min(body.length, ERROR_BODY_BYTES), StandardCharsets.UTF_8).strip();
+        String text = new String(body, StandardCharsets.UTF_8).strip();
         if (!text.isEmpty()) detail += ": " + text;
         if (status == 429) throw new BusyException(detail);
         throw new IOException(detail);
     }
 
-    private static void requireSuccess(int status, @Nullable HttpEntity entity) throws IOException {
-        if (status >= 200 && status < 300) return;
-        byte[] body = new byte[0];
-        if (entity != null) try (var stream = entity.getContent()) { body = stream.readNBytes(ERROR_BODY_BYTES); }
-        requireSuccess(status, body);
+    @FunctionalInterface private interface Call<T> { @Nullable T run(); }
+
+    /** {@code RestClient} throws unchecked; callers of this class catch {@code IOException} and its two subclasses. */
+    private <T> @Nullable T call(Call<T> call) throws IOException {
+        if (!configured()) throw new IOException("Interpreter not configured");
+        try {
+            return call.run();
+        } catch (UncheckedIOException failed) {
+            throw failed.getCause();
+        } catch (RestClientException failed) {
+            for (Throwable cause = failed.getCause(); cause != null; cause = cause.getCause()) {
+                if (cause instanceof ResponseTooLargeException large) throw large;
+                if (cause instanceof IOException transport) throw transport;
+            }
+            throw new IOException("Code interpreter request failed");
+        }
     }
 
     private static String text(JsonNode node, String name) throws IOException {
@@ -318,7 +299,4 @@ public class InterpreterClient implements AutoCloseable {
         if (!fileId.matches("[0-9a-fA-F-]{1,64}")) throw new IOException("Invalid interpreter file id");
         return new String(fileId.getBytes(StandardCharsets.US_ASCII), StandardCharsets.US_ASCII);
     }
-
-    @PreDestroy
-    @Override public void close() throws IOException { client.close(); }
 }
