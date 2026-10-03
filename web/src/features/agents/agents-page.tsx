@@ -65,8 +65,8 @@ export function AgentsPage() {
 
   return (
     <>
-      <AppShellHeader title={ui("Trợ lý")} />
-      <SettingsLayout wide className="gap-6 md:pt-8">
+      <AppShellHeader title={ui("Trợ lý")} pageHeader />
+      <SettingsLayout wide className="gap-6">
         <PageHeader
           icon={<Bot />}
           title={ui("Trợ lý")}

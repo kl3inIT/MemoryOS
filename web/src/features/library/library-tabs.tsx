@@ -107,7 +107,9 @@ export function LibraryTabs({
               </TabsTrigger>
             ))}
           </TabsList>
-          {usage && <StorageSummary usage={usage} onShowLargest={onShowLargest} />}
+          {usage && usage.fileCount > 0 && (
+            <StorageSummary usage={usage} onShowLargest={onShowLargest} />
+          )}
         </div>
         {section ? (
           <TabsContent value={section.value}>

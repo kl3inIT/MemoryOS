@@ -102,7 +102,8 @@ const tableRowVariants = cva(
         none: "",
         surface: "bg-surface-base",
         cited: "bg-evidence-highlight-surface/60 hover:bg-evidence-highlight-surface/60",
-        current: "bg-evidence-highlight-surface hover:bg-evidence-highlight-surface",
+        current:
+          "border-y border-evidence-highlight-border bg-evidence-highlight-surface hover:bg-evidence-highlight-surface",
       },
     },
     defaultVariants: { tone: "none" },
@@ -152,10 +153,7 @@ function TableCell({
   pinned = false,
   ...props
 }: React.ComponentProps<"td"> & {
-  /**
-   * The row's label cell: it stays at the start while a wide table scrolls sideways, on its row's background, and
-   * carries the accent of the current row.
-   */
+  /** The row's label cell: it stays at the start while a wide table scrolls sideways, on its row's background. */
   pinned?: boolean;
 }) {
   return (
@@ -164,8 +162,7 @@ function TableCell({
       data-pinned={pinned || undefined}
       className={cn(
         "p-2 align-middle [&:has([role=checkbox])]:pr-0",
-        pinned &&
-          "sticky left-0 bg-inherit font-medium in-data-[tone=current]:border-l-4 in-data-[tone=current]:border-pdf-highlight",
+        pinned && "sticky left-0 bg-inherit font-medium",
         className,
       )}
       {...props}

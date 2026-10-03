@@ -15,7 +15,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { AccountMenu } from "@/components/app-shell/account-menu";
 import {
   adminGroups,
@@ -164,6 +164,16 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
   const { authority, canAccessAdmin, adminEntryPath } = useAdminAccess();
   const expandLabel = ui("Expand sidebar");
 
+  // The administration menu outgrows a laptop screen, and its resting scrollbar is invisible: on every navigation
+  // the open page's own link scrolls into view, and nothing moves when it is already visible.
+  const navigation = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (appArea) return;
+    navigation.current
+      ?.querySelector<HTMLElement>('[aria-current="page"]')
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [appArea, adminPage, settingsPage]);
+
   return (
     <>
       <SidebarHeader>
@@ -222,6 +232,7 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
 
       <SidebarContent>
         <nav
+          ref={navigation}
           aria-label={
             sourceSetup !== undefined
               ? ui("Connector setup")
@@ -407,7 +418,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           role="banner"
           className={cn(
             "flex shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3",
-            sourceSetup === undefined && area === "app" ? "h-14" : "h-13 md:hidden",
+            sourceSetup === undefined && area === "app"
+              ? "h-14 md:has-data-page-header:hidden"
+              : "h-13 md:hidden",
           )}
         >
           <OpenNavigationButton />
