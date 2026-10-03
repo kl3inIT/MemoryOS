@@ -2,13 +2,12 @@ import { useSyncExternalStore } from "react";
 import type { DictationEnd } from "./memoryos-dictation-adapter";
 import type { VoiceDictation } from "./voice-dictation";
 
-/** About four seconds of 100 ms levels, enough for the composer meter. */
-const LEVEL_HISTORY = 40;
+/** One 100 ms level per bar of the composer meter, which draws exactly this many. */
+export const LEVEL_HISTORY = 24;
 
 export type VoiceSessionSnapshot = {
   readonly phase: "idle" | "starting" | "running" | "finishing";
   readonly levels: readonly number[];
-  readonly startedAt: number | undefined;
   readonly muted: boolean;
   readonly failure: unknown;
   /** The latest end; `sequence` changes for every dictation that ends. */
@@ -18,14 +17,13 @@ export type VoiceSessionSnapshot = {
 const initial: VoiceSessionSnapshot = {
   phase: "idle",
   levels: [],
-  startedAt: undefined,
   muted: false,
   failure: undefined,
   lastEnd: undefined,
 };
 
 /**
- * Presentation state of the browser's single dictation: meter, elapsed time, mute and the last outcome. The runtime
+ * Presentation state of the browser's single dictation: meter, mute and the last outcome. The runtime
  * still owns the draft text and dictation status; no audio or transcript is kept here.
  */
 export class VoiceSessionStore {
@@ -46,14 +44,13 @@ export class VoiceSessionStore {
     this.update({
       phase: "starting",
       levels: [],
-      startedAt: undefined,
       muted: false,
       failure: undefined,
     });
 
   readonly started = (controls: Pick<VoiceDictation, "setMuted">) => {
     this.controls = controls;
-    this.update({ phase: "running", startedAt: Date.now() });
+    this.update({ phase: "running" });
   };
 
   readonly level = (level: number) => {

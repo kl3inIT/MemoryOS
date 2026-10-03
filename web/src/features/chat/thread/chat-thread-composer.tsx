@@ -18,7 +18,7 @@ import {
 import { ChatComposerAttachments } from "@/features/chat/composer/chat-attachment-staging";
 import {
   ChatDictationButton,
-  ChatDictationStrip,
+  ChatDictationControls,
   ChatVoiceFailure,
 } from "@/features/voice/chat-dictation-controls";
 import {
@@ -34,7 +34,8 @@ const ATTACHMENT_LIMIT = 20;
 
 /**
  * The composer at the foot of the thread: connection and model notices above it, then the question field with its
- * attachments, quote, dictation and the toolbar of tools, model and Send or Stop.
+ * attachments, quote and the toolbar of tools, model and Send or Stop. While dictation runs the toolbar shows the
+ * recording controls instead of the model and Send, so a spoken draft cannot be sent before its final text.
  */
 export function ChatThreadComposer({
   composerMenu,
@@ -125,7 +126,6 @@ export function ChatThreadComposer({
               className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
             />
             <ChatPromptShortcutPopover />
-            <ChatDictationStrip />
             <AuiIf condition={(state) => state.composer.attachments.length > ATTACHMENT_LIMIT}>
               <p role="alert" className="text-sm">
                 {ui("Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.")}
@@ -137,15 +137,21 @@ export function ChatThreadComposer({
             >
               {composerMenu ?? <span />}
               <div className="flex min-w-0 items-center gap-1">
-                {modelPicker}
-                <ChatDictationButton />
-                <AuiIf condition={(state) => !state.thread.isRunning}>
-                  <ChatComposerSend asChild disabled={sendDisabled}>
-                    <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
-                      <ArrowUp />
-                    </IconButton>
-                  </ChatComposerSend>
-                </AuiIf>
+                {dictating ? (
+                  <ChatDictationControls />
+                ) : (
+                  <>
+                    {modelPicker}
+                    <ChatDictationButton />
+                    <AuiIf condition={(state) => !state.thread.isRunning}>
+                      <ChatComposerSend asChild disabled={sendDisabled}>
+                        <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
+                          <ArrowUp />
+                        </IconButton>
+                      </ChatComposerSend>
+                    </AuiIf>
+                  </>
+                )}
                 <AuiIf condition={(state) => state.thread.isRunning}>
                   <IconButton
                     aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}

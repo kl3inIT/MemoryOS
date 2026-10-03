@@ -4,6 +4,7 @@ import { uiLanguage } from "@/i18n";
 import type { AppCopy } from "@/i18n/app-text";
 import { startVoiceDictation, type VoiceDictation } from "./voice-dictation";
 import { requestVoiceTicket, voiceFailureCopy } from "./voice-failure";
+import { VoiceSessionStore } from "./voice-session-store";
 
 export type DictationStatus = "idle" | "starting" | "listening" | "finishing" | "failed";
 
@@ -27,6 +28,8 @@ export function useDictationInput({
   const dictation = useRef<VoiceDictation | null>(null);
   const attempt = useRef(0);
   const prefix = useRef("");
+  // The meter and mute of this field's recording, read by its recording controls only.
+  const [session] = useState(() => new VoiceSessionStore());
   const [status, setStatus] = useState<DictationStatus>("idle");
   const [failure, setFailure] = useState<AppCopy>();
 
@@ -45,7 +48,9 @@ export function useDictationInput({
       dictation.current = null;
       if (!running) return;
       setStatus("finishing");
+      session.stopping();
       const transcript = await running.stop();
+      session.ended("stopped");
       if (transcript) onText([prefix.current, transcript.trim()].filter(Boolean).join(" "));
       setStatus("idle");
       onFinished?.();
@@ -57,6 +62,7 @@ export function useDictationInput({
     prefix.current = text.trim();
     setFailure(undefined);
     setStatus("starting");
+    session.starting();
     try {
       const running = await startVoiceDictation({
         language: uiLanguage(sessionLanguage),
@@ -64,10 +70,11 @@ export function useDictationInput({
         onInterim: (transcript) => {
           if (current()) onText([prefix.current, transcript.trim()].filter(Boolean).join(" "));
         },
-        onLevel: () => {},
+        onLevel: session.level,
         onFailure: (error) => {
           if (!current()) return;
           dictation.current = null;
+          session.ended("error", error);
           setFailure(voiceFailureCopy(error));
           setStatus("failed");
         },
@@ -77,13 +84,23 @@ export function useDictationInput({
         return;
       }
       dictation.current = running;
+      session.started(running);
       setStatus("listening");
     } catch (error) {
       if (!current()) return;
+      session.ended("error", error);
       setFailure(voiceFailureCopy(error));
       setStatus("failed");
     }
-  }, [onFinished, onText, sessionLanguage, status, text]);
+  }, [onFinished, onText, session, sessionLanguage, status, text]);
 
-  return { status, failure, listening: status === "listening", toggle };
+  return {
+    status,
+    failure,
+    listening: status === "listening",
+    /** A recording is being prepared, running or settling its final text. */
+    recording: status === "starting" || status === "listening" || status === "finishing",
+    session,
+    toggle,
+  };
 }

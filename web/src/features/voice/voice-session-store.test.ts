@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import { MicrophoneUnavailableError } from "./capture/audio-capture";
 import { VoiceStreamError } from "./transcribe-socket";
 import { voiceFailureCopy } from "./voice-failure";
-import { VoiceSessionStore } from "./voice-session-store";
+import { LEVEL_HISTORY, VoiceSessionStore } from "./voice-session-store";
 
 it("keeps a bounded meter only while recording and records every end", () => {
   const store = new VoiceSessionStore();
@@ -13,7 +13,7 @@ it("keeps a bounded meter only while recording and records every end", () => {
   const setMuted = vi.fn();
   store.started({ setMuted });
   for (let index = 0; index < 50; index += 1) store.level(index / 100);
-  expect(store.getSnapshot().levels).toHaveLength(40);
+  expect(store.getSnapshot().levels).toHaveLength(LEVEL_HISTORY);
   expect(store.getSnapshot().levels.at(-1)).toBe(0.49);
 
   store.setMuted(true);
