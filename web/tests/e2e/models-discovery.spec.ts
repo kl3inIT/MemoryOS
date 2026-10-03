@@ -195,7 +195,7 @@ for (const [label, width, scheme] of [
 
     // A new provider: the endpoint and the typed key list models before anything is saved.
     await page
-      .getByRole("button", { name: /^Kết nối 9Router/ })
+      .getByRole("button", { name: "Thêm một kết nối 9Router nữa" })
       .first()
       .click();
     const creation = page.getByRole("dialog");

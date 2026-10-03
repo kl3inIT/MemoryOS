@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   getChatModelDefaultOptions,
@@ -284,11 +285,21 @@ function LoadFailure({
   );
 }
 
+/** A section of the catalog on its way: the rows it will hold, named for a screen reader. */
+export function LoadingRows({ label }: { label: string }) {
+  return (
+    <div role="status" aria-label={label} className="flex flex-col gap-3">
+      <Skeleton className="h-5 w-48" />
+      <Skeleton className="h-9 w-full" />
+    </div>
+  );
+}
+
 /** The Tenant Chat default; a per-Persona override belongs with the Persona, not the catalog. */
 export function TenantDefault(catalog: Catalog) {
   const ui = useAppTranslation();
   const tenant = useQuery({ ...getChatModelDefaultOptions(), retry: false });
-  if (tenant.isPending) return <p role="status">{ui("Loading organization default…")}</p>;
+  if (tenant.isPending) return <LoadingRows label={ui("Loading organization default…")} />;
   if (tenant.isError)
     return (
       <LoadFailure
@@ -339,7 +350,7 @@ export function TaskModels(catalog: Catalog) {
     fallbackModel && catalog.providers.find((provider) => provider.id === fallbackModel.providerId);
   const fallback =
     fallbackModel && fallbackProvider ? modelLabel(fallbackModel, fallbackProvider) : undefined;
-  if (flows.isPending) return <p role="status">{ui("Loading task models…")}</p>;
+  if (flows.isPending) return <LoadingRows label={ui("Loading task models…")} />;
   if (flows.isError)
     return (
       <LoadFailure

@@ -2080,6 +2080,8 @@ Object.assign(englishUi, {
   "The complete catalog could not be loaded. Displayed records may be stale. Refresh before changing configurations or defaults.":
     "Không tải được toàn bộ danh mục. Dữ liệu hiển thị có thể đã cũ. Hãy làm mới trước khi thay đổi cấu hình hoặc mặc định.",
   "Available connections": "Kết nối khả dụng",
+  "Add another": "Thêm kết nối",
+  "Add another {{name}} connection": "Thêm một kết nối {{name}} nữa",
   "Add Provider": "Thêm nhà cung cấp",
   "MemoryOS supports both popular providers and self-hosted models.":
     "MemoryOS hỗ trợ cả nhà cung cấp phổ biến lẫn mô hình tự triển khai.",
