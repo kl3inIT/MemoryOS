@@ -70,7 +70,7 @@ export function UsersFilters({
         onSearchChange(normalized || undefined);
       }}
     >
-      <Field className="min-w-56 flex-1">
+      <Field className="min-w-56 flex-1 max-sm:basis-full">
         <FieldLabel htmlFor="users-search">{ui("Search users")}</FieldLabel>
         <InputGroup>
           <InputGroupAddon>
@@ -87,7 +87,7 @@ export function UsersFilters({
         </InputGroup>
       </Field>
 
-      <Field className="w-40">
+      <Field className="w-40 max-sm:min-w-0 max-sm:flex-1">
         <FieldLabel htmlFor="users-role">{ui("Role")}</FieldLabel>
         <Select
           value={search.role ?? ANY}
@@ -107,7 +107,7 @@ export function UsersFilters({
       </Field>
 
       {groups ? (
-        <Field className="w-48">
+        <Field className="w-48 max-sm:min-w-0 max-sm:flex-1">
           <FieldLabel htmlFor="users-group">{ui("Group")}</FieldLabel>
           <Select
             value={search.groupId ?? ANY}
