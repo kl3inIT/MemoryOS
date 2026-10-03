@@ -165,6 +165,10 @@ Found while implementing pull request 1:
 13. **`RestClient` wraps what the transport throws.** An `IOException` raised while a response is read, the bound
     included, arrives as `ResourceAccessException` with the `IOException` as its cause, and Spring's message repeats
     the request URL. Callers map by the cause and never pass that message on.
+14. **A streamed request body is written on a thread of its own.** `JdkClientHttpRequestFactory` takes the JDK
+    client's executor, and without one creates a `SimpleAsyncTaskExecutor`: one new thread for each request whose
+    body is streamed. That is harmless for an image edit or an Ollama detail read. Before the Voice uploads move
+    (pull request 2), `OutboundHttp` gets one executor shared by its factories.
 
 ## The shared layer
 

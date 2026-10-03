@@ -109,7 +109,8 @@ Order of work in the branch: the OpenAI SDK check, Soniox, the single calls, the
 ### Soniox
 
 - [ ] `shared/OutboundHttp.java`: `service(Class<T>, RestClient)`, with its case in `OutboundHttpTest` (a
-  `@RequestPart` arrives as multipart).
+  `@RequestPart` arrives as multipart); one executor shared by its request factories, so a streamed upload does not
+  start a thread of its own (design, finding 14).
 - [ ] New `voice/SonioxApi.java`:
 
   ```java

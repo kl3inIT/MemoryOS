@@ -15,8 +15,10 @@ Run on 2026-10-03 on a development machine (Windows, Temurin 25.0.2), from `dca7
 | `gradlew :core:test --tests 'io.memoryos.iam.identityprovider.DefaultIdentityProviderAdministrationTest'` | 9 passed |
 | `gradlew :core:test --tests 'io.memoryos.ai.openai.*'` | 62 passed in 12 classes, among them `LocalModelMetadataTest` (3), `OpenAiProviderAdapterTest` (7) and `OpenAiReportedModelsTest` (5) |
 | `gradlew :core:test --tests 'io.memoryos.ModulithArchitectureTest' --tests 'io.memoryos.CoreDependencyRulesTest'` | 1 and 2 passed |
+| `gradlew :api:test --tests 'io.memoryos.api.chat.ChatSessionApiIntegrationTest.reportedModelsListsWhatTheProviderEndpointServes'` | Passed: the model list endpoint through the started application, PostgreSQL and Redis in containers |
 
-`clean check` was not run on this machine; it is left to CI.
+`clean check` was not run on this machine: 1.3 GB of its 13.7 GB of memory was free, and the gate runs two 1.5 GB
+test JVMs beside PostgreSQL and OpenSearch containers. It is left to CI.
 
 ### The stop condition
 
