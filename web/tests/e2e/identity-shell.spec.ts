@@ -853,7 +853,8 @@ test("restores and updates the bounded server-driven Users view from the URL", a
   await expect(page).toHaveURL(/search=member02/);
   await expect(page.getByText("member02@example.com")).toBeVisible();
 
-  await page.getByRole("combobox", { name: "Rows per page" }).selectOption("50");
+  await page.getByRole("combobox", { name: "Rows per page" }).click();
+  await page.getByRole("option", { name: "50", exact: true }).click();
   await expect(page).toHaveURL(/size=50/);
   await page.reload();
   await expect(page.getByText("member02@example.com")).toBeVisible();

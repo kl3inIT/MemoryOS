@@ -17,8 +17,7 @@ import { useRef, useState, type RefObject } from "react";
 import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { NativeSelect } from "@/components/ui/native-select";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -335,25 +334,13 @@ export function UsersTable({
             onPrevious={() => table.previousPage()}
             onNext={() => table.nextPage()}
           >
-            <Field orientation="horizontal" className="w-auto">
-              <FieldLabel htmlFor="users-page-size">{ui("Rows")}</FieldLabel>
-              <NativeSelect
-                id="users-page-size"
-                aria-label={ui("Rows per page")}
-                value={size}
-                size="sm"
-                className="w-auto px-2"
-                onChange={(event) =>
-                  onSizeChange(Number(event.target.value) as UsersSearch["size"])
-                }
-              >
-                {pageSizes.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </NativeSelect>
-            </Field>
+            <PageSizeSelect
+              label={ui("Rows per page")}
+              rowsLabel={ui("Rows")}
+              value={size}
+              sizes={pageSizes}
+              onSizeChange={(next) => onSizeChange(next as UsersSearch["size"])}
+            />
           </TablePagination>
         }
       />
