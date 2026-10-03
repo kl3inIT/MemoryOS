@@ -9,4 +9,4 @@
 - [x] A-3 Users search applies as typing pauses; button removed; e2e updated
 - [x] `tsc -b`, lint, i18n, format; unit (feature suites, 273 tests; one Library case flaked under load and passes on rerun with and without the change); e2e identity-shell, search, library-hub, agents, meetings, generated-file preview (46, with a new laptop-screen admin sidebar case); `pnpm build` budget
 - [x] Move `mem-214-chat-polish` to `completed/` and reconcile the roadmap
-- [ ] Browser evidence (Search, empty Library, `/admin/audit`, Users at 1440×900); owner approval before merge
+- [x] Browser evidence (Search, empty Library, `/admin/audit`, Users at 1440×900); owner approved 2026-10-03; merged in PR #506
