@@ -1,8 +1,8 @@
 # Outbound HTTP through high-level interfaces (MEM-223)
 
 Status: accepted 2026-10-03, after validation against `main` at `dca7609d`, Spring Framework 7.0.9 sources and
-`openai-java` 4.49.0. Pull request 1 (the shared layer, Image, OIDC discovery, the model list) is implemented; Voice
-and the Code Interpreter have not started. Decision: [ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md).
+`openai-java` 4.49.0. Pull request 1 (the shared layer, Image, OIDC discovery, the model list) and pull request 2 (Voice) are
+implemented; the Code Interpreter has not started. Decision: [ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md).
 Linear: [MEM-223](https://linear.app/memory-os/issue/MEM-223). The first pull request comes before step 3 of
 [MEM-198](https://linear.app/memory-os/issue/MEM-198), which hands the builder made here to the TypeSafe SDK.
 
@@ -70,11 +70,11 @@ Transport rules missing today:
 
 | Place | Target | Choice | Verdict |
 | --- | --- | --- | --- |
-| Soniox async | `@HttpExchange` `SonioxApi` | 2 | Clear. Open point: the upload no longer declares its length |
-| ElevenLabs speech-to-text | `RestClient` with `MultipartBodyBuilder` | 3 | Clear |
-| OpenAI transcription with segments | The OpenAI SDK, `audio().transcriptions()` and `asVerbose()` | 1 | To verify first: the SDK streams the upload; a compatible server's answer still parses |
-| Azure short audio, connection checks | `RestClient` | 3 | Small |
-| Voice adapter interfaces | `HttpClient` leaves `transcribe` and `segments`, stays on `speech` | | Follows from the four above |
+| Soniox async | `@HttpExchange` `SonioxApi` | 2 | Done. The upload no longer declares its length |
+| ElevenLabs speech-to-text | `RestClient` with `MultipartBodyBuilder` | 3 | Done |
+| OpenAI transcription with segments | `RestClient` with `MultipartBodyBuilder`, the answer as a tree | 3 | Done. Not the SDK: it streams the upload but refuses what compatible servers answer (finding 15) |
+| Azure short audio, connection checks | `RestClient` | 3 | Done: small |
+| Voice adapter interfaces | `HttpClient` leaves `transcribe` and `segments`, stays on `speech` | | Done |
 | Image | `ImageHttp` rewritten on `RestClient` with `MultipartBodyBuilder` | 3 | Done: 82 lines become 58 and one Apache pool goes; see finding 11 |
 | OIDC discovery | `RestClient`, JSON as a tree | 3 | Done: small; gains the bound and its first HTTP test |
 | Model list, local model details | `RestClient.exchange`, JSON as a tree | 3 | Done: small; no JDK `HttpClient` built per call |
@@ -167,8 +167,25 @@ Found while implementing pull request 1:
     the request URL. Callers map by the cause and never pass that message on.
 14. **A streamed request body is written on a thread of its own.** `JdkClientHttpRequestFactory` takes the JDK
     client's executor, and without one creates a `SimpleAsyncTaskExecutor`: one new thread for each request whose
-    body is streamed. That is harmless for an image edit or an Ollama detail read. Before the Voice uploads move
-    (pull request 2), `OutboundHttp` gets one executor shared by its factories.
+    body is streamed. Since pull request 2 `OutboundHttp` gives its factories one executor of virtual threads.
+
+Found while implementing pull request 2:
+
+15. **The OpenAI SDK is not used for the recording upload.** A probe against a local server showed the SDK streams
+    an `InputStream` upload (the server read the first megabyte while the source still had 63; the heap did not
+    grow) and sends it chunked. Its typed answer is the problem: `{"text", "segments"}` without a duration is read
+    as a diarized transcription, so `asVerbose()` fails, and a segment without `avg_logprob` throws when the field is
+    read. The same code path serves OpenAI and self-hosted servers, whose JSON differs by server: choice 3.
+16. **JSON is read whatever the answer's content type.** Spring reads JSON only from an answer that declares it; the
+    hand-written clients parsed any 2xx body. `OutboundHttp`'s JSON converter reads every content type, so a
+    self-hosted server that declares none, or `text/plain`, still answers.
+17. **Azure's content type is written as bytes.** `audio/wav; codecs=audio/pcm; samplerate=16000` has an unquoted
+    `/` in a parameter, which Spring refuses to parse, so the short-audio body is written directly with its length
+    instead of through a converter.
+18. **A declared length was a tested contract.** `SonioxAsyncTest` asserted the recording upload's exact
+    `Content-Length`. It now asserts the opposite, with the probe of every provider's endpoint as the evidence
+    ([verification](verification.md#a-multipart-body-without-a-declared-length)) and the staging upload as the
+    remaining check.
 
 ## The shared layer
 
@@ -230,8 +247,11 @@ Interpreter.
 ## Behaviour that changes
 
 - Responses that had no bound get one: OIDC discovery at 64 KiB (the bound `McpOAuthProtocol` uses for the same kind
-  of document; measured documents are 1.2 to 8.9 KB); Voice answers at a bound set from measured responses in the
-  Voice pull request and recorded here.
+  of document; measured documents are 1.2 to 8.9 KB); Voice clip answers and listings at 1 MiB; a recording's
+  transcript at 64 MiB for Soniox and for the OpenAI protocol, to be checked against the longest recording on
+  staging.
+- Voice REST calls connect within 5 s, where the limit was 10 or 15 s, and a dictation call has one 60 s deadline
+  where 60 s applied to the wait for headers.
 - The timeout of a moved call is a deadline for the whole exchange. Today the JDK calls time out until the response
   headers arrive, and the Apache calls time out per read.
 - A multipart body no longer declares its length (finding 2); over HTTP/1.1 it is sent chunked. This applies to the
