@@ -14,15 +14,15 @@ import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ModelBinding;
+import io.memoryos.shared.OutboundHttp;
+import io.memoryos.shared.OutboundHttp.Limits;
+import io.memoryos.shared.OutboundHttp.ResponseTooLargeException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +33,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
+import org.springframework.http.MediaType;
 
 /** OpenAI Chat Completions adapter. Hosted web/image tools are separate integrations. */
 public final class OpenAiProviderAdapter implements ProviderAdapter {
@@ -97,21 +98,18 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
         ModelCatalogService.validateEndpoint(connection.baseUrl());
         if (connection.credential().isBlank()) throw AiException.invalid("Enter the provider API key.");
         // A configured endpoint must not redirect this credential elsewhere, and its body is bounded.
-        try (var client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .connectTimeout(timeout).build()) {
-            var request = HttpRequest.newBuilder(
-                            URI.create(connection.baseUrl().replaceAll("/+$", "") + "/models"))
-                    .timeout(timeout).header("Accept", "application/json")
-                    .header("Authorization", "Bearer " + connection.credential()).GET().build();
-            var response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            int status = response.statusCode();
-            if (status == 401 || status == 403) throw AiException.providerCredentialRejected();
-            if (status >= 500) throw AiException.providerUnreachable();
-            if (status >= 300) throw AiException.providerIncompatible();
-            byte[] body;
-            try (var stream = response.body()) { body = stream.readNBytes(MAX_MODEL_LIST_BYTES + 1); }
-            if (body.length == 0 || body.length > MAX_MODEL_LIST_BYTES) throw AiException.providerIncompatible();
+        var client = OutboundHttp.builder(new Limits(timeout, MAX_MODEL_LIST_BYTES)).build();
+        try {
+            byte[] body = client.get().uri(URI.create(connection.baseUrl().replaceAll("/+$", "") + "/models"))
+                    .accept(MediaType.APPLICATION_JSON).headers(sent -> sent.setBearerAuth(connection.credential()))
+                    .exchange((request, response) -> {
+                        int status = response.getStatusCode().value();
+                        if (status == 401 || status == 403) throw AiException.providerCredentialRejected();
+                        if (status >= 500) throw AiException.providerUnreachable();
+                        if (status >= 300) throw AiException.providerIncompatible();
+                        return response.getBody().readAllBytes();
+                    });
+            if (body.length == 0) throw AiException.providerIncompatible();
             JsonNode data;
             try {
                 data = new ObjectMapper().readTree(body).path("data");
@@ -128,13 +126,11 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
             // Ollama and LM Studio publish their limits only on their native APIs (Onyx per-provider fetchers).
             var local = LocalModelMetadata.recognize(connection.baseUrl(), data, models);
             return local == null ? models
-                    : LocalModelMetadata.enrich(client, local, connection.baseUrl(), connection.credential(), timeout, models);
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            throw AiException.providerUnreachable();
+                    : LocalModelMetadata.enrich(client, local, connection.baseUrl(), connection.credential(), models);
         } catch (AiException expected) {
             throw expected;
-        } catch (IOException | RuntimeException failure) {
+        } catch (RuntimeException failure) {
+            if (failure.getCause() instanceof ResponseTooLargeException) throw AiException.providerIncompatible();
             // Connection refused, DNS or timeout; the provider payload may carry account detail and is never echoed.
             throw AiException.providerUnreachable();
         }

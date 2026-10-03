@@ -32,6 +32,8 @@ dependencies {
     api(platform(libs.spring.modulith.bom))
     api(libs.spring.modulith.api)
     implementation(platform(libs.spring.boot.dependencies))
+    // OutboundHttp hands callers a RestClient.Builder.
+    api(libs.spring.web)
     annotationProcessor(libs.spring.boot.configuration.processor)
     implementation(platform(libs.aws.sdk.bom))
     implementation(platform(libs.spring.ai.bom))

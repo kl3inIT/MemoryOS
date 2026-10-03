@@ -3,11 +3,8 @@ package io.memoryos.ai.openai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.memoryos.ai.ProviderAdapter.ReportedModel;
+import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +12,8 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestClient;
 
 /**
  * Ollama and LM Studio answer {@code /v1/models} with names only. As Onyx's per-provider fetchers
@@ -44,16 +43,14 @@ final class LocalModelMetadata {
         return null;
     }
 
-    static List<ReportedModel> enrich(HttpClient client, Server server, String baseUrl, String credential, Duration timeout,
+    /** The client carries the deadline and the bound of the model listing these reads belong to. */
+    static List<ReportedModel> enrich(RestClient client, Server server, String baseUrl, String credential,
                                       List<ReportedModel> models) {
         String root = baseUrl.replaceAll("/+$", "").replaceAll("/v1$", "");
         try {
-            return server == Server.OLLAMA ? ollama(client, root, credential, timeout, models)
-                    : lmStudio(client, root, credential, timeout, models);
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            return models;
-        } catch (Exception failure) {
+            return server == Server.OLLAMA ? ollama(client, root, credential, models)
+                    : lmStudio(client, root, credential, models);
+        } catch (IOException | RuntimeException failure) {
             LOG.atWarn().addKeyValue("event", "ai.local_model.details_unavailable").addKeyValue("server", server)
                     .addKeyValue("error_type", failure.getClass().getName()).log("Local model details could not be read");
             return models;
@@ -61,14 +58,13 @@ final class LocalModelMetadata {
     }
 
     /** Onyx {@code OllamaModelDetails}: {@code num_ctx}, else {@code <architecture>.context_length}; completion models only. */
-    private static List<ReportedModel> ollama(HttpClient client, String root, String credential, Duration timeout,
-                                              List<ReportedModel> models) throws Exception {
+    private static List<ReportedModel> ollama(RestClient client, String root, String credential,
+                                              List<ReportedModel> models) throws IOException {
         if (models.size() > MAX_OLLAMA_MODELS) return models;
         var detailed = new ArrayList<ReportedModel>();
         for (var model : models) {
-            var show = read(client, HttpRequest.newBuilder(URI.create(root + "/api/show"))
-                    .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(Map.of("model", model.modelName())))),
-                    credential, timeout);
+            var show = read(client.post().uri(URI.create(root + "/api/show")).contentType(MediaType.APPLICATION_JSON)
+                    .body(JSON.writeValueAsString(Map.of("model", model.modelName()))), credential);
             if (show == null) {
                 detailed.add(model);
                 continue;
@@ -111,13 +107,13 @@ final class LocalModelMetadata {
      * and a {@code capabilities} object (Onyx); the older {@code /api/v0/models} lists {@code data[]} with {@code id} and
      * a {@code capabilities} array ({@code tool_use}). Only {@code llm} models are kept.
      */
-    private static List<ReportedModel> lmStudio(HttpClient client, String root, String credential, Duration timeout,
-                                                List<ReportedModel> models) throws Exception {
+    private static List<ReportedModel> lmStudio(RestClient client, String root, String credential,
+                                                List<ReportedModel> models) throws IOException {
         var byName = new HashMap<String, JsonNode>();
-        var v1 = read(client, HttpRequest.newBuilder(URI.create(root + "/api/v1/models")).GET(), credential, timeout);
+        var v1 = read(client.get().uri(URI.create(root + "/api/v1/models")), credential);
         if (v1 != null) v1.path("models").forEach(item -> byName.put(item.path("key").asText(""), item));
         else {
-            var v0 = read(client, HttpRequest.newBuilder(URI.create(root + "/api/v0/models")).GET(), credential, timeout);
+            var v0 = read(client.get().uri(URI.create(root + "/api/v0/models")), credential);
             if (v0 == null) return models;
             v0.path("data").forEach(item -> byName.put(item.path("id").asText(""), item));
         }
@@ -159,14 +155,13 @@ final class LocalModelMetadata {
         return null;
     }
 
-    private static @Nullable JsonNode read(HttpClient client, HttpRequest.Builder request, String credential, Duration timeout)
-            throws Exception {
-        var built = request.timeout(timeout).header("Accept", "application/json").header("Content-Type", "application/json");
-        if (!credential.isBlank()) built.header("Authorization", "Bearer " + credential);
-        var response = client.send(built.build(), HttpResponse.BodyHandlers.ofInputStream());
-        byte[] body;
-        try (var stream = response.body()) { body = stream.readNBytes(MAX_BODY_BYTES + 1); }
-        if (response.statusCode() != 200 || body.length == 0 || body.length > MAX_BODY_BYTES) return null;
+    /** Null for anything but 200, for an empty body and for one over the bound; a failed answer is not read. */
+    private static @Nullable JsonNode read(RestClient.RequestHeadersSpec<?> request, String credential) throws IOException {
+        byte[] body = request.accept(MediaType.APPLICATION_JSON)
+                .headers(sent -> { if (!credential.isBlank()) sent.setBearerAuth(credential); })
+                .exchange((sent, response) -> response.getStatusCode().value() == 200
+                        ? response.getBody().readNBytes(MAX_BODY_BYTES + 1) : new byte[0]);
+        if (body.length == 0 || body.length > MAX_BODY_BYTES) return null;
         return JSON.readTree(body);
     }
 }
