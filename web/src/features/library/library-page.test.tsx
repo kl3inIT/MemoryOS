@@ -60,15 +60,17 @@ function queryOf(request: Request) {
   );
 }
 
-/** Every listing the page asked for, in order. */
+/** Every listing the page asked for, in order, leaving out the one-item reads that count the other views. */
 let listed: Record<string, unknown>[] = [];
+const COUNTING_LIMIT = "1";
 const lastListed = () => listed.at(-1);
 
 /** Answers every listing with these files. */
 function listing(items: ChatLibraryFile[], hasMore = false) {
   server.use(
     handleListChatLibrary(({ request }) => {
-      listed.push(queryOf(request));
+      const asked = queryOf(request);
+      if (asked.limit !== COUNTING_LIMIT) listed.push(asked);
       return HttpResponse.json({
         items,
         totalCount: hasMore ? 60 : items.length,
@@ -393,10 +395,13 @@ it("lists uploads still being processed separately, with retry", async () => {
     }),
   );
 
-  await user.click(screen.getByRole("radio", { name: "Đang xử lý" }));
+  await user.click(screen.getByRole("radio", { name: /^Đang xử lý/ }));
 
   await waitFor(() => expect(lastListed()).toMatchObject({ status: "PENDING" }));
   expect(await screen.findByText("Xử lý lỗi")).toBeInTheDocument();
+  // Each view says how many it holds, the ones not on screen too.
+  expect(await screen.findByRole("radio", { name: /^Tệp\s*\d+$/ })).toBeInTheDocument();
+  expect(await screen.findByRole("radio", { name: /^Thùng rác\s*\d+$/ })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Thử lại" }));
   await waitFor(() => expect(retried).toEqual([failed.id]));
 });
@@ -598,7 +603,7 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   await user.keyboard("{Escape}");
 
   listing([trashed]);
-  await user.click(screen.getByRole("radio", { name: "Thùng rác" }));
+  await user.click(screen.getByRole("radio", { name: /^Thùng rác/ }));
 
   await waitFor(() => expect(lastListed()).toMatchObject({ status: "TRASH", sort: "DELETED" }));
   expect(await screen.findByText(/Tệp đã xóa được giữ 30 ngày/)).toBeInTheDocument();
@@ -613,7 +618,8 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   );
   await waitFor(() => expect(purged).toEqual([{ source: "GENERATED", id: trashed.id }]));
 
-  await user.click(screen.getByRole("button", { name: "Dọn sạch thùng rác" }));
+  // The confirmation closing hides the page behind it for a moment.
+  await user.click(await screen.findByRole("button", { name: "Dọn sạch thùng rác" }));
   await user.click(
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Dọn sạch" }),
   );
@@ -644,7 +650,7 @@ it("says what an empty view means and offers the way out of a filter", async () 
   await user.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
   expect(await screen.findByText("Thư viện đang trống")).toBeInTheDocument();
 
-  await user.click(screen.getByRole("radio", { name: "Thùng rác" }));
+  await user.click(screen.getByRole("radio", { name: /^Thùng rác/ }));
   expect(await screen.findByText("Thùng rác trống")).toBeInTheDocument();
 });
 

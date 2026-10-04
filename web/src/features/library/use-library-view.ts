@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
@@ -9,7 +9,10 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { libraryOptions, type LibraryFilter } from "./library";
 import { librarySearchDefaults, viewFilterDefaults, type LibrarySearch } from "./library-search";
-import { isOwnedView } from "./library-views";
+import { isOwnedView, type LibraryView } from "./library-views";
+
+/** The views of the person's own files, each counted beside its name whichever of them is open. */
+const OWNED_VIEWS = ["ready", "pending", "trash"] as const satisfies readonly LibraryView[];
 
 /** A deleted file stays restorable for days, so the window is read again only after minutes. */
 const trashWindowStaleTime = 5 * 60_000;
@@ -54,18 +57,19 @@ export function useLibraryView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  const filter = useMemo<LibraryFilter>(
-    () => ({
+  const filters = useMemo(() => {
+    const of = (owned: LibraryView): LibraryFilter => ({
       query: mode === "content" ? "" : query,
       sources,
       categories,
       // The trash reads by when a file was deleted, not by when it was made.
-      sort: view === "trash" ? "DELETED" : sort,
-      favorite: (view === "ready" && starred) || undefined,
-      status: view === "pending" ? "PENDING" : view === "trash" ? "TRASH" : undefined,
-    }),
-    [mode, query, sources, categories, sort, view, starred],
-  );
+      sort: owned === "trash" ? "DELETED" : sort,
+      favorite: (owned === "ready" && starred) || undefined,
+      status: owned === "pending" ? "PENDING" : owned === "trash" ? "TRASH" : undefined,
+    });
+    return { shown: of(view), ready: of("ready"), pending: of("pending"), trash: of("trash") };
+  }, [mode, query, sources, categories, sort, view, starred]);
+  const filter = filters.shown;
   const page = useQuery({
     ...libraryOptions(filter, offset, size),
     enabled: owned,
@@ -80,6 +84,20 @@ export function useLibraryView() {
     // The next page is fetched while this one is read, so the next-page button shows it without a wait.
     if (hasMore) void cache.prefetchQuery({ ...libraryOptions(filter, offset + size, size) });
   }, [cache, filter, offset, size, hasMore]);
+  // The views beside the open one are counted with the same search and filters, one item each, so a count
+  // reads without opening its view.
+  const otherCounts = useQueries({
+    queries: OWNED_VIEWS.map((other) => ({
+      ...libraryOptions(filters[other], 0, 1),
+      enabled: owned && other !== view,
+      select: (listing: { totalCount: number }) => listing.totalCount,
+    })),
+  });
+  const counts: Partial<Record<LibraryView, number>> = {};
+  if (owned)
+    OWNED_VIEWS.forEach((other, index) => {
+      counts[other] = other === view ? page.data?.totalCount : otherCounts[index]?.data;
+    });
   const usage = useQuery(getChatLibraryUsageOptions());
   const trashWindow = useQuery({
     ...getChatLibraryTrashWindowOptions(),
@@ -122,6 +140,7 @@ export function useLibraryView() {
         shown.sourceId !== undefined,
     files: page.data?.items ?? [],
     page,
+    counts,
     usage,
     trashWindow,
     matches,

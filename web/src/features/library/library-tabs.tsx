@@ -31,7 +31,7 @@ type Section = {
  */
 export function LibraryTabs({
   view,
-  count,
+  counts,
   usage,
   sources,
   onView,
@@ -39,8 +39,8 @@ export function LibraryTabs({
   children,
 }: {
   view: LibraryView;
-  /** How many items the view on screen holds, when it counts them. */
-  count?: number;
+  /** How many items each view holds, for the views that count them. */
+  counts: Partial<Record<LibraryView, number>>;
   usage?: LibraryUsage;
   /** Whether the organisation's tab lists its Sources, which the composing page supplies. */
   sources: boolean;
@@ -94,14 +94,16 @@ export function LibraryTabs({
     >
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border-subtle pb-1">
-          {/* The row fades at its end on a phone, to say it scrolls. */}
-          <div className="max-w-full min-w-0 max-sm:mask-r-from-90%">
+          {/* On a phone the tabs are one row that scrolls sideways and fades at its end, to say there is more.
+              The wrapper scrolls, not the list: the mark under the open tab hangs below the list, and a list
+              that scrolled sideways would scroll up and down over it as well. */}
+          <div className="max-w-full min-w-0 max-sm:overflow-x-auto max-sm:overflow-y-hidden max-sm:mask-r-from-90% max-sm:pb-1">
             <TabsList
               variant="line"
               aria-label={ui("Phần của thư viện")}
-              // On a phone the tabs are one row that scrolls sideways, so the list starts a row sooner; the row
-              // fades at its end to say there is more, and the tabs drop their icons to fit more of it.
-              className="h-auto max-w-full justify-start overflow-x-auto group-data-horizontal/tabs:h-auto sm:flex-wrap max-sm:[&_svg]:hidden"
+              // On a phone the tabs stay on one row, so the list starts a row sooner, and drop their icons to fit
+              // more of it.
+              className="h-auto justify-start group-data-horizontal/tabs:h-auto sm:max-w-full sm:flex-wrap max-sm:[&_svg]:hidden"
             >
               {sections.map((entry) => (
                 <TabsTrigger
@@ -134,8 +136,8 @@ export function LibraryTabs({
                   {section.views.map((entry) => (
                     <ToggleGroupItem key={entry} value={entry} size="sm">
                       {viewLabels[entry]}
-                      {entry === view && (count ?? 0) > 0 && (
-                        <span className="text-content-muted tabular-nums">{count}</span>
+                      {(counts[entry] ?? 0) > 0 && (
+                        <span className="text-content-muted tabular-nums">{counts[entry]}</span>
                       )}
                     </ToggleGroupItem>
                   ))}

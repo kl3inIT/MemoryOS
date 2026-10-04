@@ -137,7 +137,7 @@ export function LibraryPage({
           <div className="mt-6">
             <LibraryTabs
               view={view}
-              count={library.owned ? library.page.data?.totalCount : undefined}
+              counts={library.counts}
               usage={library.usage.data}
               sources={Sources !== undefined}
               onView={(next) => {

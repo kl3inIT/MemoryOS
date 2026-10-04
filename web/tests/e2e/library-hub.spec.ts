@@ -337,7 +337,7 @@ test.describe("on a touch screen", () => {
     await openLibrary(page);
     const mine = tabs(page).getByRole("tab", { name: "Của tôi" });
     await mine.click();
-    for (const target of [mine, page.getByRole("radio", { name: "Thùng rác" })]) {
+    for (const target of [mine, page.getByRole("radio", { name: /^Thùng rác/ })]) {
       await expect(target).toBeVisible();
       expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
