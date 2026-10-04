@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiDay, formatUiMoment } from "@/i18n/format";
 import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { KeyRound, RefreshCw, TriangleAlert } from "lucide-react";
@@ -287,7 +287,7 @@ function CredentialCard({
               {credential?.certificateNotAfter ? (
                 <span className="mt-1 block text-xs text-content-muted">
                   {ui("Expires {{v1}}", {
-                    v1: new Date(credential.certificateNotAfter).toLocaleDateString(uiLocale()),
+                    v1: formatUiDay(credential.certificateNotAfter),
                   })}
                 </span>
               ) : null}
@@ -304,7 +304,7 @@ function CredentialCard({
             <dd className="mt-1 text-content-primary">
               {configuration.lastPrunedAt ? (
                 <time dateTime={configuration.lastPrunedAt}>
-                  {new Date(configuration.lastPrunedAt).toLocaleString(uiLocale())}
+                  {formatUiMoment(configuration.lastPrunedAt)}
                 </time>
               ) : (
                 ui("Not yet")

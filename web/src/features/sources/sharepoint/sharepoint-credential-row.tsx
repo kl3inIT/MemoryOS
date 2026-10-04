@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiDay } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { revalidateLogic } from "@tanstack/react-form";
 import { Ellipsis } from "lucide-react";
@@ -87,7 +87,7 @@ export function SharePointCredentialRow({
             {credential.authMethod === "CERTIFICATE" ? ui("Certificate") : ui("Client secret")}
             {expiry ? (
               <span className={cn("mt-1 block", expiringSoon && "text-status-warning-content")}>
-                {ui("Expires {{v1}}", { v1: expiry.toLocaleDateString(uiLocale()) })}
+                {ui("Expires {{v1}}", { v1: formatUiDay(expiry) })}
               </span>
             ) : null}
           </span>

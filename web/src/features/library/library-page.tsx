@@ -96,6 +96,13 @@ export function LibraryPage({
     onLayout: setLayout,
     onStarredOnly: (next) => library.filterBy({ starred: next }),
   };
+  // A view with nothing in it and nothing narrowing it has nothing to search, filter or lay out.
+  const nothingToArrange =
+    library.page.isSuccess &&
+    files.length === 0 &&
+    !library.filtered &&
+    library.search === "" &&
+    library.mode === "name";
   const notices = (
     <LibraryNotices
       archive={archive}
@@ -176,12 +183,14 @@ export function LibraryPage({
                 </div>
               ) : (
                 <div className="flex min-w-0 flex-col gap-4">
-                  <LibraryToolbar
-                    sortable={view === "ready"}
-                    starrable={view === "ready"}
-                    state={toolbarState}
-                    handlers={toolbarHandlers}
-                  />
+                  {!nothingToArrange && (
+                    <LibraryToolbar
+                      sortable={view === "ready"}
+                      starrable={view === "ready"}
+                      state={toolbarState}
+                      handlers={toolbarHandlers}
+                    />
+                  )}
                   <LibraryFilterPills
                     starrable={view === "ready"}
                     state={toolbarState}

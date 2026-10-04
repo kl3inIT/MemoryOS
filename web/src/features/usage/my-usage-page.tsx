@@ -18,7 +18,7 @@ import { ModelLogo } from "@/features/models/model-logo";
 import { DailyChart } from "./daily-chart";
 import { ShareBar } from "./ai-costs-page";
 import { appText, type AppCopy } from "@/i18n/app-text";
-import { formatUiDate, uiLocale } from "@/i18n/format";
+import { formatUiDate, formatUiDay, formatUiMoment, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   getMyAiCostsOptions,
@@ -100,16 +100,13 @@ function Budget({ standing }: { standing: AiUsageStanding }) {
             {used >= 1
               ? ui(
                   appText("The budget is spent. It frees again on {{when}}.", {
-                    when: formatUiDate(standing.resetsAt, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }),
+                    when: formatUiMoment(standing.resetsAt),
                   }),
                 )
               : ui(
                   appText("Counted over {{days}} days. It frees again on {{when}}.", {
                     days: standing.periodDays,
-                    when: formatUiDate(standing.resetsAt, { dateStyle: "medium" }),
+                    when: formatUiDay(standing.resetsAt),
                   }),
                 )}
           </p>

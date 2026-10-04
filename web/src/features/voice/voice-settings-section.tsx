@@ -47,9 +47,7 @@ export function VoiceSettingsSection() {
       <SectionHeader
         id="voice-settings-heading"
         title={ui("Giọng nói")}
-        description={ui(
-          "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.",
-        )}
+        description={ui("Điều khiển cách micro và phần đọc câu trả lời phối hợp trong hội thoại.")}
       />
       <SettingRows>
         {dictation && (

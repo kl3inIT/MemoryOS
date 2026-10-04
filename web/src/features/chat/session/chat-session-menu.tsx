@@ -183,7 +183,7 @@ export function ChatSessionMenu({
         restoreFocusRef={trigger}
         title={ui("Xóa hội thoại?")}
         description={ui(
-          "“{{v1}}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.",
+          "“{{v1}}” sẽ bị xóa vĩnh viễn khỏi lịch sử và liên kết chia sẻ, không khôi phục được. Câu trả lời đang chạy cũng sẽ dừng.",
           { v1: session.title },
         )}
         confirmLabel={ui("Xóa hội thoại")}

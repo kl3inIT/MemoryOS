@@ -132,7 +132,7 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {ui("Lưu biên bản vào Thư viện và mở cuộc trò chuyện mới với biên bản đó.")}
+            {ui("Lưu biên bản vào Thư viện và mở hội thoại mới với biên bản đó.")}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

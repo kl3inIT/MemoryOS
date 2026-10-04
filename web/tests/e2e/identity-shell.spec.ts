@@ -277,7 +277,7 @@ test("keeps the open administration page's link in view on a laptop screen", asy
   await expect(open).toBeInViewport();
 });
 
-test("separates listing Sources from adding one in the administration menu", async ({ page }) => {
+test("adds a Source from the Sources page, which stays the open menu entry", async ({ page }) => {
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({
       status: 200,
@@ -292,14 +292,14 @@ test("separates listing Sources from adding one in the administration menu", asy
   const knowledge = navigation.getByRole("group", { name: "Documents & Knowledge" });
   await expect(knowledge.getByRole("link", { name: "Search settings", exact: true })).toBeVisible();
   const list = navigation.getByRole("link", { name: "Sources", exact: true });
-  const add = navigation.getByRole("link", { name: "Add a source", exact: true });
   await expect(list).toHaveAttribute("aria-current", "page");
+  // Adding a Source is an action of the Sources page, not a page of the menu.
+  await expect(navigation.getByRole("link", { name: "Add a source", exact: true })).toHaveCount(0);
 
-  await add.click();
+  await page.getByRole("link", { name: "Add source", exact: true }).click();
 
   await expect(page).toHaveURL(/\/admin\/sources\/new$/);
-  await expect(add).toHaveAttribute("aria-current", "page");
-  await expect(list).not.toHaveAttribute("aria-current", "page");
+  await expect(list).toHaveAttribute("aria-current", "page");
 });
 
 test("keeps one document, identity session, and admin shell across internal routes", async ({
@@ -387,7 +387,12 @@ test("closes mobile administration navigation after a client route change", asyn
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
   await expectNoSeriousA11yViolations(page);
-  await page.getByRole("link", { name: "Users", exact: true }).click();
+  // A menu taller than the phone folds every section but the open page's; another unfolds on request.
+  const users = page.getByRole("link", { name: "Users", exact: true });
+  if (!(await users.isVisible())) {
+    await page.getByRole("button", { name: "Organization", exact: true }).click();
+  }
+  await users.click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
 
@@ -646,7 +651,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for member@example.com" }).click();
-  await page.getByRole("button", { name: "Rotate recovery link" }).click();
+  await page.getByRole("menuitem", { name: "Rotate recovery link" }).click();
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     /\/invite\/rotated-secret$/,
   );
@@ -655,7 +660,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   await expect(page.getByRole("button", { name: "Actions for member@example.com" })).toBeFocused();
 
   await page.getByRole("button", { name: "Actions for member@example.com" }).click();
-  await page.getByRole("button", { name: "Revoke invitation" }).click();
+  await page.getByRole("menuitem", { name: "Revoke invitation" }).click();
   const revokeDialog = page.getByRole("alertdialog");
   await expect(revokeDialog.getByRole("button", { name: "Cancel" })).toBeFocused();
   await revokeDialog.getByRole("button", { name: "Revoke invitation" }).click();
@@ -665,7 +670,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
 
   await page.getByRole("button", { name: "Show active users, 2" }).click();
   await page.getByRole("button", { name: "Actions for Rowan Brooks" }).click();
-  await page.getByRole("button", { name: "Deactivate member" }).click();
+  await page.getByRole("menuitem", { name: "Deactivate member" }).click();
   const deactivateDialog = page.getByRole("alertdialog");
   await expect(deactivateDialog.getByRole("button", { name: "Cancel" })).toBeFocused();
   await deactivateDialog.getByRole("button", { name: "Deactivate member" }).click();
@@ -675,7 +680,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toContainText("Inactive");
 
   await page.getByRole("button", { name: "Actions for Rowan Brooks" }).click();
-  await page.getByRole("button", { name: "Activate member" }).click();
+  await page.getByRole("menuitem", { name: "Activate member" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Activate member" }).click();
   await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Invite member" })).toBeFocused();
@@ -806,7 +811,7 @@ test("restores and updates the bounded server-driven Users view from the URL", a
   );
 
   await expect(page.getByRole("searchbox", { name: "Search users" })).toHaveValue("member");
-  await expect(page.getByRole("combobox", { name: "Filter by role" })).toHaveValue("MEMBER");
+  await expect(page.getByRole("combobox", { name: "Filter by role" })).toHaveText("Member");
   await expect(page.getByText("member21@example.com")).toBeVisible();
   await expect(page.getByText("Showing 21–24 of 24")).toBeVisible();
   await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
@@ -848,7 +853,8 @@ test("restores and updates the bounded server-driven Users view from the URL", a
   await expect(page).toHaveURL(/search=member02/);
   await expect(page.getByText("member02@example.com")).toBeVisible();
 
-  await page.getByRole("combobox", { name: "Rows per page" }).selectOption("50");
+  await page.getByRole("combobox", { name: "Rows per page" }).click();
+  await page.getByRole("option", { name: "50", exact: true }).click();
   await expect(page).toHaveURL(/size=50/);
   await page.reload();
   await expect(page.getByText("member02@example.com")).toBeVisible();

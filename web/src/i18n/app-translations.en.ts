@@ -190,7 +190,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xóa quyết định này?": "Delete this decision?",
   "“{{text}}” sẽ bị xóa khỏi biên bản và không lấy lại được.":
     "“{{text}}” will be removed from the minutes and cannot be restored.",
-  "Lưu biên bản vào Thư viện và mở cuộc trò chuyện mới với biên bản đó.":
+  "Lưu biên bản vào Thư viện và mở hội thoại mới với biên bản đó.":
     "Saves the minutes to the Library and opens a new conversation with them attached.",
   "Chi tiết": "Details",
   "vừa viết xong": "just written",
@@ -234,6 +234,8 @@ export const vietnameseUi: Record<string, string> = {
   "Chưa xem được cuộc họp này": "This meeting is unavailable",
   "Xóa cuộc họp": "Delete meeting",
   "Tìm theo tên cuộc họp": "Search by meeting name",
+  "Mọi thời gian": "Any time",
+  "Mở cuộc họp đang ghi": "Open the meeting being recorded",
   "Mọi trạng thái": "Any status",
   "Thời gian": "Period",
   "30 ngày qua": "Last 30 days",
@@ -437,6 +439,8 @@ export const vietnameseUi: Record<string, string> = {
   "Tài liệu tổ chức": "Organisation documents",
   "Có gắn sao": "Starred",
   "Gắn sao": "Stars",
+  "Thêm sao": "Star",
+  "Bỏ sao": "Unstar",
   "Chỉ tệp gắn sao": "Starred files only",
   "Gắn sao {{name}}": "Star {{name}}",
   "Bỏ gắn sao {{name}}": "Unstar {{name}}",
@@ -580,20 +584,20 @@ export const vietnameseUi: Record<string, string> = {
   "Không có hội thoại nào bị xóa ngay.": "No conversation is deleted right away.",
   // MEM-153 phase 2: temporary conversations
   "Chat tạm thời": "Temporary chat",
-  "Dùng khi bạn không muốn cuộc trò chuyện này được lưu lại.":
+  "Dùng khi bạn không muốn hội thoại này được lưu lại.":
     "For when you do not want this conversation kept.",
   "Bắt đầu": "Start",
   "Không vào lịch sử": "Not in history",
-  "Cuộc trò chuyện không hiện trên thanh bên và không tìm được.":
+  "Hội thoại không hiện trên thanh bên và không tìm được.":
     "It is not on the sidebar and search does not find it.",
   "Tự xóa": "Deletes itself",
-  "Cuộc trò chuyện và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.":
+  "Hội thoại và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.":
     "The conversation and the files you send into it are deleted once you stop asking.",
   "Không chia sẻ, không dự án": "No link, no Project",
   "Không tạo được liên kết chia sẻ và không thêm được vào dự án.":
     "It cannot be given a share link or put in a Project.",
   "Tạm thời": "Temporary",
-  "Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó.":
+  "Hội thoại này không được lưu và sẽ tự xóa cùng tệp của nó.":
     "This conversation is not kept, and it deletes itself with its files.",
   // MEM-153 chat lifecycle: archiving a conversation and branching one into a new chat
   "Lưu trữ": "Archive",
@@ -666,7 +670,7 @@ export const vietnameseUi: Record<string, string> = {
   // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
   "Khớp nội dung tệp.": "Matches the file's contents.",
   "Tìm trong nội dung tệp": "Search inside files",
-  "Cách tìm": "Search by",
+  "Cách hiển thị": "Display",
   "Nội dung": "Contents",
   "Tên A → Z": "Name A → Z",
   "Trạng thái tệp": "File state",
@@ -739,7 +743,8 @@ export const vietnameseUi: Record<string, string> = {
   "Trình chiếu": "Presentations",
   Khác: "Other",
   "{{count}} tệp · {{size}}": "{{count}} files · {{size}}",
-  "Cách hiển thị": "Layout",
+  "Bố cục": "Layout",
+  "Tìm theo": "Search by",
   "Dạng bảng": "Table view",
   "Dạng lưới": "Grid view",
   "Tìm theo tên tệp": "Search by file name",
@@ -756,6 +761,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không có tệp nào khớp bộ lọc.": "No file matches this filter.",
   "Chưa có tệp nào. Tệp bạn tải lên hoặc Chat tạo ra sẽ xuất hiện ở đây.":
     "No files yet. What you upload or Chat generates appears here.",
+  "Chọn tất cả": "Select all",
   "Chọn tất cả trên trang này": "Select all on this page",
   "Chọn tất cả {{day}}": "Select all in {{day}}",
   "Tên tệp": "File name",
@@ -1082,6 +1088,7 @@ export const vietnameseUi: Record<string, string> = {
   "Cấp quyền không thành công.": "Authorization failed.",
   "Mô hình": "Models",
   "Tìm kiếm và đọc trang Web": "Search and read the Web",
+  "Mô hình đang chọn không dùng được tìm kiếm Web.": "The selected model cannot use Web search.",
   "Chưa kết nối công cụ tìm kiếm.": "No search engine connected.",
   "Chọn một công cụ tìm kiếm để bật tìm kiếm Web.": "Select a search engine to enable web search.",
   "Cài đặt tìm kiếm bên ngoài trên internet.":
@@ -1536,8 +1543,8 @@ export const vietnameseUi: Record<string, string> = {
   Chuyển: "Move",
   "Dự án đích": "Destination project",
   "Xóa hội thoại?": "Delete conversation?",
-  "“{{v1}}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.":
-    "“{{v1}}” will be removed from history and sharing. Any running answer will also stop.",
+  "“{{v1}}” sẽ bị xóa vĩnh viễn khỏi lịch sử và liên kết chia sẻ, không khôi phục được. Câu trả lời đang chạy cũng sẽ dừng.":
+    "“{{v1}}” will be permanently removed from history and sharing, and cannot be restored. Any running answer will also stop.",
   "Xóa hội thoại": "Delete conversation",
   "Tên hội thoại": "Conversation name",
   "Lưu tên hội thoại": "Save conversation name",
@@ -1835,7 +1842,7 @@ Object.assign(vietnameseUi, {
   "Tự động gửi khi dừng ghi âm": "Auto-send when recording stops",
   "Câu hỏi được gửi ngay khi văn bản nhận dạng xong, không cần bấm Gửi.":
     "Your question is sent as soon as the transcript is ready, without pressing Send.",
-  "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.":
+  "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong hội thoại.":
     "Control how the microphone and spoken answers work together in a conversation.",
   "Không tải được cài đặt giọng nói.": "Voice settings could not be loaded.",
   "Đọc thành tiếng": "Read aloud",

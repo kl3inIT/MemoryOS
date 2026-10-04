@@ -5,6 +5,7 @@ import {
   Blocks,
   Cable,
   ChartColumn,
+  ChevronDown,
   HardDrive,
   Menu,
   MessageSquare,
@@ -15,22 +16,30 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { AccountMenu } from "@/components/app-shell/account-menu";
+import { readFoldedGroups, rememberFoldedGroups } from "@/components/app-shell/admin-menu-folds";
 import {
   adminGroups,
   adminPages,
   useCurrentAdminPage,
+  type AdminGroup,
   type AdminPage,
 } from "@/components/app-shell/admin-pages";
 import { AppShellHeaderContent } from "@/components/app-shell/app-shell-header";
-import { AppShellHeaderSlot } from "@/components/app-shell/app-shell-header-slot";
+import {
+  AppShellHeaderSlot,
+  ShellBarTitle,
+  ShellBarTitleClaim,
+  ShellBarTitleSetter,
+} from "@/components/app-shell/app-shell-header-slot";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import {
   useSourceSetupProgress,
   type SourceSetupProgress,
 } from "@/components/app-shell/source-setup-progress";
 import { Brand } from "@/components/brand";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IconButton } from "@/components/ui/icon-button";
 import { SheetClose } from "@/components/ui/sheet";
 import {
@@ -154,6 +163,49 @@ function NavigationGroup({ title, children }: { title: string; children: ReactNo
   );
 }
 
+/**
+ * A section of the administration menu that folds under its heading: by the person, or by the menu itself when
+ * its rows would not fit the screen. The rail has no headings, so there every row stays.
+ */
+function FoldingNavigationGroup({
+  title,
+  open,
+  onOpenChange,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  const headingId = useId();
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange} asChild>
+      <SidebarGroup role="group" aria-labelledby={headingId}>
+        <SidebarGroupLabel asChild>
+          <h2 id={headingId}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="group/trigger flex flex-1 items-center gap-2 rounded-sm text-left outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+              >
+                <span className="flex-1">{title}</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="size-4 shrink-0 transition-transform group-data-[state=open]/trigger:rotate-180"
+                />
+              </button>
+            </CollapsibleTrigger>
+          </h2>
+        </SidebarGroupLabel>
+        <CollapsibleContent>
+          <SidebarMenu>{children}</SidebarMenu>
+        </CollapsibleContent>
+      </SidebarGroup>
+    </Collapsible>
+  );
+}
+
 function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: SidebarContentsProps) {
   const ui = useAppTranslation();
   const { state, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
@@ -166,7 +218,43 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
 
   // The administration menu outgrows a laptop screen, and its resting scrollbar is invisible: on every navigation
   // the open page's own link scrolls into view, and nothing moves when it is already visible.
+  // Every section is open while the menu fits the screen, so a page is found by reading rather than by
+  // remembering its section. A section folds when the person folds it, which the browser remembers, or, before
+  // they ever chose, when the menu would otherwise scroll. The open page's section is always open.
+  const currentGroup = appArea
+    ? undefined
+    : adminPages.find((page) => page.id === adminPage)?.group;
+  const [foldedGroups, setFoldedGroups] = useState<ReadonlySet<AdminGroup>>(
+    () => readFoldedGroups() ?? new Set(),
+  );
+  const [followedGroup, setFollowedGroup] = useState(currentGroup);
+  if (followedGroup !== currentGroup) {
+    setFollowedGroup(currentGroup);
+    if (currentGroup && foldedGroups.has(currentGroup)) {
+      setFoldedGroups((folded) => new Set([...folded].filter((group) => group !== currentGroup)));
+    }
+  }
+  const setGroupOpen = (group: AdminGroup, open: boolean) => {
+    const next = new Set(foldedGroups);
+    if (open) next.delete(group);
+    else next.add(group);
+    setFoldedGroups(next);
+    rememberFoldedGroups(next);
+  };
+
   const navigation = useRef<HTMLElement>(null);
+  // Measured once per menu: a later navigation opens its section and leaves the rest as they are.
+  const measured = useRef(false);
+  useLayoutEffect(() => {
+    if (measured.current || appArea || collapsed) return;
+    measured.current = true;
+    if (readFoldedGroups() !== undefined) return;
+    const scroller = navigation.current?.closest<HTMLElement>('[data-slot="sidebar-content"]');
+    if (!scroller || scroller.scrollHeight <= scroller.clientHeight) return;
+    setFoldedGroups(
+      new Set(adminGroups.map((group) => group.id).filter((group) => group !== currentGroup)),
+    );
+  }, [appArea, collapsed, currentGroup]);
   useEffect(() => {
     if (appArea) return;
     navigation.current
@@ -272,7 +360,12 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
                 (page) => page.group === group.id && page.visible(authority),
               );
               return pages.length > 0 ? (
-                <NavigationGroup key={group.id} title={ui(group.label)}>
+                <FoldingNavigationGroup
+                  key={group.id}
+                  title={ui(group.label)}
+                  open={collapsed || !foldedGroups.has(group.id)}
+                  onOpenChange={(open) => setGroupOpen(group.id, open)}
+                >
                   {pages.map((page) => (
                     <SidebarLink
                       key={page.id}
@@ -285,7 +378,7 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
                       onNavigate={onNavigate}
                     />
                   ))}
-                </NavigationGroup>
+                </FoldingNavigationGroup>
               ) : null;
             })
           )}
@@ -376,6 +469,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         : undefined;
 
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  const [slotTitle, setSlotTitle] = useState<string>();
+  const [claimedTitle, setClaimedTitle] = useState<string>();
+  // The page's own header names the bar when it has one; the menu's name for the page stands in until then.
+  const barTitle = pageTitle === undefined ? undefined : (claimedTitle ?? pageTitle);
 
   // An administration page the person may not open is refused before any administration frame renders.
   if (area === "admin" && !adminPage.visible(authority)) return <AccessDeniedScreen />;
@@ -427,18 +524,24 @@ export function AppShell({ children }: { children: ReactNode }) {
           {pageTitle === undefined ? (
             <div ref={setHeaderSlot} className="contents" />
           ) : (
-            <AppShellHeaderContent title={pageTitle} />
+            <AppShellHeaderContent title={barTitle ?? pageTitle} />
           )}
         </header>
 
         <AppShellHeaderSlot value={headerSlot}>
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
-          >
-            {children}
-          </main>
+          <ShellBarTitleSetter value={setSlotTitle}>
+            <ShellBarTitle value={barTitle ?? slotTitle}>
+              <ShellBarTitleClaim value={pageTitle === undefined ? null : setClaimedTitle}>
+                <main
+                  id="main-content"
+                  tabIndex={-1}
+                  className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
+                >
+                  {children}
+                </main>
+              </ShellBarTitleClaim>
+            </ShellBarTitle>
+          </ShellBarTitleSetter>
         </AppShellHeaderSlot>
       </SidebarInset>
     </SidebarProvider>

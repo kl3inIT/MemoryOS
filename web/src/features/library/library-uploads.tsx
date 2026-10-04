@@ -67,7 +67,7 @@ export function LibraryUploadButton({ onFiles }: { onFiles: (files: File[]) => v
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
-      <Button size="sm" prominence="secondary" onClick={() => input.current?.click()}>
+      <Button onClick={() => input.current?.click()}>
         <Upload data-icon="inline-start" />
         {ui("Tải lên")}
       </Button>

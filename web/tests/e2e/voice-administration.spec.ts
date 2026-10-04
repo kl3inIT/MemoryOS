@@ -77,7 +77,8 @@ for (const width of [1440, 390]) {
 
     await page.goto("/admin/voice");
     // The e2e dev server compiles the admin route on first use.
-    await expect(page.getByRole("heading", { name: "Voice", exact: true, level: 1 })).toBeVisible({
+    // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
+    await expect(page.getByRole("heading", { name: "Voice", exact: true, level: 1 })).toBeAttached({
       timeout: 30_000,
     });
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { uiLocale } from "@/i18n/format";
+import { formatUiMoment } from "@/i18n/format";
 import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listSourceIndexAttemptsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -149,7 +149,7 @@ const columns = column.columns([
           prominence="tertiary"
           aria-label={ui("View details for {{v1}} queued {{v2}}", {
             v1: attempt.filename ?? ui("File name unavailable"),
-            v2: new Date(attempt.createdAt).toLocaleString(uiLocale()),
+            v2: formatUiMoment(attempt.createdAt),
           })}
           onClick={(event) => table.options.meta?.viewDetails(attempt, event.currentTarget)}
         >

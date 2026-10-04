@@ -939,9 +939,11 @@ describe("provider deletion reconciliation", () => {
         </ApplicationSessionBoundary>
       </QueryClientProvider>,
     );
-    const remove = await screen.findByRole("button", { name: /Delete provider/ });
-    await waitFor(() => expect(remove).toBeEnabled());
-    fireEvent.click(remove);
+    // Deleting is a menu away from the edit beside it.
+    const more = await screen.findByRole("button", { name: /^More actions for/ });
+    await waitFor(() => expect(more).toBeEnabled());
+    fireEvent.keyDown(more, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Delete provider/ }));
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete configuration" }));
     await waitFor(() => expect(deleted).toBe(true));
