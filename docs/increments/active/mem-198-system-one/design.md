@@ -183,6 +183,27 @@ The Models page drops the row of this task, and the Chat settings link to the ch
   latency p50/p95 for the language model and each reachable connection.
 - Staging: a connection added, tested and chosen; a blocked topic refused; the `unchecked` share before and after.
 
+## Later candidates (noted 2026-10-04, not planned)
+
+Where else a typed decision fits MemoryOS, for whoever picks the next use. None is measured or scheduled; real
+Tenant data needs a self-hosted model first (MEM-222), and the Vietnamese measurement of this increment decides
+which model is good enough.
+
+| Use | Question | Needs beyond `SystemOneClient` |
+| --- | --- | --- |
+| Intent router (MEM-129) | choice | nothing |
+| Outbound data gate (MEM-134): personal or sensitive content | yes/no or choice | a self-hosted model, since the content checked is the sensitive one |
+| An answer supported by its cited passage (grounded Chat) | yes/no per sentence and passage | holding the answer or flagging it afterwards; `CitationGate` checks today that a citation exists, not that it supports the sentence |
+| Filtering and reranking retrieved passages | yes/no, score | a place in the search pipeline, batched calls |
+| Judge of the RAG benchmark | yes/no and score per criterion | criteria rewritten; scores stop being comparable with earlier runs |
+| Tool selection as MCP tools grow (MEM-224) | choice plus "does any apply" | depends on how Embabel takes its tool list |
+| Labels at ingestion (document type, sensitivity) | choice | no stated need yet |
+| Which transcript stretch needs correcting | yes/no | only the selection; the proposal stays a language model's |
+
+Generating text (titles, minutes, corrections, answers) is not a System One task. The library's own integrations
+for several of these (`typesafe-spring-ai`: `JevJudge`, the advisors, `JevDocumentFilter`, `JevDocumentReranker`,
+`JevToolIndex`) sit on Spring AI's `ChatClient` and tool SPIs, which Chat's Embabel turn does not run through.
+
 ## Out of scope
 
 - Self-hosting Clef-flash or another model on the serving node ([MEM-222](https://linear.app/memory-os/issue/MEM-222)).
