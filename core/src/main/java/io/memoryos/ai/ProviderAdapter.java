@@ -73,13 +73,14 @@ public interface ProviderAdapter {
                          @Nullable Boolean toolCalling,
                          @Nullable Boolean vision,
                          @Nullable Boolean reasoning,
+                         @Nullable Boolean structuredOutput,
                          ModelSettings.@Nullable Pricing pricing) {
         public ReportedModel {
             if (modelName == null) throw new IllegalArgumentException("Invalid reported model");
         }
 
         public static ReportedModel named(String modelName) {
-            return new ReportedModel(modelName, null, null, null, null, null, null);
+            return new ReportedModel(modelName, null, null, null, null, null, null, null);
         }
     }
 

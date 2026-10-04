@@ -8,9 +8,10 @@ public record ChatModelCapabilitiesRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean streaming,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean toolCalling,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean vision,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean reasoning
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean reasoning,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean structuredOutput
 ) {
     public ModelSettings.Capabilities toInput() {
-        return new ModelSettings.Capabilities(streaming, toolCalling, vision, reasoning);
+        return new ModelSettings.Capabilities(streaming, toolCalling, vision, reasoning, structuredOutput);
     }
 }

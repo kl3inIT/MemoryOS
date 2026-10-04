@@ -1126,7 +1126,8 @@ export const zCapabilitiesInput = z.object({
     streaming: z.boolean(),
     toolCalling: z.boolean(),
     vision: z.boolean(),
-    reasoning: z.boolean()
+    reasoning: z.boolean(),
+    structuredOutput: z.boolean()
 });
 
 export const zPricingInput = z.object({
@@ -1155,7 +1156,8 @@ export const zCapabilities = z.object({
     streaming: z.boolean(),
     toolCalling: z.boolean(),
     vision: z.boolean(),
-    reasoning: z.boolean()
+    reasoning: z.boolean(),
+    structuredOutput: z.boolean()
 });
 
 export const zPricing = z.object({
@@ -2139,7 +2141,8 @@ export const zProviderTestResult = z.object({
 export const zChatReportedModelCapabilities = z.object({
     toolCalling: z.boolean(),
     vision: z.boolean(),
-    reasoning: z.boolean()
+    reasoning: z.boolean(),
+    structuredOutput: z.boolean()
 });
 
 export const zChatReportedModelPricing = z.object({

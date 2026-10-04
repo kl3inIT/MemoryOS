@@ -173,6 +173,7 @@ import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ContentDisposition;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -347,7 +348,8 @@ class ChatSessionApiIntegrationTest {
         var settings = Json.mapper().createObjectNode().put("contextWindow", known.contextWindow())
                 .put("maxOutputTokens", known.maxOutputTokens()).put("tokenizerProfile", "openai-o200k-v1");
         settings.putObject("capabilities").put("streaming", true).put("toolCalling", known.capabilities().toolCalling())
-                .put("vision", known.capabilities().vision()).put("reasoning", known.capabilities().reasoning());
+                .put("vision", known.capabilities().vision()).put("reasoning", known.capabilities().reasoning())
+                .put("structuredOutput", known.capabilities().structuredOutput());
         settings.putObject("options").put("maxCompletionTokens", known.capabilities().reasoning());
         var pricing = settings.putObject("pricing").put("inputPerMillion", known.pricing().inputPerMillion())
                 .put("outputPerMillion", known.pricing().outputPerMillion());
@@ -369,7 +371,7 @@ class ChatSessionApiIntegrationTest {
         var known = Objects.requireNonNull(ModelResolver.findKnown(DEFAULT_MODEL, providerAdapter.knownModels()));
         var settings = new ModelSettings(known.contextWindow(), known.maxOutputTokens(),
                 new ModelSettings.Capabilities(true, known.capabilities().toolCalling(), known.capabilities().vision(),
-                        known.capabilities().reasoning()),
+                        known.capabilities().reasoning(), false),
                 Map.of("maxCompletionTokens", known.capabilities().reasoning()), known.pricing(), "openai-o200k-v1");
         return new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters).create(
                 new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, limits.providerReadTimeout());
@@ -2474,7 +2476,8 @@ class ChatSessionApiIntegrationTest {
         var local = modelBody("local-profile", 0.2);
         var settings = (ObjectNode) local.path("settings");
         settings.put("tokenizerProfile", "openai-o200k-v1").put("contextWindow", 1024).put("maxOutputTokens", 128);
-        settings.putObject("capabilities").put("streaming", true).put("toolCalling", false).put("vision", false).put("reasoning", false);
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", false).put("vision", false).put("reasoning", false)
+                .put("structuredOutput", false);
         var saved = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(local.toString())).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
@@ -4243,10 +4246,13 @@ class ChatSessionApiIntegrationTest {
     @Test
     void endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn() throws Exception {
         var prompts = new LinkedBlockingQueue<String>();
+        var schemas = new LinkedBlockingQueue<String>();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.getArgument(0, Prompt.class).getInstructions().stream()
                     .map(Message::getText).collect(Collectors.joining("\n"));
             prompts.add(text);
+            if (call.getArgument(0, Prompt.class).getOptions() instanceof OpenAiChatOptions options
+                    && options.getOutputSchema() != null) schemas.add(options.getOutputSchema());
             return response("""
                     {"summary":"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.","kind":"Giao ban tuần",
                      "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
@@ -4288,6 +4294,11 @@ class ChatSessionApiIntegrationTest {
                         assertEquals("READY", Json.mapper().readTree(body).path("minutes").path("status").asText());
                         ready.set(body);
                     });
+            // MEM-225: the fixture model declares structured output, so the request that reached the provider through
+            // Embabel carried the schema of the minutes, every field required.
+            var schema = Json.mapper().readTree(Objects.requireNonNull(schemas.poll(), "no schema reached the provider"));
+            assertEquals("array", schema.path("properties").path("decisions").path("type").asText());
+            assertEquals(5, schema.path("properties").path("actions").path("items").path("required").size());
             var minutes = Json.mapper().readTree(ready.get()).path("minutes");
             assertEquals("Cuộc họp chốt ngân sách quý 4 trước thứ Năm.", minutes.path("summary").asText());
             assertEquals("Giao ban tuần", minutes.path("kind").asText());
@@ -5982,7 +5993,8 @@ class ChatSessionApiIntegrationTest {
         var body = Json.mapper().createObjectNode().put("modelName", name).put("displayName", name).put("visible", true);
         var settings = body.putObject("settings").put("contextWindow", 8192).put("maxOutputTokens", 512)
                 .put("tokenizerProfile", "openai-o200k-v1");
-        settings.putObject("capabilities").put("streaming", true).put("toolCalling", true).put("vision", false).put("reasoning", false);
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", true).put("vision", false).put("reasoning", false)
+                .put("structuredOutput", false);
         settings.putObject("options").put("maxCompletionTokens", false).put("temperature", temperature);
         return body;
     }

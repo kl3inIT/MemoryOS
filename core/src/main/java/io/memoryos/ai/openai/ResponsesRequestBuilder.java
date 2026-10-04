@@ -14,6 +14,7 @@ import java.util.Set;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import tools.jackson.databind.ObjectMapper;
@@ -26,6 +27,8 @@ import tools.jackson.databind.ObjectMapper;
 @NullMarked
 final class ResponsesRequestBuilder {
     private static final ObjectMapper JSON = new ObjectMapper();
+    /** Responses requires a name for the schema; Spring AI sends one of its own on Chat Completions. */
+    private static final String SCHEMA_NAME = "answer";
     private final boolean reasoning;
     private final boolean summaries;
 
@@ -60,6 +63,17 @@ final class ResponsesRequestBuilder {
         if (summaries && !"none".equals(effort)) reasoningOptions.put("summary", "auto");
         if (!reasoningOptions.isEmpty()) builder.putAdditionalBodyProperty("reasoning", JsonValue.from(reasoningOptions));
         if (reasoning) builder.include(List.of(ResponseIncludable.REASONING_ENCRYPTED_CONTENT));
+        var format = options.getResponseFormat();
+        if (format != null && format.getType() == ResponseFormat.Type.JSON_SCHEMA && format.getJsonSchema() != null) {
+            // Chat Completions nests the schema under response_format.json_schema; Responses takes it flat here.
+            var schema = new LinkedHashMap<String, Object>();
+            schema.put("type", "json_schema");
+            schema.put("name", SCHEMA_NAME);
+            schema.put("schema", JSON.readValue(format.getJsonSchema(), Map.class));
+            // Spring AI leaves the flag unset for an output schema and sends strict on Chat Completions; the same here.
+            schema.put("strict", format.getStrict() == null || format.getStrict());
+            builder.putAdditionalBodyProperty("text", JsonValue.from(Map.of("format", schema)));
+        }
         if (tools) {
             var declared = new ArrayList<Tool>();
             var callbacks = options.getToolCallbacks();

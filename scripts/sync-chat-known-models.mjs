@@ -55,6 +55,7 @@ for (const [modelName, entry] of Object.entries(source)) {
     toolCalling: entry.supports_function_calling === true,
     vision: entry.supports_vision === true,
     reasoning: entry.supports_reasoning === true,
+    structuredOutput: entry.supports_response_schema === true,
     inputPerMillion: Number((input * 1e6).toFixed(6)),
     outputPerMillion: Number((output * 1e6).toFixed(6)),
     // Prompt-cache reads are billed at their own rate; absent means the input rate applies.

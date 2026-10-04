@@ -82,7 +82,7 @@ final class LocalModelMetadata {
             boolean known = !capabilities.isEmpty();
             detailed.add(new ReportedModel(model.modelName(), context, null,
                     known ? capabilities.contains("tools") : null, known ? capabilities.contains("vision") : null,
-                    known ? capabilities.contains("thinking") : null, null));
+                    known ? capabilities.contains("thinking") : null, null, null));
         }
         return detailed;
     }
@@ -140,7 +140,7 @@ final class LocalModelMetadata {
                 if (capabilities.has("trained_for_tool_use")) tools = enabled(capabilities.path("trained_for_tool_use"));
             }
             if ("vlm".equals(item.path("type").asText(""))) vision = true;
-            detailed.add(new ReportedModel(model.modelName(), context, null, tools, vision, reasoning, null));
+            detailed.add(new ReportedModel(model.modelName(), context, null, tools, vision, reasoning, null, null));
         }
         return detailed;
     }

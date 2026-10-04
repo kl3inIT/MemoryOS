@@ -22,11 +22,14 @@ import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.core.io.ClassPathResource;
 import java.util.function.Supplier;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
@@ -47,7 +50,7 @@ class ModelCatalogConstraintsTest {
     private UUID tenant;
     private UUID provider;
     private final ModelSettings settings = new ModelSettings(32000, 4096,
-            new ModelSettings.Capabilities(true, true, false, false), Map.of("temperature", 0.5), null, "openai-o200k-v1");
+            new ModelSettings.Capabilities(true, true, false, false, false), Map.of("temperature", 0.5), null, "openai-o200k-v1");
 
     // Only the tokenizer backfill needs the pre-V54 schema; the other cases exercise the current agent schema.
     @BeforeEach void setup(TestInfo test) throws Exception {
@@ -218,7 +221,7 @@ class ModelCatalogConstraintsTest {
         assertNull(page.nextCursor());
     }
 
-    @Test void tokenizerMigrationBackfillsOnlyLegacyJsonAndPreservesCatalogSelectionsAndHistory() {
+    @Test void tokenizerMigrationBackfillsOnlyLegacyJsonAndPreservesCatalogSelectionsAndHistory() throws IOException {
         UUID legacy = UUID.randomUUID(), installed = UUID.randomUUID();
         var actor = new ActorId(UUID.randomUUID());
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", actor.value()).update();
@@ -231,7 +234,7 @@ class ModelCatalogConstraintsTest {
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,'Models')")
                 .param("tenant", tenant).param("id", group).update();
-        var localSettings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
+        var localSettings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false, false),
                 Map.of(), null, "custom-tokenizer-v1");
         tx(() -> {
             jdbc.sql("INSERT INTO llm_provider_group VALUES (:tenant, :provider, :group)")
@@ -288,8 +291,12 @@ class ModelCatalogConstraintsTest {
         // The baseline stops at V53, the last migration before the tokenizer-profile backfill.
         var preservedMessages = jdbc.sql("SELECT id,content,status FROM chat_message").query().listOfRows();
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("54").load().migrate();
+        // The reader is today's, so the capability a later migration backfills (MEM-225) is applied by itself: the
+        // migrations between the two need tables this baseline does not have.
+        jdbc.sql(new ClassPathResource("db/migration/V147__model_structured_output_capability.sql")
+                .getContentAsString(StandardCharsets.UTF_8)).update();
         var restored = read(() -> catalog.model(tenant, legacy).orElseThrow());
-        assertEquals(new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false),
+        assertEquals(new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false, false),
                 Map.of("temperature", 0.2), null, "openai-o200k-v1"), restored.settings());
         assertEquals(9, restored.revision());
         assertEquals(provider, restored.providerId());

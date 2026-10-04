@@ -37,7 +37,7 @@ import reactor.core.publisher.Flux;
 class OpenAiRequestPolicyTest {
     @Test
     void textOnlyPolicyRemovesConvertedToolsAndBoundsEveryCallNotJustLastCycle() {
-        var settings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
+        var settings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false, false),
                 Map.of(), null, TokenizerProfiles.HOSTED);
         var policy = OpenAiRequestPolicy.create(settings, TokenizerProfiles.hostedTokens());
         var model = mock(ChatModel.class);
@@ -77,7 +77,7 @@ class OpenAiRequestPolicyTest {
     void hostedVisionCountsNativeMediaAndRejectsItForTextOnlyBindings() {
         var tokens = TokenizerProfiles.hostedTokens();
         var vision = OpenAiRequestPolicy.create(new ModelSettings(8192, 128,
-                new ModelSettings.Capabilities(true, false, true, false), Map.of(), null, TokenizerProfiles.HOSTED), tokens);
+                new ModelSettings.Capabilities(true, false, true, false, false), Map.of(), null, TokenizerProfiles.HOSTED), tokens);
         var media = new Media(MimeTypeUtils.IMAGE_PNG,
                 new ByteArrayResource(new byte[]{1, 2, 3}));
         var message = UserMessage.builder().text("Inspect").media(List.of(media)).build();
@@ -91,7 +91,7 @@ class OpenAiRequestPolicyTest {
         assertEquals(List.of(media), assertInstanceOf(UserMessage.class,
                 accepted.getInstructions().getFirst()).getMedia());
         var textOnly = OpenAiRequestPolicy.create(new ModelSettings(8192, 128,
-                new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, TokenizerProfiles.HOSTED), tokens);
+                new ModelSettings.Capabilities(true, false, false, false, false), Map.of(), null, TokenizerProfiles.HOSTED), tokens);
         assertThrows(AiException.class, () -> textOnly.request(prompt, imageBudget));
     }
 
@@ -99,7 +99,7 @@ class OpenAiRequestPolicyTest {
     void aModelWithoutAPublishedOutputLimitSendsNoCapUnlessTheRequestSetsOne() {
         // Onyx llm_loop passes no max_tokens: the provider's own default applies.
         var policy = OpenAiRequestPolicy.create(new ModelSettings(131_072, null,
-                new ModelSettings.Capabilities(true, true, false, false), Map.of(), null, TokenizerProfiles.HOSTED),
+                new ModelSettings.Capabilities(true, true, false, false, false), Map.of(), null, TokenizerProfiles.HOSTED),
                 TokenizerProfiles.hostedTokens());
         var open = assertInstanceOf(OpenAiChatOptions.class, policy.request(new Prompt("Question",
                 OpenAiChatOptions.builder().model("grok-4").build()), 1000).getOptions());
@@ -127,7 +127,7 @@ class OpenAiRequestPolicyTest {
         try {
             var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
             assertThrows(AiException.class, () -> adapter.validate("http://private/v1", "model",
-                    new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, "unknown")));
+                    new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false, false), Map.of(), null, "unknown")));
         } finally { meters.close(); }
     }
 

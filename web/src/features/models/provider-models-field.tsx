@@ -1,5 +1,5 @@
 import { ModelLogo } from "./model-logo";
-import { Brain, Eye, RefreshCw, Search, Wrench } from "lucide-react";
+import { Braces, Brain, Eye, RefreshCw, Search, Wrench } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -278,6 +278,7 @@ function ModelName({ model }: { model: ReportedModel }) {
     [model.capabilities.toolCalling, Wrench, ui("Tools")],
     [model.capabilities.vision, Eye, ui("Vision")],
     [model.capabilities.reasoning, Brain, ui("Reasoning")],
+    [model.capabilities.structuredOutput, Braces, ui("Structured output")],
   ];
   return (
     <span className="flex min-w-0 items-center gap-2">

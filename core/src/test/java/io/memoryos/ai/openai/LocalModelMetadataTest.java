@@ -67,8 +67,8 @@ class LocalModelMetadataTest {
         var detailed = LocalModelMetadata.enrich(CLIENT, LocalModelMetadata.Server.OLLAMA, base, "ollama", models);
 
         assertEquals(List.of("qwen3:8b", "llava:7b"), detailed.stream().map(ReportedModel::modelName).toList());
-        assertEquals(new ReportedModel("qwen3:8b", 16_384, null, true, false, true, null), detailed.get(0));
-        assertEquals(new ReportedModel("llava:7b", 4096, null, false, true, false, null), detailed.get(1));
+        assertEquals(new ReportedModel("qwen3:8b", 16_384, null, true, false, true, null, null), detailed.get(0));
+        assertEquals(new ReportedModel("llava:7b", 4096, null, false, true, false, null, null), detailed.get(1));
     }
 
     @Test
@@ -86,7 +86,7 @@ class LocalModelMetadataTest {
 
         var detailed = LocalModelMetadata.enrich(CLIENT, LocalModelMetadata.Server.LM_STUDIO, base, "lm-studio", models);
 
-        assertEquals(List.of(new ReportedModel("qwen/qwen3-8b", 32_768, null, true, false, true, null)), detailed);
+        assertEquals(List.of(new ReportedModel("qwen/qwen3-8b", 32_768, null, true, false, true, null, null)), detailed);
     }
 
     @Test
@@ -94,7 +94,7 @@ class LocalModelMetadataTest {
         String base = serve(Map.of());
         var owned = JSON.readTree("[{\"id\":\"gpt-5-mini\",\"owned_by\":\"system\"}]");
         assertNull(LocalModelMetadata.recognize("https://api.openai.com/v1", owned, names("gpt-5-mini")));
-        var published = List.of(new ReportedModel("local", 8192, null, null, null, null, null));
+        var published = List.of(new ReportedModel("local", 8192, null, null, null, null, null, null));
         assertNull(LocalModelMetadata.recognize(base, JSON.readTree("[{\"id\":\"local\",\"owned_by\":\"library\"}]"), published));
         // A native API that does not answer keeps the names already listed.
         var models = names("qwen3:8b");

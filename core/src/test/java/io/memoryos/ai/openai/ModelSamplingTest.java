@@ -13,9 +13,9 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 /** The order a turn's creativity and reasoning level settle in, as Onyx settles its own. */
 class ModelSamplingTest {
     private static final ModelSettings.Capabilities REASONING =
-            new ModelSettings.Capabilities(true, true, false, true);
+            new ModelSettings.Capabilities(true, true, false, true, false);
     private static final ModelSettings.Capabilities PLAIN =
-            new ModelSettings.Capabilities(true, true, false, false);
+            new ModelSettings.Capabilities(true, true, false, false, false);
 
     private static ModelSettings settings(ModelSettings.Capabilities capabilities, Map<String, Object> options) {
         return new ModelSettings(200_000, 32_000, capabilities, options, null, "hosted");

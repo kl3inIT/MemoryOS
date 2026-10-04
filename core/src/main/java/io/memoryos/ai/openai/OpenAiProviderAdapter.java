@@ -165,7 +165,9 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
         if (reasoning == null) reasoning = flag(item, "thinking");
         var pricing = pricing(item.path("pricing"));
         if (pricing == null) pricing = xaiPricing(item);
-        return new ReportedModel(id, context, output, tools, vision, reasoning, pricing);
+        // OpenRouter lists structured_outputs among the parameters a model takes; no other listing says.
+        Boolean structured = parameters.isArray() ? Boolean.valueOf(contains(parameters, "structured_outputs")) : null;
+        return new ReportedModel(id, context, output, tools, vision, reasoning, structured, pricing);
     }
 
     /**
@@ -278,6 +280,10 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                 String effort = (String) configured.getOrDefault("helperReasoningEffort", "none");
                 converted = converted.mutate().reasoningEffort(effort).build();
             }
+            // A typed call on a model that declares structured output carries the schema of its answer; Spring AI
+            // sends it as response_format, and ResponsesRequestBuilder as text.format.
+            if (options.<Object>getExtension(ModelBinding.OUTPUT_SCHEMA) instanceof String schema)
+                converted = converted.mutate().outputSchema(schema).build();
             return converted;
         };
         var price = settings.pricing();
@@ -285,7 +291,8 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                 price == null ? null : ModelPricing.of(price), settings.capabilities().reasoning());
         return new ModelBinding(service, OpenAiRequestPolicy::withoutTools,
                 OpenAiRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
-                settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiRequestPolicy::requireTools,
+                settings.capabilities().toolCalling(), settings.capabilities().vision(),
+                settings.capabilities().structuredOutput(), OpenAiRequestPolicy::requireTools,
                 (llmService, sampling) -> llmService.withOptionsConverter((requested, requestedModel) ->
                         OpenAiRequestPolicy.withSampling(
                                 llmService.getOptionsConverter().convertOptions(requested, requestedModel),

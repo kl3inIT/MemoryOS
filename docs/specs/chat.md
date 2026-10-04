@@ -462,9 +462,12 @@ grounded turn always offers `search_knowledge`, whatever the agent's search tool
      name;
    - otherwise the task's model, or the conversation model when the task has no usable one
      ([task models](chat-models.md); `ModelCalls`, so it keeps the turn's budget, deadline and usage recording),
-     answers with one flat JSON object, a probability per question, in up to 1,024 output tokens.
-     `GroundingClassifier.answers` takes the object from whatever surrounds it, reads a question the model left out
-     as no, and does not guess a reply that answers none.
+     answers in up to 1,024 output tokens. A model that declares
+     [structured output](chat-models.md#structured-output) answers the fixed type `Answers`, one entry per
+     question id with its probability, which its provider holds it to. Any other model is asked for one flat JSON
+     object, a probability per question, and `GroundingClassifier.answers` takes the object from whatever
+     surrounds it. Either way a question the model left out is read as no, and a reply that answers none is not
+     guessed.
 4. Either way the answers are a `SystemOneResponse` and the library's `JevGuardrail` decides: a topic above 0.70
    blocks (the most probable of several), a topic between 0.35 and 0.70 lets the turn through and counts a review,
    and a conversational probability above 0.5 on a grounded turn makes the message conversation.
