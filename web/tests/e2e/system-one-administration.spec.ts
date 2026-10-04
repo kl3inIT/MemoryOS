@@ -152,8 +152,11 @@ for (const width of [1440, 390]) {
     });
 
     await page.goto("/admin/system-one");
-    await expect(page.getByRole("heading", { name: "Phân loại (System One)" })).toBeVisible();
-    const connections = page.getByRole("region", { name: "Kết nối khả dụng" });
+    // Below `md` the shell bar names the page and the header steps aside, so the heading is asserted as present.
+    await expect(
+      page.getByRole("heading", { name: "Phân loại (System One)", exact: true, level: 1 }),
+    ).toBeAttached();
+    const connections = page.getByRole("region", { name: "Kết nối", exact: true });
     await expect(connections.getByRole("listitem")).toHaveCount(3);
     await expect(
       page.getByRole("region", { name: "Thêm kết nối" }).getByRole("listitem"),
