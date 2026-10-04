@@ -77,7 +77,7 @@ public class ModelCatalogService {
     /** A flow model is unavailable when it is set but no longer eligible; its flow then uses the conversation model. */
     /** One task's model and the reasoning level it runs at (its own default until one is chosen). */
     public record FlowView(ModelFlow flow, @Nullable UUID modelConfigurationId, boolean available,
-                           ReasoningEffort reasoningEffort, long revision) {}
+                           ReasoningEffort reasoningEffort, @Nullable UUID systemOneConnectionId, long revision) {}
     public record AvailableModel(UUID id, UUID providerId, String providerName, String modelName, String displayName,
                                  ModelSettings.Capabilities capabilities, int contextWindow, @Nullable Integer maxOutputTokens,
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
@@ -269,7 +269,8 @@ public class ModelCatalogService {
         var before = catalog.flowDefault(tenant, flow);
         catalog.setFlowDefault(tenant, flow, id, effort, revision);
         var after = catalog.flowDefault(tenant, flow);
-        if (!Objects.equals(before.modelConfigurationId(), id) || before.effort() != after.effort()) {
+        if (!Objects.equals(before.modelConfigurationId(), id) || before.effort() != after.effort()
+                || before.systemOneConnectionId() != null) {
             record(tenant, actor, AuditAction.MODEL_FLOW_CHANGE, "MODEL_FLOW", flow.name(), null,
                     event -> event.detail("flow", flow.name()).detail("before", flowFacts(tenant, before))
                             .detail("after", flowFacts(tenant, after)));
@@ -425,7 +426,8 @@ public class ModelCatalogService {
     }
     private FlowView flowView(UUID tenant, FlowModelDefault value) {
         UUID id = value.modelConfigurationId();
-        return new FlowView(value.flow(), id, id == null || flowSelection(tenant, id) != null, value.effort(), value.revision());
+        return new FlowView(value.flow(), id, id == null || flowSelection(tenant, id) != null, value.effort(),
+                value.systemOneConnectionId(), value.revision());
     }
     private boolean available(LlmProvider p, UUID personaId, boolean manager, Set<UUID> groups) {
         if (!p.enabled() || !credentialUsable(p) || (!p.personaIds().isEmpty() && !p.personaIds().contains(personaId))) return false;

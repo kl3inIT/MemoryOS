@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEM-198 · Phân loại (System One) · prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&display=swap">
+<style>
+/* Tokens copied from web/src/styles/tokens.css; the prototype uses no other colour. */
+:root {
+  color-scheme: light dark;
+  --surface-canvas: #f0f0f1;
+  --surface-base: #fafafa;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e6e6e9;
+  --surface-overlay: #ffffff;
+  --surface-scrim: #00000066;
+  --content-primary: #000000e5;
+  --content-secondary: #000000bf;
+  --content-muted: #0000008c;
+  --content-disabled: #00000073;
+  --border-subtle: #e6e6e6;
+  --border-default: #cccccc;
+  --action-primary: #1c1c1c;
+  --action-primary-hover: #333333;
+  --action-primary-content: #ffffff;
+  --action-selection: #286df8;
+  --focus-ring: #000000;
+  --status-success-surface: #e6f2e7;
+  --status-success-content: #007a2d;
+  --status-success-border: #91d099;
+  --status-success-faint: #f8fbf8;
+  --status-info-surface: #e7effc;
+  --status-info-content: #245fda;
+  --status-danger-surface: #fceae7;
+  --status-danger-content: #c12222;
+  --status-danger-border: #f8a59b;
+  --status-danger-faint: #fef7f6;
+  --elevation-2: 0 0 0 1px #00000005, 0 4px 8px -2px #00000014, 0 12px 24px -4px #00000014;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-canvas: #26262b;
+    --surface-base: #19191e;
+    --surface-raised: #000000;
+    --surface-sunken: #323239;
+    --surface-overlay: #262626;
+    --surface-scrim: #00000099;
+    --content-primary: #fffffff2;
+    --content-secondary: #ffffffd9;
+    --content-muted: #ffffff99;
+    --content-disabled: #ffffff73;
+    --border-subtle: #333333;
+    --border-default: #555555;
+    --action-primary: #e9e9e9;
+    --action-primary-hover: #cacaca;
+    --action-primary-content: #000000e5;
+    --focus-ring: #ffffff;
+    --status-success-surface: #002207;
+    --status-success-content: #48c775;
+    --status-success-border: #004214;
+    --status-success-faint: #001503;
+    --status-info-surface: #091938;
+    --status-info-content: #8cb4ff;
+    --status-danger-surface: #330b09;
+    --status-danger-content: #ff8276;
+    --status-danger-border: #5f1a16;
+    --status-danger-faint: #210504;
+    --elevation-2: 0 1px 2px #00000038, 0 12px 32px #00000047;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--surface-base);
+  color: var(--content-primary);
+  font-family: "Hanken Grotesk", "Segoe UI Variable", "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+h1, h2, p { margin: 0; }
+h1 { font-size: 24px; line-height: 36px; font-weight: 600; }
+h2 { font-size: 18px; line-height: 28px; font-weight: 600; }
+svg, img { flex: none; }
+a { color: var(--status-info-content); }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  flex: none;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 12px;
+  background: var(--surface-canvas);
+  border-right: 1px solid var(--border-subtle);
+}
+.brand { padding: 0 8px; font-size: 16px; line-height: 24px; font-weight: 700; }
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-label { padding: 0 8px 4px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--content-muted); }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--content-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.nav-item:hover { background: var(--surface-sunken); color: var(--content-primary); }
+.nav-item[aria-current="page"] { background: var(--surface-sunken); color: var(--content-primary); font-weight: 600; }
+
+.main { flex: 1 1 auto; min-width: 0; padding: 52px 16px 72px; }
+.page { max-width: 872px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+.page-header { display: flex; align-items: center; gap: 12px; color: var(--content-secondary); }
+.page-header h1 { color: var(--content-primary); }
+.section { display: flex; flex-direction: column; gap: 12px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+.card { border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-raised); }
+.card-pad { padding: 16px; }
+.divided { padding: 0 16px; }
+.divided > * { padding: 16px 0; }
+.divided > * + * { border-top: 1px solid var(--border-subtle); }
+.muted { color: var(--content-muted); }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.row-title { flex: 1 1 160px; min-width: 0; font-weight: 600; }
+.row-note { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 400; color: var(--content-muted); }
+.row-note a { font-weight: 600; }
+
+.picker { position: relative; flex: 2 1 280px; min-width: 0; max-width: 460px; }
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--content-primary);
+  font: inherit;
+  text-align: left;
+}
+button.trigger { cursor: pointer; }
+.trigger .value { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trigger .chevron { color: var(--content-muted); }
+.menu {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-overlay);
+  box-shadow: var(--elevation-2);
+}
+.menu-label { padding: 6px 8px 2px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--content-muted); }
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--content-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-item:hover { background: var(--surface-canvas); }
+.menu-item .value { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.menu-empty { padding: 6px 8px; color: var(--content-muted); }
+
+.pill, .tag, .badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pill { background: var(--surface-canvas); color: var(--content-secondary); }
+.pill-info { background: var(--status-info-surface); color: var(--status-info-content); }
+.tag { border: 1px solid var(--border-subtle); background: var(--surface-base); color: var(--content-secondary); }
+.badge { background: var(--status-success-surface); color: var(--status-success-content); }
+
+.conn { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px; }
+.conn[data-selected] { border-color: var(--action-selection); }
+.logo { flex: none; display: grid; place-items: center; width: 36px; height: 36px; color: var(--content-secondary); }
+.conn-body { flex: 1 1 200px; min-width: 112px; display: flex; flex-direction: column; gap: 2px; }
+.conn-name { font-weight: 600; }
+.conn-summary { color: var(--content-muted); overflow-wrap: anywhere; }
+.conn-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+
+.setting-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.setting-icon { color: var(--content-secondary); }
+.setting-body { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.setting-title { font-weight: 600; }
+.setting-value { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--content-muted); overflow-wrap: anywhere; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn-sm { height: 28px; padding: 0 10px; }
+.btn-primary { background: var(--action-primary); color: var(--action-primary-content); }
+.btn-primary:hover { background: var(--action-primary-hover); }
+.btn-secondary { background: var(--surface-base); border-color: var(--border-subtle); color: var(--content-secondary); }
+.btn-secondary:hover { background: var(--surface-canvas); border-color: var(--border-default); color: var(--content-primary); }
+.btn-tertiary { background: transparent; color: var(--content-secondary); }
+.btn-tertiary:hover { background: var(--surface-canvas); color: var(--content-primary); }
+.btn-danger { background: transparent; color: var(--status-danger-content); }
+.btn-danger:hover { background: var(--status-danger-surface); }
+.btn:disabled { background: var(--surface-sunken); border-color: var(--border-subtle); color: var(--content-disabled); cursor: default; }
+.btn-tertiary:disabled { background: transparent; border-color: transparent; }
+
+dialog {
+  width: calc(100% - 32px);
+  max-width: 512px;
+  padding: 24px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-overlay);
+  color: var(--content-primary);
+  box-shadow: var(--elevation-2);
+}
+dialog::backdrop { background: var(--surface-scrim); }
+.form { display: flex; flex-direction: column; gap: 20px; }
+.dialog-head { display: flex; align-items: center; gap: 12px; }
+.dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
+.fields { display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field input {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--content-primary);
+  font: inherit;
+}
+.field input::placeholder { color: var(--content-muted); }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+legend { padding: 0; margin-bottom: 6px; }
+.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.choice:has(input:checked) { border-color: var(--action-selection); }
+.choice input { margin: 0; accent-color: var(--action-selection); }
+.alert { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid; border-radius: 8px; font-weight: 600; }
+.alert-success { border-color: var(--status-success-border); background: var(--status-success-faint); color: var(--status-success-content); }
+.alert-danger { border-color: var(--status-danger-border); background: var(--status-danger-faint); color: var(--status-danger-content); }
+.dialog-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.dialog-actions .start { margin-right: auto; }
+[hidden] { display: none !important; }
+
+@media (max-width: 767px) {
+  .shell { flex-direction: column; }
+  .sidebar { width: auto; flex-direction: row; gap: 4px; padding: 8px 12px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+  .brand, .nav-label, .nav-item:not([href]) { display: none; }
+  .nav-group { flex-direction: row; gap: 4px; }
+  .main { padding-top: 24px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<dialog id="connection-dialog" aria-labelledby="dialog-title">
+  <form class="form" id="connection-form">
+    <div class="dialog-head">
+      <span class="logo" id="dialog-logo"></span>
+      <h2 id="dialog-title"></h2>
+    </div>
+    <div class="fields">
+      <div class="field">
+        <label for="field-name">Tên</label>
+        <input id="field-name" type="text" maxlength="200">
+      </div>
+      <div class="field" id="endpoint-row">
+        <label for="field-endpoint" id="endpoint-label"></label>
+        <input id="field-endpoint" type="text" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="field-key">API key</label>
+        <input id="field-key" type="password" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="field-model">Model</label>
+        <input id="field-model" type="text" spellcheck="false">
+      </div>
+      <fieldset>
+        <legend>Ranh giới dữ liệu</legend>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="boundary" value="EXTERNAL">Bên ngoài</label>
+          <label class="choice"><input type="radio" name="boundary" value="INTERNAL">Nội bộ</label>
+        </div>
+      </fieldset>
+    </div>
+    <div class="alert alert-success" id="test-ok" role="status" hidden></div>
+    <div class="alert alert-danger" id="test-fail" role="alert" hidden></div>
+    <div class="alert alert-danger" id="delete-blocked" role="alert" hidden></div>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-danger start" id="delete-button">Xoá kết nối</button>
+      <button type="button" class="btn btn-tertiary" id="test-button">Kiểm tra kết nối</button>
+      <button type="button" class="btn btn-secondary" id="close-button">Đóng</button>
+      <button type="submit" class="btn btn-primary" id="save-button">Lưu</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+// A click-through prototype of MEM-198: nothing is saved and no server is called.
+// `?open=menu`, `?open=edit` and `?open=add:<TYPE>` preset a state for screenshots.
+const LLM_CHECK_MODEL = "ocg/deepseek-v4-flash";
+const TASK = "Kiểm tra câu hỏi";
+const CLOUDFLARE_ACCOUNTS = "https://api.cloudflare.com/client/v4/accounts/";
+const TYPESAFE_ICON = "data:image/png;base64,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";
+
+// The connection types. All but Cloudflare speak the same protocol; Cloudflare addresses a model under an account.
+const providers = {
+  TYPESAFE: {
+    name: "TypeSafe",
+    subtitle: "Jev, bản hosted của TypeSafe AI.",
+    endpoint: "https://api.typesafe.ai/v1",
+    keyRequired: true,
+    model: "jev-latest",
+  },
+  CLOUDFLARE: {
+    name: "Cloudflare",
+    subtitle: "Clef và Clef-flash trên Workers AI.",
+    endpointLabel: "Account ID",
+    keyRequired: true,
+    model: "@cf/cloudflare/clef-flash",
+  },
+  NINEROUTER: {
+    name: "9Router",
+    subtitle: "Một key đi tới nhiều nhà cung cấp.",
+    endpointLabel: "Endpoint",
+    endpointPlaceholder: "http://localhost:20128/v1",
+    keyRequired: true,
+    model: "",
+    modelPlaceholder: "openrouter/typesafe/jev-1.13",
+  },
+  LAYA: {
+    name: "Laya",
+    subtitle: "Model mã nguồn mở, tự host.",
+    endpointLabel: "Endpoint",
+    endpointPlaceholder: "http://localhost:8000/v1",
+    keyRequired: false,
+    model: "auto",
+  },
+  SYSTEMONE_COMPATIBLE: {
+    name: "System One compatible",
+    subtitle: "Endpoint System One bất kỳ.",
+    endpointLabel: "Endpoint",
+    endpointPlaceholder: "http://10.0.0.5:8080/v1",
+    keyRequired: false,
+    model: "",
+  },
+};
+
+const state = {
+  view: "systemone",
+  connections: [
+    { id: "c1", type: "NINEROUTER", name: "9Router", endpoint: "http://9router.internal:20128/v1", model: "openrouter/typesafe/jev-1.13", boundary: "EXTERNAL", hasKey: true },
+    { id: "c2", type: "CLOUDFLARE", name: "Cloudflare", endpoint: CLOUDFLARE_ACCOUNTS + "3f9a1c0b7d2e4a56b8c9d0e1f2a3b4c5", model: "@cf/cloudflare/clef-flash", boundary: "EXTERNAL", hasKey: true },
+    { id: "c3", type: "SYSTEMONE_COMPATIBLE", name: "Serving", endpoint: "http://serving.internal:18100/v1", model: "clef-flash", boundary: "INTERNAL", hasKey: true },
+  ],
+  task: "c1",
+  menuOpen: false,
+  saved: false,
+  draft: null,
+};
+let savedTimer = 0;
+let testTimer = 0;
+
+const paths = {
+  sparkles: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15v4"/><path d="M17 17h4"/>',
+  split: '<path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"/>',
+  audio: '<path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  terminal: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 11 2-2-2-2"/><path d="M11 13h4"/>',
+  message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  bot: '<path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  blocks: '<rect x="14" y="3" width="7" height="7" rx="1"/><path d="M10 21V8a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H3"/>',
+  plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+  settings: '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+};
+const icon = (name, size = 16, extra = "") =>
+  `<svg class="${extra}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
+
+// Brand marks: Cloudflare and 9Router as in web/public/provider-logos, Laya from its repository (Apache-2.0), TypeSafe from typesafe.ai.
+const marks = {
+  TYPESAFE: `<img src="${TYPESAFE_ICON}" alt="" width="28" height="28">`,
+  CLOUDFLARE:
+    '<svg width="28" height="28" viewBox="0 0 52 52" fill="none" aria-hidden="true"><path d="M35.8174 31.9908C35.9336 31.5457 36.0522 31.0378 35.9959 30.5502C35.9396 30.0627 35.7674 29.5956 35.4938 29.1881C35.2127 28.8513 34.8679 28.5733 34.4792 28.3698C34.0904 28.1663 33.6653 28.0414 33.2282 28.0023L14.4564 27.7867C14.1594 27.7867 14.0537 27.504 14.1594 27.321C14.2205 27.2154 14.3665 27.1098 14.5822 27.1098L33.3968 26.8986C34.5954 26.7656 35.7841 26.2341 36.7511 25.5141C37.7181 24.7941 38.4758 23.8298 38.9461 22.7202L39.9502 20.1391C40.0559 19.8223 40.0352 19.3998 39.9502 19.083C39.2572 16.4987 38.0151 14.6359 35.9712 12.9075C33.9274 11.1792 31.3748 10.1648 28.7013 10.0184C26.0278 9.87203 23.3795 10.6017 21.1589 12.0966C18.9383 13.5914 17.2668 15.7697 16.3984 18.3005C15.2709 17.4959 13.8957 17.1142 12.5145 17.2225C11.247 17.3637 10.0652 17.9315 9.16334 18.8327C8.26149 19.7338 7.69322 20.9147 7.55188 22.1812C7.48005 22.8295 7.5165 23.4852 7.65976 24.1216C5.60883 24.1782 3.66094 25.0322 2.23044 26.5018C0.799944 27.9714 0.00342678 29.9407 1.64306e-05 31.9908C-0.00064861 32.3906 0.0186006 32.788 0.107899 33.1766C0.146936 33.3465 0.241312 33.4888 0.431553 33.5H35.0623C35.278 33.5 35.4497 33.3411 35.4938 33.1766L35.8174 31.9908Z" fill="#F48120"/><path d="M41.751 20.1307C41.2186 20.1391 40.8525 20.3504 40.7958 20.5616L40.1328 22.9334C39.9592 23.3926 39.898 23.8865 39.9543 24.374C40.0106 24.8616 40.1828 25.3286 40.4564 25.7362C40.7375 26.0729 41.0823 26.351 41.4711 26.5545C41.8598 26.7579 42.2849 26.8828 42.722 26.922L46.7137 27.1376C46.9733 27.1376 47.1378 27.321 47.0373 27.5688C46.9596 27.7605 46.8216 27.8921 46.6058 27.8921L42.5062 28.1077C41.3076 28.2407 40.1661 28.6902 39.1991 29.4102C38.2321 30.1301 37.4745 31.0945 37.0042 32.2041C36.8527 32.5615 36.7884 33.1743 36.7884 33.1743C36.7792 33.3411 36.7884 33.4976 37.0042 33.4976H51.2448C51.3658 33.4976 51.5173 33.4187 51.5772 33.2355C51.8724 32.3338 51.9702 31.3198 52 30.3715C51.9829 27.6607 50.8976 25.0659 48.9793 23.149C47.0609 21.2322 44.464 20.1478 41.751 20.1307Z" fill="#FAAD3F"/></svg>',
+  LAYA:
+    '<svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="none"><path d="M 22.141 13.458 A 21.0 21.0 0 1 0 42.500 50.187" stroke="#2a78d6" stroke-width="5.0" stroke-linecap="round" opacity="0.95"/><circle cx="48.213" cy="42.609" r="2.782" fill="#2a78d6" opacity="0.929"/><circle cx="49.456" cy="33.958" r="2.527" fill="#2a78d6" opacity="0.894"/><circle cx="46.696" cy="26.535" r="2.291" fill="#2a78d6" opacity="0.852"/><circle cx="41.336" cy="21.918" r="2.067" fill="#2a78d6" opacity="0.803"/><circle cx="35.242" cy="20.694" r="1.852" fill="#2a78d6" opacity="0.749"/><circle cx="30.173" cy="22.422" r="1.642" fill="#2a78d6" opacity="0.691"/><circle cx="27.294" cy="25.889" r="1.438" fill="#2a78d6" opacity="0.628"/><circle cx="26.902" cy="29.558" r="1.239" fill="#2a78d6" opacity="0.562"/><circle cx="28.430" cy="32.075" r="1.043" fill="#2a78d6" opacity="0.493"/><circle cx="30.702" cy="32.690" r="0.850" fill="#2a78d6" opacity="0.420"/><circle cx="32.00" cy="32.00" r="2.35" fill="#2a78d6"/></g></svg>',
+  NINEROUTER:
+    '<svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="6" fill="url(#nine-router-gradient)"/><text x="16" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" fill="white" text-anchor="middle">9</text><defs><linearGradient id="nine-router-gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop stop-color="#f97815"/><stop offset="1" stop-color="#c2590a"/></linearGradient></defs></svg>',
+  SYSTEMONE_COMPATIBLE: icon("plug", 24),
+};
+
+const esc = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const boundaryLabel = (boundary) => (boundary === "INTERNAL" ? "Nội bộ" : "Bên ngoài");
+const current = () => state.connections.find((c) => c.id === state.task) ?? null;
+const summary = (c) => `${c.type === "CLOUDFLARE" ? "Workers AI" : c.endpoint} · ${c.model}`;
+
+function navItem(view, name, label) {
+  if (!view) return `<span class="nav-item">${icon(name)}${label}</span>`;
+  const here = state.view === view ? ' aria-current="page"' : "";
+  return `<a class="nav-item" href="#${view}"${here}>${icon(name)}${label}</a>`;
+}
+
+function sidebar() {
+  return `<nav class="sidebar" aria-label="Quản trị">
+    <div class="brand">MemoryOS</div>
+    <div class="nav-group">
+      <div class="nav-label">Cấu hình</div>
+      ${navItem("models", "sparkles", "Mô hình")}
+      ${navItem("systemone", "split", "Phân loại (System One)")}
+      ${navItem(null, "globe", "Tìm kiếm Web")}
+      ${navItem(null, "audio", "Giọng nói")}
+      ${navItem(null, "image", "Tạo ảnh")}
+      ${navItem(null, "terminal", "Code Interpreter")}
+      ${navItem("chat", "message", "Chat")}
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Trợ lý và công cụ</div>
+      ${navItem(null, "bot", "Quản lý trợ lý")}
+      ${navItem(null, "blocks", "Máy chủ MCP")}
+      ${navItem(null, "plug", "MemoryOS MCP")}
+    </div>
+  </nav>`;
+}
+
+function systemOnePage() {
+  const now = current();
+  const options = state.connections.length
+    ? state.connections
+        .map(
+          (c) => `<button type="button" class="menu-item" data-pick="${c.id}">
+            <span class="value">${esc(c.name)} · ${esc(c.model)}</span>
+            <span class="tag">${boundaryLabel(c.boundary)}</span>
+            ${c.id === state.task ? icon("check") : ""}
+          </button>`,
+        )
+        .join("")
+    : `<div class="menu-empty">Chưa có kết nối.</div>`;
+  const menu = state.menuOpen
+    ? `<div class="menu" id="task-menu">
+        <div class="menu-label">LLM</div>
+        <button type="button" class="menu-item" data-pick="">
+          <span class="value">${LLM_CHECK_MODEL}</span>${now ? "" : icon("check")}
+        </button>
+        <div class="menu-label">System One</div>
+        ${options}
+      </div>`
+    : "";
+  const cards = state.connections.length
+    ? state.connections
+        .map(
+          (c) => `<section class="card conn" aria-label="${esc(c.name)}"${c.id === state.task ? " data-selected" : ""}>
+            <span class="logo">${marks[c.type]}</span>
+            <div class="conn-body">
+              <div class="conn-name">${esc(c.name)}</div>
+              <div class="conn-summary">${esc(summary(c))}</div>
+            </div>
+            <div class="conn-actions">
+              <span class="tag">${boundaryLabel(c.boundary)}</span>
+              ${c.id === state.task ? `<span class="badge">${icon("checkCircle", 12)}Đang dùng</span>` : ""}
+              <button type="button" class="btn btn-tertiary btn-sm" data-edit="${c.id}">${icon("settings", 14)}Cấu hình</button>
+            </div>
+          </section>`,
+        )
+        .join("")
+    : `<p class="card card-pad muted">Chưa có kết nối.</p>`;
+  const types = Object.entries(providers)
+    .map(
+      ([type, provider]) => `<div class="card conn">
+        <span class="logo">${marks[type]}</span>
+        <div class="conn-body">
+          <div class="conn-name">${provider.name}</div>
+          <div class="conn-summary">${provider.subtitle}</div>
+        </div>
+        <div class="conn-actions">
+          <button type="button" class="btn btn-secondary btn-sm" data-add="${type}" aria-label="Kết nối ${provider.name}">Kết nối</button>
+        </div>
+      </div>`,
+    )
+    .join("");
+  return `<header class="page-header">${icon("split", 24)}<h1>Phân loại (System One)</h1></header>
+    <section class="section" aria-label="Tác vụ">
+      <h2>Tác vụ</h2>
+      <div class="card card-pad row">
+        <div class="row-title">${TASK}</div>
+        <div class="picker" id="task-picker">
+          <button type="button" class="trigger" id="task-trigger" aria-haspopup="true" aria-expanded="${state.menuOpen}" aria-label="${TASK} chạy bằng">
+            <span class="pill">${now ? "System One" : "LLM"}</span>
+            <span class="value">${now ? `${esc(now.name)} · ${esc(now.model)}` : LLM_CHECK_MODEL}</span>
+            ${icon("chevron", 16, "chevron")}
+          </button>
+          ${menu}
+        </div>
+        ${now ? `<span class="tag">${boundaryLabel(now.boundary)}</span>` : ""}
+        ${state.saved ? `<p class="row-note" role="status">Đã lưu</p>` : ""}
+      </div>
+    </section>
+    <section class="section" aria-label="Kết nối">
+      <h2>Kết nối</h2>
+      ${cards}
+    </section>
+    <section class="section" aria-label="Thêm kết nối">
+      <h2>Thêm kết nối</h2>
+      <div class="grid">${types}</div>
+    </section>`;
+}
+
+function fakePicker(model, effort) {
+  return `<div class="picker"><div class="trigger">
+    <span class="value">${model}</span>
+    ${effort ? `<span class="pill pill-info">${effort}</span>` : ""}
+    ${icon("chevron", 16, "chevron")}
+  </div></div>`;
+}
+
+function modelsPage() {
+  const now = current();
+  const note = now
+    ? `<p class="row-note" role="status">
+        <span class="pill pill-info">System One</span>
+        <span>Đang chạy bằng ${esc(now.name)} · ${esc(now.model)}.</span>
+        <a href="#systemone">Phân loại (System One)</a>
+      </p>`
+    : "";
+  return `<header class="page-header">${icon("sparkles", 24)}<h1>Mô hình</h1></header>
+    <section class="section" aria-label="Mô hình theo tác vụ">
+      <h2>Mô hình theo tác vụ</h2>
+      <div class="card divided">
+        <div class="row"><div class="row-title">Chat</div>${fakePicker("cx/gpt-6-luna")}</div>
+        <div class="row"><div class="row-title">Đặt tên cuộc trò chuyện</div>${fakePicker(LLM_CHECK_MODEL)}</div>
+        <div class="row"><div class="row-title">${TASK}</div>${fakePicker(LLM_CHECK_MODEL)}${note}</div>
+        <div class="row"><div class="row-title">Biên bản họp</div>${fakePicker("cx/gpt-6-luna", "Vừa")}</div>
+        <div class="row"><div class="row-title">Sửa transcript</div>${fakePicker("cx/gpt-6-luna")}</div>
+      </div>
+    </section>`;
+}
+
+function chatPage() {
+  const now = current();
+  const value = now
+    ? `<span class="pill pill-info">System One</span><span>${esc(now.name)} · ${esc(now.model)}</span><span class="tag">${boundaryLabel(now.boundary)}</span>`
+    : `<span>${LLM_CHECK_MODEL}</span>`;
+  return `<header class="page-header">${icon("message", 24)}<h1>Chat</h1></header>
+    <div class="card card-pad setting-row">
+      <span class="setting-icon">${icon("sparkles")}</span>
+      <div class="setting-body">
+        <div class="setting-title">Mô hình kiểm tra câu hỏi</div>
+        <div class="setting-value">${value}</div>
+      </div>
+      <a class="btn btn-tertiary btn-sm" href="#${now ? "systemone" : "models"}">Đổi</a>
+    </div>`;
+}
+
+function render() {
+  const pages = { systemone: systemOnePage, models: modelsPage, chat: chatPage };
+  document.getElementById("app").innerHTML =
+    `<div class="shell">${sidebar()}<main class="main"><div class="page">${pages[state.view]()}</div></main></div>`;
+}
+
+function assign(id) {
+  state.task = id;
+  state.menuOpen = false;
+  state.saved = true;
+  clearTimeout(savedTimer);
+  savedTimer = setTimeout(() => {
+    state.saved = false;
+    render();
+  }, 2000);
+  render();
+  document.getElementById("task-trigger")?.focus();
+}
+
+// The connection dialog keeps its inputs in the page; only their values and the result lines change.
+const dialog = document.getElementById("connection-dialog");
+const field = (id) => document.getElementById(id);
+const boundaryInput = (value) => dialog.querySelector(`input[name="boundary"][value="${value}"]`);
+
+function openDraft(connection, type) {
+  const kind = connection ? connection.type : type;
+  const provider = providers[kind];
+  state.menuOpen = false;
+  state.draft = connection
+    ? { ...connection, test: null }
+    : { id: null, type: kind, boundary: "EXTERNAL", hasKey: false, test: null };
+  field("dialog-logo").innerHTML = marks[kind];
+  field("dialog-title").textContent = connection ? `Cấu hình ${connection.name}` : `Kết nối ${provider.name}`;
+  field("field-name").value = connection?.name ?? (kind === "SYSTEMONE_COMPATIBLE" ? "" : provider.name);
+  field("endpoint-row").hidden = !provider.endpointLabel;
+  field("endpoint-label").textContent = provider.endpointLabel ?? "";
+  field("field-endpoint").type = provider.endpointLabel === "Endpoint" ? "url" : "text";
+  field("field-endpoint").placeholder = provider.endpointPlaceholder ?? "";
+  field("field-endpoint").value = !connection
+    ? ""
+    : kind === "CLOUDFLARE"
+      ? connection.endpoint.slice(CLOUDFLARE_ACCOUNTS.length)
+      : connection.endpoint;
+  field("field-model").value = connection?.model ?? provider.model;
+  field("field-model").placeholder = provider.modelPlaceholder ?? "";
+  field("field-key").value = "";
+  field("field-key").placeholder = connection?.hasKey ? "Giữ key hiện tại" : "";
+  boundaryInput(state.draft.boundary).checked = true;
+  field("delete-button").hidden = !connection;
+  field("delete-blocked").hidden = true;
+  syncDialog();
+  render();
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeDraft() {
+  clearTimeout(testTimer);
+  state.draft = null;
+  if (dialog.open) dialog.close();
+  render();
+}
+
+function complete() {
+  const draft = state.draft;
+  if (!draft) return false;
+  const provider = providers[draft.type];
+  const endpoint = field("field-endpoint").value.trim();
+  if (!field("field-name").value.trim() || !field("field-model").value.trim()) return false;
+  if (provider.endpointLabel && !endpoint) return false;
+  if (draft.type === "CLOUDFLARE" && !/^[0-9a-f]{32}$/i.test(endpoint)) return false;
+  return !provider.keyRequired || draft.hasKey || field("field-key").value.trim() !== "";
+}
+
+function syncDialog() {
+  const draft = state.draft;
+  if (!draft) return;
+  const pending = draft.test === "pending";
+  field("test-ok").hidden = draft.test !== "ok";
+  field("test-fail").hidden = draft.test !== "fail";
+  field("test-button").textContent = pending ? "Đang kiểm tra…" : "Kiểm tra kết nối";
+  field("test-button").disabled = pending || !complete();
+  field("save-button").disabled = pending || !complete();
+}
+
+function draftChanged() {
+  if (!state.draft) return;
+  clearTimeout(testTimer);
+  state.draft.test = null;
+  field("delete-blocked").hidden = true;
+  syncDialog();
+}
+
+function runTest() {
+  const draft = state.draft;
+  if (!draft || !complete()) return;
+  draft.test = "pending";
+  field("delete-blocked").hidden = true;
+  syncDialog();
+  clearTimeout(testTimer);
+  testTimer = setTimeout(() => {
+    if (state.draft !== draft) return;
+    const endpoint = field("field-endpoint").value.trim();
+    const keyed = draft.hasKey || field("field-key").value.trim() !== "";
+    const selfHosted = /\.internal|localhost|\/\/10\.|\/\/172\.|\/\/192\.168\./.test(endpoint);
+    if (!keyed && !selfHosted) {
+      draft.test = "fail";
+      field("test-fail").innerHTML = `${icon("alert")}<span>Endpoint từ chối API key.</span>`;
+    } else {
+      draft.test = "ok";
+      const latency = draft.type === "LAYA" ? 240 : draft.type === "TYPESAFE" ? 520 : /serving/.test(endpoint) ? 64 : 480;
+      field("test-ok").innerHTML = `${icon("checkCircle")}<span>Kiểm tra kết nối thành công · ${latency} ms</span>`;
+    }
+    syncDialog();
+  }, 700);
+}
+
+function saveDraft() {
+  const draft = state.draft;
+  if (!draft || !complete()) return;
+  const typed = field("field-endpoint").value.trim();
+  const record = {
+    id: draft.id ?? `c${Date.now()}`,
+    type: draft.type,
+    name: field("field-name").value.trim(),
+    endpoint:
+      draft.type === "TYPESAFE"
+        ? providers.TYPESAFE.endpoint
+        : draft.type === "CLOUDFLARE"
+          ? CLOUDFLARE_ACCOUNTS + typed.toLowerCase()
+          : typed,
+    model: field("field-model").value.trim(),
+    boundary: dialog.querySelector('input[name="boundary"]:checked').value,
+    hasKey: draft.hasKey || field("field-key").value.trim() !== "",
+  };
+  state.connections = draft.id
+    ? state.connections.map((c) => (c.id === draft.id ? record : c))
+    : [...state.connections, record];
+  closeDraft();
+}
+
+function removeDraft() {
+  const draft = state.draft;
+  if (!draft?.id) return;
+  if (draft.id === state.task) {
+    field("delete-blocked").innerHTML = `${icon("alert")}<span>Tác vụ ${TASK} đang dùng kết nối này.</span>`;
+    field("delete-blocked").hidden = false;
+    return;
+  }
+  state.connections = state.connections.filter((c) => c.id !== draft.id);
+  closeDraft();
+}
+
+dialog.addEventListener("input", draftChanged);
+// Escape closes the dialog itself; the draft is dropped here unless the dialog was reopened meanwhile.
+dialog.addEventListener("close", () => {
+  if (state.draft && !dialog.open) closeDraft();
+});
+field("connection-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveDraft();
+});
+field("test-button").addEventListener("click", runTest);
+field("close-button").addEventListener("click", closeDraft);
+field("delete-button").addEventListener("click", removeDraft);
+
+document.getElementById("app").addEventListener("click", (event) => {
+  const target = event.target.closest("button");
+  if (!target) return;
+  if (target.id === "task-trigger") {
+    state.menuOpen = !state.menuOpen;
+    render();
+    document.getElementById("task-trigger").focus();
+  } else if (target.dataset.pick !== undefined) {
+    assign(target.dataset.pick);
+  } else if (target.dataset.add) {
+    openDraft(null, target.dataset.add);
+  } else if (target.dataset.edit) {
+    openDraft(state.connections.find((c) => c.id === target.dataset.edit));
+  }
+});
+document.addEventListener("click", (event) => {
+  if (state.menuOpen && !event.target.closest("#task-picker")) {
+    state.menuOpen = false;
+    render();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.menuOpen) {
+    state.menuOpen = false;
+    render();
+    document.getElementById("task-trigger")?.focus();
+  }
+});
+
+function route() {
+  const view = location.hash.slice(1);
+  state.view = ["systemone", "models", "chat"].includes(view) ? view : "systemone";
+  state.menuOpen = false;
+  render();
+}
+window.addEventListener("hashchange", route);
+route();
+
+const preset = new URLSearchParams(location.search).get("open") ?? "";
+if (preset === "menu") {
+  state.menuOpen = true;
+  render();
+} else if (preset.startsWith("add:") && providers[preset.slice(4)]) {
+  openDraft(null, preset.slice(4));
+} else if (preset === "edit") {
+  openDraft(state.connections[0]);
+  state.draft.test = "ok";
+  field("test-ok").innerHTML = `${icon("checkCircle")}<span>Kiểm tra kết nối thành công · 480 ms</span>`;
+  syncDialog();
+}
+</script>
+</body>
+</html>
