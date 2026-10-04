@@ -54,3 +54,10 @@ because `iam`, `ai`, `mcp`, `voice` and `chat` depend on `shared` and on no othe
 - `OutboundHttp` grows with its callers; a method is added with the first call that needs it
   ([ADR 0002](0002-no-speculative-operational-surfaces.md)).
 - `OutboundHttpTest` holds the transport rules, including a response that never ends.
+
+## Amendment, 2026-10-04
+
+The HTTP version follows the scheme of the URL: `https` may use HTTP/2, agreed in the TLS handshake, and `http`
+stays on HTTP/1.1, so no upgrade request is sent to a self-hosted server. This replaces "one JDK `HttpClient` on
+HTTP/1.1" above and the consequence about Voice: Voice keeps HTTP/2, and a body without a declared length is
+chunked only over plain HTTP.

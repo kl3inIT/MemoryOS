@@ -230,13 +230,14 @@ A library that takes a `RestClient.Builder` (`TypeSafeClient`) receives the buil
 with its first caller: `builder(Limits)` with Image, `service` with Soniox, the handler overload with the Code
 Interpreter.
 
-- **One JDK `HttpClient`** for all callers: `Redirect.NEVER`, a 5 s connect timeout, HTTP/1.1. Spring Boot's
-  auto-configured builder is not used, so no property can relax the transport rules and unit tests need no
-  application context.
-- **HTTP/1.1** is what the Apache transports replaced here speak. Left at its default, the JDK client tries to
-  upgrade every new plain-HTTP connection to HTTP/2 (`HttpClient.Builder.version`), which the Apache-based calls
-  (the Code Interpreter, Image, Web) do not do today; the two `sources` clients that call self-hosted services pin
-  HTTP/1.1 as well. The cost is that Voice REST calls, which negotiate HTTP/2 today, use HTTP/1.1.
+- **Two JDK `HttpClient`s**, chosen by the scheme of the URL, both with `Redirect.NEVER` and a 5 s connect
+  timeout. Spring Boot's auto-configured builder is not used, so no property can relax the transport rules and
+  unit tests need no application context.
+- **`https` may use HTTP/2, `http` stays on HTTP/1.1** (owner, 2026-10-04; the first two pull requests pinned
+  HTTP/1.1 for everything). Over TLS the version is agreed in the handshake, so a body without a declared length
+  is no longer chunked there and Voice keeps the HTTP/2 it had. Over plain HTTP the JDK client, asked for HTTP/2,
+  sends an upgrade request with every new connection (`HttpClient.Builder.version`); the Code Interpreter and
+  self-hosted servers do not speak it, and the two `sources` clients that call such services pin HTTP/1.1 too.
 - **Converters** are set on the builder, not detected: JSON through Jackson 3 (`tools.jackson`), bytes, and the form
   and multipart converter with `Resource` parts. `core` has both Jackson generations on its classpath.
 - **Timeout.** `Limits.timeout` is the factory's read timeout, a deadline for the whole exchange.
@@ -276,8 +277,9 @@ Interpreter.
   image" from the adapter instead of "Empty image response" from the transport; both are an `IOException`.
 - The model list request has one deadline of the caller's timeout and connects within 5 s, where the caller's
   timeout applied to the connection and to the wait for headers separately.
-- Voice REST calls use HTTP/1.1 where the JDK client negotiated HTTP/2, the cost of one client that never attempts
-  an HTTP/2 upgrade on plain HTTP.
+- Image and Web provider calls over `https` may use HTTP/2, where Apache HttpClient used HTTP/1.1. Voice REST
+  calls over `https` keep HTTP/2 from pull request 3 on; between pull requests 2 and 3 they used HTTP/1.1.
+- Plain-HTTP calls from Voice and the model list no longer carry an HTTP/2 upgrade request.
 - Nothing else: messages, status mapping, metric names and the REST contract are unchanged.
 
 ## Decisions
@@ -289,7 +291,8 @@ carried as accepted.
 2. OIDC discovery bounded at 64 KiB.
 3. The optional parts: the MCP OAuth spike is kept; Web moves only if the Code Interpreter moved, when it leaves
    Apache HttpClient with one job.
-4. The shared client speaks HTTP/1.1, which moves Voice REST calls off HTTP/2.
+4. The shared client speaks HTTP/1.1, which moves Voice REST calls off HTTP/2. Replaced on 2026-10-04 by the
+   owner: the version follows the scheme, HTTP/2 over `https` and HTTP/1.1 over `http`.
 
 Also decided 2026-10-03: three pull requests, not one per place ([plan](plan.md)); probes and spikes are welcome
 wherever a claim needs one.

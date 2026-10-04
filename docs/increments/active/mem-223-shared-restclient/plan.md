@@ -155,6 +155,9 @@ Stacked on pull request 1. The OpenAI SDK check came first, then Soniox, the sin
 ### Code Interpreter, moved whole
 
 - [x] `shared/OutboundHttp.java`: `builder(Limits, ErrorHandler)` for an API whose failed answers must be read.
+- [x] `shared/OutboundHttp.java`: two JDK clients chosen by the URL's scheme, HTTP/2 over `https` and HTTP/1.1
+  over `http`; `OutboundHttpTest` asserts the plain side on the wire (HTTP/1.1, no `Upgrade` header) and the
+  choice for each scheme.
 - [x] New `chat/interpreter/InterpreterApi.java`: `upload`, `execute`, `download`, `delete`. `execute` answers a tree,
   read by the code that reads the stream's result event.
 - [x] `chat/interpreter/InterpreterClient.java`: the Apache client, `request`, `send`, `Response`, `Handler` and both

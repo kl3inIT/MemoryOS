@@ -141,6 +141,10 @@ Run on 2026-10-03 on the same machine, on top of pull request 2.
 - **Lines.** `InterpreterClient` 324 to 302, with `InterpreterApi` (36) new; `WebHttp` 120 to 142. Neither change
   makes the code shorter. They remove the Apache transport from the Code Interpreter and from provider calls.
 
+- **HTTP version by scheme.** `plainHttpIsSentAsHttp11WithoutAnUpgradeRequestAndTlsMayUseHttp2`: the local server
+  sees HTTP/1.1 and no `Upgrade` header; the client chosen for an `https` URL asks for HTTP/2. That a provider
+  then answers over HTTP/2 is not asserted by a test.
+
 ### Not yet verified
 
 - `clean check` in CI.
