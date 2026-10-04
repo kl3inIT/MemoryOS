@@ -1,7 +1,7 @@
 # The `sources` clients on vendor SDKs (MEM-226)
 
 Issue: [MEM-226](https://linear.app/memory-os/issue/MEM-226). Follows
-[MEM-223](../../completed/mem-223-shared-restclient/design.md), which moved `core`'s outbound HTTP to the
+[MEM-223](../mem-223-shared-restclient/design.md), which moved `core`'s outbound HTTP to the
 highest-level client that fits ([ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md))
 and left four hand-written clients in `sources` unassessed.
 
