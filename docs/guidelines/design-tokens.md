@@ -20,6 +20,7 @@ Tokens live in `web/src/styles/tokens.css` (values, light in `:root`, dark in `.
 | Reasoning | `reasoning-surface`, `reasoning-content` | A light tint of the selection accent for a reasoning level: the level pill beside a model, whose bars tell the level, and the checked level in a model picker; off shows nothing |
 | Status | `status-{success,warning,danger,info}-{content,surface,border,strong,faint,emphasis,emphasis-border}` | State only: content is text (≥ 4.5:1), surface/faint the tinted background, border the tinted outline, strong icons and dots, emphasis the fill of a white-lettered pill (`content-on-emphasis`) |
 | Charts | `chart-1` … `chart-8`, `chart-neutral` | Data series (below) |
+| Speakers | `speaker-1` … `speaker-6`, `speaker-content` | The soft fill of a meeting voice's badge and the number or initial on it: pastel under dark ink on the light theme, a deeper step under white ink on the dark one. Orange and green are left out because the transcript marks unsure and corrected words with them; a seventh voice takes the first fill again and is told apart by what its badge reads |
 | Highlights | `highlight-match`, `-active`; `evidence-highlight-surface`/`-border`, `pdf-highlight[-border]` | Search matches and the current match; a cited passage in text and PDF previews |
 | Fixed roles | `surface-document`/`content-document` (white paper for PDF and DOCX previews), `content-on-media`, `surface-on-media[-hover]`, `border-on-media`, `scrim-media-hover` (controls laid over images) | Colours that intentionally do not follow the theme |
 
