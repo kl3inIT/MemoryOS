@@ -226,6 +226,9 @@ class OpenAiProviderAdapterTest {
                 service.getChatModel().call(binding.policy().options().apply(
                         binding.finalRequest().apply(new Prompt("Write the minutes.", options))));
                 var format = request.get().path("response_format");
+                var plain = service.convertOptions(new LlmOptions().withMaxTokens(100));
+                assertSame(plain, service.getNativeStructuredOutputConfigurer().configure(plain, null,
+                        service.getNativeSupport(), service), "a request without a typed answer is left alone");
                 assertEquals("json_schema", format.path("type").asString());
                 assertTrue(format.path("json_schema").path("strict").asBoolean());
                 assertEquals(mapper.readTree(SCHEMA), format.path("json_schema").path("schema"));

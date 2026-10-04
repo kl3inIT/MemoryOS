@@ -347,7 +347,8 @@ class ChatSessionApiIntegrationTest {
         var settings = Json.mapper().createObjectNode().put("contextWindow", known.contextWindow())
                 .put("maxOutputTokens", known.maxOutputTokens()).put("tokenizerProfile", "openai-o200k-v1");
         settings.putObject("capabilities").put("streaming", true).put("toolCalling", known.capabilities().toolCalling())
-                .put("vision", known.capabilities().vision()).put("reasoning", known.capabilities().reasoning());
+                .put("vision", known.capabilities().vision()).put("reasoning", known.capabilities().reasoning())
+                .put("structuredOutput", known.capabilities().structuredOutput());
         settings.putObject("options").put("maxCompletionTokens", known.capabilities().reasoning());
         var pricing = settings.putObject("pricing").put("inputPerMillion", known.pricing().inputPerMillion())
                 .put("outputPerMillion", known.pricing().outputPerMillion());
@@ -2474,7 +2475,8 @@ class ChatSessionApiIntegrationTest {
         var local = modelBody("local-profile", 0.2);
         var settings = (ObjectNode) local.path("settings");
         settings.put("tokenizerProfile", "openai-o200k-v1").put("contextWindow", 1024).put("maxOutputTokens", 128);
-        settings.putObject("capabilities").put("streaming", true).put("toolCalling", false).put("vision", false).put("reasoning", false);
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", false).put("vision", false).put("reasoning", false)
+                .put("structuredOutput", false);
         var saved = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(local.toString())).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
@@ -5982,7 +5984,8 @@ class ChatSessionApiIntegrationTest {
         var body = Json.mapper().createObjectNode().put("modelName", name).put("displayName", name).put("visible", true);
         var settings = body.putObject("settings").put("contextWindow", 8192).put("maxOutputTokens", 512)
                 .put("tokenizerProfile", "openai-o200k-v1");
-        settings.putObject("capabilities").put("streaming", true).put("toolCalling", true).put("vision", false).put("reasoning", false);
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", true).put("vision", false).put("reasoning", false)
+                .put("structuredOutput", false);
         settings.putObject("options").put("maxCompletionTokens", false).put("temperature", temperature);
         return body;
     }

@@ -4,6 +4,7 @@ import com.embabel.agent.spi.loop.StructuredOutputRequest;
 import com.embabel.agent.spi.support.springai.SpringAiNativeStructuredOutputConfigurer;
 import com.embabel.common.ai.autoconfig.NativeSupport;
 import com.embabel.common.ai.model.LlmMetadata;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -15,9 +16,10 @@ import org.springframework.ai.openai.OpenAiChatOptions;
  */
 final class OpenAiStructuredOutput implements SpringAiNativeStructuredOutputConfigurer {
     @Override
-    public ChatOptions configure(ChatOptions options, StructuredOutputRequest request, NativeSupport support,
+    public ChatOptions configure(ChatOptions options, @Nullable StructuredOutputRequest request, NativeSupport support,
                                  LlmMetadata model) {
-        if (!(options instanceof OpenAiChatOptions openAi)) return options;
+        // Embabel configures every request; one that asks for no typed answer, or not through the provider, has none.
+        if (request == null || !(options instanceof OpenAiChatOptions openAi)) return options;
         return openAi.mutate().responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_SCHEMA)
                 .jsonSchema(request.getSchema()).strict(request.getStrict()).build()).build();
     }

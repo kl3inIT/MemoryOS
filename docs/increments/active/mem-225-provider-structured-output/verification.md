@@ -8,6 +8,7 @@
 | `OpenApiContractTest` with the regenerated `openapi.yml` (three schemas gain `structuredOutput`) | pass |
 | `pnpm --dir web check` | every step passes except one run of `library-page.test.tsx`, which fails under the full parallel run and passes alone, with and without this change |
 | `models-discovery.spec.ts` (Playwright, desktop, dark and phone) | pass; screenshots reviewed, the capability shows as an icon beside tool calling, vision and reasoning |
+| `ChatSessionApiIntegrationTest` (94 cases, real Embabel calls against a stub provider) | pass. Its first run on CI failed: Embabel configures every request and passes no schema request when the answer is not typed or not native, which the configurer did not expect. Fixed, with a wire-test case |
 | `clean check` | not run locally (memory); CI runs it |
 
 ## What the wire tests show
