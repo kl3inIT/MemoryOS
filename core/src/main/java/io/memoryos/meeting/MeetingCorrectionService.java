@@ -174,7 +174,8 @@ public class MeetingCorrectionService {
 
     /**
      * Applies everything still undecided in one pass. Within a line the later stretches are applied first, so the
-     * offsets of the earlier ones are still the offsets they were proposed against.
+     * offsets of the earlier ones are still the offsets they were proposed against. A proposal whose words were
+     * rewritten since the pass read them is declined rather than refusing the rest.
      */
     public Meeting.Detail acceptAll(ActorId actor, UUID meetingId, UUID runId) {
         UUID tenant = details.tenantOf(actor);
@@ -184,7 +185,12 @@ public class MeetingCorrectionService {
             pending.sort((left, right) -> left.utteranceId().equals(right.utteranceId())
                     ? Integer.compare(right.start(), left.start())
                     : left.utteranceId().compareTo(right.utteranceId()));
-            for (var correction : pending) apply(tenant, meetingId, actor, correction, null);
+            for (var correction : pending) {
+                var utterance = meetings.lockUtterance(tenant, meetingId, correction.utteranceId())
+                        .orElseThrow(MeetingException::notFound);
+                if (stands(utterance, correction)) apply(tenant, meetingId, actor, correction, null);
+                else meetings.decide(tenant, correction.id(), Meeting.CorrectionStatus.KEPT, actor.value());
+            }
         });
         return details.get(actor, meetingId);
     }
@@ -230,6 +236,8 @@ public class MeetingCorrectionService {
         var line = meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), applied,
                 restored(utterance.spans(), correction), reverted(tenant, utterance.id(), applied),
                 correction.runId(), actor.value(), "REVERT");
+        meetings.realign(tenant, utterance.id(), correction.id(), correction.start(), end,
+                correction.before().length() - correction.after().length(), actor.value());
         return new Applied(line,
                 meetings.decide(tenant, correction.id(), Meeting.CorrectionStatus.REVERTED, actor.value()));
     }
@@ -239,11 +247,9 @@ public class MeetingCorrectionService {
         if (correction.status() != Meeting.CorrectionStatus.PENDING) throw MeetingException.conflict();
         var utterance = meetings.lockUtterance(tenant, meetingId, correction.utteranceId())
                 .orElseThrow(MeetingException::notFound);
+        if (!stands(utterance, correction)) throw MeetingException.conflict();
         int start = correction.start();
         int end = Math.min(correction.end(), utterance.text().length());
-        // The line moved since the pass read it, so these offsets no longer point at the words that were judged.
-        if (start > end || !utterance.text().substring(start, end).equals(correction.before()))
-            throw MeetingException.conflict();
         String chosen = own == null ? correction.after() : own.strip();
         if (chosen.isEmpty() || chosen.length() > 2000 || chosen.chars().anyMatch(Character::isISOControl))
             throw MeetingException.invalid("A correction has 1 to 2000 characters.");
@@ -257,7 +263,16 @@ public class MeetingCorrectionService {
                 shifted(utterance.spans(), start, end, chosen.length()),
                 own == null ? Meeting.EditSource.MODEL : Meeting.EditSource.HUMAN, correction.runId(), actor.value(),
                 own == null ? "MODEL" : "HUMAN");
+        meetings.realign(tenant, utterance.id(), correction.id(), start, end, chosen.length() - (end - start),
+                actor.value());
         return new Applied(line, meetings.accepted(tenant, correction.id(), actor.value(), start, end, before, chosen));
+    }
+
+    /** Whether the line still says, where the proposal points, the words the pass judged. */
+    private static boolean stands(Meeting.Utterance utterance, Meeting.Correction correction) {
+        int end = Math.min(correction.end(), utterance.text().length());
+        return correction.start() <= end
+                && utterance.text().substring(correction.start(), end).equals(correction.before());
     }
 
     /**
