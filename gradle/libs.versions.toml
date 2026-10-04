@@ -22,6 +22,10 @@ embabel = "1.5.2"
 opensearch-java = "3.10.0"
 msal4j = "1.26.0"
 microsoft-graph = "6.70.0"
+google-api-drive = "v3-rev20260916-2.0.0"
+google-api-sheets = "v4-rev20260921-2.0.0"
+google-api-docs = "v1-rev20260928-2.0.0"
+google-api-admin-directory = "directory_v1-rev20260914-2.0.0"
 # MEM-137: realtime dictation and streamed read-aloud for Azure; the REST client stays for recordings.
 azure-speech = "1.52.0"
 typesafe = "0.4.0"
@@ -50,6 +54,10 @@ spring-ai-model-tool = { module = "org.springframework.ai:spring-ai-autoconfigur
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
 msal4j = { module = "com.microsoft.azure:msal4j", version.ref = "msal4j" }
 microsoft-graph = { module = "com.microsoft.graph:microsoft-graph", version.ref = "microsoft-graph" }
+google-api-drive = { module = "com.google.apis:google-api-services-drive", version.ref = "google-api-drive" }
+google-api-sheets = { module = "com.google.apis:google-api-services-sheets", version.ref = "google-api-sheets" }
+google-api-docs = { module = "com.google.apis:google-api-services-docs", version.ref = "google-api-docs" }
+google-api-admin-directory = { module = "com.google.apis:google-api-services-admin-directory", version.ref = "google-api-admin-directory" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
 okhttp = { module = "com.squareup.okhttp3:okhttp" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }

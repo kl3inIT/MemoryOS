@@ -16,8 +16,8 @@ API clients. The protections MemoryOS set on those calls stay, on the SDK's own 
 | Class | Calls | Decision |
 | --- | --- | --- |
 | `RestSharePointGateway` | Microsoft Graph, eleven read operations | Microsoft Graph SDK (pull request 1) |
-| `RestGoogleDriveGateway` | Drive v3, Sheets v4, Docs v1, Admin Directory v1, the token endpoint | Google API clients and `google-auth-library` (pull request 2) |
-| `RestGoogleDriveAccountClient` | Google's OAuth endpoints, JWKS, Drive `/about` | Google's authorization-code flow and ID-token verifier (pull request 2) |
+| `RestGoogleDriveGateway` | Drive v3, Sheets v4, Docs v1, Admin Directory v1, the token endpoint | Google's API clients and their OAuth library (pull request 2) |
+| `RestGoogleDriveAccountClient` | Google's OAuth endpoints, JWKS, Drive `/about` | Google's authorization-code exchange and Drive client; the ID token stays on Nimbus (pull request 2) |
 | `PaddleOcrVlClient` | one `POST /layout-parsing` to a self-hosted server | Stays: no client library exists; its transport already matches `OutboundHttp` |
 
 An earlier assessment in the issue kept the first two hand-written, on the grounds that the SDKs follow redirects,
@@ -96,12 +96,74 @@ web parts by their searchable text, 200 parts, 200 texts and 200,000 characters 
 Not changed: the status mapping, `Retry-After` on 429 and 503 only, the budgets of a metadata read, the metrics, the
 `User-Agent`, the session contract.
 
-## Google Drive (pull request 2)
+## Google Drive on Google's API clients (pull request 2)
 
-To be designed with its probes: the four API clients on one `HttpTransport`, `google-auth-library` in place of the
-hand-signed JWT and the refresh-token exchange, and Google's authorization-code flow for the account client. The
-findings to fix there: an unbounded JWKS fetch, an untyped failure of the exchange, and no deadline for the three
-requests of one consent.
+`google-api-services-drive`, `-sheets`, `-docs` and `-admin-directory`, which bring `google-api-client`,
+`google-oauth-client` and `google-http-client`.
+
+### What the probe showed
+
+Run against a local server before any code moved:
+
+- By default `google-http-client` follows a redirect (the second address was contacted) and reads a failed body into
+  `GoogleJsonResponseException`, whose message carries it.
+- A request initializer that turns off redirects, sets zero retries, removes the unsuccessful-response and
+  I/O-exception handlers and adds a response interceptor stops both: one request, and the interceptor runs before the
+  library parses anything.
+- `UserCredentials.refreshAccessToken()` of `google-auth-library` does not hand back a refresh token Google rotated.
+- The Drive client downloads content at `{root}/download/{service path}files/{id}?alt=media`.
+
+### Transport (`GoogleTransport`)
+
+| Rule | How |
+| --- | --- |
+| No redirect, no retry, no backoff | The initializer every request is built with: `setFollowRedirects(false)`, `setNumberOfRetries(0)`, no unsuccessful-response or I/O-exception handler |
+| Bounded answer | A successful answer is refused when its declared length is over the bound and read to the bound plus one byte otherwise. `Accept-Encoding` is not sent and the raw stream is read, so nothing is decompressed past the bound |
+| Failed answer | The response interceptor reads at most 8 KiB, disconnects and throws the status, `Retry-After` and those bytes. Google names the reason of a refusal in the body (`rateLimitExceeded`, `insufficientPermissions`), which the gateway classifies by; the text is never passed on. A longer body used to fail as a limit; it is now classified by its first 8 KiB |
+| Deadline | The exchange runs on a virtual thread and the caller waits until its deadline; then the thread is interrupted, which closes its socket |
+
+The guard sits around the library's `HttpRequest`, not inside an `HttpTransport` of ours as first planned: redirects
+and retries are decided in `HttpRequest.execute`, above any transport, and `NetHttpTransport` is final.
+
+### Gateway
+
+- Every Drive, Sheets, Docs and Admin Directory request is built by Google's typed client: its address, parameters,
+  field mask and paging token. The hand-written paths, query strings and URL encoding are gone.
+- **Answers are read as bytes and parsed by the gateway's strict reader, not into the clients' models.** A native Docs
+  or Sheets snapshot is stored as Google sent it, and the strict reader refuses a duplicated key or a trailing token;
+  the models would re-serialize the first and accept the second. Metadata, permissions and directory answers go the
+  same way, so every existing check on a field's type and length still runs.
+- The refresh grant is `GoogleRefreshTokenRequest`, whose answer still carries a rotated refresh token.
+- The service-account grant: Google's `JsonWebSignature` signs the assertion (it was signed with
+  `java.security.Signature`), and a `TokenRequest` sends it. `ServiceAccountCredentials` is **not** used, against the
+  first plan: it builds its own request, which would follow a redirect with the assertion, retry and read the answer
+  whole, and it offers no initializer to stop that. `google-auth-library` is therefore not a dependency.
+- A base address is split into the client's root and service path. The Sheets, Docs and Directory clients carry the
+  API version in each request path, so their root is the configured base without it
+  (`https://sheets.googleapis.com/v4` gives the root `https://sheets.googleapis.com/`); a base that does not end in
+  the version is taken as the root.
+- Unchanged: the budget of an operation (requests, deadline, cumulative snapshot bytes), the Drive version fence, the
+  Docs revision fence, the MD5 check, `incompleteSearch`, the shortcut, trash and root rules, every limit and pattern,
+  the status and reason mapping, `Retry-After` on a quota refusal and on 503.
+
+### Account consent
+
+- The code is exchanged by `GoogleAuthorizationCodeTokenRequest` and the account read by the Drive client
+  (`about.get`).
+- The ID token is still verified by Spring Security's Nimbus decoder with the checks written here. Google's verifier
+  fetches its certificates with a request that takes no initializer, so it could be neither bounded nor kept from a
+  redirect.
+- Fixed: the key set is fetched through `GoogleTransport` within 64 KiB and handed to the decoder (it was fetched by an
+  unbounded `RestTemplate`); a consent on a deployment that is not configured fails as `GOOGLE_DRIVE_NOT_CONFIGURED`
+  instead of an untyped invalid answer; one deadline of 15 s covers the token exchange, the key set and the account
+  read. The key set is fetched for each consent rather than cached; a consent is rare.
+
+### On the wire, what changes
+
+- A file's content is requested at the client's download path: `https://www.googleapis.com/download/drive/v3/files/{id}?alt=media`.
+- The fields of a token form are in the order Google's library writes them.
+- Requests carry the client's own `User-Agent` and `x-goog-api-client` headers; no `Accept: application/json`.
+- A Sheets, Docs or Directory base address that does not end in the API version gets the version appended.
 
 ## Verification
 
@@ -111,6 +173,14 @@ requests of one consent.
   Tenant host or redirects again; no retry of 429, 503 and 504; a stalled answer cut off at the request timeout while
   a download uses its own; an answer without a declared length stopped once it passes the bound; an item read with
   the download address Graph annotates it with.
+- `RestGoogleDriveGatewayTest` is the parity suite for Drive: its 25 cases pass with four changed expectations (the
+  order of the fields of a token form, twice; the version prefix of Directory paths; the download path of a file),
+  and five are new: no retry or backoff of 429, 500 and 503 nor of a failed token request; a token endpoint redirect
+  not followed; a stalled answer cut off at the request timeout; an answer without a declared length stopped at the
+  bound; a refusal classified by its reason in a body longer than 8 KiB, without its text.
+- `RestGoogleDriveAccountClientTest`: its 5 cases unchanged, and two new: the typed not-configured failure, and the
+  key set and the token answer read within a bound. `GoogleDriveOAuthTest` in `api` (7 cases, the whole consent with
+  a signed ID token) passes unchanged.
 - `:sources:test` as a whole, `SourcesDependencyRulesTest` included; `api` and `worker` compile.
 
 ## Not verified
@@ -118,6 +188,9 @@ requests of one consent.
 - Against a real Tenant: the three request shapes that changed, and a download through `/content`. Staging has a
   SharePoint source; a synchronization there after deployment is the check.
 - The image size and start-up time with the SDK's jar.
+- Google Drive against Google: the download path, the Sheets, Docs and Directory addresses, both grants and a
+  consent. Staging has a Drive source; a synchronization and a reconnect there after deployment are the check.
+- The 15 s deadline of a consent has no test of its own; each request's bound and timeout do.
 
 ## Out of scope
 

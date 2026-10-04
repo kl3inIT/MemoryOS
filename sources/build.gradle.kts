@@ -12,6 +12,11 @@ dependencies {
     implementation(libs.msal4j)
     // SharePoint through the Microsoft Graph SDK (MEM-226); its OkHttp transport is built in GraphTransport.
     implementation(libs.microsoft.graph)
+    // Google Drive through Google's API clients; their OAuth library sends the token requests (MEM-226).
+    implementation(libs.google.api.drive)
+    implementation(libs.google.api.sheets)
+    implementation(libs.google.api.docs)
+    implementation(libs.google.api.admin.directory)
     // The Google Drive account consent: token exchange over RestClient and ID-token validation.
     implementation(libs.spring.web)
     implementation(libs.spring.security.oauth2.jose)

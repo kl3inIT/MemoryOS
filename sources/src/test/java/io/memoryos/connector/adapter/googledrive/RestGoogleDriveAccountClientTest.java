@@ -11,6 +11,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.GoogleDriveAccountClient.Consent;
 import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.GoogleDriveOAuthClient;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -120,6 +121,52 @@ class RestGoogleDriveAccountClientTest {
             assertFalse(failure.toString().contains("test-client-secret"));
             assertNull(failure.getCause());
             assertEquals(0, stolen.get());
+        }
+    }
+
+    @Test
+    void anExchangeOnADeploymentThatIsNotConfiguredSaysSoInsteadOfAnInvalidAnswer() {
+        var unconfigured = client(null, URI.create(issuer + "/token"));
+        try (var client = new GoogleDriveOAuthClient(CLIENT_ID, "test-client-secret".getBytes(StandardCharsets.UTF_8))) {
+            assertEquals("GOOGLE_DRIVE_NOT_CONFIGURED", assertThrows(GoogleDriveException.class,
+                    () -> unconfigured.exchange("code", "verifier", "nonce", client)).code());
+        }
+    }
+
+    @Test
+    void theKeySetAndTheTokenAnswerAreReadWithinABound() {
+        AtomicInteger keySets = new AtomicInteger();
+        byte[] token = ("{\"access_token\":\"test-access\",\"refresh_token\":\"test-refresh\",\"token_type\":\"Bearer\","
+                + "\"id_token\":\"e30.e30.c2ln\"}").getBytes(StandardCharsets.UTF_8);
+        server.createContext("/token", exchange -> {
+            exchange.sendResponseHeaders(200, token.length);
+            try (var output = exchange.getResponseBody()) { output.write(token); }
+        });
+        // A key set that never ends: sent without a declared length, far past the bound.
+        server.createContext("/jwks", exchange -> {
+            keySets.incrementAndGet();
+            exchange.sendResponseHeaders(200, 0);
+            byte[] block = "{\"keys\":[".concat(" ".repeat(8_192)).getBytes(StandardCharsets.UTF_8);
+            try (var output = exchange.getResponseBody()) {
+                for (int sent = 0; sent < 4_194_304; sent += block.length) output.write(block);
+            } catch (IOException closed) {
+                // The client stopped reading at its bound.
+            }
+        });
+        try (var client = new GoogleDriveOAuthClient(CLIENT_ID, "test-client-secret".getBytes(StandardCharsets.UTF_8))) {
+            var failure = assertThrows(IllegalStateException.class, () -> accounts.exchange("code", "verifier", "nonce", client));
+            assertNull(failure.getCause());
+            assertEquals(1, keySets.get());
+        }
+        byte[] large = new byte[131_072];
+        server.removeContext("/token");
+        server.createContext("/token", exchange -> {
+            exchange.sendResponseHeaders(200, large.length);
+            try (var output = exchange.getResponseBody()) { output.write(large); } catch (IOException closed) { /* refused */ }
+        });
+        try (var client = new GoogleDriveOAuthClient(CLIENT_ID, "test-client-secret".getBytes(StandardCharsets.UTF_8))) {
+            assertThrows(IllegalStateException.class, () -> accounts.exchange("code", "verifier", "nonce", client));
+            assertEquals(1, keySets.get(), "an oversized token answer ends the consent before the key set is fetched");
         }
     }
 
