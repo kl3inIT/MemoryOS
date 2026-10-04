@@ -1,5 +1,5 @@
-import { use, type ReactNode, type Ref } from "react";
-import { ShellBarTitle } from "@/components/app-shell/app-shell-header-slot";
+import { use, useLayoutEffect, type ReactNode, type Ref } from "react";
+import { ShellBarTitle, ShellBarTitleClaim } from "@/components/app-shell/app-shell-header-slot";
 import { cn } from "@/lib/utils";
 
 export function SettingsLayout({
@@ -42,6 +42,12 @@ export function PageHeader({
 }) {
   // Below `md` the shell bar names the page, so the same title and its one-line description step aside and the
   // content starts sooner; a screen reader still reads both.
+  const claim = use(ShellBarTitleClaim);
+  // Before paint, so the bar never shows one name while the page shows another.
+  useLayoutEffect(() => {
+    claim?.(title);
+    return () => claim?.(undefined);
+  }, [claim, title]);
   const inBar = use(ShellBarTitle) === title;
   return (
     <header

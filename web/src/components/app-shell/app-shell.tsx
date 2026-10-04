@@ -30,6 +30,7 @@ import { AppShellHeaderContent } from "@/components/app-shell/app-shell-header";
 import {
   AppShellHeaderSlot,
   ShellBarTitle,
+  ShellBarTitleClaim,
   ShellBarTitleSetter,
 } from "@/components/app-shell/app-shell-header-slot";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
@@ -469,6 +470,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   const [slotTitle, setSlotTitle] = useState<string>();
+  const [claimedTitle, setClaimedTitle] = useState<string>();
+  // The page's own header names the bar when it has one; the menu's name for the page stands in until then.
+  const barTitle = pageTitle === undefined ? undefined : (claimedTitle ?? pageTitle);
 
   // An administration page the person may not open is refused before any administration frame renders.
   if (area === "admin" && !adminPage.visible(authority)) return <AccessDeniedScreen />;
@@ -520,20 +524,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           {pageTitle === undefined ? (
             <div ref={setHeaderSlot} className="contents" />
           ) : (
-            <AppShellHeaderContent title={pageTitle} />
+            <AppShellHeaderContent title={barTitle ?? pageTitle} />
           )}
         </header>
 
         <AppShellHeaderSlot value={headerSlot}>
           <ShellBarTitleSetter value={setSlotTitle}>
-            <ShellBarTitle value={pageTitle ?? slotTitle}>
-              <main
-                id="main-content"
-                tabIndex={-1}
-                className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
-              >
-                {children}
-              </main>
+            <ShellBarTitle value={barTitle ?? slotTitle}>
+              <ShellBarTitleClaim value={pageTitle === undefined ? null : setClaimedTitle}>
+                <main
+                  id="main-content"
+                  tabIndex={-1}
+                  className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
+                >
+                  {children}
+                </main>
+              </ShellBarTitleClaim>
             </ShellBarTitle>
           </ShellBarTitleSetter>
         </AppShellHeaderSlot>

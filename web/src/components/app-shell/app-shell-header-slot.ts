@@ -10,3 +10,9 @@ export const ShellBarTitle = createContext<string | undefined>(undefined);
 export const ShellBarTitleSetter = createContext<((title: string | undefined) => void) | null>(
   null,
 );
+
+/**
+ * How a page header in the administration or settings area gives the bar its own title, so a create or detail
+ * page is named once on a phone as a list page is. Absent in the application area, where the page fills the bar.
+ */
+export const ShellBarTitleClaim = createContext<((title: string | undefined) => void) | null>(null);
