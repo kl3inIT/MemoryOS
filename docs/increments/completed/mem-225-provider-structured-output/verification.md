@@ -67,9 +67,26 @@ the measurement repeated:
 Staging's task model is `cx/gpt-6-luna` on Chat Completions, so the capability can now be declared on it as it
 is. The fix is a local patch until upstream merges it; an update from npm drops it.
 
+## On staging, 2026-10-04
+
+Release `2208e07a`, 9Router 0.5.95 with decolua/9router#4547. "Structured output" was switched on for
+`cx/gpt-6-luna` through the API (revision 2), which serves the minutes and the corrections. A meeting was
+created through the API and given a self-written four-line transcript with one deliberate misrecognition
+("ngân xách") marked as unsure.
+
+| Task | Result |
+| --- | --- |
+| Corrections | `200` in 10.9 s; one proposal, "xách" to "sách", confidence 0.99, glossary matched |
+| Minutes | `READY` about 25 s after ending the meeting: two decisions, two actions and two topics, each on its source line; an action carries owner and due, a decision carries `null` for both |
+
+The api logged no warning or error during the run. 9Router logged both requests as `openai` to
+`openai-responses` on the Codex route, the translation the patch fixes. Neither MemoryOS nor 9Router logs a
+request body, so the schema on the wire is shown by the integration test and by the 9Router measurement above,
+not by a capture on staging.
+
 ## Not verified
 
-- A declared model on staging: one set of minutes and one correction after deployment.
 - That OpenAI itself accepts the three schemas under `strict`; they are checked against its published rules, and
   9Router's Codex route is the only provider measured.
-- Any gateway other than 9Router.
+- The question check on a language model with the capability declared: staging runs it on System One.
+- The `ocg/*` models through 9Router (usage limit exhausted).

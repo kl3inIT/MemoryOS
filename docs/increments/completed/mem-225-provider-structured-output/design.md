@@ -1,7 +1,7 @@
 # Provider-enforced structured output for single model calls
 
 Linear: [MEM-225](https://linear.app/memory-os/issue/MEM-225). Follows [ADR 0026](../../../decisions/0026-system-one-through-spring-ai-typesafe.md)
-and [MEM-198](../../completed/mem-198-system-one/design.md).
+and [MEM-198](../mem-198-system-one/design.md).
 
 ## Problem
 

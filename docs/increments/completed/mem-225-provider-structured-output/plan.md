@@ -32,8 +32,13 @@ Design: [design.md](design.md). One pull request.
 - [x] `docs/specs/chat-models.md`, `docs/specs/chat.md` (question check), `docs/tests/` matrices, roadmap row.
 - [x] `verification.md` with the 9Router measurement.
 
-## Carried over
+## Staging
 
-- [ ] Staging: declare the capability on the task model and run one question check, one set of minutes and one
-  correction. The host's 9Router forwards `response_format` since its patched 0.5.95 build of 2026-10-04.
-- [ ] The `ocg/*` models through 9Router once their usage limit resets.
+- [x] The capability declared on the task model (`cx/gpt-6-luna`); one correction and one set of minutes on a
+  self-written transcript (2026-10-04, see the verification).
+
+## Not done, by the owner's decision
+
+- The question check on a language model: staging runs it on a System One connection.
+- The `ocg/*` models through 9Router, whose usage limit was exhausted. The owner accepted the `cx` route as
+  the acceptance on 2026-10-04.
