@@ -13,7 +13,9 @@
 - [x] Critique of 2026-10-04 (28/40): proposals realigned when their line changes, bulk accept inside the list, guards and help
 - [ ] `pnpm --dir web check` and the backend gate in CI
 - [ ] Light theme and a live recording reviewed in a browser; owner approval before merge
-- [ ] Impeccable critique re-scored after the 28/40 fixes (target above 30/40)
+- [x] Critique re-scored: 29/40
+- [x] Critique of 29/40: upload language and cleanup, list filters in the address, the bookmark key, the unknown length, the Chat confirmation
+- [ ] Impeccable critique re-scored after the 29/40 fixes (target above 30/40)
 
 ## Verification — 2026-10-04
 
@@ -22,4 +24,5 @@
 - Playwright, two workers: `meetings` and `meeting-transcript` pass (7 cases) at 1440 px and 390 px. The cases found that naming the tab in the address reset the page's scroll after a jump from the timeline, and that the subject marked as being read ignored what is pinned over the lines; both are fixed.
 - `:core:test --tests '*SpeakerIntroductionsTest*'` passes.
 - After the 28/40 critique: `:core:test --tests '*MeetingRepositoryTest*' --tests '*MeetingCorrectionSpansTest*'` passes; Vitest `meetings` passes (51); `meetings` and `meeting-transcript` Playwright pass again (7 cases); lint, format, `tsc -b`, the i18n audit and `knip` pass. The correction service's new path through `accept-all` has no API-level case yet.
+- After the 29/40 critique: lint, format, `tsc -b`, the i18n audit, the route check and `knip` pass; Vitest `meetings` passes (51); Playwright `meetings` passes with the new filter, language and length assertions. The live-follow case of `meeting-transcript` failed twice in ten runs with these changes and passed eight of eight without them, both failures on slower runs; not explained. The upload cleanup and the `B` key have no automated case.
 - Reviewed in the Orca browser, dark theme at 1720 px: turns, badges, marks, the correction popover, the legend, the "…" menu, search and the tab in the address. Undo of one correction and of all were not pressed on real data.
