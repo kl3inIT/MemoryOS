@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
@@ -17,8 +17,7 @@ import { useRef, useState, type RefObject } from "react";
 import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { NativeSelect } from "@/components/ui/native-select";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -274,6 +273,12 @@ export function UsersTable({
   }
 
   const isMobile = useIsMobile();
+  // A column that says the same thing on every row tells nothing, so the account type shows once rows differ.
+  const accountTypes = new Set(entries.flatMap((entry) => entry.accountType ?? []));
+  const columnVisibility = {
+    ...(isMobile ? phoneColumnVisibility : {}),
+    ...(accountTypes.size < 2 ? { accountType: false } : {}),
+  };
   const sorting = sortingOf(sort);
   const pagination = { pageIndex: page, pageSize: size };
   const table = useTable({
@@ -299,7 +304,7 @@ export function UsersTable({
     enableSortingRemoval: false,
     manualPagination: true,
     pageCount: totalPages,
-    state: { sorting, pagination, columnVisibility: isMobile ? phoneColumnVisibility : {} },
+    state: { sorting, pagination, columnVisibility },
     onSortingChange: (updater) => {
       const next = sortOf(typeof updater === "function" ? updater(sorting) : updater);
       if (next) onSortChange(next);
@@ -329,25 +334,13 @@ export function UsersTable({
             onPrevious={() => table.previousPage()}
             onNext={() => table.nextPage()}
           >
-            <Field orientation="horizontal" className="w-auto">
-              <FieldLabel htmlFor="users-page-size">{ui("Rows")}</FieldLabel>
-              <NativeSelect
-                id="users-page-size"
-                aria-label={ui("Rows per page")}
-                value={size}
-                size="sm"
-                className="w-auto px-2"
-                onChange={(event) =>
-                  onSizeChange(Number(event.target.value) as UsersSearch["size"])
-                }
-              >
-                {pageSizes.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </NativeSelect>
-            </Field>
+            <PageSizeSelect
+              label={ui("Rows per page")}
+              rowsLabel={ui("Rows")}
+              value={size}
+              sizes={pageSizes}
+              onSizeChange={(next) => onSizeChange(next as UsersSearch["size"])}
+            />
           </TablePagination>
         }
       />
@@ -415,8 +408,11 @@ function UserIdentity({ entry }: { entry: UserListItem }) {
       : ui("Email unavailable");
   return (
     <div className="min-w-0">
-      <span className="flex min-w-0 items-center gap-2">
-        <span className="truncate font-main-ui-action text-content-primary" title={primary}>
+      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+        <span
+          className="max-w-full truncate font-main-ui-action text-content-primary"
+          title={primary}
+        >
           {primary}
         </span>
         {entry.role === "OWNER" ? (
@@ -468,7 +464,7 @@ function UserStatus({
       ) : entry.status === "INVITED" && entry.invitationExpiresAt ? (
         <time
           dateTime={entry.invitationExpiresAt}
-          title={new Date(entry.invitationExpiresAt).toLocaleString(uiLocale())}
+          title={formatUiMoment(entry.invitationExpiresAt)}
           className="max-w-full font-secondary-body text-content-muted"
         >
           {ui("Expires")} {formatInvitationDate(entry.invitationExpiresAt)}

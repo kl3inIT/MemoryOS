@@ -1,4 +1,5 @@
 import { Fragment, useId, useRef, useState, type ReactNode } from "react";
+import { formatUiDay } from "@/i18n/format";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -53,11 +54,12 @@ import { type LibraryLayout } from "./library-toolbar";
 import type { LibraryOwnedView } from "./library-views";
 
 /**
- * A row's actions appear on hover and on keyboard focus, so a long list reads as names rather than as buttons; a
- * touch screen, which cannot hover, keeps them, and an open menu keeps its row's actions on screen.
+ * A row always shows its menu, so it reads as something to act on. Its shortcuts (the star, the download) appear
+ * on hover and on keyboard focus, so a long list reads as names rather than as buttons; a touch screen, which
+ * cannot hover, keeps them, and an open menu keeps them on screen.
  */
-export const rowActionsReveal =
-  "opacity-100 transition-opacity md:opacity-0 md:group-focus-within/item:opacity-100 md:group-hover/item:opacity-100 md:has-[[data-state=open]]:opacity-100";
+export const rowShortcutReveal =
+  "opacity-100 transition-opacity md:opacity-0 md:group-focus-within/item:opacity-100 md:group-hover/item:opacity-100 md:group-has-[[data-state=open]]/item:opacity-100";
 
 export type RowActions = {
   onPreview: (file: LibraryFile) => void;
@@ -75,8 +77,8 @@ export type RowActions = {
 
 /**
  * The files themselves, grouped by the day they arrived when that is the order they are in. A row carries its
- * name, what it is and what it costs on one line each; its actions appear on hover and on keyboard focus, so a
- * long list reads as names rather than as buttons.
+ * name, what it is and what it costs on one line each; its menu is always there and its shortcuts appear on
+ * hover and on keyboard focus, so a long list reads as names rather than as buttons.
  */
 export function LibraryList({
   files,
@@ -96,7 +98,10 @@ export function LibraryList({
   grouped: boolean;
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
-  /** A whole day is chosen or dropped at its heading; without it a heading is only a heading. */
+  /**
+   * A whole day is chosen or dropped at its heading once a selection has begun, so a list nobody is choosing
+   * from reads as files rather than as checkboxes; without it a heading is only a heading.
+   */
   onSelectDay?: (files: readonly LibraryFile[], pick: boolean) => void;
 }) {
   const ui = useAppTranslation();
@@ -181,7 +186,7 @@ function FileGroup({
     <section aria-label={label}>
       {showLabel && (
         <div className="mb-1.5 flex items-center gap-2 px-3.25">
-          {onSelectDay ? (
+          {onSelectDay && selected.length > 0 ? (
             <>
               <Checkbox
                 id={dayId}
@@ -218,7 +223,7 @@ function FileGroup({
           ))}
         </ul>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-surface-raised">
           {files.map((file) => (
             <li key={file.id}>
               <LibraryRow
@@ -227,6 +232,7 @@ function FileGroup({
                 selected={selected.includes(file.id)}
                 actions={actions}
                 onSelect={onSelect}
+                dated={!showLabel}
               />
             </li>
           ))}
@@ -242,12 +248,15 @@ function LibraryRow({
   selected,
   actions,
   onSelect,
+  dated,
 }: {
   file: LibraryFile;
   view: LibraryOwnedView;
   selected: boolean;
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
+  /** False under a day heading, which already says when the file arrived. */
+  dated: boolean;
 }) {
   const ui = useAppTranslation();
   return (
@@ -255,11 +264,11 @@ function LibraryRow({
     // menu (which takes the pointer off the row but still acts on its file) and, strongest, a chosen row.
     <div
       className={cn(
-        "rounded-lg transition-colors hover:bg-surface-subtle has-[[data-state=open]]:bg-surface-subtle",
-        selected && "bg-surface-subtle ring-1 ring-border-strong",
+        "transition-colors hover:bg-surface-subtle has-[[data-state=open]]:bg-surface-subtle",
+        selected && "bg-surface-sunken",
       )}
     >
-      <Item variant="outline">
+      <Item>
         <Checkbox
           aria-label={ui("Chọn {{name}}", { name: file.filename })}
           checked={selected}
@@ -278,7 +287,7 @@ function LibraryRow({
             className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
             onClick={() => actions.onPreview(file)}
           >
-            <span className="truncate">{file.filename}</span>
+            <FileName name={file.filename} />
             {file.favorite && (
               <Star
                 role="img"
@@ -288,16 +297,14 @@ function LibraryRow({
             )}
           </button>
           <ItemDescription>
-            <span className="flex flex-wrap items-center gap-x-1.5">
-              <RowMeta file={file} view={view} />
+            <span className="flex items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
+              <RowMeta file={file} view={view} dated={dated} />
             </span>
           </ItemDescription>
           <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
         </ItemContent>
         <ItemActions>
-          <div className={rowActionsReveal}>
-            <RowActionButtons file={file} view={view} actions={actions} />
-          </div>
+          <RowActionButtons file={file} view={view} actions={actions} />
         </ItemActions>
       </Item>
     </div>
@@ -351,33 +358,78 @@ export function LibraryPicture({
   );
 }
 
+/** How much of a name's end a phone row always keeps: the extension and what tells two versions apart. */
+const NAME_TAIL = 10;
+
+/**
+ * A file's name on one line at any width, so every row is as tall as the next. Where a pointer can hover, a long
+ * name is cut at its end and the whole name is a hover away. A phone cannot hover, so it cuts the middle and keeps
+ * the end; a screen reader hears the whole name either way.
+ */
+function FileName({ name }: { name: string }) {
+  // A short name fits a phone whole, so it has one rendering.
+  if (name.length <= NAME_TAIL * 2)
+    return (
+      <span className="truncate" title={name}>
+        {name}
+      </span>
+    );
+  const cut = name.length - NAME_TAIL;
+  return (
+    <>
+      <span className="truncate max-sm:sr-only" title={name}>
+        {name}
+      </span>
+      <span aria-hidden="true" className="flex min-w-0 sm:hidden">
+        <span className="truncate">{name.slice(0, cut)}</span>
+        <span className="shrink-0">{name.slice(cut)}</span>
+      </span>
+    </>
+  );
+}
+
 /** One line of facts about a file, in the order the current view makes useful. */
-function RowMeta({ file, view }: { file: LibraryFile; view: LibraryOwnedView }) {
+function RowMeta({
+  file,
+  view,
+  dated = true,
+}: {
+  file: LibraryFile;
+  view: LibraryOwnedView;
+  dated?: boolean;
+}) {
   const ui = useAppTranslation();
   const sources = sourceLabels(ui);
   const categories = categoryLabels(ui);
   const parts: string[] = [];
+  // Where a file came from is the first fact to go on a phone, so what it is and its size stay on one line.
+  let sourceFirst = false;
   if (view === "pending") parts.push(statusLabel(file, ui));
   else if (view === "trash" && file.deletedAt)
-    parts.push(
-      ui("Đã xóa {{date}}", { date: new Date(file.deletedAt).toLocaleDateString(i18n.language) }),
-    );
-  else parts.push(sources[file.source]);
+    parts.push(ui("Đã xóa {{date}}", { date: formatUiDay(file.deletedAt) }));
+  else {
+    parts.push(sources[file.source]);
+    sourceFirst = true;
+  }
   parts.push(categories[file.category]);
   parts.push(fileSize(file.sizeBytes, i18n.language));
   if (view === "trash" && file.purgeAfter)
     parts.push(
       ui("Xóa vĩnh viễn {{date}}", {
-        date: new Date(file.purgeAfter).toLocaleDateString(i18n.language),
+        date: formatUiDay(file.purgeAfter),
       }),
     );
-  else parts.push(new Date(file.createdAt).toLocaleDateString(i18n.language));
+  else if (dated) parts.push(formatUiDay(file.createdAt));
   return (
     <>
       {parts.map((part, index) => (
         <Fragment key={`${part}-${index}`}>
-          {index > 0 && <span aria-hidden="true">·</span>}
-          <span>{part}</span>
+          {index > 0 && (
+            <span aria-hidden="true" className={cn(sourceFirst && index === 1 && "max-sm:hidden")}>
+              ·
+            </span>
+          )}
+          <span className={cn(sourceFirst && index === 0 && "max-sm:hidden")}>{part}</span>
         </Fragment>
       ))}
     </>
@@ -491,36 +543,45 @@ export function FileActions({
   const byPointer = useRef(false);
   return (
     <div className="flex shrink-0 items-center gap-0.5">
-      {!compact && (
+      {/* A phone row gives this width to the file's name; the "…" menu stars and downloads. */}
+      <div
+        className={cn("flex items-center gap-0.5", !compact && rowShortcutReveal, "max-sm:hidden")}
+      >
+        {!compact && (
+          <IconButton
+            size="sm"
+            prominence="internal"
+            // The "…" menu also downloads, so a phone row gives this width to the file's name.
+            className="hidden sm:inline-flex"
+            aria-label={ui("Tải về {{name}}", { name: file.filename })}
+            title={ui("Tải về")}
+            asChild
+          >
+            <a
+              href={downloadUrl(libraryPreviewTarget(file))}
+              download={file.filename}
+              onClick={() => recordEntryOpened(file.source, file.id)}
+            >
+              <Download />
+            </a>
+          </IconButton>
+        )}
         <IconButton
           size="sm"
           prominence="internal"
-          aria-label={ui("Tải về {{name}}", { name: file.filename })}
-          title={ui("Tải về")}
-          asChild
+          aria-pressed={file.favorite}
+          aria-label={
+            file.favorite
+              ? ui("Bỏ gắn sao {{name}}", { name: file.filename })
+              : ui("Gắn sao {{name}}", { name: file.filename })
+          }
+          onClick={() => actions.onFavorite(file)}
         >
-          <a
-            href={downloadUrl(libraryPreviewTarget(file))}
-            download={file.filename}
-            onClick={() => recordEntryOpened(file.source, file.id)}
-          >
-            <Download />
-          </a>
+          <Star
+            className={file.favorite ? "fill-current text-status-warning-content" : undefined}
+          />
         </IconButton>
-      )}
-      <IconButton
-        size="sm"
-        prominence="internal"
-        aria-pressed={file.favorite}
-        aria-label={
-          file.favorite
-            ? ui("Bỏ gắn sao {{name}}", { name: file.filename })
-            : ui("Gắn sao {{name}}", { name: file.filename })
-        }
-        onClick={() => actions.onFavorite(file)}
-      >
-        <Star className={file.favorite ? "fill-current text-status-warning-content" : undefined} />
-      </IconButton>
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <IconButton
@@ -543,6 +604,10 @@ export function FileActions({
             event.preventDefault();
           }}
         >
+          <DropdownMenuItem className="sm:hidden" onSelect={() => actions.onFavorite(file)}>
+            <Star />
+            {file.favorite ? ui("Bỏ sao") : ui("Thêm sao")}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => actions.onRename(file)}>
             <Pencil />
             {ui("Đổi tên")}

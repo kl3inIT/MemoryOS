@@ -144,15 +144,31 @@ export const vietnameseUi: Record<string, string> = {
   Hạn: "Due",
   "Bạn đã sửa": "You corrected this",
   "Tìm trong transcript": "Search the transcript",
+  "Đã đánh dấu thời điểm {{time}}": "Marked the moment at {{time}}",
+  "Tìm trong transcript (bấm /)": "Search the transcript (press /)",
+  "Người được chia sẻ đọc transcript và biên bản, kể cả khi cuộc họp đang ghi. Ghi chú của bạn vẫn riêng tư.":
+    "People you share with read the transcript and the minutes, also while the meeting is being recorded. Your notes stay private.",
+  "Điểm của đề xuất": "Proposal scores",
+  "Chắc: mô hình tin vào chữ thay thế đến đâu. Hợp ngữ cảnh: chữ mới khớp với các câu xung quanh đến đâu. Giữ nguyên ý: câu sau khi sửa còn đúng ý ban đầu đến đâu.":
+    "Sure: how far the model trusts the replacement. Fits the context: how well the new words match the lines around them. Keeps the meaning: how far the corrected line still says what it first meant.",
   "Dòng thời gian": "Timeline",
+  "Chi tiết cuộc họp": "Meeting details",
+  "Ngày họp": "Date",
+  "Thời lượng": "Duration",
+  "Bấm Đánh dấu để lưu lại một thời điểm và quay lại từ đây.":
+    "Press Mark this moment to keep a place you can come back to from here.",
+  "Chia sẻ cuộc họp": "Share the meeting",
+  "Người và nhóm được đọc": "People and groups who can read it",
   "Tải Word": "Download Word",
   "Tải PDF": "Download PDF",
   "{{at}}/{{total}}": "{{at}}/{{total}}",
   "Không thấy": "No hits",
   "Kết quả sau": "Next hit",
-  "Câu đã đánh dấu ({{count}})": "Starred lines ({{count}})",
-  "Chưa đánh dấu câu nào.": "No lines are starred yet.",
-  "Đánh dấu câu này": "Star this line",
+  "Câu đã gắn sao ({{count}})": "Starred lines ({{count}})",
+  "Chưa gắn sao câu nào.": "No lines are starred yet.",
+  "Gắn sao câu lúc {{time}}": "Star the line at {{time}}",
+  "Chưa lưu được ghi chú. Phần bạn viết vẫn còn ở đây.":
+    "The notes could not be saved. What you wrote is still here.",
   "Đánh dấu": "Mark this moment",
   "Transcript corrections": "Transcript corrections",
   "Proposes what was said where the speech provider was unsure.":
@@ -163,8 +179,21 @@ export const vietnameseUi: Record<string, string> = {
   "Đang hiệu chỉnh…": "Correcting…",
   "Tìm được {{count}} chỗ cần sửa.": "Found {{count}} places to correct.",
   "Nhận hết?": "Accept all?",
-  "Transcript sẽ đổi ở {{count}} chỗ.": "The transcript changes in {{count}} places.",
-  "Tên người nói ({{count}})": "Speaker names ({{count}})",
+  "Transcript sẽ đổi ở {{count}} chỗ. Chỗ nào cũng hoàn tác được.":
+    "The transcript changes in {{count}} places. Each change can be undone.",
+  "Transcript chỉ đổi ở chỗ bạn nhận.": "The transcript changes only where you accept.",
+  "Hiệu chỉnh": "Correction",
+  "AI đọc lại những đoạn máy nghe chưa chắc và đề xuất chữ thay thế. Transcript chỉ đổi ở chỗ bạn bấm Nhận, và chỗ nào đã đổi cũng hoàn tác được.":
+    "AI rereads the stretches the transcriber was unsure of and proposes replacements. The transcript changes only where you press Accept, and every change can be undone.",
+  "Enter để lưu, Esc để bỏ.": "Enter saves, Esc cancels.",
+  "Xóa việc này?": "Delete this action item?",
+  "Xóa quyết định này?": "Delete this decision?",
+  "“{{text}}” sẽ bị xóa khỏi biên bản và không lấy lại được.":
+    "“{{text}}” will be removed from the minutes and cannot be restored.",
+  "Lưu biên bản vào Thư viện và mở hội thoại mới với biên bản đó.":
+    "Saves the minutes to the Library and opens a new conversation with them attached.",
+  "Chi tiết": "Details",
+  "vừa viết xong": "just written",
   "Người nói {{label}} tự giới thiệu là {{name}}":
     "Speaker {{label}} introduced themselves as {{name}}",
   "Đặt tên {{name}}": "Name them {{name}}",
@@ -173,11 +202,17 @@ export const vietnameseUi: Record<string, string> = {
   "Từ đúng": "What was said",
   "Nhận hết": "Accept all",
   "Đang nhận…": "Accepting…",
-  "Đã sửa ({{count}})": "Corrected ({{count}})",
-  "Hoàn tác cả lượt?": "Undo the whole pass?",
+  "Chữ cam": "Orange words",
+  "Xem câu “{{text}}” trong transcript": "Show the sentence “{{text}}” in the transcript",
+  "máy nghe chưa chắc, bấm để sửa": "the transcriber was unsure of; click one to correct it",
+  "máy nghe chưa chắc": "the transcriber was unsure of",
+  "Chữ xanh lá": "Green words",
+  "đã sửa {{count}} chỗ, bấm để xem chữ cũ": "{{count}} corrected; click one to see what was heard",
+  "Đã sửa “{{before}}” thành “{{after}}”": "Corrected “{{before}}” to “{{after}}”",
+  "Hoàn tác tất cả?": "Undo every correction?",
   "{{count}} chỗ trở lại như máy nghe ban đầu.":
     "{{count}} places go back to the way they were heard.",
-  "Hoàn tác cả lượt": "Undo the whole pass",
+  "Hoàn tác tất cả": "Undo all",
   "Đang hoàn tác…": "Undoing…",
   "Không có chỗ nào cần sửa.": "Nothing needs changing.",
   "Chữ thay thế": "Replacement wording",
@@ -192,23 +227,15 @@ export const vietnameseUi: Record<string, string> = {
   "Không có việc nào được giao": "No work was assigned",
   "Không có quyết định nào": "No decisions were reached",
   "Đánh dấu xong: {{text}}": "Mark done: {{text}}",
-  "Transcript, tên người nói và ghi chú sẽ mất vĩnh viễn.":
-    "The transcript, speaker names and notes are lost for good.",
-  "Thời lượng": "Duration",
-  "Số câu": "Utterances",
-  "Người nói": "Speakers",
-  "{{count}} đã đặt tên": "{{count}} named",
-  "Chưa đặt tên": "None named",
-  "Nhận dạng": "Recognition",
-  "Có tách người nói": "Separates speakers",
   "Không tách người nói": "No speaker separation",
   "Xóa {{v1}}?": "Delete {{v1}}?",
   "Đang tải cuộc họp": "Loading meeting",
   "Chưa xem được danh sách cuộc họp": "Meetings unavailable",
   "Chưa xem được cuộc họp này": "This meeting is unavailable",
-  "Xóa cuộc họp này": "Delete this meeting",
   "Xóa cuộc họp": "Delete meeting",
   "Tìm theo tên cuộc họp": "Search by meeting name",
+  "Mọi thời gian": "Any time",
+  "Mở cuộc họp đang ghi": "Open the meeting being recorded",
   "Mọi trạng thái": "Any status",
   "Thời gian": "Period",
   "30 ngày qua": "Last 30 days",
@@ -259,7 +286,8 @@ export const vietnameseUi: Record<string, string> = {
   "Dừng ghi và kết thúc cuộc họp?": "Stop recording and end the meeting?",
   "Dừng và kết thúc": "Stop and end",
   "Ghi chú của tôi": "My notes",
-  "Ghi chú vừa đổi ở nơi khác. Tải lại trang.": "These notes changed elsewhere. Reload the page.",
+  "Ghi chú vừa đổi ở nơi khác. Hãy chép phần vừa viết, rồi tải lại trang.":
+    "These notes changed elsewhere. Copy what you just wrote, then reload the page.",
   "Ghi cuộc họp mới": "Record a meeting",
   "Hình thức": "Format",
   "Họp online": "Online meeting",
@@ -333,6 +361,7 @@ export const vietnameseUi: Record<string, string> = {
   "Mỗi luồng âm thanh ghi tối đa 5 giờ.": "Each audio track records at most 5 hours.",
   "Ngôn ngữ": "Language",
   "Người nói {{label}}": "Speaker {{label}}",
+  "Người nói": "Speakers",
   "Đã lưu đến {{time}}. Sau khi dừng, cuộc họp không ghi tiếp được.":
     "Saved up to {{time}}. After stopping, the meeting cannot record again.",
   "Sau khi kết thúc, cuộc họp không ghi tiếp được.":
@@ -355,8 +384,8 @@ export const vietnameseUi: Record<string, string> = {
   "Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.":
     "I have told everyone that this meeting is being recorded.",
   Transcript: "Transcript",
-  "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xóa vĩnh viễn.":
-    "This meeting's transcript, speaker names and notes will be permanently deleted.",
+  "Transcript, biên bản, tên người nói và ghi chú của cuộc họp này sẽ bị xóa vĩnh viễn.":
+    "This meeting's transcript, minutes, speaker names and notes will be permanently deleted.",
   "Trình duyệt không cho dùng micro. Hãy cho phép micro rồi thử lại.":
     "The browser blocked the microphone. Allow the microphone and try again.",
   "Trình duyệt này chưa ghi được. Hãy dùng Chrome hoặc Edge trên máy tính, hoặc Chrome trên điện thoại.":
@@ -410,6 +439,8 @@ export const vietnameseUi: Record<string, string> = {
   "Tài liệu tổ chức": "Organisation documents",
   "Có gắn sao": "Starred",
   "Gắn sao": "Stars",
+  "Thêm sao": "Star",
+  "Bỏ sao": "Unstar",
   "Chỉ tệp gắn sao": "Starred files only",
   "Gắn sao {{name}}": "Star {{name}}",
   "Bỏ gắn sao {{name}}": "Unstar {{name}}",
@@ -553,20 +584,20 @@ export const vietnameseUi: Record<string, string> = {
   "Không có hội thoại nào bị xóa ngay.": "No conversation is deleted right away.",
   // MEM-153 phase 2: temporary conversations
   "Chat tạm thời": "Temporary chat",
-  "Dùng khi bạn không muốn cuộc trò chuyện này được lưu lại.":
+  "Dùng khi bạn không muốn hội thoại này được lưu lại.":
     "For when you do not want this conversation kept.",
   "Bắt đầu": "Start",
   "Không vào lịch sử": "Not in history",
-  "Cuộc trò chuyện không hiện trên thanh bên và không tìm được.":
+  "Hội thoại không hiện trên thanh bên và không tìm được.":
     "It is not on the sidebar and search does not find it.",
   "Tự xóa": "Deletes itself",
-  "Cuộc trò chuyện và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.":
+  "Hội thoại và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.":
     "The conversation and the files you send into it are deleted once you stop asking.",
   "Không chia sẻ, không dự án": "No link, no Project",
   "Không tạo được liên kết chia sẻ và không thêm được vào dự án.":
     "It cannot be given a share link or put in a Project.",
   "Tạm thời": "Temporary",
-  "Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó.":
+  "Hội thoại này không được lưu và sẽ tự xóa cùng tệp của nó.":
     "This conversation is not kept, and it deletes itself with its files.",
   // MEM-153 chat lifecycle: archiving a conversation and branching one into a new chat
   "Lưu trữ": "Archive",
@@ -639,7 +670,7 @@ export const vietnameseUi: Record<string, string> = {
   // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
   "Khớp nội dung tệp.": "Matches the file's contents.",
   "Tìm trong nội dung tệp": "Search inside files",
-  "Cách tìm": "Search by",
+  "Cách hiển thị": "Display",
   "Nội dung": "Contents",
   "Tên A → Z": "Name A → Z",
   "Trạng thái tệp": "File state",
@@ -712,7 +743,8 @@ export const vietnameseUi: Record<string, string> = {
   "Trình chiếu": "Presentations",
   Khác: "Other",
   "{{count}} tệp · {{size}}": "{{count}} files · {{size}}",
-  "Cách hiển thị": "Layout",
+  "Bố cục": "Layout",
+  "Tìm theo": "Search by",
   "Dạng bảng": "Table view",
   "Dạng lưới": "Grid view",
   "Tìm theo tên tệp": "Search by file name",
@@ -729,6 +761,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không có tệp nào khớp bộ lọc.": "No file matches this filter.",
   "Chưa có tệp nào. Tệp bạn tải lên hoặc Chat tạo ra sẽ xuất hiện ở đây.":
     "No files yet. What you upload or Chat generates appears here.",
+  "Chọn tất cả": "Select all",
   "Chọn tất cả trên trang này": "Select all on this page",
   "Chọn tất cả {{day}}": "Select all in {{day}}",
   "Tên tệp": "File name",
@@ -1055,6 +1088,7 @@ export const vietnameseUi: Record<string, string> = {
   "Cấp quyền không thành công.": "Authorization failed.",
   "Mô hình": "Models",
   "Tìm kiếm và đọc trang Web": "Search and read the Web",
+  "Mô hình đang chọn không dùng được tìm kiếm Web.": "The selected model cannot use Web search.",
   "Chưa kết nối công cụ tìm kiếm.": "No search engine connected.",
   "Chọn một công cụ tìm kiếm để bật tìm kiếm Web.": "Select a search engine to enable web search.",
   "Cài đặt tìm kiếm bên ngoài trên internet.":
@@ -1509,8 +1543,8 @@ export const vietnameseUi: Record<string, string> = {
   Chuyển: "Move",
   "Dự án đích": "Destination project",
   "Xóa hội thoại?": "Delete conversation?",
-  "“{{v1}}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.":
-    "“{{v1}}” will be removed from history and sharing. Any running answer will also stop.",
+  "“{{v1}}” sẽ bị xóa vĩnh viễn khỏi lịch sử và liên kết chia sẻ, không khôi phục được. Câu trả lời đang chạy cũng sẽ dừng.":
+    "“{{v1}}” will be permanently removed from history and sharing, and cannot be restored. Any running answer will also stop.",
   "Xóa hội thoại": "Delete conversation",
   "Tên hội thoại": "Conversation name",
   "Lưu tên hội thoại": "Save conversation name",
@@ -1808,7 +1842,7 @@ Object.assign(vietnameseUi, {
   "Tự động gửi khi dừng ghi âm": "Auto-send when recording stops",
   "Câu hỏi được gửi ngay khi văn bản nhận dạng xong, không cần bấm Gửi.":
     "Your question is sent as soon as the transcript is ready, without pressing Send.",
-  "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.":
+  "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong hội thoại.":
     "Control how the microphone and spoken answers work together in a conversation.",
   "Không tải được cài đặt giọng nói.": "Voice settings could not be loaded.",
   "Đọc thành tiếng": "Read aloud",

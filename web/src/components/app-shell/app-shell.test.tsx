@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -106,6 +106,29 @@ it("shows only the administration pages the session may open, in their sections"
     "page",
   );
   expect(screen.getByText("History page")).toBeInTheDocument();
+});
+
+it("opens every administration section, and keeps one folded once the person folds it", async () => {
+  const user = userEvent.setup();
+  localStorage.clear();
+  await renderShell("/admin/chat-history", ["AUDIT_READ", "CHAT_HISTORY_READ"]);
+
+  const navigation = await screen.findByRole("navigation", { name: "Administration navigation" });
+  expect(within(navigation).getByRole("link", { name: "Groups" })).toBeInTheDocument();
+  expect(within(navigation).getByRole("link", { name: "Audit log" })).toBeInTheDocument();
+
+  await user.click(within(navigation).getByRole("button", { name: "Organization" }));
+  expect(within(navigation).queryByRole("link", { name: "Groups" })).not.toBeInTheDocument();
+
+  cleanup();
+  await renderShell("/admin/chat-history", ["AUDIT_READ", "CHAT_HISTORY_READ"]);
+  const reopened = await screen.findByRole("navigation", { name: "Administration navigation" });
+  expect(within(reopened).getByRole("button", { name: "Organization" })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  expect(within(reopened).getByRole("link", { name: "Audit log" })).toBeInTheDocument();
+  localStorage.clear();
 });
 
 it("names the person on the account button and keeps the role in its menu", async () => {

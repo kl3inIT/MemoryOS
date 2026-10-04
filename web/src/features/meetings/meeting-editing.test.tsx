@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
 import { getMeetingOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import {
@@ -17,7 +17,7 @@ import type {
   MeetingNewMinutesItemRequest,
 } from "@/lib/hey-api/types.gen";
 import { server } from "@/test/msw";
-import { MeetingDetailsDialog } from "./meeting-details-dialog";
+import { MeetingActions } from "./meeting-actions";
 import { MinutesItems } from "./meeting-minutes";
 
 const MEETING_ID = "0f6b3c1e-9a7d-4d5e-8c2b-6e1f4a9b3d77";
@@ -194,11 +194,12 @@ describe("the meeting details", () => {
     mount((current) => (
       <>
         <h1>{current.title}</h1>
-        <MeetingDetailsDialog meeting={current} />
+        <MeetingActions meeting={current} deletable onDelete={vi.fn()} />
       </>
     ));
 
-    await user.click(await screen.findByRole("button", { name: "Sửa thông tin" }));
+    await user.click(await screen.findByRole("button", { name: /^Thao tác khác cho/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Sửa thông tin" }));
     const dialog = screen.getByRole("dialog", { name: "Thông tin cuộc họp" });
     const title = within(dialog).getByLabelText("Tên cuộc họp");
     await user.clear(title);
@@ -224,9 +225,10 @@ describe("the meeting details", () => {
       }),
     );
     const user = userEvent.setup();
-    mount((current) => <MeetingDetailsDialog meeting={current} />);
+    mount((current) => <MeetingActions meeting={current} deletable onDelete={vi.fn()} />);
 
-    await user.click(await screen.findByRole("button", { name: "Sửa thông tin" }));
+    await user.click(await screen.findByRole("button", { name: /^Thao tác khác cho/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Sửa thông tin" }));
     const dialog = screen.getByRole("dialog", { name: "Thông tin cuộc họp" });
     await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
 

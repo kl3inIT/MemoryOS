@@ -41,7 +41,7 @@ export function AgentCard({
           <div className="flex min-w-0 flex-1 gap-3">
             <AgentAvatar agent={agent} />
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-start gap-2 pr-7">
+              <div className="flex min-w-0 items-start gap-2 pr-7 no-hover:pr-0">
                 <h3 className="min-w-0 font-main-content-body text-content-primary">
                   <button
                     type="button"
@@ -61,6 +61,54 @@ export function AgentCard({
               <p className="mt-1 line-clamp-2 font-secondary-body text-content-muted">
                 {agent.description || ui("Chưa có mô tả.")}
               </p>
+              {/* Floats over the corner while the pointer is on the card; a touch screen cannot hover, so there the
+                actions take their own row under the description instead of covering the name. */}
+              <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 no-hover:relative no-hover:inset-auto no-hover:mt-2 no-hover:justify-end">
+                <div
+                  className={cn(
+                    "flex items-center gap-0.5 rounded-lg bg-surface-raised shadow-hover no-hover:bg-transparent no-hover:shadow-none",
+                    hoverReveal,
+                  )}
+                >
+                  {can(agent, "edit") && (
+                    <IconButton
+                      size="sm"
+                      prominence="tertiary"
+                      aria-label={ui("Sửa {{v1}}", { v1: agent.name })}
+                      title={ui("Sửa trợ lý")}
+                      onClick={onEdit}
+                    >
+                      <Pencil />
+                    </IconButton>
+                  )}
+                  {can(agent, "share") && (
+                    <IconButton
+                      size="sm"
+                      prominence="tertiary"
+                      aria-label={ui("Chia sẻ {{v1}}", { v1: agent.name })}
+                      title={ui("Chia sẻ trợ lý")}
+                      onClick={onShare}
+                    >
+                      <Share2 />
+                    </IconButton>
+                  )}
+                  <AgentActions agent={agent} />
+                </div>
+                {!agent.builtin && (
+                  <span className={cn("flex", !agent.pinned && hoverReveal)}>
+                    <IconButton
+                      size="sm"
+                      prominence="tertiary"
+                      aria-label={agent.pinned ? ui("Bỏ ghim") : ui("Ghim vào thanh bên")}
+                      title={agent.pinned ? ui("Bỏ ghim") : ui("Ghim vào thanh bên")}
+                      aria-pressed={agent.pinned}
+                      onClick={onPin}
+                    >
+                      <Pin className={cn(agent.pinned && "fill-current")} />
+                    </IconButton>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -91,52 +139,6 @@ export function AgentCard({
           </div>
         </CardFooter>
       </Card>
-      <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5">
-        <div
-          className={cn(
-            "flex items-center gap-0.5 rounded-lg bg-surface-raised shadow-hover",
-            hoverReveal,
-          )}
-        >
-          {can(agent, "edit") && (
-            <IconButton
-              size="sm"
-              prominence="tertiary"
-              aria-label={ui("Sửa {{v1}}", { v1: agent.name })}
-              title={ui("Sửa trợ lý")}
-              onClick={onEdit}
-            >
-              <Pencil />
-            </IconButton>
-          )}
-          {can(agent, "share") && (
-            <IconButton
-              size="sm"
-              prominence="tertiary"
-              aria-label={ui("Chia sẻ {{v1}}", { v1: agent.name })}
-              title={ui("Chia sẻ trợ lý")}
-              onClick={onShare}
-            >
-              <Share2 />
-            </IconButton>
-          )}
-          <AgentActions agent={agent} />
-        </div>
-        {!agent.builtin && (
-          <span className={cn("flex", !agent.pinned && hoverReveal)}>
-            <IconButton
-              size="sm"
-              prominence="tertiary"
-              aria-label={agent.pinned ? ui("Bỏ ghim") : ui("Ghim vào thanh bên")}
-              title={agent.pinned ? ui("Bỏ ghim") : ui("Ghim vào thanh bên")}
-              aria-pressed={agent.pinned}
-              onClick={onPin}
-            >
-              <Pin className={cn(agent.pinned && "fill-current")} />
-            </IconButton>
-          </span>
-        )}
-      </div>
     </article>
   );
 }

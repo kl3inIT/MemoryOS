@@ -10,6 +10,7 @@ import {
   invalidateMeetingList,
   meetingQueryKey,
   patchMeeting,
+  timelineOf,
   withAddedMinutesItem,
   withMinutesItem,
   withoutMinutesItem,
@@ -210,7 +211,10 @@ describe("folding one correction", () => {
     const cache = new QueryClient();
     const cached = meeting();
     cache.setQueryData(meetingQueryKey(cached.id), cached);
-    cache.setQueryData(correctionsQueryKey(cached.id), [correction("c1"), correction("c2")]);
+    cache.setQueryData(correctionsQueryKey(cached.id), [
+      correction("c1"),
+      correction("c2", { utteranceId: "u2" }),
+    ]);
 
     foldCorrection(cache, cached.id, {
       utterance: rewritten,
@@ -229,6 +233,61 @@ describe("folding one correction", () => {
       ["c2", "PENDING"],
     ]);
     expect(cache.getQueryState(correctionsQueryKey(cached.id))?.isInvalidated).toBe(false);
+  });
+
+  it("keeps the line's other proposals on their words, and declines one whose words are gone", () => {
+    const cache = new QueryClient();
+    const cached = meeting();
+    cache.setQueryData(meetingQueryKey(cached.id), cached);
+    cache.setQueryData(correctionsQueryKey(cached.id), [
+      correction("c1", { start: 15, end: 21, before: "quý tư", after: "quý 4" }),
+      correction("inside", { start: 19, end: 21 }),
+      correction("before", { start: 0, end: 4 }),
+      correction("after", { start: 30, end: 34 }),
+      correction("applied", { start: 40, end: 44, status: "ACCEPTED" }),
+      correction("elsewhere", { utteranceId: "u2", start: 30, end: 34 }),
+    ]);
+
+    foldCorrection(cache, cached.id, {
+      utterance: rewritten,
+      correction: correction("c1", {
+        start: 15,
+        end: 21,
+        before: "quý tư",
+        after: "quý 4",
+        status: "ACCEPTED",
+      }),
+    });
+
+    const moved = () =>
+      cache
+        .getQueryData<MeetingCorrection[]>(correctionsQueryKey(cached.id))
+        ?.map((item) => [item.id, item.status, item.start, item.end]);
+    expect(moved()).toEqual([
+      ["c1", "ACCEPTED", 15, 21],
+      ["inside", "KEPT", 19, 21],
+      ["before", "PENDING", 0, 4],
+      ["after", "PENDING", 29, 33],
+      ["applied", "ACCEPTED", 39, 43],
+      ["elsewhere", "PENDING", 30, 34],
+    ]);
+
+    // Taking the change back moves what follows to where it stood.
+    foldCorrection(cache, cached.id, {
+      utterance: rewritten,
+      correction: correction("c1", {
+        start: 15,
+        end: 21,
+        before: "quý tư",
+        after: "quý 4",
+        status: "REVERTED",
+      }),
+    });
+
+    expect(moved()?.slice(3, 5)).toEqual([
+      ["after", "PENDING", 30, 34],
+      ["applied", "ACCEPTED", 40, 44],
+    ]);
   });
 
   it("leaves the transcript alone when a proposal is declined", () => {
@@ -269,5 +328,35 @@ describe("folding one correction", () => {
     foldCorrection(cache, "meeting-2", correction("c1", { status: "KEPT" }));
 
     expect(cache.getQueryData(correctionsQueryKey("meeting-2"))).toBeUndefined();
+  });
+});
+
+describe("the timeline of a meeting", () => {
+  const line = (id: string, startMs: number) =>
+    ({ id, track: "MIC", speaker: "1", startMs, endMs: startMs + 4_000 }) as MeetingUtterance;
+  const topic = (id: string, sourceUtteranceId: string | null) =>
+    ({ id, text: `Chủ đề ${id}`, sourceUtteranceId }) as MeetingMinutesItem;
+  const meeting = (bookmarks: MeetingDetail["bookmarks"]) =>
+    ({
+      utterances: [line("u1", 0), line("u2", 10_000), line("u3", 20_000)],
+      minutes: { topics: [topic("t1", "u1"), topic("t2", "u3"), topic("t3", "gone")] },
+      bookmarks,
+    }) as MeetingDetail;
+
+  it("puts the subjects and the marked moments in the order the meeting reached them", () => {
+    const entries = timelineOf(meeting([{ id: "b1", atMs: 14_000, label: "Đánh dấu 1" }]));
+
+    // A subject whose line is gone is left out; the moment opens on the line being said when it was marked.
+    expect(entries.map((entry) => [entry.id, entry.kind, entry.atMs, entry.line.id])).toEqual([
+      ["t1", "topic", 0, "u1"],
+      ["b1", "bookmark", 14_000, "u2"],
+      ["t2", "topic", 20_000, "u3"],
+    ]);
+  });
+
+  it("leaves out a moment marked before anything was said", () => {
+    const empty = { ...meeting([{ id: "b1", atMs: 1_000, label: "Đánh dấu 1" }]), utterances: [] };
+
+    expect(timelineOf(empty)).toEqual([]);
   });
 });

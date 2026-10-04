@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiMoment, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { SourceItem, SourceRun } from "@/lib/hey-api/types.gen";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -31,7 +31,7 @@ export function HistoryTime({
   return (
     <SourceHint hint={full}>
       <time dateTime={value} aria-label={full}>
-        {(relative && historyRelativeTime(value)) || date.toLocaleString(uiLocale())}
+        {(relative && historyRelativeTime(value)) || formatUiMoment(date)}
       </time>
     </SourceHint>
   );

@@ -1,14 +1,20 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { Clock, FileAudio, Mic, MonitorSpeaker, Search, Users, WifiOff } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { Button } from "@/components/ui/button";
 import { BrandLoader } from "@/components/brand-loader";
 import { EmptyState } from "@/components/composites/empty-state";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { NativeSelect } from "@/components/ui/native-select";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -17,6 +23,7 @@ import { useProblemMessage } from "@/lib/use-problem-message";
 import { listMeetingsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { formatClock, formatWhen, type MeetingSummary } from "./meetings-api";
 import { useActiveMeeting } from "./meeting-session";
+import type { MeetingPeriod, MeetingStatusFilter, MeetingsSearch } from "./meetings-search";
 import { NewMeetingDialog } from "./new-meeting-dialog";
 import { UploadRecordingDialog } from "./upload-recording-dialog";
 
@@ -37,18 +44,22 @@ function groupMeetings(items: readonly MeetingSummary[], now = new Date()): Grou
   return groups;
 }
 
+const PERIOD_DAYS = { "30d": 30, "90d": 90 } as const;
+/** The value of the entry that leaves a filter open; a registry select item cannot hold an empty one. */
+const ANY = "any";
+
 /** The meetings a name search, a status and a period leave visible. */
 function matchingMeetings(
   meetings: readonly MeetingSummary[],
   query: string,
-  status: "all" | "RECORDING" | "TRANSCRIBING" | "ENDED",
-  period: "30" | "90" | "all",
+  status: MeetingStatusFilter | undefined,
+  period: MeetingPeriod | undefined,
   now = Date.now(),
 ) {
-  const since = period === "all" ? 0 : now - Number(period) * 86_400_000;
+  const since = period ? now - PERIOD_DAYS[period] * 86_400_000 : 0;
   return meetings.filter(
     (meeting) =>
-      (status === "all" || meeting.status === status) &&
+      (!status || meeting.status === status) &&
       Date.parse(meeting.createdAt) >= since &&
       (query === "" || meeting.title.toLocaleLowerCase("vi").includes(query)),
   );
@@ -59,9 +70,14 @@ export function MeetingsPage() {
   const problemMessage = useProblemMessage();
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | "RECORDING" | "TRANSCRIBING" | "ENDED">("all");
-  const [period, setPeriod] = useState<"30" | "90" | "all">("30");
+  const filters = useSearch({ from: "/_authenticated/meetings" });
+  const navigate = useNavigate({ from: "/meetings" });
+  const [search, setSearch] = useState(filters.q ?? "");
+  const { status } = filters;
+  const { period } = filters;
+  /** A filter replaces the list's own history entry: Back leaves the list, it does not undo a choice. */
+  const applyFilters = (update: Partial<MeetingsSearch>) =>
+    void navigate({ replace: true, search: (current) => ({ ...current, ...update }) });
   const query = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
   const live = useActiveMeeting();
   const meetings = useQuery(listMeetingsOptions());
@@ -87,10 +103,20 @@ export function MeetingsPage() {
                 <FileAudio aria-hidden="true" />
                 {ui("Tải file ghi âm")}
               </Button>
-              <Button onClick={() => setCreating(true)} disabled={!!live}>
-                <Mic aria-hidden="true" />
-                {ui("Ghi cuộc họp mới")}
-              </Button>
+              {live ? (
+                // One meeting records at a time, so the action leads to it rather than standing disabled.
+                <Button asChild>
+                  <Link to="/meetings/$meetingId" params={{ meetingId: live.meetingId }}>
+                    <Mic aria-hidden="true" />
+                    {ui("Mở cuộc họp đang ghi")}
+                  </Link>
+                </Button>
+              ) : (
+                <Button onClick={() => setCreating(true)}>
+                  <Mic aria-hidden="true" />
+                  {ui("Ghi cuộc họp mới")}
+                </Button>
+              )}
             </>
           }
         />
@@ -115,7 +141,7 @@ export function MeetingsPage() {
           />
         ) : (
           <div className="flex flex-wrap gap-2">
-            <InputGroup className="min-w-0 flex-1 sm:max-w-80">
+            <InputGroup className="w-full sm:w-auto sm:max-w-80 sm:min-w-56 sm:flex-1">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
@@ -123,30 +149,43 @@ export function MeetingsPage() {
                 value={search}
                 placeholder={ui("Tìm theo tên cuộc họp")}
                 aria-label={ui("Tìm theo tên cuộc họp")}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  applyFilters({ q: event.target.value || undefined });
+                }}
               />
             </InputGroup>
-            <NativeSelect
-              value={status}
-              aria-label={ui("Trạng thái")}
-              className="w-auto"
-              onChange={(event) => setStatus(event.target.value as typeof status)}
+            <Select
+              value={status ?? ANY}
+              onValueChange={(next) =>
+                applyFilters({ status: next === ANY ? undefined : (next as MeetingStatusFilter) })
+              }
             >
-              <option value="all">{ui("Mọi trạng thái")}</option>
-              <option value="RECORDING">{ui("Chưa kết thúc")}</option>
-              <option value="TRANSCRIBING">{ui("Đang nhận dạng")}</option>
-              <option value="ENDED">{ui("Đã kết thúc")}</option>
-            </NativeSelect>
-            <NativeSelect
-              value={period}
-              aria-label={ui("Thời gian")}
-              className="w-auto"
-              onChange={(event) => setPeriod(event.target.value as typeof period)}
+              <SelectTrigger aria-label={ui("Trạng thái")} className="flex-1 sm:flex-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4}>
+                <SelectItem value={ANY}>{ui("Mọi trạng thái")}</SelectItem>
+                <SelectItem value="RECORDING">{ui("Chưa kết thúc")}</SelectItem>
+                <SelectItem value="TRANSCRIBING">{ui("Đang nhận dạng")}</SelectItem>
+                <SelectItem value="ENDED">{ui("Đã kết thúc")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={period ?? ANY}
+              onValueChange={(next) =>
+                applyFilters({ period: next === ANY ? undefined : (next as MeetingPeriod) })
+              }
             >
-              <option value="30">{ui("30 ngày qua")}</option>
-              <option value="90">{ui("90 ngày qua")}</option>
-              <option value="all">{ui("Tất cả")}</option>
-            </NativeSelect>
+              <SelectTrigger aria-label={ui("Thời gian")} className="flex-1 sm:flex-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4}>
+                <SelectItem value={ANY}>{ui("Mọi thời gian")}</SelectItem>
+                <SelectItem value="30d">{ui("30 ngày qua")}</SelectItem>
+                <SelectItem value="90d">{ui("90 ngày qua")}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         )}
         {meetings.isPending || meetings.isError ? null : !all || all.length === 0 ? (
@@ -170,8 +209,7 @@ export function MeetingsPage() {
                 prominence="secondary"
                 onClick={() => {
                   setSearch("");
-                  setStatus("all");
-                  setPeriod("all");
+                  applyFilters({ q: undefined, status: undefined, period: undefined });
                 }}
               >
                 {ui("Xóa bộ lọc")}
@@ -229,9 +267,7 @@ export function MeetingsPage() {
                           </StatusBadge>
                         ) : meeting.status === "TRANSCRIBING" ? (
                           <StatusBadge tone="info">{ui("Đang nhận dạng")}</StatusBadge>
-                        ) : (
-                          <StatusBadge tone="neutral">{ui("Đã kết thúc")}</StatusBadge>
-                        )}
+                        ) : null}
                       </Link>
                     </li>
                   ))}

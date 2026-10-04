@@ -271,6 +271,19 @@
   --chart-8: #dc2626;
   --chart-neutral: #8a8a8a;
 
+  /*
+   * Soft fills for a meeting voice's badge and the ink of the number or initial on them: pastel under dark ink on
+   * the light theme, a deeper step under white ink on the dark one. Orange and green are left out: the transcript
+   * marks unsure and corrected words with them.
+   */
+  --speaker-1: #a9c7ff;
+  --speaker-2: #f7b3d2;
+  --speaker-3: #9fdde3;
+  --speaker-4: #cbb8f8;
+  --speaker-5: #c3cbdb;
+  --speaker-6: #f4a9a8;
+  --speaker-content: #1c1c22;
+
   --sidebar: var(--surface-canvas);
   --sidebar-foreground: var(--content-primary);
   --sidebar-primary: var(--action-primary);
@@ -356,6 +369,13 @@
   --chart-7: #a361e6;
   --chart-8: #f23a36;
   --chart-neutral: #6f6f6f;
+  --speaker-1: #6b93ea;
+  --speaker-2: #dd75a6;
+  --speaker-3: #3aa3b0;
+  --speaker-4: #9a82e6;
+  --speaker-5: #8490ab;
+  --speaker-6: #dc7478;
+  --speaker-content: #ffffff;
 
   --elevation-hover: 0 0 2px 1px #ffffff0d;
   --elevation-1: 0 1px 2px oklch(0 0 0 / 0.24);

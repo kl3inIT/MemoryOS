@@ -31,9 +31,12 @@ final class SpeakerIntroductions {
             Pattern.compile("\\b" + I + "\\s+(?i:tên\\s+)?(?i:là\\s+)?" + NAME),
             // "tên tôi là Minh", "tên mình Minh"
             Pattern.compile("(?i:\\btên)\\s+" + I + "\\s+(?i:là\\s+)?" + NAME),
-            // "Minh đây", "Minh xin phép"
-            Pattern.compile("^" + NAME + "\\s+(?i:đây|xin\\s+phép)\\b"),
             Pattern.compile("\\b(?i:I\\s+am|I'm|my\\s+name\\s+is|this\\s+is)\\s+" + NAME));
+    /**
+     * "Minh đây", "Minh xin phép". Every sentence opens with a capital, so "Chạy đây" reads the same as a name does;
+     * the words are taken for one only when the meeting expects somebody called that.
+     */
+    private static final Pattern ANNOUNCEMENT = Pattern.compile("^" + NAME + "\\s+(?i:đây|xin\\s+phép)\\b");
     /**
      * Words that follow "tôi là" without being a name: a role, a company, a sentence carrying on. Written without
      * marks, because the comparison drops them.
@@ -57,14 +60,14 @@ final class SpeakerIntroductions {
         for (var utterance : utterances) {
             String key = SpeakerNames.key(utterance.track(), utterance.speaker());
             if (!wanted.contains(key) || found.containsKey(key)) continue;
-            said(utterance.text()).ifPresent(name -> found.put(key, new Meeting.SpeakerSuggestion(name, utterance.id(),
+            said(utterance.text(), expected).ifPresent(name -> found.put(key, new Meeting.SpeakerSuggestion(name, utterance.id(),
                     expected.contains(plain(name)) ? EXPECTED : SAID)));
         }
         return found;
     }
 
-    private static Optional<String> said(String text) {
-        for (var sentence : text.split("(?<=[.!?])\\s+"))
+    private static Optional<String> said(String text, List<String> expected) {
+        for (var sentence : text.split("(?<=[.!?])\\s+")) {
             for (var pattern : INTRODUCTIONS) {
                 Matcher matcher = pattern.matcher(sentence.strip());
                 if (matcher.find()) {
@@ -72,7 +75,18 @@ final class SpeakerIntroductions {
                     if (!name.isBlank()) return Optional.of(name);
                 }
             }
+            Matcher announced = ANNOUNCEMENT.matcher(sentence.strip());
+            if (announced.find()) {
+                String name = trim(announced.group(1));
+                if (!name.isBlank() && awaited(expected, plain(name))) return Optional.of(name);
+            }
+        }
         return Optional.empty();
+    }
+
+    /** Whether a participant goes by this name: the whole of it, or the given name a Vietnamese full name ends with. */
+    private static boolean awaited(List<String> expected, String name) {
+        return expected.stream().anyMatch(participant -> participant.equals(name) || participant.endsWith(" " + name));
     }
 
     /** Keeps the leading words that can be a name and drops the rest of the sentence the pattern swept up. */

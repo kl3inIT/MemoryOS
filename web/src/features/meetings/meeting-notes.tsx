@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ApiError } from "@/lib/api";
@@ -12,7 +13,7 @@ export function MeetingNotes({ meeting }: { meeting: MeetingDetail }) {
   const cache = useQueryClient();
   const id = useId();
   const [value, setValue] = useState(meeting.notes);
-  const [state, setState] = useState<"saved" | "saving" | "dirty" | "conflict">("saved");
+  const [state, setState] = useState<"saved" | "saving" | "dirty" | "conflict" | "failed">("saved");
   const store = useMutation(updateMeetingNotesMutation());
   const timer = useRef<number>(undefined);
   const latest = useRef(meeting.notes);
@@ -59,7 +60,7 @@ export function MeetingNotes({ meeting }: { meeting: MeetingDetail }) {
       }));
       setState(latest.current === next ? "saved" : "dirty");
     } catch (failed) {
-      setState(failed instanceof ApiError && failed.status === 409 ? "conflict" : "dirty");
+      setState(failed instanceof ApiError && failed.status === 409 ? "conflict" : "failed");
     }
   }
 
@@ -75,15 +76,24 @@ export function MeetingNotes({ meeting }: { meeting: MeetingDetail }) {
         // Always queued: a save still in flight may store a value this one has to replace.
         onBlur={flush}
       />
-      <p className="text-xs text-content-muted" role="status">
-        {state === "saving"
-          ? ui("Đang lưu…")
-          : state === "saved"
-            ? ui("Đã lưu")
-            : state === "conflict"
-              ? ui("Ghi chú vừa đổi ở nơi khác. Tải lại trang.")
-              : ui("Chưa lưu")}
-      </p>
+      {state === "failed" || state === "conflict" ? (
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm">
+          <p className="text-status-danger-content">
+            {state === "conflict"
+              ? ui("Ghi chú vừa đổi ở nơi khác. Hãy chép phần vừa viết, rồi tải lại trang.")
+              : ui("Chưa lưu được ghi chú. Phần bạn viết vẫn còn ở đây.")}
+          </p>
+          {state === "failed" && (
+            <Button size="sm" prominence="secondary" onClick={flush}>
+              {ui("Thử lại")}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-content-muted" role="status">
+          {state === "saving" ? ui("Đang lưu…") : state === "saved" ? ui("Đã lưu") : ui("Chưa lưu")}
+        </p>
+      )}
     </div>
   );
 }

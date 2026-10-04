@@ -1,4 +1,5 @@
-import type { ReactNode, Ref } from "react";
+import { use, useLayoutEffect, type ReactNode, type Ref } from "react";
+import { ShellBarTitle, ShellBarTitleClaim } from "@/components/app-shell/app-shell-header-slot";
 import { cn } from "@/lib/utils";
 
 export function SettingsLayout({
@@ -39,9 +40,24 @@ export function PageHeader({
   iconSize?: "sm" | "lg";
   actions?: ReactNode;
 }) {
+  // Below `md` the shell bar names the page, so the same title and its one-line description step aside and the
+  // content starts sooner; a screen reader still reads both.
+  const claim = use(ShellBarTitleClaim);
+  // Before paint, so the bar never shows one name while the page shows another.
+  useLayoutEffect(() => {
+    claim?.(title);
+    return () => claim?.(undefined);
+  }, [claim, title]);
+  const inBar = use(ShellBarTitle) === title;
   return (
-    <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0">
+    <header
+      className={cn(
+        "flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+        // With no actions either, nothing of the header is on screen, so it leaves the layout's flow.
+        inBar && !actions && "max-md:sr-only",
+      )}
+    >
+      <div className={cn("min-w-0", inBar && "max-md:sr-only")}>
         <div className="flex items-center gap-3">
           {icon && (
             <span
