@@ -286,7 +286,8 @@ public class InterpreterClient {
                 if (cause instanceof ResponseTooLargeException large) throw large;
                 if (cause instanceof IOException transport) throw transport;
             }
-            throw new IOException("Code interpreter request failed");
+            // The service address is deployment configuration and carries no credential, so the cause is kept.
+            throw new IOException("Code interpreter request failed", failed);
         }
     }
 
