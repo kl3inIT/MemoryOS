@@ -1996,4 +1996,29 @@ Object.assign(vietnameseUi, {
   "Provider embedding hoặc OpenSearch chưa sẵn sàng.":
     "The embedding provider or OpenSearch is not available.",
   "Yêu cầu thất bại. Tải lại rồi thử lại.": "The request failed. Reload and try again.",
+  // MEM-198 System One: the page, its connections and the task
+  "Phân loại (System One)": "Classification (System One)",
+  "Không tải được cấu hình System One.": "Could not load the System One settings.",
+  "Thêm kết nối": "Add a connection",
+  "Chạy bước kiểm tra câu hỏi bằng model phân loại nhanh thay cho LLM.":
+    "Run the question check on a fast classification model instead of a language model.",
+  "Xếp câu hỏi trước khi trả lời: xã giao, câu hỏi hay chủ đề bị chặn.":
+    "Sorts a question before it is answered: small talk, a question or a blocked topic.",
+  "Jev, bản hosted của TypeSafe AI": "Jev, hosted by TypeSafe AI",
+  "Clef và Clef-flash trên Workers AI": "Clef and Clef-flash on Workers AI",
+  "Một khóa đi tới nhiều nhà cung cấp": "One key to many providers",
+  "Model mã nguồn mở, tự vận hành": "An open-source model, self-hosted",
+  "Máy chủ bất kỳ nói giao thức System One": "Any server that speaks the System One protocol",
+  "Xóa kết nối {{name}}": "Delete connection {{name}}",
+  "Xóa kết nối {{name}}?": "Delete connection {{name}}?",
+  "Khóa và cấu hình của {{name}} sẽ bị xóa.": "The key and settings of {{name}} will be deleted.",
+  "Xóa kết nối": "Delete connection",
+  "Đang xóa…": "Deleting…",
+  "Kiểm tra câu hỏi chạy bằng": "Question check runs on",
+  "Chọn kết nối hoặc model": "Choose a connection or a model",
+  "Dùng để phân loại câu hỏi trước khi trợ lý trả lời.":
+    "Classifies a question before the assistant answers.",
+  "Đã có kết nối mang tên này.": "A connection with this name exists.",
+  "Nhập một số không âm.": "Enter a number that is not negative.",
+  "Giá input (USD / 1M token)": "Input price (USD / 1M tokens)",
 });

@@ -1930,6 +1930,8 @@ Object.assign(englishUi, {
   Added: "Đã thêm",
   Admission: "Cách vào",
   Endpoint: "Endpoint",
+  "Account ID": "Account ID",
+  "System One": "System One",
   Change: "Thay đổi",
   Client: "Client",
   Task: "Tác vụ",
