@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { TriangleAlert } from "lucide-react";
 import { useRef, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -216,15 +217,24 @@ function SelectionEditor({
           ]}
         />
       </div>
-      {!candidates.length && (
-        <p role="status">
-          {ui("No eligible models are available. Add a model to a connection below.")}
-        </p>
-      )}
-      {!baseline.modelConfigurationId && row.unsetMessage && (
-        <p role="status" className="font-secondary-body text-status-warning-content">
-          {row.unsetMessage}
-        </p>
+      {!candidates.length ? (
+        // Nothing to choose is the louder fact: one callout says what is wrong and where to fix it.
+        <Alert variant="warning" role="status">
+          <TriangleAlert aria-hidden="true" />
+          {!baseline.modelConfigurationId && row.unsetMessage && (
+            <AlertTitle>{row.unsetMessage}</AlertTitle>
+          )}
+          <AlertDescription>
+            {ui("No eligible models are available. Add a model to a connection below.")}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        !baseline.modelConfigurationId &&
+        row.unsetMessage && (
+          <p role="status" className="font-secondary-body text-status-warning-content">
+            {row.unsetMessage}
+          </p>
+        )
       )}
       {baseline.available === false && row.unavailableMessage && (
         <p role="status" className="font-secondary-body text-status-warning-content">
