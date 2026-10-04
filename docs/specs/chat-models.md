@@ -17,16 +17,18 @@ The Tenant Chat default must be visible, enabled, credential-ready, public and u
 ### System One connections
 
 A classifying task (`ModelFlow.classifies`, today only `CHAT_GUARDRAIL`) may run on a System One connection instead of
-a language model (MEM-198). A System One service answers a typed choice among labels with a probability for each and
-writes no text. `io.memoryos.ai.systemone` holds the connections and the call:
+a language model (MEM-198). A System One service answers typed questions (yes or no, a choice, a score) with probabilities and
+writes no text. `io.memoryos.ai.systemone` holds the connections, and every connection yields a `TypeSafeClient` of
+the spring-ai-typesafe library (`SystemOneClients.client`), which is what the library's components take
+([ADR 0026](../decisions/0026-system-one-decisions-through-spring-ai-typesafe.md)):
 
-| Type | Endpoint | Key | Default model | Client |
+| Type | Endpoint | Key | Default model | Question path |
 | --- | --- | --- | --- | --- |
-| `TYPESAFE` | none; `https://api.typesafe.ai/v1` | required | `jev-latest` | TypeSafe SDK |
-| `NINEROUTER` | the gateway's `/v1` | required | none; the model names the upstream | TypeSafe SDK |
-| `LAYA` | a self-hosted `laya.serve` `/v1` | optional | `auto` | TypeSafe SDK |
-| `SYSTEMONE_COMPATIBLE` | any server's `/v1` | optional | none | TypeSafe SDK |
-| `CLOUDFLARE` | the account ID | required | `clef-flash` | `RestClient`; reads the answer inside `result` or at the root |
+| `TYPESAFE` | none; `https://api.typesafe.ai/v1` | required | `jev-latest` | `POST /systemone` |
+| `NINEROUTER` | the gateway's `/v1` | required | none; the model names the upstream (`oc/jev-1.13-free`) | `POST /systemone` |
+| `LAYA` | a self-hosted `laya.serve` `/v1` | optional | `auto` | `POST /systemone` |
+| `SYSTEMONE_COMPATIBLE` | any server's `/v1` | optional | none | `POST /systemone` |
+| `CLOUDFLARE` | the account ID | required | `clef-flash` | the account's model address; an answer inside `result` is unwrapped |
 
 - V146 adds `system_one_connection`. A Tenant holds up to 32 connections and several of one type; each has a name
   unique in the Tenant (ignoring case), a model, an encrypted key (`ProviderCredentials`), a data boundary and an

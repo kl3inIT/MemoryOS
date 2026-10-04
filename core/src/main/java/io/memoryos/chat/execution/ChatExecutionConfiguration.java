@@ -8,7 +8,7 @@ import io.memoryos.chat.ChatSettingsService;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatTurnMetrics;
 import io.memoryos.ai.ModelCalls;
-import io.memoryos.ai.systemone.SystemOneClient;
+import io.memoryos.ai.systemone.SystemOneClients;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.grounding.ChatGuardrailCheck;
@@ -92,7 +92,7 @@ class ChatExecutionConfiguration {
                                     ChatModelSelector models, WebConnectionService web, ImageConnectionService images,
                                     ChatSettingsService settings, ResearchProperties research, McpTurnService mcp,
                                     AiUsageLimitService spending, ObjectProvider<ModelCalls> calls, AuditTrail audit,
-                                    MeterRegistry meters, SystemOneClient systemOne,
+                                    MeterRegistry meters, SystemOneClients systemOne,
                                     SystemOneConnectionService systemOneConnections) {
         // MEM-195 Check 1 needs single model calls, which the API application provides; without them a turn that needs
         // the check is refused rather than answered unchecked.

@@ -2,11 +2,11 @@ package io.memoryos.ai.systemone.adapter;
 
 import io.memoryos.ai.systemone.SystemOneAdapter;
 import io.memoryos.ai.systemone.SystemOneCapabilities;
-import io.memoryos.ai.systemone.SystemOneClient;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.ai.systemone.SystemOneProtocol;
 import io.memoryos.ai.systemone.SystemOneProvider;
 import java.time.Duration;
+import org.springaicommunity.typesafe.TypeSafeClient;
 import org.springframework.stereotype.Component;
 
 /** TypeSafe's hosted Jev: one address, a key, and a published price of 0.042 USD per million input tokens. */
@@ -19,8 +19,7 @@ public final class TypeSafeSystemOneAdapter implements SystemOneAdapter {
         return new SystemOneCapabilities(true, SystemOneCapabilities.Endpoint.FIXED, "jev-latest", 0.042);
     }
 
-    @Override public SystemOneClient.Decision choose(SystemOneConnectionService.Connection connection, String key,
-                                                     SystemOneClient.Question question, Duration timeout) {
-        return SystemOneProtocol.choose(BASE, key, connection.model(), question, timeout);
+    @Override public TypeSafeClient client(SystemOneConnectionService.Connection connection, String key, Duration timeout) {
+        return SystemOneProtocol.client(BASE, key, connection.model(), timeout);
     }
 }

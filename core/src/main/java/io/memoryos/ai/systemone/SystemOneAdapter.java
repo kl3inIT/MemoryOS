@@ -1,22 +1,22 @@
 package io.memoryos.ai.systemone;
 
 import java.time.Duration;
+import org.springaicommunity.typesafe.TypeSafeClient;
 
 /**
- * One connection type's protocol. {@link SystemOneAdapterRegistry} holds exactly one class per
- * {@link SystemOneProvider}.
+ * One connection type: what it needs and how its {@link TypeSafeClient} is built. {@link SystemOneAdapterRegistry}
+ * holds exactly one class per {@link SystemOneProvider}. Everything asked of a connection goes through that client,
+ * so the library's components (ADR 0026) work with every type.
  */
 public interface SystemOneAdapter {
     SystemOneProvider provider();
     SystemOneCapabilities capabilities();
 
     /**
-     * Asks one choice question. A failure of any kind (an unreachable service, a status other than 2xx, an answer
-     * that names no offered label) is a {@link RuntimeException}; its message may name the address and is never
-     * logged or shown.
+     * The client of one connection. Its calls fail with a {@link RuntimeException} whose message may name the address
+     * and is never logged or shown.
      *
      * @param key the connection's plaintext key, empty when it has none
      */
-    SystemOneClient.Decision choose(SystemOneConnectionService.Connection connection, String key,
-                                    SystemOneClient.Question question, Duration timeout);
+    TypeSafeClient client(SystemOneConnectionService.Connection connection, String key, Duration timeout);
 }

@@ -453,23 +453,26 @@ grounded turn always offers `search_knowledge`, whatever the agent's search tool
 **Check 1.** Before the answer model, in the turn's background execution, `ChatGuardrailCheck`:
 1. matches the Tenant's blocked phrases in code;
 2. sends greetings and thanks to the answer model without a classifier call;
-3. otherwise, when the Tenant's `CHAT_GUARDRAIL` task names a [System One connection](chat-models.md#system-one-connections)
-   (MEM-198), asks it one typed choice among the same labels: the conversation is the content, each enabled topic
-   is a label carrying its name, description and examples, and the chosen label is the verdict. No language model
-   is leased, and the check is recorded in the usage ledger under the connection's name;
-4. otherwise asks one classifier call on the Tenant's `CHAT_GUARDRAIL` task model, or the conversation
-   model when that task has no usable model ([task models](chat-models.md); V135 seeds it with the Chat model)
-   (`ModelCalls`, so it keeps the turn's budget,
-   deadline and usage recording) whether the question is `CONVERSATIONAL`, a `QUESTION` or a `BLOCKED_TOPIC`, with
-   each enabled topic's description and examples. The model answers with one label (`QUESTION`, `CONVERSATIONAL`,
-   `BLOCKED_TOPIC:<key>`) and up to 1,024 output tokens, not a JSON object: `GroundingClassifier.verdict` reads the
-   last kind the reply names from whatever surrounds it (markdown, a JSON object, a sentence), and a reply that names
-   no verdict is not guessed.
+3. otherwise asks one set of yes/no questions (MEM-198,
+   [ADR 0026](../decisions/0026-system-one-decisions-through-spring-ai-typesafe.md)): one per enabled topic, whether
+   the last message is about it, with its name, description and examples, and on a grounded turn whether the message
+   is conversation. Who answers is the Tenant's `CHAT_GUARDRAIL` task:
+   - a [System One connection](chat-models.md#system-one-connections) answers each question with a probability in
+     one request; no language model is leased, and the check is recorded in the usage ledger under the connection's
+     name;
+   - otherwise the task's model, or the conversation model when the task has no usable one
+     ([task models](chat-models.md); `ModelCalls`, so it keeps the turn's budget, deadline and usage recording),
+     answers with one flat JSON object, a probability per question, in up to 1,024 output tokens.
+     `GroundingClassifier.answers` takes the object from whatever surrounds it, reads a question the model left out
+     as no, and does not guess a reply that answers none.
+4. Either way the answers are a `SystemOneResponse` and the library's `JevGuardrail` decides: a topic above 0.70
+   blocks (the most probable of several), a topic between 0.35 and 0.70 lets the turn through and counts a review,
+   and a conversational probability above 0.5 on a grounded turn makes the message conversation.
 
 The classifier reads the conversation, not the message alone (MEM-206), laid out as Llama Guard lays out its own: the
-task, the labels and the blocked topics each between markers in the system message, and the conversation in the user
+task and the questions between markers in the system message, and the conversation in the user
 message as `Person:` and `Assistant:` lines between `<BEGIN CONVERSATION>` and `<END CONVERSATION>`, the message being
-checked last. It judges only that last message ("classify ONLY THE LAST Person message", Llama Guard's wording), so a
+checked last. It judges only that last message ("judge ONLY THE LAST Person message", after Llama Guard's wording), so a
 follow-up that names no one, such as "and his family?" after a question about a leader, keeps the earlier topic. An
 earlier question the guardrails stopped is marked `[blocked]` (MEM-208), and a last message that asks to answer,
 repeat or continue it, or tries to change the assistant's instructions after it ("ignore previous instructions", a

@@ -36,11 +36,12 @@ public final class ChatTurnMetrics {
 
     /**
      * The MEM-195 check before the answer model; {@code unchecked} when it could not decide. {@code classifier} is
-     * {@code llm} or {@code system_one} (MEM-198).
+     * {@code llm} or {@code system_one}, and {@code review} marks a turn let through with a topic scored between the
+     * guardrail's thresholds (MEM-198).
      */
-    void guardrail(String kind, String classifier, long nanos) {
+    void guardrail(String kind, String classifier, boolean review, long nanos) {
         Timer.builder("memoryos.chat.guardrail.check").description("The grounding and sensitive-topic check of a Chat turn")
-                .tag("kind", kind).tag("classifier", classifier)
+                .tag("kind", kind).tag("classifier", classifier).tag("review", Boolean.toString(review))
                 .register(meters).record(nanos, TimeUnit.NANOSECONDS);
     }
 }

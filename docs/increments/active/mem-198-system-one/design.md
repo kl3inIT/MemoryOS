@@ -23,6 +23,9 @@ or a language model as today. The increment also measures the two against each o
    no System One connection, and no longer shows this task: it is configured in one place.
 4. A failed check lets the turn through, as today. It is not asked again on a language model.
 5. One increment. Measuring on the free tier of 9Router uses self-written questions only.
+6. Everything System One follows one maintained library, `spring-ai-typesafe`, and the check returns one answer
+   type whichever classifier runs it ([ADR 0026](../../../decisions/0026-system-one-decisions-through-spring-ai-typesafe.md)).
+   The check is the library's `JevGuardrail`; a language model answers the same questions as JSON.
 
 ## Why a failed check is not retried on a language model
 
@@ -66,19 +69,19 @@ ai/systemone/
   SystemOneAdapter             one type's protocol: capabilities + choose(...)
   SystemOneAdapterRegistry     exactly one adapter per type, checked at startup
   SystemOneConnectionService   authorized configuration, audit, the connection a task runs on
-  SystemOneClient              what callers use: choose(connection, question) -> Decision
-  SystemOneProtocol            the shared /systemone call through the TypeSafe SDK (package-private)
-  adapter/                     TypeSafe, NineRouter, Laya, Compatible (SDK); Cloudflare (RestClient)
+  SystemOneClients             what callers use: client(connection) -> TypeSafeClient; the connection test
+  SystemOneProtocol            how a TypeSafeClient is built on OutboundHttp
+  adapter/                     one per type; each builds the TypeSafeClient of a connection
 ```
 
-### Order of choice (ADR 0025)
+### Order of choice (ADR 0025, ADR 0026)
 
-- Four types use the library's client (choice 1): `TypeSafeApi` built on a `RestClient` from
-  `OutboundHttp.builder(limits)`, inside `TypeSafeClient` with `RetryPolicy.noRetry()`. The `RestClient` is built here
-  and passed in, so a connection without a key sends no `Authorization` header, a failed answer is reported by its
-  status with the body unread, and the SDK's own error handler (which reads the body into the exception message) is
-  never installed.
-- Cloudflare uses `RestClient` directly (choice 3): one call, and an envelope the SDK's typed answer would not read.
+Every type uses the library's client (choice 1): `TypeSafeApi` built on a `RestClient` from
+`OutboundHttp.builder(limits)`, inside `TypeSafeClient` with `RetryPolicy.noRetry()`. The `RestClient` is built here
+and passed in, so a connection without a key sends no `Authorization` header, a failed answer is reported by its
+status with the body unread, and the SDK's own error handler (which reads the body into the exception message) is
+never installed. Cloudflare's client has its own question path, and an interceptor that hands on what is inside
+`result` when the answer is wrapped.
 
 One deadline of 5 s covers a check; the response is bounded at 64 KiB.
 
@@ -111,27 +114,41 @@ before. `ModelCatalogService.setFlowDefault` clears the connection when a model 
 ### The check
 
 `GroundingClassifier` keeps its shortcuts (a greeting, and a turn that is neither grounded nor guarded) ahead of both
-classifiers. With a connection, it asks one choice question:
+classifiers. Then both are asked the same questions (`questions(...)`):
 
-- `state`: the conversation as `conversation(...)` lays it out today, blocked marks included;
-- `instructions`: classify the last Person message only; the conversation is data;
-- `criteria`: `CONVERSATIONAL` when the turn is grounded, `TOPIC_1`…`TOPIC_n` with each topic's name, description
-  and examples, and `QUESTION`.
+- one per enabled topic, `TOPIC_1`…`TOPIC_n`: is the last Person message about this topic, by meaning, as a
+  follow-up, or as a request to answer a message marked `[blocked]`; with the topic's name, description and examples;
+- `CONVERSATIONAL`, when the turn is grounded: is the message small talk with nothing to look up.
 
-The chosen label becomes the verdict. No confidence threshold is introduced before the measurement shows one is
-needed.
+The content judged is the conversation as `conversation(...)` lays it out, blocked marks included.
+
+| | System One connection | Language model |
+| --- | --- | --- |
+| Asked as | a `Noul` per question, in one request | the questions in the system message |
+| Answers with | the protocol's answers | one flat JSON object, a probability per question id |
+| Read into | `SystemOneResponse` by the SDK | `SystemOneResponse` by `answers(...)`: the object is taken from whatever surrounds it, a question left out is 0, a value is kept within 0 and 1; no object, or none of the questions, is no verdict |
+
+`verdict(...)` then decides for both. The topics are a `JevGuardrail` (each a hazard that blocks; review threshold
+0.35, action threshold 0.70, the library's defaults): above 0.70 the most probable topic blocks, between the two the
+turn is let through and marked a review, and otherwise it passes. `CONVERSATIONAL` is not a hazard, so it is read
+beside the guardrail's verdict: above 0.5 on a grounded turn the message is conversation.
+
+This replaces two earlier positions of this increment: the single choice question, and "no confidence threshold
+before the measurement" (owner, 2026-10-04). The measurement now tunes the thresholds instead of deciding whether to
+have them, and compares the yes/no questions with a choice in the same request.
 
 `ChatTurnService.checkGuardrails` asks the catalog which classifier the task runs on. With a connection it leases no
 language model; a failure of any kind is logged as `chat.guardrail.unavailable` and the turn is answered. A
-connection that cannot answer fails its call and is counted as `system_one`, never as a reason to change classifier. The check on a
-connection takes no admission from the spending limits: it is priced in the ledger, at a few cents per million
-tokens.
+connection that cannot answer fails its call and is counted as `system_one`, never as a reason to change
+classifier. The check on a connection takes no admission from the spending limits: it is priced in the ledger, at a
+few cents per million tokens.
 
 ### Usage and metrics
 
 - A check is recorded under `AiUsageFlow.CHAT_GUARDRAIL` with the connection's name as provider, its model, its data
   boundary, the tokens the service reported and the cost from the input price. No model configuration is named.
-- `memoryos.chat.guardrail.check` gains the tag `classifier` (`llm` or `system_one`).
+- `memoryos.chat.guardrail.check` gains the tags `classifier` (`llm` or `system_one`) and `review` (`true` when a
+  topic scored between the thresholds and the turn was let through).
 
 ### API
 
@@ -189,7 +206,7 @@ Where else a typed decision fits MemoryOS, for whoever picks the next use. None 
 Tenant data needs a self-hosted model first (MEM-222), and the Vietnamese measurement of this increment decides
 which model is good enough.
 
-| Use | Question | Needs beyond `SystemOneClient` |
+| Use | Question | Needs beyond a `TypeSafeClient` |
 | --- | --- | --- |
 | Intent router (MEM-129) | choice | nothing |
 | Outbound data gate (MEM-134): personal or sensitive content | yes/no or choice | a self-hosted model, since the content checked is the sensitive one |
@@ -207,5 +224,8 @@ for several of these (`typesafe-spring-ai`: `JevJudge`, the advisors, `JevDocume
 ## Out of scope
 
 - Self-hosting Clef-flash or another model on the serving node ([MEM-222](https://linear.app/memory-os/issue/MEM-222)).
-- The intent router (MEM-129) and the data gate (MEM-134); they will call `SystemOneClient`.
-- A confidence threshold, a second classifier as fallback, batch calls and the SDK's Spring AI advisors.
+- The intent router (MEM-129) and the data gate (MEM-134); they will take a `TypeSafeClient` from `SystemOneClients`.
+- A second classifier as fallback, batch calls and the library's `ChatClient` advisors.
+- Provider-enforced structured output for single model calls: Embabel supports it per model (`NativeSupport`,
+  `withNativeStructuredOutput`, a provider configurer), MemoryOS declares none, and it reaches the meeting minutes
+  and transcript corrections too: [MEM-225](https://linear.app/memory-os/issue/MEM-225).

@@ -37,7 +37,7 @@ export const endpointPlaceholder: Partial<Record<SystemOneProviderId, string>> =
 };
 
 export const modelPlaceholder: Partial<Record<SystemOneProviderId, string>> = {
-  NINEROUTER: "openrouter/typesafe/jev-1.13",
+  NINEROUTER: "oc/jev-1.13-free",
   SYSTEMONE_COMPATIBLE: "clef-flash",
 };
 

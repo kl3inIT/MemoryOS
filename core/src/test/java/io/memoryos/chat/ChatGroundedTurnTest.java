@@ -20,7 +20,6 @@ import static org.mockito.Mockito.when;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import io.memoryos.ai.DataBoundary;
 import io.memoryos.ai.ModelBinding;
-import io.memoryos.ai.systemone.SystemOneClient;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.ai.systemone.SystemOneProvider;
 import io.memoryos.audit.AuditAction;
@@ -47,7 +46,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -56,6 +54,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springaicommunity.typesafe.response.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 
 /** MEM-195: a grounded turn answers only with a citation, and a blocked question never reaches the answer model. */
@@ -409,8 +408,8 @@ class ChatGroundedTurnTest {
         prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
         when(guardrails.connection(any())).thenReturn(SERVING);
         when(guardrails.checkOn(eq(SERVING), any(), any(), any(), any(), any())).thenAnswer(call -> {
-            Consumer<SystemOneClient.Decision> decided = call.getArgument(5);
-            decided.accept(new SystemOneClient.Decision("TOPIC_2", 0.9, Map.of("TOPIC_2", 0.95), 1_000_000L, null));
+            Consumer<Usage> used = call.getArgument(5);
+            used.accept(new Usage(1_000_000, null));
             return new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, "Trợ lý không trả lời câu hỏi về lãnh tụ.",
                     ChatGuardrails.BUILT_IN.get(1), null);
         });
@@ -433,6 +432,22 @@ class ChatGroundedTurnTest {
             assertEquals(0.042, usage.getValue().accounting().cost(), 1e-9);
             assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "blocked")
                     .tag("classifier", "system_one").timer().count());
+        }
+    }
+
+    @Test
+    void aTopicScoredBetweenTheThresholdsLetsTheTurnThroughAndIsCountedAsAReview() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.check(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.QUESTION, null, null, null, true));
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Việt Nam có bao nhiêu tỉnh?", null);
+            queued.get().run();
+            verify(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "question").tag("classifier", "llm")
+                    .tag("review", "true").timer().count());
         }
     }
 
