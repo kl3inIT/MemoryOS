@@ -18,7 +18,6 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApplicationSessionContext } from "@/features/identity/application-session-context";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -71,7 +70,7 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
     ...publishMeetingMinutesMutation(),
     onSuccess: (file) => navigate({ to: "/", search: { attach: file.fileId } }),
   });
-  const failed = rerun.error ?? publish.error;
+  const failed = rerun.error;
   const pending = rerun.isPending;
 
   return (
@@ -97,7 +96,6 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
             confirmTone="danger"
             errorMessage={(error) => presentProblem(error, "mutation").message}
             onConfirm={async () => {
-              publish.reset();
               await start(true);
             }}
           />
@@ -107,7 +105,6 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
             prominence="tertiary"
             pending={pending}
             onClick={() => {
-              publish.reset();
               start(false).catch(() => undefined);
             }}
           >
@@ -115,27 +112,27 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
             {ui("Viết lại")}
           </Button>
         ))}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              prominence="tertiary"
-              pending={publish.isPending}
-              onClick={() => {
-                rerun.reset();
-                publish.mutate({ path: { meetingId: meeting.id } });
-              }}
-            >
-              <MessageSquareText aria-hidden="true" />
-              {ui("Mở trong Chat")}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {ui("Lưu biên bản vào Thư viện và mở cuộc trò chuyện mới với biên bản đó.")}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {/* It stores a file in the library, which a label alone would not say; a hover note is lost on a phone. */}
+      <ConfirmDialog
+        trigger={
+          <Button size="sm" prominence="tertiary">
+            <MessageSquareText aria-hidden="true" />
+            {ui("Mở trong Chat")}
+          </Button>
+        }
+        title={ui("Mở biên bản trong Chat?")}
+        description={ui(
+          "Biên bản được lưu vào Thư viện, rồi một cuộc trò chuyện mới mở ra với biên bản đó.",
+        )}
+        confirmLabel={ui("Mở trong Chat")}
+        pendingLabel={ui("Đang mở…")}
+        confirmTone="default"
+        errorMessage={(error) => presentProblem(error, "mutation").message}
+        onConfirm={async () => {
+          rerun.reset();
+          await publish.mutateAsync({ path: { meetingId: meeting.id } });
+        }}
+      />
       <Button size="sm" prominence="secondary" onClick={() => setExporting(true)}>
         <FileDown aria-hidden="true" />
         {ui("Xuất biên bản")}

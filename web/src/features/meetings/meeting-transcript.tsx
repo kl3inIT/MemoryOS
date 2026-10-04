@@ -36,6 +36,7 @@ import {
   type MeetingDetail,
   type TimelineEntry,
 } from "./meetings-api";
+import { OPEN_DIALOG, typing } from "./page-keys";
 import { useRecorderValue } from "./recorder-state";
 import { SpeakerBadge } from "./speaker-chip";
 import { speakerName } from "./speakers";
@@ -54,18 +55,7 @@ const READING_EDGE = 8;
 /** Frames a jump waits for its line to render before giving up. */
 const REVEAL_FRAMES = 10;
 
-/** A dialog or a confirmation open over the page. */
-const OPEN_DIALOG = '[role="dialog"], [role="alertdialog"]';
-
 type Utterance = MeetingDetail["utterances"][number];
-
-/** Whether a key was pressed in a place that takes text. */
-function typing(target: EventTarget | null) {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || target.matches("input, textarea, select"))
-  );
-}
 
 /** A request to bring one line into view, and where in the window; `seq` repeats a request for the same line. */
 export type TranscriptTarget = { utteranceId: string; block: "start" | "center"; seq: number };

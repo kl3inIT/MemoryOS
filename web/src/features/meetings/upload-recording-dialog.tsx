@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useStore } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { FileAudio, Upload, Users } from "lucide-react";
 import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
@@ -18,8 +18,11 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Progress } from "@/components/ui/progress";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listMeetingTranscribersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { languageCode, rememberedLanguage } from "./meeting-language";
+import { MeetingLanguageField } from "./meeting-language-field";
 import { MeetingShareField } from "./meeting-share-field";
 import {
+  discardMeeting,
   splitNames,
   uploadRecording,
   type MeetingAudience,
@@ -64,6 +67,7 @@ function UploadRecordingForm({ onClose }: { onClose: () => void }) {
   const ui = useAppTranslation();
   const id = useId();
   const navigate = useNavigate();
+  const cache = useQueryClient();
   const problemErrors = useProblemErrors();
   const { create, publish } = useCreateMeeting();
   const picker = useRef<HTMLInputElement>(null);
@@ -77,6 +81,7 @@ function UploadRecordingForm({ onClose }: { onClose: () => void }) {
     defaultValues: {
       file: undefined as File | undefined,
       title: "",
+      language: rememberedLanguage(),
       participants: "",
       provider: undefined as MeetingTranscriber["provider"] | undefined,
       audience,
@@ -88,14 +93,17 @@ function UploadRecordingForm({ onClose }: { onClose: () => void }) {
       const controller = new AbortController();
       aborter.current = controller;
       setPercent(0);
+      let created: string | undefined;
+      let stored = false;
       try {
         const meeting = await create({
           title: value.title.trim() || file.name.replace(/\.[^.]+$/, ""),
           kind: "IN_PERSON",
-          language: "vi",
+          language: languageCode(value.language),
           participants: splitNames(value.participants),
           terms: [],
         });
+        created = meeting.id;
         const uploaded = await uploadRecording({
           meetingId: meeting.id,
           file,
@@ -103,10 +111,14 @@ function UploadRecordingForm({ onClose }: { onClose: () => void }) {
           signal: controller.signal,
           onProgress: setPercent,
         });
+        stored = true;
         await publish(uploaded, value.audience);
         onClose();
         await navigate({ to: "/meetings/$meetingId", params: { meetingId: uploaded.id } });
       } catch (failed) {
+        // A meeting whose recording never arrived has nothing in it, so a cancelled or failed upload leaves none
+        // in the list and the next try starts from a new one.
+        if (created && !stored) await discardMeeting(cache, created);
         if (!controller.signal.aborted) setServerErrors(formApi, problemErrors(failed));
       } finally {
         aborter.current = undefined;
@@ -186,6 +198,15 @@ function UploadRecordingForm({ onClose }: { onClose: () => void }) {
                   label={ui("Tên cuộc họp")}
                   maxLength={200}
                   placeholder={ui("Giao ban tuần")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="language">
+              {(field) => (
+                <MeetingLanguageField
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  hint={ui("Không đổi được sau khi tải lên.")}
                 />
               )}
             </form.AppField>

@@ -96,11 +96,14 @@ function MeetingFacts({
       <Fact icon={<CalendarDays />} label={ui("Ngày họp")}>
         {formatWhen(meeting.createdAt, i18n.language)}
       </Fact>
-      <Fact icon={<Clock />} label={ui("Thời lượng")}>
-        <span className="tabular-nums">
-          {recorder ? <RecordingClock recorder={recorder} /> : formatClock(lengthMs)}
-        </span>
-      </Fact>
+      {/* A recording still being read has no length to show yet. */}
+      {(recorder || lengthMs > 0) && (
+        <Fact icon={<Clock />} label={ui("Thời lượng")}>
+          <span className="tabular-nums">
+            {recorder ? <RecordingClock recorder={recorder} /> : formatClock(lengthMs)}
+          </span>
+        </Fact>
+      )}
       <Fact
         icon={uploaded ? <FileAudio /> : meeting.kind === "ONLINE" ? <MonitorSpeaker /> : <Mic />}
         label={ui("Hình thức")}

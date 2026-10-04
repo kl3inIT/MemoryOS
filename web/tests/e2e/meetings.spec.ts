@@ -591,6 +591,14 @@ test("the list's search keeps a row of its own on a phone", async ({ page }) => 
   expect(searchBox.width).toBeGreaterThan(280);
   expect(statusBox.y).toBeGreaterThanOrEqual(searchBox.y + searchBox.height);
   await page.screenshot({ path: "../output/playwright/meetings-list-phone.png" });
+
+  // The filters are part of the address, so a reload or the way back from a meeting shows the same list.
+  await status.selectOption("ENDED");
+  await expect(page).toHaveURL(/status=ENDED/);
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Trạng thái" })).toHaveValue("ENDED", {
+    timeout: 30_000,
+  });
 });
 
 test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
@@ -610,6 +618,8 @@ test("a member uploads a recording and watches it being transcribed", async ({ p
   });
   await dialog.getByLabel("Tên cuộc họp").fill("Giao ban tuần · Khối Tài chính");
   await dialog.getByLabel("Thành phần").fill("Anh Thanh, Chị Lan");
+  // A recording made elsewhere says what it is spoken in, as a recording made here does.
+  await dialog.getByLabel("Ngôn ngữ").selectOption("en");
   // The provider's limits are stated before the file is sent, not after it fails.
   await expect(dialog.getByText("Tách được người nói")).toBeVisible();
   await expect(dialog.getByText("Tối đa 500 MB")).toBeVisible();
@@ -623,6 +633,8 @@ test("a member uploads a recording and watches it being transcribed", async ({ p
     page.getByRole("heading", { name: "Giao ban tuần · Khối Tài chính", level: 1 }),
   ).toBeVisible();
   await expect(page.getByText("Đang nhận dạng bản ghi giao-ban.mp3…")).toBeVisible();
+  // A length nobody knows yet is not shown as zero.
+  await expect(page.getByText("Thời lượng", { exact: true })).toHaveCount(0);
   await page.screenshot({
     path: "../output/playwright/meetings-transcribing-1440.png",
     fullPage: true,

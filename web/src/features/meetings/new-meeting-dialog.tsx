@@ -24,38 +24,16 @@ import {
   FieldSet,
   FieldTitle,
 } from "@/components/ui/field";
-import { NativeSelect } from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { captureSupport, openMeetingSources, ShareCancelledError } from "./meeting-capture";
+import { languageCode, rememberedLanguage } from "./meeting-language";
+import { MeetingLanguageField } from "./meeting-language-field";
 import { startRecording } from "./meeting-session";
 import { MeetingShareField } from "./meeting-share-field";
 import { formatWhen, splitNames, type MeetingAudience, type MeetingKind } from "./meetings-api";
 import { useCreateMeeting } from "./use-create-meeting";
-
-type MeetingLanguage = "vi" | "en" | "auto";
-
-/** The language is chosen before every recording and locked once it starts, so the last choice is kept (Fireflies). */
-const LANGUAGE_KEY = "memoryos.meeting.language";
-
-function rememberedLanguage(): MeetingLanguage {
-  try {
-    const stored = localStorage.getItem(LANGUAGE_KEY);
-    if (stored === "vi" || stored === "en" || stored === "auto") return stored;
-  } catch {
-    // Storage can be unavailable; Vietnamese is the default.
-  }
-  return "vi";
-}
-
-function rememberLanguage(language: MeetingLanguage) {
-  try {
-    localStorage.setItem(LANGUAGE_KEY, language);
-  } catch {
-    // A private window keeps the choice for this meeting only.
-  }
-}
 
 export function NewMeetingDialog({
   open,
@@ -74,7 +52,6 @@ export function NewMeetingDialog({
 
 function NewMeetingForm({ onClose }: { onClose: () => void }) {
   const ui = useAppTranslation();
-  const id = useId();
   const cache = useQueryClient();
   const navigate = useNavigate();
   const problemErrors = useProblemErrors();
@@ -106,7 +83,7 @@ function NewMeetingForm({ onClose }: { onClose: () => void }) {
             value.title.trim() ||
             ui("Cuộc họp {{date}}", { date: formatWhen(new Date().toISOString(), i18n.language) }),
           kind: value.kind,
-          language: value.language === "auto" ? undefined : value.language,
+          language: languageCode(value.language),
           participants: splitNames(value.participants),
           terms: splitNames(value.terms),
         });
@@ -193,26 +170,11 @@ function NewMeetingForm({ onClose }: { onClose: () => void }) {
             </form.AppField>
             <form.AppField name="language">
               {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={`${id}-language`}>{ui("Ngôn ngữ")}</FieldLabel>
-                  <NativeSelect
-                    id={`${id}-language`}
-                    value={field.state.value}
-                    aria-describedby={`${id}-language-hint`}
-                    onChange={(event) => {
-                      const language = event.target.value as MeetingLanguage;
-                      field.handleChange(language);
-                      rememberLanguage(language);
-                    }}
-                  >
-                    <option value="vi">{ui("Tiếng Việt")}</option>
-                    <option value="auto">{ui("Tiếng Việt xen tiếng Anh")}</option>
-                    <option value="en">{ui("Tiếng Anh")}</option>
-                  </NativeSelect>
-                  <FieldDescription id={`${id}-language-hint`}>
-                    {ui("Không đổi được sau khi bắt đầu ghi.")}
-                  </FieldDescription>
-                </Field>
+                <MeetingLanguageField
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  hint={ui("Không đổi được sau khi bắt đầu ghi.")}
+                />
               )}
             </form.AppField>
             <Collapsible>

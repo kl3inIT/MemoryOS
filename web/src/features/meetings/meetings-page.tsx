@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { Clock, FileAudio, Mic, MonitorSpeaker, Search, Users, WifiOff } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useProblemMessage } from "@/lib/use-problem-message";
 import { listMeetingsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { formatClock, formatWhen, type MeetingSummary } from "./meetings-api";
 import { useActiveMeeting } from "./meeting-session";
+import { MEETING_PERIOD_DAYS, type MeetingsSearch } from "./meetings-search";
 import { NewMeetingDialog } from "./new-meeting-dialog";
 import { UploadRecordingDialog } from "./upload-recording-dialog";
 
@@ -37,18 +38,50 @@ function groupMeetings(items: readonly MeetingSummary[], now = new Date()): Grou
   return groups;
 }
 
+/**
+ * Starts a recording, or, while this browser is recording one, leads back to it: one browser records one meeting
+ * at a time, and a button that only refused would not say so.
+ */
+function RecordAction({
+  live,
+  size,
+  onRecord,
+}: {
+  live: string | undefined;
+  size?: "sm";
+  onRecord: () => void;
+}) {
+  const ui = useAppTranslation();
+  if (live)
+    return (
+      <Button asChild size={size}>
+        <Link to="/meetings/$meetingId" params={{ meetingId: live }}>
+          <Mic aria-hidden="true" />
+          {ui("Về cuộc họp đang ghi")}
+        </Link>
+      </Button>
+    );
+  return (
+    <Button size={size} onClick={onRecord}>
+      <Mic aria-hidden="true" />
+      {ui("Ghi cuộc họp mới")}
+    </Button>
+  );
+}
+
 /** The meetings a name search, a status and a period leave visible. */
 function matchingMeetings(
   meetings: readonly MeetingSummary[],
   query: string,
-  status: "all" | "RECORDING" | "TRANSCRIBING" | "ENDED",
-  period: "30" | "90" | "all",
+  status: MeetingsSearch["status"],
+  period: keyof typeof MEETING_PERIOD_DAYS,
   now = Date.now(),
 ) {
-  const since = period === "all" ? 0 : now - Number(period) * 86_400_000;
+  const days = MEETING_PERIOD_DAYS[period];
+  const since = days === undefined ? 0 : now - days * 86_400_000;
   return meetings.filter(
     (meeting) =>
-      (status === "all" || meeting.status === status) &&
+      (!status || meeting.status === status) &&
       Date.parse(meeting.createdAt) >= since &&
       (query === "" || meeting.title.toLocaleLowerCase("vi").includes(query)),
   );
@@ -59,9 +92,15 @@ export function MeetingsPage() {
   const problemMessage = useProblemMessage();
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | "RECORDING" | "TRANSCRIBING" | "ENDED">("all");
-  const [period, setPeriod] = useState<"30" | "90" | "all">("30");
+  // The filters are part of the address, so coming back from a meeting shows the list as it was left.
+  const {
+    q: search = "",
+    status,
+    period = "month",
+  } = useSearch({ from: "/_authenticated/meetings" });
+  const navigate = useNavigate({ from: "/meetings" });
+  const filter = (next: MeetingsSearch) =>
+    void navigate({ replace: true, search: (current) => ({ ...current, ...next }) });
   const query = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
   const live = useActiveMeeting();
   const meetings = useQuery(listMeetingsOptions());
@@ -87,10 +126,7 @@ export function MeetingsPage() {
                 <FileAudio aria-hidden="true" />
                 {ui("Tải file ghi âm")}
               </Button>
-              <Button onClick={() => setCreating(true)} disabled={!!live}>
-                <Mic aria-hidden="true" />
-                {ui("Ghi cuộc họp mới")}
-              </Button>
+              <RecordAction live={live?.meetingId} onRecord={() => setCreating(true)} />
             </>
           }
         />
@@ -123,16 +159,18 @@ export function MeetingsPage() {
                 value={search}
                 placeholder={ui("Tìm theo tên cuộc họp")}
                 aria-label={ui("Tìm theo tên cuộc họp")}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => filter({ q: event.target.value || undefined })}
               />
             </InputGroup>
             <NativeSelect
-              value={status}
+              value={status ?? ""}
               aria-label={ui("Trạng thái")}
               className="w-auto flex-1 sm:flex-none"
-              onChange={(event) => setStatus(event.target.value as typeof status)}
+              onChange={(event) =>
+                filter({ status: (event.target.value || undefined) as MeetingsSearch["status"] })
+              }
             >
-              <option value="all">{ui("Mọi trạng thái")}</option>
+              <option value="">{ui("Mọi trạng thái")}</option>
               <option value="RECORDING">{ui("Chưa kết thúc")}</option>
               <option value="TRANSCRIBING">{ui("Đang nhận dạng")}</option>
               <option value="ENDED">{ui("Đã kết thúc")}</option>
@@ -141,10 +179,13 @@ export function MeetingsPage() {
               value={period}
               aria-label={ui("Thời gian")}
               className="w-auto flex-1 sm:flex-none"
-              onChange={(event) => setPeriod(event.target.value as typeof period)}
+              onChange={(event) => {
+                const next = event.target.value as typeof period;
+                filter({ period: next === "month" ? undefined : next });
+              }}
             >
-              <option value="30">{ui("30 ngày qua")}</option>
-              <option value="90">{ui("90 ngày qua")}</option>
+              <option value="month">{ui("30 ngày qua")}</option>
+              <option value="quarter">{ui("90 ngày qua")}</option>
               <option value="all">{ui("Tất cả")}</option>
             </NativeSelect>
           </div>
@@ -154,10 +195,7 @@ export function MeetingsPage() {
             icon={<Mic />}
             title={ui("Chưa có cuộc họp nào")}
             action={
-              <Button size="sm" disabled={!!live} onClick={() => setCreating(true)}>
-                <Mic aria-hidden="true" />
-                {ui("Ghi cuộc họp mới")}
-              </Button>
+              <RecordAction size="sm" live={live?.meetingId} onRecord={() => setCreating(true)} />
             }
           />
         ) : filtered ? (
@@ -168,11 +206,7 @@ export function MeetingsPage() {
               <Button
                 size="sm"
                 prominence="secondary"
-                onClick={() => {
-                  setSearch("");
-                  setStatus("all");
-                  setPeriod("all");
-                }}
+                onClick={() => filter({ q: undefined, status: undefined, period: "all" })}
               >
                 {ui("Xóa bộ lọc")}
               </Button>
