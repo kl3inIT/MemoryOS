@@ -2478,6 +2478,7 @@ Object.assign(englishUi, {
   "Maximum output (tokens)": "Max output (token)",
   "Visible in selection lists": "Hiển thị trong danh sách chọn",
   "Streaming (required)": "Streaming (bắt buộc)",
+  "Structured output": "Structured output",
   "Tool calling": "Tool calling",
   "Vision input": "Vision",
   Reasoning: "Reasoning",

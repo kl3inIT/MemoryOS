@@ -146,6 +146,13 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         return maxOutputTokens == null ? bound : Math.min(bound, maxOutputTokens);
     }
 
+    /** Whether the model takes a JSON schema with the request and answers within it. */
+    public boolean structuredOutput() {
+        var support = service.getNativeSupport();
+        var declared = support == null ? null : support.getStructuredOutput();
+        return declared != null && Boolean.TRUE.equals(declared.getSupported());
+    }
+
     /** Contributions were frozen into the admitted system message before reserving this turn. */
     public SpringAiLlmService withModel(ChatModel model) {
         return new SpringAiLlmService(service.getName(), service.getProvider(), model, service.getOptionsConverter(),

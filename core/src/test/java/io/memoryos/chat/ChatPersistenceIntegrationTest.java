@@ -160,7 +160,7 @@ class ChatPersistenceIntegrationTest {
         var models = mock(ChatModelAccess.class);
         when(models.availableModelsForPersona(any(), any())).thenReturn(List.of(new ModelCatalogService.AvailableModel(
                 UUID.randomUUID(), UUID.randomUUID(), "Provider", "model", "Model",
-                new ModelSettings.Capabilities(true, true, false, false), 32000, 4096, null, true)));
+                new ModelSettings.Capabilities(true, true, false, false, false), 32000, 4096, null, true)));
         var sources = mock(SourceSearchService.class); sourceScope = sources; sourceId = UUID.randomUUID();
         when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(tenant), call.getArgument(0), Map.of(sourceId, SourceType.FILE)));
         var agentRows = new JdbcAgentRepository(jdbc);

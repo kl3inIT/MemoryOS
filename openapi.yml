@@ -23699,9 +23699,12 @@ components:
           type: boolean
         reasoning:
           type: boolean
+        structuredOutput:
+          type: boolean
       required:
       - reasoning
       - streaming
+      - structuredOutput
       - toolCalling
       - vision
     ModelInput:
@@ -23783,9 +23786,12 @@ components:
           type: boolean
         reasoning:
           type: boolean
+        structuredOutput:
+          type: boolean
       required:
       - reasoning
       - streaming
+      - structuredOutput
       - toolCalling
       - vision
     Model:
@@ -26365,8 +26371,11 @@ components:
           type: boolean
         reasoning:
           type: boolean
+        structuredOutput:
+          type: boolean
       required:
       - reasoning
+      - structuredOutput
       - toolCalling
       - vision
     ChatReportedModelPricing:

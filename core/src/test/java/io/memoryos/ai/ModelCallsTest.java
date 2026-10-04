@@ -19,14 +19,22 @@ import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.api.common.PromptRunner;
 import com.embabel.agent.core.AgentProcessRepository;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import com.embabel.agent.spi.support.springai.SpringAiNativeStructuredOutputConfigurer;
+import com.embabel.agent.spi.support.springai.ToolResponseContentAdapter;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
+import com.embabel.common.ai.autoconfig.NativeStructuredOutputCapability;
+import com.embabel.common.ai.autoconfig.NativeSupport;
+import com.embabel.common.ai.model.DefaultOptionsConverter;
 import com.embabel.common.ai.model.LlmOptions;
+import com.embabel.common.ai.model.NativeStructuredOutputMode;
+import com.embabel.common.ai.model.NativeStructuredOutputModeKt;
 import io.memoryos.shared.Tokenizers;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ChatModel;
@@ -121,6 +129,37 @@ class ModelCallsTest {
         assertFalse(helper.getThinking() == null || helper.getThinking().getEnabled());
         assertEquals(4096, reasoned.getMaxTokens(), "a task that reasons gets room for its thinking");
         assertEquals(1000, helper.getMaxTokens());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aModelThatDeclaresStructuredOutputIsAskedForItAndAnyOtherIsAskedNotToUseIt() {
+        var context = mock(ExecutingOperationContext.class, RETURNS_DEEP_STUBS);
+        var runner = mock(PromptRunner.class);
+        when(context.ai().withLlmService(any())).thenReturn(runner);
+        when(runner.getLlm()).thenReturn(LlmOptions.withDefaultLlm());
+        when(runner.withLlm(any())).thenReturn(runner);
+        when(runner.createObject(anyList(), eq(Minutes.class))).thenReturn(new Minutes("ok"));
+        ObjectProvider<ExecutingOperationContext> contexts = mock(ObjectProvider.class);
+        when(contexts.getObject()).thenReturn(context);
+        var calls = new ModelCalls(contexts, mock(AgentProcessRepository.class), 1.0, 10_000, 2);
+        var policy = ModelRequestPolicy.hosted(Tokenizers.o200k(), prompt -> prompt);
+        var declared = new SpringAiLlmService("fixture", "fixture", mock(ChatModel.class)).copy("fixture", "fixture",
+                mock(ChatModel.class), DefaultOptionsConverter.INSTANCE, null, List.of(), null, false,
+                ToolResponseContentAdapter.PASSTHROUGH, SpringAiNativeStructuredOutputConfigurer.Companion.getNOOP(),
+                new NativeSupport(new NativeStructuredOutputCapability(true, null, true, null, Map.of())));
+
+        calls.generateObject(ModelBinding.builder(declared, prompt -> prompt, policy, 32000, 4096, false, false).build(),
+                "Write the minutes.", "[1] 00:00 An: Chốt.", Minutes.class, Duration.ofSeconds(30), 1000, accounting -> {});
+        calls.generateObject(binding(), "Write the minutes.", "[1] 00:00 An: Chốt.", Minutes.class,
+                Duration.ofSeconds(30), 1000, accounting -> {});
+
+        var options = ArgumentCaptor.forClass(LlmOptions.class);
+        verify(runner, times(2)).withLlm(options.capture());
+        assertEquals(NativeStructuredOutputMode.ENABLED,
+                NativeStructuredOutputModeKt.getNativeStructuredOutput(options.getAllValues().get(0)));
+        assertEquals(NativeStructuredOutputMode.DISABLED,
+                NativeStructuredOutputModeKt.getNativeStructuredOutput(options.getAllValues().get(1)));
     }
 
     @Test

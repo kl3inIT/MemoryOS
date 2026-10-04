@@ -7,7 +7,9 @@ import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ProviderAdapter;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
+import com.embabel.agent.spi.loop.StructuredOutputRequest;
 import com.embabel.common.ai.model.LlmOptions;
+import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.ai.ModelSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
@@ -133,7 +135,7 @@ class OpenAiProviderAdapterTest {
         try {
             var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
             var declared = settings(Map.of("webSearch", "native"), false);
-            var noTools = new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false), Map.of("webSearch", "native"), null, "openai-o200k-v1");
+            var noTools = new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false, false), Map.of("webSearch", "native"), null, "openai-o200k-v1");
             assertTrue(adapter.supportsNativeWebSearch(declared));
             assertFalse(adapter.supportsNativeWebSearch(settings(Map.of(), false)), "A GPT-like name alone must not enable hosted search");
             assertFalse(adapter.supportsNativeWebSearch(noTools));
@@ -191,7 +193,75 @@ class OpenAiProviderAdapterTest {
         } finally { meters.close(); }
     }
 
+    @Test
+    void aModelThatDeclaresStructuredOutputSendsTheSchemaAsResponseFormatAndAnyOtherSendsNone() throws Exception {
+        var request = new AtomicReference<JsonNode>();
+        var mapper = new ObjectMapper();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            request.set(mapper.readTree(exchange.getRequestBody().readAllBytes()));
+            byte[] body = """
+                    {"id":"test","object":"chat.completion","created":1,"model":"configured-model",
+                    "choices":[{"index":0,"message":{"role":"assistant","content":"{\\"summary\\":\\"ok\\"}"},"finish_reason":"stop"}],
+                    "usage":{"prompt_tokens":2,"completion_tokens":1,"total_tokens":3}}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        var meters = new SimpleMeterRegistry();
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
+        try {
+            var connection = new ProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
+            try (var client = adapter.create(connection, "configured-model", structured(Map.of(), true), Duration.ofSeconds(5))) {
+                var service = client.binding().service();
+                assertTrue(client.binding().structuredOutput());
+                var options = service.getNativeStructuredOutputConfigurer().configure(
+                        service.convertOptions(new LlmOptions().withMaxTokens(100).withoutThinking()),
+                        new StructuredOutputRequest("Minutes", SCHEMA, null, true), service.getNativeSupport(), service);
+                service.getChatModel().call(new Prompt("Write the minutes.", options));
+                var format = request.get().path("response_format");
+                assertEquals("json_schema", format.path("type").asString());
+                assertTrue(format.path("json_schema").path("strict").asBoolean());
+                assertEquals(mapper.readTree(SCHEMA), format.path("json_schema").path("schema"));
+                assertFalse(format.path("json_schema").path("name").asString().isBlank());
+                assertEquals(100, request.get().path("max_tokens").asInt(), "the other options survive");
+            }
+            try (var client = adapter.create(connection, "configured-model", structured(Map.of(), false), Duration.ofSeconds(5))) {
+                assertFalse(client.binding().structuredOutput());
+                var service = client.binding().service();
+                service.getChatModel().call(new Prompt("Write the minutes.", service.convertOptions(new LlmOptions().withMaxTokens(100))));
+                assertFalse(request.get().has("response_format"));
+            }
+        } finally { meters.close(); server.stop(0); }
+    }
+
+    @Test
+    void theTaskLevelKeepsTheDeclaredStructuredOutput() {
+        var meters = new SimpleMeterRegistry();
+        try {
+            var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
+            var connection = new ProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
+            try (var client = adapter.create(connection, "gpt-5.6", structured(Map.of(), true), Duration.ofSeconds(1))) {
+                for (var effort : ReasoningEffort.values()) {
+                    var task = client.binding().forTask(effort);
+                    assertTrue(task.structuredOutput(), effort.name());
+                    assertInstanceOf(OpenAiStructuredOutput.class, task.service().getNativeStructuredOutputConfigurer());
+                    assertTrue(task.withModel(task.service().getChatModel()).getNativeSupport().getStructuredOutput().getSupported());
+                }
+            }
+        } finally { meters.close(); }
+    }
+
+    private static final String SCHEMA = """
+            {"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"],"additionalProperties":false}""";
+
+    private static ModelSettings structured(Map<String, Object> options, boolean structuredOutput) {
+        return new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, true, false, true, structuredOutput), options, null, "openai-o200k-v1");
+    }
+
     private static ModelSettings settings(Map<String, Object> options, boolean reasoning) {
-        return new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, true, false, reasoning), options, null, "openai-o200k-v1");
+        return new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, true, false, reasoning, false), options, null, "openai-o200k-v1");
     }
 }

@@ -23,7 +23,12 @@ public record ModelSettings(int contextWindow, @Nullable Integer maxOutputTokens
         options = Map.copyOf(options);
     }
 
-    public record Capabilities(boolean streaming, boolean toolCalling, boolean vision, boolean reasoning) {}
+    /**
+     * @param structuredOutput the deployment constrains an answer to a JSON schema sent with the request. A gateway
+     *                         may drop the schema, so it is declared, and a document saved before it reads as false
+     */
+    public record Capabilities(boolean streaming, boolean toolCalling, boolean vision, boolean reasoning,
+                               boolean structuredOutput) {}
 
     /**
      * USD per million tokens. {@code cachedInputPerMillion} prices input the provider served from its prompt cache

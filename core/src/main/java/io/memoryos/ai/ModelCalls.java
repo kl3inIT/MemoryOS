@@ -5,6 +5,7 @@ import com.embabel.agent.core.AgentProcessRepository;
 import com.embabel.agent.core.Budget;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
+import com.embabel.common.ai.model.NativeStructuredOutputMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -77,6 +78,10 @@ public final class ModelCalls {
             var llm = Objects.requireNonNull(runner.getLlm()).withMaxTokens(output).withTimeout(timeout);
             if (!selected.reasons()) llm = llm.withoutThinking();
             if (temperature != null) llm = llm.withTemperature(temperature);
+            // Said outright either way: left to Embabel, a type its own check doubts would quietly go back to
+            // format instructions in the prompt.
+            llm = (selected.structuredOutput() ? NativeStructuredOutputMode.ENABLED : NativeStructuredOutputMode.DISABLED)
+                    .applyTo(llm);
             return runner.withLlm(llm).createObject(List.of(new SystemMessage(instructions), new UserMessage(input)), shape);
         } finally {
             try { accounting.accept(admitted == null ? ModelAccounting.NONE : ModelAccounting.of(List.of(admitted), process, selected.service())); }

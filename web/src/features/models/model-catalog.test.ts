@@ -31,7 +31,13 @@ const adapter: InstalledAdapter = {
       modelName: "gpt-5",
       contextWindow: 272_000,
       maxOutputTokens: 128_000,
-      capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
+      capabilities: {
+        streaming: true,
+        toolCalling: true,
+        vision: true,
+        reasoning: true,
+        structuredOutput: false,
+      },
       pricing: { inputPerMillion: 1.25, outputPerMillion: 10, cachedInputPerMillion: 0.125 },
     },
   ],
@@ -61,7 +67,13 @@ const model: ManagedModel = {
     contextWindow: 4096,
     maxOutputTokens: 256,
     tokenizerProfile: "openai-o200k-v1",
-    capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
+    capabilities: {
+      streaming: true,
+      toolCalling: true,
+      vision: true,
+      reasoning: true,
+      structuredOutput: false,
+    },
     options: {
       temperature: 0.5,
       topP: 0.9,
@@ -123,7 +135,13 @@ describe("model configuration transitions", () => {
     expect(modelBody(known).settings).toMatchObject({
       contextWindow: 272_000,
       maxOutputTokens: 128_000,
-      capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
+      capabilities: {
+        streaming: true,
+        toolCalling: true,
+        vision: true,
+        reasoning: true,
+        structuredOutput: false,
+      },
       pricing: { inputPerMillion: 1.25, outputPerMillion: 10, cachedInputPerMillion: 0.125 },
     });
     expect(modelBody(known).settings?.options).toEqual({ maxCompletionTokens: true });

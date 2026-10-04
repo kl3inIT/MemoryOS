@@ -145,7 +145,7 @@ class ModelCatalogSelectionTest {
         final ActorId actor = new ActorId(UUID.randomUUID());
         final ModelCatalogRepository catalog = mock(ModelCatalogRepository.class);
         final ModelSettings settings = new ModelSettings(36096, 4096,
-                new ModelSettings.Capabilities(true, true, true, true), Map.of(), null, "openai-o200k-v1");
+                new ModelSettings.Capabilities(true, true, true, true, false), Map.of(), null, "openai-o200k-v1");
         final LlmProvider provider = provider();
         final LlmProvider otherProvider = provider();
         final ModelConfiguration defaultModel = new ModelConfiguration(defaultId, tenant, provider.id(), "luna", "Luna", true, settings, 1);

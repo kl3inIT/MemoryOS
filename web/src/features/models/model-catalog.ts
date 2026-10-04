@@ -142,6 +142,7 @@ export type ModelDraft = {
   toolCalling: boolean;
   vision: boolean;
   reasoning: boolean;
+  structuredOutput: boolean;
   completionTokens: boolean;
   temperature: string;
   topP: string;
@@ -174,6 +175,7 @@ export function modelDraft(model?: ManagedModel, adapter?: InstalledAdapter): Mo
     toolCalling: settings?.capabilities.toolCalling ?? false,
     vision: settings?.capabilities.vision ?? false,
     reasoning: settings?.capabilities.reasoning ?? false,
+    structuredOutput: settings?.capabilities.structuredOutput ?? false,
     completionTokens: settings?.options.maxCompletionTokens === true,
     temperature: optionText(settings?.options.temperature),
     topP: optionText(settings?.options.topP),
@@ -209,6 +211,7 @@ export function reportedDraft(reported: ReportedModel, adapter?: InstalledAdapte
     toolCalling: capabilities.toolCalling,
     vision: capabilities.vision,
     reasoning,
+    structuredOutput: capabilities.structuredOutput,
     // OpenAI-compatible reasoning models reject max_tokens, so the option family follows the capability.
     completionTokens: reasoning,
     inputPrice: reported.pricing == null ? "" : String(reported.pricing.inputPerMillion),
@@ -240,6 +243,7 @@ export function matchesKnownModel(draft: ModelDraft, known: KnownModel | undefin
     draft.toolCalling === known.capabilities.toolCalling &&
     draft.vision === known.capabilities.vision &&
     draft.reasoning === known.capabilities.reasoning &&
+    draft.structuredOutput === known.capabilities.structuredOutput &&
     draft.inputPrice === String(known.pricing.inputPerMillion) &&
     draft.outputPrice === String(known.pricing.outputPerMillion) &&
     draft.cachedInputPrice ===
@@ -277,6 +281,7 @@ export function changeModelDraft<K extends keyof ModelDraft>(
       next.toolCalling = known.capabilities.toolCalling;
       next.vision = known.capabilities.vision;
       next.reasoning = known.capabilities.reasoning;
+      next.structuredOutput = known.capabilities.structuredOutput;
       // OpenAI rejects max_tokens on a reasoning model, so the option family follows the capability.
       next.completionTokens = known.capabilities.reasoning;
       if (next.reasoning) {
@@ -299,6 +304,7 @@ export function changeModelDraft<K extends keyof ModelDraft>(
       next.toolCalling = false;
       next.vision = false;
       next.reasoning = false;
+      next.structuredOutput = false;
       next.reasoningEffort = "";
       next.inputPrice = "";
       next.outputPrice = "";
@@ -383,6 +389,7 @@ export function modelBody(draft: ModelDraft): ModelBody {
         toolCalling: draft.toolCalling,
         vision: draft.vision,
         reasoning: draft.reasoning,
+        structuredOutput: draft.structuredOutput,
       },
       options,
       pricing:

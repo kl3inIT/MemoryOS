@@ -8,6 +8,9 @@ import io.memoryos.ai.AiException;
 import com.embabel.agent.openai.CapabilityAwareOpenAiOptionsConverter;
 import com.embabel.agent.openai.ModelCapabilities;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import com.embabel.agent.spi.support.springai.ToolResponseContentAdapter;
+import com.embabel.common.ai.autoconfig.NativeStructuredOutputCapability;
+import com.embabel.common.ai.autoconfig.NativeSupport;
 import com.embabel.common.ai.model.OptionsConverter;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import io.memoryos.ai.ProviderAdapter;
@@ -282,7 +285,10 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
         };
         var price = settings.pricing();
         var service = new SpringAiLlmService(name, "OpenAI", model, converter, null, List.of(),
-                price == null ? null : ModelPricing.of(price), settings.capabilities().reasoning());
+                price == null ? null : ModelPricing.of(price), settings.capabilities().reasoning(),
+                ToolResponseContentAdapter.PASSTHROUGH, new OpenAiStructuredOutput(),
+                new NativeSupport(new NativeStructuredOutputCapability(
+                        settings.capabilities().structuredOutput(), null, true, null, Map.of())));
         return new ModelBinding(service, OpenAiRequestPolicy::withoutTools,
                 OpenAiRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
                 settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiRequestPolicy::requireTools,

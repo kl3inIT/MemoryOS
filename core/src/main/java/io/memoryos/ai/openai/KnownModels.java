@@ -33,7 +33,8 @@ public final class KnownModels {
                 models.add(new KnownModel(node.path("modelName").asText(),
                         node.path("contextWindow").asInt(), node.path("maxOutputTokens").asInt(),
                         new ModelSettings.Capabilities(true, node.path("toolCalling").asBoolean(),
-                                node.path("vision").asBoolean(), node.path("reasoning").asBoolean()),
+                                node.path("vision").asBoolean(), node.path("reasoning").asBoolean(),
+                                node.path("structuredOutput").asBoolean()),
                         new ModelSettings.Pricing(node.path("inputPerMillion").asDouble(),
                                 node.path("outputPerMillion").asDouble(),
                                 node.hasNonNull("cachedInputPerMillion") ? node.path("cachedInputPerMillion").asDouble() : null)));

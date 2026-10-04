@@ -123,9 +123,11 @@ public final class ModelResolver {
         Boolean vision = first(reported.vision(), catalogModel == null ? null : catalogModel.capabilities().vision());
         Boolean reasoning = first(reported.reasoning(), catalogModel == null ? null : catalogModel.capabilities().reasoning());
         // An unpublished answer limit is never guessed: it stays empty and no cap is sent. Vision and reasoning are
-        // only declared when published, since declaring them changes what the request carries.
+        // only declared when published, since declaring them changes what the request carries. No endpoint reports
+        // structured output, so only the catalog declares it.
         var capabilities = new ModelSettings.Capabilities(true,
-                tools, Boolean.TRUE.equals(vision), Boolean.TRUE.equals(reasoning));
+                tools, Boolean.TRUE.equals(vision), Boolean.TRUE.equals(reasoning),
+                catalogModel != null && catalogModel.capabilities().structuredOutput());
         var pricing = reported.pricing() != null ? reported.pricing() : catalogModel == null ? null : catalogModel.pricing();
         var source = fromProvider ? ReportedModelSpec.Source.PROVIDER
                 : catalogModel != null ? ReportedModelSpec.Source.CATALOG : ReportedModelSpec.Source.NONE;

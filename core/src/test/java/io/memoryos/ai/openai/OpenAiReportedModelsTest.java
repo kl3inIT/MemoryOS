@@ -144,7 +144,7 @@ class OpenAiReportedModelsTest {
         var local = ModelResolver.spec(new ReportedModel("local-qwen", 32_768, null, null, null, null, null), known);
         assertEquals(32_768, local.contextWindow());
         assertNull(local.maxOutputTokens());
-        assertEquals(new ModelSettings.Capabilities(true, true, false, false), local.capabilities());
+        assertEquals(new ModelSettings.Capabilities(true, true, false, false, false), local.capabilities());
 
         // A name nobody describes gets Onyx's 32,000-token fallback window and is marked for review.
         var unknown = ModelResolver.spec(ReportedModel.named("acme-internal-7b"), known);

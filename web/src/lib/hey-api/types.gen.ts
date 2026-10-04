@@ -1181,6 +1181,7 @@ export type CapabilitiesInput = {
     toolCalling: boolean;
     vision: boolean;
     reasoning: boolean;
+    structuredOutput: boolean;
 };
 
 export type ModelInput = {
@@ -1218,6 +1219,7 @@ export type Capabilities = {
     toolCalling: boolean;
     vision: boolean;
     reasoning: boolean;
+    structuredOutput: boolean;
 };
 
 export type Model = {
@@ -2218,6 +2220,7 @@ export type ChatReportedModelCapabilities = {
     toolCalling: boolean;
     vision: boolean;
     reasoning: boolean;
+    structuredOutput: boolean;
 };
 
 export type ChatReportedModelPricing = {

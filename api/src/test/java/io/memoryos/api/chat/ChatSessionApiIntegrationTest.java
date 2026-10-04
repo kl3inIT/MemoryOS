@@ -369,7 +369,7 @@ class ChatSessionApiIntegrationTest {
         var known = Objects.requireNonNull(ModelResolver.findKnown(DEFAULT_MODEL, providerAdapter.knownModels()));
         var settings = new ModelSettings(known.contextWindow(), known.maxOutputTokens(),
                 new ModelSettings.Capabilities(true, known.capabilities().toolCalling(), known.capabilities().vision(),
-                        known.capabilities().reasoning()),
+                        known.capabilities().reasoning(), false),
                 Map.of("maxCompletionTokens", known.capabilities().reasoning()), known.pricing(), "openai-o200k-v1");
         return new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters).create(
                 new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, limits.providerReadTimeout());
