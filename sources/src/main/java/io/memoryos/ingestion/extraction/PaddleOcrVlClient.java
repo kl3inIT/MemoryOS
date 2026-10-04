@@ -192,6 +192,8 @@ final class PaddleOcrVlClient implements AutoCloseable {
             throw failed(switch (e.status) {
                 case 413 -> ExtractionFailure.WRITE_LIMIT;
                 case 408, 504 -> ExtractionFailure.TIMEOUT;
+                // The service, or the proxy in front of it, says it cannot take the request: unreachable, not broken.
+                case 502, 503 -> ExtractionFailure.CONNECTION_FAILED;
                 default -> ExtractionFailure.INTERNAL;
             }, e.status, e.getClass().getName(), waited);
         } catch (IOException | RuntimeException e) {

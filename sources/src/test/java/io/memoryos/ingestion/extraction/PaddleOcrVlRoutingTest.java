@@ -154,7 +154,7 @@ class PaddleOcrVlRoutingTest {
         try (var extractor = withPaddle()) {
             var error = assertThrows(ExtractionException.class, () -> extract(extractor, scan(1), "scan.pdf"));
 
-            assertEquals(ExtractionFailure.INTERNAL, error.failure());
+            assertEquals(ExtractionFailure.CONNECTION_FAILED, error.failure());
             assertEquals(1, paddleCalls.get(), "sent once, not retried");
             verifyNoInteractions(docling);
         }
