@@ -136,6 +136,7 @@ class GroundingClassifierTest {
         assertEquals(1.0, loose.noulValue("TOPIC_1"));
         assertEquals(1.0, loose.noulValue("TOPIC_2"));
         assertEquals(0.0, loose.noulValue("CONVERSATIONAL"));
+        assertEquals(0.9, GroundingClassifier.answers("{\"TOPIC_2\": \"0.9\"}", ids).noulValue("TOPIC_2"));
     }
 
     @Test

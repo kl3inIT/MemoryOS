@@ -220,8 +220,9 @@ public final class GroundingClassifier {
 
     /**
      * A language model's reply as the library's answers. The JSON object is taken from whatever surrounds it (a code
-     * fence, a sentence), a question the model left out counts as no, and a probability is kept within 0 and 1. A
-     * reply with no object, or with none of the questions in it, is no verdict.
+     * fence, a sentence), a question the model left out counts as no, a number written as text is read as the number,
+     * and a probability is kept within 0 and 1. A reply with no object, or with none of the questions in it, is no
+     * verdict.
      */
     static SystemOneResponse answers(@Nullable String reply, Set<String> questions) {
         JsonNode object = null;
@@ -237,7 +238,7 @@ public final class GroundingClassifier {
         var answers = new LinkedHashMap<String, Answer>();
         for (String id : questions) {
             var value = object.path(id);
-            double probability = value.isNumber() ? value.asDouble() : value.isBoolean() && value.asBoolean() ? 1.0 : 0.0;
+            double probability = value.isBoolean() ? (value.asBoolean() ? 1.0 : 0.0) : value.asDouble(0.0);
             answers.put(id, new NoulAnswer(Math.clamp(probability, 0.0, 1.0)));
         }
         return new SystemOneResponse("", answers, null);

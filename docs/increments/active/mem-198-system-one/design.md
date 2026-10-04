@@ -22,10 +22,10 @@ or a language model as today. The increment also measures the two against each o
 3. The task's picker on that page offers the System One connections and the language models. The Models page offers
    no System One connection, and no longer shows this task: it is configured in one place.
 4. A failed check lets the turn through, as today. It is not asked again on a language model.
+5. One increment. Measuring on the free tier of 9Router uses self-written questions only.
 6. Everything System One follows one maintained library, `spring-ai-typesafe`, and the check returns one answer
    type whichever classifier runs it ([ADR 0026](../../../decisions/0026-system-one-decisions-through-spring-ai-typesafe.md)).
    The check is the library's `JevGuardrail`; a language model answers the same questions as JSON.
-5. One increment. Measuring on the free tier of 9Router uses self-written questions only.
 
 ## Why a failed check is not retried on a language model
 
