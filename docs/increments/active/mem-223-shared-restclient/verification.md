@@ -150,3 +150,32 @@ Run on 2026-10-03 on the same machine, on top of pull request 2.
 - `clean check` in CI.
 - Staging: Python run with a file in and a file out; a run stopped mid-output frees its slot; a Web search with two
   providers; a page opened.
+
+## Staging, 2026-10-04
+
+Through the connection-test endpoints of `https://staging.vadan.app`, signed in as a Tenant administrator, with a
+temporary Playwright spec that was deleted afterwards. `clean check` passed in CI for all three pull requests.
+
+| Check | Release `44f5bdd8` (pull requests 1 and 2) | Release `ec2b811c` (all three) |
+| --- | --- | --- |
+| Voice connection check, Soniox | 204 in 1.2 s | 204 in 0.9 s |
+| Model list, 9Router over `https` | 200, 328 models, 1.6 s | 200, 328 models, 1.5 s |
+| OIDC discovery, Google and the staging Keycloak | 200 and 200 | 200 and 200 |
+| Image probe, Cloudflare Workers AI (generates one image) | **503 in 2.0 s** | 204 in 1.4 s |
+| Web search probe, SearXNG | 204 (old transport) | 204 in 1.1 s |
+| Web search probe, Brave | 503 in 90 ms (old transport) | 503 in 0.1 s |
+| Code Interpreter health | connected, 0.1.0 (old transport) | connected, 0.1.0, 0.2 s |
+
+- **The image probe failed on the first release and passed on the second.** The API does not log what a provider
+  answered, so the cause is not known. Between the two releases the transport over `https` went from HTTP/1.1 to
+  HTTP/2; a run of the same transport from a development machine with a false key got Cloudflare's 401 over
+  HTTP/1.1, so the version alone is not shown to be the cause. `ai_usage` on staging held no image row before.
+- **Brave fails on both transports** in about 0.1 s, so the refactor is not the cause; the stored key or its quota is.
+
+### Not verified on staging
+
+- An authorized upload: a dictation clip and a long recording with Soniox, an image edit. They need the Chat and
+  meeting flows in a browser.
+- Python run with a file in and a file out, and a run stopped mid-output.
+- ElevenLabs, Azure, OpenAI and an OpenAI-compatible Voice server: staging has only a Soniox connection.
+- That a provider answers over HTTP/2.
