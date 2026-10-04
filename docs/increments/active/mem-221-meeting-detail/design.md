@@ -14,7 +14,9 @@ A meeting is read for an afternoon and corrected line by line, so what is read k
 6. **Search.** A query typed without marks finds the words that carry them; one typed with marks asks for exactly those. `/` and Ctrl/Cmd+F reach the field.
 7. **Address.** The open tab is the `tab` search parameter, so a reload or a shared link opens the same one. Naming the tab never moves the page.
 8. **Marks of the reader.** A star shows as soon as it is pressed and is taken back if the server refuses it; a star or a bookmark that fails says so in a notification, since the page is as long as the meeting.
-9. **Names offered.** "Name đây" and "Name xin phép" count as a self-introduction only for a listed participant: every sentence opens with a capital, and "Chạy đây" is not a person.
+9. **Proposals that stay true.** A change to a line moves the line's other proposals with the words and declines an undecided one whose words are gone; before, such a proposal stayed on screen pointing at the wrong characters and refused the whole *Nhận hết*. *Nhận hết* stands inside the opened list, and the button that starts a pass says the model only proposes.
+10. **Small guards.** A word written by hand has a save button and names its keys; removing a minutes item asks first; *Mở trong Chat* says it saves the minutes to the library; minutes that land while the reader is further down mark their tab; on a phone the tab row fades where tabs are hidden and the panel's button is labelled.
+11. **Names offered.** "Name đây" and "Name xin phép" count as a self-introduction only for a listed participant: every sentence opens with a capital, and "Chạy đây" is not a person.
 
 ## Reuse
 
