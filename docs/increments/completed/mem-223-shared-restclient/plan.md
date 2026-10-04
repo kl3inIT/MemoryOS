@@ -177,19 +177,21 @@ Stacked on pull request 1. The OpenAI SDK check came first, then Soniox, the sin
 - [x] `WebHttpTest` and `WebProviderClientTest` pass unchanged.
 - [ ] Staging: a Web search with two providers; a page opened.
 
-## Still open after pull request 3
+## Closed on 2026-10-04 (owner)
 
-- [ ] **MCP OAuth spike** (optional), on a branch that is not merged: Nimbus `oauth2-oidc-sdk` in `core`;
-  `TokenRequest`, `TokenErrorResponse`, `ClientRegistrationRequest` and `AuthorizationServerMetadata` fed with the
-  bytes `McpOAuthProtocol.send` reads, so the bound and the no-redirect rule stay ours. Recorded in the design:
-  lines replaced; whether duplicate keys, trailing tokens and over-long fields are still refused; how
-  `invalid_grant` maps; what `McpOAuthProtocolTest` says. Adopting it is an issue of its own.
-- [ ] **`sources` assessment**: `RestSharePointGateway`, `RestGoogleDriveGateway`, `PaddleOcrVlClient` and
-  `RestGoogleDriveAccountClient` (all under `sources/`) read in full and given one verdict each in the design, by
-  the same order of choice. Known already: `BoundedDoclingClient` is choice 1; `RestGoogleDriveAccountClient` would
-  gain close without draining, but hands its request factory to a `RestTemplate` for `NimbusJwtDecoder`. A follow-up
-  issue if anything should move.
-- [ ] The staging checks of all three pull requests, recorded in `verification.md`.
-- [ ] Close-out: the increment moves to `completed/`, links to it are fixed and the roadmap is reconciled.
+- [x] The staging checks of all three pull requests, recorded in `verification.md`: the connection tests, the model
+  list, OIDC discovery, a Python run with a file in and a file out, a run stopped mid-output, a page opened.
+- [x] Close-out: the increment moved to `completed/`, links to it fixed and the roadmap reconciled.
 
-`clean check` runs in CI for each pull request.
+Not done, and not part of this increment any more; each is a follow-up of its own if it is wanted:
+
+- **MCP OAuth spike** (optional): Nimbus `oauth2-oidc-sdk` for the token and registration messages of
+  `McpOAuthProtocol`, keeping the bound and the no-redirect rule.
+- **`sources` assessment**: `RestSharePointGateway`, `RestGoogleDriveGateway`, `PaddleOcrVlClient` and
+  `RestGoogleDriveAccountClient` read in full and given one verdict each by the order of choice. Known already:
+  `BoundedDoclingClient` is choice 1; `RestGoogleDriveAccountClient` would gain close without draining, but hands its
+  request factory to a `RestTemplate` for `NimbusJwtDecoder`.
+- **On staging**: an authorized upload (a dictation clip and a long recording with Soniox, an image edit), the Voice
+  providers staging does not have, and that a provider answers over HTTP/2.
+
+`clean check` ran in CI for each pull request.

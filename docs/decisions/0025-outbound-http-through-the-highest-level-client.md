@@ -5,7 +5,7 @@ Date: 2026-10-03
 ## Status
 
 Accepted; implementation started 2026-10-03 in
-[outbound HTTP through high-level interfaces](../increments/active/mem-223-shared-restclient/design.md)
+[outbound HTTP through high-level interfaces](../increments/completed/mem-223-shared-restclient/design.md)
 ([MEM-223](https://linear.app/memory-os/issue/MEM-223)): the transport, Image, OIDC discovery and the model list.
 Voice and the Code Interpreter follow in the same increment.
 

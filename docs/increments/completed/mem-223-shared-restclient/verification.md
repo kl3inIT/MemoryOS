@@ -145,11 +145,9 @@ Run on 2026-10-03 on the same machine, on top of pull request 2.
   sees HTTP/1.1 and no `Upgrade` header; the client chosen for an `https` URL asks for HTTP/2. That a provider
   then answers over HTTP/2 is not asserted by a test.
 
-### Not yet verified
+### Not yet verified at that point
 
-- `clean check` in CI.
-- Staging: Python run with a file in and a file out; a run stopped mid-output frees its slot; a Web search with two
-  providers; a page opened.
+`clean check` in CI and the staging checks, both recorded below.
 
 ## Staging, 2026-10-04
 
