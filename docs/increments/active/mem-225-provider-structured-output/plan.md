@@ -33,6 +33,5 @@ Design: [design.md](design.md). One pull request.
 ## Carried over
 
 - [ ] Staging: declare the capability on the task model and run one question check, one set of minutes and one
-  correction. 9Router honours the schema for `cx/gpt-6-luna` only on the Responses route, so the model also needs
-  `reasoningSummary` set to `auto`, or 9Router has to forward `response_format`.
+  correction. The host's 9Router forwards `response_format` since its patched 0.5.95 build of 2026-10-04.
 - [ ] The `ocg/*` models through 9Router once their usage limit resets.

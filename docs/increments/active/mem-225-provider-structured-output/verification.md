@@ -31,9 +31,21 @@ an enforced schema returns the object. Schema: the question check's `Answers`.
 | `cx/gpt-6-luna` | Responses | yes | `{"answers":[{"id":"1","probability":1}]}`: enforced |
 | `ocg/deepseek-v4-flash`, `ocg/glm-5.3-flash`, `ocg/qwen3.8-flash`, `ocg/kimi-k3` | both | | `503`, usage limit exceeded: not measured |
 
-Staging's task model is `cx/gpt-6-luna` on Chat Completions (`maxCompletionTokens` only). Declaring the capability
-there changes nothing until the model is routed through Responses (`reasoningSummary: auto`) or 9Router forwards
-`response_format`.
+The cause is in 9Router (0.5.91 installed, 0.5.95 upstream the same): its Chat Completions to Responses translator
+copies a fixed list of fields and leaves `response_format` out (upstream issue decolua/9router#2896, fix in the
+open pull request #4547).
+
+The same day the host's 9Router was rebuilt from 0.5.95 with that pull request and the Devin patch applied, and
+the measurement repeated:
+
+| Model | Route | Schema sent | Answer |
+| --- | --- | --- | --- |
+| `cx/gpt-6-luna` | Chat Completions | no | `hello` (2 of 2) |
+| `cx/gpt-6-luna` | Chat Completions | yes | `{"answers":[]}` (2 of 2): enforced |
+| `cx/gpt-6-luna` | Responses | yes | enforced |
+
+Staging's task model is `cx/gpt-6-luna` on Chat Completions, so the capability can now be declared on it as it
+is. The fix is a local patch until upstream merges it; an update from npm drops it.
 
 ## Not verified
 
