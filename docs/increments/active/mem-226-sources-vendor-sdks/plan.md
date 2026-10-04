@@ -14,7 +14,7 @@ Design: [design.md](design.md). Two pull requests, one per vendor.
 - [x] `memoryos.sharepoint.content-timeout` (120 s) for a download.
 - [x] `RestSharePointGatewayTest`: the 19 cases, and five new ones.
 - [x] ADR 0025 amended; conventions, backend guide, `ARCHITECTURE.md`, connector test matrix, roadmap.
-- [ ] Staging: one synchronization of the SharePoint source after deployment.
+- [ ] A synchronization of a SharePoint source against a real Tenant; staging has none.
 
 ## Pull request 2: Google Drive on Google's libraries
 
@@ -29,6 +29,10 @@ Design: [design.md](design.md). Two pull requests, one per vendor.
 - [ ] Staging: one synchronization of the Drive source and one reconnect after deployment.
 
 ## After both
+
+- [x] Staging: every Google Drive source synchronized on the new release, with the results of the earlier one
+  ([verification](verification.md)).
+- [ ] Staging: a changed Docs, Sheets and binary file acquired through the new client.
 
 - [ ] The status mapping of `PaddleOcrVlClient` aligned with the two gateways.
 - [ ] Close-out.
