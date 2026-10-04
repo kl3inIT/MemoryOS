@@ -185,11 +185,12 @@ and retries are decided in `HttpRequest.execute`, above any transport, and `NetH
 
 ## Not verified
 
-- Against a real Tenant: the three request shapes that changed, and a download through `/content`. Staging has a
-  SharePoint source; a synchronization there after deployment is the check.
+- Against a real Tenant: the three request shapes that changed, and a download through `/content`. Staging has no
+  SharePoint source (found 2026-10-04), so this waits for a Tenant to try it on.
 - The image size and start-up time with the SDK's jar.
 - Google Drive against Google: the download path, the Sheets, Docs and Directory addresses, both grants and a
-  consent. Staging has a Drive source; a synchronization and a reconnect there after deployment are the check.
+  consent. On staging the token grant, listing, metadata and permissions match the earlier release
+  ([verification](verification.md)); content and the consent are not run there yet.
 - The 15 s deadline of a consent has no test of its own; each request's bound and timeout do.
 
 ## Out of scope
