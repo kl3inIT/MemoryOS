@@ -170,12 +170,24 @@ temporary Playwright spec that was deleted afterwards. `clean check` passed in C
   answered, so the cause is not known. Between the two releases the transport over `https` went from HTTP/1.1 to
   HTTP/2; a run of the same transport from a development machine with a false key got Cloudflare's 401 over
   HTTP/1.1, so the version alone is not shown to be the cause. `ai_usage` on staging held no image row before.
-- **Brave fails on both transports** in about 0.1 s, so the refactor is not the cause; the stored key or its quota is.
+- **Brave is not a connection.** Staging holds a Brave row with no endpoint and no key; the probe ran on it because
+  it is listed, and "not configured" is the right answer. SearXNG is the one Web connection, and it passes.
+
+### Through Chat, release `ec2b811c`
+
+| Check | Result |
+| --- | --- |
+| A CSV attached to a message, read by `run_python`, which writes `result.txt` | Completed; the tool ran 3.9 s; the reply states the sum (100); the generated file downloads with that content |
+| A two-minute run stopped 13 s in | The reply is `CANCELED` 1.5 s after Stop; the tool step ends `FAILED` at 12.6 s |
+| A run sent straight after that Stop | Completed; the tool ran 1.7 s; health still reports connected |
+| `open_url` on `https://example.com` | Completed in 0.3 s with one source and the page's title |
+
+The interpreter's access log shows `POST /v1/files` and `POST /v1/execute/stream` over HTTP/1.1 from the API, with
+no upgrade request, as plain HTTP should be.
 
 ### Not verified on staging
 
 - An authorized upload: a dictation clip and a long recording with Soniox, an image edit. They need the Chat and
   meeting flows in a browser.
-- Python run with a file in and a file out, and a run stopped mid-output.
 - ElevenLabs, Azure, OpenAI and an OpenAI-compatible Voice server: staging has only a Soniox connection.
 - That a provider answers over HTTP/2.
