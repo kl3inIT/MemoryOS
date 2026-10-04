@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { useTheme } from "@/features/theme/theme-context";
 import {
   useAdminAccess,
@@ -24,6 +24,7 @@ const logoutLocationHeader = "X-MemoryOS-Logout-Location";
 export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation("common");
   const [menuOpen, setMenuOpen] = useState(false);
+  const { isMobile } = useSidebar();
   const { resolvedTheme, setTheme } = useTheme();
   const { displayName, tenant } = useApplicationSession();
   const { canAccessAdmin, adminEntryPath } = useAdminAccess();
@@ -77,8 +78,9 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        side="right"
-        align="end"
+        // A phone's menu is a sheet with nothing beside it but the edge of the screen.
+        side={isMobile ? "top" : "right"}
+        align={isMobile ? "start" : "end"}
         sideOffset={10}
         collisionPadding={12}
         className="w-64 max-w-[calc(100vw-1.5rem)]"

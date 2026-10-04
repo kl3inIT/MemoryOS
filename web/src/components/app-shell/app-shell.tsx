@@ -16,7 +16,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { AccountMenu } from "@/components/app-shell/account-menu";
 import { readFoldedGroups, rememberFoldedGroups } from "@/components/app-shell/admin-menu-folds";
 import {
@@ -164,8 +164,8 @@ function NavigationGroup({ title, children }: { title: string; children: ReactNo
 }
 
 /**
- * A section of the administration menu that folds under its heading: by the person, or by the menu itself when
- * its rows would not fit the screen. The rail has no headings, so there every row stays.
+ * A section of the administration menu that the person folds under its heading. The rail has no headings, so
+ * there every row stays.
  */
 function FoldingNavigationGroup({
   title,
@@ -218,9 +218,8 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
 
   // The administration menu outgrows a laptop screen, and its resting scrollbar is invisible: on every navigation
   // the open page's own link scrolls into view, and nothing moves when it is already visible.
-  // Every section is open while the menu fits the screen, so a page is found by reading rather than by
-  // remembering its section. A section folds when the person folds it, which the browser remembers, or, before
-  // they ever chose, when the menu would otherwise scroll. The open page's section is always open.
+  // Every section is open, so a page is found by reading rather than by remembering its section. A section folds
+  // only when the person folds it, which the browser remembers. The open page's section is always open.
   const currentGroup = appArea
     ? undefined
     : adminPages.find((page) => page.id === adminPage)?.group;
@@ -243,18 +242,6 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
   };
 
   const navigation = useRef<HTMLElement>(null);
-  // Measured once per menu: a later navigation opens its section and leaves the rest as they are.
-  const measured = useRef(false);
-  useLayoutEffect(() => {
-    if (measured.current || appArea || collapsed) return;
-    measured.current = true;
-    if (readFoldedGroups() !== undefined) return;
-    const scroller = navigation.current?.closest<HTMLElement>('[data-slot="sidebar-content"]');
-    if (!scroller || scroller.scrollHeight <= scroller.clientHeight) return;
-    setFoldedGroups(
-      new Set(adminGroups.map((group) => group.id).filter((group) => group !== currentGroup)),
-    );
-  }, [appArea, collapsed, currentGroup]);
   useEffect(() => {
     if (appArea) return;
     navigation.current
