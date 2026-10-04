@@ -7,7 +7,6 @@ import { EmptyState } from "@/components/composites/empty-state";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { IconButton } from "@/components/ui/icon-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
@@ -122,13 +121,19 @@ function MeetingView({ meeting, page }: { meeting: MeetingDetail; page: MeetingP
         actions={
           !wide && (
             <span className="relative flex">
-              <IconButton aria-label={ui("Chi tiết cuộc họp")} onClick={() => setSheetOpen(true)}>
-                <PanelRightOpen />
-              </IconButton>
+              <Button
+                size="sm"
+                prominence="secondary"
+                aria-label={ui("Chi tiết cuộc họp")}
+                onClick={() => setSheetOpen(true)}
+              >
+                <PanelRightOpen data-icon="inline-start" aria-hidden="true" />
+                {ui("Chi tiết")}
+              </Button>
               {/* Names are waiting for an answer inside the panel. */}
               {owned && meeting.speakers.some((speaker) => speaker.suggestion) && (
                 <span
-                  className="absolute top-1 right-1 size-2 rounded-full bg-status-info-emphasis"
+                  className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-status-info-emphasis"
                   aria-hidden="true"
                 />
               )}

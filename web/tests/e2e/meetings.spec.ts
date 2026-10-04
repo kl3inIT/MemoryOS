@@ -776,7 +776,9 @@ for (const width of [1440, 390]) {
     await added.hover();
     await page.screenshot({ path: `../output/playwright/meetings-added-${width}.png` });
     await added.getByRole("button", { name: "Sửa" }).click();
+    // Removing an item asks first: the minutes keep no copy of it.
     await page.getByRole("button", { name: "Xóa", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Xóa", exact: true }).click();
     await expect(page.getByText("Đặt phòng họp cho quý 4", { exact: true })).toHaveCount(0);
     await page.getByRole("tab", { name: /Quyết định/ }).click();
     await expect(

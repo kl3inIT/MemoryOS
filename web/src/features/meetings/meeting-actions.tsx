@@ -74,7 +74,7 @@ export function MeetingActions({
         restoreFocusRef={trigger}
         title={ui("Xóa {{v1}}?", { v1: meeting.title })}
         description={ui(
-          "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xóa vĩnh viễn.",
+          "Transcript, biên bản, tên người nói và ghi chú của cuộc họp này sẽ bị xóa vĩnh viễn.",
         )}
         confirmLabel={ui("Xóa")}
         pendingLabel={ui("Đang xóa…")}

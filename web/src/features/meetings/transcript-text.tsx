@@ -51,7 +51,7 @@ export function MarkLegend({
       )}
       {fixed > 0 && (
         <span>
-          <span className={FIXED_MARK}>{ui("Chữ xanh")}</span>{" "}
+          <span className={FIXED_MARK}>{ui("Chữ xanh lá")}</span>{" "}
           {ui("đã sửa {{count}} chỗ, bấm để xem chữ cũ", { count: fixed })}
         </span>
       )}

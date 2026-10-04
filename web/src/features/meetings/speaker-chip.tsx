@@ -117,7 +117,7 @@ export function SpeakerChip({
             <button
               key={participant}
               type="button"
-              className="rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-subtle"
+              className="rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
               disabled={rename.isPending}
               onClick={() => save(participant)}
             >

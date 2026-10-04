@@ -102,7 +102,12 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
   const found = run.isSuccess && !running ? run.data.corrections.length : null;
 
   const all = corrections.data ?? [];
-  const pending = all.filter((item) => item.status === "PENDING");
+  // A proposal is offered only while its line still says the words it was made for.
+  const pending = all.filter(
+    (item) =>
+      item.status === "PENDING" &&
+      said(meeting, item.utteranceId).slice(item.start, item.end) === item.before,
+  );
   const applied = all.filter((item) => item.status === "ACCEPTED");
   const busy =
     running ||
@@ -116,21 +121,30 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
   const runId = pending[0]?.runId;
 
   const trigger = (unclear > 0 || running) && (
-    <Button
-      prominence="secondary"
-      size="sm"
-      disabled={busy}
-      onClick={() => {
-        reset();
-        run.reset();
-        run.mutate({ path });
-      }}
-    >
-      <WandSparkles aria-hidden="true" className={running ? "animate-pulse" : undefined} />
-      {running
-        ? ui("Đang hiệu chỉnh…")
-        : ui("Hiệu chỉnh {{count}} đoạn khó nghe", { count: unclear })}
-    </Button>
+    <div className="flex items-center gap-1">
+      <Button
+        prominence="secondary"
+        size="sm"
+        disabled={busy}
+        onClick={() => {
+          reset();
+          run.reset();
+          run.mutate({ path });
+        }}
+      >
+        <WandSparkles aria-hidden="true" className={running ? "animate-pulse" : undefined} />
+        {running
+          ? ui("Đang hiệu chỉnh…")
+          : ui("Hiệu chỉnh {{count}} đoạn khó nghe", { count: unclear })}
+      </Button>
+      <HelpPopover label={ui("Hiệu chỉnh")}>
+        <p className="text-sm text-content-secondary">
+          {ui(
+            "AI đọc lại những đoạn máy nghe chưa chắc và đề xuất chữ thay thế. Transcript chỉ đổi ở chỗ bạn bấm Nhận, và chỗ nào đã đổi cũng hoàn tác được.",
+          )}
+        </p>
+      </HelpPopover>
+    </div>
   );
   // Each change is marked in its own line; this is the way back from all of them at once. A pass is taken back
   // whole, and every word written by hand is a pass of its own.
@@ -172,45 +186,52 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
 
       {pending.length > 0 && runId && (
         <Collapsible>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
-              <CollapsibleTrigger asChild>
-                <Button prominence="tertiary" size="sm" className="-ml-2">
-                  <ChevronDown
-                    data-icon="inline-start"
-                    aria-hidden="true"
-                    className="transition-transform in-data-[state=open]:rotate-180"
-                  />
-                  {ui("Đề xuất ({{count}})", { count: pending.length })}
-                </Button>
-              </CollapsibleTrigger>
-              <HelpPopover label={ui("Điểm của đề xuất")}>
-                <p className="text-sm text-content-secondary">
-                  {ui(
-                    "Chắc: mô hình tin vào chữ thay thế đến đâu. Hợp ngữ cảnh: chữ mới khớp với các câu xung quanh đến đâu. Giữ nguyên ý: câu sau khi sửa còn đúng ý ban đầu đến đâu.",
-                  )}
-                </p>
-              </HelpPopover>
-            </div>
-            <ConfirmDialog
-              trigger={
-                <Button prominence="tertiary" size="sm" disabled={busy}>
-                  {ui("Nhận hết")}
-                </Button>
-              }
-              title={ui("Nhận hết?")}
-              description={ui("Transcript sẽ đổi ở {{count}} chỗ.", { count: pending.length })}
-              confirmLabel={ui("Nhận hết")}
-              pendingLabel={ui("Đang nhận…")}
-              errorMessage={confirmFailure}
-              onConfirm={async () => {
-                reset();
-                await acceptAll.mutateAsync({ path, body: { runId } });
-              }}
-            />
+          <div className="flex items-center gap-1">
+            <CollapsibleTrigger asChild>
+              <Button prominence="tertiary" size="sm" className="-ml-2">
+                <ChevronDown
+                  data-icon="inline-start"
+                  aria-hidden="true"
+                  className="transition-transform in-data-[state=open]:rotate-180"
+                />
+                {ui("Đề xuất ({{count}})", { count: pending.length })}
+              </Button>
+            </CollapsibleTrigger>
+            <HelpPopover label={ui("Điểm của đề xuất")}>
+              <p className="text-sm text-content-secondary">
+                {ui(
+                  "Chắc: mô hình tin vào chữ thay thế đến đâu. Hợp ngữ cảnh: chữ mới khớp với các câu xung quanh đến đâu. Giữ nguyên ý: câu sau khi sửa còn đúng ý ban đầu đến đâu.",
+                )}
+              </p>
+            </HelpPopover>
           </div>
           <CollapsibleContent>
-            <ol className="mt-3 grid gap-2">
+            {/* Taking every proposal at once is offered beside the proposals, to someone who can see them. */}
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-content-muted">
+                {ui("Transcript chỉ đổi ở chỗ bạn nhận.")}
+              </p>
+              <ConfirmDialog
+                trigger={
+                  <Button prominence="secondary" size="sm" disabled={busy}>
+                    {ui("Nhận hết")}
+                  </Button>
+                }
+                title={ui("Nhận hết?")}
+                description={ui("Transcript sẽ đổi ở {{count}} chỗ. Chỗ nào cũng hoàn tác được.", {
+                  count: pending.length,
+                })}
+                confirmLabel={ui("Nhận hết")}
+                pendingLabel={ui("Đang nhận…")}
+                confirmTone="default"
+                errorMessage={confirmFailure}
+                onConfirm={async () => {
+                  reset();
+                  await acceptAll.mutateAsync({ path, body: { runId } });
+                }}
+              />
+            </div>
+            <ol className="mt-2 grid gap-2">
               {pending.map((item) => (
                 <li
                   key={item.id}
