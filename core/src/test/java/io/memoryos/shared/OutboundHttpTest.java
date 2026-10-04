@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
@@ -243,6 +245,23 @@ class OutboundHttpTest {
         assertEquals("Bearer secret", authorization.get());
         assertTrue(sent.get().contains("Content-Disposition: form-data; name=\"file\"; filename=\"clip.m4a\""), sent.get());
         assertTrue(sent.get().contains("Content-Type: audio/mp4"), sent.get());
+    }
+
+    @Test void plainHttpIsSentAsHttp11WithoutAnUpgradeRequestAndTlsMayUseHttp2() {
+        var protocol = new AtomicReference<String>();
+        var upgrade = new AtomicReference<String>();
+        server.createContext("/version", exchange -> {
+            try (exchange) {
+                protocol.set(exchange.getProtocol());
+                upgrade.set(exchange.getRequestHeaders().getFirst("Upgrade"));
+                exchange.sendResponseHeaders(204, -1);
+            }
+        });
+        client(PATIENT).get().uri(url("/version")).retrieve().toBodilessEntity();
+        assertEquals("HTTP/1.1", protocol.get());
+        assertEquals(null, upgrade.get());
+        assertEquals(HttpClient.Version.HTTP_1_1, OutboundHttp.transport(URI.create("http://interpreter:8000/health")).version());
+        assertEquals(HttpClient.Version.HTTP_2, OutboundHttp.transport(URI.create("https://api.soniox.com/v1/files")).version());
     }
 
     @Test void jsonIsReadFromAnAnswerThatDeclaresNoContentTypeOrTheWrongOne() {

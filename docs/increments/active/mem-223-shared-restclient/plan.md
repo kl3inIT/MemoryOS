@@ -1,7 +1,7 @@
 # Implementation plan
 
 Three pull requests (owner, 2026-10-03: few pull requests). Each preserves behaviour except what the
-[design](design.md#behaviour-that-changes) names. Pull requests 1 and 2 are implemented; the third has not started.
+[design](design.md#behaviour-that-changes) names. All three are implemented; the staging checks and two documents-only items are open.
 Paths are under `core/src/main/java/io/memoryos/` unless they say otherwise.
 
 Why three and not fewer:
@@ -9,7 +9,7 @@ Why three and not fewer:
 1. **The shared layer and its plain callers.** What [MEM-198](https://linear.app/memory-os/issue/MEM-198) waits for,
    and where the increment can still end. It ships with real callers, so no unused abstraction is merged.
 2. **Voice.** The adapter interfaces change once, with every Voice call that makes the change possible.
-3. **Code Interpreter and the close-out.** The one part that may be dropped whole without touching the other two.
+3. **Code Interpreter and Web.** The one part that could have been dropped whole without touching the other two.
 
 `OutboundHttp` grows with its callers: `builder(Limits)` in the first pull request, `service` in the second,
 `builder(Limits, ResponseErrorHandler)` in the third.
@@ -150,58 +150,34 @@ Stacked on pull request 1. The OpenAI SDK check came first, then Soniox, the sin
 - [ ] Staging, once deployed: a dictation clip with each Voice provider; the longest recording available with Soniox;
   a recording through OpenAI and through an OpenAI-compatible server; a connection check of each provider.
 
-## Pull request 3: Code Interpreter and the close-out
+## Pull request 3: Code Interpreter and Web
 
-If the Code Interpreter stays as it is, this pull request holds documents only.
+### Code Interpreter, moved whole
 
-### Code Interpreter, whole or not at all
-
-Needs the `exchange` case of `OutboundHttpTest` to hold.
-
-- [ ] `shared/OutboundHttp.java`: `builder(Limits, ResponseErrorHandler)`, with its case in `OutboundHttpTest` (the
-  handler reads a failed body within the bound).
-- [ ] New `chat/interpreter/InterpreterApi.java`:
-
-  ```java
-  @HttpExchange
-  interface InterpreterApi {
-      @GetExchange("/health")
-      Status health();
-      @PostExchange(url = "/v1/files", contentType = "multipart/form-data")
-      Uploaded upload(@RequestPart("file") HttpEntity<Resource> file);
-      @PostExchange("/v1/execute")
-      Result execute(@RequestBody Run run);
-      @GetExchange("/v1/files/{id}")
-      byte[] download(@PathVariable String id);
-      @DeleteExchange("/v1/files/{id}")
-      void delete(@PathVariable String id);
-  }
-  ```
-
-- [ ] `chat/interpreter/InterpreterClient.java`: the Apache client, `request`, `send`, `Response`, `Handler` and both
-  `requireSuccess` go. The handler reads at most 2 KiB of a failed body, throws `BusyException` on 429 and lets a
-  404 on `DELETE` pass. A proxy is built per timeout. `executeStream` runs on `exchange` and keeps `consume` and
-  `readLine`.
-- [ ] One private method translates what `RestClient` throws back into today's contract: the `IOException` inside an
-  `UncheckedIOException` or a `ResourceAccessException` is rethrown as it is, `ResponseTooLargeException` on a
-  download becomes `TooLargeException`, and `health` turns a failed status into a `Health`. The public records and
-  exceptions are unchanged, so `RunPythonTool`, `PresentationPreviewService` and `ChatInterpreterController` are
-  untouched.
-- [ ] `InterpreterClientTest` (already a local server) passes with its assertions unchanged; added: the upload is
-  streamed, and a listener that throws makes the server see the connection close.
+- [x] `shared/OutboundHttp.java`: `builder(Limits, ErrorHandler)` for an API whose failed answers must be read.
+- [x] `shared/OutboundHttp.java`: two JDK clients chosen by the URL's scheme, HTTP/2 over `https` and HTTP/1.1
+  over `http`; `OutboundHttpTest` asserts the plain side on the wire (HTTP/1.1, no `Upgrade` header) and the
+  choice for each scheme.
+- [x] New `chat/interpreter/InterpreterApi.java`: `upload`, `execute`, `download`, `delete`. `execute` answers a tree,
+  read by the code that reads the stream's result event.
+- [x] `chat/interpreter/InterpreterClient.java`: the Apache client, `request`, `send`, `Response`, `Handler` and both
+  `requireSuccess` go. One handler reads at most 2 KiB of a failed body, throws `BusyException` on 429 and lets a 404
+  on `DELETE` pass. A client is built per call with the call's deadline and bound. Health and `executeStream` run on
+  `exchange`; `consume` and `readLine` stay. One method translates what `RestClient` throws back into `IOException`,
+  `BusyException` and `TooLargeException`; `RunPythonTool`, `PresentationPreviewService` and
+  `ChatInterpreterController` are untouched. The class no longer needs closing.
+- [x] `InterpreterClientTest` passes with its assertions unchanged; added: a run its listener stops makes the server
+  see the connection close.
 - [ ] Staging: Python run with a file in and a file out; a run stopped mid-output frees its slot.
-- **Stays as it is if** the class does not get shorter, or closing does not cancel the run.
 
-### Web, only if the Code Interpreter moved
+### Web
 
-Saves no lines; its only effect is that Apache HttpClient is left with one job, the page reader.
-
-- [ ] `chat/web/WebCall.java`: `json` on a client from `OutboundHttp.builder(new Limits(15 s, 2 MiB))`.
-- [ ] `chat/web/WebHttp.java`: `provider` and the `providers` client go; `page` and its DNS check stay.
-- [ ] `WebProviderClientTest` stubs HTTP for provider calls; `WebHttpTest` keeps the page cases.
+- [x] `chat/web/WebHttp.java`: `provider` on a client from `OutboundHttp.builder(new Limits(15 s, 2 MiB))`; the
+  Apache client serves the page reader only. `WebCall`, the adapters and their tests are unchanged.
+- [x] `WebHttpTest` and `WebProviderClientTest` pass unchanged.
 - [ ] Staging: a Web search with two providers; a page opened.
 
-### Findings recorded, no code
+## Still open after pull request 3
 
 - [ ] **MCP OAuth spike** (optional), on a branch that is not merged: Nimbus `oauth2-oidc-sdk` in `core`;
   `TokenRequest`, `TokenErrorResponse`, `ClientRegistrationRequest` and `AuthorizationServerMetadata` fed with the
@@ -213,10 +189,7 @@ Saves no lines; its only effect is that Apache HttpClient is left with one job, 
   the same order of choice. Known already: `BoundedDoclingClient` is choice 1; `RestGoogleDriveAccountClient` would
   gain close without draining, but hands its request factory to a `RestTemplate` for `NimbusJwtDecoder`. A follow-up
   issue if anything should move.
-
-### Close-out
-
-- [ ] `verification.md` complete; the specs and guidelines hold every durable fact.
-- [ ] The increment moves to `completed/`, links to it are fixed and the roadmap is reconciled.
+- [ ] The staging checks of all three pull requests, recorded in `verification.md`.
+- [ ] Close-out: the increment moves to `completed/`, links to it are fixed and the roadmap is reconciled.
 
 `clean check` runs in CI for each pull request.

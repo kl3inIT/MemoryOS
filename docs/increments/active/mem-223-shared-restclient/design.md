@@ -2,7 +2,8 @@
 
 Status: accepted 2026-10-03, after validation against `main` at `dca7609d`, Spring Framework 7.0.9 sources and
 `openai-java` 4.49.0. Pull request 1 (the shared layer, Image, OIDC discovery, the model list) and pull request 2 (Voice) are
-implemented; the Code Interpreter has not started. Decision: [ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md).
+implemented, and so are the Code Interpreter and the Web provider transport (pull request 3). The MCP OAuth
+spike, the `sources` assessment and the staging checks are open. Decision: [ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md).
 Linear: [MEM-223](https://linear.app/memory-os/issue/MEM-223). The first pull request comes before step 3 of
 [MEM-198](https://linear.app/memory-os/issue/MEM-198), which hands the builder made here to the TypeSafe SDK.
 
@@ -78,8 +79,8 @@ Transport rules missing today:
 | Image | `ImageHttp` rewritten on `RestClient` with `MultipartBodyBuilder` | 3 | Done: 82 lines become 58 and one Apache pool goes; see finding 11 |
 | OIDC discovery | `RestClient`, JSON as a tree | 3 | Done: small; gains the bound and its first HTTP test |
 | Model list, local model details | `RestClient.exchange`, JSON as a tree | 3 | Done: small; no JDK `HttpClient` built per call |
-| Code Interpreter | `@HttpExchange` `InterpreterApi` for the five calls and the run on `RestClient.exchange`, in one change | 2 | Moderate, all or nothing; see below |
-| Web search providers | `WebCall.json` on `RestClient` | 3 | No lines saved; optional |
+| Code Interpreter | `@HttpExchange` `InterpreterApi` for four calls, health and the run on `RestClient.exchange`, in one change | 2 | Done, whole; the code is not shorter (finding 19) |
+| Web search providers | `WebHttp.provider` on `RestClient` | 3 | Done; 22 lines longer (finding 20) |
 | MCP OAuth | Unchanged; a library only after a spike | | Uncertain |
 | `sources` | Not assessed here | | Read and judged in the last pull request; no code |
 | System One | `TypeSafeClient` over `OutboundHttp.builder` | 1 | [MEM-198](https://linear.app/memory-os/issue/MEM-198) |
@@ -112,7 +113,7 @@ also carries requirements the interface has to keep:
   exceptions (an `IOException` from a status handler arrives as `UncheckedIOException`), so the class translates
   them back; `health` turns a failed status into a `Health` instead of throwing.
 
-Moving only the five plain calls would leave two HTTP stacks in one class. So the class moves whole, including
+It moved whole (finding 19). Moving only the five plain calls would leave two HTTP stacks in one class. So the class moves whole, including
 `executeStream` onto `RestClient.exchange`, or it stays. `executeStream` can move only if closing the response
 cancels the exchange, which `OutboundHttpTest` proves or disproves in the first pull request.
 
@@ -187,6 +188,20 @@ Found while implementing pull request 2:
     ([verification](verification.md#a-multipart-body-without-a-declared-length)) and the staging upload as the
     remaining check.
 
+Found while implementing pull request 3:
+
+19. **The Code Interpreter moved whole, and the code did not shrink.** `InterpreterClient` went from 324 lines to
+    302, and `InterpreterApi` adds 36. What it buys is not length: the Apache client, its pool and the hand-built
+    multipart entity are gone, the run and the plain calls share one transport, and stopping a run closes the
+    connection in 13 ms in the new test. Health is read with `exchange`, not through the interface, because a
+    failed status is an answer there. One method translates what `RestClient` throws back into `IOException`,
+    `BusyException` and `TooLargeException`, so no caller changed.
+20. **`WebHttp` keeps `provider` as the bean method tests replace**, as `ImageHttp` does (finding 11), now on the
+    shared client. The Apache client is left with the page reader and its DNS check. `WebHttp` is 142 lines, 22
+    more than before.
+21. **`InputStreamResource` cannot be subclassed for a streamed part.** Spring then asks the subclass for its
+    length by reading the stream. A streamed part is an `AbstractResource` that answers -1.
+
 ## The shared layer
 
 `io.memoryos.shared.OutboundHttp`, in the shared kernel because `iam`, `ai`, `mcp`, `voice` and `chat` may all depend
@@ -215,13 +230,14 @@ A library that takes a `RestClient.Builder` (`TypeSafeClient`) receives the buil
 with its first caller: `builder(Limits)` with Image, `service` with Soniox, the handler overload with the Code
 Interpreter.
 
-- **One JDK `HttpClient`** for all callers: `Redirect.NEVER`, a 5 s connect timeout, HTTP/1.1. Spring Boot's
-  auto-configured builder is not used, so no property can relax the transport rules and unit tests need no
-  application context.
-- **HTTP/1.1** is what the Apache transports replaced here speak. Left at its default, the JDK client tries to
-  upgrade every new plain-HTTP connection to HTTP/2 (`HttpClient.Builder.version`), which the Apache-based calls
-  (the Code Interpreter, Image, Web) do not do today; the two `sources` clients that call self-hosted services pin
-  HTTP/1.1 as well. The cost is that Voice REST calls, which negotiate HTTP/2 today, use HTTP/1.1.
+- **Two JDK `HttpClient`s**, chosen by the scheme of the URL, both with `Redirect.NEVER` and a 5 s connect
+  timeout. Spring Boot's auto-configured builder is not used, so no property can relax the transport rules and
+  unit tests need no application context.
+- **`https` may use HTTP/2, `http` stays on HTTP/1.1** (owner, 2026-10-04; the first two pull requests pinned
+  HTTP/1.1 for everything). Over TLS the version is agreed in the handshake, so a body without a declared length
+  is no longer chunked there and Voice keeps the HTTP/2 it had. Over plain HTTP the JDK client, asked for HTTP/2,
+  sends an upgrade request with every new connection (`HttpClient.Builder.version`); the Code Interpreter and
+  self-hosted servers do not speak it, and the two `sources` clients that call such services pin HTTP/1.1 too.
 - **Converters** are set on the builder, not detected: JSON through Jackson 3 (`tools.jackson`), bytes, and the form
   and multipart converter with `Resource` parts. `core` has both Jackson generations on its classpath.
 - **Timeout.** `Limits.timeout` is the factory's read timeout, a deadline for the whole exchange.
@@ -261,8 +277,9 @@ Interpreter.
   image" from the adapter instead of "Empty image response" from the transport; both are an `IOException`.
 - The model list request has one deadline of the caller's timeout and connects within 5 s, where the caller's
   timeout applied to the connection and to the wait for headers separately.
-- Voice REST calls use HTTP/1.1 where the JDK client negotiated HTTP/2, the cost of one client that never attempts
-  an HTTP/2 upgrade on plain HTTP.
+- Image and Web provider calls over `https` may use HTTP/2, where Apache HttpClient used HTTP/1.1. Voice REST
+  calls over `https` keep HTTP/2 from pull request 3 on; between pull requests 2 and 3 they used HTTP/1.1.
+- Plain-HTTP calls from Voice and the model list no longer carry an HTTP/2 upgrade request.
 - Nothing else: messages, status mapping, metric names and the REST contract are unchanged.
 
 ## Decisions
@@ -274,7 +291,8 @@ carried as accepted.
 2. OIDC discovery bounded at 64 KiB.
 3. The optional parts: the MCP OAuth spike is kept; Web moves only if the Code Interpreter moved, when it leaves
    Apache HttpClient with one job.
-4. The shared client speaks HTTP/1.1, which moves Voice REST calls off HTTP/2.
+4. The shared client speaks HTTP/1.1, which moves Voice REST calls off HTTP/2. Replaced on 2026-10-04 by the
+   owner: the version follows the scheme, HTTP/2 over `https` and HTTP/1.1 over `http`.
 
 Also decided 2026-10-03: three pull requests, not one per place ([plan](plan.md)); probes and spikes are welcome
 wherever a claim needs one.
