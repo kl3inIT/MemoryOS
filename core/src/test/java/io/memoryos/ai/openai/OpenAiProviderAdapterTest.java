@@ -220,7 +220,11 @@ class OpenAiProviderAdapterTest {
                 var options = service.getNativeStructuredOutputConfigurer().configure(
                         service.convertOptions(new LlmOptions().withMaxTokens(100).withoutThinking()),
                         new StructuredOutputRequest("Minutes", SCHEMA, null, true), service.getNativeSupport(), service);
-                service.getChatModel().call(new Prompt("Write the minutes.", options));
+                // What ModelGuard does to a request on its way out: the policy's options and, on the last cycle, the
+                // final request without tools. Neither may lose the schema.
+                var binding = client.binding();
+                service.getChatModel().call(binding.policy().options().apply(
+                        binding.finalRequest().apply(new Prompt("Write the minutes.", options))));
                 var format = request.get().path("response_format");
                 assertEquals("json_schema", format.path("type").asString());
                 assertTrue(format.path("json_schema").path("strict").asBoolean());

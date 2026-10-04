@@ -13,7 +13,9 @@
 ## What the wire tests show
 
 - Chat Completions: `response_format.type` is `json_schema`, `json_schema.strict` is true, `json_schema.schema` is
-  the schema given and it has a name; `max_tokens` survives. An undeclared model sends no `response_format`.
+  the schema given and it has a name; `max_tokens` survives. The request goes through the binding's policy options
+  and final request, the two rewrites `ModelGuard` applies, which keep the schema. An undeclared model sends no
+  `response_format`.
 - Responses: `text.format` is `{type: json_schema, name: answer, strict: true, schema}`; without a response format
   no `text` is sent.
 
@@ -38,6 +40,9 @@ there changes nothing until the model is routed through Responses (`reasoningSum
 - A real call through Embabel end to end with the capability declared: the wire tests call the configurer and the
   chat model of the binding directly, and `ModelCallsTest` shows the mode asked for. The first declared model on
   staging is the check.
+- Whether Embabel's own request carries `strict` from the declared capability: the wire test builds the request
+  by hand.
+- Whether Embabel keeps its format instructions in the prompt on the native path (read from bytecode only).
 - The schema Embabel generates for `TranscriptSummarizer` and `TranscriptCorrector` answers under OpenAI's `strict`
   rules.
 - Any gateway other than 9Router.

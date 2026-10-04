@@ -35,7 +35,8 @@ constrains the model to it. Embabel uses it when three things hold: the model de
    `NativeStructuredOutputMode.ENABLED`; for one that does not, `DISABLED`. Embabel's `DEFAULT` mode adds a
    conservative schema check that silently falls back to prompt instructions; a single call must not differ between
    two answer types without anyone seeing it.
-4. **The question check answers a fixed type.** A schema with one key per topic cannot come from a Java type, and a
+4. **The question check answers a fixed type.** This departs from the issue, which asked for a flat schema
+   generated per request, one key per question id. A schema with one key per topic cannot come from a Java type, and a
    `Map` is not accepted under `strict`. On a model with the capability the LLM branch asks for
    `Answers(List<Answer(id, score)>)` and reads it without the lenient reader. On a model without it the branch
    keeps the text answer and the lenient reader of MEM-198, because prompt-instructed typed output is exactly what
@@ -52,9 +53,9 @@ constrains the model to it. Embabel uses it when three things hold: the model de
 
 ## Risks
 
-- **A gateway that ignores the schema.** Embabel builds its format instructions for the prompt before, and apart
-  from, the native request (`ToolLoopLlmOperations`, read from the 1.5.2 bytecode), so the call then behaves as it
-  does today. The question check is the exception: on a declared model it asks for the typed answer, which is
+- **A gateway that ignores the schema.** Embabel appears to build its format instructions for the prompt before,
+  and apart from, the native request (`ToolLoopLlmOperations`, read from the 1.5.2 bytecode, not measured), in
+  which case the call behaves as it does today. The question check is the exception: on a declared model it asks for the typed answer, which is
   what small models got wrong without enforcement. The capability is the manager's statement that the
   deployment honours the schema; the verification measures the gateway staging uses.
 - **`strict` and the schema Embabel generates.** OpenAI's strict mode requires every property listed as required and
