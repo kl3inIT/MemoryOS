@@ -173,7 +173,7 @@ class SystemOneConnectionServiceTest {
         verify(catalog).setFlowClassifier(tenant.value(), ModelFlow.CHAT_GUARDRAIL, laya.id(), 3);
     }
 
-    @Test void aTaskOnALanguageModelHasNoConnectionAndALostKeyIsAFailureNotAnotherClassifier() {
+    @Test void aTaskOnALanguageModelHasNoConnectionAndATaskOnAConnectionAlwaysNamesIt() {
         when(catalog.flowDefault(tenant.value(), ModelFlow.CHAT_GUARDRAIL))
                 .thenReturn(new FlowModelDefault(ModelFlow.CHAT_GUARDRAIL, UUID.randomUUID(), null, null, 1));
         assertNull(service.forFlow(tenant, ModelFlow.CHAT_GUARDRAIL));
@@ -182,8 +182,8 @@ class SystemOneConnectionServiceTest {
         var entity = stored(SystemOneProvider.NINEROUTER, "9Router", null);
         when(catalog.flowDefault(tenant.value(), ModelFlow.CHAT_GUARDRAIL))
                 .thenReturn(new FlowModelDefault(ModelFlow.CHAT_GUARDRAIL, null, null, entity.id(), 2));
-        assertEquals(FailureCategory.SERVICE_UNAVAILABLE,
-                assertThrows(AiException.class, () -> service.forFlow(tenant, ModelFlow.CHAT_GUARDRAIL)).category());
+        // Without its key the connection is still the task's classifier; its call fails, not the lookup.
+        assertEquals("9Router", service.forFlow(tenant, ModelFlow.CHAT_GUARDRAIL).name());
 
         var laya = stored(SystemOneProvider.LAYA, "Serving", null);
         when(catalog.flowDefault(tenant.value(), ModelFlow.CHAT_GUARDRAIL))

@@ -123,7 +123,7 @@ needed.
 
 `ChatTurnService.checkGuardrails` asks the catalog which classifier the task runs on. With a connection it leases no
 language model; a failure of any kind is logged as `chat.guardrail.unavailable` and the turn is answered. A
-connection that lost a required key is such a failure, not a reason to change classifier. The check on a
+connection that cannot answer fails its call and is counted as `system_one`, never as a reason to change classifier. The check on a
 connection takes no admission from the spending limits: it is priced in the ledger, at a few cents per million
 tokens.
 

@@ -135,17 +135,16 @@ public class SystemOneConnectionService {
     }
 
     /**
-     * The connection a task runs on, or null when it runs on a language model. A connection that lost its key is
-     * still returned as chosen and refused, so the task does not silently change classifier.
+     * The connection a task runs on, or null when it runs on a language model. It is returned whenever the task names
+     * one: a connection that cannot answer fails its call, so the task never silently changes classifier and the
+     * failure is counted against System One.
      */
     @Transactional(readOnly = true)
     public @Nullable Connection forFlow(TenantId tenant, ModelFlow flow) {
         if (!flow.classifies()) return null;
         UUID id = catalog.flowDefault(tenant.value(), flow).systemOneConnectionId();
         if (id == null) return null;
-        var entity = connections.findByTenantIdAndId(tenant.value(), id).orElseThrow(AiException::providerUnavailable);
-        if (!usable(entity)) throw AiException.providerUnavailable();
-        return snapshot(entity);
+        return snapshot(connections.findByTenantIdAndId(tenant.value(), id).orElseThrow(AiException::providerUnavailable));
     }
 
     String key(Connection connection) {
