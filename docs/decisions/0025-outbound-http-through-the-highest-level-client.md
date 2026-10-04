@@ -61,3 +61,13 @@ The HTTP version follows the scheme of the URL: `https` may use HTTP/2, agreed i
 stays on HTTP/1.1, so no upgrade request is sent to a self-hosted server. This replaces "one JDK `HttpClient` on
 HTTP/1.1" above and the consequence about Voice: Voice keeps HTTP/2, and a body without a declared length is
 chunked only over plain HTTP.
+
+## Amendment, 2026-10-04: a library with its own HTTP stack
+
+The transport rules above name `OutboundHttp`, which a library can use only when it accepts a `RestClient`. A vendor
+SDK that brings its own HTTP stack is still the first choice (owner, 2026-10-04: a maintained SDK before hand-written
+protocol code, judged by quality and maintenance, not by effort or size). It keeps the four rules by configuring that
+stack: its redirect following and its retries are switched off or narrowed to what a request asks for, its responses
+are bounded, a failed answer is reported by its status with the body unread, and the exchange has a deadline. Each
+rule is proven by a test on the wire, as it is for `OutboundHttp`. The first case is the Microsoft Graph SDK on OkHttp
+([MEM-226](../increments/active/mem-226-sources-vendor-sdks/design.md), `GraphTransport`).

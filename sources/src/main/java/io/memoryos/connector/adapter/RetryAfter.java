@@ -23,7 +23,7 @@ public final class RetryAfter {
         return parse(headers.firstValue("Retry-After").orElse(null), clock);
     }
 
-    static @Nullable Duration parse(@Nullable String value, Clock clock) {
+    public static @Nullable Duration parse(@Nullable String value, Clock clock) {
         if (value == null || value.isBlank()) return null;
         String trimmed = value.strip();
         Duration wait;
