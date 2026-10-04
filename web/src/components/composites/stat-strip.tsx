@@ -160,8 +160,8 @@ export function StatToggleTile({
       <ListFilter
         aria-hidden="true"
         className={cn(
-          // Three tiles share a phone's width, which the label needs whole.
-          "absolute top-3 right-3 size-3.5 text-content-muted transition-colors duration-150 max-sm:hidden",
+          // Three tiles share a phone's width, which the label needs whole, so there the mark sits by the figure.
+          "absolute top-3 right-3 size-3.5 text-content-muted transition-colors duration-150 max-sm:top-auto max-sm:bottom-4",
           selected && "text-content-primary",
         )}
       />
