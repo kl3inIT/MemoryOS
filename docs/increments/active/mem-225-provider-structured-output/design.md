@@ -24,9 +24,9 @@ constrains the model to it. Embabel uses it when three things hold: the model de
    `response_format`, and only the model manager knows.
    - `V147` adds the field as `false` to every saved model, so nothing changes until a manager switches it on.
      The reader stays strict: Jackson 3 refuses a missing primitive, as it does for the other capabilities.
-   - The known-model catalog takes it from LiteLLM's `supports_response_schema`, the field it already publishes
-     beside the three it is synchronised from. A model the provider reports and the catalog does not know is `false`:
-     unlike tools, a wrong `true` is not caught by the saved-connection check.
+   - A provider listing that publishes it prefills it: OpenRouter lists `structured_outputs` in a model's
+     `supported_parameters`. Otherwise the known-model catalog does, from LiteLLM's `supports_response_schema`.
+     A model neither knows is `false`: unlike tools, a wrong `true` is not caught by the saved-connection check.
 2. **One configurer for both OpenAI routes.** Both routes read `OpenAiChatOptions`. `OpenAiStructuredOutput` sets
    Spring AI's `ResponseFormat` (`json_schema`, the schema, its name, `strict`) on them. Chat Completions sends it as
    `response_format` through Spring AI. `ResponsesRequestBuilder` maps the same option to `text.format`, since the

@@ -168,7 +168,9 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
         if (reasoning == null) reasoning = flag(item, "thinking");
         var pricing = pricing(item.path("pricing"));
         if (pricing == null) pricing = xaiPricing(item);
-        return new ReportedModel(id, context, output, tools, vision, reasoning, pricing);
+        // OpenRouter lists structured_outputs among the parameters a model takes; no other listing says.
+        Boolean structured = parameters.isArray() ? Boolean.valueOf(contains(parameters, "structured_outputs")) : null;
+        return new ReportedModel(id, context, output, tools, vision, reasoning, structured, pricing);
     }
 
     /**

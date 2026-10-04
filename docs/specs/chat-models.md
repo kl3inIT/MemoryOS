@@ -131,8 +131,9 @@ KEEP/REPLACE/REMOVE use transient secret refs and direct generated SDK calls, ou
 
 A model declares five capabilities: streaming, tool calling, vision input, reasoning and structured output. The
 last says that the deployment holds an answer to a JSON schema sent with the request. It is declared, not
-inferred: a gateway may drop the schema, and only the model manager knows. The installed catalog takes it from
-LiteLLM's `supports_response_schema`; a model that only the provider endpoint reports is not declared.
+inferred: a gateway may drop the schema, and only the model manager knows. A provider listing that publishes it prefills it (OpenRouter's `supported_parameters` with
+`structured_outputs`); otherwise the installed catalog does, from LiteLLM's `supports_response_schema`; a model
+neither knows is not declared.
 
 For a declared model a single typed call (`ModelCalls.generateObject`: the question check, the minutes, the
 transcript corrections) sends the schema of its answer type: `response_format` with `json_schema` and `strict`

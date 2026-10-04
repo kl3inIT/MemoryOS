@@ -28,7 +28,8 @@ class OpenAiReportedModelsTest {
                  "architecture":{"input_modalities":["text","image"]},
                  "pricing":{"prompt":"0.000000214","completion":"0.00000255"},
                  "top_provider":{"context_length":1000000,"max_completion_tokens":131072},
-                 "supported_parameters":["tools","tool_choice","reasoning","max_tokens"]}""");
+                 "supported_parameters":["tools","tool_choice","reasoning","structured_outputs","max_tokens"]}""");
+        assertEquals(true, model.structuredOutput());
         assertEquals(1_000_000, model.contextWindow());
         assertEquals(131_072, model.maxOutputTokens());
         assertEquals(true, model.toolCalling());
@@ -40,6 +41,7 @@ class OpenAiReportedModelsTest {
                 {"id":"x/free","context_length":8192,"architecture":{"input_modalities":["text"]},
                  "pricing":{"prompt":"-1","completion":"0"},"supported_parameters":["max_tokens"]}""");
         assertEquals(false, textOnly.toolCalling());
+        assertEquals(false, textOnly.structuredOutput());
         assertEquals(false, textOnly.vision());
         assertNull(textOnly.pricing(), "a variable (-1) price is not a price");
         assertNull(textOnly.maxOutputTokens());
@@ -128,8 +130,9 @@ class OpenAiReportedModelsTest {
         // OpenRouter's own answer limit, capabilities and prices win; its total window (400,000) exceeds OpenAI's
         // 272,000-token input cap, so the smaller catalog window is kept.
         var routed = ModelResolver.spec(new ReportedModel("openai/gpt-5-mini", 400_000, 100_000, true, false, true,
-                new ModelSettings.Pricing(0.3, 2.1)), known);
+                true, new ModelSettings.Pricing(0.3, 2.1)), known);
         assertEquals(ModelResolver.ReportedModelSpec.Source.PROVIDER, routed.source());
+        assertTrue(routed.capabilities().structuredOutput(), "the listing says the model takes a schema");
         assertEquals(272_000, routed.contextWindow());
         assertEquals(100_000, routed.maxOutputTokens());
         assertFalse(routed.capabilities().vision());
@@ -137,11 +140,11 @@ class OpenAiReportedModelsTest {
 
         // xAI publishes a context window and no answer limit: the limit is left empty, never guessed, and the model is
         // added as is so the provider's default applies (Onyx).
-        var grok = ModelResolver.spec(new ReportedModel("grok-code-9", 256_000, null, true, false, true, null), known);
+        var grok = ModelResolver.spec(new ReportedModel("grok-code-9", 256_000, null, true, false, true, null, null), known);
         assertEquals(256_000, grok.contextWindow());
         assertNull(grok.maxOutputTokens());
         // vLLM publishes only its context window: as Onyx, tools are assumed and vision and reasoning stay off.
-        var local = ModelResolver.spec(new ReportedModel("local-qwen", 32_768, null, null, null, null, null), known);
+        var local = ModelResolver.spec(new ReportedModel("local-qwen", 32_768, null, null, null, null, null, null), known);
         assertEquals(32_768, local.contextWindow());
         assertNull(local.maxOutputTokens());
         assertEquals(new ModelSettings.Capabilities(true, true, false, false, false), local.capabilities());
@@ -157,7 +160,7 @@ class OpenAiReportedModelsTest {
     @Test
     void aPublishedAnswerLimitAtOrAboveTheWindowFallsBackToTheCatalog() {
         var known = List.copyOf(KnownModels.models());
-        var spec = ModelResolver.spec(new ReportedModel("gpt-5-mini", 272_000, 272_000, null, null, null, null), known);
+        var spec = ModelResolver.spec(new ReportedModel("gpt-5-mini", 272_000, 272_000, null, null, null, null, null), known);
         assertEquals(128_000, spec.maxOutputTokens());
     }
 }
