@@ -47,9 +47,22 @@ class SpeakerIntroductionsTest {
 
     @Test void readsNamesWrittenTheOtherWaysAndInEnglish() {
         assertEquals("Minh", name("Tên tôi là Minh."));
-        assertEquals("Minh Anh", name("Minh Anh đây, xin chào cả nhà."));
         assertEquals("Sarah", name("Hi, my name is Sarah and I lead the audit."));
         assertEquals("Hải", name("Còn lại là số liệu quý 4. Mình là Hải nhé."));
+    }
+
+    @Test void takesAnAnnouncementForANameOnlyWhenTheMeetingExpectsIt() {
+        var announced = said("1", "Minh Anh đây, xin chào cả nhà.");
+        var key = SpeakerNames.key(Meeting.Track.MIC, "1");
+
+        assertEquals("Minh Anh", SpeakerIntroductions.suggest(List.of(announced), List.of("Minh Anh"), ASKING)
+                .get(key).name());
+        assertEquals("Minh Anh", SpeakerIntroductions.suggest(List.of(announced), List.of("Nguyễn Minh Anh"), ASKING)
+                .get(key).name(), "a participant is listed by full name and announces the given one");
+        assertNull(name("Minh Anh đây, xin chào cả nhà."), "nobody by that name was expected");
+        assertNull(name("Chạy đây."), "a sentence opens with a capital whether or not it opens with a name");
+        assertTrue(SpeakerIntroductions.suggest(List.of(said("1", "Chạy đây.")), List.of("Minh Anh"), ASKING)
+                .isEmpty());
     }
 
     @Test void refusesARoleOrASentenceThatIsNotAName() {
