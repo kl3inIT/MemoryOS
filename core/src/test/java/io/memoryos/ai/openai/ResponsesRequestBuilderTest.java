@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -49,8 +48,7 @@ class ResponsesRequestBuilderTest {
         String schema = """
                 {"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"],"additionalProperties":false}""";
         var builder = new ResponsesRequestBuilder(false, false);
-        var params = builder.build(new Prompt("Question"), options(false).responseFormat(ResponseFormat.builder()
-                .type(ResponseFormat.Type.JSON_SCHEMA).jsonSchema(schema).strict(true).build()).build(), false, false);
+        var params = builder.build(new Prompt("Question"), options(false).outputSchema(schema).build(), false, false);
         assertEquals(JsonValue.from(Map.of("format", Map.of("type", "json_schema", "name", "answer", "strict", true,
                         "schema", Map.of("type", "object", "properties", Map.of("summary", Map.of("type", "string")),
                                 "required", List.of("summary"), "additionalProperties", false)))),

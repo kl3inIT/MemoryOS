@@ -18,9 +18,15 @@ import org.jspecify.annotations.Nullable;
  */
 public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
                                ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
-                               UnaryOperator<Prompt> requiredTools,
+                               boolean structuredOutput, UnaryOperator<Prompt> requiredTools,
                                BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling,
                                Predicate<Throwable> credentialRejection, @Nullable ReasoningEffort taskEffort) {
+    /**
+     * The key under which a call carries the JSON schema of its typed answer on Embabel's options. The provider's
+     * options converter sends it with the request, so the provider holds the model to it.
+     */
+    public static final String OUTPUT_SCHEMA = "memoryos.outputSchema";
+
     /** A binding that leaves tool requests unchanged and has no per-turn sampling. */
     public static Builder builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
                                   int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
@@ -38,6 +44,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         private UnaryOperator<Prompt> requiredTools = UnaryOperator.identity();
         private BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling = (llmService, ignored) -> llmService;
         private Predicate<Throwable> credentialRejection = failure -> false;
+        private boolean structuredOutput;
 
         private Builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
                         int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
@@ -53,10 +60,12 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         public Builder requiredTools(UnaryOperator<Prompt> value) { requiredTools = value; return this; }
         public Builder sampling(BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> value) { sampling = value; return this; }
         public Builder credentialRejection(Predicate<Throwable> value) { credentialRejection = value; return this; }
+        /** The deployment holds an answer to a JSON schema sent with the request. */
+        public Builder structuredOutput(boolean value) { structuredOutput = value; return this; }
 
         public ModelBinding build() {
             return new ModelBinding(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
-                    requiredTools, sampling, credentialRejection, null);
+                    structuredOutput, requiredTools, sampling, credentialRejection, null);
         }
     }
 
@@ -85,7 +94,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
                 turnSampling.isEmpty() ? service : sampling.apply(service, turnSampling),
                 finalRequest, policy, contextWindow,
                 outputTokenLimit == null ? maxOutputTokens : Integer.valueOf(outputAtMost(outputTokenLimit)),
-                toolCalling, vision, requiredTools, sampling, credentialRejection, taskEffort);
+                toolCalling, vision, structuredOutput, requiredTools, sampling, credentialRejection, taskEffort);
     }
 
     /**
@@ -96,7 +105,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
     public ModelBinding forTask(ReasoningEffort effort) {
         var base = effort == ReasoningEffort.OFF ? this : forOptions(new ModelSampling(null, effort, false), null);
         return new ModelBinding(base.service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
-                requiredTools, sampling, credentialRejection, effort);
+                structuredOutput, requiredTools, sampling, credentialRejection, effort);
     }
 
     /** Whether a task call through this binding thinks rather than running as a helper. */
@@ -144,13 +153,6 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
     /** {@code bound}, lowered to the model's output limit when it publishes one. */
     public int outputAtMost(int bound) {
         return maxOutputTokens == null ? bound : Math.min(bound, maxOutputTokens);
-    }
-
-    /** Whether the model takes a JSON schema with the request and answers within it. */
-    public boolean structuredOutput() {
-        var support = service.getNativeSupport();
-        var declared = support == null ? null : support.getStructuredOutput();
-        return declared != null && Boolean.TRUE.equals(declared.getSupported());
     }
 
     /** Contributions were frozen into the admitted system message before reserving this turn. */

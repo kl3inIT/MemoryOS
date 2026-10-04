@@ -19,26 +19,21 @@ import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.api.common.PromptRunner;
 import com.embabel.agent.core.AgentProcessRepository;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
-import com.embabel.agent.spi.support.springai.SpringAiNativeStructuredOutputConfigurer;
-import com.embabel.agent.spi.support.springai.ToolResponseContentAdapter;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
-import com.embabel.common.ai.autoconfig.NativeStructuredOutputCapability;
-import com.embabel.common.ai.autoconfig.NativeSupport;
-import com.embabel.common.ai.model.DefaultOptionsConverter;
 import com.embabel.common.ai.model.LlmOptions;
-import com.embabel.common.ai.model.NativeStructuredOutputMode;
-import com.embabel.common.ai.model.NativeStructuredOutputModeKt;
+import io.memoryos.chat.grounding.GroundingClassifier;
 import io.memoryos.shared.Tokenizers;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 class ModelCallsTest {
     record Minutes(String summary) {}
@@ -133,33 +128,66 @@ class ModelCallsTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void aModelThatDeclaresStructuredOutputIsAskedForItAndAnyOtherIsAskedNotToUseIt() {
+    void aTypedCallOnAModelThatDeclaresStructuredOutputCarriesTheSchemaOfItsAnswerAndNoOtherCallDoes() {
         var context = mock(ExecutingOperationContext.class, RETURNS_DEEP_STUBS);
         var runner = mock(PromptRunner.class);
         when(context.ai().withLlmService(any())).thenReturn(runner);
         when(runner.getLlm()).thenReturn(LlmOptions.withDefaultLlm());
         when(runner.withLlm(any())).thenReturn(runner);
         when(runner.createObject(anyList(), eq(Minutes.class))).thenReturn(new Minutes("ok"));
+        when(runner.createObject(anyList(), eq(String.class))).thenReturn("text");
         ObjectProvider<ExecutingOperationContext> contexts = mock(ObjectProvider.class);
         when(contexts.getObject()).thenReturn(context);
         var calls = new ModelCalls(contexts, mock(AgentProcessRepository.class), 1.0, 10_000, 2);
         var policy = ModelRequestPolicy.hosted(Tokenizers.o200k(), prompt -> prompt);
-        var declared = new SpringAiLlmService("fixture", "fixture", mock(ChatModel.class)).copy("fixture", "fixture",
-                mock(ChatModel.class), DefaultOptionsConverter.INSTANCE, null, List.of(), null, false,
-                ToolResponseContentAdapter.PASSTHROUGH, SpringAiNativeStructuredOutputConfigurer.Companion.getNOOP(),
-                new NativeSupport(new NativeStructuredOutputCapability(true, null, true, null, Map.of())));
+        var declared = ModelBinding.builder(new SpringAiLlmService("fixture", "fixture", mock(ChatModel.class)),
+                prompt -> prompt, policy, 32000, 4096, false, false).structuredOutput(true).build();
 
-        calls.generateObject(ModelBinding.builder(declared, prompt -> prompt, policy, 32000, 4096, false, false).build(),
-                "Write the minutes.", "[1] 00:00 An: Chốt.", Minutes.class, Duration.ofSeconds(30), 1000, accounting -> {});
+        calls.generateObject(declared, "Write the minutes.", "[1] 00:00 An: Chốt.", Minutes.class,
+                Duration.ofSeconds(30), 1000, accounting -> {});
+        calls.generateObject(declared, "Classify.", "Hello", String.class, Duration.ofSeconds(5), 100, accounting -> {});
         calls.generateObject(binding(), "Write the minutes.", "[1] 00:00 An: Chốt.", Minutes.class,
                 Duration.ofSeconds(30), 1000, accounting -> {});
 
         var options = ArgumentCaptor.forClass(LlmOptions.class);
-        verify(runner, times(2)).withLlm(options.capture());
-        assertEquals(NativeStructuredOutputMode.ENABLED,
-                NativeStructuredOutputModeKt.getNativeStructuredOutput(options.getAllValues().get(0)));
-        assertEquals(NativeStructuredOutputMode.DISABLED,
-                NativeStructuredOutputModeKt.getNativeStructuredOutput(options.getAllValues().get(1)));
+        verify(runner, times(3)).withLlm(options.capture());
+        String schema = options.getAllValues().get(0).getExtension(ModelBinding.OUTPUT_SCHEMA);
+        var properties = new ObjectMapper().readTree(schema).path("properties");
+        assertEquals("string", properties.path("summary").path("type").asString());
+        assertNull(options.getAllValues().get(1).getExtension(ModelBinding.OUTPUT_SCHEMA), "a text answer has no schema");
+        assertNull(options.getAllValues().get(2).getExtension(ModelBinding.OUTPUT_SCHEMA), "the model does not declare it");
+    }
+
+    /**
+     * OpenAI's strict mode takes a schema only when every object lists all its properties as required and closes
+     * itself; Embabel 1.5.2 sends none of these three, since its own check refuses a list of objects.
+     */
+    @Test
+    void theAnswerTypesOfTheThreeTasksGiveASchemaStrictModeAccepts() {
+        for (Class<?> type : List.of(TranscriptSummary.class, TranscriptCorrections.class, GroundingClassifier.Answers.class)) {
+            assertStrict(type.getSimpleName(), new ObjectMapper().readTree(OutputSchemas.strict(type)));
+        }
+    }
+
+    @Test
+    void anOptionalFieldIsRequiredAndNullableSoTheModelMaySayItHasNone() {
+        var action = new ObjectMapper().readTree(OutputSchemas.strict(TranscriptSummary.class))
+                .path("properties").path("actions").path("items").path("properties");
+        assertEquals(List.of("string", "null"), action.path("owner").path("type").valueStream().map(JsonNode::asString).toList());
+        assertEquals("string", action.path("text").path("type").asString());
+        assertEquals("integer", action.path("line").path("type").asString());
+    }
+
+    private static void assertStrict(String path, JsonNode schema) {
+        if (schema.has("properties")) {
+            var required = new ArrayList<String>();
+            schema.path("required").forEach(name -> required.add(name.asString()));
+            var declared = new ArrayList<>(schema.path("properties").propertyNames());
+            assertEquals(declared.stream().sorted().toList(), required.stream().sorted().toList(), path + " required");
+            assertFalse(schema.path("additionalProperties").asBoolean(true), path + " is closed");
+            schema.path("properties").forEachEntry((name, property) -> assertStrict(path + "." + name, property));
+        }
+        if (schema.has("items")) assertStrict(path + "[]", schema.path("items"));
     }
 
     @Test

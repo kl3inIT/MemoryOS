@@ -70,7 +70,8 @@ final class ResponsesRequestBuilder {
             schema.put("type", "json_schema");
             schema.put("name", SCHEMA_NAME);
             schema.put("schema", JSON.readValue(format.getJsonSchema(), Map.class));
-            if (format.getStrict() != null) schema.put("strict", format.getStrict());
+            // Spring AI leaves the flag unset for an output schema and sends strict on Chat Completions; the same here.
+            schema.put("strict", format.getStrict() == null || format.getStrict());
             builder.putAdditionalBodyProperty("text", JsonValue.from(Map.of("format", schema)));
         }
         if (tools) {

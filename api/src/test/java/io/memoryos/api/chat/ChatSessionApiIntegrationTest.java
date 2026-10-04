@@ -173,6 +173,7 @@ import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ContentDisposition;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -4245,10 +4246,13 @@ class ChatSessionApiIntegrationTest {
     @Test
     void endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn() throws Exception {
         var prompts = new LinkedBlockingQueue<String>();
+        var schemas = new LinkedBlockingQueue<String>();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.getArgument(0, Prompt.class).getInstructions().stream()
                     .map(Message::getText).collect(Collectors.joining("\n"));
             prompts.add(text);
+            if (call.getArgument(0, Prompt.class).getOptions() instanceof OpenAiChatOptions options
+                    && options.getOutputSchema() != null) schemas.add(options.getOutputSchema());
             return response("""
                     {"summary":"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.","kind":"Giao ban tuần",
                      "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
@@ -4290,6 +4294,11 @@ class ChatSessionApiIntegrationTest {
                         assertEquals("READY", Json.mapper().readTree(body).path("minutes").path("status").asText());
                         ready.set(body);
                     });
+            // MEM-225: the fixture model declares structured output, so the request that reached the provider through
+            // Embabel carried the schema of the minutes, every field required.
+            var schema = Json.mapper().readTree(Objects.requireNonNull(schemas.poll(), "no schema reached the provider"));
+            assertEquals("array", schema.path("properties").path("decisions").path("type").asText());
+            assertEquals(5, schema.path("properties").path("actions").path("items").path("required").size());
             var minutes = Json.mapper().readTree(ready.get()).path("minutes");
             assertEquals("Cuộc họp chốt ngân sách quý 4 trước thứ Năm.", minutes.path("summary").asText());
             assertEquals("Giao ban tuần", minutes.path("kind").asText());

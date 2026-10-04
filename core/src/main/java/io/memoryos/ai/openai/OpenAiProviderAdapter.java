@@ -8,9 +8,6 @@ import io.memoryos.ai.AiException;
 import com.embabel.agent.openai.CapabilityAwareOpenAiOptionsConverter;
 import com.embabel.agent.openai.ModelCapabilities;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
-import com.embabel.agent.spi.support.springai.ToolResponseContentAdapter;
-import com.embabel.common.ai.autoconfig.NativeStructuredOutputCapability;
-import com.embabel.common.ai.autoconfig.NativeSupport;
 import com.embabel.common.ai.model.OptionsConverter;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import io.memoryos.ai.ProviderAdapter;
@@ -283,17 +280,19 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                 String effort = (String) configured.getOrDefault("helperReasoningEffort", "none");
                 converted = converted.mutate().reasoningEffort(effort).build();
             }
+            // A typed call on a model that declares structured output carries the schema of its answer; Spring AI
+            // sends it as response_format, and ResponsesRequestBuilder as text.format.
+            if (options.<Object>getExtension(ModelBinding.OUTPUT_SCHEMA) instanceof String schema)
+                converted = converted.mutate().outputSchema(schema).build();
             return converted;
         };
         var price = settings.pricing();
         var service = new SpringAiLlmService(name, "OpenAI", model, converter, null, List.of(),
-                price == null ? null : ModelPricing.of(price), settings.capabilities().reasoning(),
-                ToolResponseContentAdapter.PASSTHROUGH, new OpenAiStructuredOutput(),
-                new NativeSupport(new NativeStructuredOutputCapability(
-                        settings.capabilities().structuredOutput(), null, true, null, Map.of())));
+                price == null ? null : ModelPricing.of(price), settings.capabilities().reasoning());
         return new ModelBinding(service, OpenAiRequestPolicy::withoutTools,
                 OpenAiRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
-                settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiRequestPolicy::requireTools,
+                settings.capabilities().toolCalling(), settings.capabilities().vision(),
+                settings.capabilities().structuredOutput(), OpenAiRequestPolicy::requireTools,
                 (llmService, sampling) -> llmService.withOptionsConverter((requested, requestedModel) ->
                         OpenAiRequestPolicy.withSampling(
                                 llmService.getOptionsConverter().convertOptions(requested, requestedModel),

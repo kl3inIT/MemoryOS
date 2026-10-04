@@ -8,10 +8,12 @@ Design: [design.md](design.md). One pull request.
 - [x] `known-models.json` and `scripts/sync-chat-known-models.mjs`: `structuredOutput` from LiteLLM's
   `supports_response_schema`, at the pinned commit.
 - [x] `ModelResolver`: the capability from the catalog; `false` for a model only the provider reports.
-- [x] `OpenAiStructuredOutput` (the configurer) and `NativeSupport` on the `SpringAiLlmService` of
-  `OpenAiProviderAdapter`.
-- [x] `ResponsesRequestBuilder`: `ResponseFormat` to `text.format`.
-- [x] `ModelBinding.structuredOutput()`; `ModelCalls` chooses `ENABLED` or `DISABLED`.
+- [x] `OutputSchemas.strict`: the schema of an answer type, every property required, an optional one nullable.
+- [x] `ModelCalls` carries the schema on `LlmOptions` for a typed call on a declared model; the OpenAI options
+  converter sets it as Spring AI's `outputSchema`.
+- [x] `ResponsesRequestBuilder`: the output schema to `text.format`.
+- [x] `ModelBinding.structuredOutput`.
+- [x] The first version went through Embabel's native path and sent nothing (see the design); removed.
 - [x] `GroundingClassifier`: the fixed answer type on a model with the capability; the lenient reader otherwise.
 
 ## API and web

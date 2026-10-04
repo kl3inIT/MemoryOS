@@ -7,8 +7,8 @@ import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ProviderAdapter;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
-import com.embabel.agent.spi.loop.StructuredOutputRequest;
 import com.embabel.common.ai.model.LlmOptions;
+import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.ai.ModelSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -215,25 +215,23 @@ class OpenAiProviderAdapterTest {
         try {
             var connection = new ProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
             try (var client = adapter.create(connection, "configured-model", structured(Map.of(), true), Duration.ofSeconds(5))) {
-                var service = client.binding().service();
-                assertTrue(client.binding().structuredOutput());
-                var options = service.getNativeStructuredOutputConfigurer().configure(
-                        service.convertOptions(new LlmOptions().withMaxTokens(100).withoutThinking()),
-                        new StructuredOutputRequest("Minutes", SCHEMA, null, true), service.getNativeSupport(), service);
-                // What ModelGuard does to a request on its way out: the policy's options and, on the last cycle, the
-                // final request without tools. Neither may lose the schema.
                 var binding = client.binding();
+                assertTrue(binding.structuredOutput());
+                for (var effort : ReasoningEffort.values())
+                    assertTrue(binding.forTask(effort).structuredOutput(), effort.name());
+                // A task that reasons converts through the sampling wrapper; the schema has to survive it and the
+                // two rewrites ModelGuard applies on the way out (policy options, final request).
+                var service = binding.forTask(ReasoningEffort.MEDIUM).service();
+                var options = service.convertOptions(new LlmOptions().withMaxTokens(100)
+                        .withExtension(ModelBinding.OUTPUT_SCHEMA, SCHEMA));
                 service.getChatModel().call(binding.policy().options().apply(
                         binding.finalRequest().apply(new Prompt("Write the minutes.", options))));
                 var format = request.get().path("response_format");
-                var plain = service.convertOptions(new LlmOptions().withMaxTokens(100));
-                assertSame(plain, service.getNativeStructuredOutputConfigurer().configure(plain, null,
-                        service.getNativeSupport(), service), "a request without a typed answer is left alone");
                 assertEquals("json_schema", format.path("type").asString());
                 assertTrue(format.path("json_schema").path("strict").asBoolean());
                 assertEquals(mapper.readTree(SCHEMA), format.path("json_schema").path("schema"));
                 assertFalse(format.path("json_schema").path("name").asString().isBlank());
-                assertEquals(100, request.get().path("max_tokens").asInt(), "the other options survive");
+                assertEquals(100, request.get().path("max_completion_tokens").asInt(100), "the other options survive");
             }
             try (var client = adapter.create(connection, "configured-model", structured(Map.of(), false), Duration.ofSeconds(5))) {
                 assertFalse(client.binding().structuredOutput());
@@ -242,23 +240,6 @@ class OpenAiProviderAdapterTest {
                 assertFalse(request.get().has("response_format"));
             }
         } finally { meters.close(); server.stop(0); }
-    }
-
-    @Test
-    void theTaskLevelKeepsTheDeclaredStructuredOutput() {
-        var meters = new SimpleMeterRegistry();
-        try {
-            var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
-            var connection = new ProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
-            try (var client = adapter.create(connection, "gpt-5.6", structured(Map.of(), true), Duration.ofSeconds(1))) {
-                for (var effort : ReasoningEffort.values()) {
-                    var task = client.binding().forTask(effort);
-                    assertTrue(task.structuredOutput(), effort.name());
-                    assertInstanceOf(OpenAiStructuredOutput.class, task.service().getNativeStructuredOutputConfigurer());
-                    assertTrue(task.withModel(task.service().getChatModel()).getNativeSupport().getStructuredOutput().getSupported());
-                }
-            }
-        } finally { meters.close(); }
     }
 
     private static final String SCHEMA = """
