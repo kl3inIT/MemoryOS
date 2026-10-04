@@ -408,6 +408,10 @@ public final class RestGoogleDriveGateway implements GoogleDriveGateway, AutoClo
         private byte[] request(AbstractGoogleClientRequest<?> request, Budget budget, int limit,
                 GoogleDriveProviderException.Failure forbidden) {
             if (bearer == null) throw failure(AUTHENTICATION);
+            // A Google client request sets these itself after the initializer ran: its own headers ask for gzip and
+            // its answer is decoded. The bound is on the bytes Google sends, so neither may stand.
+            request.getRequestHeaders().setAcceptEncoding(null);
+            request.setReturnRawInputStream(true);
             return exchange(request::executeUnparsed, budget, limit, false, forbidden);
         }
 

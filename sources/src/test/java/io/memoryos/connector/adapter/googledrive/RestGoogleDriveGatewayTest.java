@@ -14,6 +14,7 @@ import io.memoryos.connector.GoogleDriveProviderException.Failure;
 import io.memoryos.connector.SourceInputFormat;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -681,6 +683,26 @@ class RestGoogleDriveGatewayTest {
              var provider = provider(fixture, 1024, 0); var credential = credential(); var session = provider.open(credential)) {
             var file = session.metadata("file1");
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class, () -> session.acquire(file)).failure());
+        }
+    }
+
+    @Test
+    void aGoogleClientRequestAsksForNoCompressionAndACompressedAnswerIsNeverInflatedPastTheBound() throws Exception {
+        var asked = Collections.synchronizedList(new ArrayList<String>());
+        var compressed = new ByteArrayOutputStream();
+        try (var gzip = new GZIPOutputStream(compressed)) {
+            gzip.write(("{\"id\":\"file1\",\"name\":\"" + "x".repeat(4_000_000) + "\"}").getBytes(StandardCharsets.UTF_8));
+        }
+        try (var fixture = new Fixture(exchange -> {
+            asked.add(String.valueOf(exchange.getRequestHeaders().getFirst("Accept-Encoding")));
+            // A server that compresses although it was not asked to: a few KiB that inflate to 4 MB.
+            exchange.getResponseHeaders().add("Content-Encoding", "gzip");
+            return new Response(200, compressed.toByteArray());
+        }); var provider = provider(fixture, 1_048_576, 0); var credential = credential(); var session = provider.open(credential)) {
+            // The bytes are within the bound and are handed on as sent, so the strict reader refuses them as JSON
+            // instead of the library inflating 4 MB past a 1 MiB bound.
+            assertEquals(Failure.MALFORMED, assertThrows(GoogleDriveProviderException.class, () -> session.metadata("file1")).failure());
+            assertFalse(asked.getFirst().contains("gzip"), asked.getFirst());
         }
     }
 
