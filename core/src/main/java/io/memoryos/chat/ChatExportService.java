@@ -55,7 +55,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ChatExportService {
     private static final Logger LOG = LoggerFactory.getLogger(ChatExportService.class);
 
-    /** The storage adapter writes an object of at most 32 MiB, so the packed export stays below it. */
+    /** The export is packed in memory and written as one object, so it is kept small. */
     public static final long MAX_TOTAL_BYTES = 30L * 1024 * 1024;
     public static final int MAX_SESSIONS = 500;
     public static final int MAX_MESSAGES_PER_SESSION = 500;
