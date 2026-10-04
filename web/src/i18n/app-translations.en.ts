@@ -197,6 +197,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không đổi được sau khi tải lên.": "Cannot be changed after the upload.",
   "Có tên người nói đang chờ bạn xác nhận": "Speaker names are waiting for your confirmation",
   "Chi tiết": "Details",
+  "Trang nguồn {{provider}}": "{{provider}} source pages",
   "vừa viết xong": "just written",
   "Người nói {{label}} tự giới thiệu là {{name}}":
     "Speaker {{label}} introduced themselves as {{name}}",

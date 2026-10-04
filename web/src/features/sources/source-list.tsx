@@ -27,12 +27,13 @@ import {
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
+import { TablePagination } from "@/components/ui/table-pagination";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import {
   findSourceProvider,
@@ -61,7 +62,7 @@ export type SourceListItem = {
 
 /**
  * The Sources grouped by provider, as the Sources page lists them: their totals, a search, the status, provider
- * and access filters, and one table section per provider. The administration page and a member's library both
+ * and access filters, and one section per provider with its own table and pages. The administration page and a member's library both
  * show it; each says what a row's document count means and where its name and action lead. The search and the
  * filters belong to the page that shows the list, so a page that keeps them in its address can.
  */
@@ -118,7 +119,6 @@ export function SourceList<T extends SourceListItem>({
   }, [filters, search, sources, ui]);
   const groups = useMemo(() => groupSources(filteredSources), [filteredSources]);
   const hasExpandedGroups = groups.some((group) => !collapsedTypes.has(group.type));
-  const columns = renderAction ? 6 : 5;
   const row = { documents, renderName, renderAccess, renderAction };
   const failedCount = sources.filter((source) => source.status === "FAILED").length;
   const showingFailed = filters.status === "FAILED";
@@ -198,62 +198,24 @@ export function SourceList<T extends SourceListItem>({
         <SourceFilterFields value={filters} statuses={statuses} onChange={onFilters} />
       ) : null}
 
-      {/*
-        The list's own width picks its layout: from 56rem every column shows; narrower, the name cell carries the
-        access, count and date on a second line, so nothing scrolls sideways on a phone or beside the sidebar.
-      */}
-      <div className="@container overflow-hidden rounded-lg border border-border-subtle">
-        <Table aria-labelledby="connected-sources-caption" className="@4xl:table-fixed">
-          <TableCaption id="connected-sources-caption" className="sr-only">
-            {ui("Connected sources")}
-          </TableCaption>
-          <TableHeader>
-            <TableRow className="h-10.5">
-              <TableHead scope="col" className="px-4">
-                {ui("Name")}
-              </TableHead>
-              <TableHead scope="col" className="hidden w-44 px-4 whitespace-nowrap @4xl:table-cell">
-                {ui("Last indexed")}
-              </TableHead>
-              <TableHead scope="col" className="w-px px-2 whitespace-nowrap @4xl:w-48 @4xl:px-4">
-                {ui("Status")}
-              </TableHead>
-              <TableHead scope="col" className="hidden w-64 px-4 whitespace-nowrap @4xl:table-cell">
-                {ui("Access")}
-              </TableHead>
-              <TableHead scope="col" className="hidden w-40 px-4 whitespace-nowrap @4xl:table-cell">
-                {documentsLabel}
-              </TableHead>
-              {renderAction ? (
-                <TableHead scope="col" className="w-14 px-2">
-                  <span className="sr-only">{ui("Manage")}</span>
-                </TableHead>
-              ) : null}
-            </TableRow>
-          </TableHeader>
-          {groups.map((group) => (
-            <SourceGroupBody
-              key={group.type}
-              group={group}
-              columns={columns}
-              collapsed={collapsedTypes.has(group.type)}
-              onToggle={() => toggle(group.type)}
-              row={row}
-            />
-          ))}
-          {groups.length === 0 ? (
-            <TableBody>
-              <TableRow>
-                <TableCell colSpan={columns} className="px-4 py-12 text-center">
-                  <span className="text-sm text-content-muted">
-                    {ui("No sources match your search and filters.")}
-                  </span>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          ) : null}
-        </Table>
-      </div>
+      {/* Each provider is a section of its own: its heading, its table and its pages. */}
+      <section aria-label={ui("Connected sources")} className="flex flex-col gap-8">
+        {groups.map((group) => (
+          <SourceGroupSection
+            key={group.type}
+            group={group}
+            collapsed={collapsedTypes.has(group.type)}
+            onToggle={() => toggle(group.type)}
+            documentsLabel={documentsLabel}
+            row={row}
+          />
+        ))}
+        {groups.length === 0 ? (
+          <p className="rounded-lg border border-border-subtle px-4 py-12 text-center text-sm text-content-muted">
+            {ui("No sources match your search and filters.")}
+          </p>
+        ) : null}
+      </section>
     </>
   );
 }
@@ -351,63 +313,140 @@ type RowRendering<T> = {
   renderAction?: (source: T) => ReactNode;
 };
 
-function SourceGroupBody<T extends SourceListItem>({
+/** The Sources one page of a provider's table can show; a provider with more than the first gets pages of its own. */
+const GROUP_PAGE_SIZES = [10, 20, 50] as const;
+
+/**
+ * One provider's Sources: a heading that folds them, their table, and the pages of that table when there are more
+ * than one page holds.
+ */
+function SourceGroupSection<T extends SourceListItem>({
   group,
-  columns,
   collapsed,
   onToggle,
+  documentsLabel,
   row,
 }: {
   group: SourceGroup<T>;
-  columns: number;
   collapsed: boolean;
   onToggle: () => void;
+  documentsLabel: string;
   row: RowRendering<T>;
 }) {
   const ui = useAppTranslation();
+  const [requestedPage, setRequestedPage] = useState(0);
+  const [size, setSize] = useState<number>(GROUP_PAGE_SIZES[0]);
 
   const provider = findSourceProvider(group.type);
   const ProviderIcon = provider?.icon ?? Files;
   const providerName = ui(provider?.name ?? group.type);
   const documentCount = group.sources.reduce((total, source) => total + row.documents(source), 0);
+  const totalPages = Math.ceil(group.sources.length / size);
+  // A search or a filter can leave fewer pages than the one being read.
+  const page = Math.min(requestedPage, totalPages - 1);
+  const first = page * size;
+  const shown = failuresFirst(group.sources).slice(first, first + size);
 
   return (
-    <TableBody>
-      {/* The whole row toggles its group; the provider's button stays the keyboard's way to it. */}
-      <TableRow
-        className="h-12 cursor-pointer"
-        onClick={(event) => {
-          if (!(event.target as Element).closest("button, a")) onToggle();
-        }}
-      >
-        <TableHead scope="rowgroup" colSpan={columns} className="px-4">
-          <button
-            type="button"
-            aria-expanded={!collapsed}
-            aria-label={ui("{{v1}} group, {{v2}} sources, {{v3}} documents", {
-              v1: providerName,
-              v2: group.sources.length,
-              v3: documentCount,
-            })}
-            onClick={onToggle}
-            className="flex shrink-0 items-center gap-2 text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
-          >
-            {collapsed ? (
-              <ChevronRight className="size-4 text-content-secondary" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="size-4 text-content-secondary" aria-hidden="true" />
-            )}
-            <ProviderIcon className="size-4 text-content-secondary" aria-hidden="true" />
-            <span className="font-main-ui-action text-content-primary">{providerName}</span>
-          </button>
-        </TableHead>
-      </TableRow>
-      {!collapsed
-        ? failuresFirst(group.sources).map((source) => (
-            <SourceRow key={source.id} source={source} row={row} />
-          ))
-        : null}
-    </TableBody>
+    <div className="flex flex-col gap-3">
+      <h2>
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          aria-label={ui("{{v1}} group, {{v2}} sources, {{v3}} documents", {
+            v1: providerName,
+            v2: group.sources.length,
+            v3: documentCount,
+          })}
+          onClick={onToggle}
+          className="flex items-center gap-2 rounded-sm text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
+        >
+          {collapsed ? (
+            <ChevronRight className="size-4 text-content-secondary" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="size-4 text-content-secondary" aria-hidden="true" />
+          )}
+          <ProviderIcon className="size-5 text-content-secondary" aria-hidden="true" />
+          <span className="font-heading-h3 text-content-primary">{providerName}</span>
+          <span className="font-secondary-body text-content-muted tabular-nums">
+            {group.sources.length}
+          </span>
+        </button>
+      </h2>
+      {collapsed ? null : (
+        // The table's own width picks its layout: from 56rem every column shows; narrower, the name cell carries
+        // the access, count and date on a second line, so nothing scrolls sideways on a phone or beside the sidebar.
+        <div className="@container overflow-hidden rounded-lg border border-border-subtle">
+          <Table aria-label={providerName} className="@4xl:table-fixed">
+            <TableHeader>
+              <TableRow className="h-10.5">
+                <TableHead scope="col" className="px-4">
+                  {ui("Name")}
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="hidden w-44 px-4 whitespace-nowrap @4xl:table-cell"
+                >
+                  {ui("Last indexed")}
+                </TableHead>
+                <TableHead scope="col" className="w-px px-2 whitespace-nowrap @4xl:w-48 @4xl:px-4">
+                  {ui("Status")}
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="hidden w-64 px-4 whitespace-nowrap @4xl:table-cell"
+                >
+                  {ui("Access")}
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="hidden w-40 px-4 whitespace-nowrap @4xl:table-cell"
+                >
+                  {documentsLabel}
+                </TableHead>
+                {row.renderAction ? (
+                  <TableHead scope="col" className="w-14 px-2">
+                    <span className="sr-only">{ui("Manage")}</span>
+                  </TableHead>
+                ) : null}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {shown.map((source) => (
+                <SourceRow key={source.id} source={source} row={row} />
+              ))}
+            </TableBody>
+          </Table>
+          {group.sources.length > GROUP_PAGE_SIZES[0] ? (
+            <TablePagination
+              label={ui("Trang nguồn {{provider}}", { provider: providerName })}
+              page={page}
+              totalPages={totalPages}
+              previousDisabled={page === 0}
+              nextDisabled={page === totalPages - 1}
+              onPrevious={() => setRequestedPage(page - 1)}
+              onNext={() => setRequestedPage(page + 1)}
+              summary={ui("Showing {{first}}–{{last}} of {{total}}", {
+                first: first + 1,
+                last: first + shown.length,
+                total: group.sources.length,
+              })}
+            >
+              <PageSizeSelect
+                label={ui("Rows per page")}
+                rowsLabel={ui("Rows")}
+                value={size}
+                sizes={GROUP_PAGE_SIZES}
+                onSizeChange={(next) => {
+                  setSize(next);
+                  setRequestedPage(0);
+                }}
+              />
+            </TablePagination>
+          ) : null}
+        </div>
+      )}
+    </div>
   );
 }
 

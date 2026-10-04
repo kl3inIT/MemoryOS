@@ -50,7 +50,7 @@ it("leads its group with a failed Source and names a status it does not know", (
     },
   ]);
 
-  const table = screen.getByRole("table", { name: "Connected sources" });
+  const table = screen.getByRole("region", { name: "Connected sources" });
   const sourceRows = within(table)
     .getAllByRole("row")
     .filter((row) => row.id.startsWith("source-"));
@@ -91,4 +91,25 @@ it("filters the list to its failed Sources from the failed figure, and back", as
   expect(tile).toHaveAttribute("aria-pressed", "true");
   await user.click(tile);
   expect(onFilters).toHaveBeenLastCalledWith(noSourceFilters);
+});
+
+it("gives a provider with more Sources than a page holds its own pages", async () => {
+  const user = userEvent.setup();
+  renderList(
+    Array.from({ length: 12 }, (_, index) => ({
+      ...handbooks,
+      id: `30000000-0000-4000-8000-0000000000${String(index).padStart(2, "0")}`,
+      name: `Source ${index + 1}`,
+    })),
+  );
+
+  const rows = () =>
+    screen.getAllByRole("row").filter((row) => row.id.startsWith("source-")).length;
+  expect(rows()).toBe(10);
+  const pages = screen.getByRole("navigation", { name: /source pages$/ });
+  expect(within(pages).getByRole("status")).toHaveTextContent("1 / 2");
+
+  await user.click(within(pages).getAllByRole("button")[1]!);
+  expect(rows()).toBe(2);
+  expect(within(pages).getByRole("status")).toHaveTextContent("2 / 2");
 });
