@@ -14,7 +14,7 @@ The critique left the direction of each P2 group to the owner. This batch takes 
 
 ### The administration menu
 
-- **L2-3a.** The menu listed every section open, 20 links on one screen, and scrolled on a laptop. A section folds (`Collapsible` on the sidebar group). Every section is open while the menu fits the screen; when it would scroll, every section but the open page's folds. A section the person folds or opens stays that way on this browser. The icon-only sidebar keeps every section open since it has no section labels.
+- **L2-3a.** The menu listed every section open, 20 links on one screen, and scrolled on a laptop. A section folds (`Collapsible` on the sidebar group). Every section opens; a menu taller than the screen scrolls, as the measured folding hid links people looked for (decided with the owner on 2026-10-04, replacing the earlier rule that folded every section but the open page's when the menu would scroll). A section the person folds or opens stays that way on this browser. The icon-only sidebar keeps every section open since it has no section labels.
 - **L2-3b.** *Thêm nguồn* leaves the menu. It was an action listed as a place; the Sources page carries the same link as its primary button.
 
 ### One pattern per list page
