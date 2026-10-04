@@ -34,16 +34,13 @@ export function SpeakerSuggestions({
   const failure = accept.error ?? dismiss.error;
 
   return (
-    <section className="grid gap-2">
-      <h3 className="text-sm font-medium">
-        {ui("Tên người nói ({{count}})", { count: offered.length })}
-      </h3>
+    <div className="mt-1 grid grid-cols-1 gap-2">
       {failure ? (
         <p role="alert" className="text-sm text-status-danger-content">
           {failureText(failure)}
         </p>
       ) : null}
-      <ol className="grid gap-2">
+      <ol className="grid grid-cols-1 gap-3">
         {offered.map((speaker) => {
           const key = `${speaker.track}/${speaker.label}`;
           const said = meeting.utterances.find(
@@ -51,10 +48,7 @@ export function SpeakerSuggestions({
           );
           const name = speaker.suggestion?.name ?? "";
           return (
-            <li
-              key={key}
-              className="grid gap-2 rounded-xl border border-border-default px-3 py-3 sm:flex sm:items-center sm:justify-between"
-            >
+            <li key={key} className="grid gap-1.5">
               <div className="min-w-0">
                 <p className="text-sm">
                   {ui("Người nói {{label}} tự giới thiệu là {{name}}", {
@@ -62,18 +56,21 @@ export function SpeakerSuggestions({
                     name,
                   })}
                 </p>
+                {/* The sentence the name was read from, quoted, and the way to it in the transcript. */}
                 {said && (
                   <button
                     type="button"
-                    className="truncate text-sm text-content-muted hover:underline"
+                    className="block max-w-full truncate text-xs text-content-muted hover:underline"
+                    aria-label={ui("Xem câu “{{text}}” trong transcript", { text: said.text })}
                     onClick={() => onReveal(said.id)}
                   >
-                    {said.text}
+                    “{said.text}”
                   </button>
                 )}
               </div>
-              <div className="flex shrink-0 gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
+                  prominence="secondary"
                   size="sm"
                   disabled={busy}
                   onClick={() => {
@@ -88,7 +85,7 @@ export function SpeakerSuggestions({
                   {ui("Đặt tên {{name}}", { name })}
                 </Button>
                 <Button
-                  prominence="secondary"
+                  prominence="tertiary"
                   size="sm"
                   disabled={busy}
                   onClick={() => {
@@ -106,6 +103,6 @@ export function SpeakerSuggestions({
           );
         })}
       </ol>
-    </section>
+    </div>
   );
 }

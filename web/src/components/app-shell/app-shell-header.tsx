@@ -4,6 +4,8 @@ import { AppShellHeaderSlot, ShellBarTitleSetter } from "./app-shell-header-slot
 
 type AppShellHeaderProps = {
   title: string;
+  /** The way back from a detail page, shown in place of the title the page itself carries. */
+  breadcrumb?: ReactNode;
   actions?: ReactNode;
   /**
    * The page names itself in a `PageHeader`, so from `md` up the shell header steps aside rather than repeat the
@@ -17,6 +19,7 @@ type AppShellHeaderProps = {
 /** The title and actions of the open page, as the shell header shows them. */
 export function AppShellHeaderContent({
   title,
+  breadcrumb,
   actions,
   pageHeader = false,
   heading = false,
@@ -24,14 +27,17 @@ export function AppShellHeaderContent({
   const Title = heading ? "h1" : "span";
   return (
     <>
-      <Title
-        data-page-header={pageHeader || undefined}
-        title={title}
-        // Below `md` this is the page's only title, so it reads as one; beside a wide page it is a label again.
-        className="min-w-0 flex-1 truncate font-heading-h3 text-content-primary md:max-w-xl md:font-main-ui-action"
-      >
-        {title}
-      </Title>
+      {breadcrumb ? (
+        <div className="flex min-w-0 flex-1">{breadcrumb}</div>
+      ) : (
+        <Title
+          data-page-header={pageHeader || undefined}
+          title={title}
+          className="min-w-0 flex-1 truncate font-heading-h3 text-content-primary md:max-w-xl"
+        >
+          {title}
+        </Title>
+      )}
       <div className="ml-auto flex shrink-0 items-center">{actions}</div>
     </>
   );

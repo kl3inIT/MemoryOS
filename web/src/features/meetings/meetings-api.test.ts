@@ -10,6 +10,7 @@ import {
   invalidateMeetingList,
   meetingQueryKey,
   patchMeeting,
+  timelineOf,
   withAddedMinutesItem,
   withMinutesItem,
   withoutMinutesItem,
@@ -269,5 +270,35 @@ describe("folding one correction", () => {
     foldCorrection(cache, "meeting-2", correction("c1", { status: "KEPT" }));
 
     expect(cache.getQueryData(correctionsQueryKey("meeting-2"))).toBeUndefined();
+  });
+});
+
+describe("the timeline of a meeting", () => {
+  const line = (id: string, startMs: number) =>
+    ({ id, track: "MIC", speaker: "1", startMs, endMs: startMs + 4_000 }) as MeetingUtterance;
+  const topic = (id: string, sourceUtteranceId: string | null) =>
+    ({ id, text: `Chủ đề ${id}`, sourceUtteranceId }) as MeetingMinutesItem;
+  const meeting = (bookmarks: MeetingDetail["bookmarks"]) =>
+    ({
+      utterances: [line("u1", 0), line("u2", 10_000), line("u3", 20_000)],
+      minutes: { topics: [topic("t1", "u1"), topic("t2", "u3"), topic("t3", "gone")] },
+      bookmarks,
+    }) as MeetingDetail;
+
+  it("puts the subjects and the marked moments in the order the meeting reached them", () => {
+    const entries = timelineOf(meeting([{ id: "b1", atMs: 14_000, label: "Đánh dấu 1" }]));
+
+    // A subject whose line is gone is left out; the moment opens on the line being said when it was marked.
+    expect(entries.map((entry) => [entry.id, entry.kind, entry.atMs, entry.line.id])).toEqual([
+      ["t1", "topic", 0, "u1"],
+      ["b1", "bookmark", 14_000, "u2"],
+      ["t2", "topic", 20_000, "u3"],
+    ]);
+  });
+
+  it("leaves out a moment marked before anything was said", () => {
+    const empty = { ...meeting([{ id: "b1", atMs: 1_000, label: "Đánh dấu 1" }]), utterances: [] };
+
+    expect(timelineOf(empty)).toEqual([]);
   });
 });

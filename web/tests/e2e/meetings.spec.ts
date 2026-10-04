@@ -185,11 +185,12 @@ async function mockMeetings(page: Page) {
                 id: "c2",
                 utteranceId: "u1",
                 runId: "r1",
-                start: 26,
-                end: 31,
-                before: "quý 4",
-                after: "quý IV",
-                reason: "Văn bản của công ty viết số La Mã.",
+                // The line already reads as the change left it: "quý 4" stands where "quý tư" was heard.
+                start: 38,
+                end: 44,
+                before: "quý tư",
+                after: "quý 4",
+                reason: "Văn bản của công ty viết quý bằng chữ số.",
                 confidence: 0.71,
                 contextFit: 0.8,
                 meaningSafe: 0.99,
@@ -723,17 +724,26 @@ for (const width of [1440, 390]) {
       fullPage: true,
     });
 
+    // The voices are named in the meeting's panel, which a narrow page keeps closed until asked.
+    if (width < 1280)
+      await page.getByRole("button", { name: "Chi tiết cuộc họp", exact: true }).click();
     await page.getByRole("button", { name: "Đặt tên cho Người nói 2" }).click();
     // The meeting is already shared with Chị Lan, so her chip carries a button of her name too.
     await page.getByRole("button", { name: "Chị Lan", exact: true }).click();
     await expect(page.getByRole("button", { name: "Đặt tên cho Chị Lan" })).toBeVisible();
+    if (width < 1280)
+      await page
+        .getByRole("dialog", { name: "Chi tiết cuộc họp" })
+        .getByRole("button", { name: "Đóng" })
+        .click();
 
     await page.getByRole("button", { name: "Dừng", exact: true }).click();
     const confirm = page.getByRole("alertdialog");
     await confirm.getByRole("button", { name: "Dừng và kết thúc" }).click();
     // The confirmation closes at once; the last words are stored behind the recording bar.
     await expect(confirm).toBeHidden({ timeout: 1_000 });
-    await expect(page.getByRole("button", { name: "Xóa cuộc họp" })).toBeVisible();
+    // The recording bar leaves with the recording.
+    await expect(page.getByRole("timer")).toBeHidden();
     // The minutes open on their own tab once they are written.
     await expect(
       page.getByText("Cuộc họp chốt ngân sách quý 4 trước thứ Năm", { exact: false }),
@@ -779,24 +789,35 @@ for (const width of [1440, 390]) {
     });
     await page.getByRole("tab", { name: "Tóm tắt" }).click();
     await expect(page.getByRole("button", { name: "Mở trong Chat" })).toBeVisible();
-    await page.getByPlaceholder("Thêm người hoặc Group").fill("Khối");
+    // Sharing opens from the header, wherever the page has been scrolled to.
+    await page.getByRole("button", { name: "Chia sẻ", exact: true }).click();
+    const sharing = page.getByRole("dialog", { name: "Chia sẻ cuộc họp" });
+    await sharing.getByPlaceholder("Thêm người hoặc Group").fill("Khối");
     await page.getByRole("option", { name: /Khối Tài chính/ }).click();
     await expect(
-      page.getByRole("list", { name: "Đã chia sẻ với" }).getByText("Khối Tài chính"),
+      sharing.getByRole("list", { name: "Đã chia sẻ với" }).getByText("Khối Tài chính"),
     ).toBeVisible();
     expect(shared.request?.groups).toEqual(["c9d3e7f1-5a2b-4c6d-8e90-1f3a5b7c9d02"]);
     await page.screenshot({
       path: `../output/playwright/meetings-sharing-${width}.png`,
       fullPage: true,
     });
+    await page.keyboard.press("Escape");
+    await expect(sharing).toBeHidden();
     // The name and the people are filled in on the page, after the recording started.
-    await page.getByRole("button", { name: "Sửa thông tin" }).click();
+    await page.getByRole("button", { name: /^Thao tác khác cho/ }).click();
+    await page.getByRole("menuitem", { name: "Sửa thông tin" }).click();
     const details = page.getByRole("dialog", { name: "Thông tin cuộc họp" });
     await details.getByLabel("Thành phần").fill("Anh Thanh, Chị Lan, Anh Minh, Chị Hoa");
     await page.screenshot({ path: `../output/playwright/meetings-details-${width}.png` });
     await details.getByRole("button", { name: "Lưu" }).click();
     await expect(details).toHaveCount(0);
-    await expect(page.getByText("Anh Thanh, Chị Lan, Anh Minh, Chị Hoa")).toBeVisible();
+    // Who was in the meeting is read in its panel, which a narrow page keeps closed until asked.
+    if (width < 1280) {
+      await page.getByRole("button", { name: "Chi tiết cuộc họp", exact: true }).click();
+      await expect(page.getByText("Anh Thanh, Chị Lan, Anh Minh, Chị Hoa")).toBeVisible();
+      await page.keyboard.press("Escape");
+    } else await expect(page.getByText("Anh Thanh, Chị Lan, Anh Minh, Chị Hoa")).toBeVisible();
 
     await page.getByRole("button", { name: "Xuất biên bản" }).click();
     const bienBan = page.getByRole("dialog", { name: "Biên bản cuộc họp" });
@@ -839,9 +860,12 @@ for (const width of [1440, 390]) {
     });
     await expect(bienBan).toHaveCount(0);
 
-    // What the model would change, and what it already changed, both live above the transcript.
+    // What the model would change waits above the transcript; what it already changed is marked in the lines.
     await page.getByRole("tab", { name: "Transcript" }).click();
     // The timeline is a table of contents: each subject jumps to the line it began on.
+    // It stays beside a wide page, in the meeting's panel; a narrow one opens the panel from the shell header.
+    if (width < 1280)
+      await page.getByRole("button", { name: "Chi tiết cuộc họp", exact: true }).click();
     const timeline = page.getByRole("navigation", { name: "Dòng thời gian" });
     await expect(timeline.getByRole("button", { name: /Ngân sách quý 4/ })).toBeVisible();
     await timeline.getByRole("button", { name: /Số liệu KPI tháng 9/ }).click();
@@ -856,15 +880,18 @@ for (const width of [1440, 390]) {
     await page
       .getByRole("listitem")
       .filter({ hasText: "Bên nhân sự đã gửi bảng KPI" })
-      .getByRole("button", { name: "Đánh dấu câu này" })
+      .getByRole("button", { name: /^Gắn sao câu lúc/ })
       .click();
-    await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
+    await page.getByRole("button", { name: "Câu đã gắn sao (1)" }).click();
     await expect(
       page.getByRole("region", { name: "Transcript" }).getByText("Tuần này bên mình phải chốt"),
     ).toHaveCount(0);
-    await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
+    await page.getByRole("button", { name: "Câu đã gắn sao (1)" }).click();
 
-    // The name a voice gave itself is offered once, with the line it said it in, and renames only when pressed.
+    // The name a voice gave itself is offered once in the meeting's panel, with the line it said it in, and
+    // renames only when pressed.
+    if (width < 1280)
+      await page.getByRole("button", { name: "Chi tiết cuộc họp", exact: true }).click();
     await expect(page.getByText("Người nói 1 tự giới thiệu là Thanh")).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
@@ -874,7 +901,10 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Đặt tên Thanh" }).click();
     await expect(page.getByText("Người nói 1 tự giới thiệu là Thanh")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Đặt tên cho Thanh" }).first()).toBeVisible();
+    if (width < 1280) await page.keyboard.press("Escape");
 
+    // What a pass proposed waits folded above the transcript, and opens to each proposal and its reason.
+    await page.getByRole("button", { name: /^Đề xuất \(\d+\)$/ }).click();
     await expect(page.getByText("Mã dự án đọc rõ ở câu sau là 09.")).toBeVisible();
     // The button says what it does to what: one stretch was marked unclear on this transcript.
     await page.getByRole("button", { name: "Hiệu chỉnh 1 đoạn khó nghe" }).click();
@@ -895,9 +925,19 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Hiệu chỉnh 1 đoạn khó nghe" })).toBeEnabled({
       timeout: 10_000,
     });
+    // The proposals wait folded above the transcript; a change already made is marked in the line it changed,
+    // and opens to what was heard there and the way back.
+    await page.getByRole("button", { name: /^Đề xuất \(\d+\)$/ }).click();
     await expect(page.getByRole("button", { name: "Nhận", exact: true })).toBeVisible();
+    await expect(page.getByText(/đã sửa 1 chỗ/)).toBeVisible();
+    await page
+      .getByRole("region", { name: "Transcript" })
+      .getByRole("button", { name: /^Đã sửa “/ })
+      .first()
+      .click();
     await expect(page.getByRole("button", { name: "Hoàn tác", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Hoàn tác cả lượt" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Hoàn tác tất cả" })).toBeVisible();
     await page.screenshot({
       path: `../output/playwright/meetings-corrections-${width}.png`,
       fullPage: true,
@@ -917,7 +957,7 @@ for (const width of [1440, 390]) {
         .getByText("còn thiếu số liệu của Vinaconex 09 và Tower 3."),
     ).toBeVisible();
     // The answer carries the correction, so it joins the applied ones without reading them again.
-    await expect(page.getByRole("heading", { name: "Đã sửa (2)" })).toBeVisible();
+    await expect(page.getByText(/đã sửa 2 chỗ/)).toBeVisible();
 
     expect(audio.ended).toBe(true);
     await expect(page.getByRole("timer")).toHaveCount(0);

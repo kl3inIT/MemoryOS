@@ -123,6 +123,13 @@
   --color-chart-7: var(--chart-7);
   --color-chart-8: var(--chart-8);
   --color-chart-neutral: var(--chart-neutral);
+  --color-speaker-1: var(--speaker-1);
+  --color-speaker-2: var(--speaker-2);
+  --color-speaker-3: var(--speaker-3);
+  --color-speaker-4: var(--speaker-4);
+  --color-speaker-5: var(--speaker-5);
+  --color-speaker-6: var(--speaker-6);
+  --color-speaker-content: var(--speaker-content);
   --color-surface-document: var(--surface-document);
   --color-content-document: var(--content-document);
   --color-content-on-emphasis: var(--content-on-emphasis);

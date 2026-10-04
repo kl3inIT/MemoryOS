@@ -26,11 +26,12 @@ import {
 } from "@/components/ui/field";
 import { NativeSelect } from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { captureSupport, openMeetingSources, ShareCancelledError } from "./meeting-capture";
 import { startRecording } from "./meeting-session";
 import { MeetingShareField } from "./meeting-share-field";
-import { splitNames, type MeetingAudience, type MeetingKind } from "./meetings-api";
+import { formatWhen, splitNames, type MeetingAudience, type MeetingKind } from "./meetings-api";
 import { useCreateMeeting } from "./use-create-meeting";
 
 type MeetingLanguage = "vi" | "en" | "auto";
@@ -102,7 +103,8 @@ function NewMeetingForm({ onClose }: { onClose: () => void }) {
         sources = await openMeetingSources(value.kind);
         const meeting = await create({
           title:
-            value.title.trim() || ui("Cuộc họp {{date}}", { date: new Date().toLocaleString() }),
+            value.title.trim() ||
+            ui("Cuộc họp {{date}}", { date: formatWhen(new Date().toISOString(), i18n.language) }),
           kind: value.kind,
           language: value.language === "auto" ? undefined : value.language,
           participants: splitNames(value.participants),
@@ -281,7 +283,7 @@ function NewMeetingForm({ onClose }: { onClose: () => void }) {
         <form.AppForm>
           <form.FormError />
           <DialogFooter>
-            <Button prominence="secondary" disabled={submitting} onClick={onClose}>
+            <Button prominence="tertiary" disabled={submitting} onClick={onClose}>
               {ui("Hủy")}
             </Button>
             <form.Subscribe selector={(state) => state.values.consent}>

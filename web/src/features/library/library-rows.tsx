@@ -366,7 +366,7 @@ const NAME_TAIL = 10;
  * name is cut at its end and the whole name is a hover away. A phone cannot hover, so it cuts the middle and keeps
  * the end; a screen reader hears the whole name either way.
  */
-export function FileName({ name }: { name: string }) {
+function FileName({ name }: { name: string }) {
   // A short name fits a phone whole, so it has one rendering.
   if (name.length <= NAME_TAIL * 2)
     return (

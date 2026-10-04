@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -8,9 +9,58 @@ import { cn } from "@/lib/utils";
 import type { MeetingTrack } from "./meeting-socket";
 import { nameMeetingSpeakerMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { patchMeeting, withSpeaker, type MeetingDetail } from "./meetings-api";
-import { speakerColor, speakerName } from "./speakers";
+import { speakerColor, speakerInitial, speakerName } from "./speakers";
 
-/** Who said a line; its owner names the voice from here. */
+/**
+ * A voice's badge: its colour, filled, with its number or initial on it. Two voices are told apart by what the
+ * badge reads as well as by its colour, so a turn is placed at a glance down a long page.
+ */
+export function SpeakerBadge({
+  meeting,
+  track,
+  label,
+  className,
+}: {
+  meeting: MeetingDetail;
+  track: MeetingTrack;
+  label: string;
+  className?: string;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-grid size-6 shrink-0 place-items-center rounded-full text-xs leading-none font-semibold text-speaker-content",
+        speakerColor(meeting, track, label),
+        className,
+      )}
+    >
+      {speakerInitial(meeting, track, label, ui)}
+    </span>
+  );
+}
+
+/** Who said a line: the voice's badge and its name. */
+function SpeakerName({
+  meeting,
+  track,
+  label,
+}: {
+  meeting: MeetingDetail;
+  track: MeetingTrack;
+  label: string;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <span className="inline-flex items-center gap-2 text-sm font-medium text-content-primary">
+      <SpeakerBadge meeting={meeting} track={track} label={label} />
+      {speakerName(meeting, track, label, ui)}
+    </span>
+  );
+}
+
+/** A voice in the meeting's panel; its owner names it from here. */
 export function SpeakerChip({
   meeting,
   track,
@@ -33,21 +83,10 @@ export function SpeakerChip({
       setName("");
     },
   });
-  const owner = meeting.kind === "ONLINE" && track === "MIC";
+  // Online, the microphone is the owner, who needs no name; a reader names nobody.
+  if (!meeting.owned || (meeting.kind === "ONLINE" && track === "MIC"))
+    return <SpeakerName meeting={meeting} track={track} label={label} />;
   const display = speakerName(meeting, track, label, ui);
-  const dot = (
-    <span
-      className={cn("size-2.5 rounded-full", speakerColor(meeting, track, label))}
-      aria-hidden="true"
-    />
-  );
-  if (owner)
-    return (
-      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-content-primary">
-        {dot}
-        {display}
-      </span>
-    );
 
   function save(value: string | null) {
     rename.mutate({ path: { meetingId: meeting.id, track, label }, body: { name: value } });
@@ -61,15 +100,15 @@ export function SpeakerChip({
         if (next) rename.reset();
       }}
     >
-      <PopoverTrigger asChild disabled={!meeting.owned}>
+      <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-content-primary focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none enabled:hover:underline"
-          disabled={!meeting.owned}
-          aria-label={meeting.owned ? ui("Đặt tên cho {{name}}", { name: display }) : display}
+          className="inline-flex items-center gap-2 rounded text-sm font-medium text-content-primary hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
+          aria-label={ui("Đặt tên cho {{name}}", { name: display })}
         >
-          {dot}
+          <SpeakerBadge meeting={meeting} track={track} label={label} />
           {display}
+          <Pencil className="size-3 text-content-muted" aria-hidden="true" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-2">
