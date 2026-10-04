@@ -336,6 +336,41 @@ class RestSharePointGatewayTest {
     }
 
     @Test
+    void anAnswerWithoutADeclaredLengthIsStoppedOnceItPassesTheBound() throws Exception {
+        try (var fixture = new Fixture(_ -> new Response(200,
+                ("{\"id\":\"" + "x".repeat(8192) + "\"}").getBytes(StandardCharsets.UTF_8), true));
+                var provider = provider(fixture, 1024); var session = provider.open(credential())) {
+            assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(SharePointProviderException.class, session::root).failure());
+        }
+        try (var fixture = new Fixture(_ -> new Response(200, new byte[8192], true));
+                var provider = provider(fixture, 0, 1024); var session = provider.open(credential())) {
+            assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(SharePointProviderException.class,
+                    () -> session.content(item("file-1", fixture.base + "/download"), "127.0.0.1", 4096)).failure());
+        }
+    }
+
+    @Test
+    void anItemCarriesTheDownloadAddressGraphAnnotatesItWith() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertEquals("/v1.0/drives/drive-1/items/file-1", exchange.getRequestURI().getPath());
+            assertTrue(exchange.getRequestURI().getQuery().contains("@microsoft.graph.downloadUrl"),
+                    exchange.getRequestURI().getQuery());
+            return ok("""
+                    {"id":"file-1","name":"bao-cao.xlsx","size":12,"eTag":"etag-1",
+                     "file":{"mimeType":"application/vnd.ms-excel","hashes":{"quickXorHash":"S7GCo="}},
+                     "lastModifiedDateTime":"2026-09-16T02:30:00Z",
+                     "parentReference":{"id":"root-1","driveId":"drive-1","path":"/drives/drive-1/root:/B%C3%A1o%20c%C3%A1o"},
+                     "@microsoft.graph.downloadUrl":"https://contoso.sharepoint.com/download?tempauth=short-lived"}""");
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var item = session.item("drive-1", "file-1");
+            assertEquals("https://contoso.sharepoint.com/download?tempauth=short-lived", item.downloadUrl());
+            assertEquals("S7GCo=", item.quickXorHash());
+            assertEquals("/Báo cáo", item.parentPath());
+            assertTrue(item.file());
+        }
+    }
+
+    @Test
     void theSdkDoesNotRetryAThrottledOrFailedAnswer() throws Exception {
         for (int status : List.of(429, 503, 504)) {
             try (var fixture = new Fixture(exchange -> {
@@ -473,7 +508,10 @@ class RestSharePointGatewayTest {
         return new Response(200, body.getBytes(StandardCharsets.UTF_8));
     }
 
-    private record Response(int status, byte[] body) {}
+    /** @param chunked sent without a declared length, as a body whose size the server does not announce */
+    private record Response(int status, byte[] body, boolean chunked) {
+        Response(int status, byte[] body) { this(status, body, false); }
+    }
 
     private static final class Fixture implements AutoCloseable {
         final HttpServer server;
@@ -486,9 +524,12 @@ class RestSharePointGatewayTest {
             server.createContext("/", exchange -> {
                 requests.add(exchange.getRequestURI());
                 Response response = responder.apply(exchange);
-                // Graph names the type of what it sends; the SDK reads an answer by it.
-                if (response.status() == 200) exchange.getResponseHeaders().add("Content-Type", "application/json");
-                exchange.sendResponseHeaders(response.status(), response.body().length);
+                // Graph names the type of what it sends, and the SDK reads a JSON answer by it; a file is not JSON.
+                boolean json = response.body().length > 0 && (response.body()[0] == '{' || response.body()[0] == '[');
+                if (response.status() == 200) exchange.getResponseHeaders().add("Content-Type",
+                        json || new String(response.body(), StandardCharsets.UTF_8).equals("not json")
+                                ? "application/json" : "application/octet-stream");
+                exchange.sendResponseHeaders(response.status(), response.chunked() ? 0 : response.body().length);
                 try (var output = exchange.getResponseBody()) {
                     output.write(response.body());
                 }

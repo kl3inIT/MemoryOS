@@ -57,6 +57,9 @@ the SDK's choosing instead of the default set:
 The limits of one request (bound, timeout) travel as a Kiota request option, which the SDK attaches to the OkHttp
 request as a tag; the guard reads it there.
 
+The SDK's user-agent handler is not installed either: the guard sets the `User-Agent` Microsoft asks integrators
+to send. The SDK's telemetry handler, which the factory adds itself, stays (it names the SDK version in a header).
+
 `azure-identity`, the SDK's usual credential, is not added: `msal4j` is Microsoft's own library, it is what
 `azure-identity` wraps, and the classification of Entra error numbers is written against it.
 
@@ -85,7 +88,8 @@ web parts by their searchable text, 200 parts, 200 texts and 200,000 characters 
 - A download has its own budget, `memoryos.sharepoint.content-timeout` (120 s, at most 600 s). It shared the 15 s
   budget of a metadata read, in which a file of up to 100 MiB could not finish on a slow link.
 - A response whose declared length is over the bound is refused before it is read.
-- An answer without `Content-Type` is not read by the SDK and counts as malformed; Graph always sends one.
+- A JSON answer without `Content-Type` is not read by the SDK and counts as malformed; Graph always sends one. A
+  file is read as a stream whatever its type.
 - The download address in an item (`@microsoft.graph.downloadUrl`) is still fetched without a token, on the same
   OkHttp client and under the same guard, as a plain request: it is not a Graph API call.
 
@@ -103,9 +107,10 @@ requests of one consent.
 
 - `RestSharePointGatewayTest` is the parity suite: it drives the gateway against a local HTTP server and asserts what
   is on the wire. Its 19 cases pass with two changes to the fixture's expectations, both named above (a
-  `Content-Type` on successful answers, the cast path). Three cases are new: a content redirect that leaves the
+  `Content-Type` on successful answers, the cast path). Five cases are new: a content redirect that leaves the
   Tenant host or redirects again; no retry of 429, 503 and 504; a stalled answer cut off at the request timeout while
-  a download uses its own.
+  a download uses its own; an answer without a declared length stopped once it passes the bound; an item read with
+  the download address Graph annotates it with.
 - `:sources:test` as a whole, `SourcesDependencyRulesTest` included; `api` and `worker` compile.
 
 ## Not verified

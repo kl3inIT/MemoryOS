@@ -12,7 +12,7 @@ Design: [design.md](design.md). Two pull requests, one per vendor.
 - [x] `GraphModels`: the SDK's models as the gateway's records, with the field limits and the page snapshot.
 - [x] `RestSharePointGateway` on `GraphServiceClient`; the per-request redirect option for `/content`.
 - [x] `memoryos.sharepoint.content-timeout` (120 s) for a download.
-- [x] `RestSharePointGatewayTest`: the 19 cases, and three new ones.
+- [x] `RestSharePointGatewayTest`: the 19 cases, and five new ones.
 - [x] ADR 0025 amended; conventions, backend guide, `ARCHITECTURE.md`, connector test matrix, roadmap.
 - [ ] Staging: one synchronization of the SharePoint source after deployment.
 
