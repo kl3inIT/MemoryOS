@@ -142,8 +142,27 @@ function withCorrection(
 }
 
 /**
+ * The other proposals on a line one decision rewrote, as the server now holds them: one still undecided over the
+ * rewritten words is declined, and whatever stands after the change moves with it.
+ */
+function realigned(corrections: MeetingCorrection[], decided: MeetingCorrection) {
+  // An accepted change replaced what it pointed at; a reverted one put those words back over what it had written.
+  const reverted = decided.status === "REVERTED";
+  const end = reverted ? decided.start + decided.after.length : decided.end;
+  const delta = (reverted ? decided.before.length : decided.after.length) - (end - decided.start);
+  return corrections.map((current): MeetingCorrection => {
+    if (current.id === decided.id || current.utteranceId !== decided.utteranceId) return current;
+    if (current.status === "PENDING" && current.start < end && current.end > decided.start)
+      return { ...current, status: "KEPT" };
+    if ((current.status === "PENDING" || current.status === "ACCEPTED") && current.start >= end)
+      return { ...current, start: current.start + delta, end: current.end + delta };
+    return current;
+  });
+}
+
+/**
  * Folds what deciding one stretch answered into the cached meeting and its proposals: the line it rewrote, when it
- * rewrote one, and the proposal as it now stands. Neither is read again.
+ * rewrote one, the proposal as it now stands and the others on that line. Neither is read again.
  */
 export function foldCorrection(
   cache: QueryClient,
@@ -153,9 +172,11 @@ export function foldCorrection(
   const correction = "utterance" in answer ? answer.correction : answer;
   if ("utterance" in answer)
     patchMeeting(cache, meetingId, (meeting) => withUtterance(meeting, answer.utterance));
-  cache.setQueryData<MeetingCorrection[]>(correctionsQueryKey(meetingId), (current) =>
-    current ? withCorrection(current, correction) : current,
-  );
+  cache.setQueryData<MeetingCorrection[]>(correctionsQueryKey(meetingId), (current) => {
+    if (!current) return current;
+    const folded = withCorrection(current, correction);
+    return "utterance" in answer ? realigned(folded, correction) : folded;
+  });
 }
 
 /** A one-use ticket that opens one track's audio socket; the recorder asks for one per connection. */

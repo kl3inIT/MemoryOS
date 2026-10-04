@@ -60,7 +60,7 @@ export function SpeakerSuggestions({
                 {said && (
                   <button
                     type="button"
-                    className="block max-w-full truncate text-xs text-content-muted hover:underline"
+                    className="block max-w-full truncate rounded-sm text-xs text-content-muted hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
                     aria-label={ui("Xem câu “{{text}}” trong transcript", { text: said.text })}
                     onClick={() => onReveal(said.id)}
                   >

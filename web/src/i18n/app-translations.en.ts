@@ -179,7 +179,21 @@ export const vietnameseUi: Record<string, string> = {
   "Đang hiệu chỉnh…": "Correcting…",
   "Tìm được {{count}} chỗ cần sửa.": "Found {{count}} places to correct.",
   "Nhận hết?": "Accept all?",
-  "Transcript sẽ đổi ở {{count}} chỗ.": "The transcript changes in {{count}} places.",
+  "Transcript sẽ đổi ở {{count}} chỗ. Chỗ nào cũng hoàn tác được.":
+    "The transcript changes in {{count}} places. Each change can be undone.",
+  "Transcript chỉ đổi ở chỗ bạn nhận.": "The transcript changes only where you accept.",
+  "Hiệu chỉnh": "Correction",
+  "AI đọc lại những đoạn máy nghe chưa chắc và đề xuất chữ thay thế. Transcript chỉ đổi ở chỗ bạn bấm Nhận, và chỗ nào đã đổi cũng hoàn tác được.":
+    "AI rereads the stretches the transcriber was unsure of and proposes replacements. The transcript changes only where you press Accept, and every change can be undone.",
+  "Enter để lưu, Esc để bỏ.": "Enter saves, Esc cancels.",
+  "Xóa việc này?": "Delete this action item?",
+  "Xóa quyết định này?": "Delete this decision?",
+  "“{{text}}” sẽ bị xóa khỏi biên bản và không lấy lại được.":
+    "“{{text}}” will be removed from the minutes and cannot be restored.",
+  "Lưu biên bản vào Thư viện và mở cuộc trò chuyện mới với biên bản đó.":
+    "Saves the minutes to the Library and opens a new conversation with them attached.",
+  "Chi tiết": "Details",
+  "vừa viết xong": "just written",
   "Người nói {{label}} tự giới thiệu là {{name}}":
     "Speaker {{label}} introduced themselves as {{name}}",
   "Đặt tên {{name}}": "Name them {{name}}",
@@ -192,7 +206,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xem câu “{{text}}” trong transcript": "Show the sentence “{{text}}” in the transcript",
   "máy nghe chưa chắc, bấm để sửa": "the transcriber was unsure of; click one to correct it",
   "máy nghe chưa chắc": "the transcriber was unsure of",
-  "Chữ xanh": "Green words",
+  "Chữ xanh lá": "Green words",
   "đã sửa {{count}} chỗ, bấm để xem chữ cũ": "{{count}} corrected; click one to see what was heard",
   "Đã sửa “{{before}}” thành “{{after}}”": "Corrected “{{before}}” to “{{after}}”",
   "Hoàn tác tất cả?": "Undo every correction?",
@@ -368,8 +382,8 @@ export const vietnameseUi: Record<string, string> = {
   "Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.":
     "I have told everyone that this meeting is being recorded.",
   Transcript: "Transcript",
-  "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xóa vĩnh viễn.":
-    "This meeting's transcript, speaker names and notes will be permanently deleted.",
+  "Transcript, biên bản, tên người nói và ghi chú của cuộc họp này sẽ bị xóa vĩnh viễn.":
+    "This meeting's transcript, minutes, speaker names and notes will be permanently deleted.",
   "Trình duyệt không cho dùng micro. Hãy cho phép micro rồi thử lại.":
     "The browser blocked the microphone. Allow the microphone and try again.",
   "Trình duyệt này chưa ghi được. Hãy dùng Chrome hoặc Edge trên máy tính, hoặc Chrome trên điện thoại.":

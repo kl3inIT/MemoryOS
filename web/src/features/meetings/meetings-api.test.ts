@@ -211,7 +211,10 @@ describe("folding one correction", () => {
     const cache = new QueryClient();
     const cached = meeting();
     cache.setQueryData(meetingQueryKey(cached.id), cached);
-    cache.setQueryData(correctionsQueryKey(cached.id), [correction("c1"), correction("c2")]);
+    cache.setQueryData(correctionsQueryKey(cached.id), [
+      correction("c1"),
+      correction("c2", { utteranceId: "u2" }),
+    ]);
 
     foldCorrection(cache, cached.id, {
       utterance: rewritten,
@@ -230,6 +233,61 @@ describe("folding one correction", () => {
       ["c2", "PENDING"],
     ]);
     expect(cache.getQueryState(correctionsQueryKey(cached.id))?.isInvalidated).toBe(false);
+  });
+
+  it("keeps the line's other proposals on their words, and declines one whose words are gone", () => {
+    const cache = new QueryClient();
+    const cached = meeting();
+    cache.setQueryData(meetingQueryKey(cached.id), cached);
+    cache.setQueryData(correctionsQueryKey(cached.id), [
+      correction("c1", { start: 15, end: 21, before: "quý tư", after: "quý 4" }),
+      correction("inside", { start: 19, end: 21 }),
+      correction("before", { start: 0, end: 4 }),
+      correction("after", { start: 30, end: 34 }),
+      correction("applied", { start: 40, end: 44, status: "ACCEPTED" }),
+      correction("elsewhere", { utteranceId: "u2", start: 30, end: 34 }),
+    ]);
+
+    foldCorrection(cache, cached.id, {
+      utterance: rewritten,
+      correction: correction("c1", {
+        start: 15,
+        end: 21,
+        before: "quý tư",
+        after: "quý 4",
+        status: "ACCEPTED",
+      }),
+    });
+
+    const moved = () =>
+      cache
+        .getQueryData<MeetingCorrection[]>(correctionsQueryKey(cached.id))
+        ?.map((item) => [item.id, item.status, item.start, item.end]);
+    expect(moved()).toEqual([
+      ["c1", "ACCEPTED", 15, 21],
+      ["inside", "KEPT", 19, 21],
+      ["before", "PENDING", 0, 4],
+      ["after", "PENDING", 29, 33],
+      ["applied", "ACCEPTED", 39, 43],
+      ["elsewhere", "PENDING", 30, 34],
+    ]);
+
+    // Taking the change back moves what follows to where it stood.
+    foldCorrection(cache, cached.id, {
+      utterance: rewritten,
+      correction: correction("c1", {
+        start: 15,
+        end: 21,
+        before: "quý tư",
+        after: "quý 4",
+        status: "REVERTED",
+      }),
+    });
+
+    expect(moved()?.slice(3, 5)).toEqual([
+      ["after", "PENDING", 30, 34],
+      ["applied", "ACCEPTED", 40, 44],
+    ]);
   });
 
   it("leaves the transcript alone when a proposal is declined", () => {

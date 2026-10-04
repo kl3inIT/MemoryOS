@@ -18,6 +18,7 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApplicationSessionContext } from "@/features/identity/application-session-context";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -114,18 +115,27 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
             {ui("Viết lại")}
           </Button>
         ))}
-      <Button
-        size="sm"
-        prominence="tertiary"
-        pending={publish.isPending}
-        onClick={() => {
-          rerun.reset();
-          publish.mutate({ path: { meetingId: meeting.id } });
-        }}
-      >
-        <MessageSquareText aria-hidden="true" />
-        {ui("Mở trong Chat")}
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              prominence="tertiary"
+              pending={publish.isPending}
+              onClick={() => {
+                rerun.reset();
+                publish.mutate({ path: { meetingId: meeting.id } });
+              }}
+            >
+              <MessageSquareText aria-hidden="true" />
+              {ui("Mở trong Chat")}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {ui("Lưu biên bản vào Thư viện và mở cuộc trò chuyện mới với biên bản đó.")}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <Button size="sm" prominence="secondary" onClick={() => setExporting(true)}>
         <FileDown aria-hidden="true" />
         {ui("Xuất biên bản")}
@@ -324,7 +334,7 @@ export function MinutesItems({
                       {item.sourceUtteranceId && (
                         <button
                           type="button"
-                          className="mr-1.5 font-mono text-action-selection hover:underline"
+                          className="mr-1.5 rounded-sm font-mono text-action-selection hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
                           onClick={() => source && onReveal(source.id)}
                         >
                           {formatClock(source?.startMs ?? 0)}

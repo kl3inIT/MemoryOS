@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { cn } from "@/lib/utils";
 import { MinutesActions, MinutesItems, MinutesSummary } from "./meeting-minutes";
 import { MeetingNotes } from "./meeting-notes";
 import { Transcript } from "./meeting-transcript";
@@ -32,12 +33,34 @@ export function MeetingTabs({
   const tabs = useRef<HTMLDivElement>(null);
   const [opened, setOpened] = useState<MeetingPane>(ready ? "summary" : "transcript");
   const known = useRef(ready);
+  // Minutes that landed while the reader was further down wait on their tab, marked until it is opened.
+  const [unread, setUnread] = useState(false);
   useEffect(() => {
     if (ready === known.current) return;
     known.current = ready;
-    if (ready && tabs.current && scrollerOf(tabs.current).scrollTop === 0) setOpened("summary");
+    if (!ready) return;
+    if (tabs.current && scrollerOf(tabs.current).scrollTop === 0) setOpened("summary");
+    else setUnread(true);
   }, [ready]);
   const shown = page.pane ?? opened;
+  const fresh = unread && shown !== "summary";
+  // Five tabs are wider than a phone, so the row fades at whichever end still hides some.
+  const [hidden, setHidden] = useState({ before: false, after: false });
+  const row = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return;
+    const measure = () =>
+      setHidden({
+        before: element.scrollLeft > 0,
+        after: element.scrollLeft + element.clientWidth < element.scrollWidth - 1,
+      });
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    element.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      observer.disconnect();
+      element.removeEventListener("scroll", measure);
+    };
+  }, []);
   // Where the transcript shows its search: under the tabs, in the part of the page that stays in view.
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
   return (
@@ -46,7 +69,14 @@ export function MeetingTabs({
       enabled={owned && meeting.status === "ENDED" && meeting.utterances.length > 0}
     >
       {(corrections) => (
-        <Tabs ref={tabs} value={shown} onValueChange={(next) => page.setPane(next as MeetingPane)}>
+        <Tabs
+          ref={tabs}
+          value={shown}
+          onValueChange={(next) => {
+            if (next === "summary") setUnread(false);
+            page.setPane(next as MeetingPane);
+          }}
+        >
           {/* A meeting is hours long, so the tabs and the open tab's tools stay at the top of the window, under
               the recording bar; a phone has no room to give them. */}
           <div className="z-10 grid grid-cols-1 gap-2 bg-background md:sticky md:top-(--meeting-pinned-top) md:py-2">
@@ -55,10 +85,28 @@ export function MeetingTabs({
               {/* Five tabs are wider than a phone: they scroll inside their own row, or choosing one
                 scrolls the whole page sideways to reveal it. The row is taller than the list, so the mark
                 under the open tab does not make it scroll up and down as well. */}
-              <div className="max-w-full min-w-0 overflow-x-auto pb-1">
+              <div
+                ref={row}
+                className={cn(
+                  "max-w-full min-w-0 overflow-x-auto pb-1",
+                  hidden.before && "mask-l-from-90%",
+                  hidden.after && "mask-r-from-90%",
+                )}
+              >
                 <TabsList variant="line" className="justify-start">
                   {minutes.status !== "NONE" && (
-                    <TabsTrigger value="summary">{ui("Tóm tắt")}</TabsTrigger>
+                    <TabsTrigger value="summary">
+                      {ui("Tóm tắt")}
+                      {fresh && (
+                        <>
+                          <span
+                            className="ml-1 size-2 rounded-full bg-status-info-emphasis"
+                            aria-hidden="true"
+                          />
+                          <span className="sr-only">{ui("vừa viết xong")}</span>
+                        </>
+                      )}
+                    </TabsTrigger>
                   )}
                   {minutes.actions.length > 0 && (
                     <TabsTrigger value="actions">
