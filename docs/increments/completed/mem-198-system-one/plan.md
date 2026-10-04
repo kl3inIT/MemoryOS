@@ -54,4 +54,7 @@ Design: [design.md](design.md). Two pull requests: the backend with its API and 
 
 - [x] Measurement on 64 self-written conversations; results in `verification.md`.
 - [x] Staging checks.
-- [ ] The close-out: move the increment to `completed/`, reconcile the roadmap.
+- [x] The close-out (owner, 2026-10-04): the increment moved to `completed/` and the roadmap reconciled. Left for
+  later use, not for this increment: the other connection types against their real services, a failed check on
+  staging, the thresholds with many topics, and provider-enforced structured output
+  ([MEM-225](https://linear.app/memory-os/issue/MEM-225)).

@@ -5,7 +5,7 @@ Date: 2026-10-04
 ## Status
 
 Accepted; implementation started 2026-10-04 in
-[System One classification](../increments/active/mem-198-system-one/design.md)
+[System One classification](../increments/completed/mem-198-system-one/design.md)
 ([MEM-198](https://linear.app/memory-os/issue/MEM-198)) with the guardrail check.
 
 ## Context

@@ -1,9 +1,9 @@
 # System One classification (MEM-198)
 
 Issue: [MEM-198](https://linear.app/memory-os/issue/MEM-198). Builds on
-[MEM-223](../mem-223-shared-restclient/design.md) (`shared.OutboundHttp`) and on the guardrail check of
-[MEM-195](https://linear.app/memory-os/issue/MEM-195), [MEM-206](../mem-206-guardrail-conversation-context/design.md)
-and [MEM-208](../mem-208-guardrail-topics/design.md).
+[MEM-223](../../active/mem-223-shared-restclient/design.md) (`shared.OutboundHttp`) and on the guardrail check of
+[MEM-195](https://linear.app/memory-os/issue/MEM-195), [MEM-206](../../active/mem-206-guardrail-conversation-context/design.md)
+and [MEM-208](../../active/mem-208-guardrail-topics/design.md).
 
 ## Aim
 
