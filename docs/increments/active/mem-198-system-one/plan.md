@@ -40,7 +40,17 @@ Design: [design.md](design.md). Two pull requests: the backend with its API and 
 - [x] `system-one-page.test.tsx` (6 cases) and `tests/e2e/system-one-administration.spec.ts` at 1440 and 390 px;
   screenshots reviewed at both widths.
 
-## After both
+## Pull request 3: one library, one answer type (ADR 0026)
+
+- [x] `typesafe-spring-ai` 0.4.0 in place of `typesafe-java-sdk`.
+- [x] `SystemOneAdapter.client(...)`: every type builds a `TypeSafeClient`; Cloudflare unwraps `result` under it.
+- [x] `SystemOneClients` in place of `SystemOneClient`; the types `Question` and `Decision` removed.
+- [x] `GroundingClassifier`: one set of questions, `JevGuardrail.evaluate` for both classifiers, a language model's
+  flat JSON read into `SystemOneResponse`, the review outcome.
+- [x] `ChatGuardrailCheck`, `ChatTurnService`, `ChatTurnMetrics` (`review` tag), `SystemOneController`.
+- [x] Tests rewritten for the new contract; ADR 0026; specs and test matrix.
+
+## After the pull requests
 
 - [ ] Measurement on self-written questions; results in `verification.md`.
 - [ ] Staging checks; then the close-out.

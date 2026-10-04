@@ -11,7 +11,6 @@ import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.ai.systemone.SystemOneClient;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.chat.grounding.ChatGuardrailCheck;
 import io.memoryos.chat.grounding.CitationGate;
@@ -28,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.springaicommunity.typesafe.response.Usage;
 import io.memoryos.shared.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -496,7 +496,7 @@ public final class ChatTurnService implements AutoCloseable {
             if (connection != null) {
                 classifier = "system_one";
                 result = guardrails.checkOn(connection, run.setup, run.question, run.earlier, run.policy,
-                        decision -> recordCheck(run, connection, decision));
+                        usage -> recordCheck(run, connection, usage));
             } else try (var selected = models.resolveFlow(run.setup.actor(), run.setup.sessionId(), ModelFlow.CHAT_GUARDRAIL)) {
                 result = guardrails.check(selected.binding(), run.setup, run.question, run.earlier, run.policy,
                         accounting -> recordCheck(run, selected.modelConfigurationId(), selected.provenance(),
@@ -513,6 +513,7 @@ public final class ChatTurnService implements AutoCloseable {
         // declines one with the Tenant's message even when this check misread the message or was not reached.
         if (metrics != null)
             metrics.guardrail(result == null ? "unchecked" : result.kind().name().toLowerCase(Locale.ROOT), classifier,
+                    result != null && result.review(),
                     System.nanoTime() - started);
         run.setup = run.setup.withOptions(run.setup.options()
                 .withTopicRules(ChatGuardrailCheck.rulesForTheAnswerModel(run.policy)));
@@ -570,9 +571,9 @@ public final class ChatTurnService implements AutoCloseable {
      * A check on a System One connection, recorded under the connection's name with the tokens the service reported
      * and the cost its input price gives; a service that reports input only wrote no output.
      */
-    private void recordCheck(Active run, SystemOneConnectionService.Connection connection, SystemOneClient.Decision decision) {
-        Long input = decision.inputTokens();
-        Long output = decision.outputTokens() != null || input == null ? decision.outputTokens() : Long.valueOf(0);
+    private void recordCheck(Active run, SystemOneConnectionService.Connection connection, Usage usage) {
+        Long input = usage.inputTokens() == null ? null : usage.inputTokens().longValue();
+        Long output = usage.outputTokens() != null ? Long.valueOf(usage.outputTokens()) : input == null ? null : Long.valueOf(0);
         recordCheck(run, null, new ModelResolver.Provenance(null, connection.name(), connection.dataBoundary().name()),
                 connection.model(), new ModelAccounting(input, output, connection.cost(input), 0, true));
     }

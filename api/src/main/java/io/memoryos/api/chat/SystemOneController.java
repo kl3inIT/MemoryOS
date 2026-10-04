@@ -4,7 +4,7 @@ import io.memoryos.ai.AiException;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.ModelFlow;
 import io.memoryos.ai.ProviderCredentials;
-import io.memoryos.ai.systemone.SystemOneClient;
+import io.memoryos.ai.systemone.SystemOneClients;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.ai.systemone.SystemOneProvider;
 import io.memoryos.api.chat.contract.ChatModelFlowResponse;
@@ -47,11 +47,11 @@ import org.springframework.web.bind.annotation.RestController;
 @ApiResponse(responseCode = "503", description = "System One service unavailable")
 class SystemOneController {
     private final SystemOneConnectionService connections;
-    private final SystemOneClient client;
+    private final SystemOneClients clients;
     private final ModelCatalogService catalog;
 
-    SystemOneController(SystemOneConnectionService connections, SystemOneClient client, ModelCatalogService catalog) {
-        this.connections = connections; this.client = client; this.catalog = catalog;
+    SystemOneController(SystemOneConnectionService connections, SystemOneClients clients, ModelCatalogService catalog) {
+        this.connections = connections; this.clients = clients; this.catalog = catalog;
     }
 
     @GetMapping("/types")
@@ -101,7 +101,7 @@ class SystemOneController {
     void test(@CurrentActor IdentityContext identity, @PathVariable UUID id) {
         var connection = connections.forTest(identity.actorId(), id);
         try {
-            client.test(connection);
+            clients.test(connection);
         } catch (RuntimeException failed) {
             throw AiException.providerUnavailable();
         }

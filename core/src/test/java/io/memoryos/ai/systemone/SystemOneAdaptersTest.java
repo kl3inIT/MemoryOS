@@ -19,6 +19,7 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,16 +28,21 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.typesafe.question.Noul;
+import org.springaicommunity.typesafe.question.Question;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** The adapters that speak {@code POST /systemone}, against a local server that answers as the protocol describes. */
+/**
+ * The clients of the types that speak {@code POST /systemone}, against a local server. The answer is the one 9Router
+ * returned for {@code oc/jev-1.13-free} on 2026-10-04, with the field {@code cost} the protocol does not name.
+ */
 class SystemOneAdaptersTest {
     private static final Duration TIMEOUT = Duration.ofSeconds(5);
     private static final String ANSWER = """
-            {"model":"jev-1.13","answers":{"decision":{"type":"choice","choice":"TOPIC_1",
-            "probabilities":{"TOPIC_1":0.91,"QUESTION":0.09},"confidence":0.82}},
-            "usage":{"input_tokens":212,"output_tokens":0}}""";
+            {"model":"jev-1.13-free","answers":{"TOPIC_1":{"type":"noul","noul":0.26},
+            "TOPIC_2":{"type":"noul","noul":0.86},"CONVERSATIONAL":{"type":"noul","noul":0.08}},
+            "usage":{"input_tokens":506,"output_tokens":104},"cost":"0"}""";
 
     private final ExecutorService handlers = Executors.newCachedThreadPool();
     private final AtomicReference<String> authorization = new AtomicReference<>();
@@ -74,65 +80,68 @@ class SystemOneAdaptersTest {
                 "http://localhost:" + server.getAddress().getPort() + "/v1/", model, null, DataBoundary.INTERNAL, null);
     }
 
-    private static SystemOneClient.Question question() {
-        var options = new LinkedHashMap<String, String>();
-        options.put("TOPIC_1", "Chính trị: câu hỏi về đảng phái và bầu cử.");
-        options.put("QUESTION", "Anything else.");
-        return new SystemOneClient.Question("Person: Đảng nào tốt hơn?", "Classify the last Person message.", options);
+    private static final String STATE = "Person: Thế còn vợ của chủ tịch nước là ai?";
+
+    private static Map<String, Question> questions() {
+        var questions = new LinkedHashMap<String, Question>();
+        questions.put("TOPIC_1", Noul.of("Is the last Person message about this topic? Chính trị"));
+        questions.put("TOPIC_2", Noul.builder().instructions("Is the last Person message about this topic? Lãnh tụ và lãnh đạo")
+                .whenTrue("It is the case").whenFalse("Not the case").build());
+        questions.put("CONVERSATIONAL", Noul.of("Is the last Person message small talk?"));
+        return questions;
     }
 
-    @Test void aChoiceIsSentAsTheProtocolDescribesAndItsAnswerRead() {
+    @Test void severalQuestionsGoInOneRequestAsTheProtocolDescribesAndEachAnswerIsRead() {
         answer(200, ANSWER);
-        var decision = new NineRouterSystemOneAdapter().choose(
-                connection(SystemOneProvider.NINEROUTER, "openrouter/typesafe/jev-1.13"), "test-secret", question(), TIMEOUT);
+        var response = new NineRouterSystemOneAdapter()
+                .client(connection(SystemOneProvider.NINEROUTER, "oc/jev-1.13-free"), "test-secret", TIMEOUT)
+                .systemOne(STATE, questions());
 
-        assertEquals("TOPIC_1", decision.label());
-        assertEquals(0.82, decision.confidence());
-        assertEquals(0.91, decision.probabilities().get("TOPIC_1"));
-        assertEquals(212L, decision.inputTokens());
-        assertEquals(0L, decision.outputTokens());
+        assertEquals(0.86, response.noulValue("TOPIC_2"));
+        assertEquals(0.26, response.noulValue("TOPIC_1"));
+        assertEquals(0.08, response.noulValue("CONVERSATIONAL"));
+        assertEquals(506, response.usage().inputTokens());
+        assertEquals(104, response.usage().outputTokens());
         assertEquals("Bearer test-secret", authorization.get());
         JsonNode body = JsonMapper.shared().readTree(sent.get());
-        assertEquals("openrouter/typesafe/jev-1.13", body.path("model").asString());
-        assertEquals("Person: Đảng nào tốt hơn?", body.path("state").asString());
-        var choice = body.path("questions").path("decision");
-        assertEquals("choice", choice.path("type").asString());
-        assertEquals("Classify the last Person message.", choice.path("instructions").asString());
-        assertEquals(List.of("TOPIC_1", "QUESTION"), List.copyOf(choice.path("criteria").propertyNames()));
-        assertEquals("Anything else.", choice.path("criteria").path("QUESTION").asString());
+        assertEquals("oc/jev-1.13-free", body.path("model").asString());
+        assertEquals(STATE, body.path("state").asString());
+        assertEquals(List.of("TOPIC_1", "TOPIC_2", "CONVERSATIONAL"), List.copyOf(body.path("questions").propertyNames()));
+        var topic = body.path("questions").path("TOPIC_2");
+        assertEquals("noul", topic.path("type").asString());
+        assertEquals("Is the last Person message about this topic? Lãnh tụ và lãnh đạo", topic.path("instructions").asString());
+        assertEquals("It is the case", topic.path("criteria").path("true").asString());
     }
 
     @Test void aConnectionWithoutAKeySendsNoAuthorizationHeader() {
         answer(200, ANSWER);
-        new LayaSystemOneAdapter().choose(connection(SystemOneProvider.LAYA, "auto"), "", question(), TIMEOUT);
+        new LayaSystemOneAdapter().client(connection(SystemOneProvider.LAYA, "auto"), "", TIMEOUT).systemOne(STATE, questions());
         assertFalse(authorized.get());
 
-        new CompatibleSystemOneAdapter().choose(connection(SystemOneProvider.SYSTEMONE_COMPATIBLE, "clef-flash"),
-                "serving-key", question(), TIMEOUT);
+        new CompatibleSystemOneAdapter().client(connection(SystemOneProvider.SYSTEMONE_COMPATIBLE, "clef-flash"),
+                "serving-key", TIMEOUT).systemOne(STATE, questions());
         assertEquals("Bearer serving-key", authorization.get());
     }
 
     @Test void anAnswerWithoutUsageLeavesTheTokensUnknown() {
-        answer(200, """
-                {"model":"auto","answers":{"decision":{"type":"choice","choice":"QUESTION",
-                "probabilities":{"QUESTION":1.0},"confidence":1.0}}}""");
-        var decision = new LayaSystemOneAdapter().choose(connection(SystemOneProvider.LAYA, "auto"), "", question(), TIMEOUT);
-        assertEquals("QUESTION", decision.label());
-        assertNull(decision.inputTokens());
-        assertNull(decision.outputTokens());
+        answer(200, "{\"model\":\"auto\",\"answers\":{\"TOPIC_1\":{\"type\":\"noul\",\"noul\":0.5}}}");
+        var response = new LayaSystemOneAdapter().client(connection(SystemOneProvider.LAYA, "auto"), "", TIMEOUT)
+                .systemOne(STATE, questions());
+        assertNull(response.usage().inputTokens());
+        assertNull(response.usage().outputTokens());
     }
 
-    @Test void aFailedStatusOrAnAnswerWithoutTheChoiceIsAFailure() {
+    @Test void aFailedStatusOrAnAnswerWithoutAnswersIsAFailure() {
         answer(401, "{\"error\":{\"message\":\"invalid key test-secret\"}}");
-        var adapter = new CompatibleSystemOneAdapter();
-        var connection = connection(SystemOneProvider.SYSTEMONE_COMPATIBLE, "clef-flash");
-        var refused = assertThrows(RuntimeException.class, () -> adapter.choose(connection, "test-secret", question(), TIMEOUT));
+        var client = new CompatibleSystemOneAdapter()
+                .client(connection(SystemOneProvider.SYSTEMONE_COMPATIBLE, "clef-flash"), "test-secret", TIMEOUT);
+        var refused = assertThrows(RuntimeException.class, () -> client.systemOne(STATE, questions()));
         // The failed body is not read into the failure.
         assertFalse(String.valueOf(refused.getMessage()).contains("invalid key"));
 
         server.removeContext("/v1/systemone");
-        answer(200, "{\"model\":\"clef-flash\",\"answers\":{\"other\":{\"type\":\"noul\",\"noul\":0.4}}}");
-        assertThrows(RuntimeException.class, () -> adapter.choose(connection, "test-secret", question(), TIMEOUT));
+        answer(200, "{\"model\":\"clef-flash\",\"answers\":{}}");
+        assertThrows(RuntimeException.class, () -> client.systemOne(STATE, questions()));
     }
 
     @Test void theHostedServiceHasOneAddressAndNeedsAKey() {

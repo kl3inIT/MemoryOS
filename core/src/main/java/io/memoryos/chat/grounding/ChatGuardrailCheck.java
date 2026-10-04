@@ -6,7 +6,6 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.ai.ModelAccounting;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelFlow;
-import io.memoryos.ai.systemone.SystemOneClient;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
@@ -20,6 +19,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
+import org.springaicommunity.typesafe.response.Usage;
 
 /**
  * Check 1 of MEM-195 around one turn: blocked phrases in code first, then the classifier, and the audit record of a
@@ -39,10 +39,15 @@ public final class ChatGuardrailCheck {
 
     public enum Kind { CONVERSATIONAL, QUESTION, BLOCKED }
 
-    /** How the question was classified; a blocked one carries what the person is told. */
-    public record Result(Kind kind, @Nullable String message, ChatGuardrails.@Nullable Topic topic, @Nullable String phrase) {
-        static final Result QUESTION = new Result(Kind.QUESTION, null, null, null);
-        static final Result CONVERSATIONAL = new Result(Kind.CONVERSATIONAL, null, null, null);
+    /**
+     * How the question was classified; a blocked one carries what the person is told. {@code review} marks a turn that
+     * was let through with a topic scored between the thresholds (MEM-198).
+     */
+    public record Result(Kind kind, @Nullable String message, ChatGuardrails.@Nullable Topic topic, @Nullable String phrase,
+                         boolean review) {
+        public Result(Kind kind, @Nullable String message, ChatGuardrails.@Nullable Topic topic, @Nullable String phrase) {
+            this(kind, message, topic, phrase, false);
+        }
     }
 
     /** Whether this turn needs the check at all: it is grounded, or the Tenant turned a guardrail on. */
@@ -70,11 +75,11 @@ public final class ChatGuardrailCheck {
                 setup.options().grounded(), topics, accounting));
     }
 
-    /** The same check with the verdict from a System One connection; {@code decided} is told what it answered. */
+    /** The same check with the answers of a System One connection; {@code used} is told what the service reported. */
     public Result checkOn(SystemOneConnectionService.Connection connection, ChatTurnSetup setup, String question,
-            List<ChatMessage> earlier, ChatSettingsService.TurnPolicy policy, Consumer<SystemOneClient.Decision> decided) {
+            List<ChatMessage> earlier, ChatSettingsService.TurnPolicy policy, Consumer<Usage> used) {
         return check(question, policy, topics -> classifier.classify(connection, question, earlier,
-                setup.options().grounded(), topics, decided));
+                setup.options().grounded(), topics, used));
     }
 
     private static Result check(String question, ChatSettingsService.TurnPolicy policy,
@@ -84,8 +89,8 @@ public final class ChatGuardrailCheck {
         if (phrase != null) return new Result(Kind.BLOCKED, guardrails.blockedPhraseMessage(), null, phrase);
         var verdict = classify.apply(guardrails.enabledTopics());
         return switch (verdict.kind()) {
-            case CONVERSATIONAL -> Result.CONVERSATIONAL;
-            case QUESTION -> Result.QUESTION;
+            case CONVERSATIONAL -> new Result(Kind.CONVERSATIONAL, null, null, null, verdict.review());
+            case QUESTION -> new Result(Kind.QUESTION, null, null, null, verdict.review());
             case BLOCKED_TOPIC -> {
                 var topic = Objects.requireNonNull(verdict.topic());
                 yield new Result(Kind.BLOCKED, topic.message(), topic, null);
