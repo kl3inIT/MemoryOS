@@ -54,24 +54,40 @@ public class ModelCatalogRepository {
                     """).param("tenant", tenant).param("flow", flow.name()).update();
     }
     public List<FlowModelDefault> flowDefaults(UUID tenant) {
-        return jdbc.sql("SELECT flow, model_configuration_id, reasoning_effort, revision FROM model_flow_default "
-                        + "WHERE tenant_id=:tenant ORDER BY flow")
+        return jdbc.sql("SELECT flow, model_configuration_id, reasoning_effort, system_one_connection_id, revision "
+                        + "FROM model_flow_default WHERE tenant_id=:tenant ORDER BY flow")
                 .param("tenant", tenant).query((r, ignored) -> new FlowModelDefault(ModelFlow.valueOf(r.getString(1)),
-                        r.getObject(2, UUID.class), effort(r.getString(3)), r.getLong(4))).list();
+                        r.getObject(2, UUID.class), effort(r.getString(3)), r.getObject(4, UUID.class), r.getLong(5))).list();
     }
     public FlowModelDefault flowDefault(UUID tenant, ModelFlow flow) {
-        return jdbc.sql("SELECT model_configuration_id, reasoning_effort, revision FROM model_flow_default "
-                        + "WHERE tenant_id=:tenant AND flow=:flow")
+        return jdbc.sql("SELECT model_configuration_id, reasoning_effort, system_one_connection_id, revision "
+                        + "FROM model_flow_default WHERE tenant_id=:tenant AND flow=:flow")
                 .param("tenant", tenant).param("flow", flow.name())
-                .query((r, ignored) -> new FlowModelDefault(flow, r.getObject(1, UUID.class), effort(r.getString(2)), r.getLong(3)))
+                .query((r, ignored) -> new FlowModelDefault(flow, r.getObject(1, UUID.class), effort(r.getString(2)),
+                        r.getObject(3, UUID.class), r.getLong(4)))
                 .optional().orElseThrow(AiException::unavailable);
     }
     public void setFlowDefault(UUID tenant, ModelFlow flow, @Nullable UUID model, @Nullable ReasoningEffort effort, long revision) {
+        // Choosing a language model, or the conversation model, takes the task off its System One connection.
         requireChanged(jdbc.sql("UPDATE model_flow_default SET model_configuration_id=:model, reasoning_effort=:effort, "
-                        + "revision=revision+1 WHERE tenant_id=:tenant AND flow=:flow AND revision=:revision")
+                        + "system_one_connection_id=NULL, revision=revision+1 "
+                        + "WHERE tenant_id=:tenant AND flow=:flow AND revision=:revision")
                 .param("tenant", tenant).param("flow", flow.name()).param("model", model, Types.OTHER)
                 .param("effort", effort == null ? null : effort.name(), Types.VARCHAR)
                 .param("revision", revision).update());
+    }
+    /** Runs a classifying task on a System One connection instead of a language model. */
+    public void setFlowClassifier(UUID tenant, ModelFlow flow, UUID connection, long revision) {
+        requireChanged(jdbc.sql("UPDATE model_flow_default SET model_configuration_id=NULL, reasoning_effort=NULL, "
+                        + "system_one_connection_id=:connection, revision=revision+1 "
+                        + "WHERE tenant_id=:tenant AND flow=:flow AND revision=:revision")
+                .param("tenant", tenant).param("flow", flow.name()).param("connection", connection)
+                .param("revision", revision).update());
+    }
+    public boolean flowUsesClassifier(UUID tenant, UUID connection) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM model_flow_default WHERE tenant_id=:tenant "
+                        + "AND system_one_connection_id=:connection)")
+                .param("tenant", tenant).param("connection", connection).query(Boolean.class).single();
     }
     private static @Nullable ReasoningEffort effort(@Nullable String stored) {
         return stored == null ? null : ReasoningEffort.valueOf(stored);

@@ -453,7 +453,11 @@ grounded turn always offers `search_knowledge`, whatever the agent's search tool
 **Check 1.** Before the answer model, in the turn's background execution, `ChatGuardrailCheck`:
 1. matches the Tenant's blocked phrases in code;
 2. sends greetings and thanks to the answer model without a classifier call;
-3. otherwise asks one classifier call on the Tenant's `CHAT_GUARDRAIL` task model, or the conversation
+3. otherwise, when the Tenant's `CHAT_GUARDRAIL` task names a [System One connection](chat-models.md#system-one-connections)
+   (MEM-198), asks it one typed choice among the same labels: the conversation is the content, each enabled topic
+   is a label carrying its name, description and examples, and the chosen label is the verdict. No language model
+   is leased, and the check is recorded in the usage ledger under the connection's name;
+4. otherwise asks one classifier call on the Tenant's `CHAT_GUARDRAIL` task model, or the conversation
    model when that task has no usable model ([task models](chat-models.md); V135 seeds it with the Chat model)
    (`ModelCalls`, so it keeps the turn's budget,
    deadline and usage recording) whether the question is `CONVERSATIONAL`, a `QUESTION` or a `BLOCKED_TOPIC`, with
@@ -480,8 +484,8 @@ and the person's creativity.
 
 Check 1 runs for grounded turns and, when a topic or phrase is enabled, for every turn. A guardrail is never a
 technical error for the person (2026-10-01; on staging about one checked turn in five had failed because the model
-did not return the structured verdict). The check runs once, on the task model, and is not asked again on another
-model, as none of the guardrail projects compared for MEM-206 falls back to a second classifier. When it returns no
+did not return the structured verdict). The check runs once, on the task's System One connection or its model, and
+is not asked again on another classifier, as none of the guardrail projects compared for MEM-206 falls back to a second classifier. When it returns no
 verdict, whether from an unreadable reply, a provider error or a refused credential, the turn fails open: it is
 answered and the person is not told about the check, as Azure OpenAI completes a request its filter could not check
 and LiteLLM's `fail_open` lets one through.

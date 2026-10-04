@@ -73,7 +73,7 @@ class ModelCatalogSelectionTest {
     @Test void aTaskSelectionCarriesTheLevelChosenForTheTaskEvenOnTheConversationModel() {
         var fixture = new Fixture();
         when(fixture.catalog.flowDefault(fixture.tenant, ModelFlow.CHAT_NAMING))
-                .thenReturn(new FlowModelDefault(ModelFlow.CHAT_NAMING, null, ReasoningEffort.HIGH, 2));
+                .thenReturn(new FlowModelDefault(ModelFlow.CHAT_NAMING, null, ReasoningEffort.HIGH, null, 2));
 
         var selected = fixture.access.selectFlow(fixture.actor, fixture.session, ModelFlow.CHAT_NAMING);
 
@@ -192,7 +192,7 @@ class ModelCatalogSelectionTest {
                     true, true, null, 1, Set.of(), Set.of(), DataBoundary.EXTERNAL);
         }
         void naming(UUID model) {
-            var value = new FlowModelDefault(ModelFlow.CHAT_NAMING, model, null, 1);
+            var value = new FlowModelDefault(ModelFlow.CHAT_NAMING, model, null, null, 1);
             when(catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING)).thenReturn(value);
             when(catalog.flowDefaults(tenant)).thenReturn(List.of(value));
         }

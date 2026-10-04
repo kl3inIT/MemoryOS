@@ -11,6 +11,8 @@ import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
+import io.memoryos.ai.systemone.SystemOneClient;
+import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.chat.grounding.ChatGuardrailCheck;
 import io.memoryos.chat.grounding.CitationGate;
 import io.memoryos.chat.grounding.GroundingClassifier;
@@ -484,14 +486,22 @@ public final class ChatTurnService implements AutoCloseable {
     private boolean checkGuardrails(Active run) {
         if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
         long started = System.nanoTime();
-        // One call, on the check's own task model, else the conversation's model. It is not asked again on another
-        // model: when it gives no verdict, the answer model below still carries the rules, as no guardrail project
-        // falls back to a second classifier either.
+        // One call, on the Tenant's System One connection (MEM-198), else on the check's own task model, else the
+        // conversation's model. It is not asked again on another classifier: when it gives no verdict, the answer
+        // model below still carries the rules, as no guardrail project falls back to a second classifier either.
         ChatGuardrailCheck.Result result = null;
-        try (var selected = models.resolveFlow(run.setup.actor(), run.setup.sessionId(), ModelFlow.CHAT_GUARDRAIL)) {
-            result = guardrails.check(selected.binding(), run.setup, run.question, run.earlier, run.policy,
-                    accounting -> recordCheck(run, selected.modelConfigurationId(), selected.provenance(),
-                            selected.binding().service().getName(), accounting));
+        String classifier = "llm";
+        try {
+            var connection = guardrails.connection(run.setup.tenant());
+            if (connection != null) {
+                classifier = "system_one";
+                result = guardrails.checkOn(connection, run.setup, run.question, run.earlier, run.policy,
+                        decision -> recordCheck(run, connection, decision));
+            } else try (var selected = models.resolveFlow(run.setup.actor(), run.setup.sessionId(), ModelFlow.CHAT_GUARDRAIL)) {
+                result = guardrails.check(selected.binding(), run.setup, run.question, run.earlier, run.policy,
+                        accounting -> recordCheck(run, selected.modelConfigurationId(), selected.provenance(),
+                                selected.binding().service().getName(), accounting));
+            }
         } catch (CancellationException stopped) {
             throw stopped;
         } catch (RuntimeException failure) {
@@ -502,7 +512,7 @@ public final class ChatTurnService implements AutoCloseable {
         // is answered. Whatever the verdict, the model that answers carries the blocked topics itself (MEM-208), so it
         // declines one with the Tenant's message even when this check misread the message or was not reached.
         if (metrics != null)
-            metrics.guardrail(result == null ? "unchecked" : result.kind().name().toLowerCase(Locale.ROOT),
+            metrics.guardrail(result == null ? "unchecked" : result.kind().name().toLowerCase(Locale.ROOT), classifier,
                     System.nanoTime() - started);
         run.setup = run.setup.withOptions(run.setup.options()
                 .withTopicRules(ChatGuardrailCheck.rulesForTheAnswerModel(run.policy)));
@@ -556,9 +566,20 @@ public final class ChatTurnService implements AutoCloseable {
                 .log("Chat guardrail check unavailable");
     }
 
+    /**
+     * A check on a System One connection, recorded under the connection's name with the tokens the service reported
+     * and the cost its input price gives; a service that reports input only wrote no output.
+     */
+    private void recordCheck(Active run, SystemOneConnectionService.Connection connection, SystemOneClient.Decision decision) {
+        Long input = decision.inputTokens();
+        Long output = decision.outputTokens() != null || input == null ? decision.outputTokens() : Long.valueOf(0);
+        recordCheck(run, null, new ModelResolver.Provenance(null, connection.name(), connection.dataBoundary().name()),
+                connection.model(), new ModelAccounting(input, output, connection.cost(input), 0, true));
+    }
+
     /** The check is part of the turn's cost, recorded against the model that ran it. */
-    private void recordCheck(Active run, UUID modelConfigurationId, ModelResolver.Provenance provenance, String modelName,
-            ModelAccounting accounting) {
+    private void recordCheck(Active run, @Nullable UUID modelConfigurationId, ModelResolver.Provenance provenance,
+            String modelName, ModelAccounting accounting) {
         try {
             persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT_GUARDRAIL,
                     modelConfigurationId, provenance, modelName, accounting));

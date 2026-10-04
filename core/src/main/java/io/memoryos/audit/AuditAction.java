@@ -52,6 +52,7 @@ public enum AuditAction {
     WEB_CONNECTION_CHANGE("web_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     VOICE_CONNECTION_CHANGE("voice_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     IMAGE_CONNECTION_CHANGE("image_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
+    SYSTEM_ONE_CONNECTION_CHANGE("system_one_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     INTERPRETER_CHANGE("interpreter.change", AuditEventClass.API_ACTIVITY, "enabled"),
     CHAT_SETTINGS_CHANGE("chat_settings.change", AuditEventClass.API_ACTIVITY, "deepResearchEnabled", "chatHistoryVisibility",
             "groundedAnswers", "groundedAllowWeb", "guardrailTopics", "blockedPhrases"),

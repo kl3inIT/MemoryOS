@@ -18,7 +18,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import io.memoryos.ai.DataBoundary;
 import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.systemone.SystemOneClient;
+import io.memoryos.ai.systemone.SystemOneConnectionService;
+import io.memoryos.ai.systemone.SystemOneProvider;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
@@ -43,6 +47,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -395,12 +400,66 @@ class ChatGroundedTurnTest {
         }
     }
 
+    private static final SystemOneConnectionService.Connection SERVING = new SystemOneConnectionService.Connection(
+            UUID.randomUUID(), UUID.randomUUID(), SystemOneProvider.NINEROUTER, "9Router",
+            "http://9router.internal:20128/v1", "openrouter/typesafe/jev-1.13", "v1:stored", DataBoundary.EXTERNAL, 0.042);
+
+    @Test
+    void aCheckOnASystemOneConnectionLeasesNoLanguageModelAndIsRecordedUnderTheConnection() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.connection(any())).thenReturn(SERVING);
+        when(guardrails.checkOn(eq(SERVING), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            Consumer<SystemOneClient.Decision> decided = call.getArgument(5);
+            decided.accept(new SystemOneClient.Decision("TOPIC_2", 0.9, Map.of("TOPIC_2", 0.95), 1_000_000L, null));
+            return new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, "Trợ lý không trả lời câu hỏi về lãnh tụ.",
+                    ChatGuardrails.BUILT_IN.get(1), null);
+        });
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
+            queued.get().run();
+            verify(models, never()).resolveFlow(any(), any(), any());
+            verify(guardrails, never()).check(any(), any(), any(), any(), any(), any());
+            verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ.", ChatMessage.BLOCKED_TOPIC);
+            var usage = ArgumentCaptor.forClass(ChatTurnPersistence.Usage.class);
+            verify(persistence).recordUsage(usage.capture());
+            assertEquals("9Router", usage.getValue().provider().providerName());
+            assertEquals("EXTERNAL", usage.getValue().provider().dataBoundary());
+            assertEquals("openrouter/typesafe/jev-1.13", usage.getValue().modelName());
+            assertEquals(null, usage.getValue().modelConfigurationId());
+            // A service that reports its input only wrote no output; the cost is the input at the connection's price.
+            assertEquals(1_000_000L, usage.getValue().accounting().input());
+            assertEquals(0L, usage.getValue().accounting().output());
+            assertEquals(0.042, usage.getValue().accounting().cost(), 1e-9);
+            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "blocked")
+                    .tag("classifier", "system_one").timer().count());
+        }
+    }
+
+    @Test
+    void aSystemOneCheckThatFailsIsNotAskedAgainOnALanguageModel() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.QUESTION);
+        when(guardrails.connection(any())).thenReturn(SERVING);
+        when(guardrails.checkOn(any(), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("unreachable"));
+        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Việt Nam có bao nhiêu tỉnh?", null);
+            queued.get().run();
+            verify(models, never()).resolveFlow(any(), any(), any());
+            verify(guardrails, never()).check(any(), any(), any(), any(), any(), any());
+            verify(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "unchecked")
+                    .tag("classifier", "system_one").timer().count());
+        }
+    }
+
     @Test
     void aBlockIsRecordedInItsOwnTransactionBecauseAChatTurnHasNone() {
         // Staging, 2026-09-27: record() requires the caller's transaction, so every blocked turn failed instead of
         // answering with the Tenant's message.
         var audit = mock(AuditTrail.class);
-        var check = new ChatGuardrailCheck(mock(GroundingClassifier.class), audit);
+        var check = new ChatGuardrailCheck(mock(GroundingClassifier.class), audit, null);
         check.recordBlock(new TenantId(UUID.randomUUID()), actor, session,
                 new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, "Không trả lời.", ChatGuardrails.BUILT_IN.get(1), null), null);
         var event = ArgumentCaptor.forClass(AuditRecord.class);

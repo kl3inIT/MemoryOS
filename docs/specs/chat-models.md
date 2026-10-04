@@ -14,6 +14,33 @@ Public providers bypass Group restrictions. Restricted providers require Group m
 
 The Tenant Chat default must be visible, enabled, credential-ready, public and unrestricted by Persona. Hiding/deleting the default or disabling/restricting its provider requires choosing another default first. Deleting another model/provider clears affected Persona defaults; message history is preserved.
 
+### System One connections
+
+A classifying task (`ModelFlow.classifies`, today only `CHAT_GUARDRAIL`) may run on a System One connection instead of
+a language model (MEM-198). A System One service answers a typed choice among labels with a probability for each and
+writes no text. `io.memoryos.ai.systemone` holds the connections and the call:
+
+| Type | Endpoint | Key | Default model | Client |
+| --- | --- | --- | --- | --- |
+| `TYPESAFE` | none; `https://api.typesafe.ai/v1` | required | `jev-latest` | TypeSafe SDK |
+| `NINEROUTER` | the gateway's `/v1` | required | none; the model names the upstream | TypeSafe SDK |
+| `LAYA` | a self-hosted `laya.serve` `/v1` | optional | `auto` | TypeSafe SDK |
+| `SYSTEMONE_COMPATIBLE` | any server's `/v1` | optional | none | TypeSafe SDK |
+| `CLOUDFLARE` | the account ID | required | `clef-flash` | `RestClient`; reads the answer inside `result` or at the root |
+
+- V146 adds `system_one_connection`. A Tenant holds up to 32 connections and several of one type; each has a name
+  unique in the Tenant (ignoring case), a model, an encrypted key (`ProviderCredentials`), a data boundary and an
+  optional input price in USD per million tokens, which prices a check in the usage ledger.
+- `model_flow_default.system_one_connection_id` names the connection a task runs on. A row names a model or a
+  connection, never both, and only a classifying flow names a connection (database checks). Setting a task model
+  clears the connection; `SystemOneConnectionService.assign` sets it and clears the model and the level.
+- A connection a task runs on is not deleted (`409`) and keeps a key its type requires.
+- Every call goes through `shared.OutboundHttp` ([ADR 0025](../decisions/0025-outbound-http-through-the-highest-level-client.md)):
+  one 5 s deadline, a 64 KiB answer, no redirect, a failed answer reported by its status. The SDK runs without
+  retries and without its own error handler.
+- Configuration requires `MODELS_MANAGE` and is audited as `system_one_connection.change`; a task change as
+  `model_flow.change`.
+
 ### Task models
 
 Flyway V84 adds `model_flow_default`, one row per Tenant and flow (Onyx `llm_model_flow`). A flow is a task beside the conversation that may use its own model: `CHAT_NAMING` (conversation titles), `CHAT_GUARDRAIL` (the [guardrail check](chat.md#grounded-chat--phase-31) before a grounded or guarded answer, V135), `MEETING_MINUTES` ([meeting minutes](meeting.md#minutes)) and `MEETING_CORRECTION`. A null model means the task uses the conversation model. Rows are seeded with the Tenant's Chat default when the catalog is initialized, and V121 fills every empty row with it, so each task names a model from the start instead of an implicit default; a row is null again only after its model or provider is deleted. Each row carries its own revision.
@@ -23,6 +50,7 @@ Setting a flow model uses the Chat default eligibility rule, because flow output
 Each task row also stores a reasoning level (V143 `model_flow_default.reasoning_effort`: `OFF`, `LOW`, `MEDIUM` or `HIGH`). Null is the task's own default (`ModelFlow.defaultEffort`): `MEDIUM` for the meeting minutes and `OFF` for naming, the question check and corrections. The flows API returns the effective level; setting a task model takes an optional level in the same request, and omitting it returns the task to its default. The audit record of a task change carries the level beside the model. The selection carries the level to the call (`ModelBinding.forTask`), on the task's model and on the conversation model it falls back to:
 
 - At `OFF` the task runs as a helper: thinking off and the task's own output cap.
+
 - At any other level the call keeps thinking on and asks for that level through the binding's sampling; a level named in the model's configuration still outranks it. `ModelCalls` gives the call at least 4,096 output tokens, and title generation gets 4,096 tokens and 60 seconds instead of 128 and 10.
 - A model that does not reason is sent no level.
 - The question check keeps its 20-second bound at every level. A reasoning check that runs past it leaves the turn without a verdict, and the answer model still carries the blocked topics.
@@ -78,6 +106,10 @@ Web search, image generation and [Voice](../increments/completed/mem-91-chat-voi
 | `PUT/DELETE /api/chat/models/{id}?revision=...` | Replace / delete model configuration |
 | `GET/PUT /api/chat/model-default` | Read / set Tenant Chat default using expected revision |
 | `GET /api/chat/model-flows` | Every task flow with its model, `available`, effective `reasoningEffort` and revision |
+| `GET /api/chat/system-one/types` | The connection types and what each needs |
+| `GET /api/chat/system-one/connections`, `POST /api/chat/system-one/types/{provider}/connections`, `PUT`/`DELETE /api/chat/system-one/connections/{id}` | List, add, change and delete System One connections; a delete while a task runs on the connection is `409` |
+| `POST /api/chat/system-one/connections/{id}/test` | Ask the saved connection one self-contained choice; `204` or `503` |
+| `PUT /api/chat/system-one/tasks/{flow}` | Run a classifying task on a connection; a task that does not classify is `400` |
 | `PUT /api/chat/model-flows/{flow}?revision=...&modelConfigurationId=...&reasoningEffort=...` | Set a task model with the Chat default eligibility rule, or omit the model to use the conversation model; omit the level for the task's default; unknown flow is `400` |
 | `GET/PUT /api/chat/personas/{id}/model` | Read / set a nondeleted builtin or current actor-owned Persona default; omit model ID to inherit |
 | `GET /api/chat/model-personas?cursor=...&limit=...` | Model-manager-only, Tenant-scoped ID/name projection of nondeleted builtin/current actor-owned Personas; default 25/max 100, ascending UUID keyset, `limit+1`, required nullable `nextCursor`; invalid, foreign, private, deleted or missing cursor anchors rejected |

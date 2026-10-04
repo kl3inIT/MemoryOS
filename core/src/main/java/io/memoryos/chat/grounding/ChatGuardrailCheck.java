@@ -5,6 +5,9 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.ai.ModelAccounting;
 import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelFlow;
+import io.memoryos.ai.systemone.SystemOneClient;
+import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
@@ -15,6 +18,7 @@ import io.memoryos.chat.execution.ChatTurnSetup;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,10 +28,13 @@ import org.jspecify.annotations.Nullable;
 public final class ChatGuardrailCheck {
     private final GroundingClassifier classifier;
     private final AuditTrail audit;
+    private final @Nullable SystemOneConnectionService connections;
 
-    public ChatGuardrailCheck(GroundingClassifier classifier, AuditTrail audit) {
+    public ChatGuardrailCheck(GroundingClassifier classifier, AuditTrail audit,
+                              @Nullable SystemOneConnectionService connections) {
         this.classifier = classifier;
         this.audit = audit;
+        this.connections = connections;
     }
 
     public enum Kind { CONVERSATIONAL, QUESTION, BLOCKED }
@@ -44,6 +51,14 @@ public final class ChatGuardrailCheck {
     }
 
     /**
+     * The System One connection the Tenant runs the check on (MEM-198), or null when it runs on a language model.
+     * A chosen connection that cannot be used is a failure, not a reason to change classifier.
+     */
+    public SystemOneConnectionService.@Nullable Connection connection(TenantId tenant) {
+        return connections == null ? null : connections.forFlow(tenant, ModelFlow.CHAT_GUARDRAIL);
+    }
+
+    /**
      * @param binding  the model that classifies: the Tenant's guardrail task model, else the conversation model
      * @param question the text the person wrote in this turn, without attachments
      * @param earlier  the conversation's messages before it, oldest first, which the classifier reads as context;
@@ -51,11 +66,23 @@ public final class ChatGuardrailCheck {
      */
     public Result check(ModelBinding binding, ChatTurnSetup setup, String question, List<ChatMessage> earlier,
             ChatSettingsService.TurnPolicy policy, Consumer<ModelAccounting> accounting) {
+        return check(question, policy, topics -> classifier.classify(binding, question, earlier,
+                setup.options().grounded(), topics, accounting));
+    }
+
+    /** The same check with the verdict from a System One connection; {@code decided} is told what it answered. */
+    public Result checkOn(SystemOneConnectionService.Connection connection, ChatTurnSetup setup, String question,
+            List<ChatMessage> earlier, ChatSettingsService.TurnPolicy policy, Consumer<SystemOneClient.Decision> decided) {
+        return check(question, policy, topics -> classifier.classify(connection, question, earlier,
+                setup.options().grounded(), topics, decided));
+    }
+
+    private static Result check(String question, ChatSettingsService.TurnPolicy policy,
+            Function<List<ChatGuardrails.Topic>, GroundingClassifier.Verdict> classify) {
         var guardrails = policy.guardrails();
         String phrase = guardrails.blockedPhraseIn(question);
         if (phrase != null) return new Result(Kind.BLOCKED, guardrails.blockedPhraseMessage(), null, phrase);
-        var topics = guardrails.enabledTopics();
-        var verdict = classifier.classify(binding, question, earlier, setup.options().grounded(), topics, accounting);
+        var verdict = classify.apply(guardrails.enabledTopics());
         return switch (verdict.kind()) {
             case CONVERSATIONAL -> Result.CONVERSATIONAL;
             case QUESTION -> Result.QUESTION;

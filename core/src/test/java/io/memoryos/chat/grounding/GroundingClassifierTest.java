@@ -11,16 +11,23 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.memoryos.ai.DataBoundary;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelCalls;
+import io.memoryos.ai.systemone.SystemOneClient;
+import io.memoryos.ai.systemone.SystemOneConnectionService;
+import io.memoryos.ai.systemone.SystemOneProvider;
 import io.memoryos.chat.ChatGuardrails;
 import io.memoryos.chat.ChatMessage;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -161,11 +168,52 @@ class GroundingClassifierTest {
         var binding = mock(ModelBinding.class);
         when(calls.generateObject(eq(binding), anyString(), anyString(), eq(String.class), any(), anyInt(), eq(0.0), any()))
                 .thenReturn("BLOCKED_TOPIC:TOPIC_1");
-        var verdict = new GroundingClassifier(calls).classify(binding, "Thế còn gia đình ông ấy thì sao?",
+        var verdict = new GroundingClassifier(calls, null).classify(binding, "Thế còn gia đình ông ấy thì sao?",
                 List.of(message(ChatMessage.Role.USER, "Chủ tịch nước hiện nay là ai?")), false, LEADERS, accounting -> {});
         assertEquals(LEADER, verdict.topic());
         var input = ArgumentCaptor.forClass(String.class);
         verify(calls).generateObject(eq(binding), anyString(), input.capture(), eq(String.class), any(), anyInt(), eq(0.0), any());
         assertTrue(input.getValue().contains("Person: Chủ tịch nước hiện nay là ai?\n\nPerson: Thế còn gia đình ông ấy thì sao?"));
+    }
+    @Test
+    void aSystemOneConnectionIsAskedOneChoiceAmongTheSameLabels() {
+        var systemOne = mock(SystemOneClient.class);
+        var connection = new SystemOneConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(),
+                SystemOneProvider.LAYA, "Serving", "http://serving.internal:8000/v1", "auto", null, DataBoundary.INTERNAL, 0.0);
+        var topics = ChatGuardrails.BUILT_IN.subList(0, 2);
+        var asked = ArgumentCaptor.forClass(SystemOneClient.Question.class);
+        when(systemOne.choose(eq(connection), asked.capture()))
+                .thenReturn(new SystemOneClient.Decision("TOPIC_2", 0.9, Map.of(), 150L, 0L));
+        var decided = new AtomicReference<SystemOneClient.Decision>();
+
+        var verdict = new GroundingClassifier(mock(ModelCalls.class), systemOne).classify(connection,
+                "Vợ bác Hồ là ai?", List.of(), true, topics, decided::set);
+
+        assertEquals(GroundingClassifier.Kind.BLOCKED_TOPIC, verdict.kind());
+        assertEquals(topics.get(1), verdict.topic());
+        assertEquals(150L, decided.get().inputTokens());
+        var question = asked.getValue();
+        assertEquals(List.of("CONVERSATIONAL", "TOPIC_1", "TOPIC_2", "QUESTION"), List.copyOf(question.options().keySet()));
+        assertTrue(question.options().get("TOPIC_2").startsWith("Lãnh tụ và lãnh đạo: "));
+        assertTrue(question.options().get("TOPIC_2").contains("\"Vợ bác Hồ là ai?\""));
+        assertTrue(question.state().contains("Person: Vợ bác Hồ là ai?"));
+        assertTrue(question.instructions().contains("ONLY THE LAST Person message"));
+    }
+
+    @Test
+    void aSystemOneCheckKeepsTheShortcutsAndOffersConversationOnlyWhenGrounded() {
+        var systemOne = mock(SystemOneClient.class);
+        var connection = new SystemOneConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(),
+                SystemOneProvider.LAYA, "Serving", "http://serving.internal:8000/v1", "auto", null, DataBoundary.INTERNAL, 0.0);
+        var classifier = new GroundingClassifier(mock(ModelCalls.class), systemOne);
+
+        assertEquals(GroundingClassifier.Verdict.CONVERSATIONAL,
+                classifier.classify(connection, "Xin chào!", List.of(), true, List.of(), decision -> {}));
+        assertEquals(GroundingClassifier.Verdict.QUESTION,
+                classifier.classify(connection, "Quy trình nghỉ phép?", List.of(), false, List.of(), decision -> {}));
+        verifyNoInteractions(systemOne);
+
+        var question = GroundingClassifier.question("Quy trình nghỉ phép?", List.of(), false, ChatGuardrails.BUILT_IN.subList(0, 1));
+        assertEquals(List.of("TOPIC_1", "QUESTION"), List.copyOf(question.options().keySet()));
     }
 }

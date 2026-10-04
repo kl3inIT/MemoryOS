@@ -2730,6 +2730,66 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void systemOneConnectionsAreModelManagersAndAClassifyingTaskRunsOnOne() throws Exception {
+        grantModelManagement();
+        mockMvc.perform(get("/api/chat/system-one/connections").with(authentication(other))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/system-one/types").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(5))
+                .andExpect(jsonPath("$[?(@.provider == 'CLOUDFLARE')].endpoint").value("ACCOUNT"))
+                .andExpect(jsonPath("$[?(@.provider == 'LAYA')].requiresKey").value(false));
+        var body = Json.mapper().createObjectNode().put("name", "9Router Jev").put("endpoint", "http://9router.internal:20128/v1")
+                .put("model", "openrouter/typesafe/jev-1.13").put("credentialAction", "REPLACE")
+                .put("credentialValue", "fixture-system-one-key").put("dataBoundary", "EXTERNAL").put("inputPrice", 0.042)
+                .put("revision", 0);
+        var created = Json.mapper().readTree(mockMvc.perform(post("/api/chat/system-one/types/NINEROUTER/connections")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.credentialConfigured").value(true))
+                .andExpect(jsonPath("$.credentialValue").doesNotExist())
+                .andReturn().getResponse().getContentAsString());
+        String id = created.path("id").asText();
+        // A second connection of the same type is allowed; the same name is not.
+        mockMvc.perform(post("/api/chat/system-one/types/NINEROUTER/connections").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/chat/system-one/types/NINEROUTER/connections").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(body.deepCopy().put("name", "9Router Clef").put("model", "cloudflare/clef-flash").toString()))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/chat/system-one/connections").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+
+        JsonNode guardrail = null;
+        for (var flow : Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
+                .andReturn().getResponse().getContentAsString()))
+            if ("CHAT_GUARDRAIL".equals(flow.path("flow").asText())) guardrail = flow;
+        assertNotNull(guardrail);
+        var task = Json.mapper().createObjectNode().put("connectionId", id).put("revision", guardrail.path("revision").asLong());
+        mockMvc.perform(put("/api/chat/system-one/tasks/CHAT_NAMING").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(task.toString()))
+                .andExpect(status().isBadRequest());
+        var assigned = Json.mapper().readTree(mockMvc.perform(put("/api/chat/system-one/tasks/CHAT_GUARDRAIL")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(task.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.systemOneConnectionId").value(id))
+                .andExpect(jsonPath("$.modelConfigurationId").isEmpty())
+                .andReturn().getResponse().getContentAsString());
+        // A connection a task runs on stays; returning the task to a model releases it.
+        mockMvc.perform(delete("/api/chat/system-one/connections/" + id).with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
+        mockMvc.perform(put("/api/chat/model-flows/CHAT_GUARDRAIL").param("revision", assigned.path("revision").asText())
+                        .param("modelConfigurationId", guardrail.path("modelConfigurationId").asText())
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.systemOneConnectionId").isEmpty());
+        mockMvc.perform(delete("/api/chat/system-one/connections/" + id).with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM audit_event WHERE details::text LIKE '%fixture-system-one-key%'")
+                .query(Long.class).single(), "a connection key is never recorded");
+        assertEquals(3L, jdbc.sql("SELECT count(*) FROM audit_event WHERE action = 'system_one_connection.change'")
+                .query(Long.class).single());
+    }
+
+    @Test
     void changingModelOptionsWhileRunningAffectsOnlyTheNextTurn() throws Exception {
         grantModelManagement();
         var configured = createConfiguredModel(createProvider("http://revision.internal/v1", true), "revision-model", 0.1);

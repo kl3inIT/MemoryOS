@@ -40,6 +40,8 @@ dependencies {
     implementation(libs.spring.ai.openai)
     implementation(libs.embabel.api)
     implementation(libs.embabel.openai)
+    // The System One protocol client (ai.systemone); it runs on a RestClient from OutboundHttp.
+    implementation(libs.typesafe.sdk)
     // The OpenAI provider owns its OkHttp transport for raw-call cancellation (OpenAiCancellation).
     implementation(libs.okhttp)
     implementation(libs.mcp)
