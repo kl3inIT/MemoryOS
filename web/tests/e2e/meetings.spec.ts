@@ -601,6 +601,22 @@ test("the list's search keeps a row of its own on a phone", async ({ page }) => 
   });
 });
 
+test("the list's filters live in the address, so a reload or Back keeps them", async ({ page }) => {
+  await mockMeetings(page);
+  await page.goto("/meetings?status=ENDED");
+  const status = page.getByRole("combobox", { name: "Trạng thái" });
+  await expect(status).toHaveText("Đã kết thúc", { timeout: 30_000 });
+  const period = page.getByRole("combobox", { name: "Thời gian" });
+  // The list opens with every meeting: no period is chosen until the person chooses one.
+  await expect(period).toHaveText("Mọi thời gian");
+
+  await period.click();
+  await page.getByRole("option", { name: "90 ngày qua" }).click();
+  await expect(page).toHaveURL(/status=ENDED&period=90d/);
+  await page.reload();
+  await expect(period).toHaveText("90 ngày qua", { timeout: 30_000 });
+});
+
 test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const { uploaded } = await mockMeetings(page);
@@ -662,7 +678,8 @@ for (const width of [1440, 390]) {
     const { audio, exported, shared, correcting, written } = await mockMeetings(page);
 
     await page.goto("/meetings");
-    await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeVisible({
+    // A phone names the page in the shell bar, so the heading is there for a screen reader but not on screen.
+    await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeAttached({
       timeout: 30_000,
     });
     await expect(page.getByText("Họp dự án Vinaconex 9 Tower 3")).toBeVisible();

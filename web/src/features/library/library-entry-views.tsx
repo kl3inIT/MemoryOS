@@ -63,12 +63,7 @@ import type { LibraryEntryView } from "./library-views";
 import { LibraryListSkeleton } from "./library-results";
 import { LibraryNoMatch } from "./library-rows";
 import type { EntryKindChip } from "./library-search";
-import {
-  LibraryLayoutToggle,
-  LibrarySearchField,
-  LibrarySortSelect,
-  type LibraryLayout,
-} from "./library-toolbar";
+import { LibraryDisplayMenu, LibrarySearchField, type LibraryLayout } from "./library-toolbar";
 import type { LibraryViewState } from "./use-library-view";
 
 /** The kinds a chip narrows to; the person's own files are one choice, whatever made them. */
@@ -157,14 +152,13 @@ export function LibraryEntryViews({
             onChange={(next) => filterBy({ sourceId: next })}
           />
         )}
-        {(view === "shared" || view === "documents") && (
-          <LibrarySortSelect
-            sort={sort}
-            sorts={sorts}
-            onSort={(next: LibrarySort) => filterBy({ sort: next })}
-          />
-        )}
-        <LibraryLayoutToggle layout={layout} onLayout={onLayout} />
+        <LibraryDisplayMenu
+          sort={view === "shared" || view === "documents" ? sort : undefined}
+          sorts={sorts}
+          onSort={(next: LibrarySort) => filterBy({ sort: next })}
+          layout={layout}
+          onLayout={onLayout}
+        />
       </div>
       {view === "shared" && (
         <div className="flex flex-col gap-2">

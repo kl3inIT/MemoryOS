@@ -179,16 +179,29 @@ const termFailures = ["vi.ts", "en.ts", "app-translations.vi.ts", "app-translati
           : [],
       ),
 );
+/** Vietnamese copy names a conversation "hội thoại", not "cuộc trò chuyện" or "cuộc chat" (MEM-221). */
+const conversationWord = /cuộc (?:trò chuyện|chat)/i;
+const conversationFailures = ["vi.ts", "app-translations.vi.ts", "app-translations.en.ts"].flatMap(
+  (name) =>
+    readFileSync(join(root, "i18n", name), "utf8")
+      .split("\n")
+      .flatMap((line, index) =>
+        !commentLine.test(line) && conversationWord.test(line)
+          ? [`${root}/i18n/${name}:${index + 1} copy names a conversation; write "hội thoại"`]
+          : [],
+      ),
+);
 if (process.argv.includes("--check")) {
   const failures = [
     ...results.map((result) => `${result.file}:${result.line} untranslated ${result.value}`),
     ...missingKeys,
     ...toneFailures,
     ...termFailures,
+    ...conversationFailures,
   ];
   for (const failure of failures) console.error(failure);
   console.log(
-    `i18n audit: ${failures.length} direct UI literals, missing static keys, second-vowel tones or Tenant in copy.`,
+    `i18n audit: ${failures.length} direct UI literals, missing static keys, second-vowel tones, Tenant or a second name for a conversation in copy.`,
   );
   if (failures.length) process.exitCode = 1;
 } else if (process.argv.includes("--quiet") || process.argv.includes("--candidates")) {

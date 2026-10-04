@@ -61,26 +61,28 @@ class ElevenLabsVoiceTest {
     @Test
     void transcribesAWavUploadWithTheModelLanguageAndKey() throws Exception {
         byte[] pcm = Pcm16Test.tone(0.2, 3000);
-        try (var client = HttpClient.newHttpClient()) {
-            assertEquals("xin chào", ElevenLabsVoice.transcribe(client, base(), "eleven-secret", "scribe_v2", "vi",
-                    Pcm16.wav(pcm, 0, pcm.length), TIMEOUT));
-        }
+        assertEquals("xin chào", ElevenLabsVoice.transcribe(base(), "eleven-secret", "scribe_v2", "vi",
+                Pcm16.wav(pcm, 0, pcm.length), TIMEOUT));
         assertEquals("eleven-secret", key.get());
-        assertTrue(contentType.get().startsWith("multipart/form-data; boundary=memoryos-"));
-        assertTrue(body.get().contains("name=\"model_id\"\r\n\r\nscribe_v2\r\n"));
-        assertTrue(body.get().contains("name=\"language_code\"\r\n\r\nvi\r\n"));
-        assertTrue(body.get().contains("name=\"file\"; filename=\"audio.wav\"\r\nContent-Type: audio/wav\r\n\r\nRIFF"));
+        assertTrue(contentType.get().startsWith("multipart/form-data;") && contentType.get().contains("boundary="),
+                contentType.get());
+        // Each part: its disposition, the type and length Spring adds, a blank line, the value.
+        String sent = body.get();
+        assertTrue(sent.matches("(?s).*name=\"model_id\"\r\n(Content-[^\r]+\r\n)*\r\nscribe_v2\r\n.*"), sent);
+        assertTrue(sent.matches("(?s).*name=\"language_code\"\r\n(Content-[^\r]+\r\n)*\r\nvi\r\n.*"), sent);
+        assertTrue(sent.matches("(?s).*name=\"file\"; filename=\"audio.wav\"\r\nContent-Type: audio/wav\r\n"
+                + "(Content-Length: \\d+\r\n)?\r\nRIFF.*"), sent.substring(0, Math.min(sent.length(), 600)));
+        assertTrue(sent.indexOf("name=\"model_id\"") < sent.indexOf("name=\"language_code\"")
+                && sent.indexOf("name=\"language_code\"") < sent.indexOf("name=\"file\""), "fields come before the file");
     }
 
     @Test
     void rejectedTranscriptionIsReportedWithoutThePayload() {
         status = 401;
-        try (var client = HttpClient.newHttpClient()) {
-            var failure = assertThrows(VoiceException.class,
-                    () -> ElevenLabsVoice.transcribe(client, base(), "wrong", "scribe_v2", null, new byte[44], TIMEOUT));
-            assertEquals("CHAT_PROVIDER_UNAVAILABLE", failure.code());
-            assertFalse(failure.getMessage().contains("diagnostic"));
-        }
+        var failure = assertThrows(VoiceException.class,
+                () -> ElevenLabsVoice.transcribe(base(), "wrong", "scribe_v2", null, new byte[44], TIMEOUT));
+        assertEquals("CHAT_PROVIDER_UNAVAILABLE", failure.code());
+        assertFalse(failure.getMessage().contains("diagnostic"));
         assertFalse(body.get().contains("language_code"));
     }
 

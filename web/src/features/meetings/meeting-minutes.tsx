@@ -122,7 +122,7 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
         }
         title={ui("Mở biên bản trong Chat?")}
         description={ui(
-          "Biên bản được lưu vào Thư viện, rồi một cuộc trò chuyện mới mở ra với biên bản đó.",
+          "Biên bản được lưu vào Thư viện, rồi một hội thoại mới mở ra với biên bản đó.",
         )}
         confirmLabel={ui("Mở trong Chat")}
         pendingLabel={ui("Đang mở…")}

@@ -191,11 +191,10 @@ export const vietnameseUi: Record<string, string> = {
   "“{{text}}” sẽ bị xóa khỏi biên bản và không lấy lại được.":
     "“{{text}}” will be removed from the minutes and cannot be restored.",
   "Mở biên bản trong Chat?": "Open the minutes in Chat?",
-  "Biên bản được lưu vào Thư viện, rồi một cuộc trò chuyện mới mở ra với biên bản đó.":
+  "Biên bản được lưu vào Thư viện, rồi một hội thoại mới mở ra với biên bản đó.":
     "The minutes are saved to the Library, then a new conversation opens with them attached.",
   "Đang mở…": "Opening…",
   "Không đổi được sau khi tải lên.": "Cannot be changed after the upload.",
-  "Về cuộc họp đang ghi": "Back to the meeting being recorded",
   "Có tên người nói đang chờ bạn xác nhận": "Speaker names are waiting for your confirmation",
   "Chi tiết": "Details",
   "vừa viết xong": "just written",
@@ -239,6 +238,8 @@ export const vietnameseUi: Record<string, string> = {
   "Chưa xem được cuộc họp này": "This meeting is unavailable",
   "Xóa cuộc họp": "Delete meeting",
   "Tìm theo tên cuộc họp": "Search by meeting name",
+  "Mọi thời gian": "Any time",
+  "Mở cuộc họp đang ghi": "Open the meeting being recorded",
   "Mọi trạng thái": "Any status",
   "Thời gian": "Period",
   "30 ngày qua": "Last 30 days",
@@ -442,6 +443,8 @@ export const vietnameseUi: Record<string, string> = {
   "Tài liệu tổ chức": "Organisation documents",
   "Có gắn sao": "Starred",
   "Gắn sao": "Stars",
+  "Thêm sao": "Star",
+  "Bỏ sao": "Unstar",
   "Chỉ tệp gắn sao": "Starred files only",
   "Gắn sao {{name}}": "Star {{name}}",
   "Bỏ gắn sao {{name}}": "Unstar {{name}}",
@@ -585,20 +588,20 @@ export const vietnameseUi: Record<string, string> = {
   "Không có hội thoại nào bị xóa ngay.": "No conversation is deleted right away.",
   // MEM-153 phase 2: temporary conversations
   "Chat tạm thời": "Temporary chat",
-  "Dùng khi bạn không muốn cuộc trò chuyện này được lưu lại.":
+  "Dùng khi bạn không muốn hội thoại này được lưu lại.":
     "For when you do not want this conversation kept.",
   "Bắt đầu": "Start",
   "Không vào lịch sử": "Not in history",
-  "Cuộc trò chuyện không hiện trên thanh bên và không tìm được.":
+  "Hội thoại không hiện trên thanh bên và không tìm được.":
     "It is not on the sidebar and search does not find it.",
   "Tự xóa": "Deletes itself",
-  "Cuộc trò chuyện và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.":
+  "Hội thoại và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.":
     "The conversation and the files you send into it are deleted once you stop asking.",
   "Không chia sẻ, không dự án": "No link, no Project",
   "Không tạo được liên kết chia sẻ và không thêm được vào dự án.":
     "It cannot be given a share link or put in a Project.",
   "Tạm thời": "Temporary",
-  "Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó.":
+  "Hội thoại này không được lưu và sẽ tự xóa cùng tệp của nó.":
     "This conversation is not kept, and it deletes itself with its files.",
   // MEM-153 chat lifecycle: archiving a conversation and branching one into a new chat
   "Lưu trữ": "Archive",
@@ -671,7 +674,7 @@ export const vietnameseUi: Record<string, string> = {
   // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
   "Khớp nội dung tệp.": "Matches the file's contents.",
   "Tìm trong nội dung tệp": "Search inside files",
-  "Cách tìm": "Search by",
+  "Cách hiển thị": "Display",
   "Nội dung": "Contents",
   "Tên A → Z": "Name A → Z",
   "Trạng thái tệp": "File state",
@@ -744,7 +747,8 @@ export const vietnameseUi: Record<string, string> = {
   "Trình chiếu": "Presentations",
   Khác: "Other",
   "{{count}} tệp · {{size}}": "{{count}} files · {{size}}",
-  "Cách hiển thị": "Layout",
+  "Bố cục": "Layout",
+  "Tìm theo": "Search by",
   "Dạng bảng": "Table view",
   "Dạng lưới": "Grid view",
   "Tìm theo tên tệp": "Search by file name",
@@ -761,6 +765,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không có tệp nào khớp bộ lọc.": "No file matches this filter.",
   "Chưa có tệp nào. Tệp bạn tải lên hoặc Chat tạo ra sẽ xuất hiện ở đây.":
     "No files yet. What you upload or Chat generates appears here.",
+  "Chọn tất cả": "Select all",
   "Chọn tất cả trên trang này": "Select all on this page",
   "Chọn tất cả {{day}}": "Select all in {{day}}",
   "Tên tệp": "File name",
@@ -1087,6 +1092,7 @@ export const vietnameseUi: Record<string, string> = {
   "Cấp quyền không thành công.": "Authorization failed.",
   "Mô hình": "Models",
   "Tìm kiếm và đọc trang Web": "Search and read the Web",
+  "Mô hình đang chọn không dùng được tìm kiếm Web.": "The selected model cannot use Web search.",
   "Chưa kết nối công cụ tìm kiếm.": "No search engine connected.",
   "Chọn một công cụ tìm kiếm để bật tìm kiếm Web.": "Select a search engine to enable web search.",
   "Cài đặt tìm kiếm bên ngoài trên internet.":
@@ -1541,8 +1547,8 @@ export const vietnameseUi: Record<string, string> = {
   Chuyển: "Move",
   "Dự án đích": "Destination project",
   "Xóa hội thoại?": "Delete conversation?",
-  "“{{v1}}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.":
-    "“{{v1}}” will be removed from history and sharing. Any running answer will also stop.",
+  "“{{v1}}” sẽ bị xóa vĩnh viễn khỏi lịch sử và liên kết chia sẻ, không khôi phục được. Câu trả lời đang chạy cũng sẽ dừng.":
+    "“{{v1}}” will be permanently removed from history and sharing, and cannot be restored. Any running answer will also stop.",
   "Xóa hội thoại": "Delete conversation",
   "Tên hội thoại": "Conversation name",
   "Lưu tên hội thoại": "Save conversation name",
@@ -1840,7 +1846,7 @@ Object.assign(vietnameseUi, {
   "Tự động gửi khi dừng ghi âm": "Auto-send when recording stops",
   "Câu hỏi được gửi ngay khi văn bản nhận dạng xong, không cần bấm Gửi.":
     "Your question is sent as soon as the transcript is ready, without pressing Send.",
-  "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.":
+  "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong hội thoại.":
     "Control how the microphone and spoken answers work together in a conversation.",
   "Không tải được cài đặt giọng nói.": "Voice settings could not be loaded.",
   "Đọc thành tiếng": "Read aloud",
@@ -1994,4 +2000,29 @@ Object.assign(vietnameseUi, {
   "Provider embedding hoặc OpenSearch chưa sẵn sàng.":
     "The embedding provider or OpenSearch is not available.",
   "Yêu cầu thất bại. Tải lại rồi thử lại.": "The request failed. Reload and try again.",
+  // MEM-198 System One: the page, its connections and the task
+  "Phân loại (System One)": "Classification (System One)",
+  "Không tải được cấu hình System One.": "Could not load the System One settings.",
+  "Thêm kết nối": "Add a connection",
+  "Chạy bước kiểm tra câu hỏi bằng model phân loại nhanh thay cho LLM.":
+    "Run the question check on a fast classification model instead of a language model.",
+  "Xếp câu hỏi trước khi trả lời: xã giao, câu hỏi hay chủ đề bị chặn.":
+    "Sorts a question before it is answered: small talk, a question or a blocked topic.",
+  "Jev, bản hosted của TypeSafe AI": "Jev, hosted by TypeSafe AI",
+  "Clef và Clef-flash trên Workers AI": "Clef and Clef-flash on Workers AI",
+  "Một khóa đi tới nhiều nhà cung cấp": "One key to many providers",
+  "Model mã nguồn mở, tự vận hành": "An open-source model, self-hosted",
+  "Máy chủ bất kỳ nói giao thức System One": "Any server that speaks the System One protocol",
+  "Xóa kết nối {{name}}": "Delete connection {{name}}",
+  "Xóa kết nối {{name}}?": "Delete connection {{name}}?",
+  "Khóa và cấu hình của {{name}} sẽ bị xóa.": "The key and settings of {{name}} will be deleted.",
+  "Xóa kết nối": "Delete connection",
+  "Đang xóa…": "Deleting…",
+  "Kiểm tra câu hỏi chạy bằng": "Question check runs on",
+  "Chọn kết nối hoặc model": "Choose a connection or a model",
+  "Dùng để phân loại câu hỏi trước khi trợ lý trả lời.":
+    "Classifies a question before the assistant answers.",
+  "Đã có kết nối mang tên này.": "A connection with this name exists.",
+  "Nhập một số không âm.": "Enter a number that is not negative.",
+  "Giá input (USD / 1M token)": "Input price (USD / 1M tokens)",
 });

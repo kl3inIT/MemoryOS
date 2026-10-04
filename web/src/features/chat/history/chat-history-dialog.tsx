@@ -10,7 +10,7 @@ import {
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { appText } from "@/i18n/app-text";
-import { formatUiDate } from "@/i18n/format";
+import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { getChatHistoryTranscriptOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatHistoryEntry, ChatHistoryMessage } from "@/lib/hey-api/types.gen";
@@ -46,9 +46,7 @@ export function ChatHistoryDialog({
                 <span className="flex flex-wrap items-center gap-2">
                   <span>{ui(askerName(entry))}</span>
                   <span aria-hidden="true">·</span>
-                  <span>
-                    {formatUiDate(entry.updatedAt, { dateStyle: "medium", timeStyle: "short" })}
-                  </span>
+                  <span>{formatUiMoment(entry.updatedAt)}</span>
                   {entry.deleted ? (
                     <StatusBadge tone="neutral" size="sm">
                       {ui("Deleted")}

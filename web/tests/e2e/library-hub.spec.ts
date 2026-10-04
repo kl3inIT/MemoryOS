@@ -281,7 +281,9 @@ test("pages the organisation's documents with Tải thêm", async ({ page }) => 
   expect(sent.documentCursors).toEqual([null, "next-2"]);
 });
 
-test("a phone row shows the whole name of a file", async ({ page }) => {
+test("a phone row keeps a long name to one line that shows its start and its end", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const filename = "bao-cao-tai-chinh-quy-3-2026.xlsx";
   await mockLibrary(
@@ -311,12 +313,33 @@ test("a phone row shows the whole name of a file", async ({ page }) => {
   );
   await openLibrary(page);
   await tabs(page).getByRole("tab", { name: "Của tôi" }).click();
-  const name = row(page, filename).getByText(filename, { exact: true });
-  await expect(name).toBeVisible();
-  // Nothing of the name is clipped; downloading stays in the row's menu.
-  expect(await name.evaluate((node) => node.scrollHeight <= node.clientHeight)).toBe(true);
+  // The middle is what gives way: the end, which tells one version from another, stays on screen.
+  const end = row(page, filename).getByText("-2026.xlsx", { exact: true });
+  await expect(end).toBeVisible();
+  const start = row(page, filename).getByText("bao-cao-tai-chinh-quy-3", { exact: true });
+  await expect(start).toBeVisible();
+  expect((await start.boundingBox())?.y).toBe((await end.boundingBox())?.y);
+  // A screen reader still reads the whole name; starring and downloading are in the row's menu.
+  await expect(page.getByRole("button", { name: filename, exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: `Tải về ${filename}` })).toBeHidden();
+  await expect(page.getByRole("button", { name: `Gắn sao ${filename}` })).toBeHidden();
   await page.getByRole("button", { name: `Thao tác với ${filename}` }).click();
+  await expect(page.getByRole("menuitem", { name: "Thêm sao" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Tải về" })).toBeVisible();
   await page.screenshot({ path: "../output/playwright/library-row-phone.png" });
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("a tab and a view choice are tall enough for a finger", async ({ page }) => {
+    await mockLibrary(page);
+    await openLibrary(page);
+    const mine = tabs(page).getByRole("tab", { name: "Của tôi" });
+    await mine.click();
+    for (const target of [mine, page.getByRole("radio", { name: "Thùng rác" })]) {
+      await expect(target).toBeVisible();
+      expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
 });

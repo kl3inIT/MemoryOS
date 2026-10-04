@@ -23,6 +23,7 @@ opensearch-java = "3.10.0"
 msal4j = "1.26.0"
 # MEM-137: realtime dictation and streamed read-aloud for Azure; the REST client stays for recordings.
 azure-speech = "1.52.0"
+typesafe = "0.4.0"
 # The Spring AI BOM does not manage it, and Spring AI 2.0.1 still resolves 2.0.0. MEM-114 needs 2.0.1: a stateless
 # server answers an unregistered method (ChatGPT calls resources/list) with a JSON-RPC error instead of 500, and HTTP
 # reads are bounded.
@@ -32,6 +33,7 @@ bucket4j = "8.20.0"
 
 [libraries]
 azure-speech = { module = "com.microsoft.cognitiveservices.speech:client-sdk", version.ref = "azure-speech" }
+typesafe-spring-ai = { module = "org.springaicommunity:typesafe-spring-ai", version.ref = "typesafe" }
 spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
 spring-ai-openai = { module = "org.springframework.ai:spring-ai-openai" }
 embabel-api = { module = "com.embabel.agent:embabel-agent-api", version.ref = "embabel" }

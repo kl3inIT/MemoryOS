@@ -49,7 +49,8 @@ for (const width of [1280, 390]) {
     );
     await page.getByRole("link", { name: "Admin Panel", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/models$/);
-    await expect(page.getByRole("heading", { name: "Models", exact: true })).toBeVisible();
+    // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
+    await expect(page.getByRole("heading", { name: "Models", exact: true })).toBeAttached();
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
     await expect(page.getByRole("link", { name: "Models", exact: true })).toHaveAttribute(
       "aria-current",

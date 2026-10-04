@@ -1665,6 +1665,262 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/endpoint:
+    get:
+      tags:
+      - MCP
+      summary: Read whether the MemoryOS MCP endpoint is configured and on for the
+        Tenant
+      operationId: getMcpEndpointSettings
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: MCP endpoint setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - MCP
+      summary: Turn the MemoryOS MCP endpoint on or off for the Tenant
+      operationId: updateMcpEndpointSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpEndpointSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved MCP endpoint setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/trusted-apps/{appId}:
+    put:
+      tags:
+      - MCP
+      summary: Switch a trusted app on or off; off removes its clients and every grant
+        to them
+      operationId: setMcpTrustedAppEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: appId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpTrustedAppEnabledRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Trusted app switched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpTrustedAppResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: "Remove an app of the organization's own, its clients and every grant\
+        \ to them"
+      operationId: removeMcpTrustedApp
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: appId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        description: The app's revision as listed
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Trusted app removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/connections/{serverId}/api-key:
     put:
       tags:
@@ -2434,6 +2690,208 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "204":
           description: Voice connection removed from both functions
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/system-one/tasks/{flow}:
+    put:
+      tags:
+      - Chat System One
+      summary: Run a classifying task on a System One connection instead of a language
+        model; set a model with setChatModelFlow to return it to one
+      operationId: setSystemOneTask
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: flow
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - CHAT_NAMING
+          - CHAT_GUARDRAIL
+          - MEETING_MINUTES
+          - MEETING_CORRECTION
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemOneTaskRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid System One configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: System One connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: System One connection changed or in use
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: System One service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The task and what it runs on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelFlow"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/system-one/connections/{id}:
+    put:
+      tags:
+      - Chat System One
+      summary: Change a System One connection
+      operationId: saveSystemOneConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemOneConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid System One configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: System One connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: System One connection changed or in use
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: System One service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved System One connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemOneConnection"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat System One
+      summary: Delete a System One connection; refused with 409 while a task runs
+        on it
+      operationId: deleteSystemOneConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid System One configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: System One connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: System One connection changed or in use
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: System One service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: System One connection deleted
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5505,552 +5963,6 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "204":
           description: Not starred
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/endpoint:
-    get:
-      tags:
-      - MCP
-      summary: Read whether the MemoryOS MCP endpoint is configured and on for the
-        Tenant
-      operationId: getMcpEndpointSettings
-      responses:
-        "400":
-          description: Invalid MCP endpoint setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: MCP endpoint setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: "This deployment has no MCP endpoint URL, or no account to\
-            \ change trusted apps in Keycloak, or Keycloak is unavailable"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: MCP endpoint setting
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpEndpointSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    put:
-      tags:
-      - MCP
-      summary: Turn the MemoryOS MCP endpoint on or off for the Tenant
-      operationId: updateMcpEndpointSettings
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/McpEndpointSettingsRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid MCP endpoint setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: MCP endpoint setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: "This deployment has no MCP endpoint URL, or no account to\
-            \ change trusted apps in Keycloak, or Keycloak is unavailable"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Saved MCP endpoint setting
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpEndpointSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/endpoint/trusted-apps/{appId}:
-    put:
-      tags:
-      - MCP
-      summary: Switch a trusted app on or off; off removes its clients and every grant
-        to them
-      operationId: setMcpTrustedAppEnabled
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: appId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/McpTrustedAppEnabledRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid MCP endpoint setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: MCP endpoint setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: "This deployment has no MCP endpoint URL, or no account to\
-            \ change trusted apps in Keycloak, or Keycloak is unavailable"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Trusted app switched
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpTrustedAppResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - MCP
-      summary: "Remove an app of the organization's own, its clients and every grant\
-        \ to them"
-      operationId: removeMcpTrustedApp
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: appId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: revision
-        in: query
-        description: The app's revision as listed
-        required: true
-        schema:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-      responses:
-        "400":
-          description: Invalid MCP endpoint setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: MCP endpoint setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: "This deployment has no MCP endpoint URL, or no account to\
-            \ change trusted apps in Keycloak, or Keycloak is unavailable"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: Trusted app removed
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/endpoint/connection:
-    get:
-      tags:
-      - MCP
-      summary: "Read whether the signed-in User can connect Claude or ChatGPT to MemoryOS,\
-        \ and the URL to use"
-      operationId: getMcpEndpointConnection
-      responses:
-        "200":
-          description: "Whether the endpoint answers, and its URL"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpEndpointConnectionResponse"
-        "403":
-          description: Search use or Tenant membership requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/endpoint/activity:
-    get:
-      tags:
-      - MCP
-      summary: "Read the MCP endpoint's activity log: who called which tool through\
-        \ which app, kept 90 days"
-      operationId: listMcpEndpointActivity
-      parameters:
-      - name: from
-        in: query
-        description: Calls at or after this instant
-        required: false
-        schema:
-          type: string
-          format: date-time
-      - name: to
-        in: query
-        description: Calls before this instant
-        required: false
-        schema:
-          type: string
-          format: date-time
-      - name: client
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - CLAUDE
-          - CHATGPT
-          - OTHER
-      - name: tool
-        in: query
-        required: false
-        schema:
-          type: string
-          maxLength: 64
-          minLength: 0
-      - name: outcome
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - SUCCESS
-          - REFUSED
-          - FAILED
-          - RATE_LIMITED
-      - name: person
-        in: query
-        description: Part of the person's name or e-mail address
-        required: false
-        schema:
-          type: string
-          maxLength: 200
-          minLength: 0
-      - name: cursor
-        in: query
-        description: The next value of the previous page
-        required: false
-        schema:
-          type: string
-          maxLength: 200
-          minLength: 0
-      - name: size
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 50
-          maximum: 100
-          minimum: 1
-      responses:
-        "400":
-          description: Invalid MCP endpoint setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: MCP endpoint setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: "This deployment has no MCP endpoint URL, or no account to\
-            \ change trusted apps in Keycloak, or Keycloak is unavailable"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: "Tool calls, newest first"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpEndpointCallPageResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/grants:
-    get:
-      tags:
-      - MCP
-      summary: List the outside assistants the signed-in User allowed to read MemoryOS
-      operationId: listMcpClientGrants
-      responses:
-        "200":
-          description: "Clients the User allowed, newest first"
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/McpClientGrantResponse"
-        "503":
-          description: Keycloak unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - MCP
-      summary: Revoke the signed-in User's grant to one outside assistant and end
-        its offline session
-      operationId: revokeMcpClientGrant
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: clientId
-        in: query
-        description: The clientId of a listed grant
-        required: true
-        schema:
-          type: string
-          maxLength: 2048
-          minLength: 1
-      responses:
-        "204":
-          description: Grant revoked
-        "400":
-          description: Invalid client ID
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: The User has no grant to this client
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Keycloak unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/endpoint/insights:
-    get:
-      tags:
-      - MCP
-      summary: "Read calls, people, apps and tools of the MCP endpoint over the last\
-        \ 7 or 30 days"
-      operationId: getMcpEndpointInsights
-      parameters:
-      - name: days
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 7
-          maximum: 30
-          minimum: 7
-      responses:
-        "400":
-          description: Invalid MCP endpoint setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: MCP endpoint setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: "This deployment has no MCP endpoint URL, or no account to\
-            \ change trusted apps in Keycloak, or Keycloak is unavailable"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Use of the endpoint
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpEndpointInsightsResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -11061,6 +10973,140 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/system-one/types/{provider}/connections:
+    post:
+      tags:
+      - Chat System One
+      summary: Add a System One connection of one type
+      operationId: createSystemOneConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - TYPESAFE
+          - CLOUDFLARE
+          - NINEROUTER
+          - LAYA
+          - SYSTEMONE_COMPATIBLE
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemOneConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid System One configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: System One connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: System One connection changed or in use
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: System One service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Created System One connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemOneConnection"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/system-one/connections/{id}/test:
+    post:
+      tags:
+      - Chat System One
+      summary: Ask the saved connection one self-contained question; provider charges
+        may apply
+      operationId: testSystemOneConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid System One configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: System One connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: System One connection changed or in use
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: System One service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: The service answered a choice question
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions:
     get:
       tags:
@@ -15438,6 +15484,296 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/grants:
+    get:
+      tags:
+      - MCP
+      summary: List the outside assistants the signed-in User allowed to read MemoryOS
+      operationId: listMcpClientGrants
+      responses:
+        "200":
+          description: "Clients the User allowed, newest first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpClientGrantResponse"
+        "503":
+          description: Keycloak unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Revoke the signed-in User's grant to one outside assistant and end
+        its offline session
+      operationId: revokeMcpClientGrant
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: clientId
+        in: query
+        description: The clientId of a listed grant
+        required: true
+        schema:
+          type: string
+          maxLength: 2048
+          minLength: 1
+      responses:
+        "204":
+          description: Grant revoked
+        "400":
+          description: Invalid client ID
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: The User has no grant to this client
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Keycloak unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/insights:
+    get:
+      tags:
+      - MCP
+      summary: "Read calls, people, apps and tools of the MCP endpoint over the last\
+        \ 7 or 30 days"
+      operationId: getMcpEndpointInsights
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 7
+          maximum: 30
+          minimum: 7
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Use of the endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointInsightsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/connection:
+    get:
+      tags:
+      - MCP
+      summary: "Read whether the signed-in User can connect Claude or ChatGPT to MemoryOS,\
+        \ and the URL to use"
+      operationId: getMcpEndpointConnection
+      responses:
+        "200":
+          description: "Whether the endpoint answers, and its URL"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointConnectionResponse"
+        "403":
+          description: Search use or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/endpoint/activity:
+    get:
+      tags:
+      - MCP
+      summary: "Read the MCP endpoint's activity log: who called which tool through\
+        \ which app, kept 90 days"
+      operationId: listMcpEndpointActivity
+      parameters:
+      - name: from
+        in: query
+        description: Calls at or after this instant
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        description: Calls before this instant
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: client
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+      - name: tool
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 64
+          minLength: 0
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SUCCESS
+          - REFUSED
+          - FAILED
+          - RATE_LIMITED
+      - name: person
+        in: query
+        description: Part of the person's name or e-mail address
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: cursor
+        in: query
+        description: The next value of the previous page
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid MCP endpoint setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: MCP endpoint setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "This deployment has no MCP endpoint URL, or no account to\
+            \ change trusted apps in Keycloak, or Keycloak is unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Tool calls, newest first"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpEndpointCallPageResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/connections:
     get:
       tags:
@@ -15957,6 +16293,106 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/VoiceConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/system-one/types:
+    get:
+      tags:
+      - Chat System One
+      summary: List the System One connection types and what each needs
+      operationId: listSystemOneTypes
+      responses:
+        "400":
+          description: Invalid System One configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: System One connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: System One connection changed or in use
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: System One service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: System One connection types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SystemOneType"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/system-one/connections:
+    get:
+      tags:
+      - Chat System One
+      summary: List System One connections for model managers
+      operationId: listSystemOneConnections
+      responses:
+        "400":
+          description: Invalid System One configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: System One connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: System One connection changed or in use
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: System One service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: System One connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SystemOneConnection"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -21504,6 +21940,95 @@ components:
       - source
       - tokenEndpoint
       - tokenEndpointAuthMethod
+    McpEndpointSettingsRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - enabled
+      - revision
+    McpEndpointSettingsResponse:
+      type: object
+      properties:
+        configured:
+          type: boolean
+          description: Whether this deployment configured an MCP endpoint URL; without
+            one the switch stays off
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+        url:
+          type:
+          - string
+          - "null"
+          description: The URL people add to Claude or ChatGPT; present when configured
+      required:
+      - configured
+      - enabled
+      - revision
+      - url
+    McpTrustedAppEnabledRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      required:
+      - enabled
+      - revision
+    McpTrustedAppResponse:
+      type: object
+      description: An outside assistant the MCP endpoint admits by the URL of its
+        client metadata document
+      properties:
+        id:
+          type: string
+          format: uuid
+        preset:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - CUSTOM
+        name:
+          type: string
+        clientIdHosts:
+          type: array
+          description: Hosts the document's URL may have
+          items:
+            type: string
+        documentHosts:
+          type: array
+          description: Hosts the URIs inside the document may have
+          items:
+            type: string
+        enabled:
+          type: boolean
+        builtIn:
+          type: boolean
+          description: "Claude and ChatGPT can be switched off, not removed"
+        revision:
+          type: integer
+          format: int64
+      required:
+      - builtIn
+      - clientIdHosts
+      - documentHosts
+      - enabled
+      - id
+      - name
+      - preset
+      - revision
     McpConnectionApiKeyInput:
       type: object
       description: The User's own API key; write-only
@@ -22041,6 +22566,155 @@ components:
       - sttModel
       - ttsModel
       - ttsVoice
+    SystemOneTaskRequest:
+      type: object
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      required:
+      - connectionId
+    ModelFlow:
+      type: object
+      description: "What one task runs on: a Tenant model, a System One connection\
+        \ for a classifying task, or with neither the conversation model"
+      properties:
+        flow:
+          type: string
+          enum:
+          - CHAT_NAMING
+          - CHAT_GUARDRAIL
+          - MEETING_MINUTES
+          - MEETING_CORRECTION
+        modelConfigurationId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        available:
+          type: boolean
+          description: False when the model is set but no longer eligible; the task
+            then uses the conversation model
+        reasoningEffort:
+          type: string
+          description: "How hard the task's model thinks: the level chosen for the\
+            \ task, else its own default (medium for meeting minutes, off for the\
+            \ others); a model that does not reason ignores it"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
+        systemOneConnectionId:
+          type: string
+          format: uuid
+          description: The System One connection a classifying task runs on; absent
+            when it runs on a model
+        revision:
+          type: integer
+          format: int64
+      required:
+      - available
+      - flow
+      - modelConfigurationId
+      - reasoningEffort
+      - revision
+    SystemOneConnectionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          minLength: 0
+        endpoint:
+          type: string
+          description: "The base address of a gateway or self-hosted server, a Cloudflare\
+            \ account ID, or empty for a type with a fixed address"
+          maxLength: 2048
+          minLength: 0
+        model:
+          type: string
+          description: Empty takes the type's default model
+          maxLength: 200
+          minLength: 0
+        credentialAction:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        inputPrice:
+          type: number
+          format: double
+          description: USD per million input tokens; omitted when unknown
+          maximum: 1000000
+          minimum: 0
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - credentialAction
+      - dataBoundary
+      - endpoint
+      - model
+      - name
+    SystemOneConnection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum:
+          - TYPESAFE
+          - CLOUDFLARE
+          - NINEROUTER
+          - LAYA
+          - SYSTEMONE_COMPATIBLE
+        name:
+          type: string
+        endpoint:
+          type: string
+        model:
+          type: string
+        credentialConfigured:
+          type: boolean
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        inputPrice:
+          type: number
+          format: double
+          description: USD per million input tokens; absent when unknown
+        revision:
+          type: integer
+          format: int64
+      required:
+      - credentialConfigured
+      - dataBoundary
+      - endpoint
+      - id
+      - model
+      - name
+      - provider
+      - revision
     ChatSettingsRequest:
       type: object
       properties:
@@ -23193,45 +23867,6 @@ components:
       - cachedInputPerMillion
       - inputPerMillion
       - outputPerMillion
-    ModelFlow:
-      type: object
-      description: Tenant model for one task; no model uses the conversation model
-      properties:
-        flow:
-          type: string
-          enum:
-          - CHAT_NAMING
-          - CHAT_GUARDRAIL
-          - MEETING_MINUTES
-          - MEETING_CORRECTION
-        modelConfigurationId:
-          type:
-          - string
-          - "null"
-          format: uuid
-        available:
-          type: boolean
-          description: False when the model is set but no longer eligible; the task
-            then uses the conversation model
-        reasoningEffort:
-          type: string
-          description: "How hard the task's model thinks: the level chosen for the\
-            \ task, else its own default (medium for meeting minutes, off for the\
-            \ others); a model that does not reason ignores it"
-          enum:
-          - "OFF"
-          - LOW
-          - MEDIUM
-          - HIGH
-        revision:
-          type: integer
-          format: int64
-      required:
-      - available
-      - flow
-      - modelConfigurationId
-      - reasoningEffort
-      - revision
     Default:
       type: object
       properties:
@@ -23246,300 +23881,6 @@ components:
       required:
       - modelConfigurationId
       - revision
-    McpEndpointSettingsRequest:
-      type: object
-      properties:
-        enabled:
-          type: boolean
-        revision:
-          type: integer
-          format: int64
-          minimum: 0
-      required:
-      - enabled
-      - revision
-    McpEndpointSettingsResponse:
-      type: object
-      properties:
-        configured:
-          type: boolean
-          description: Whether this deployment configured an MCP endpoint URL; without
-            one the switch stays off
-        enabled:
-          type: boolean
-        revision:
-          type: integer
-          format: int64
-        url:
-          type:
-          - string
-          - "null"
-          description: The URL people add to Claude or ChatGPT; present when configured
-      required:
-      - configured
-      - enabled
-      - revision
-      - url
-    McpTrustedAppEnabledRequest:
-      type: object
-      properties:
-        enabled:
-          type: boolean
-        revision:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-      required:
-      - enabled
-      - revision
-    McpTrustedAppResponse:
-      type: object
-      description: An outside assistant the MCP endpoint admits by the URL of its
-        client metadata document
-      properties:
-        id:
-          type: string
-          format: uuid
-        preset:
-          type: string
-          enum:
-          - CLAUDE
-          - CHATGPT
-          - CUSTOM
-        name:
-          type: string
-        clientIdHosts:
-          type: array
-          description: Hosts the document's URL may have
-          items:
-            type: string
-        documentHosts:
-          type: array
-          description: Hosts the URIs inside the document may have
-          items:
-            type: string
-        enabled:
-          type: boolean
-        builtIn:
-          type: boolean
-          description: "Claude and ChatGPT can be switched off, not removed"
-        revision:
-          type: integer
-          format: int64
-      required:
-      - builtIn
-      - clientIdHosts
-      - documentHosts
-      - enabled
-      - id
-      - name
-      - preset
-      - revision
-    McpEndpointConnectionResponse:
-      type: object
-      properties:
-        available:
-          type: boolean
-          description: Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint
-            now
-        url:
-          type:
-          - string
-          - "null"
-          description: The URL to add to Claude or ChatGPT; present while available
-        apps:
-          type: array
-          description: The apps the administrator trusts; CUSTOM when any app of the
-            organization's own is
-          items:
-            type: string
-            enum:
-            - CLAUDE
-            - CHATGPT
-            - CUSTOM
-      required:
-      - apps
-      - available
-      - url
-    McpEndpointCallPageResponse:
-      type: object
-      properties:
-        calls:
-          type: array
-          items:
-            $ref: "#/components/schemas/McpEndpointCallResponse"
-        next:
-          type:
-          - string
-          - "null"
-          description: Pass as cursor for older calls; absent on the last page
-      required:
-      - calls
-      - next
-    McpEndpointCallResponse:
-      type: object
-      description: One tool call through the MemoryOS MCP endpoint; no query and no
-        document
-      properties:
-        id:
-          type: string
-          format: uuid
-        occurredAt:
-          type: string
-          format: date-time
-        actorId:
-          type: string
-          format: uuid
-        actorName:
-          type:
-          - string
-          - "null"
-        actorEmail:
-          type:
-          - string
-          - "null"
-        client:
-          type: string
-          enum:
-          - CLAUDE
-          - CHATGPT
-          - OTHER
-        clientName:
-          type: string
-        tool:
-          type: string
-        outcome:
-          type: string
-          enum:
-          - SUCCESS
-          - REFUSED
-          - FAILED
-          - RATE_LIMITED
-      required:
-      - actorEmail
-      - actorId
-      - actorName
-      - client
-      - clientName
-      - id
-      - occurredAt
-      - outcome
-      - tool
-    McpClientGrantResponse:
-      type: object
-      properties:
-        clientId:
-          type: string
-          description: Keycloak's client ID; Claude's is the URL of its client metadata
-            document
-        client:
-          type: string
-          enum:
-          - CLAUDE
-          - CHATGPT
-          - OTHER
-        name:
-          type: string
-        grantedAt:
-          type: string
-          format: date-time
-      required:
-      - client
-      - clientId
-      - grantedAt
-      - name
-    McpTrustedAppListResponse:
-      type: object
-      properties:
-        manageable:
-          type: boolean
-          description: Whether this deployment can change the list; without its Keycloak
-            account it is read-only
-        apps:
-          type: array
-          items:
-            $ref: "#/components/schemas/McpTrustedAppResponse"
-      required:
-      - apps
-      - manageable
-    McpEndpointCountResponse:
-      type: object
-      properties:
-        key:
-          type: string
-          description: The app's client ID or the tool's name
-        name:
-          type: string
-        calls:
-          type: integer
-          format: int64
-        people:
-          type: integer
-          format: int64
-      required:
-      - calls
-      - key
-      - name
-      - people
-    McpEndpointDayResponse:
-      type: object
-      properties:
-        day:
-          type: string
-          format: date
-          description: A UTC day
-        calls:
-          type: integer
-          format: int64
-        people:
-          type: integer
-          format: int64
-      required:
-      - calls
-      - day
-      - people
-    McpEndpointInsightsResponse:
-      type: object
-      description: Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
-      properties:
-        days:
-          type: integer
-          format: int32
-        calls:
-          type: integer
-          format: int64
-        people:
-          type: integer
-          format: int64
-          description: Distinct people who called a tool
-        failed:
-          type: integer
-          format: int64
-        rateLimited:
-          type: integer
-          format: int64
-        apps:
-          type: array
-          items:
-            $ref: "#/components/schemas/McpEndpointCountResponse"
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/McpEndpointCountResponse"
-        daily:
-          type: array
-          description: Days with at least one call
-          items:
-            $ref: "#/components/schemas/McpEndpointDayResponse"
-      required:
-      - apps
-      - calls
-      - daily
-      - days
-      - failed
-      - people
-      - rateLimited
-      - tools
     InterpreterSettingsRequest:
       type: object
       properties:
@@ -27601,6 +27942,211 @@ components:
       - size
       - totalItems
       - totalPages
+    McpClientGrantResponse:
+      type: object
+      properties:
+        clientId:
+          type: string
+          description: Keycloak's client ID; Claude's is the URL of its client metadata
+            document
+        client:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+        name:
+          type: string
+        grantedAt:
+          type: string
+          format: date-time
+      required:
+      - client
+      - clientId
+      - grantedAt
+      - name
+    McpTrustedAppListResponse:
+      type: object
+      properties:
+        manageable:
+          type: boolean
+          description: Whether this deployment can change the list; without its Keycloak
+            account it is read-only
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpTrustedAppResponse"
+      required:
+      - apps
+      - manageable
+    McpEndpointCountResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The app's client ID or the tool's name
+        name:
+          type: string
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+      required:
+      - calls
+      - key
+      - name
+      - people
+    McpEndpointDayResponse:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+          description: A UTC day
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+      required:
+      - calls
+      - day
+      - people
+    McpEndpointInsightsResponse:
+      type: object
+      description: Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
+      properties:
+        days:
+          type: integer
+          format: int32
+        calls:
+          type: integer
+          format: int64
+        people:
+          type: integer
+          format: int64
+          description: Distinct people who called a tool
+        failed:
+          type: integer
+          format: int64
+        rateLimited:
+          type: integer
+          format: int64
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCountResponse"
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCountResponse"
+        daily:
+          type: array
+          description: Days with at least one call
+          items:
+            $ref: "#/components/schemas/McpEndpointDayResponse"
+      required:
+      - apps
+      - calls
+      - daily
+      - days
+      - failed
+      - people
+      - rateLimited
+      - tools
+    McpEndpointConnectionResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+          description: Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint
+            now
+        url:
+          type:
+          - string
+          - "null"
+          description: The URL to add to Claude or ChatGPT; present while available
+        apps:
+          type: array
+          description: The apps the administrator trusts; CUSTOM when any app of the
+            organization's own is
+          items:
+            type: string
+            enum:
+            - CLAUDE
+            - CHATGPT
+            - CUSTOM
+      required:
+      - apps
+      - available
+      - url
+    McpEndpointCallPageResponse:
+      type: object
+      properties:
+        calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpEndpointCallResponse"
+        next:
+          type:
+          - string
+          - "null"
+          description: Pass as cursor for older calls; absent on the last page
+      required:
+      - calls
+      - next
+    McpEndpointCallResponse:
+      type: object
+      description: One tool call through the MemoryOS MCP endpoint; no query and no
+        document
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        actorId:
+          type: string
+          format: uuid
+        actorName:
+          type:
+          - string
+          - "null"
+        actorEmail:
+          type:
+          - string
+          - "null"
+        client:
+          type: string
+          enum:
+          - CLAUDE
+          - CHATGPT
+          - OTHER
+        clientName:
+          type: string
+        tool:
+          type: string
+        outcome:
+          type: string
+          enum:
+          - SUCCESS
+          - REFUSED
+          - FAILED
+          - RATE_LIMITED
+      required:
+      - actorEmail
+      - actorId
+      - actorName
+      - client
+      - clientName
+      - id
+      - occurredAt
+      - outcome
+      - tool
     InvitationPage:
       type: object
       additionalProperties: false
@@ -28081,6 +28627,41 @@ components:
       - sttModels
       - ttsModels
       - voices
+    SystemOneType:
+      type: object
+      description: A System One connection type and what a connection of it needs
+      properties:
+        provider:
+          type: string
+          enum:
+          - TYPESAFE
+          - CLOUDFLARE
+          - NINEROUTER
+          - LAYA
+          - SYSTEMONE_COMPATIBLE
+        requiresKey:
+          type: boolean
+        endpoint:
+          type: string
+          description: "FIXED: no endpoint; URL: a base address; ACCOUNT: an account\
+            \ ID"
+          enum:
+          - FIXED
+          - URL
+          - ACCOUNT
+        defaultModel:
+          type: string
+          description: Empty when the administrator must name one
+        inputPrice:
+          type: number
+          format: double
+          description: The published USD price per million input tokens of the default
+            model
+      required:
+      - defaultModel
+      - endpoint
+      - provider
+      - requiresKey
     SharedSession:
       type: object
       properties:

@@ -157,6 +157,46 @@ class ModelCatalogConstraintsTest {
         assertEquals(DataBoundary.EXTERNAL, read(() -> catalog.provider(tenant, provider).orElseThrow().dataBoundary()));
     }
 
+    @Test void aClassifyingTaskRunsOnAModelOrOnASystemOneConnectionAndAConnectionInUseStays() {
+        tx(() -> catalog.initializeFlows(tenant));
+        var model = new ModelConfiguration(UUID.randomUUID(), tenant, provider, "mini", "Mini", true, settings, 1);
+        tx(() -> catalog.insertModel(model));
+        UUID connection = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO system_one_connection(id, tenant_id, provider, name, endpoint, model)
+                VALUES (:id, :tenant, 'LAYA', 'Serving', 'http://serving.internal:8000/v1', 'auto')""")
+                .param("id", connection).param("tenant", tenant).update();
+        // Two connections of one type are allowed; two of one name, whatever the case, are not.
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                INSERT INTO system_one_connection(id, tenant_id, provider, name, endpoint, model)
+                VALUES (:id, :tenant, 'LAYA', 'SERVING', 'http://other.internal:8000/v1', 'auto')""")
+                .param("id", UUID.randomUUID()).param("tenant", tenant).update());
+
+        var guardrail = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_GUARDRAIL));
+        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_GUARDRAIL, model.id(), ReasoningEffort.LOW, guardrail.revision()));
+        tx(() -> catalog.setFlowClassifier(tenant, ModelFlow.CHAT_GUARDRAIL, connection, guardrail.revision() + 1));
+        var onConnection = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_GUARDRAIL));
+        assertEquals(connection, onConnection.systemOneConnectionId());
+        assertNull(onConnection.modelConfigurationId());
+        assertNull(onConnection.reasoningEffort());
+        assertTrue(read(() -> catalog.flowUsesClassifier(tenant, connection)));
+        assertThrows(AiException.class,
+                () -> tx(() -> catalog.setFlowClassifier(tenant, ModelFlow.CHAT_GUARDRAIL, connection, guardrail.revision())));
+
+        // Only the classifying task names a connection, and a connection in use is not deleted.
+        var naming = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING));
+        assertThrows(DataIntegrityViolationException.class,
+                () -> tx(() -> catalog.setFlowClassifier(tenant, ModelFlow.CHAT_NAMING, connection, naming.revision())));
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("DELETE FROM system_one_connection WHERE id=:id")
+                .param("id", connection).update());
+
+        // Choosing a model again takes the task off the connection, which can then go.
+        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_GUARDRAIL, model.id(), null, onConnection.revision()));
+        assertNull(read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_GUARDRAIL)).systemOneConnectionId());
+        assertFalse(read(() -> catalog.flowUsesClassifier(tenant, connection)));
+        assertEquals(1, jdbc.sql("DELETE FROM system_one_connection WHERE id=:id").param("id", connection).update());
+    }
+
     @Test void personaCursorRejectsForeignAndMissingAnchors() {
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         UUID otherTenant = tenant(), foreign = UUID.randomUUID();

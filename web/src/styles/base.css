@@ -92,7 +92,10 @@
       [data-slot="sidebar-menu-button"],
       [data-slot="menu-item"],
       [data-slot="input"],
+      [data-slot="input-group"],
       [data-slot="native-select"],
+      [data-slot="select-trigger"],
+      [data-slot="toggle-group-item"],
       [data-slot="sources"]
     ) {
       min-height: 2.75rem;

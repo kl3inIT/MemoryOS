@@ -45,7 +45,7 @@ function ChatPageState({
 }) {
   return (
     <>
-      <AppShellHeader title={title} />
+      <AppShellHeader title={title} heading />
       <div role={failed ? "alert" : "status"} className="flex flex-col gap-3 p-6">
         {children}
       </div>
@@ -157,6 +157,8 @@ function ChatConversation({
   return (
     <>
       <AppShellHeader
+        // A project's opening screen already has its own heading.
+        heading={!project || Boolean(session)}
         title={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
         actions={
           <div className="flex items-center gap-1">

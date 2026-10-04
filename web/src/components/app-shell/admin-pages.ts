@@ -4,7 +4,6 @@ import {
   Blocks,
   Bot,
   Cable,
-  CloudUpload,
   Globe,
   ImageIcon,
   KeyRound,
@@ -17,6 +16,7 @@ import {
   ScrollText,
   SquareTerminal,
   Sparkles,
+  Split,
   User,
   Users,
   type LucideIcon,
@@ -27,7 +27,6 @@ import type { AdminAuthority } from "@/features/identity/application-session-con
 export type AdminPage =
   | "chatHistory"
   | "sources"
-  | "addSource"
   | "documentSets"
   | "users"
   | "groups"
@@ -38,6 +37,7 @@ export type AdminPage =
   | "chat"
   | "providers"
   | "models"
+  | "system-one"
   | "searchSettings"
   | "mcp"
   | "mcpEndpoint"
@@ -82,6 +82,15 @@ export const adminPages: readonly AdminPageEntry[] = [
     label: appText("Mô hình"),
     title: appText("Models"),
     icon: Sparkles,
+    group: "configuration",
+    visible: manageModels,
+  },
+  {
+    id: "system-one",
+    to: "/admin/system-one",
+    label: appText("Phân loại (System One)"),
+    title: appText("Phân loại (System One)"),
+    icon: Split,
     group: "configuration",
     visible: manageModels,
   },
@@ -165,16 +174,6 @@ export const adminPages: readonly AdminPageEntry[] = [
     icon: Plug,
     group: "knowledge",
     visible: readSources,
-  },
-  {
-    id: "addSource",
-    to: "/admin/sources/new",
-    label: appText("Add a source"),
-    title: appText("Add a source"),
-    icon: CloudUpload,
-    group: "knowledge",
-    visible: readSources,
-    fuzzy: true,
   },
   {
     id: "documentSets",

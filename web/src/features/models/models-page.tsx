@@ -3,6 +3,7 @@ import { useLayoutEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { SectionHeader } from "@/components/composites/section-header";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
+import { BrandLoader } from "@/components/brand-loader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { AddProviderSection } from "./add-provider-section";
-import { TaskModels, TenantDefault } from "./model-defaults";
+import { LoadingRows, TaskModels, TenantDefault } from "./model-defaults";
 import { ModelDiscovery } from "./model-discovery";
 import { ModelEditor } from "./model-editor";
 import { ProviderConnectionCard } from "./provider-connection-card";
@@ -82,7 +83,7 @@ function ModelsAdministration() {
           <Card>
             <CardContent>
               {catalogPending ? (
-                <p role="status">{ui("Loading model catalog…")}</p>
+                <LoadingRows label={ui("Loading model catalog…")} />
               ) : (
                 <div className="flex flex-col divide-y divide-border-subtle *:py-4 *:first:pt-0 *:last:pb-0">
                   <TenantDefault
@@ -102,7 +103,14 @@ function ModelsAdministration() {
         </section>
       )}
 
-      {catalogPending && <p role="status">{ui("Loading model catalog…")}</p>}
+      {catalogPending && !hasProviders && (
+        <div
+          role="status"
+          className="flex justify-center rounded-xl border border-border-subtle px-6 py-20"
+        >
+          <BrandLoader label={ui("Loading model catalog…")} />
+        </div>
+      )}
       {catalogError && (
         <Alert variant="destructive" role="alert">
           <AlertDescription>
@@ -121,7 +129,7 @@ function ModelsAdministration() {
       {/* Available connections — Onyx existing-provider cards */}
       {hasProviders && (
         <section aria-labelledby="available-connections" className="flex flex-col gap-3">
-          <SectionHeader id="available-connections" title={ui("Available connections")} />
+          <SectionHeader id="available-connections" title={ui("Connections")} />
           <div className="flex flex-col gap-2">
             {page.sortedProviders.map((provider) => (
               <ProviderConnectionCard
@@ -151,6 +159,7 @@ function ModelsAdministration() {
       {adapters.data?.some((adapter) => adapter.type === "openai") && (
         <AddProviderSection
           disabled={unavailable || page.atProviderLimit}
+          connected={new Set(providers.data?.map((provider) => provider.name.toLowerCase()))}
           onConnect={(preset) => setEditor({ kind: "provider", preset })}
         />
       )}

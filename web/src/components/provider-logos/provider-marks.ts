@@ -10,6 +10,7 @@ export const providerMarks = {
   EXA: { file: "exa.png", monochrome: false },
   FIRECRAWL: { file: "firecrawl.png", monochrome: false },
   GOOGLE_PSE: { file: "google.svg", monochrome: false },
+  LAYA: { file: "laya.svg", monochrome: false },
   NINEROUTER: { file: "nine-router.svg", monochrome: false },
   OLLAMA: { file: "ollama.svg", monochrome: true },
   LM_STUDIO: { file: "lm-studio.svg", monochrome: true },
@@ -17,6 +18,7 @@ export const providerMarks = {
   SEARXNG: { file: "searxng.svg", monochrome: false },
   SERPER: { file: "serper.png", monochrome: false },
   TAVILY: { file: "tavily.svg", monochrome: false },
+  TYPESAFE: { file: "typesafe.png", monochrome: false },
   OPENAI: { file: "openai.svg", monochrome: true },
 } as const;
 

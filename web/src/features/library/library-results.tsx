@@ -3,7 +3,6 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldLabel } from "@/components/ui/field";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -67,28 +66,30 @@ export function LibraryFiles({
             page.isPlaceholderData && "opacity-60",
           )}
         >
-          {/* A list header, aligned to the rows' own checkbox column so the three checkbox gutters (page, day,
-              file) read as one line down the page. */}
-          <div className="border-b border-border-subtle px-3.25 pb-2">
-            <Field orientation="horizontal">
-              <Checkbox
-                id="library-select-page"
-                checked={
-                  selected.length === 0
-                    ? false
-                    : selected.length === files.length
-                      ? true
-                      : "indeterminate"
-                }
-                onCheckedChange={(checked) =>
-                  setSelected(checked === true ? files.map((file) => file.id) : [])
-                }
-              />
-              {/* The scope is on the label, because a selection never leaves its page. */}
-              <FieldLabel htmlFor="library-select-page">
-                {ui("Chọn tất cả trên trang này")}
-              </FieldLabel>
-            </Field>
+          {/* A quiet list header in the voice of the day headings below it, aligned to the rows' own checkbox
+              column so the three checkbox gutters (page, day, file) read as one line down the page. */}
+          <div className="flex items-center gap-2 px-3.25">
+            <Checkbox
+              id="library-select-page"
+              // The scope is in the name, because a selection never leaves its page.
+              aria-label={ui("Chọn tất cả trên trang này")}
+              checked={
+                selected.length === 0
+                  ? false
+                  : selected.length === files.length
+                    ? true
+                    : "indeterminate"
+              }
+              onCheckedChange={(checked) =>
+                setSelected(checked === true ? files.map((file) => file.id) : [])
+              }
+            />
+            <label
+              htmlFor="library-select-page"
+              className="cursor-pointer font-secondary-body text-content-muted"
+            >
+              {ui("Chọn tất cả")}
+            </label>
           </div>
           <LibraryList
             files={files}

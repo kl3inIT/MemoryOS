@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { TriangleAlert } from "lucide-react";
 import { useRef, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   getChatModelDefaultOptions,
@@ -215,11 +217,24 @@ function SelectionEditor({
           ]}
         />
       </div>
-      {!candidates.length && <p role="status">{ui("No eligible models are available.")}</p>}
-      {!baseline.modelConfigurationId && row.unsetMessage && (
-        <p role="status" className="font-secondary-body text-status-warning-content">
-          {row.unsetMessage}
-        </p>
+      {!candidates.length ? (
+        // Nothing to choose is the louder fact: one callout says what is wrong and where to fix it.
+        <Alert variant="warning" role="status">
+          <TriangleAlert aria-hidden="true" />
+          {!baseline.modelConfigurationId && row.unsetMessage && (
+            <AlertTitle>{row.unsetMessage}</AlertTitle>
+          )}
+          <AlertDescription>
+            {ui("No eligible models are available. Add a model to a connection below.")}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        !baseline.modelConfigurationId &&
+        row.unsetMessage && (
+          <p role="status" className="font-secondary-body text-status-warning-content">
+            {row.unsetMessage}
+          </p>
+        )
       )}
       {baseline.available === false && row.unavailableMessage && (
         <p role="status" className="font-secondary-body text-status-warning-content">
@@ -284,11 +299,21 @@ function LoadFailure({
   );
 }
 
+/** A section of the catalog on its way: the rows it will hold, named for a screen reader. */
+export function LoadingRows({ label }: { label: string }) {
+  return (
+    <div role="status" aria-label={label} className="flex flex-col gap-3">
+      <Skeleton className="h-5 w-48" />
+      <Skeleton className="h-9 w-full" />
+    </div>
+  );
+}
+
 /** The Tenant Chat default; a per-Persona override belongs with the Persona, not the catalog. */
 export function TenantDefault(catalog: Catalog) {
   const ui = useAppTranslation();
   const tenant = useQuery({ ...getChatModelDefaultOptions(), retry: false });
-  if (tenant.isPending) return <p role="status">{ui("Loading organization default…")}</p>;
+  if (tenant.isPending) return <LoadingRows label={ui("Loading organization default…")} />;
   if (tenant.isError)
     return (
       <LoadFailure
@@ -339,7 +364,7 @@ export function TaskModels(catalog: Catalog) {
     fallbackModel && catalog.providers.find((provider) => provider.id === fallbackModel.providerId);
   const fallback =
     fallbackModel && fallbackProvider ? modelLabel(fallbackModel, fallbackProvider) : undefined;
-  if (flows.isPending) return <p role="status">{ui("Loading task models…")}</p>;
+  if (flows.isPending) return <LoadingRows label={ui("Loading task models…")} />;
   if (flows.isError)
     return (
       <LoadFailure
@@ -355,18 +380,13 @@ export function TaskModels(catalog: Catalog) {
     { id: "MEDIUM", name: ui("Medium") },
     { id: "HIGH", name: ui("High") },
   ];
-  const copy: Record<ModelFlow["flow"], Pick<Row, "title" | "description" | "ariaLabel">> = {
+  // The question check may run on a System One connection, so it is configured on the System One page only.
+  type TaskFlow = Exclude<ModelFlow["flow"], "CHAT_GUARDRAIL">;
+  const copy: Record<TaskFlow, Pick<Row, "title" | "description" | "ariaLabel">> = {
     CHAT_NAMING: {
       title: ui("Conversation naming"),
       description: ui("Names new conversations. A small, fast model keeps the chat model free."),
       ariaLabel: ui("Conversation naming model"),
-    },
-    CHAT_GUARDRAIL: {
-      title: ui("Question check"),
-      description: ui(
-        "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.",
-      ),
-      ariaLabel: ui("Question check model"),
     },
     MEETING_MINUTES: {
       title: ui("Meeting minutes"),
@@ -379,40 +399,44 @@ export function TaskModels(catalog: Catalog) {
       ariaLabel: ui("Transcript correction model"),
     },
   };
-  return flows.data.map((flow) => (
-    <SelectionEditor
-      key={flow.flow}
-      {...catalog}
-      selection={flow}
-      reload={async () => {
-        const result = await flows.refetch({ throwOnError: true });
-        const current = result.data?.find((entry) => entry.flow === flow.flow);
-        if (!current) throw new Error("Selection unavailable");
-        return current;
-      }}
-      row={{
-        ...copy[flow.flow],
-        unsetMessage: fallback
-          ? ui("No model chosen; {{model}} is used.", { model: fallback })
-          : ui("No model chosen; the task does not run until one is."),
-        unavailableMessage: fallback
-          ? ui("Unavailable; {{model}} is used instead.", { model: fallback })
-          : ui("Unavailable; the Chat model is used instead."),
-        efforts,
-        savedMessage: ui("Task model saved."),
-        save: async (revision, modelConfigurationId, reasoningEffort, signal) =>
-          (
-            await setChatModelFlow({
-              path: { flow: flow.flow },
-              query: {
-                revision,
-                ...(modelConfigurationId ? { modelConfigurationId } : {}),
-                ...(reasoningEffort ? { reasoningEffort } : {}),
-              },
-              signal,
-            })
-          ).data,
-      }}
-    />
-  ));
+  return flows.data.flatMap((flow) => {
+    const task = flow.flow;
+    if (task === "CHAT_GUARDRAIL") return [];
+    return [
+      <SelectionEditor
+        key={flow.flow}
+        {...catalog}
+        selection={flow}
+        reload={async () => {
+          const result = await flows.refetch({ throwOnError: true });
+          const current = result.data?.find((entry) => entry.flow === flow.flow);
+          if (!current) throw new Error("Selection unavailable");
+          return current;
+        }}
+        row={{
+          ...copy[task],
+          unsetMessage: fallback
+            ? ui("No model chosen; {{model}} is used.", { model: fallback })
+            : ui("No model chosen; the task does not run until one is."),
+          unavailableMessage: fallback
+            ? ui("Unavailable; {{model}} is used instead.", { model: fallback })
+            : ui("Unavailable; the Chat model is used instead."),
+          efforts,
+          savedMessage: ui("Task model saved."),
+          save: async (revision, modelConfigurationId, reasoningEffort, signal) =>
+            (
+              await setChatModelFlow({
+                path: { flow: flow.flow },
+                query: {
+                  revision,
+                  ...(modelConfigurationId ? { modelConfigurationId } : {}),
+                  ...(reasoningEffort ? { reasoningEffort } : {}),
+                },
+                signal,
+              })
+            ).data,
+        }}
+      />,
+    ];
+  });
 }

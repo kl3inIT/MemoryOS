@@ -32,12 +32,17 @@ dependencies {
     api(platform(libs.spring.modulith.bom))
     api(libs.spring.modulith.api)
     implementation(platform(libs.spring.boot.dependencies))
+    // OutboundHttp hands callers a RestClient.Builder.
+    api(libs.spring.web)
     annotationProcessor(libs.spring.boot.configuration.processor)
     implementation(platform(libs.aws.sdk.bom))
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.spring.ai.openai)
     implementation(libs.embabel.api)
     implementation(libs.embabel.openai)
+    // System One (ADR 0026): JevGuardrail and, through it, the protocol client, which runs on a RestClient from
+    // OutboundHttp.
+    implementation(libs.typesafe.spring.ai)
     // The OpenAI provider owns its OkHttp transport for raw-call cancellation (OpenAiCancellation).
     implementation(libs.okhttp)
     implementation(libs.mcp)

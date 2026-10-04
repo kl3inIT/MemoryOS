@@ -36,6 +36,7 @@ import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAdminMcpEndpointRouteImport } from './routes/_authenticated.admin.mcp-endpoint'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminSearchSettingsRouteImport } from './routes/_authenticated.admin.search-settings'
+import { Route as AuthenticatedAdminSystemOneRouteImport } from './routes/_authenticated.admin.system-one'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedAdminVoiceRouteImport } from './routes/_authenticated.admin.voice'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
@@ -208,6 +209,12 @@ const AuthenticatedAdminSearchSettingsRoute =
   AuthenticatedAdminSearchSettingsRouteImport.update({
     id: '/search-settings',
     path: '/search-settings',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSystemOneRoute =
+  AuthenticatedAdminSystemOneRouteImport.update({
+    id: '/system-one',
+    path: '/system-one',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
@@ -414,6 +421,7 @@ export interface FileRoutesByFullPath {
   '/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
+  '/admin/system-one': typeof AuthenticatedAdminSystemOneRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -468,6 +476,7 @@ export interface FileRoutesByTo {
   '/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
+  '/admin/system-one': typeof AuthenticatedAdminSystemOneRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -526,6 +535,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
+  '/_authenticated/admin/system-one': typeof AuthenticatedAdminSystemOneRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -586,6 +596,7 @@ export interface FileRouteTypes {
     | '/admin/mcp-endpoint'
     | '/admin/models'
     | '/admin/search-settings'
+    | '/admin/system-one'
     | '/admin/users'
     | '/admin/voice'
     | '/admin/web-search'
@@ -640,6 +651,7 @@ export interface FileRouteTypes {
     | '/admin/mcp-endpoint'
     | '/admin/models'
     | '/admin/search-settings'
+    | '/admin/system-one'
     | '/admin/users'
     | '/admin/voice'
     | '/admin/web-search'
@@ -697,6 +709,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/mcp-endpoint'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/search-settings'
+    | '/_authenticated/admin/system-one'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/voice'
     | '/_authenticated/admin/web-search'
@@ -927,6 +940,13 @@ declare module '@tanstack/react-router' {
       path: '/search-settings'
       fullPath: '/admin/search-settings'
       preLoaderRoute: typeof AuthenticatedAdminSearchSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/system-one': {
+      id: '/_authenticated/admin/system-one'
+      path: '/system-one'
+      fullPath: '/admin/system-one'
+      preLoaderRoute: typeof AuthenticatedAdminSystemOneRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/users': {
@@ -1214,6 +1234,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminMcpEndpointRoute: typeof AuthenticatedAdminMcpEndpointRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminSearchSettingsRoute: typeof AuthenticatedAdminSearchSettingsRoute
+  AuthenticatedAdminSystemOneRoute: typeof AuthenticatedAdminSystemOneRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminVoiceRoute: typeof AuthenticatedAdminVoiceRoute
   AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute
@@ -1242,6 +1263,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminMcpEndpointRoute: AuthenticatedAdminMcpEndpointRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminSearchSettingsRoute: AuthenticatedAdminSearchSettingsRoute,
+  AuthenticatedAdminSystemOneRoute: AuthenticatedAdminSystemOneRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminVoiceRoute: AuthenticatedAdminVoiceRoute,
   AuthenticatedAdminWebSearchRoute: AuthenticatedAdminWebSearchRoute,

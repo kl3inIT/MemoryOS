@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -76,10 +76,7 @@ export function ChatSessionRow({
           <span className="truncate">{session.title}</span>
           {showTime && (
             <time dateTime={session.updatedAt} className="text-xs text-content-muted">
-              {new Date(session.updatedAt).toLocaleString(uiLocale(), {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })}
+              {formatUiMoment(session.updatedAt)}
             </time>
           )}
         </Link>

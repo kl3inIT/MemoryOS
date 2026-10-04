@@ -2,7 +2,7 @@
 
 import { http, type HttpHandler, HttpResponse, type HttpResponseResolver, type RequestHandlerOptions as RequestHandlerOptions2 } from 'msw';
 
-import type { AcceptAllMeetingCorrectionsData, AcceptAllMeetingCorrectionsResponses, AcceptMeetingCorrectionData, AcceptMeetingCorrectionResponses, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AddMcpTrustedAppData, AddMcpTrustedAppResponses, AddMeetingMinutesItemData, AddMeetingMinutesItemResponses, ArchiveAllChatSessionsResponses, ArchiveChatSessionResponses, AssignGroupManagerResponses, AssignSourceManagerData, AssignSourceManagerResponses, BookmarkMeetingMomentData, BookmarkMeetingMomentResponses, BranchChatSessionData, BranchChatSessionResponses, CancelChatMessageResponses, CancelSearchFutureGenerationResponses, ChangeChatLibraryFileData, ChangeChatLibraryFileResponses, ClientOptions, ConfigureChatSessionData, ConfigureChatSessionResponses, CopyChatLibraryFileResponses, CorrectMeetingWordsData, CorrectMeetingWordsResponses, CreateAiUsageLimitData, CreateAiUsageLimitResponses, CreateChatModelData, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaLabelData, CreateChatPersonaLabelResponses, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectResponses, CreateChatPromptShortcutData, CreateChatPromptShortcutResponses, CreateChatProviderData, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionResponses, CreateChatVoiceTicketData, CreateChatVoiceTicketResponses, CreateDocumentSetData, CreateDocumentSetResponses, CreateEmbeddingProviderData, CreateEmbeddingProviderResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveServiceAccountData, CreateGoogleDriveServiceAccountResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateIdentityProviderData, CreateIdentityProviderResponses, CreateInvitationData, CreateInvitationResponses, CreateMcpServerData, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientResponses, CreateMcpServerResponses, CreateMeetingData, CreateMeetingResponses, CreateMeetingTicketData, CreateMeetingTicketResponses, CreateProjectChatSessionData, CreateProjectChatSessionResponses, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutResponses, CreateSearchFutureGenerationData, CreateSearchFutureGenerationResponses, CreateSharePointCredentialData, CreateSharePointCredentialResponses, CreateSharePointSourceData, CreateSharePointSourceResponses, DeactivateUserResponses, DeleteAiUsageLimitResponses, DeleteAllChatSessionsResponses, DeleteChatFileArtifactResponses, DeleteChatFileResponses, DeleteChatImageArtifactResponses, DeleteChatModelResponses, DeleteChatPersonaLabelResponses, DeleteChatPersonaResponses, DeleteChatProjectResponses, DeleteChatPromptShortcutResponses, DeleteChatProviderResponses, DeleteChatSessionResponses, DeleteChatVoiceConnectionResponses, DeleteDocumentSetResponses, DeleteEmbeddingProviderResponses, DeleteGoogleDriveCredentialResponses, DeleteGroupResponses, DeleteIdentityProviderResponses, DeleteMcpServerOAuthClientResponses, DeleteMcpServerResponses, DeleteMeetingResponses, DeletePublicChatPromptShortcutResponses, DeleteSharePointCredentialResponses, DeleteSourceResponses, DisconnectMcpConnectionResponses, DisconnectMcpServerOAuthResponses, DiscoverGoogleDriveLinkedDocumentsResponses, DiscoverIdentityProviderData, DiscoverIdentityProviderResponses, DiscoverMcpServerOAuthResponses, DismissMeetingSpeakerSuggestionResponses, DownloadChatExportResponses, DownloadChatFileResponses, DownloadChatLibraryArchiveResponses, DownloadUsageReportResponses, EditChatMessageData, EditChatMessageResponses, EditMeetingMinutesItemData, EditMeetingMinutesItemResponses, EditMeetingMinutesSummaryData, EditMeetingMinutesSummaryResponses, EmptyChatLibraryTrashResponses, EndMeetingResponses, ExportAuditEventsResponses, ExportChatHistoryResponses, ExportMeetingMinutesData, ExportMeetingMinutesResponses, ExportMeetingTranscriptResponses, FinalizeChatFileUploadResponses, FinalizeMeetingRecordingResponses, FinalizeSourceUploadResponses, GenerateChatTitleResponses, GetAiCostDetailResponses, GetAiCostSummaryResponses, GetAuditCatalogResponses, GetAuditEventResponses, GetChatBranchesResponses, GetChatExportResponses, GetChatFeedbackResponses, GetChatFileArtifactChartResponses, GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactResponses, GetChatFilePolicyResponses, GetChatFileResponses, GetChatFileThumbnailResponses, GetChatGuardrailsResponses, GetChatHistoryResponses, GetChatHistoryTranscriptResponses, GetChatImageArtifactResponses, GetChatImageAvailabilityResponses, GetChatInterpreterHealthResponses, GetChatInterpreterSettingsResponses, GetChatLibraryArchiveResponses, GetChatLibraryTrashWindowResponses, GetChatLibraryUsageResponses, GetChatModelDefaultResponses, GetChatPersonaAvatarResponses, GetChatPersonaResponses, GetChatPreferencesResponses, GetChatProjectResponses, GetChatPromptShortcutPreferencesResponses, GetChatRetentionResponses, GetChatSessionResponses, GetChatSettingsResponses, GetChatSharingResponses, GetChatVoiceAvailabilityResponses, GetChatVoiceSettingsResponses, GetChatWebAvailabilityResponses, GetCurrentIdentityResponses, GetCurrentInvitationResponses, GetDocumentSetResponses, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeResponses, GetGroupResponses, GetMcpEndpointConnectionResponses, GetMcpEndpointInsightsResponses, GetMcpEndpointSettingsResponses, GetMcpServerResponses, GetMeetingMinutesHeadingResponses, GetMeetingResponses, GetMyAiCostsResponses, GetMyAiUsageStandingResponses, GetPersonaModelResponses, GetSearchDocumentResponses, GetSearchSettingsResponses, GetSharedChatHistoryResponses, GetSharedChatSessionResponses, GetSharePointConfigurationResponses, GetSharePointRootsResponses, GetSharePointSelectionPolicyResponses, GetSharePointSelectionRequestResponses, GetSourceOperationResponses, GetSourceResponses, GetSourceRunResponses, HideChatPromptShortcutData, HideChatPromptShortcutResponses, InitiateChatFileUploadData, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, KeepMeetingWordingResponses, LeaveChatPersonaResponses, ListAiCostBreakdownResponses, ListAiCostDaysResponses, ListAiUsageLimitsResponses, ListAuditEventsResponses, ListAvailableChatModelsResponses, ListChatExportsResponses, ListChatFilesResponses, ListChatGroupOptionsResponses, ListChatHistoryResponses, ListChatImageConnectionsResponses, ListChatImageProvidersResponses, ListChatLibraryArchivesResponses, ListChatLibraryDocumentSourcesResponses, ListChatLibraryDocumentsResponses, ListChatLibraryRecentResponses, ListChatLibraryResponses, ListChatLibrarySharedResponses, ListChatLibrarySourcesResponses, ListChatLibraryStarredResponses, ListChatModelFlowsResponses, ListChatModelPersonasResponses, ListChatPersonaLabelsResponses, ListChatPersonaModelsResponses, ListChatPersonaPinsResponses, ListChatPersonasForAdministrationResponses, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsResponses, ListChatPromptShortcutsResponses, ListChatProviderAdaptersResponses, ListChatProvidersResponses, ListChatSessionsResponses, ListChatVoiceConnectionsResponses, ListChatVoiceProvidersResponses, ListChatWebConnectionsResponses, ListChatWebEnginesData, ListChatWebEnginesResponses, ListConfiguredChatModelsResponses, ListDocumentSetsResponses, ListEmbeddingModelPresetsResponses, ListEmbeddingProvidersResponses, ListGoogleDriveCredentialsResponses, ListGroupCandidatesResponses, ListGroupCapabilitiesResponses, ListGroupMembersResponses, ListGroupSourcesResponses, ListGroupsResponses, ListIdentityProvidersResponses, ListInvitationsResponses, ListMcpClientGrantsResponses, ListMcpConnectionsResponses, ListMcpEndpointActivityResponses, ListMcpGroupOptionsResponses, ListMcpServerOAuthClientsResponses, ListMcpServersResponses, ListMcpServerToolsResponses, ListMcpTrustedAppsResponses, ListMeetingCorrectionsResponses, ListMeetingsResponses, ListMeetingTranscribersResponses, ListProjectChatSessionsResponses, ListPublicChatPromptShortcutsResponses, ListReportedProviderModelsData, ListReportedProviderModelsResponses, ListSharePointCredentialsResponses, ListSourceGroupOptionsResponses, ListSourceGroupsResponses, ListSourceIndexAttemptsResponses, ListSourceItemsResponses, ListSourceRunErrorsResponses, ListSourceRunsResponses, ListSourcesResponses, ListUsageReportsResponses, ListUsersResponses, MarkMeetingMinutesItemData, MarkMeetingMinutesItemResponses, MoveChatProjectData, MoveChatProjectResponses, NameMeetingSpeakerData, NameMeetingSpeakerResponses, PauseSourceResponses, PinChatReasoningEffortData, PinChatReasoningEffortResponses, PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileSpreadsheetResponses, PreviewChatRetentionResponses, ProposeMeetingCorrectionsResponses, PublishMeetingMinutesResponses, PurgeChatLibraryFileResponses, ReadChatDocumentOriginalResponses, ReadChatDocumentPassagesResponses, ReadChatDocumentSpreadsheetResponses, ReadChatFilePassagesResponses, ReadChatFileTextResponses, ReadSearchDocumentOriginalResponses, ReadSearchDocumentSpreadsheetResponses, RecordChatLibraryEntryOpenedResponses, RefreshMcpServerToolsResponses, RegenerateChatMessageData, RegenerateChatMessageResponses, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientResponses, ReindexSourceItemResponses, RemoveChatFeedbackResponses, RemoveGroupManagerResponses, RemoveGroupMemberResponses, RemoveGroupSourceResponses, RemoveMcpTrustedAppResponses, RemoveMeetingBookmarkResponses, RemoveMeetingMinutesItemResponses, RemoveSourceItemResponses, RenameChatPersonaLabelData, RenameChatPersonaLabelResponses, RenameChatSessionData, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, RenameSharePointCredentialData, RenameSharePointCredentialResponses, RenameSourceData, RenameSourceResponses, ReorderChatPersonasData, ReorderChatPersonasResponses, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGoogleDriveServiceAccountData, ReplaceGoogleDriveServiceAccountResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointScopeData, ReplaceSharePointScopeResponses, ReplaceUserGroupsData, ReplaceUserGroupsResponses, RequestChatExportResponses, RequestChatLibraryArchiveData, RequestChatLibraryArchiveResponses, RequestUsageReportData, RequestUsageReportResponses, RerunMeetingMinutesResponses, ReserveMeetingRecordingData, ReserveMeetingRecordingResponses, RestoreChatLibraryFileResponses, RestoreChatPersonaResponses, RestoreSearchPastGenerationResponses, ResumeSourceResponses, RetryChatFileResponses, RevertAllMeetingCorrectionsData, RevertAllMeetingCorrectionsResponses, RevertMeetingCorrectionResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationResponses, RevokeMcpClientGrantResponses, RotateInvitationResponses, SaveChatGroundedData, SaveChatGroundedResponses, SaveChatGuardrailsData, SaveChatGuardrailsResponses, SaveChatHistoryVisibilityData, SaveChatHistoryVisibilityResponses, SaveChatImageConnectionData, SaveChatImageConnectionResponses, SaveChatPreferencesData, SaveChatPreferencesResponses, SaveChatRetentionData, SaveChatRetentionResponses, SaveChatSettingsData, SaveChatSettingsResponses, SaveChatVoiceConnectionData, SaveChatVoiceConnectionResponses, SaveChatWebConnectionData, SaveChatWebConnectionResponses, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyResponses, SaveMeetingMinutesHeadingData, SaveMeetingMinutesHeadingResponses, SearchChatLibraryContentResponses, SearchChatSessionsResponses, SearchDocumentsData, SearchDocumentsResponses, SearchPrincipalsResponses, SelectChatBranchData, SelectChatBranchResponses, SelectChatImageProviderData, SelectChatImageProviderResponses, SelectChatPersonaData, SelectChatPersonaResponses, SelectChatVoiceProviderData, SelectChatVoiceProviderResponses, SelectChatWebProviderData, SelectChatWebProviderResponses, SendChatMessageData, SendChatMessageResponses, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledResponses, SetChatFeedbackData, SetChatFeedbackResponses, SetChatModelDefaultResponses, SetChatModelFlowResponses, SetChatPersonaListingData, SetChatPersonaListingResponses, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesResponses, SetChatSharingData, SetChatSharingResponses, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponses, SetMcpServerToolEnabledData, SetMcpServerToolEnabledResponses, SetMcpTrustedAppEnabledData, SetMcpTrustedAppEnabledResponses, SetPersonaModelResponses, ShareChatPersonaData, ShareChatPersonaResponses, ShareDocumentSetData, ShareDocumentSetResponses, ShareMeetingData, ShareMeetingResponses, StarChatLibraryEntryResponses, StarMeetingUtteranceResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationResponses, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationResponses, StreamChatMessageResponses, SwitchSearchFutureGenerationResponses, SynchronizeGoogleDriveSourceResponses, SynchronizeSharePointSourceResponses, SynthesizeChatVoiceData, SynthesizeChatVoiceResponses, TestChatImageConnectionData, TestChatImageConnectionResponses, TestChatProviderData, TestChatProviderResponses, TestChatVoiceConnectionResponses, TestChatWebConnectionData, TestChatWebConnectionResponses, TestEmbeddingProviderData, TestEmbeddingProviderResponses, TestSharePointCredentialResponses, TransferChatPersonaData, TransferChatPersonaResponses, UnarchiveChatSessionResponses, UnstarChatLibraryEntryResponses, UnstarMeetingUtteranceResponses, UpdateAiUsageLimitData, UpdateAiUsageLimitResponses, UpdateChatInterpreterSettingsData, UpdateChatInterpreterSettingsResponses, UpdateChatModelData, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectResponses, UpdateChatPromptShortcutData, UpdateChatPromptShortcutResponses, UpdateChatProviderData, UpdateChatProviderResponses, UpdateChatVoiceSettingsData, UpdateChatVoiceSettingsResponses, UpdateDocumentSetData, UpdateDocumentSetResponses, UpdateEmbeddingProviderData, UpdateEmbeddingProviderResponses, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateIdentityProviderData, UpdateIdentityProviderResponses, UpdateMcpEndpointSettingsData, UpdateMcpEndpointSettingsResponses, UpdateMcpServerData, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientResponses, UpdateMcpServerResponses, UpdateMeetingData, UpdateMeetingNotesData, UpdateMeetingNotesResponses, UpdateMeetingResponses, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutResponses, UpdateSharePointPauseData, UpdateSharePointPauseResponses, UpdateSharePointScheduleData, UpdateSharePointScheduleResponses, UpdateSourceAccessData, UpdateSourceAccessResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelResponses } from './types.gen';
+import type { AcceptAllMeetingCorrectionsData, AcceptAllMeetingCorrectionsResponses, AcceptMeetingCorrectionData, AcceptMeetingCorrectionResponses, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AddMcpTrustedAppData, AddMcpTrustedAppResponses, AddMeetingMinutesItemData, AddMeetingMinutesItemResponses, ArchiveAllChatSessionsResponses, ArchiveChatSessionResponses, AssignGroupManagerResponses, AssignSourceManagerData, AssignSourceManagerResponses, BookmarkMeetingMomentData, BookmarkMeetingMomentResponses, BranchChatSessionData, BranchChatSessionResponses, CancelChatMessageResponses, CancelSearchFutureGenerationResponses, ChangeChatLibraryFileData, ChangeChatLibraryFileResponses, ClientOptions, ConfigureChatSessionData, ConfigureChatSessionResponses, CopyChatLibraryFileResponses, CorrectMeetingWordsData, CorrectMeetingWordsResponses, CreateAiUsageLimitData, CreateAiUsageLimitResponses, CreateChatModelData, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaLabelData, CreateChatPersonaLabelResponses, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectResponses, CreateChatPromptShortcutData, CreateChatPromptShortcutResponses, CreateChatProviderData, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionResponses, CreateChatVoiceTicketData, CreateChatVoiceTicketResponses, CreateDocumentSetData, CreateDocumentSetResponses, CreateEmbeddingProviderData, CreateEmbeddingProviderResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveServiceAccountData, CreateGoogleDriveServiceAccountResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateIdentityProviderData, CreateIdentityProviderResponses, CreateInvitationData, CreateInvitationResponses, CreateMcpServerData, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientResponses, CreateMcpServerResponses, CreateMeetingData, CreateMeetingResponses, CreateMeetingTicketData, CreateMeetingTicketResponses, CreateProjectChatSessionData, CreateProjectChatSessionResponses, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutResponses, CreateSearchFutureGenerationData, CreateSearchFutureGenerationResponses, CreateSharePointCredentialData, CreateSharePointCredentialResponses, CreateSharePointSourceData, CreateSharePointSourceResponses, CreateSystemOneConnectionData, CreateSystemOneConnectionResponses, DeactivateUserResponses, DeleteAiUsageLimitResponses, DeleteAllChatSessionsResponses, DeleteChatFileArtifactResponses, DeleteChatFileResponses, DeleteChatImageArtifactResponses, DeleteChatModelResponses, DeleteChatPersonaLabelResponses, DeleteChatPersonaResponses, DeleteChatProjectResponses, DeleteChatPromptShortcutResponses, DeleteChatProviderResponses, DeleteChatSessionResponses, DeleteChatVoiceConnectionResponses, DeleteDocumentSetResponses, DeleteEmbeddingProviderResponses, DeleteGoogleDriveCredentialResponses, DeleteGroupResponses, DeleteIdentityProviderResponses, DeleteMcpServerOAuthClientResponses, DeleteMcpServerResponses, DeleteMeetingResponses, DeletePublicChatPromptShortcutResponses, DeleteSharePointCredentialResponses, DeleteSourceResponses, DeleteSystemOneConnectionResponses, DisconnectMcpConnectionResponses, DisconnectMcpServerOAuthResponses, DiscoverGoogleDriveLinkedDocumentsResponses, DiscoverIdentityProviderData, DiscoverIdentityProviderResponses, DiscoverMcpServerOAuthResponses, DismissMeetingSpeakerSuggestionResponses, DownloadChatExportResponses, DownloadChatFileResponses, DownloadChatLibraryArchiveResponses, DownloadUsageReportResponses, EditChatMessageData, EditChatMessageResponses, EditMeetingMinutesItemData, EditMeetingMinutesItemResponses, EditMeetingMinutesSummaryData, EditMeetingMinutesSummaryResponses, EmptyChatLibraryTrashResponses, EndMeetingResponses, ExportAuditEventsResponses, ExportChatHistoryResponses, ExportMeetingMinutesData, ExportMeetingMinutesResponses, ExportMeetingTranscriptResponses, FinalizeChatFileUploadResponses, FinalizeMeetingRecordingResponses, FinalizeSourceUploadResponses, GenerateChatTitleResponses, GetAiCostDetailResponses, GetAiCostSummaryResponses, GetAuditCatalogResponses, GetAuditEventResponses, GetChatBranchesResponses, GetChatExportResponses, GetChatFeedbackResponses, GetChatFileArtifactChartResponses, GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactResponses, GetChatFilePolicyResponses, GetChatFileResponses, GetChatFileThumbnailResponses, GetChatGuardrailsResponses, GetChatHistoryResponses, GetChatHistoryTranscriptResponses, GetChatImageArtifactResponses, GetChatImageAvailabilityResponses, GetChatInterpreterHealthResponses, GetChatInterpreterSettingsResponses, GetChatLibraryArchiveResponses, GetChatLibraryTrashWindowResponses, GetChatLibraryUsageResponses, GetChatModelDefaultResponses, GetChatPersonaAvatarResponses, GetChatPersonaResponses, GetChatPreferencesResponses, GetChatProjectResponses, GetChatPromptShortcutPreferencesResponses, GetChatRetentionResponses, GetChatSessionResponses, GetChatSettingsResponses, GetChatSharingResponses, GetChatVoiceAvailabilityResponses, GetChatVoiceSettingsResponses, GetChatWebAvailabilityResponses, GetCurrentIdentityResponses, GetCurrentInvitationResponses, GetDocumentSetResponses, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeResponses, GetGroupResponses, GetMcpEndpointConnectionResponses, GetMcpEndpointInsightsResponses, GetMcpEndpointSettingsResponses, GetMcpServerResponses, GetMeetingMinutesHeadingResponses, GetMeetingResponses, GetMyAiCostsResponses, GetMyAiUsageStandingResponses, GetPersonaModelResponses, GetSearchDocumentResponses, GetSearchSettingsResponses, GetSharedChatHistoryResponses, GetSharedChatSessionResponses, GetSharePointConfigurationResponses, GetSharePointRootsResponses, GetSharePointSelectionPolicyResponses, GetSharePointSelectionRequestResponses, GetSourceOperationResponses, GetSourceResponses, GetSourceRunResponses, HideChatPromptShortcutData, HideChatPromptShortcutResponses, InitiateChatFileUploadData, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, KeepMeetingWordingResponses, LeaveChatPersonaResponses, ListAiCostBreakdownResponses, ListAiCostDaysResponses, ListAiUsageLimitsResponses, ListAuditEventsResponses, ListAvailableChatModelsResponses, ListChatExportsResponses, ListChatFilesResponses, ListChatGroupOptionsResponses, ListChatHistoryResponses, ListChatImageConnectionsResponses, ListChatImageProvidersResponses, ListChatLibraryArchivesResponses, ListChatLibraryDocumentSourcesResponses, ListChatLibraryDocumentsResponses, ListChatLibraryRecentResponses, ListChatLibraryResponses, ListChatLibrarySharedResponses, ListChatLibrarySourcesResponses, ListChatLibraryStarredResponses, ListChatModelFlowsResponses, ListChatModelPersonasResponses, ListChatPersonaLabelsResponses, ListChatPersonaModelsResponses, ListChatPersonaPinsResponses, ListChatPersonasForAdministrationResponses, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsResponses, ListChatPromptShortcutsResponses, ListChatProviderAdaptersResponses, ListChatProvidersResponses, ListChatSessionsResponses, ListChatVoiceConnectionsResponses, ListChatVoiceProvidersResponses, ListChatWebConnectionsResponses, ListChatWebEnginesData, ListChatWebEnginesResponses, ListConfiguredChatModelsResponses, ListDocumentSetsResponses, ListEmbeddingModelPresetsResponses, ListEmbeddingProvidersResponses, ListGoogleDriveCredentialsResponses, ListGroupCandidatesResponses, ListGroupCapabilitiesResponses, ListGroupMembersResponses, ListGroupSourcesResponses, ListGroupsResponses, ListIdentityProvidersResponses, ListInvitationsResponses, ListMcpClientGrantsResponses, ListMcpConnectionsResponses, ListMcpEndpointActivityResponses, ListMcpGroupOptionsResponses, ListMcpServerOAuthClientsResponses, ListMcpServersResponses, ListMcpServerToolsResponses, ListMcpTrustedAppsResponses, ListMeetingCorrectionsResponses, ListMeetingsResponses, ListMeetingTranscribersResponses, ListProjectChatSessionsResponses, ListPublicChatPromptShortcutsResponses, ListReportedProviderModelsData, ListReportedProviderModelsResponses, ListSharePointCredentialsResponses, ListSourceGroupOptionsResponses, ListSourceGroupsResponses, ListSourceIndexAttemptsResponses, ListSourceItemsResponses, ListSourceRunErrorsResponses, ListSourceRunsResponses, ListSourcesResponses, ListSystemOneConnectionsResponses, ListSystemOneTypesResponses, ListUsageReportsResponses, ListUsersResponses, MarkMeetingMinutesItemData, MarkMeetingMinutesItemResponses, MoveChatProjectData, MoveChatProjectResponses, NameMeetingSpeakerData, NameMeetingSpeakerResponses, PauseSourceResponses, PinChatReasoningEffortData, PinChatReasoningEffortResponses, PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileSpreadsheetResponses, PreviewChatRetentionResponses, ProposeMeetingCorrectionsResponses, PublishMeetingMinutesResponses, PurgeChatLibraryFileResponses, ReadChatDocumentOriginalResponses, ReadChatDocumentPassagesResponses, ReadChatDocumentSpreadsheetResponses, ReadChatFilePassagesResponses, ReadChatFileTextResponses, ReadSearchDocumentOriginalResponses, ReadSearchDocumentSpreadsheetResponses, RecordChatLibraryEntryOpenedResponses, RefreshMcpServerToolsResponses, RegenerateChatMessageData, RegenerateChatMessageResponses, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientResponses, ReindexSourceItemResponses, RemoveChatFeedbackResponses, RemoveGroupManagerResponses, RemoveGroupMemberResponses, RemoveGroupSourceResponses, RemoveMcpTrustedAppResponses, RemoveMeetingBookmarkResponses, RemoveMeetingMinutesItemResponses, RemoveSourceItemResponses, RenameChatPersonaLabelData, RenameChatPersonaLabelResponses, RenameChatSessionData, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, RenameSharePointCredentialData, RenameSharePointCredentialResponses, RenameSourceData, RenameSourceResponses, ReorderChatPersonasData, ReorderChatPersonasResponses, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGoogleDriveServiceAccountData, ReplaceGoogleDriveServiceAccountResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointScopeData, ReplaceSharePointScopeResponses, ReplaceUserGroupsData, ReplaceUserGroupsResponses, RequestChatExportResponses, RequestChatLibraryArchiveData, RequestChatLibraryArchiveResponses, RequestUsageReportData, RequestUsageReportResponses, RerunMeetingMinutesResponses, ReserveMeetingRecordingData, ReserveMeetingRecordingResponses, RestoreChatLibraryFileResponses, RestoreChatPersonaResponses, RestoreSearchPastGenerationResponses, ResumeSourceResponses, RetryChatFileResponses, RevertAllMeetingCorrectionsData, RevertAllMeetingCorrectionsResponses, RevertMeetingCorrectionResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationResponses, RevokeMcpClientGrantResponses, RotateInvitationResponses, SaveChatGroundedData, SaveChatGroundedResponses, SaveChatGuardrailsData, SaveChatGuardrailsResponses, SaveChatHistoryVisibilityData, SaveChatHistoryVisibilityResponses, SaveChatImageConnectionData, SaveChatImageConnectionResponses, SaveChatPreferencesData, SaveChatPreferencesResponses, SaveChatRetentionData, SaveChatRetentionResponses, SaveChatSettingsData, SaveChatSettingsResponses, SaveChatVoiceConnectionData, SaveChatVoiceConnectionResponses, SaveChatWebConnectionData, SaveChatWebConnectionResponses, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyResponses, SaveMeetingMinutesHeadingData, SaveMeetingMinutesHeadingResponses, SaveSystemOneConnectionData, SaveSystemOneConnectionResponses, SearchChatLibraryContentResponses, SearchChatSessionsResponses, SearchDocumentsData, SearchDocumentsResponses, SearchPrincipalsResponses, SelectChatBranchData, SelectChatBranchResponses, SelectChatImageProviderData, SelectChatImageProviderResponses, SelectChatPersonaData, SelectChatPersonaResponses, SelectChatVoiceProviderData, SelectChatVoiceProviderResponses, SelectChatWebProviderData, SelectChatWebProviderResponses, SendChatMessageData, SendChatMessageResponses, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledResponses, SetChatFeedbackData, SetChatFeedbackResponses, SetChatModelDefaultResponses, SetChatModelFlowResponses, SetChatPersonaListingData, SetChatPersonaListingResponses, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesResponses, SetChatSharingData, SetChatSharingResponses, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponses, SetMcpServerToolEnabledData, SetMcpServerToolEnabledResponses, SetMcpTrustedAppEnabledData, SetMcpTrustedAppEnabledResponses, SetPersonaModelResponses, SetSystemOneTaskData, SetSystemOneTaskResponses, ShareChatPersonaData, ShareChatPersonaResponses, ShareDocumentSetData, ShareDocumentSetResponses, ShareMeetingData, ShareMeetingResponses, StarChatLibraryEntryResponses, StarMeetingUtteranceResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationResponses, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationResponses, StreamChatMessageResponses, SwitchSearchFutureGenerationResponses, SynchronizeGoogleDriveSourceResponses, SynchronizeSharePointSourceResponses, SynthesizeChatVoiceData, SynthesizeChatVoiceResponses, TestChatImageConnectionData, TestChatImageConnectionResponses, TestChatProviderData, TestChatProviderResponses, TestChatVoiceConnectionResponses, TestChatWebConnectionData, TestChatWebConnectionResponses, TestEmbeddingProviderData, TestEmbeddingProviderResponses, TestSharePointCredentialResponses, TestSystemOneConnectionResponses, TransferChatPersonaData, TransferChatPersonaResponses, UnarchiveChatSessionResponses, UnstarChatLibraryEntryResponses, UnstarMeetingUtteranceResponses, UpdateAiUsageLimitData, UpdateAiUsageLimitResponses, UpdateChatInterpreterSettingsData, UpdateChatInterpreterSettingsResponses, UpdateChatModelData, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectResponses, UpdateChatPromptShortcutData, UpdateChatPromptShortcutResponses, UpdateChatProviderData, UpdateChatProviderResponses, UpdateChatVoiceSettingsData, UpdateChatVoiceSettingsResponses, UpdateDocumentSetData, UpdateDocumentSetResponses, UpdateEmbeddingProviderData, UpdateEmbeddingProviderResponses, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateIdentityProviderData, UpdateIdentityProviderResponses, UpdateMcpEndpointSettingsData, UpdateMcpEndpointSettingsResponses, UpdateMcpServerData, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientResponses, UpdateMcpServerResponses, UpdateMeetingData, UpdateMeetingNotesData, UpdateMeetingNotesResponses, UpdateMeetingResponses, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutResponses, UpdateSharePointPauseData, UpdateSharePointPauseResponses, UpdateSharePointScheduleData, UpdateSharePointScheduleResponses, UpdateSourceAccessData, UpdateSourceAccessResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelResponses } from './types.gen';
 
 export type RequestHandlerOptions = RequestHandlerOptions2 & {
     baseUrl?: ClientOptions['baseUrl'];
@@ -866,6 +866,122 @@ export function handleUpdateMcpServerOAuthClient(response?: HandleUpdateMcpServe
     }, options);
 }
 
+export type HandleGetMcpEndpointSettingsResponse = {
+    body: GetMcpEndpointSettingsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/mcp/endpoint` operation.
+ */
+export function handleGetMcpEndpointSettings(response?: HandleGetMcpEndpointSettingsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateMcpEndpointSettingsResponse = {
+    body: UpdateMcpEndpointSettingsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/mcp/endpoint` operation.
+ */
+export function handleUpdateMcpEndpointSettings(response?: HandleUpdateMcpEndpointSettingsResponse | HttpResponseResolver<never, UpdateMcpEndpointSettingsData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, UpdateMcpEndpointSettingsData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleRemoveMcpTrustedAppResponse = {
+    body: RemoveMcpTrustedAppResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/mcp/endpoint/trusted-apps/{appId}` operation.
+ */
+export function handleRemoveMcpTrustedApp(response?: HandleRemoveMcpTrustedAppResponse | HttpResponseResolver<{
+    appId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        appId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/trusted-apps/:appId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSetMcpTrustedAppEnabledResponse = {
+    body: SetMcpTrustedAppEnabledResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/mcp/endpoint/trusted-apps/{appId}` operation.
+ */
+export function handleSetMcpTrustedAppEnabled(response?: HandleSetMcpTrustedAppEnabledResponse | HttpResponseResolver<{
+    appId: string;
+}, SetMcpTrustedAppEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        appId: string;
+    }, SetMcpTrustedAppEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/trusted-apps/:appId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleSaveMcpConnectionApiKeyResponse = {
     body: SaveMcpConnectionApiKeyResponses[200];
     status?: 200;
@@ -1240,6 +1356,99 @@ export function handleSaveChatVoiceConnection(response?: HandleSaveChatVoiceConn
     return http.put<{
         provider: string;
     }, SaveChatVoiceConnectionData['body']>(`${options?.baseUrl ?? '*'}/api/chat/voice/connections/:provider`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSetSystemOneTaskResponse = {
+    body: SetSystemOneTaskResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/chat/system-one/tasks/{flow}` operation.
+ */
+export function handleSetSystemOneTask(response?: HandleSetSystemOneTaskResponse | HttpResponseResolver<{
+    flow: string;
+}, SetSystemOneTaskData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        flow: string;
+    }, SetSystemOneTaskData['body']>(`${options?.baseUrl ?? '*'}/api/chat/system-one/tasks/:flow`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleDeleteSystemOneConnectionResponse = {
+    body: DeleteSystemOneConnectionResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/chat/system-one/connections/{id}` operation.
+ */
+export function handleDeleteSystemOneConnection(response?: HandleDeleteSystemOneConnectionResponse | HttpResponseResolver<{
+    id: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        id: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/chat/system-one/connections/:id`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSaveSystemOneConnectionResponse = {
+    body: SaveSystemOneConnectionResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/chat/system-one/connections/{id}` operation.
+ */
+export function handleSaveSystemOneConnection(response?: HandleSaveSystemOneConnectionResponse | HttpResponseResolver<{
+    id: string;
+}, SaveSystemOneConnectionData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        id: string;
+    }, SaveSystemOneConnectionData['body']>(`${options?.baseUrl ?? '*'}/api/chat/system-one/connections/:id`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -2798,257 +3007,6 @@ export function handleStarChatLibraryEntry(response?: HandleStarChatLibraryEntry
         const body = response?.body;
         if (body !== undefined) {
             return new HttpResponse(body, { status: response?.status ?? 204 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetMcpEndpointSettingsResponse = {
-    body: GetMcpEndpointSettingsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/mcp/endpoint` operation.
- */
-export function handleGetMcpEndpointSettings(response?: HandleGetMcpEndpointSettingsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleUpdateMcpEndpointSettingsResponse = {
-    body: UpdateMcpEndpointSettingsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/mcp/endpoint` operation.
- */
-export function handleUpdateMcpEndpointSettings(response?: HandleUpdateMcpEndpointSettingsResponse | HttpResponseResolver<never, UpdateMcpEndpointSettingsData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<never, UpdateMcpEndpointSettingsData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleRemoveMcpTrustedAppResponse = {
-    body: RemoveMcpTrustedAppResponses[204];
-    status?: 204;
-};
-
-/**
- * Handler for the `DELETE /api/mcp/endpoint/trusted-apps/{appId}` operation.
- */
-export function handleRemoveMcpTrustedApp(response?: HandleRemoveMcpTrustedAppResponse | HttpResponseResolver<{
-    appId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.delete<{
-        appId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/trusted-apps/:appId`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return new HttpResponse(body, { status: response?.status ?? 204 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleSetMcpTrustedAppEnabledResponse = {
-    body: SetMcpTrustedAppEnabledResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/mcp/endpoint/trusted-apps/{appId}` operation.
- */
-export function handleSetMcpTrustedAppEnabled(response?: HandleSetMcpTrustedAppEnabledResponse | HttpResponseResolver<{
-    appId: string;
-}, SetMcpTrustedAppEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        appId: string;
-    }, SetMcpTrustedAppEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/trusted-apps/:appId`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetMcpEndpointConnectionResponse = {
-    body: GetMcpEndpointConnectionResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/mcp/endpoint/connection` operation.
- */
-export function handleGetMcpEndpointConnection(response?: HandleGetMcpEndpointConnectionResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/connection`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleListMcpEndpointActivityResponse = {
-    body: ListMcpEndpointActivityResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/mcp/endpoint/activity` operation.
- */
-export function handleListMcpEndpointActivity(response?: HandleListMcpEndpointActivityResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/activity`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleRevokeMcpClientGrantResponse = {
-    body: RevokeMcpClientGrantResponses[204];
-    status?: 204;
-};
-
-/**
- * Handler for the `DELETE /api/mcp/grants` operation.
- */
-export function handleRevokeMcpClientGrant(response?: HandleRevokeMcpClientGrantResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.delete<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/grants`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return new HttpResponse(body, { status: response?.status ?? 204 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleListMcpClientGrantsResponse = {
-    body: ListMcpClientGrantsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/mcp/grants` operation.
- */
-export function handleListMcpClientGrants(response?: HandleListMcpClientGrantsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/grants`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetMcpEndpointInsightsResponse = {
-    body: GetMcpEndpointInsightsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/mcp/endpoint/insights` operation.
- */
-export function handleGetMcpEndpointInsights(response?: HandleGetMcpEndpointInsightsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/insights`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
         }
         if (options?.responseFallback === 'passthrough') {
             return;
@@ -6054,6 +6012,68 @@ export function handleTestChatVoiceConnection(response?: HandleTestChatVoiceConn
     }, options);
 }
 
+export type HandleCreateSystemOneConnectionResponse = {
+    body: CreateSystemOneConnectionResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/chat/system-one/types/{provider}/connections` operation.
+ */
+export function handleCreateSystemOneConnection(response?: HandleCreateSystemOneConnectionResponse | HttpResponseResolver<{
+    provider: string;
+}, CreateSystemOneConnectionData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        provider: string;
+    }, CreateSystemOneConnectionData['body']>(`${options?.baseUrl ?? '*'}/api/chat/system-one/types/:provider/connections`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleTestSystemOneConnectionResponse = {
+    body: TestSystemOneConnectionResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `POST /api/chat/system-one/connections/{id}/test` operation.
+ */
+export function handleTestSystemOneConnection(response?: HandleTestSystemOneConnectionResponse | HttpResponseResolver<{
+    id: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        id: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/chat/system-one/connections/:id/test`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleDeleteAllChatSessionsResponse = {
     body: DeleteAllChatSessionsResponses[204];
     status?: 204;
@@ -8523,6 +8543,141 @@ export function handleListMcpGroupOptions(response?: HandleListMcpGroupOptionsRe
     }, options);
 }
 
+export type HandleRevokeMcpClientGrantResponse = {
+    body: RevokeMcpClientGrantResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/mcp/grants` operation.
+ */
+export function handleRevokeMcpClientGrant(response?: HandleRevokeMcpClientGrantResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/grants`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListMcpClientGrantsResponse = {
+    body: ListMcpClientGrantsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/mcp/grants` operation.
+ */
+export function handleListMcpClientGrants(response?: HandleListMcpClientGrantsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/grants`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetMcpEndpointInsightsResponse = {
+    body: GetMcpEndpointInsightsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/mcp/endpoint/insights` operation.
+ */
+export function handleGetMcpEndpointInsights(response?: HandleGetMcpEndpointInsightsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/insights`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetMcpEndpointConnectionResponse = {
+    body: GetMcpEndpointConnectionResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/mcp/endpoint/connection` operation.
+ */
+export function handleGetMcpEndpointConnection(response?: HandleGetMcpEndpointConnectionResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/connection`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListMcpEndpointActivityResponse = {
+    body: ListMcpEndpointActivityResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/mcp/endpoint/activity` operation.
+ */
+export function handleListMcpEndpointActivity(response?: HandleListMcpEndpointActivityResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/mcp/endpoint/activity`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleListMcpConnectionsResponse = {
     body: ListMcpConnectionsResponses[200];
     status?: 200;
@@ -8896,6 +9051,60 @@ export type HandleListChatVoiceConnectionsResponse = {
  */
 export function handleListChatVoiceConnections(response?: HandleListChatVoiceConnectionsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
     return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/voice/connections`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListSystemOneTypesResponse = {
+    body: ListSystemOneTypesResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/system-one/types` operation.
+ */
+export function handleListSystemOneTypes(response?: HandleListSystemOneTypesResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/system-one/types`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListSystemOneConnectionsResponse = {
+    body: ListSystemOneConnectionsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/system-one/connections` operation.
+ */
+export function handleListSystemOneConnections(response?: HandleListSystemOneConnectionsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/system-one/connections`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -11212,6 +11421,22 @@ export type MswHandlerFactories = {
      */
     updateMcpServerOAuthClient: typeof handleUpdateMcpServerOAuthClient;
     /**
+     * Handler for the `GET /api/mcp/endpoint` operation.
+     */
+    getMcpEndpointSettings: typeof handleGetMcpEndpointSettings;
+    /**
+     * Handler for the `PUT /api/mcp/endpoint` operation.
+     */
+    updateMcpEndpointSettings: typeof handleUpdateMcpEndpointSettings;
+    /**
+     * Handler for the `DELETE /api/mcp/endpoint/trusted-apps/{appId}` operation.
+     */
+    removeMcpTrustedApp: typeof handleRemoveMcpTrustedApp;
+    /**
+     * Handler for the `PUT /api/mcp/endpoint/trusted-apps/{appId}` operation.
+     */
+    setMcpTrustedAppEnabled: typeof handleSetMcpTrustedAppEnabled;
+    /**
      * Handler for the `PUT /api/mcp/connections/{serverId}/api-key` operation.
      */
     saveMcpConnectionApiKey: typeof handleSaveMcpConnectionApiKey;
@@ -11263,6 +11488,18 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/chat/voice/connections/{provider}` operation.
      */
     saveChatVoiceConnection: typeof handleSaveChatVoiceConnection;
+    /**
+     * Handler for the `PUT /api/chat/system-one/tasks/{flow}` operation.
+     */
+    setSystemOneTask: typeof handleSetSystemOneTask;
+    /**
+     * Handler for the `DELETE /api/chat/system-one/connections/{id}` operation.
+     */
+    deleteSystemOneConnection: typeof handleDeleteSystemOneConnection;
+    /**
+     * Handler for the `PUT /api/chat/system-one/connections/{id}` operation.
+     */
+    saveSystemOneConnection: typeof handleSaveSystemOneConnection;
     /**
      * Handler for the `GET /api/chat/settings` operation.
      */
@@ -11471,42 +11708,6 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/chat/library/entries/{kind}/{id}/star` operation.
      */
     starChatLibraryEntry: typeof handleStarChatLibraryEntry;
-    /**
-     * Handler for the `GET /api/mcp/endpoint` operation.
-     */
-    getMcpEndpointSettings: typeof handleGetMcpEndpointSettings;
-    /**
-     * Handler for the `PUT /api/mcp/endpoint` operation.
-     */
-    updateMcpEndpointSettings: typeof handleUpdateMcpEndpointSettings;
-    /**
-     * Handler for the `DELETE /api/mcp/endpoint/trusted-apps/{appId}` operation.
-     */
-    removeMcpTrustedApp: typeof handleRemoveMcpTrustedApp;
-    /**
-     * Handler for the `PUT /api/mcp/endpoint/trusted-apps/{appId}` operation.
-     */
-    setMcpTrustedAppEnabled: typeof handleSetMcpTrustedAppEnabled;
-    /**
-     * Handler for the `GET /api/mcp/endpoint/connection` operation.
-     */
-    getMcpEndpointConnection: typeof handleGetMcpEndpointConnection;
-    /**
-     * Handler for the `GET /api/mcp/endpoint/activity` operation.
-     */
-    listMcpEndpointActivity: typeof handleListMcpEndpointActivity;
-    /**
-     * Handler for the `DELETE /api/mcp/grants` operation.
-     */
-    revokeMcpClientGrant: typeof handleRevokeMcpClientGrant;
-    /**
-     * Handler for the `GET /api/mcp/grants` operation.
-     */
-    listMcpClientGrants: typeof handleListMcpClientGrants;
-    /**
-     * Handler for the `GET /api/mcp/endpoint/insights` operation.
-     */
-    getMcpEndpointInsights: typeof handleGetMcpEndpointInsights;
     /**
      * Handler for the `GET /api/chat/interpreter` operation.
      */
@@ -11908,6 +12109,14 @@ export type MswHandlerFactories = {
      */
     testChatVoiceConnection: typeof handleTestChatVoiceConnection;
     /**
+     * Handler for the `POST /api/chat/system-one/types/{provider}/connections` operation.
+     */
+    createSystemOneConnection: typeof handleCreateSystemOneConnection;
+    /**
+     * Handler for the `POST /api/chat/system-one/connections/{id}/test` operation.
+     */
+    testSystemOneConnection: typeof handleTestSystemOneConnection;
+    /**
      * Handler for the `DELETE /api/chat/sessions` operation.
      */
     deleteAllChatSessions: typeof handleDeleteAllChatSessions;
@@ -12244,6 +12453,26 @@ export type MswHandlerFactories = {
      */
     listMcpGroupOptions: typeof handleListMcpGroupOptions;
     /**
+     * Handler for the `DELETE /api/mcp/grants` operation.
+     */
+    revokeMcpClientGrant: typeof handleRevokeMcpClientGrant;
+    /**
+     * Handler for the `GET /api/mcp/grants` operation.
+     */
+    listMcpClientGrants: typeof handleListMcpClientGrants;
+    /**
+     * Handler for the `GET /api/mcp/endpoint/insights` operation.
+     */
+    getMcpEndpointInsights: typeof handleGetMcpEndpointInsights;
+    /**
+     * Handler for the `GET /api/mcp/endpoint/connection` operation.
+     */
+    getMcpEndpointConnection: typeof handleGetMcpEndpointConnection;
+    /**
+     * Handler for the `GET /api/mcp/endpoint/activity` operation.
+     */
+    listMcpEndpointActivity: typeof handleListMcpEndpointActivity;
+    /**
      * Handler for the `GET /api/mcp/connections` operation.
      */
     listMcpConnections: typeof handleListMcpConnections;
@@ -12299,6 +12528,14 @@ export type MswHandlerFactories = {
      * Handler for the `GET /api/chat/voice/connections` operation.
      */
     listChatVoiceConnections: typeof handleListChatVoiceConnections;
+    /**
+     * Handler for the `GET /api/chat/system-one/types` operation.
+     */
+    listSystemOneTypes: typeof handleListSystemOneTypes;
+    /**
+     * Handler for the `GET /api/chat/system-one/connections` operation.
+     */
+    listSystemOneConnections: typeof handleListSystemOneConnections;
     /**
      * Handler for the `GET /api/chat/shared/{sessionId}` operation.
      */
@@ -12643,6 +12880,10 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         setAllMcpServerToolsEnabled: wrap(handleSetAllMcpServerToolsEnabled),
         deleteMcpServerOAuthClient: wrap(handleDeleteMcpServerOAuthClient),
         updateMcpServerOAuthClient: wrap(handleUpdateMcpServerOAuthClient),
+        getMcpEndpointSettings: wrap(handleGetMcpEndpointSettings),
+        updateMcpEndpointSettings: wrap(handleUpdateMcpEndpointSettings),
+        removeMcpTrustedApp: wrap(handleRemoveMcpTrustedApp),
+        setMcpTrustedAppEnabled: wrap(handleSetMcpTrustedAppEnabled),
         saveMcpConnectionApiKey: wrap(handleSaveMcpConnectionApiKey),
         setCurrentIdentityLanguage: wrap(handleSetCurrentIdentityLanguage),
         deleteIdentityProvider: wrap(handleDeleteIdentityProvider),
@@ -12656,6 +12897,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         selectChatVoiceProvider: wrap(handleSelectChatVoiceProvider),
         deleteChatVoiceConnection: wrap(handleDeleteChatVoiceConnection),
         saveChatVoiceConnection: wrap(handleSaveChatVoiceConnection),
+        setSystemOneTask: wrap(handleSetSystemOneTask),
+        deleteSystemOneConnection: wrap(handleDeleteSystemOneConnection),
+        saveSystemOneConnection: wrap(handleSaveSystemOneConnection),
         getChatSettings: wrap(handleGetChatSettings),
         saveChatSettings: wrap(handleSaveChatSettings),
         saveChatHistoryVisibility: wrap(handleSaveChatHistoryVisibility),
@@ -12708,15 +12952,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         setChatModelDefault: wrap(handleSetChatModelDefault),
         unstarChatLibraryEntry: wrap(handleUnstarChatLibraryEntry),
         starChatLibraryEntry: wrap(handleStarChatLibraryEntry),
-        getMcpEndpointSettings: wrap(handleGetMcpEndpointSettings),
-        updateMcpEndpointSettings: wrap(handleUpdateMcpEndpointSettings),
-        removeMcpTrustedApp: wrap(handleRemoveMcpTrustedApp),
-        setMcpTrustedAppEnabled: wrap(handleSetMcpTrustedAppEnabled),
-        getMcpEndpointConnection: wrap(handleGetMcpEndpointConnection),
-        listMcpEndpointActivity: wrap(handleListMcpEndpointActivity),
-        revokeMcpClientGrant: wrap(handleRevokeMcpClientGrant),
-        listMcpClientGrants: wrap(handleListMcpClientGrants),
-        getMcpEndpointInsights: wrap(handleGetMcpEndpointInsights),
         getChatInterpreterSettings: wrap(handleGetChatInterpreterSettings),
         updateChatInterpreterSettings: wrap(handleUpdateChatInterpreterSettings),
         selectChatImageProvider: wrap(handleSelectChatImageProvider),
@@ -12817,6 +13052,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         createChatVoiceTicket: wrap(handleCreateChatVoiceTicket),
         synthesizeChatVoice: wrap(handleSynthesizeChatVoice),
         testChatVoiceConnection: wrap(handleTestChatVoiceConnection),
+        createSystemOneConnection: wrap(handleCreateSystemOneConnection),
+        testSystemOneConnection: wrap(handleTestSystemOneConnection),
         deleteAllChatSessions: wrap(handleDeleteAllChatSessions),
         listChatSessions: wrap(handleListChatSessions),
         createChatSession: wrap(handleCreateChatSession),
@@ -12901,6 +13138,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listMeetingTranscribers: wrap(handleListMeetingTranscribers),
         listMcpServerTools: wrap(handleListMcpServerTools),
         listMcpGroupOptions: wrap(handleListMcpGroupOptions),
+        revokeMcpClientGrant: wrap(handleRevokeMcpClientGrant),
+        listMcpClientGrants: wrap(handleListMcpClientGrants),
+        getMcpEndpointInsights: wrap(handleGetMcpEndpointInsights),
+        getMcpEndpointConnection: wrap(handleGetMcpEndpointConnection),
+        listMcpEndpointActivity: wrap(handleListMcpEndpointActivity),
         listMcpConnections: wrap(handleListMcpConnections),
         getCurrentInvitation: wrap(handleGetCurrentInvitation),
         searchPrincipals: wrap(handleSearchPrincipals),
@@ -12915,6 +13157,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         getChatVoiceAvailability: wrap(handleGetChatVoiceAvailability),
         listChatVoiceProviders: wrap(handleListChatVoiceProviders),
         listChatVoiceConnections: wrap(handleListChatVoiceConnections),
+        listSystemOneTypes: wrap(handleListSystemOneTypes),
+        listSystemOneConnections: wrap(handleListSystemOneConnections),
         getSharedChatSession: wrap(handleGetSharedChatSession),
         getSharedChatHistory: wrap(handleGetSharedChatHistory),
         deleteChatSession: wrap(handleDeleteChatSession),
@@ -13020,6 +13264,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.testChatWebConnection, overrides.testChatWebConnection),
             invoke(pick.listChatWebEngines, overrides.listChatWebEngines),
             invoke(pick.testChatVoiceConnection, overrides.testChatVoiceConnection),
+            invoke(pick.createSystemOneConnection, overrides.createSystemOneConnection),
+            invoke(pick.testSystemOneConnection, overrides.testSystemOneConnection),
             invoke(pick.testChatImageConnection, overrides.testChatImageConnection),
             invoke(pick.downloadChatLibraryArchive, overrides.downloadChatLibraryArchive),
             invoke(pick.setAllMcpServerToolsEnabled, overrides.setAllMcpServerToolsEnabled),
@@ -13054,13 +13300,16 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.switchSearchFutureGeneration, overrides.switchSearchFutureGeneration),
             invoke(pick.emptyChatLibraryTrash, overrides.emptyChatLibraryTrash),
             invoke(pick.listChatLibraryDocumentSources, overrides.listChatLibraryDocumentSources),
+            invoke(pick.removeMcpTrustedApp, overrides.removeMcpTrustedApp),
+            invoke(pick.setMcpTrustedAppEnabled, overrides.setMcpTrustedAppEnabled),
             invoke(pick.saveChatWebConnection, overrides.saveChatWebConnection),
             invoke(pick.deleteChatVoiceConnection, overrides.deleteChatVoiceConnection),
             invoke(pick.saveChatVoiceConnection, overrides.saveChatVoiceConnection),
+            invoke(pick.setSystemOneTask, overrides.setSystemOneTask),
+            invoke(pick.deleteSystemOneConnection, overrides.deleteSystemOneConnection),
+            invoke(pick.saveSystemOneConnection, overrides.saveSystemOneConnection),
             invoke(pick.deletePublicChatPromptShortcut, overrides.deletePublicChatPromptShortcut),
             invoke(pick.updatePublicChatPromptShortcut, overrides.updatePublicChatPromptShortcut),
-            invoke(pick.removeMcpTrustedApp, overrides.removeMcpTrustedApp),
-            invoke(pick.setMcpTrustedAppEnabled, overrides.setMcpTrustedAppEnabled),
             invoke(pick.saveChatImageConnection, overrides.saveChatImageConnection),
             invoke(pick.getSharePointSelectionRequest, overrides.getSharePointSelectionRequest),
             invoke(pick.getGoogleDriveSelectionRequest, overrides.getGoogleDriveSelectionRequest),
@@ -13155,9 +13404,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.saveChatGrounded, overrides.saveChatGrounded),
             invoke(pick.getChatPromptShortcutPreferences, overrides.getChatPromptShortcutPreferences),
             invoke(pick.setChatPromptShortcutPreferences, overrides.setChatPromptShortcutPreferences),
-            invoke(pick.getMcpEndpointConnection, overrides.getMcpEndpointConnection),
-            invoke(pick.listMcpEndpointActivity, overrides.listMcpEndpointActivity),
-            invoke(pick.getMcpEndpointInsights, overrides.getMcpEndpointInsights),
             invoke(pick.selectChatImageProvider, overrides.selectChatImageProvider),
             invoke(pick.cancelSearchFutureGeneration, overrides.cancelSearchFutureGeneration),
             invoke(pick.createSearchFutureGeneration, overrides.createSearchFutureGeneration),
@@ -13180,9 +13426,14 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.updateChatVoiceSettings, overrides.updateChatVoiceSettings),
             invoke(pick.getSharePointSelectionPolicy, overrides.getSharePointSelectionPolicy),
             invoke(pick.getGoogleDriveSelectionPolicy, overrides.getGoogleDriveSelectionPolicy),
+            invoke(pick.getMcpEndpointInsights, overrides.getMcpEndpointInsights),
+            invoke(pick.getMcpEndpointConnection, overrides.getMcpEndpointConnection),
+            invoke(pick.listMcpEndpointActivity, overrides.listMcpEndpointActivity),
             invoke(pick.listChatWebConnections, overrides.listChatWebConnections),
             invoke(pick.listChatVoiceProviders, overrides.listChatVoiceProviders),
             invoke(pick.listChatVoiceConnections, overrides.listChatVoiceConnections),
+            invoke(pick.listSystemOneTypes, overrides.listSystemOneTypes),
+            invoke(pick.listSystemOneConnections, overrides.listSystemOneConnections),
             invoke(pick.searchChatSessions, overrides.searchChatSessions),
             invoke(pick.previewChatRetention, overrides.previewChatRetention),
             invoke(pick.listChatPersonaSources, overrides.listChatPersonaSources),
@@ -13278,6 +13529,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.exportMeetingTranscript, overrides.exportMeetingTranscript),
             invoke(pick.listGroupSources, overrides.listGroupSources),
             invoke(pick.listGroupCandidates, overrides.listGroupCandidates),
+            invoke(pick.getMcpEndpointSettings, overrides.getMcpEndpointSettings),
+            invoke(pick.updateMcpEndpointSettings, overrides.updateMcpEndpointSettings),
             invoke(pick.getChatSettings, overrides.getChatSettings),
             invoke(pick.saveChatSettings, overrides.saveChatSettings),
             invoke(pick.getChatRetention, overrides.getChatRetention),
@@ -13289,10 +13542,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.reorderChatPersonas, overrides.reorderChatPersonas),
             invoke(pick.getChatModelDefault, overrides.getChatModelDefault),
             invoke(pick.setChatModelDefault, overrides.setChatModelDefault),
-            invoke(pick.getMcpEndpointSettings, overrides.getMcpEndpointSettings),
-            invoke(pick.updateMcpEndpointSettings, overrides.updateMcpEndpointSettings),
-            invoke(pick.revokeMcpClientGrant, overrides.revokeMcpClientGrant),
-            invoke(pick.listMcpClientGrants, overrides.listMcpClientGrants),
             invoke(pick.getChatInterpreterSettings, overrides.getChatInterpreterSettings),
             invoke(pick.updateChatInterpreterSettings, overrides.updateChatInterpreterSettings),
             invoke(pick.createSharePointSource, overrides.createSharePointSource),
@@ -13331,6 +13580,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listEmbeddingModelPresets, overrides.listEmbeddingModelPresets),
             invoke(pick.listMeetingTranscribers, overrides.listMeetingTranscribers),
             invoke(pick.listMcpGroupOptions, overrides.listMcpGroupOptions),
+            invoke(pick.revokeMcpClientGrant, overrides.revokeMcpClientGrant),
+            invoke(pick.listMcpClientGrants, overrides.listMcpClientGrants),
             invoke(pick.listMcpConnections, overrides.listMcpConnections),
             invoke(pick.getCurrentInvitation, overrides.getCurrentInvitation),
             invoke(pick.searchPrincipals, overrides.searchPrincipals),

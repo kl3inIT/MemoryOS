@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Settings } from "lucide-react";
+import { Plug, Plus, Settings } from "lucide-react";
 import { useState } from "react";
 import { BrandLoader } from "@/components/brand-loader";
 import { EmptyState } from "@/components/composites/empty-state";
@@ -42,13 +42,16 @@ export function SourcesPage() {
   return (
     <SettingsLayout wide>
       <PageHeader
-        icon={<BookOpen />}
+        icon={<Plug />}
         title={ui("Sources")}
         description={ui("Manage connected content and monitor indexing.")}
         actions={
           canCreate ? (
             <Button asChild>
-              <Link to="/admin/sources/new">{ui("Add source")}</Link>
+              <Link to="/admin/sources/new">
+                <Plus data-icon="inline-start" aria-hidden="true" />
+                {ui("Add source")}
+              </Link>
             </Button>
           ) : null
         }

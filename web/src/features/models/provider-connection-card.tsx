@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Eye,
   ListPlus,
+  MoreHorizontal,
   Plus,
   PlugZap,
   Server,
@@ -20,6 +21,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -163,13 +170,14 @@ export function ProviderConnectionCard({
             </span>
           </button>
           <span className="flex shrink-0 items-center gap-1">
-            <span className="mr-1 hidden font-secondary-body text-content-muted tabular-nums sm:inline">
+            <span className="mr-1 font-secondary-body text-content-muted tabular-nums">
               {ui(appText("{{count}} models", { count: models.length }))}
             </span>
             <IconButton
               prominence="tertiary"
               size="sm"
               aria-label={ui(appText("Test connection {{name}}", { name: provider.name }))}
+              title={ui(appText("Test connection {{name}}", { name: provider.name }))}
               disabled={unavailable || connection.pending || !provider.credentialConfigured}
               onClick={() =>
                 void connection.run({
@@ -186,21 +194,32 @@ export function ProviderConnectionCard({
               prominence="tertiary"
               size="sm"
               aria-label={ui(appText("Edit provider {{name}}", { name: provider.name }))}
+              title={ui(appText("Edit provider {{name}}", { name: provider.name }))}
               disabled={unavailable}
               onClick={actions.onEdit}
             >
               <Settings2 />
             </IconButton>
-            <IconButton
-              prominence="tertiary"
-              tone="danger"
-              size="sm"
-              aria-label={ui(appText("Delete provider {{name}}", { name: provider.name }))}
-              disabled={unavailable}
-              onClick={actions.onDelete}
-            >
-              <Trash2 />
-            </IconButton>
+            {/* The rare, destructive action is a menu away from the edit beside it. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconButton
+                  prominence="tertiary"
+                  size="sm"
+                  aria-label={ui("Thao tác khác cho {{v1}}", { v1: provider.name })}
+                  title={ui("Thao tác khác")}
+                  disabled={unavailable}
+                >
+                  <MoreHorizontal />
+                </IconButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem variant="destructive" onSelect={actions.onDelete}>
+                  <Trash2 />
+                  {ui(appText("Delete provider {{name}}", { name: provider.name }))}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <IconButton
               prominence="tertiary"
               size="sm"

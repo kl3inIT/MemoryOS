@@ -3,17 +3,17 @@ package io.memoryos.iam.keycloak;
 import io.memoryos.iam.DiscoveredOidcProvider;
 import io.memoryos.iam.IdentityProviderException;
 import io.memoryos.iam.IdentityProviderFailureReason;
+import io.memoryos.shared.OutboundHttp;
+import io.memoryos.shared.OutboundHttp.Limits;
+import io.memoryos.shared.OutboundHttp.ResponseTooLargeException;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -26,21 +26,12 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class OidcDiscoveryClient {
 
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
+    /** A discovery document is a few kilobytes; MCP authorization metadata, the same kind of document, has this bound. */
+    private static final Limits LIMITS = new Limits(Duration.ofSeconds(10), 65536);
     private static final String DISCOVERY_SUFFIX = "/.well-known/openid-configuration";
 
-    private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
-
-    public OidcDiscoveryClient() {
-        this(HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build(), new ObjectMapper());
-    }
-
-    OidcDiscoveryClient(HttpClient httpClient, ObjectMapper objectMapper) {
-        this.httpClient = Objects.requireNonNull(httpClient, "httpClient must not be null");
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
-    }
+    private final RestClient client = OutboundHttp.builder(LIMITS).build();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DiscoveredOidcProvider discover(String issuerUrl) {
         Assert.hasText(issuerUrl, "issuerUrl must not be blank");
@@ -51,25 +42,27 @@ public class OidcDiscoveryClient {
                         : issuer.getPath() + DISCOVERY_SUFFIX
         );
 
-        HttpResponse<String> response;
+        byte[] body;
         try {
-            response = httpClient.send(
-                    HttpRequest.newBuilder(discoveryUri).timeout(READ_TIMEOUT).GET().build(),
-                    HttpResponse.BodyHandlers.ofString()
-            );
-        } catch (IOException exception) {
-            throw unavailable("discovery request to " + discoveryUri + " failed", exception);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw unavailable("discovery request to " + discoveryUri + " was interrupted", exception);
-        }
-        if (response.statusCode() != 200) {
-            throw invalidDiscovery("discovery returned HTTP " + response.statusCode());
+            body = client.get().uri(discoveryUri).exchange((request, response) -> {
+                int status = response.getStatusCode().value();
+                if (status != 200) {
+                    throw invalidDiscovery("discovery returned HTTP " + status);
+                }
+                return response.getBody().readAllBytes();
+            });
+        } catch (RestClientException exception) {
+            if (exception.getCause() instanceof ResponseTooLargeException) {
+                throw invalidDiscovery("discovery document is larger than " + LIMITS.maxResponseBytes() + " bytes");
+            }
+            // The transport failure itself: Spring's message repeats the URL, which the diagnostic already names.
+            throw unavailable("discovery request to " + discoveryUri + " failed",
+                    exception.getCause() == null ? exception : exception.getCause());
         }
 
         JsonNode document;
         try {
-            document = objectMapper.readTree(response.body());
+            document = objectMapper.readTree(body);
         } catch (RuntimeException exception) {
             throw invalidDiscovery("discovery document is not valid JSON");
         }

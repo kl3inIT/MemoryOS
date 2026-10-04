@@ -178,7 +178,8 @@ test("Groups list preserves guarded rename and hides global controls for scoped 
   await mockGroups(page, false);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin/groups");
-  await expect(page.getByRole("heading", { name: "Groups", exact: true })).toBeVisible();
+  // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
+  await expect(page.getByRole("heading", { name: "Groups", exact: true })).toBeAttached();
   await expect(page.getByRole("link", { name: "New Group", exact: true })).toHaveCount(0);
   await page.getByRole("heading", { name: "HROD", exact: true }).hover();
   await page.getByRole("button", { name: "Rename HROD" }).click();

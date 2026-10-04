@@ -97,7 +97,7 @@ Browser intake and OAuth flows catch `InvitationException` directly and translat
 
 ## Product surface
 
-The page has one `Users` heading with `Invite member` beside it, followed by status counts, filters and the table. It has no introductory subtitle or second `User directory` heading. Search is labelled `Search users…`; empty results say `No users found`. Membership Role remains distinct from Account Type.
+The page has one `Users` heading with `Invite member` beside it, followed by status counts, filters and the table. It has no introductory subtitle or second `User directory` heading. Search is labelled `Search users…`; empty results say `No users found`. Membership Role remains distinct from Account Type. The table shows the Account Type column only when the rows on the page hold more than one account type; while every membership is `STANDARD` the column is left out.
 
 The administrator uses Admin Panel → Users at /admin/users. The table-first surface presents the authoritative directory, server-driven URL filters/sorting/pagination, global counts and real Group/account information. It manages invitations, one-time recovery, activation/deactivation and SYSTEM_ADMIN-authorized ordinary Group membership editing; system edges remain protected.
 
