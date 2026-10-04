@@ -187,9 +187,7 @@ describe("System One administration", () => {
   it("lists the connections with where they point and offers every type", async () => {
     mount();
 
-    const connections = within(
-      await screen.findByRole("region", { name: "Available connections" }),
-    );
+    const connections = within(await screen.findByRole("region", { name: "Connections" }));
     const gateway = within(connections.getByRole("listitem", { name: "9Router Jev" }));
     expect(
       gateway.getByText("9router.internal:20128 · openrouter/typesafe/jev-1.13"),
@@ -215,7 +213,7 @@ describe("System One administration", () => {
 
     await waitFor(() => expect(sent.tasks).toEqual([{ connectionId: nineRouter.id, revision: 4 }]));
     await waitFor(() => expect(trigger).toHaveTextContent("9Router Jev"));
-    const connections = within(screen.getByRole("region", { name: "Available connections" }));
+    const connections = within(screen.getByRole("region", { name: "Connections" }));
     expect(
       await within(connections.getByRole("listitem", { name: "9Router Jev" })).findByText("Active"),
     ).toBeVisible();
@@ -275,12 +273,9 @@ describe("System One administration", () => {
       ]),
     );
     expect(
-      await within(screen.getByRole("region", { name: "Available connections" })).findByRole(
-        "listitem",
-        {
-          name: "Cloudflare",
-        },
-      ),
+      await within(screen.getByRole("region", { name: "Connections" })).findByRole("listitem", {
+        name: "Cloudflare",
+      }),
     ).toBeVisible();
   });
 
@@ -296,9 +291,7 @@ describe("System One administration", () => {
     const user = userEvent.setup();
     mount();
 
-    const connections = within(
-      await screen.findByRole("region", { name: "Available connections" }),
-    );
+    const connections = within(await screen.findByRole("region", { name: "Connections" }));
     await user.click(
       within(connections.getByRole("listitem", { name: "Serving" })).getByRole("button", {
         name: "Configure Serving",
@@ -319,9 +312,7 @@ describe("System One administration", () => {
     const user = userEvent.setup();
     mount();
 
-    const connections = within(
-      await screen.findByRole("region", { name: "Available connections" }),
-    );
+    const connections = within(await screen.findByRole("region", { name: "Connections" }));
     await user.click(connections.getByRole("button", { name: "Delete connection Serving" }));
     const confirm = within(await screen.findByRole("alertdialog"));
     await user.click(confirm.getByRole("button", { name: "Delete connection" }));

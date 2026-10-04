@@ -128,7 +128,7 @@ export function SystemOnePage() {
           </section>
           {connections.data.length > 0 && (
             <section aria-labelledby="system-one-connections" className="flex flex-col gap-3">
-              <SectionHeader id="system-one-connections" title={ui("Available connections")} />
+              <SectionHeader id="system-one-connections" title={ui("Connections")} />
               <ul className="flex flex-col gap-2">
                 {connections.data.map((connection) => {
                   const type = types.data.find((entry) => entry.provider === connection.provider);
