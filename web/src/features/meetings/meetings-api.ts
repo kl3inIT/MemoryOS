@@ -283,3 +283,38 @@ export function formatClock(ms: number) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
 }
+
+/** A place in the transcript worth returning to: a subject of the minutes, or a moment the reader marked. */
+export type TimelineEntry = {
+  id: string;
+  kind: "topic" | "bookmark";
+  text: string;
+  /** When it happened on the meeting's clock. */
+  atMs: number;
+  /** The line of the transcript it opens on. */
+  line: MeetingDetail["utterances"][number];
+};
+
+/**
+ * The subjects that still rest on a line of the transcript and the moments the reader marked, in the order the
+ * meeting reached them. A moment is marked while somebody is still speaking, so it opens on the last line that had
+ * begun by then.
+ */
+export function timelineOf(meeting: MeetingDetail): TimelineEntry[] {
+  const { utterances } = meeting;
+  const lines = new Map(utterances.map((utterance) => [utterance.id, utterance]));
+  const topics = meeting.minutes.topics.flatMap((topic): TimelineEntry[] => {
+    const line = topic.sourceUtteranceId ? lines.get(topic.sourceUtteranceId) : undefined;
+    return line
+      ? [{ id: topic.id, kind: "topic", text: topic.text, atMs: line.startMs, line }]
+      : [];
+  });
+  const bookmarks = meeting.bookmarks.flatMap((bookmark): TimelineEntry[] => {
+    const line =
+      utterances.findLast((utterance) => utterance.startMs <= bookmark.atMs) ?? utterances[0];
+    return line
+      ? [{ id: bookmark.id, kind: "bookmark", text: bookmark.label, atMs: bookmark.atMs, line }]
+      : [];
+  });
+  return [...topics, ...bookmarks].sort((left, right) => left.atMs - right.atMs);
+}

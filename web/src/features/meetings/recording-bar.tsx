@@ -59,7 +59,9 @@ export function RecordingBar({
           ? ui("Đang lưu phần cuối…")
           : paused
             ? ui("Tạm dừng")
-            : ui("Đang ghi")}
+            : reconnecting
+              ? ui("Đang kết nối lại")
+              : ui("Đang ghi")}
       </span>
       <Button
         prominence="tertiary"
