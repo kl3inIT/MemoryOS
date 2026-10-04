@@ -27,7 +27,8 @@ export function AppShellHeaderContent({
       <Title
         data-page-header={pageHeader || undefined}
         title={title}
-        className="min-w-0 flex-1 truncate font-main-ui-action text-content-primary md:max-w-xl"
+        // Below `md` this is the page's only title, so it reads as one; beside a wide page it is a label again.
+        className="min-w-0 flex-1 truncate font-heading-h3 text-content-primary md:max-w-xl md:font-main-ui-action"
       >
         {title}
       </Title>
