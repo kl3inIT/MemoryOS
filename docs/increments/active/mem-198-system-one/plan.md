@@ -53,4 +53,5 @@ Design: [design.md](design.md). Two pull requests: the backend with its API and 
 ## After the pull requests
 
 - [x] Measurement on 64 self-written conversations; results in `verification.md`.
-- [ ] Staging checks; then the close-out.
+- [x] Staging checks.
+- [ ] The close-out: move the increment to `completed/`, reconcile the roadmap.

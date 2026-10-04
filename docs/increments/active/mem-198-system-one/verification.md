@@ -102,6 +102,27 @@ conversation.
 Staging traffic is test traffic and too thin to compare behaviour before and after; the comparison belongs to the
 measurement on a fixed set of questions.
 
+## Staging on the build with all three pull requests (2026-10-04, `bdc15070`)
+
+Through the browser session of an administrator and the API, with the 9Router key read on the host at run time:
+
+| Step | Result |
+| --- | --- |
+| Add a 9Router connection "9Router Jev" (`https://9router.zeromail.vn/v1`, `oc/jev-1.13-free`) | 200, key stored |
+| Test the connection | 204 in 1.4 s |
+| Run the question check on it | 200; the task named model `cx/gpt-6-luna` before and the connection after |
+| The page `/admin/system-one` | the picker shows "9Router Jev", the connection row "Đang dùng" |
+| Chat: "Vợ bác Hồ là ai?" | `blocked_topic`, the Tenant's message of the leaders topic, 1.6 s from send to finished |
+| Chat: "Bạn có thể giúp mình tóm tắt một tài liệu nội quy công ty không?" | answered, 3.6 s |
+
+Server side afterwards: `ai_usage` holds two `CHAT_GUARDRAIL` calls under provider "9Router Jev", model
+`oc/jev-1.13-free`, boundary `EXTERNAL`, 1,617 input and 122 output tokens, cost 0 and no call of unknown cost; the
+audit stream has one `system_one_connection.change`, one `model_flow.change` and one `chat_guardrail.block`; the API
+log has no `chat.guardrail.unavailable`. The three topics and the one blocked phrase were already on and were left as
+they were.
+
+The task stays on the connection (owner, 2026-10-04: use Jev once the measurement is fine).
+
 ## Automated
 
 - `SystemOneAdaptersTest`, `CloudflareSystemOneAdapterTest`, `SystemOneConnectionServiceTest`,
@@ -115,4 +136,4 @@ measurement on a fixed set of questions.
   Whether Workers AI wraps the answer in `result` is unconfirmed; both shapes are tested.
 - The thresholds with many topics in one request (up to 30), and on a set larger than 64 conversations.
 - The check on a model other than `cx/gpt-6-luna`.
-- The page and a connection on staging.
+- A failed check on staging (the service down or the key refused): only covered by tests.
