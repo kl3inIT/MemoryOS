@@ -2,8 +2,9 @@
 
 Status: accepted 2026-10-03, after validation against `main` at `dca7609d`, Spring Framework 7.0.9 sources and
 `openai-java` 4.49.0. Pull request 1 (the shared layer, Image, OIDC discovery, the model list) and pull request 2 (Voice) are
-implemented, and so are the Code Interpreter and the Web provider transport (pull request 3). The MCP OAuth
-spike, the `sources` assessment and the staging checks are open. Decision: [ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md).
+implemented, and so are the Code Interpreter and the Web provider transport (pull request 3). Closed on
+2026-10-04 (owner) after the staging checks; the MCP OAuth spike and the `sources` assessment were not done and are
+no longer part of it. Decision: [ADR 0025](../../../decisions/0025-outbound-http-through-the-highest-level-client.md).
 Linear: [MEM-223](https://linear.app/memory-os/issue/MEM-223). The first pull request comes before step 3 of
 [MEM-198](https://linear.app/memory-os/issue/MEM-198), which hands the builder made here to the TypeSafe SDK.
 
