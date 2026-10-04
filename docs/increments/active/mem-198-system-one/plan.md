@@ -52,5 +52,5 @@ Design: [design.md](design.md). Two pull requests: the backend with its API and 
 
 ## After the pull requests
 
-- [ ] Measurement on self-written questions; results in `verification.md`.
+- [x] Measurement on 64 self-written conversations; results in `verification.md`.
 - [ ] Staging checks; then the close-out.
