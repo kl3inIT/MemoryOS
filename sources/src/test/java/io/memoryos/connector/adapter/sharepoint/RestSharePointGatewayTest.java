@@ -290,10 +290,12 @@ class RestSharePointGatewayTest {
     void followsExactlyOneContentRedirect() throws Exception {
         try (var fixture = new Fixture(exchange -> {
             if (exchange.getRequestURI().getPath().endsWith("/content")) {
+                assertEquals("Bearer test-token", exchange.getRequestHeaders().getFirst("Authorization"));
                 exchange.getResponseHeaders().add("Location",
                         "http://127.0.0.1:" + exchange.getLocalAddress().getPort() + "/download?tempauth=secret");
                 return new Response(302, new byte[0]);
             }
+            if (exchange.getRequestHeaders().getFirst("Authorization") != null) return new Response(500, new byte[0]);
             return new Response(200, "redirected-bytes".getBytes(StandardCharsets.UTF_8));
         }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
             var content = session.content(item("file-1", null), "127.0.0.1", 1024);
@@ -308,6 +310,61 @@ class RestSharePointGatewayTest {
                 var provider = provider(fixture, 0, 1024); var session = provider.open(credential())) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(SharePointProviderException.class,
                     () -> session.content(item("file-1", fixture.base + "/download"), "127.0.0.1", 4096)).failure());
+        }
+    }
+
+    @Test
+    void aContentRedirectThatLeavesTheTenantHostOrRedirectsAgainIsNotFollowed() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            exchange.getResponseHeaders().add("Location", "https://evil.example.com/download?tempauth=secret");
+            return new Response(302, new byte[0]);
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var refused = assertThrows(SharePointProviderException.class,
+                    () -> session.content(item("file-1", null), "127.0.0.1", 1024));
+            assertEquals(Failure.AUTHORIZATION, refused.failure());
+            assertEquals(1, fixture.requests.size(), "the foreign address is never contacted");
+        }
+        try (var fixture = new Fixture(exchange -> {
+            exchange.getResponseHeaders().add("Location",
+                    "http://127.0.0.1:" + exchange.getLocalAddress().getPort() + "/again");
+            return new Response(302, new byte[0]);
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                    () -> session.content(item("file-1", null), "127.0.0.1", 1024)).failure());
+            assertEquals(2, fixture.requests.size(), "one hop, and the second redirect is the answer");
+        }
+    }
+
+    @Test
+    void theSdkDoesNotRetryAThrottledOrFailedAnswer() throws Exception {
+        for (int status : List.of(429, 503, 504)) {
+            try (var fixture = new Fixture(exchange -> {
+                exchange.getResponseHeaders().add("Retry-After", "1");
+                return new Response(status, new byte[0]);
+            }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+                assertThrows(SharePointProviderException.class, session::root);
+                assertEquals(1, fixture.requests.size(), "status " + status + ": the caller decides when to try again");
+            }
+        }
+    }
+
+    @Test
+    void anAnswerThatStallsIsCutOffAtTheRequestTimeoutAndADownloadHasItsOwnLongerOne() throws Exception {
+        try (var fixture = new Fixture(_ -> {
+            try {
+                Thread.sleep(1_500);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            return new Response(200, "late-bytes".getBytes(StandardCharsets.UTF_8));
+        }); var provider = provider(fixture, 0, 0, Duration.ofMillis(300), Duration.ofSeconds(30));
+                var session = provider.open(credential())) {
+            long started = System.nanoTime();
+            assertEquals(Failure.UNAVAILABLE, assertThrows(SharePointProviderException.class, session::root).failure());
+            assertTrue(Duration.ofNanos(System.nanoTime() - started).toMillis() < 1_400, "cut off before the answer");
+            // A file is allowed the content timeout, not the request timeout of a metadata read.
+            var content = session.content(item("file-1", fixture.base + "/download"), "127.0.0.1", 1024);
+            assertEquals("late-bytes", new String(content.bytes(), StandardCharsets.UTF_8));
         }
     }
 
@@ -333,7 +390,8 @@ class RestSharePointGatewayTest {
                              "data":{"title":"Liên kết nhanh","serverProcessedContent":{
                                "searchablePlainTexts":[{"key":"title","value":"Tiêu đề tìm được"}]}}}]}]}]}}""");
             }
-            assertTrue(exchange.getRequestURI().getPath().endsWith("/pages/microsoft.graph.sitePage"),
+            // The SDK casts with the namespace alias, which Graph accepts as it does microsoft.graph.sitePage.
+            assertTrue(exchange.getRequestURI().getPath().endsWith("/pages/graph.sitePage"),
                     exchange.getRequestURI().getPath());
             return ok("""
                     {"value":[{"id":"page-1","title":"Trang thử nghiệm","name":"Home.aspx",
@@ -395,9 +453,14 @@ class RestSharePointGatewayTest {
     }
 
     private RestSharePointGateway provider(Fixture fixture, int maxResponseBytes, int maxContentBytes) {
+        return provider(fixture, maxResponseBytes, maxContentBytes, Duration.ofSeconds(5), null);
+    }
+
+    private RestSharePointGateway provider(Fixture fixture, int maxResponseBytes, int maxContentBytes,
+            Duration requestTimeout, Duration contentTimeout) {
         var properties = new SharePointProviderProperties(fixture.base, URI.create(fixture.base + "/v1.0"),
-                Duration.ofSeconds(1), Duration.ofSeconds(5), Duration.ofSeconds(10), 0, maxResponseBytes,
-                0, maxContentBytes == 0 ? 0 : maxContentBytes, null);
+                Duration.ofSeconds(1), requestTimeout, Duration.ofSeconds(10), 0, maxResponseBytes,
+                0, maxContentBytes == 0 ? 0 : maxContentBytes, null, contentTimeout);
         return new RestSharePointGateway(properties, mapper, _ -> "test-token");
     }
 
@@ -423,6 +486,8 @@ class RestSharePointGatewayTest {
             server.createContext("/", exchange -> {
                 requests.add(exchange.getRequestURI());
                 Response response = responder.apply(exchange);
+                // Graph names the type of what it sends; the SDK reads an answer by it.
+                if (response.status() == 200) exchange.getResponseHeaders().add("Content-Type", "application/json");
                 exchange.sendResponseHeaders(response.status(), response.body().length);
                 try (var output = exchange.getResponseBody()) {
                     output.write(response.body());

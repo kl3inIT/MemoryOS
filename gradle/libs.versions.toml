@@ -21,6 +21,7 @@ spring-ai = "2.0.1"
 embabel = "1.5.2"
 opensearch-java = "3.10.0"
 msal4j = "1.26.0"
+microsoft-graph = "6.70.0"
 # MEM-137: realtime dictation and streamed read-aloud for Azure; the REST client stays for recordings.
 azure-speech = "1.52.0"
 typesafe = "0.4.0"
@@ -48,6 +49,7 @@ tomcat-embed-core = { module = "org.apache.tomcat.embed:tomcat-embed-core" }
 spring-ai-model-tool = { module = "org.springframework.ai:spring-ai-autoconfigure-model-tool" }
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
 msal4j = { module = "com.microsoft.azure:msal4j", version.ref = "msal4j" }
+microsoft-graph = { module = "com.microsoft.graph:microsoft-graph", version.ref = "microsoft-graph" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
 okhttp = { module = "com.squareup.okhttp3:okhttp" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }

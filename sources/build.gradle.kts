@@ -10,6 +10,8 @@ dependencies {
     implementation(libs.jackson.databind)
     implementation(libs.micrometer.core)
     implementation(libs.msal4j)
+    // SharePoint through the Microsoft Graph SDK (MEM-226); its OkHttp transport is built in GraphTransport.
+    implementation(libs.microsoft.graph)
     // The Google Drive account consent: token exchange over RestClient and ID-token validation.
     implementation(libs.spring.web)
     implementation(libs.spring.security.oauth2.jose)
