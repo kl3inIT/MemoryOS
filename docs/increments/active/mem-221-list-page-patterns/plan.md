@@ -16,6 +16,7 @@
 - [x] Critique 3, the rest: Users row menu as the shared menu; Meetings drops the ended badge and leads to the live meeting; Models guidance and tooltips; a finger-sized image chip
 - [x] Critique 4: one height for a select and a field; the Library row menu always visible; a stat tile marked as a filter; the search shortcut shown; a focus ring on project links; no date under a day heading
 - [x] Phone, owner feedback 2026-10-03: the shell bar names the page once; the Library's day is one card; the Users filters share a row
+- [x] Phone, owner feedback: one-line file rows and a quiet select-all; a create or settings page names the bar itself
 - [ ] L2-2b meeting detail: left to the transcript work in flight
 - [ ] L2-5b conversation count: needs a total from the API
 - [ ] Owner review of each direction in the design; `pnpm --dir web check` in CI
