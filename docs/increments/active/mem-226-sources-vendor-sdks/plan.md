@@ -18,12 +18,15 @@ Design: [design.md](design.md). Two pull requests, one per vendor.
 
 ## Pull request 2: Google Drive on Google's libraries
 
-- [ ] Probe: the transport of `google-http-client` without redirects and with a bound; `google-auth-library` for the
-  service-account assertion and the refresh-token exchange.
-- [ ] `RestGoogleDriveGateway` on the Drive, Sheets, Docs and Admin Directory clients.
-- [ ] `RestGoogleDriveAccountClient` on Google's authorization-code flow and ID-token verifier; the JWKS bound, a
-  typed failure and one deadline for the consent.
-- [ ] The 25 and 5 existing cases as the parity suite.
+- [x] Probe: `google-http-client` without redirects and retries and with the failed body left to an interceptor;
+  `google-auth-library` loses a rotated refresh token and cannot be kept from a redirect, so it is not used.
+- [x] `GoogleTransport`: the initializer and the guarded exchange (bound, failed body to 8 KiB, deadline).
+- [x] `RestGoogleDriveGateway` on the Drive, Sheets, Docs and Admin Directory clients, answers parsed by the strict
+  reader; `GoogleRefreshTokenRequest`, and `JsonWebSignature` with a `TokenRequest` for the service account.
+- [x] `RestGoogleDriveAccountClient` on `GoogleAuthorizationCodeTokenRequest` and the Drive client; the ID token
+  still verified by Nimbus over a bounded key set; a typed not-configured failure; one deadline for the consent.
+- [x] The 25 and 5 existing cases as the parity suite, with seven new ones; `GoogleDriveOAuthTest` unchanged.
+- [ ] Staging: one synchronization of the Drive source and one reconnect after deployment.
 
 ## After both
 
