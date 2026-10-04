@@ -228,4 +228,4 @@ for several of these (`typesafe-spring-ai`: `JevJudge`, the advisors, `JevDocume
 - A second classifier as fallback, batch calls and the library's `ChatClient` advisors.
 - Provider-enforced structured output for single model calls: Embabel supports it per model (`NativeSupport`,
   `withNativeStructuredOutput`, a provider configurer), MemoryOS declares none, and it reaches the meeting minutes
-  and transcript corrections too. A separate issue.
+  and transcript corrections too: [MEM-225](https://linear.app/memory-os/issue/MEM-225).
