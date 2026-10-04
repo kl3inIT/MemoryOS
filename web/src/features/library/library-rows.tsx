@@ -98,7 +98,10 @@ export function LibraryList({
   grouped: boolean;
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
-  /** A whole day is chosen or dropped at its heading; without it a heading is only a heading. */
+  /**
+   * A whole day is chosen or dropped at its heading once a selection has begun, so a list nobody is choosing
+   * from reads as files rather than as checkboxes; without it a heading is only a heading.
+   */
   onSelectDay?: (files: readonly LibraryFile[], pick: boolean) => void;
 }) {
   const ui = useAppTranslation();
@@ -183,7 +186,7 @@ function FileGroup({
     <section aria-label={label}>
       {showLabel && (
         <div className="mb-1.5 flex items-center gap-2 px-3.25">
-          {onSelectDay ? (
+          {onSelectDay && selected.length > 0 ? (
             <>
               <Checkbox
                 id={dayId}
@@ -284,10 +287,7 @@ function LibraryRow({
             className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
             onClick={() => actions.onPreview(file)}
           >
-            {/* One line at any width, so every row is as tall as the next; the whole name is a hover away. */}
-            <span className="truncate" title={file.filename}>
-              {file.filename}
-            </span>
+            <FileName name={file.filename} />
             {file.favorite && (
               <Star
                 role="img"
@@ -355,6 +355,36 @@ export function LibraryPicture({
       className={className}
       onError={() => setFailed(true)}
     />
+  );
+}
+
+/** How much of a name's end a phone row always keeps: the extension and what tells two versions apart. */
+const NAME_TAIL = 10;
+
+/**
+ * A file's name on one line at any width, so every row is as tall as the next. Where a pointer can hover, a long
+ * name is cut at its end and the whole name is a hover away. A phone cannot hover, so it cuts the middle and keeps
+ * the end; a screen reader hears the whole name either way.
+ */
+export function FileName({ name }: { name: string }) {
+  // A short name fits a phone whole, so it has one rendering.
+  if (name.length <= NAME_TAIL * 2)
+    return (
+      <span className="truncate" title={name}>
+        {name}
+      </span>
+    );
+  const cut = name.length - NAME_TAIL;
+  return (
+    <>
+      <span className="truncate max-sm:sr-only" title={name}>
+        {name}
+      </span>
+      <span aria-hidden="true" className="flex min-w-0 sm:hidden">
+        <span className="truncate">{name.slice(0, cut)}</span>
+        <span className="shrink-0">{name.slice(cut)}</span>
+      </span>
+    </>
   );
 }
 
@@ -513,7 +543,10 @@ export function FileActions({
   const byPointer = useRef(false);
   return (
     <div className="flex shrink-0 items-center gap-0.5">
-      <div className={cn("flex items-center gap-0.5", !compact && rowShortcutReveal)}>
+      {/* A phone row gives this width to the file's name; the "…" menu stars and downloads. */}
+      <div
+        className={cn("flex items-center gap-0.5", !compact && rowShortcutReveal, "max-sm:hidden")}
+      >
         {!compact && (
           <IconButton
             size="sm"
@@ -571,6 +604,10 @@ export function FileActions({
             event.preventDefault();
           }}
         >
+          <DropdownMenuItem className="sm:hidden" onSelect={() => actions.onFavorite(file)}>
+            <Star />
+            {file.favorite ? ui("Bỏ sao") : ui("Thêm sao")}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => actions.onRename(file)}>
             <Pencil />
             {ui("Đổi tên")}

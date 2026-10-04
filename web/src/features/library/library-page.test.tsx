@@ -321,6 +321,9 @@ it("chooses one day at its heading and leaves the other days alone", async () =>
   await show([file(), upload, older]);
   const user = userEvent.setup();
 
+  // A day's box appears once a selection has begun.
+  expect(screen.queryByRole("checkbox", { name: "Chọn tất cả Hôm nay" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: "Chọn ghi-chú.pdf" }));
   await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm nay" }));
 
   // Today holds the two files the server returned first; yesterday's file is untouched.

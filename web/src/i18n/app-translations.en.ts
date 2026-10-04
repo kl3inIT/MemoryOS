@@ -412,6 +412,8 @@ export const vietnameseUi: Record<string, string> = {
   "Tài liệu tổ chức": "Organisation documents",
   "Có gắn sao": "Starred",
   "Gắn sao": "Stars",
+  "Thêm sao": "Star",
+  "Bỏ sao": "Unstar",
   "Chỉ tệp gắn sao": "Starred files only",
   "Gắn sao {{name}}": "Star {{name}}",
   "Bỏ gắn sao {{name}}": "Unstar {{name}}",
