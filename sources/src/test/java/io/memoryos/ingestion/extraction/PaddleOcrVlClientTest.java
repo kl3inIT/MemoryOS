@@ -111,7 +111,8 @@ class PaddleOcrVlClientTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"413,WRITE_LIMIT", "408,TIMEOUT", "504,TIMEOUT", "500,INTERNAL", "503,INTERNAL", "400,INTERNAL"})
+    @CsvSource({"413,WRITE_LIMIT", "408,TIMEOUT", "504,TIMEOUT", "500,INTERNAL", "502,CONNECTION_FAILED",
+            "503,CONNECTION_FAILED", "400,INTERNAL"})
     void anHttpFailureMapsOntoAnExtractionFailure(int status, ExtractionFailure expected) throws Exception {
         serve(status, "{\"errorCode\":" + status + ",\"errorMsg\":\"document text must not reach the log\"}");
         assertFailure(expected, client(Duration.ofSeconds(10)));
