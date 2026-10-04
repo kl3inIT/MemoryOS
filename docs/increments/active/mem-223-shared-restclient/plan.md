@@ -1,7 +1,7 @@
 # Implementation plan
 
 Three pull requests (owner, 2026-10-03: few pull requests). Each preserves behaviour except what the
-[design](design.md#behaviour-that-changes) names. Pull request 1 is implemented; the other two have not started.
+[design](design.md#behaviour-that-changes) names. Pull requests 1 and 2 are implemented; the third has not started.
 Paths are under `core/src/main/java/io/memoryos/` unless they say otherwise.
 
 Why three and not fewer:
@@ -94,82 +94,61 @@ Changed from the plan while implementing (design, finding 11): `ImageHttp` stays
 
 ## Pull request 2: Voice
 
-Order of work in the branch: the OpenAI SDK check, Soniox, the single calls, then the adapter interfaces.
+Stacked on pull request 1. The OpenAI SDK check came first, then Soniox, the single calls and the adapter interfaces.
 
 ### OpenAI transcription
 
-- [ ] First, by test and with no production change: `TranscriptionCreateParams.file(MultipartField<InputStream>)`
-  streams the upload and carries the file name and content type; an answer holding only `text` and one with a
-  self-hosted server's extra fields both parse.
-- [ ] If both hold: `voice/OpenAiAudio.java` `segments` calls `audio().transcriptions().create(...)` and maps
-  `asVerbose().segments()`; the hand-written multipart, `field` and `segments(JsonNode)` go.
-- [ ] If either fails: `segments` on `RestClient` with `MultipartBodyBuilder` and the `Resource` below;
-  `segments(JsonNode)` stays. Either way no multipart is framed by hand.
+- [x] Probe, with no production change: `TranscriptionCreateParams.file(MultipartField<InputStream>)` streams the
+  upload and carries the file name and content type, but two answer shapes of compatible servers fail in the SDK's
+  typed answer (design, finding 15). The second check failed.
+- [x] So `voice/OpenAiAudio.java` `segments` is on `RestClient` with `MultipartBodyBuilder` and the audio part;
+  `segments(JsonNode)` stays; the hand-written multipart and `field` go.
+- [x] New `OpenAiAudioTest` with a local server: the recording streamed as one `file` part after its fields, a bearer
+  value without a key, a rejected upload reported without its payload.
 
 ### Soniox
 
-- [ ] `shared/OutboundHttp.java`: `service(Class<T>, RestClient)`, with its case in `OutboundHttpTest` (a
-  `@RequestPart` arrives as multipart); one executor shared by its request factories, so a streamed upload does not
-  start a thread of its own (design, finding 14).
-- [ ] New `voice/SonioxApi.java`:
-
-  ```java
-  @HttpExchange(accept = "application/json")
-  interface SonioxApi {
-      @PostExchange(url = "/files", contentType = "multipart/form-data")
-      Created upload(@RequestPart("file") HttpEntity<Resource> audio);
-      @PostExchange("/transcriptions")
-      Created create(@RequestBody Map<String, Object> transcription);
-      @GetExchange("/transcriptions/{id}")
-      Status status(@PathVariable String id);
-      @GetExchange("/transcriptions/{id}/transcript")
-      JsonNode transcript(@PathVariable String id);
-      @DeleteExchange("/transcriptions/{id}")
-      void deleteTranscription(@PathVariable String id);
-      @DeleteExchange("/files/{id}")
-      void deleteFile(@PathVariable String id);
-
-      record Created(String id) {}
-      record Status(String status) {}
-  }
-  ```
-
-- [ ] `voice/SonioxAsync.java`: `run` builds one proxy per transcription from
+- [x] `shared/OutboundHttp.java`: `service(Class<T>, RestClient)`, with its case in `OutboundHttpTest`; one executor
+  of virtual threads shared by its request factories (design, finding 14); JSON read whatever the answer's content
+  type (finding 16), with its case in `OutboundHttpTest`.
+- [x] New `voice/SonioxApi.java`: six methods (`upload`, `transcribe`, `status`, `transcript`, `deleteTranscription`,
+  `deleteFile`) and two records. The transcript stays a tree.
+- [x] `voice/SonioxAsync.java`: `run` builds one proxy per transcription from
   `OutboundHttp.builder(limits).baseUrl(baseUrl).defaultHeaders(h -> h.setBearerAuth(key))`. `upload`, `post`, `get`,
-  `send`, `delete` and `encode` go (about 50 lines). `run`'s polling and clean-up, `group`, `asyncModel` and `safe`
-  stay.
-- [ ] `voice/AudioSource.java`: a `Resource` over a source, its size and its file name, as `OpenAiAudio.NamedAudio`
-  already is for bytes; `body` goes. The part's content type travels in the `HttpEntity` headers.
-- [ ] One bound for the client, sized for the transcript of the longest recording. Proposed 64 MiB (the cap
-  `PaddleOcrVlClient` has); measured on staging and recorded in the design.
-- **Falls back if** Soniox refuses an upload that declares no length: the upload alone sends its hand-framed body
-  through the same client with `Content-Length` set; the other five calls still move.
+  `send`, `delete`, `encode` and `safe` go; polling, clean-up, `group` and `asyncModel` stay. 203 lines become 167.
+- [x] `voice/AudioSource.java`: `part(source, size, filename)`, a `Resource` read from its source as the part is
+  written, under a name that cannot break the part header; `body` goes.
+- [x] One bound for the client, 64 MiB (the cap `PaddleOcrVlClient` has), sized for a long recording's transcript.
+- [ ] The bound checked against the longest recording on staging.
+- The upload declares no length. It is not a fallback case: no provider's endpoint refuses such a body
+  ([probe](verification.md#a-multipart-body-without-a-declared-length)).
 
 ### ElevenLabs, Azure and the connection checks
 
-- [ ] `voice/ElevenLabsVoice.java`: `transcribe` on `RestClient` with `MultipartBodyBuilder` (`model_id`,
+- [x] `voice/ElevenLabsVoice.java`: `transcribe` on `RestClient` with `MultipartBodyBuilder` (`model_id`,
   `language_code`, `file` named `audio.wav` as `audio/wav`); the `field` helper goes. `speech` is untouched.
-- [ ] `voice/AzureSpeech.java`: `transcribe` posts each part through `RestClient`; the JSON stays a tree.
-- [ ] `voice/VoiceChecks.java`: `jsonListing` on `retrieve()`; `arrayListing` on `exchange`, still reading 256 bytes;
-  the static `HttpClient` and the two catch ladders go.
-- [ ] Bound: 1 MiB, the value `VoiceChecks.MAX_LISTING_BYTES` has, for clip answers and listings.
+- [x] `voice/AzureSpeech.java`: `transcribe` posts each part through `RestClient`, the body written as bytes with its
+  length because Spring cannot parse the content type Azure asks for (finding 17); the JSON stays a tree.
+- [x] `voice/VoiceChecks.java`: `jsonListing` on `retrieve()`; `arrayListing` on `exchange`, still reading 256 bytes,
+  on a client without a length limit because the Azure voice list is large; the static `HttpClient` and the two
+  catch ladders go.
+- [x] Bound: 1 MiB, the value `VoiceChecks.MAX_LISTING_BYTES` had, for clip answers and JSON listings.
 
 ### The adapter interfaces
 
-- [ ] `VoiceAdapter.transcribe` and `BatchTranscriptionAdapter.segments` lose their `HttpClient` parameter, in the
-  five adapters. `VoiceTranscriptionService.HTTP` and `BatchTranscriptionService.HTTP` go.
+- [x] `VoiceAdapter.transcribe` and `BatchTranscriptionAdapter.segments` lose their `HttpClient` parameter and
+  `IOException`, in the five adapters. `VoiceTranscriptionService.HTTP` and `BatchTranscriptionService.HTTP` go.
   `SpeechSynthesisAdapter.speech` and `VoiceSynthesisService.HTTP` are unchanged.
 
 ### Tests and checks
 
-- [ ] `SonioxAsyncTest`: the upload arrives as one `file` part with its file name and content type; both deletes are
-  sent after a failure; a status other than 2xx is `VoiceException.providerUnavailable()`.
-- [ ] `ElevenLabsVoiceTest` (parts asserted on the wire), `AzureSpeechTest`, `VoiceProviderClientTest`,
-  `BatchTranscriptionTest`, `VoiceTranscriptionServiceTest` and the `VoiceAdapters` fixture. All already use a local
-  server.
-- [ ] Staging: a dictation clip with each Voice provider; the longest recording available with Soniox; a recording
-  through OpenAI and through an OpenAI-compatible server; a connection check of each provider.
-- [ ] `verification.md`: the measured bounds; lines removed and added.
+- [x] `SonioxAsyncTest`: the six calls in order; the upload as one `file` part with its file name and content type,
+  streamed and without a declared length; both deletes after a failure; a rejected upload leaves nothing to delete.
+- [x] `ElevenLabsVoiceTest` (parts asserted on the wire), `AzureSpeechTest`, `VoiceProviderClientTest`,
+  `VoiceTranscriptionServiceTest` and `BatchTranscriptionTest` pass; `GuardedAudio` is a fixture of its own.
+- [ ] `clean check` in CI.
+- [ ] Staging, once deployed: a dictation clip with each Voice provider; the longest recording available with Soniox;
+  a recording through OpenAI and through an OpenAI-compatible server; a connection check of each provider.
 
 ## Pull request 3: Code Interpreter and the close-out
 

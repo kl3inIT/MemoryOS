@@ -4,8 +4,6 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
-import java.io.IOException;
-import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,10 +32,6 @@ public class BatchTranscriptionService {
      * a worker thread busy for as long as a five-hour recording takes to come back.
      */
     private static final int MAX_CONCURRENT = 1;
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
-    /** One client for every provider call; each request carries its own timeout. */
-    private static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
-            .connectTimeout(CONNECT_TIMEOUT).build();
     /** Providers transcribe faster than real time; this is the ceiling for a five-hour recording. */
     private static final Duration MAX_TIMEOUT = Duration.ofMinutes(45);
     private final VoiceConnectionService connections;
@@ -107,7 +101,7 @@ public class BatchTranscriptionService {
             String key = connections.key(connection);
             boolean diarize = options.diarize() && diarizes(connection.provider());
             var adapter = adapters.batch(connection.provider()).orElseThrow(VoiceException::providerUnavailable);
-            var segments = call(client -> adapter.segments(client, connection, key, options, diarize, recording, MAX_TIMEOUT));
+            var segments = call(() -> adapter.segments(connection, key, options, diarize, recording, MAX_TIMEOUT));
             record(connection, actor, segments);
             return new Transcribed(connection.provider(), connection.sttModel(), diarize, segments);
         } finally {
@@ -133,17 +127,17 @@ public class BatchTranscriptionService {
 
     @FunctionalInterface
     private interface ProviderCall {
-        List<LiveTranscription.Segment> run(HttpClient client) throws IOException, InterruptedException;
+        List<LiveTranscription.Segment> run() throws InterruptedException;
     }
 
-    /** As the dictation path: no redirects, so a credential never follows one elsewhere. */
+    /** A provider failure of any kind is reported as unavailability; its detail never leaves this module. */
     private static List<LiveTranscription.Segment> call(ProviderCall call) {
         try {
-            return call.run(HTTP);
+            return call.run();
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw VoiceException.providerUnavailable();
-        } catch (IOException | RuntimeException failed) {
+        } catch (RuntimeException failed) {
             if (failed instanceof VoiceException known) throw known;
             throw VoiceException.providerUnavailable();
         }
