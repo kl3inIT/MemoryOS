@@ -34,10 +34,11 @@ Design: [design.md](design.md). Two pull requests: the backend with its API and 
 
 ## Pull request 2: the page
 
-- [ ] `web/src/features/system-one/`, route `/admin/system-one`, the navigation entry, `provider-marks.ts` (TypeSafe,
+- [x] `web/src/features/system-one/`, route `/admin/system-one`, the navigation entry, `provider-marks.ts` (TypeSafe,
   Laya), messages in `vi` and `en`.
-- [ ] The Models page without the check's row.
-- [ ] Page tests; screenshots reviewed.
+- [x] The Models page without the check's row; the Chat settings link opens the System One page.
+- [x] `system-one-page.test.tsx` (6 cases) and `tests/e2e/system-one-administration.spec.ts` at 1440 and 390 px;
+  screenshots reviewed at both widths.
 
 ## After both
 

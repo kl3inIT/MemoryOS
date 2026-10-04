@@ -147,9 +147,24 @@ model and clears it.
 
 ### Page
 
-`/admin/system-one`, "Phân loại (System One)", with three sections as in [the prototype](mock.html): the task and its
-picker (grouped: System One connections, language models), the connections as cards, and the types to add. A picker
-saves on change. The Models page drops the row of this task.
+`/admin/system-one`, "Phân loại (System One)". The [prototype](mock.html) fixed the content (the task, the connections,
+the types to add); the page is built from the Models page's patterns, not from the prototype's markup (owner,
+2026-10-04):
+
+- `PageHeader` with its one-line description; "Models by task" as a `Card` row with the task's title and description
+  and the picker on the right, as the Models page lays out a task;
+- the picker is assistant-ui's Model selector, as `ModelPicker` is, with one group "System One" for the usable
+  connections ahead of one group per model provider. Choosing saves at once. A reasoning level is not offered here:
+  a model chosen on this page runs at the task's default (off);
+- "Available connections" as `ProviderCard` rows with the icon actions of a Models connection row (configure,
+  delete). The data boundary sits on the address line, not beside the name, so a narrow screen wraps it under the
+  address instead of over the actions. Delete is always offered; a connection in use is refused with its reason in
+  the confirmation dialog;
+- "Add a connection" as the Models page's provider grid; the dialog is `ConnectionDialog`/`ConnectionForm` with
+  `DataBoundaryField`, and tests a saved connection only, as Voice and Web search do. A new connection of a type that
+  already has one starts with a free name.
+
+The Models page drops the row of this task, and the Chat settings link to the check's model opens this page.
 
 ## Behaviour that changes
 

@@ -176,6 +176,9 @@ export const en = {
     unavailable: "The service is temporarily unavailable. Try again later.",
     voiceProviderUnavailable:
       "The voice provider could not be reached or rejected the key. Check the address, key and model, then try again.",
+    systemOneUnavailable:
+      "The System One service could not be reached, rejected the key or gave no answer. Check the address, key and model, then try again.",
+    systemOneInUse: "The question check runs on this connection. Choose another for it first.",
     chatProviderUnavailable:
       "The model provider rejected the request or could not be reached. Check the provider and model, then retry.",
     chatModelNotConfigured: "No model is set up yet. An administrator adds one on the Models page.",

@@ -355,18 +355,13 @@ export function TaskModels(catalog: Catalog) {
     { id: "MEDIUM", name: ui("Medium") },
     { id: "HIGH", name: ui("High") },
   ];
-  const copy: Record<ModelFlow["flow"], Pick<Row, "title" | "description" | "ariaLabel">> = {
+  // The question check may run on a System One connection, so it is configured on the System One page only.
+  type TaskFlow = Exclude<ModelFlow["flow"], "CHAT_GUARDRAIL">;
+  const copy: Record<TaskFlow, Pick<Row, "title" | "description" | "ariaLabel">> = {
     CHAT_NAMING: {
       title: ui("Conversation naming"),
       description: ui("Names new conversations. A small, fast model keeps the chat model free."),
       ariaLabel: ui("Conversation naming model"),
-    },
-    CHAT_GUARDRAIL: {
-      title: ui("Question check"),
-      description: ui(
-        "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.",
-      ),
-      ariaLabel: ui("Question check model"),
     },
     MEETING_MINUTES: {
       title: ui("Meeting minutes"),
@@ -379,40 +374,44 @@ export function TaskModels(catalog: Catalog) {
       ariaLabel: ui("Transcript correction model"),
     },
   };
-  return flows.data.map((flow) => (
-    <SelectionEditor
-      key={flow.flow}
-      {...catalog}
-      selection={flow}
-      reload={async () => {
-        const result = await flows.refetch({ throwOnError: true });
-        const current = result.data?.find((entry) => entry.flow === flow.flow);
-        if (!current) throw new Error("Selection unavailable");
-        return current;
-      }}
-      row={{
-        ...copy[flow.flow],
-        unsetMessage: fallback
-          ? ui("No model chosen; {{model}} is used.", { model: fallback })
-          : ui("No model chosen; the task does not run until one is."),
-        unavailableMessage: fallback
-          ? ui("Unavailable; {{model}} is used instead.", { model: fallback })
-          : ui("Unavailable; the Chat model is used instead."),
-        efforts,
-        savedMessage: ui("Task model saved."),
-        save: async (revision, modelConfigurationId, reasoningEffort, signal) =>
-          (
-            await setChatModelFlow({
-              path: { flow: flow.flow },
-              query: {
-                revision,
-                ...(modelConfigurationId ? { modelConfigurationId } : {}),
-                ...(reasoningEffort ? { reasoningEffort } : {}),
-              },
-              signal,
-            })
-          ).data,
-      }}
-    />
-  ));
+  return flows.data.flatMap((flow) => {
+    const task = flow.flow;
+    if (task === "CHAT_GUARDRAIL") return [];
+    return [
+      <SelectionEditor
+        key={flow.flow}
+        {...catalog}
+        selection={flow}
+        reload={async () => {
+          const result = await flows.refetch({ throwOnError: true });
+          const current = result.data?.find((entry) => entry.flow === flow.flow);
+          if (!current) throw new Error("Selection unavailable");
+          return current;
+        }}
+        row={{
+          ...copy[task],
+          unsetMessage: fallback
+            ? ui("No model chosen; {{model}} is used.", { model: fallback })
+            : ui("No model chosen; the task does not run until one is."),
+          unavailableMessage: fallback
+            ? ui("Unavailable; {{model}} is used instead.", { model: fallback })
+            : ui("Unavailable; the Chat model is used instead."),
+          efforts,
+          savedMessage: ui("Task model saved."),
+          save: async (revision, modelConfigurationId, reasoningEffort, signal) =>
+            (
+              await setChatModelFlow({
+                path: { flow: flow.flow },
+                query: {
+                  revision,
+                  ...(modelConfigurationId ? { modelConfigurationId } : {}),
+                  ...(reasoningEffort ? { reasoningEffort } : {}),
+                },
+                signal,
+              })
+            ).data,
+        }}
+      />,
+    ];
+  });
 }

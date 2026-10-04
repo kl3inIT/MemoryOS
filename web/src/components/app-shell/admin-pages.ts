@@ -17,6 +17,7 @@ import {
   ScrollText,
   SquareTerminal,
   Sparkles,
+  Split,
   User,
   Users,
   type LucideIcon,
@@ -38,6 +39,7 @@ export type AdminPage =
   | "chat"
   | "providers"
   | "models"
+  | "system-one"
   | "searchSettings"
   | "mcp"
   | "mcpEndpoint"
@@ -82,6 +84,15 @@ export const adminPages: readonly AdminPageEntry[] = [
     label: appText("Mô hình"),
     title: appText("Models"),
     icon: Sparkles,
+    group: "configuration",
+    visible: manageModels,
+  },
+  {
+    id: "system-one",
+    to: "/admin/system-one",
+    label: appText("Phân loại (System One)"),
+    title: appText("Phân loại (System One)"),
+    icon: Split,
     group: "configuration",
     visible: manageModels,
   },
