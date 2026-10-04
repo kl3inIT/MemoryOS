@@ -70,4 +70,4 @@ protocol code, judged by quality and maintenance, not by effort or size). It kee
 stack: its redirect following and its retries are switched off or narrowed to what a request asks for, its responses
 are bounded, a failed answer is reported by its status with the body unread, and the exchange has a deadline. Each
 rule is proven by a test on the wire, as it is for `OutboundHttp`. The first case is the Microsoft Graph SDK on OkHttp
-([MEM-226](../increments/active/mem-226-sources-vendor-sdks/design.md), `GraphTransport`).
+([MEM-226](../increments/completed/mem-226-sources-vendor-sdks/design.md), `GraphTransport`).
