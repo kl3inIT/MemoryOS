@@ -30,8 +30,10 @@ final class SonioxAsync {
     /** A sentence ends at a speaker change or a pause; without one it would run for the whole recording. */
     private static final long SEGMENT_GAP_MS = 800;
     private static final int MAX_SEGMENT_CHARS = 400;
-    /** The transcript of a five-hour recording names every token with its times; the other answers are a few bytes. */
-    private static final int MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
+    /** The transcript of a five-hour recording names every token with its times. */
+    private static final int MAX_RECORDING_BYTES = 64 * 1024 * 1024;
+    /** A dictation clip is at most a few minutes of speech. */
+    private static final int MAX_CLIP_BYTES = 1_048_576;
 
     private SonioxAsync() {}
 
@@ -39,7 +41,7 @@ final class SonioxAsync {
     static String transcribe(String baseUrl, String key, String model, @Nullable String language, byte[] wav,
             Duration timeout) throws InterruptedException {
         return run(baseUrl, key, model, language, List.of(), false,
-                AudioSource.part(AudioSource.of(wav), wav.length, "audio.wav"), "audio/wav", timeout,
+                AudioSource.part(AudioSource.of(wav), wav.length, "audio.wav"), "audio/wav", timeout, MAX_CLIP_BYTES,
                 transcript -> transcript.path("text").asString("").strip());
     }
 
@@ -52,14 +54,15 @@ final class SonioxAsync {
             throws InterruptedException {
         return run(baseUrl, key, model, language, terms, diarize,
                 AudioSource.part(recording.audio(), recording.sizeBytes(), recording.filename()), recording.mediaType(),
-                timeout, SonioxAsync::group);
+                timeout, MAX_RECORDING_BYTES, SonioxAsync::group);
     }
 
     private static <T> T run(String baseUrl, String key, String model, @Nullable String language, List<String> terms,
-            boolean diarize, Resource audio, String mediaType, Duration timeout, Function<JsonNode, T> read)
+            boolean diarize, Resource audio, String mediaType, Duration timeout, int maxResponseBytes,
+            Function<JsonNode, T> read)
             throws InterruptedException {
         // Every call of one transcription shares the connection's base URL and key, and the caller's deadline.
-        var api = OutboundHttp.service(SonioxApi.class, OutboundHttp.builder(new Limits(timeout, MAX_RESPONSE_BYTES))
+        var api = OutboundHttp.service(SonioxApi.class, OutboundHttp.builder(new Limits(timeout, maxResponseBytes))
                 .baseUrl(baseUrl).defaultHeaders(headers -> headers.setBearerAuth(key)).build());
         long deadline = System.nanoTime() + timeout.toNanos();
         String file = null;
