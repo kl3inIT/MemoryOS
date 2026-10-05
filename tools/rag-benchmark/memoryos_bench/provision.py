@@ -48,7 +48,7 @@ def fingerprint(manifest: dict, layout: dict) -> str:
     """Names the corpus a run was measured on: documents, where they live and who reads them."""
     canonical = {
         "documents": sorted(
-            (d["key"], d["sha256"], layout["sources"][source_of(d)]["name"])
+            (d["id"], d["sha256"], layout["sources"][source_of(d)]["name"])
             for d in manifest["documents"]
         ),
         "sources": {
@@ -78,7 +78,7 @@ def fetch(document: dict, cache: Path) -> bytes:
     digest = hashlib.sha256(data).hexdigest()
     if digest != document["sha256"]:
         raise RuntimeError(
-            f"{document['key']}: the publisher's file changed (sha256 {digest});"
+            f"{document['id']}: the publisher's file changed (sha256 {digest});"
             " update the manifest"
         )
     cache.mkdir(parents=True, exist_ok=True)
@@ -175,7 +175,7 @@ def ensure_documents(
             )
             put_object(authorization["uploadUrl"], authorization["requiredHeaders"], data)
             api.post(f"/api/sources/{source_id}/uploads/{authorization['uploadId']}/finalize")
-            report.note(f"uploaded {document['key']} to {name}")
+            report.note(f"uploaded {document['id']} to {name}")
         for digest, item in present.items():
             if digest not in wanted:
                 if prune:

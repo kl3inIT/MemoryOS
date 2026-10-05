@@ -10,14 +10,14 @@ LAYOUT = json.loads((CORPUS / "layout.json").read_text(encoding="utf-8"))
 
 
 def test_every_document_has_a_source_and_a_unique_key_and_digest() -> None:
-    keys = [d["key"] for d in MANIFEST["documents"]]
+    keys = [d["id"] for d in MANIFEST["documents"]]
     digests = [d["sha256"] for d in MANIFEST["documents"]]
     assert len(set(keys)) == len(keys)
     # One file per digest: a Source deduplicates by content, so a repeated digest would be lost.
     assert len(set(digests)) == len(digests)
     for document in MANIFEST["documents"]:
-        assert source_of(document) in LAYOUT["sources"], document["key"]
-        assert document["url"].startswith("https://"), document["key"]
+        assert source_of(document) in LAYOUT["sources"], document["id"]
+        assert document["url"].startswith("https://"), document["id"]
 
 
 def test_every_source_and_role_names_known_groups() -> None:
