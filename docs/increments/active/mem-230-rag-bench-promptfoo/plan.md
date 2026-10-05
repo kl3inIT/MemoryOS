@@ -137,8 +137,12 @@ Method: [question authoring and bias controls](design.md#question-authoring-and-
   per-role expectations derived from `layout.json`, split 75 dev / 45 test. lookup 30, cross-department 13, near-miss
   12, temporal 10, aggregate 10, multi-hop 10, absent 9, general knowledge 8, ambiguous 6, sensitive 6, false
   premise 6.
-- [ ] Owner review in the viewer (eval `eval-suG-2026-10-05T17:16:13`, built by `authoring/review_eval.py` with the
-  `echo` provider) or in [`corpus/review.md`](../../../../tools/rag-benchmark/corpus/review.md), then freeze.
+- [x] Review, 2026-10-06. The owner delegated it ("bạn thấy ổn là được"), so the 24-question seeded sample
+  (viewer eval `eval-JrW-2026-10-05T19:05:12`) was reviewed by Claude, the drafting family; the validators remain the
+  independent check. No gold answer was wrong. Two defects of the derived expectations were found and fixed for the
+  whole set: general-knowledge and sensitive questions are `grounded_only` (14), since only grounded mode must
+  decline them; a near-miss or false-premise question read only in part is `partial`, not `follow_gold`.
+  The set is frozen at 120.
 
 ## P5 — promptfoo
 

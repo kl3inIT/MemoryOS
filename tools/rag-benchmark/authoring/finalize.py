@@ -30,6 +30,7 @@ MANIFEST = {
 }
 LAYOUT = json.loads((ROOT / "corpus" / "layout.json").read_text("utf-8"))
 OVERLAP_LIMIT = 0.5
+GROUNDED_ONLY = {"general_knowledge", "sensitive"}
 UNANSWERABLE = {"absent", "near_miss", "false_premise"}
 
 
@@ -88,7 +89,7 @@ def expectations(question: dict, reads: dict[str, set[str]]) -> dict[str, dict]:
         if question["category"] == "absent" or not evidence:
             behaviour = "abstain"
         elif question["category"] in UNANSWERABLE:
-            behaviour = "follow_gold" if seen else "abstain"
+            behaviour = "follow_gold" if seen == evidence else "partial" if seen else "abstain"
         elif seen == evidence:
             behaviour = "answer"
         elif seen:
@@ -143,6 +144,9 @@ def main() -> None:
         row["overlap"] = round(ratio, 2)
         row["quote_checked_on_text"] = all(c is True for c in checks)
         row["expectations"] = expectations(row, reads)
+        # Declining general knowledge and sensitive topics is the grounded mode's contract (and the
+        # sensitive topics need the Tenant's guardrail on); an ungrounded run does not ask them.
+        row["grounded_only"] = row["category"] in GROUNDED_ONLY
         kept.append(row)
 
     strata = defaultdict(list)
@@ -170,6 +174,7 @@ def main() -> None:
         "validated_by",
         "overlap",
         "quote_checked_on_text",
+        "grounded_only",
         "expectations",
     )
     with out.open("w", encoding="utf-8", newline="\n") as handle:

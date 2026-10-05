@@ -131,7 +131,7 @@ Vai trò: exec: abstain, finance: abstain, legal: abstain, governance: abstain, 
 
 **Đáp án chuẩn:** Tài liệu không cho thấy Savico miễn nhiệm Phó TGĐ vào tháng 3/2025; thay đổi nhân sự của Savico tháng 3/2025 là bổ nhiệm Kế toán trưởng Trần Thái Sơn (hiệu lực 18/03/2025, theo NQ HĐQT ngày 18/03/2025). Việc miễn nhiệm Phó TGĐ (ông Trần Văn Mỹ, NQ 08/NQ-HĐQT-HAX ngày 15/03/2025) là của Haxaco, không phải Savico.
 
-Vai trò: exec: follow_gold, finance: follow_gold, legal: follow_gold, governance: follow_gold, ir: follow_gold, hr: follow_gold, outsider: abstain
+Vai trò: exec: follow_gold, finance: partial, legal: partial, governance: partial, ir: partial, hr: follow_gold, outsider: abstain
 
 ## finance-009 (aggregate, dev)
 
