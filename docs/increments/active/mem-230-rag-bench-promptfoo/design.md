@@ -57,6 +57,40 @@ Changing the benchmark corpus is a versioned change: manifest, questions and a n
 pull request. Changing a role's account is one line in the mapping. Staging data outside the `Benchmark` Sources does
 not affect the benchmark.
 
+## Question authoring and bias controls
+
+A question set measures the system only if nothing about how it was written favours the system. The MEM-141 set was
+written from passages read in MemoryOS's own `document_chunks`, every category was asked as `exec`, and its gold ids
+pointed at uploads that were later replaced. These rules replace that method; each names the bias it removes.
+
+| Rule | Bias it removes |
+| --- | --- |
+| **Author from the originals.** Page text comes from the publisher's file (`pymupdf` for text layers; scanned and mixed pages are rendered and read as images), never from MemoryOS's chunks or OCR. Evidence is `document id + page + quote` from the original | A passage MemoryOS garbled or split never becoming a question, which would make extraction and chunking look perfect |
+| **Quotas and a seeded sample before reading.** The category, role and passage-type quotas below are fixed first; pages are drawn per document with a committed seed, and a question is written from a drawn page | Picking salient facts (headline figures on page 1, prose over tables) |
+| **User voice, measured.** Questions use the abbreviations people type (BCTC, ĐHĐCĐ, HĐQT), periods as people name them, some without diacritics and a few typos. Token overlap between question and quote is computed; above 0.5 the question is rewritten | Lexical overlap that hands keyword search the answer and flatters hybrid retrieval |
+| **Three kinds of unanswerable question.** Absent from the corpus; near-miss (the fact exists only for another period or for Haxaco); false premise (the cited but unpublished "19th charter amendment", the AGM 2026 resolution dated 2025) | A set where always answering wins; the observed failures are inference beyond evidence and not declining |
+| **Independent models.** Drafting is done by a model that is neither the judge (`cx/gpt-6-luna`) nor the chat model, and never sees MemoryOS's answers. A third model validates each question blind, twice: question and quote must reproduce the gold answer; question and the whole document without the quote must give the same, single answer. A disagreement rewrites or drops the question. The models used are recorded per question | A judge or author grading its own phrasing; ambiguous questions with several right answers |
+| **Numeric gold checked on the page image** for every scanned or mixed source | OCR errors in figures becoming the gold |
+| **Expectations derived, not typed.** For each question, gold documents → their Sources → which roles read them, through `layout.json`: `answer`, `partial` or `abstain` per role, and the forbidden documents, are generated | Hand-written access expectations drifting from the real Groups |
+| **`as_of` on every question about "current" state**, with the expected behaviour for a date conflict stated in the question (answer from the dated minutes and name the discrepancy) | Gold answers that silently depend on today's date; leaving conflicts to the judge's taste |
+| **Held-out split.** Each question is `dev` or `test`, 70/30, stratified by category and role with a committed seed. Baselines run on both; prompt, chunking and model decisions, and the P8 ablation, are read from `test` only, and `test` questions are never shown while tuning | Tuning the system to the questions, so the benchmark stops measuring anything |
+| **The 90 MEM-141 questions are candidates, not a migration.** Each is re-authored against the original page, re-verified and re-phrased, or dropped | Carrying the old chunk-based bias into the new set |
+
+Quotas, about 125 questions:
+
+| Category | Count | Asked as |
+| --- | --- | --- |
+| Lookup, temporal, aggregate, multi-hop within one department | 60 (12 per department: 6 lookup, 2 temporal, 2 aggregate, 2 multi-hop) | The department role, `exec`, and one role that must decline |
+| Cross-department | 15 | Every role, each with its derived expectation |
+| Unanswerable: absent / near-miss / false premise | 10 / 12 / 6 | The department role and `exec` |
+| Ambiguous (needs a period or a version) | 8 | `exec` |
+| General knowledge and sensitive topics, grounded runs only | 8 and 6 | `exec` |
+
+At least half of the finance questions come from tables. A record is one JSONL line: `id, category, split, question,
+as_of, evidence [{document, page, quote}], gold_answer, passage_type, drafted_by, validated_by`; the per-role
+expectations are generated beside it. The owner reviews a random 20% sample in a generated `review.md` (question,
+quote, gold, roles) before the set is frozen.
+
 ## Measurement later in this increment
 
 - **Indirect prompt injection.** promptfoo's `indirect-prompt-injection` plugin writes into a prompt variable, which

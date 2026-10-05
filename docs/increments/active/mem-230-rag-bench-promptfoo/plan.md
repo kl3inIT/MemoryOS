@@ -116,10 +116,16 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
 
 ## P4 — Questions
 
-- [ ] Move the 90 questions to roles, document keys and evidence passages; keep the ones the new corpus still answers.
-- [ ] New questions per department, across periods, across departments and unanswerable; drafts from promptfoo or
-  Ragas, each kept only after reading its passage. About 150 in all.
-- [ ] `check`: every evidence passage is in the corpus and every role reads what its question expects.
+Method: [question authoring and bias controls](design.md#question-authoring-and-bias-controls).
+
+- [ ] Page extraction from the originals and a seeded page sampler that emits review bundles (text, and page images
+  for scanned and mixed pages); the seed and quota table committed.
+- [ ] Draft by department in batches from sampled pages; overlap check; numeric gold checked on images.
+- [ ] Re-author or drop the 90 MEM-141 candidates.
+- [ ] Blind validation by a third model, twice per question; rewrite or drop on disagreement.
+- [ ] Generate per-role expectations from `layout.json`; stratified seeded `dev`/`test` split.
+- [ ] `check`: every quote is on its page of the original, every expectation matches the layout.
+- [ ] `review.md` with a random 20% sample for the owner; freeze the set.
 
 ## P5 — promptfoo
 
