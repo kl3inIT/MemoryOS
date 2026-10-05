@@ -175,7 +175,10 @@ def main() -> None:
         "prompts": ["{{question}}"],
         "providers": [{"id": "file://memoryos_provider.py", "label": f"MemoryOS {args.mode}"}],
         "defaultTest": {"options": {"provider": {"id": JUDGE, "config": {"showThinking": False}}}},
-        "evaluateOptions": {"maxConcurrency": 8},
+        # Measured 2026-10-05 on staging, 24 tests each: 2 concurrent turns ran clean; 3 and 4 hit the
+        # per-minute limit of the two Codex accounts behind 9Router, which locked both and failed 15 of 24
+        # turns. The chat model and the judge share those accounts (MEM-231 covers the missing retry).
+        "evaluateOptions": {"maxConcurrency": 2},
         "tests": tests,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
