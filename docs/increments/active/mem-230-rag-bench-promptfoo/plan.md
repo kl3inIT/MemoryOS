@@ -51,6 +51,14 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
   (mode 600). `/v1/models` answers 200 with it and 401 without; `cx/gpt-6-luna` answered through
   `https://9router.zeromail.vn/v1`.
 
+- [x] Browser check, 2026-10-05: the owner signed in through Keycloak and reached the viewer.
+- [ ] The viewer creates and runs evals: `OPENAI_BASE_URL` is 9Router and `OPENAI_API_KEY` is read from the
+  `promptfoo_judge_api_key` secret by the entrypoint. The key file is owned by the image's `promptfoo` user
+  (100:101, 0400), since a Compose file secret keeps the host file's owner. A throwaway container of this shape stayed
+  healthy with a read-only root filesystem and passed a one-test eval against `cx/gpt-6-luna`. After the merge and
+  deployment, recreate `promptfoo` with the command above. Remote generation stays off: it sends prompts to
+  promptfoo's cloud.
+
 ## P2 — Corpus
 
 - [ ] Collect the public disclosures by the criteria in the design; noise from a second listed company.
