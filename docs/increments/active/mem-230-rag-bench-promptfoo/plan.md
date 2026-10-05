@@ -46,8 +46,10 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
   Both became healthy; the public origin redirects to the realm with client `memoryos-promptfoo`, PKCE and the exact
   callback, and the API redirects too without a session.
 - [ ] Browser check: the owner (inspector role) reaches the viewer; a user without the role is refused.
-- [ ] Remove the hand-run `/apps/promptfoo` container and its volume.
-- [ ] 9Router key `memoryos-benchmark`.
+- [x] Removed the hand-run `/apps/promptfoo` container, its volume (one smoke eval of 2026-09-30) and its directory.
+- [x] 9Router key `memoryos-benchmark`, only in `/apps/memoryos/secrets/inspection/promptfoo-judge-api-key.txt`
+  (mode 600). `/v1/models` answers 200 with it and 401 without; `cx/gpt-6-luna` answered through
+  `https://9router.zeromail.vn/v1`.
 
 ## P2 — Corpus
 
