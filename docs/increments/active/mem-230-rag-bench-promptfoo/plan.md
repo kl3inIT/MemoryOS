@@ -61,9 +61,26 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
 
 ## P2 — Corpus
 
-- [ ] Collect the public disclosures by the criteria in the design; noise from a second listed company.
-- [ ] `tools/rag-benchmark/corpus/manifest.yaml`: key, department, period, format, source URL, SHA-256.
-- [ ] Originals in a private bucket outside Git.
+- [x] Collected 2026-10-05 from savico.com.vn, haxaco.com.vn and two CafeF mirrors; every URL answered 200 with a real
+  PDF, DOC or DOCX. [`tools/rag-benchmark/corpus/manifest.json`](../../../../tools/rag-benchmark/corpus/manifest.json)
+  lists 61 documents with id, department, period, kind, text layer, URL, size and SHA-256:
+  - **Savico (SVC), questions: 49.** Finance 14 (six quarters Q1 2025 to Q2 2026, reviewed H1 2025 and H1 2026,
+    audited 2024 and 2025, separate Q1 2026 and 2025, variance explanation, profit proposal), governance 13 (AGM
+    2023 to 2026, the October 2024 written opinion, five governance reports, the Supervisory Board report, the 2026
+    charter proposal), HR 13 (appointment, dismissal and resignation notices 2024 to July 2026, nominees, a nomination
+    form), investor relations 3 (annual reports 2024 and 2025, the board's 2025 report), legal 6 (charter amendments 14
+    and 15, internal governance rules 2021, disclosure rules 2024, draft election rules, related-party framework 2026).
+  - **Haxaco (HAX), noise: 12.** Same sector and exchange: statements, AGM 2025 and 2026, annual reports, charter,
+    governance reports, personnel resolutions. Never questioned.
+  - Left out: a candidate's CV (personal data) and five Haxaco files beyond twelve.
+- [x] Text layer: 25 text, 10 mixed, 26 scanned. Scans go through the deployment's OCR
+  ([PaddleOCR-VL on the serving node](../../../runbooks/ci-cd.md)), so their extraction is part of what the benchmark
+  measures.
+- [x] Real conflicts kept on purpose: the current charter (amendment 15 published; the AGM 2026 resolution cites a
+  "19th amendment of 25/11/2025" never published), the AGM 2026 resolution dated 2025 in its header, superseding
+  personnel notices, and three governance reports over overlapping periods.
+- [x] Originals are not copied anywhere: the provisioning script downloads each URL and refuses a file whose SHA-256
+  differs. A source that changes or disappears is a manifest change, reviewed like any other.
 
 ## P3 — Provisioning
 
