@@ -16,6 +16,7 @@ kept only when every pass of every validator agrees. Standard library only.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import time
@@ -55,14 +56,17 @@ def chat(model: str, system: str, user: str, key: str) -> str:
         method="POST",
         headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
     )
-    for attempt in range(4):
+    for attempt in range(6):
         try:
             with urllib.request.urlopen(request, timeout=300) as response:  # noqa: S310
                 return json.loads(response.read())["choices"][0]["message"]["content"] or ""
-        except (urllib.error.URLError, TimeoutError, KeyError):
-            if attempt == 3:
+        except (urllib.error.URLError, TimeoutError, KeyError) as error:
+            if attempt == 5:
                 raise
-            time.sleep(5 * (attempt + 1))
+            # The Codex accounts behind 9Router lock for about a minute and a half on a rate limit, and
+            # other services share them: wait the lock out instead of hammering it.
+            limited = isinstance(error, urllib.error.HTTPError) and error.code in (429, 503)
+            time.sleep(100 if limited else 5 * (attempt + 1))
     raise AssertionError("unreachable")
 
 
@@ -81,14 +85,30 @@ def label(document: str) -> str:
     return f"{COMPANY[meta['company']]} — {meta['kind']}, {meta['period']}"
 
 
-def document_text(document: str) -> tuple[str, bool]:
+def asked_on(question: dict) -> str:
+    """The date the question is asked on, which a chat system always knows."""
+    return f"Hôm nay là ngày {question['as_of']}.\n\n" if question.get("as_of") else ""
+
+
+def document_text(document: str) -> str:
     pages = sorted((PAGES / document).glob("*.txt"))
     text = "\n".join(f"[trang {int(p.stem)}]\n{p.read_text(encoding='utf-8')}" for p in pages)
-    readable = (
-        sum(len(p.read_text(encoding="utf-8").strip()) for p in pages)
-        > 200 * max(1, len(pages)) // 2
-    )
-    return text[:DOCUMENT_CHARS], readable
+    return text[:DOCUMENT_CHARS]
+
+
+def has_text(document: str, page: int) -> bool:
+    path = PAGES / document / f"{page:03d}.txt"
+    return path.exists() and len(path.read_text(encoding="utf-8").strip()) >= 200
+
+
+def digest(question: dict) -> str:
+    """Names a draft's content, so an edited draft is validated again."""
+    fields = {
+        k: question.get(k) for k in ("question", "as_of", "evidence", "gold_answer", "category")
+    }
+    return hashlib.sha256(
+        json.dumps(fields, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
 
 
 def agrees(model: str, question: dict, reply: str, key: str) -> tuple[bool, str]:
@@ -119,16 +139,24 @@ def validate(question: dict, key: str) -> dict:
     )
     documents, skipped = [], []
     for document in sorted({e["document"] for e in question["evidence"]}):
-        text, readable = document_text(document)
-        if readable:
-            documents.append(f"=== {label(document)} ===\n{text}")
+        # The document pass needs the evidence inside the text it is given: a scanned evidence page has
+        # no text layer, and without it the pass would reject a sound question.
+        if all(
+            has_text(document, e["page"]) for e in question["evidence"] if e["document"] == document
+        ):
+            documents.append(f"=== {label(document)} ===\n{document_text(document)}")
         else:
             skipped.append(document)
+    if skipped:
+        documents = []  # a partial document set would make the uniqueness pass meaningless
     results = {}
     for model in VALIDATORS:
         passes = {}
         reply = chat(
-            model, ANSWER, f"Tài liệu:\n{passages}\n\nCâu hỏi: {question['question']}", key
+            model,
+            ANSWER,
+            f"{asked_on(question)}Tài liệu:\n{passages}\n\nCâu hỏi: {question['question']}",
+            key,
         )
         passes["passage"] = {
             "reply": reply,
@@ -138,7 +166,10 @@ def validate(question: dict, key: str) -> dict:
             reply = chat(
                 model,
                 ANSWER,
-                "Tài liệu:\n" + "\n\n".join(documents) + f"\n\nCâu hỏi: {question['question']}",
+                asked_on(question)
+                + "Tài liệu:\n"
+                + "\n\n".join(documents)
+                + f"\n\nCâu hỏi: {question['question']}",
                 key,
             )
             passes["document"] = {
@@ -149,6 +180,7 @@ def validate(question: dict, key: str) -> dict:
     kept = all(p["agrees"] for passes in results.values() for p in passes.values())
     return {
         **question,
+        "digest": digest(question),
         "validated_by": list(VALIDATORS),
         "validation": results,
         "document_pass_skipped": skipped,
@@ -160,7 +192,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("drafts", nargs="+", type=Path)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--workers", type=int, default=4)
+    # Two at a time: the Codex accounts behind 9Router are shared and lock on a rate limit.
+    parser.add_argument("--workers", type=int, default=2)
     args = parser.parse_args()
     key = os.environ["MEMORYOS_JUDGE_API_KEY"]
     questions = [
@@ -169,19 +202,42 @@ def main() -> None:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    done = {}
+    # A result is reused only for the same draft content; an edited or new draft is validated again,
+    # and a draft that no longer exists drops out.
+    previous = {}
     if args.out.exists():
-        done = {
-            q["id"]: q for q in map(json.loads, args.out.read_text(encoding="utf-8").splitlines())
+        previous = {
+            r["id"]: r for r in map(json.loads, args.out.read_text(encoding="utf-8").splitlines())
         }
-    todo = [q for q in questions if q["id"] not in done]
-    with ThreadPoolExecutor(args.workers) as pool, args.out.open("a", encoding="utf-8") as out:
-        for result in pool.map(lambda q: validate(q, key), todo):
-            out.write(json.dumps(result, ensure_ascii=False) + "\n")
-            out.flush()
-            print(f"{result['id']}: {'kept' if result['kept'] else 'REJECTED'}", flush=True)
-    results = [json.loads(line) for line in args.out.read_text(encoding="utf-8").splitlines()]
-    print(f"{sum(r['kept'] for r in results)} kept of {len(results)}")
+    current = {
+        q["id"]: previous[q["id"]]
+        for q in questions
+        if q["id"] in previous and previous[q["id"]].get("digest") == digest(q)
+    }
+    todo = [q for q in questions if q["id"] not in current]
+
+    def safely(question: dict) -> dict:
+        try:
+            return validate(question, key)
+        except Exception as error:  # noqa: BLE001 - one failed question must not lose the others
+            # No digest: the next run validates it again.
+            return {**question, "kept": False, "error": f"{type(error).__name__}: {error}"[:300]}
+
+    def save() -> None:
+        ordered = [current[q["id"]] for q in questions if q["id"] in current]
+        args.out.write_text(
+            "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in ordered), encoding="utf-8"
+        )
+
+    with ThreadPoolExecutor(args.workers) as pool:
+        for result in pool.map(safely, todo):
+            current[result["id"]] = result
+            save()
+            state = "ERROR" if "error" in result else "kept" if result["kept"] else "REJECTED"
+            print(f"{result['id']}: {state}", flush=True)
+    save()
+    errors = sum("error" in r for r in current.values())
+    print(f"{sum(r['kept'] for r in current.values())} kept of {len(current)}, {errors} errors")
 
 
 if __name__ == "__main__":

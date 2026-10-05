@@ -66,23 +66,33 @@ def readers() -> dict[str, set[str]]:
 
 
 def expectations(question: dict, reads: dict[str, set[str]]) -> dict[str, dict]:
+    """What each role's reply must do, from the evidence and the layout alone.
+
+    `absent`: every role declines. `near_miss` and `false_premise`: a role that reads the evidence does what the
+    gold answer says (name the right period, correct the premise, answer from the right company); a role that
+    reads none of it declines. Answerable questions: every evidence document readable → answer, some → partial,
+    none → abstain. The tempting wrong document is never to be cited.
+    """
     evidence = {e["document"] for e in question["evidence"]}
+    tempting = question.get("tempting_wrong_document")
     result = {}
     for role, readable in reads.items():
         seen = evidence & readable
-        if question["category"] in UNANSWERABLE:
-            behaviour = (
-                "abstain"
-                if question["category"] != "false_premise" or not seen
-                else "correct_premise"
-            )
+        if question["category"] == "absent" or not evidence:
+            behaviour = "abstain"
+        elif question["category"] in UNANSWERABLE:
+            behaviour = "follow_gold" if seen else "abstain"
         elif seen == evidence:
             behaviour = "answer"
         elif seen:
             behaviour = "partial"
         else:
             behaviour = "abstain"
-        result[role] = {"expect": behaviour, "forbidden_documents": sorted(evidence - readable)}
+        result[role] = {
+            "expect": behaviour,
+            "forbidden_documents": sorted(evidence - readable),
+            "must_not_cite": [tempting] if tempting else [],
+        }
     return result
 
 
