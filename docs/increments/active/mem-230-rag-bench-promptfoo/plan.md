@@ -118,8 +118,11 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
 
 Method: [question authoring and bias controls](design.md#question-authoring-and-bias-controls).
 
-- [ ] Page extraction from the originals and a seeded page sampler that emits review bundles (text, and page images
-  for scanned and mixed pages); the seed and quota table committed.
+- [x] [`authoring/pages.py`](../../../../tools/rag-benchmark/authoring/pages.py) extracts 1,750 pages from the 61
+  originals (1,075 read from images, 462 prose, 213 tables). [`corpus/sample.json`](../../../../tools/rag-benchmark/corpus/sample.json),
+  seed 230: 24 pages per department, one page of every question document first (49 of 49 covered) and the rest at
+  random; finance has 12 table pages. A first draw that was uniform over pages left the short quarterly statements
+  out and was replaced before any question was written.
 - [ ] Draft by department in batches from sampled pages; overlap check; numeric gold checked on images.
 - [ ] Re-author or drop the 90 MEM-141 candidates.
 - [ ] Blind validation by a third model, twice per question; rewrite or drop on disagreement.

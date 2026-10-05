@@ -1,0 +1,846 @@
+{
+ "seed": 230,
+ "perDepartment": 24,
+ "pages": [
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-kiemtoan-2024",
+   "page": 21,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-kiemtoan-2025",
+   "page": 39,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q1-2025",
+   "page": 2,
+   "chars": 398,
+   "kind": "prose"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q1-2025",
+   "page": 7,
+   "chars": 3121,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q1-2026",
+   "page": 9,
+   "chars": 4238,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q1-2026",
+   "page": 17,
+   "chars": 1886,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q1-2026",
+   "page": 20,
+   "chars": 2314,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q1-2026",
+   "page": 22,
+   "chars": 1889,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q2-2025",
+   "page": 7,
+   "chars": 2461,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q2-2025",
+   "page": 28,
+   "chars": 4917,
+   "kind": "prose"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q2-2026",
+   "page": 7,
+   "chars": 2592,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q2-2026",
+   "page": 21,
+   "chars": 1662,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q2-2026",
+   "page": 25,
+   "chars": 2990,
+   "kind": "prose"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q3-2025",
+   "page": 2,
+   "chars": 598,
+   "kind": "prose"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q3-2025",
+   "page": 5,
+   "chars": 2074,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q3-2025",
+   "page": 9,
+   "chars": 2314,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-q4-2025",
+   "page": 32,
+   "chars": 4029,
+   "kind": "table"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-soatxet-h1-2025",
+   "page": 62,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-soatxet-h1-2026",
+   "page": 53,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-hn-soatxet-h1-2026",
+   "page": 74,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-rieng-kiemtoan-2025",
+   "page": 40,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "finance",
+   "document": "svc-bctc-rieng-q1-2026",
+   "page": 17,
+   "chars": 2378,
+   "kind": "prose"
+  },
+  {
+   "department": "finance",
+   "document": "svc-giaitrinh-bctc-2025",
+   "page": 2,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "finance",
+   "document": "svc-totrinh-loinhuan-2025",
+   "page": 1,
+   "chars": 1891,
+   "kind": "table"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bb-dhdcd-2024",
+   "page": 3,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bb-nq-dhdcd-2025",
+   "page": 5,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bb-nq-dhdcd-2026",
+   "page": 6,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bb-nq-dhdcd-2026",
+   "page": 12,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bb-nq-dhdcd-2026",
+   "page": 16,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bc-bks-2025",
+   "page": 3,
+   "chars": 2087,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bc-bks-2025",
+   "page": 5,
+   "chars": 2405,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2024",
+   "page": 11,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2024",
+   "page": 13,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2024",
+   "page": 19,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2024",
+   "page": 22,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2025",
+   "page": 6,
+   "chars": 890,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2025",
+   "page": 14,
+   "chars": 1306,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2025",
+   "page": 19,
+   "chars": 686,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2025",
+   "page": 20,
+   "chars": 1125,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2026",
+   "page": 7,
+   "chars": 1166,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-6t-2026",
+   "page": 29,
+   "chars": 751,
+   "kind": "table"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-nam-2024",
+   "page": 19,
+   "chars": 889,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-nam-2024",
+   "page": 23,
+   "chars": 1307,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-bcqt-nam-2025",
+   "page": 22,
+   "chars": 827,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-nq-dhdcd-2023",
+   "page": 2,
+   "chars": 213,
+   "kind": "prose"
+  },
+  {
+   "department": "governance",
+   "document": "svc-nq-dhdcd-2024",
+   "page": 1,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-nq-dhdcd-lyk-2024-10",
+   "page": 1,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "governance",
+   "document": "svc-totrinh-dieule-2026",
+   "page": 6,
+   "chars": 1700,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-mau-ungcu-hdqt-2024",
+   "page": 1,
+   "chars": 1902,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2024-07",
+   "page": 7,
+   "chars": 3619,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2024-07",
+   "page": 10,
+   "chars": 3078,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2024-07",
+   "page": 11,
+   "chars": 2964,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2024-09",
+   "page": 4,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2024-09",
+   "page": 5,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2024-09",
+   "page": 6,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2024-10",
+   "page": 2,
+   "chars": 172,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2025-05-16",
+   "page": 2,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2025-05-21",
+   "page": 1,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2025-05-21",
+   "page": 8,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2025-09",
+   "page": 11,
+   "chars": 470,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2025-09",
+   "page": 15,
+   "chars": 1642,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2026-06",
+   "page": 1,
+   "chars": 1668,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2026-07",
+   "page": 5,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2026-07",
+   "page": 6,
+   "chars": 1902,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-2026-07",
+   "page": 7,
+   "chars": 1465,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-ktt-2025-03",
+   "page": 1,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-ktt-2025-03",
+   "page": 5,
+   "chars": 2012,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-ktt-2025-03",
+   "page": 6,
+   "chars": 535,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tb-nhansu-ktt-2025-03",
+   "page": 8,
+   "chars": 1092,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tunhiem-hdqt-2024-09",
+   "page": 3,
+   "chars": 793,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-tunhiem-hdqt-bks-2026-05",
+   "page": 2,
+   "chars": 879,
+   "kind": "prose"
+  },
+  {
+   "department": "hr",
+   "document": "svc-ungvien-hdqt-bks-2026",
+   "page": 2,
+   "chars": 997,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bc-hdqt-btgd-2025",
+   "page": 5,
+   "chars": 2634,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bc-hdqt-btgd-2025",
+   "page": 11,
+   "chars": 3372,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 19,
+   "chars": 3691,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 23,
+   "chars": 4091,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 24,
+   "chars": 66,
+   "kind": "image"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 25,
+   "chars": 5666,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 33,
+   "chars": 4298,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 36,
+   "chars": 6130,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 55,
+   "chars": 3320,
+   "kind": "table"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 61,
+   "chars": 5525,
+   "kind": "table"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2024",
+   "page": 64,
+   "chars": 4538,
+   "kind": "table"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 2,
+   "chars": 1997,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 6,
+   "chars": 509,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 7,
+   "chars": 3642,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 8,
+   "chars": 1955,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 15,
+   "chars": 66,
+   "kind": "image"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 24,
+   "chars": 4392,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 42,
+   "chars": 4468,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 47,
+   "chars": 8121,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 52,
+   "chars": 3422,
+   "kind": "table"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 60,
+   "chars": 4488,
+   "kind": "table"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 64,
+   "chars": 6117,
+   "kind": "table"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 65,
+   "chars": 6062,
+   "kind": "prose"
+  },
+  {
+   "department": "investor-relations",
+   "document": "svc-bctn-2025",
+   "page": 70,
+   "chars": 2617,
+   "kind": "table"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 4,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 8,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 17,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 19,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 20,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 32,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 42,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 43,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 45,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 46,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan14-2025",
+   "page": 48,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan15-2025",
+   "page": 6,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan15-2025",
+   "page": 28,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan15-2025",
+   "page": 30,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan15-2025",
+   "page": 51,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-dieule-lan15-2025",
+   "page": 55,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-nq-gdlq-2026",
+   "page": 1,
+   "chars": 1471,
+   "kind": "prose"
+  },
+  {
+   "department": "legal",
+   "document": "svc-nq-gdlq-2026",
+   "page": 3,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-quyche-baucu-duthao-2024",
+   "page": 2,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-quyche-cbtt-2024",
+   "page": 6,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-quyche-cbtt-2024",
+   "page": 7,
+   "chars": 0,
+   "kind": "image"
+  },
+  {
+   "department": "legal",
+   "document": "svc-quyche-qtnb-2021",
+   "page": 3,
+   "chars": 2015,
+   "kind": "prose"
+  },
+  {
+   "department": "legal",
+   "document": "svc-quyche-qtnb-2021",
+   "page": 8,
+   "chars": 2609,
+   "kind": "prose"
+  },
+  {
+   "department": "legal",
+   "document": "svc-quyche-qtnb-2021",
+   "page": 13,
+   "chars": 2630,
+   "kind": "prose"
+  }
+ ]
+}
