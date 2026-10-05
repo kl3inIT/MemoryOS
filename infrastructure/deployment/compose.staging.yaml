@@ -475,6 +475,7 @@ services:
       - --cookie-name=_memoryos_promptfoo
       - --cookie-secure=true
       - --cookie-samesite=lax
+      # Longer than the inspectors' hour: a benchmark run is watched for longer than a query.
       - --cookie-expire=8h
       - --session-cookie-minimal=true
       - --reverse-proxy=true

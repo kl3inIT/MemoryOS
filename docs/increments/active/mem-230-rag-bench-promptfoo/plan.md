@@ -1,7 +1,7 @@
 # MEM-230 — Plan
 
-Design: [design.md](design.md). Three pull requests: P1–P3 (viewer, corpus, provisioning), P4–P6 (questions,
-promptfoo, baselines, removal of the old runner), then P7 and P8 each on their own.
+Design: [design.md](design.md). Four pull requests: P1–P3 (viewer, corpus, provisioning), P4–P6 (questions,
+promptfoo, baselines, removal of the old runner), P7, and P8.
 
 ## P0 — promptfoo on staging (done 2026-10-03)
 
@@ -22,12 +22,18 @@ promptfoo, baselines, removal of the old runner), then P7 and P8 each on their o
   network, egress on its own network, `memoryos-inspector` required; client `memoryos-promptfoo` in the realm script;
   secrets in `provision-staging-secrets.sh`; `MEMORYOS_PROMPTFOO_PUBLIC_URL` in `staging.env.example` and the runbook.
 - [ ] Staging, before the merge (one step at a time, each approved):
-  1. Prove the read-only root filesystem with a throwaway `docker run --read-only` of the pinned image.
+  1. Prove the read-only root filesystem with a throwaway `docker run --read-only` of the pinned image: the server
+     answers `/health`, `promptfoo --version` runs, and `python3` imports `ssl`, `sqlite3`, `json` and
+     `urllib.request`.
   2. Run `provision-staging-secrets.sh`; add `MEMORYOS_PROMPTFOO_PUBLIC_URL` to `/apps/memoryos/.env.staging`;
      create `/apps/memoryos/promptfoo`.
-  3. Run the realm script with the promptfoo pair.
+  3. Run the realm script with the complete operator environment of its last staging run plus the promptfoo pair
+     (the secret value read from the file of step 2). A partial environment is not harmless: without the SMTP pair
+     the script clears the realm's mail server.
   4. Nginx Proxy Manager host `memoryos-bench.72-62-193-33.nip.io` to `memoryos-promptfoo-oauth2-proxy:4180`.
-- [ ] Merge; the staging deployment starts the service. Sign in with the inspector role; a user without it is refused.
+- [ ] Leave draft and merge only after steps 1–4: `STAGING_AUTO_DEPLOY` is on and `MEMORYOS_PROMPTFOO_PUBLIC_URL` is
+  required, so an early merge fails the deployment. Set MEM-230 back to In Progress after the merge. The staging
+  deployment starts the service. Sign in with the inspector role; a user without it is refused.
   Remove the hand-run `/apps/promptfoo` container and its volume.
 - [ ] 9Router key `memoryos-benchmark`.
 
@@ -51,8 +57,9 @@ promptfoo, baselines, removal of the old runner), then P7 and P8 each on their o
 
 ## P5 — promptfoo
 
-- [ ] Python provider: offline token per role, ask, read the event stream (time to first text), return the answer,
-  sources and the text of each read passage.
+- [ ] Python provider, standard library only (the root filesystem is read-only): offline token per role, ask, read the event stream (time to first text), return the answer,
+  sources and the text of each read passage. It reaches MemoryOS through the public staging origin and the judge
+  through `https://9router.zeromail.vn/v1`: its egress network has no route to the internal `api` service.
 - [ ] Tests generated from the question set; built-in assertions; the two MemoryOS assertions.
 - [ ] Judge calibration: `factuality` on the 87 answers judged on 2026-10-03; on a large disagreement replace its
   `rubricPrompt` with a Vietnamese one, still the built-in assertion.
