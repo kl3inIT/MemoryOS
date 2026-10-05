@@ -74,6 +74,11 @@ def main(argv: list[str] | None = None) -> int:
     api = Api(args.origin, RoleSession(store, layout["administrator"]))
     report = provision(api, manifest, layout, actors, args.home / "corpus", args.wait, args.prune)
     print(f"fingerprint {fingerprint(manifest, layout)}")
+    if report.would_remove:
+        print("
+Memberships --prune would remove (each lets a role read beyond its questions):")
+        for line in report.would_remove:
+            print("  " + line)
     if report.problems:
         print(f"{len(report.problems)} problem(s); nothing above was removed", file=sys.stderr)
         return 1

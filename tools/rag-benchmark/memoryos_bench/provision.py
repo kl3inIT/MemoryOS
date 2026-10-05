@@ -28,6 +28,8 @@ MEDIA_TYPES = {
 class Report:
     created: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    # Memberships --prune would remove, shown as one block so the owner reads them before allowing it.
+    would_remove: list[str] = field(default_factory=list)
 
     def note(self, line: str) -> None:
         self.created.append(line)
@@ -197,6 +199,8 @@ def ensure_members(
     benchmark = set(groups.values())
     membership: dict[str, set[str]] = {}
     names: dict[str, str] = {}
+    # Every Group's members, one call per Group: a role's memberships outside the benchmark are what
+    # would let it read documents the questions do not expect. Fine for a staging Tenant's few Groups.
     for group in _pages(api, "/api/groups"):
         if group.get("systemKey"):
             continue
@@ -219,10 +223,8 @@ def ensure_members(
                 where = (
                     "another benchmark Group" if group_id in benchmark else "outside the benchmark"
                 )
-                report.problem(
-                    f"role {role!r} is also in {label} ({where});"
-                    " it may read documents the questions do not expect"
-                )
+                report.would_remove.append(f"role {role!r} from {label} ({where})")
+                report.problems.append(f"role {role!r} is also in {label}")
 
 
 def _name(layout: dict, groups: dict[str, str], group_id: str) -> str:

@@ -99,9 +99,14 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
     Descriptive fields do not change it.
 - [x] `tests/test_memoryos_bench_corpus.py`: unique keys and digests, every Source and role names known Groups, the
   fingerprint moves with a file or an access change and not with a description.
+- [x] Upload deduplication is per Source (`uq_items_connector_sha`), so the Savico files already on staging under the
+  old `Tài liệu Savico - …` Sources do not block the benchmark copies. Those Sources stay as the demo data they are;
+  the benchmark roles never reach them because each role is placed in exactly its benchmark Groups.
 - [ ] Sign in the eight roles (`owner` and the seven of the layout) and run `provision` twice; the second run reports
   `corpus unchanged`. The existing benchmark accounts are also members of the old Savico Groups, so the first run
-  reports them; `--prune` removes those memberships only on the owner's go-ahead.
+  reports them in one block; `--prune` removes those memberships only on the owner's go-ahead. The first run uses
+  `--wait 0`: 36 of the 61 files are scanned or mixed and go through OCR on the serving node's GPU, the path staging
+  already uses, in more volume than a demo; a later run confirms every file `READY`.
 
 ## P4 — Questions
 

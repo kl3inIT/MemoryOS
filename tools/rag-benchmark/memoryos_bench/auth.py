@@ -139,7 +139,12 @@ def login(store: TokenStore, role: str, issuer: str) -> None:
         def log_message(self, *_: object) -> None:
             return None
 
-    server = HTTPServer(("127.0.0.1", REDIRECT_PORT), Callback)
+    try:
+        server = HTTPServer(("127.0.0.1", REDIRECT_PORT), Callback)
+    except OSError as error:
+        raise AuthError(
+            f"port {REDIRECT_PORT} is busy (another sign-in still waiting?); close it and retry"
+        ) from error
     url = (
         issuer.rstrip("/")
         + "/protocol/openid-connect/auth?"

@@ -40,3 +40,6 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ANN", "S"]
 "tests/*" = ["S101"]
 # URLs come from the manifest and the operator's configuration, never from a response.
 "memoryos_bench/*" = ["S310"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
