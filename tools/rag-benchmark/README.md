@@ -6,6 +6,22 @@ reaches an actor who may not read it.
 
 Design and delivery order: [MEM-141](../../docs/increments/completed/mem-141-rag-benchmark/design.md).
 
+## Benchmark corpus (MEM-230)
+
+The benchmark is moving to promptfoo over a corpus of its own: 61 public disclosures listed in
+[`corpus/manifest.json`](corpus/manifest.json), placed by [`corpus/layout.json`](corpus/layout.json) in
+`Benchmark - …` Sources and Groups. `memoryos_bench` builds it and needs only the Python standard library:
+
+```bash
+cd tools/rag-benchmark
+python -m memoryos_bench login --role owner exec finance legal governance ir hr outsider   # one browser sign-in each
+python -m memoryos_bench provision              # idempotent; prints the corpus fingerprint
+python -m memoryos_bench fingerprint
+```
+
+Tokens and the download cache live in `$MEMORYOS_BENCH_HOME` (default `~/.memoryos-bench`). The runner below still
+serves the old Savico question set until the questions move ([plan](../../docs/increments/active/mem-230-rag-bench-promptfoo/plan.md)).
+
 ## Setup
 
 ```bash

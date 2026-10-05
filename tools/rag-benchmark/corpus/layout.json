@@ -1,0 +1,29 @@
+{
+  "note": "Where the manifest's documents live on MemoryOS and which roles read them. Savico documents go to the Source of their department, read by that department's Group and by the executive Group; the Haxaco noise is read by every Group. A role is whichever account signed in for it (`python -m memoryos_bench login --role <role>`); no account is named here.",
+  "groups": {
+    "exec": "Benchmark - Điều hành",
+    "finance": "Benchmark - Tài chính",
+    "legal": "Benchmark - Pháp chế",
+    "governance": "Benchmark - Quản trị",
+    "investor-relations": "Benchmark - Quan hệ đầu tư",
+    "hr": "Benchmark - Nhân sự"
+  },
+  "sources": {
+    "finance": {"name": "Benchmark - Savico Tài chính", "groups": ["finance", "exec"]},
+    "legal": {"name": "Benchmark - Savico Pháp chế", "groups": ["legal", "exec"]},
+    "governance": {"name": "Benchmark - Savico Quản trị", "groups": ["governance", "exec"]},
+    "investor-relations": {"name": "Benchmark - Savico Quan hệ đầu tư", "groups": ["investor-relations", "exec"]},
+    "hr": {"name": "Benchmark - Savico Nhân sự", "groups": ["hr", "exec"]},
+    "noise": {"name": "Benchmark - Haxaco", "groups": ["exec", "finance", "legal", "governance", "investor-relations", "hr"]}
+  },
+  "roles": {
+    "exec": ["exec"],
+    "finance": ["finance"],
+    "legal": ["legal"],
+    "governance": ["governance"],
+    "ir": ["investor-relations"],
+    "hr": ["hr"],
+    "outsider": []
+  },
+  "administrator": "owner"
+}
