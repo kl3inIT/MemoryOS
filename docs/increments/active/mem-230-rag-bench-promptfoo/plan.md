@@ -84,8 +84,24 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
 
 ## P3 — Provisioning
 
-- [ ] Idempotent script: Sources and Groups `Benchmark - …`, uploads, indexing wait, members from the role mapping,
-  fingerprint printed. A second run changes nothing.
+- [x] [`memoryos_bench`](../../../../tools/rag-benchmark/memoryos_bench/), standard library only so it runs in the
+  promptfoo container as well as on a workstation:
+  - `login --role <role>`: Authorization Code with PKCE and `offline_access` through `memoryos-integration`; the
+    offline refresh token goes to `$MEMORYOS_BENCH_HOME/tokens.json` (0600). A role is whichever account signed in
+    for it, so no account is named in the repository; each role's actor comes from its own `/api/identity/me`.
+  - `provision`: as the `owner` role, creates or reconciles the Groups and Sources of
+    [`corpus/layout.json`](../../../../tools/rag-benchmark/corpus/layout.json) (six Groups; five Savico Sources by
+    department, read by their Group and the executive Group; one Haxaco Source read by every Group; all `PRIVATE`),
+    downloads each document from its publisher, refuses a digest that differs from the manifest, uploads what a
+    Source lacks, places each role in exactly its Groups and waits until every file is `READY`. A file or membership
+    the layout does not list fails the run unless `--prune` removes it.
+  - `fingerprint`: SHA-256 over each document's key, digest and Source, each Source's Groups and each role's Groups.
+    Descriptive fields do not change it.
+- [x] `tests/test_memoryos_bench_corpus.py`: unique keys and digests, every Source and role names known Groups, the
+  fingerprint moves with a file or an access change and not with a description.
+- [ ] Sign in the eight roles (`owner` and the seven of the layout) and run `provision` twice; the second run reports
+  `corpus unchanged`. The existing benchmark accounts are also members of the old Savico Groups, so the first run
+  reports them; `--prune` removes those memberships only on the owner's go-ahead.
 
 ## P4 — Questions
 
