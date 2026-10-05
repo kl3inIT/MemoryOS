@@ -32,6 +32,8 @@ check_pair pgweb "${MEMORYOS_PGWEB_PUBLIC_URL:-}" "${MEMORYOS_PGWEB_OAUTH2_CLIEN
 PGWEB_ENABLED=$PAIR_ENABLED
 check_pair redisinsight "${MEMORYOS_REDISINSIGHT_PUBLIC_URL:-}" "${MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET:-}"
 REDISINSIGHT_ENABLED=$PAIR_ENABLED
+check_pair promptfoo "${MEMORYOS_PROMPTFOO_PUBLIC_URL:-}" "${MEMORYOS_PROMPTFOO_OAUTH2_CLIENT_SECRET:-}"
+PROMPTFOO_ENABLED=$PAIR_ENABLED
 check_pair "minio console" "${MEMORYOS_MINIO_CONSOLE_PUBLIC_URL:-}" "${MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET:-}"
 MINIO_CONSOLE_ENABLED=$PAIR_ENABLED
 check_pair smtp "${MEMORYOS_KEYCLOAK_SMTP_HOST:-}" "${MEMORYOS_KEYCLOAK_SMTP_FROM:-}"
@@ -140,6 +142,7 @@ fi
 inspector_urls=""
 if [ "$PGWEB_ENABLED" = true ]; then inspector_urls="$inspector_urls $MEMORYOS_PGWEB_PUBLIC_URL"; fi
 if [ "$REDISINSIGHT_ENABLED" = true ]; then inspector_urls="$inspector_urls $MEMORYOS_REDISINSIGHT_PUBLIC_URL"; fi
+if [ "$PROMPTFOO_ENABLED" = true ]; then inspector_urls="$inspector_urls $MEMORYOS_PROMPTFOO_PUBLIC_URL"; fi
 if [ "$MINIO_CONSOLE_ENABLED" = true ]; then inspector_urls="$inspector_urls $MEMORYOS_MINIO_CONSOLE_PUBLIC_URL"; fi
 for inspector_url in $inspector_urls; do
     case "$inspector_url" in
@@ -165,6 +168,7 @@ umask 077
 export MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET
 export MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET
 export MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET
+export MEMORYOS_PROMPTFOO_OAUTH2_CLIENT_SECRET
 export MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET
 
 CONFIG_FILE=$(mktemp)
@@ -172,6 +176,7 @@ BROWSER_CLIENT_FILE=$(mktemp)
 MAILPIT_CLIENT_FILE=$(mktemp)
 PGWEB_CLIENT_FILE=$(mktemp)
 REDISINSIGHT_CLIENT_FILE=$(mktemp)
+PROMPTFOO_CLIENT_FILE=$(mktemp)
 MINIO_CONSOLE_CLIENT_FILE=$(mktemp)
 PROVISIONER_CLIENT_FILE=$(mktemp)
 MCP_AUDIENCE_MAPPER_FILE=$(mktemp)
@@ -183,7 +188,7 @@ cleanup() {
         "$BROWSER_CLIENT_FILE" \
         "$MAILPIT_CLIENT_FILE" \
         "$PGWEB_CLIENT_FILE" \
-        "$REDISINSIGHT_CLIENT_FILE" \
+        "$REDISINSIGHT_CLIENT_FILE"         "$PROMPTFOO_CLIENT_FILE" \
         "$MINIO_CONSOLE_CLIENT_FILE" \
         "$PROVISIONER_CLIENT_FILE" \
         "$MCP_AUDIENCE_MAPPER_FILE" \
@@ -604,6 +609,12 @@ jq --arg publicUrl "$MEMORYOS_REDISINSIGHT_PUBLIC_URL" \
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-redisinsight-client.json" >"$REDISINSIGHT_CLIENT_FILE"
 fi
+if [ "$PROMPTFOO_ENABLED" = true ]; then
+jq --arg publicUrl "$MEMORYOS_PROMPTFOO_PUBLIC_URL"     '.rootUrl = $publicUrl
+     | .redirectUris = [$publicUrl + "/oauth2/callback"]
+     | .webOrigins = [$publicUrl]
+     | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")'     "$SCRIPT_DIR/memoryos-promptfoo-client.json" >"$PROMPTFOO_CLIENT_FILE"
+fi
 if [ "$MINIO_CONSOLE_ENABLED" = true ]; then
 jq --arg publicUrl "$MEMORYOS_MINIO_CONSOLE_PUBLIC_URL" \
     '.rootUrl = $publicUrl
@@ -706,6 +717,14 @@ jq -cn '{secret: env.MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET}' |
         -f - >/dev/null
 grant_inspector_role_to_client
 echo "client=memoryos-redisinsight secret=updated role=memoryos-inspector"
+fi
+
+if [ "$PROMPTFOO_ENABLED" = true ]; then
+upsert_client memoryos-promptfoo "$PROMPTFOO_CLIENT_FILE"
+jq -cn '{secret: env.MEMORYOS_PROMPTFOO_OAUTH2_CLIENT_SECRET}' |
+    "$KCADM" update "clients/$CLIENT_UUID"         --config "$CONFIG_FILE"         -r "$TARGET_REALM"         -f - >/dev/null
+grant_inspector_role_to_client
+echo "client=memoryos-promptfoo secret=updated role=memoryos-inspector"
 fi
 
 if [ "$MINIO_CONSOLE_ENABLED" = true ]; then
