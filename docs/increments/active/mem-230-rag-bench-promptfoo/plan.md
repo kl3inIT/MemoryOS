@@ -21,16 +21,20 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
 - [x] `promptfoo` and `promptfoo-oauth2-proxy` in `compose.staging.yaml`: the viewer only on an internal access
   network, egress on its own network, `memoryos-inspector` required; client `memoryos-promptfoo` in the realm script;
   secrets in `provision-staging-secrets.sh`; `MEMORYOS_PROMPTFOO_PUBLIC_URL` in `staging.env.example` and the runbook.
-- [ ] Staging, before the merge (one step at a time, each approved):
-  1. Prove the read-only root filesystem with a throwaway `docker run --read-only` of the pinned image: the server
-     answers `/health`, `promptfoo --version` runs, and `python3` imports `ssl`, `sqlite3`, `json` and
-     `urllib.request`.
-  2. Run `provision-staging-secrets.sh`; add `MEMORYOS_PROMPTFOO_PUBLIC_URL` to `/apps/memoryos/.env.staging`;
-     create `/apps/memoryos/promptfoo`.
-  3. Run the realm script with the complete operator environment of its last staging run plus the promptfoo pair
-     (the secret value read from the file of step 2). A partial environment is not harmless: without the SMTP pair
-     the script clears the realm's mail server.
-  4. Nginx Proxy Manager host `memoryos-bench.72-62-193-33.nip.io` to `memoryos-promptfoo-oauth2-proxy:4180`.
+- [x] Staging, before the merge, 2026-10-05:
+  1. A throwaway `docker run --read-only --cap-drop ALL` of the pinned image became healthy, answered `/health`, ran
+     `promptfoo --version`, and its `python3` imported `ssl` (OpenSSL 3.5.8), `sqlite3`, `json` and
+     `urllib.request`. No write error in its log.
+  2. `provision-staging-secrets.sh` created only the two promptfoo secrets (mode 600); `/apps/memoryos/promptfoo`
+     exists (750); `.env.staging` carries `MEMORYOS_PROMPTFOO_PUBLIC_URL`.
+  3. The realm script's environment of its last staging run is not on the server, and a partial run would clear the
+     realm's mail server. Only the promptfoo part was applied, through the admin REST API in the script's order:
+     confidential client with the exact callback, no full scope, secret equal to the file, realm scope mapping
+     exactly `memoryos-inspector`. A later full run of the script updates the same client.
+  4. Nginx Proxy Manager, through its API after a database dump (`npm-pre-mem230-20261005T0931Z.sql`):
+     Let's Encrypt certificate 36 for the exact domain and proxy host 32 to `memoryos-promptfoo-oauth2-proxy:4180`,
+     with the Redis Insight host's settings. HTTP redirects to HTTPS; HTTPS validates and answers 502 until the
+     service is deployed. The other hosts still answer.
 - [ ] Leave draft and merge only after steps 1–4: `STAGING_AUTO_DEPLOY` is on and `MEMORYOS_PROMPTFOO_PUBLIC_URL` is
   required, so an early merge fails the deployment. Set MEM-230 back to In Progress after the merge. The staging
   deployment starts the service. Sign in with the inspector role; a user without it is refused.
