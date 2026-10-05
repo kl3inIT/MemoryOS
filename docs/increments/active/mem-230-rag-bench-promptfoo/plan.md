@@ -146,12 +146,30 @@ Method: [question authoring and bias controls](design.md#question-authoring-and-
 
 ## P5 — promptfoo
 
-- [ ] Python provider, standard library only (the root filesystem is read-only): offline token per role, ask, read the event stream (time to first text), return the answer,
-  sources and the text of each read passage. It reaches MemoryOS through the public staging origin and the judge
-  through `https://9router.zeromail.vn/v1`: its egress network has no route to the internal `api` service.
-- [ ] Tests generated from the question set; built-in assertions; the two MemoryOS assertions.
-- [ ] Judge calibration: `factuality` on the 87 answers judged on 2026-10-03; on a large disagreement replace its
-  `rubricPrompt` with a Vietnamese one, still the built-in assertion.
+- [x] [`memoryos_bench/chat.py`](../../../../tools/rag-benchmark/memoryos_bench/chat.py) asks in a fresh session as a
+  role, waits for the saved reply, returns the answer, `refusalReason`, the cited sources with the text of each cited
+  span (read through the citation reader), the documents the timeline read, the steps and the time. Document titles
+  are the manifest file names, so sources map back to manifest ids. History is polled rather than streamed, so time
+  to first text is not measured yet.
+- [x] Grounded runs ask through the agent `Benchmark - grounded` (the built-in assistant's settings with grounded
+  on, public in the Tenant), created by `provision`; the Tenant's grounded setting is left as staging users have it.
+- [x] [`promptfoo/memoryos_provider.py`](../../../../tools/rag-benchmark/promptfoo/memoryos_provider.py) runs inside
+  the viewer container with the role tokens in its data volume; a turn that does not complete is an error, never
+  graded as a refusal. [`promptfoo/build_config.py`](../../../../tools/rag-benchmark/promptfoo/build_config.py)
+  turns the frozen set into 361 standard and 375 grounded tests: who asks follows the design, `answer` is scored by
+  built-in `factuality` and `context-faithfulness`, `partial`, `abstain` and `follow_gold` by `llm-rubric` (the
+  abstain rubric differs by mode), and [`promptfoo/assertions.py`](../../../../tools/rag-benchmark/promptfoo/assertions.py)
+  checks forbidden or tempting documents and, in grounded mode, that every `[n]` names a source. The judge is
+  `cx/gpt-6-luna`, its key read from the viewer's secret by the run command.
+- [x] Judge calibration, changed from the plan: the 87 answers of 2026-10-03 belong to the old question set, so the
+  judge was checked instead on two smoke runs of 15 tests, every verdict read by hand. That found and fixed: a
+  missing `query` variable, rubrics that failed true facts the gold did not mention and judged two near-identical
+  replies differently, an abstain rubric that did not distinguish modes, failed turns graded as refusals, and an
+  incomplete gold (cross-039, corrected: the March 2025 change is the chief accountant's replacement, dismissal and
+  appointment). `factuality` agreed with every hand verdict on answerable rows.
+- [x] First findings from the smoke runs, to be confirmed by the baseline: department roles asked the cross-company
+  near-miss answer with Haxaco's dismissal as Savico's; in standard mode a question whose evidence is a scanned
+  regulation was answered from general knowledge with no search at all; some turns end `CHAT_EXECUTION_FAILED`.
 
 ## P6 — Baselines and removal
 

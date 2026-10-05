@@ -256,6 +256,75 @@ def wait_until_searchable(
         time.sleep(30)
 
 
+# What a benchmark agent copies from the built-in assistant, so only the layout's flags differ.
+AGENT_FIELDS = (
+    "instructions",
+    "taskPrompt",
+    "tools",
+    "replaceBaseSystemPrompt",
+    "contextTokenLimit",
+    "outputTokenLimit",
+    "modelConfigurationId",
+)
+
+
+def ensure_agents(api: Api, layout: dict, groups: dict[str, str], report: Report) -> dict[str, str]:
+    """Benchmark agents: the built-in assistant with the layout's flags, shared per the layout."""
+    personas, offset = [], 0
+    while True:
+        page = api.get("/api/chat/personas", view="ALL", offset=offset, limit=100)
+        personas += page
+        if len(page) < 100:
+            break
+        offset += 100
+    builtin = next(p for p in personas if p.get("builtin"))
+    ids = {}
+    for key, spec in layout.get("agents", {}).items():
+        body = {field: builtin.get(field) for field in AGENT_FIELDS}
+        body.update(
+            {
+                "name": spec["name"],
+                "description": "MEM-230 benchmark",
+                "grounded": spec["grounded"],
+                "sourceIds": [],
+                "documentSetIds": [],
+                "starterPrompts": [],
+                "fileIds": [],
+            }
+        )
+        existing = next(
+            (p for p in personas if p["name"] == spec["name"] and not p.get("builtin")), None
+        )
+        if existing is None:
+            existing = api.post("/api/chat/personas", body)
+            report.note(f"agent created: {spec['name']}")
+        elif any(
+            existing.get(k) != v
+            for k, v in body.items()
+            if k in ("grounded", "instructions", "tools")
+        ):
+            existing = api.put(
+                f"/api/chat/personas/{existing['id']}?revision={existing['revision']}", body
+            )
+            report.note(f"agent updated: {spec['name']}")
+        wanted = sorted(groups[g] for g in spec["sharedWith"])
+        current = sorted(s["group"]["id"] for s in existing.get("groupShares") or [])
+        public = bool(spec.get("public"))
+        if current != wanted or bool(existing.get("isPublic")) != public:
+            api.put(
+                f"/api/chat/personas/{existing['id']}/sharing?revision={existing['revision']}",
+                {
+                    "users": [],
+                    "isPublic": public,
+                    "publicPermission": "VIEWER",
+                    "groups": [{"groupId": g, "permission": "VIEWER"} for g in wanted],
+                },
+            )
+            report.note(f"agent shared: {spec['name']}")
+        ids[key] = existing["id"]
+    return ids
+
+
 def provision(
     api: Api,
     manifest: dict,
@@ -270,6 +339,7 @@ def provision(
     sources = ensure_sources(api, layout, groups, report)
     ensure_documents(api, manifest, layout, sources, cache, report, prune)
     ensure_members(api, layout, groups, actors, report, prune)
+    ensure_agents(api, layout, groups, report)
     if wait_seconds > 0:
         wait_until_searchable(api, layout, sources, wait_seconds, report)
     return report

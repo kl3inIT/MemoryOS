@@ -42,6 +42,9 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ANN", "S"]
 "memoryos_bench/*" = ["S310"]
 # Authoring aids hold Vietnamese prompts and docstrings; their URLs are the configured judge endpoint.
 "authoring/*" = ["E501", "S310"]
+# The promptfoo provider and config hold Vietnamese rubrics; the provider must catch every failure to
+# report it on the row.
+"promptfoo/*" = ["E501", "BLE001"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -1,5 +1,5 @@
 {
-  "note": "Where the manifest's documents live on MemoryOS and which roles read them. Savico documents go to the Source of their department, read by that department's Group and by the executive Group; the Haxaco noise is read by every Group. A role is whichever account signed in for it (`python -m memoryos_bench login --role <role>`); no account is named here.",
+  "note": "Where the manifest's documents live on MemoryOS and which roles read them. Savico documents go to the Source of their department, read by that department's Group and by the executive Group; the Haxaco noise is read by every Group. A role is whichever account signed in for it (`python -m memoryos_bench login --role <role>`); no account is named here. The grounded runs ask through the agent `Benchmark - grounded`: the built-in assistant's settings with grounded answers on, shared with every benchmark Group and public in the Tenant (so the outsider role, which reads no benchmark Group, asks through it too), so the Tenant setting stays as staging users have it.",
   "groups": {
     "exec": "Benchmark - Điều hành",
     "finance": "Benchmark - Tài chính",
@@ -9,21 +9,88 @@
     "hr": "Benchmark - Nhân sự"
   },
   "sources": {
-    "finance": {"name": "Benchmark - Savico Tài chính", "groups": ["finance", "exec"]},
-    "legal": {"name": "Benchmark - Savico Pháp chế", "groups": ["legal", "exec"]},
-    "governance": {"name": "Benchmark - Savico Quản trị", "groups": ["governance", "exec"]},
-    "investor-relations": {"name": "Benchmark - Savico Quan hệ đầu tư", "groups": ["investor-relations", "exec"]},
-    "hr": {"name": "Benchmark - Savico Nhân sự", "groups": ["hr", "exec"]},
-    "noise": {"name": "Benchmark - Haxaco", "groups": ["exec", "finance", "legal", "governance", "investor-relations", "hr"]}
+    "finance": {
+      "name": "Benchmark - Savico Tài chính",
+      "groups": [
+        "finance",
+        "exec"
+      ]
+    },
+    "legal": {
+      "name": "Benchmark - Savico Pháp chế",
+      "groups": [
+        "legal",
+        "exec"
+      ]
+    },
+    "governance": {
+      "name": "Benchmark - Savico Quản trị",
+      "groups": [
+        "governance",
+        "exec"
+      ]
+    },
+    "investor-relations": {
+      "name": "Benchmark - Savico Quan hệ đầu tư",
+      "groups": [
+        "investor-relations",
+        "exec"
+      ]
+    },
+    "hr": {
+      "name": "Benchmark - Savico Nhân sự",
+      "groups": [
+        "hr",
+        "exec"
+      ]
+    },
+    "noise": {
+      "name": "Benchmark - Haxaco",
+      "groups": [
+        "exec",
+        "finance",
+        "legal",
+        "governance",
+        "investor-relations",
+        "hr"
+      ]
+    }
   },
   "roles": {
-    "exec": ["exec"],
-    "finance": ["finance"],
-    "legal": ["legal"],
-    "governance": ["governance"],
-    "ir": ["investor-relations"],
-    "hr": ["hr"],
+    "exec": [
+      "exec"
+    ],
+    "finance": [
+      "finance"
+    ],
+    "legal": [
+      "legal"
+    ],
+    "governance": [
+      "governance"
+    ],
+    "ir": [
+      "investor-relations"
+    ],
+    "hr": [
+      "hr"
+    ],
     "outsider": []
   },
-  "administrator": "owner"
+  "administrator": "owner",
+  "agents": {
+    "grounded": {
+      "name": "Benchmark - grounded",
+      "grounded": true,
+      "sharedWith": [
+        "exec",
+        "finance",
+        "legal",
+        "governance",
+        "investor-relations",
+        "hr"
+      ],
+      "public": true
+    }
+  }
 }
