@@ -102,11 +102,17 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
 - [x] Upload deduplication is per Source (`uq_items_connector_sha`), so the Savico files already on staging under the
   old `Tài liệu Savico - …` Sources do not block the benchmark copies. Those Sources stay as the demo data they are;
   the benchmark roles never reach them because each role is placed in exactly its benchmark Groups.
-- [ ] Sign in the eight roles (`owner` and the seven of the layout) and run `provision` twice; the second run reports
-  `corpus unchanged`. The existing benchmark accounts are also members of the old Savico Groups, so the first run
-  reports them in one block; `--prune` removes those memberships only on the owner's go-ahead. The first run uses
-  `--wait 0`: 36 of the 61 files are scanned or mixed and go through OCR on the serving node's GPU, the path staging
-  already uses, in more volume than a demo; a later run confirms every file `READY`.
+- [x] 2026-10-05, staging. The eight roles were signed in without a browser: the realm's bootstrap administrator
+  impersonated each test account and the normal PKCE flow of `memoryos-integration` then issued an offline token;
+  no password changed. `provision --wait 0` created the six Groups and six Sources and uploaded all 61 files; after a
+  Windows console encoding failure and a dropped connection, both fixed in #549, the next run placed each role and
+  listed five memberships outside the benchmark (`finance`, `legal`, `governance`, `ir`, `hr` in their old
+  `Savico - …` Groups; `hr` also read the 46 Tasco documents through `Savico - HROD`). On the owner's go-ahead
+  `--prune` removed them; the old Groups, Sources and other members are unchanged. The following run reported
+  `corpus unchanged`, fingerprint `6f95c22c5f147a927312b04de4546dca187b2687032162e97efe4b0305ca91ee`.
+- [x] Each role's readable Sources (`/api/chat/library/documents/sources`): `exec` the six benchmark Sources; each
+  department role its own Savico Source and Haxaco; `outsider` none.
+- [ ] Every file `READY` (indexing in progress: 20 of 61 at 10:43 UTC, none failed).
 
 ## P4 — Questions
 
