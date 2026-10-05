@@ -28,6 +28,12 @@ class Api:
     def post(self, path: str, body: object | None = None) -> object:
         return self._call("POST", path, body=body)
 
+    def put(self, path: str, body: object | None = None) -> object:
+        return self._call("PUT", path, body=body)
+
+    def delete(self, path: str) -> object:
+        return self._call("DELETE", path)
+
     def _call(
         self,
         method: str,
