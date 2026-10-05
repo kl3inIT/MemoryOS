@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -50,9 +51,7 @@ class Api:
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                raw = response.read()
-                return json.loads(raw) if raw else None
+            return _send(request, attempts=3 if method == "GET" else 1)
         except urllib.error.HTTPError as error:
             if error.code == 401 and not retried:
                 self._session.invalidate()
@@ -60,6 +59,20 @@ class Api:
             raise ApiError(
                 method, path, error.code, error.read().decode(errors="replace")
             ) from error
+
+
+def _send(request: urllib.request.Request, attempts: int) -> object:
+    """A read is retried on a dropped connection; a write is not, since it may have landed."""
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                raw = response.read()
+                return json.loads(raw) if raw else None
+        except (urllib.error.URLError, TimeoutError) as error:
+            if isinstance(error, urllib.error.HTTPError) or attempt == attempts - 1:
+                raise
+            time.sleep(2 * (attempt + 1))
+    raise AssertionError("unreachable")
 
 
 def put_object(url: str, headers: dict, data: bytes) -> None:

@@ -21,7 +21,7 @@ def _json(path: Path) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Group and Source names are Vietnamese; a Windows console would otherwise fail on the first one.
+    # Group and Source names are Vietnamese; a Windows console would fail on the first one.
     for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(prog="memoryos_bench")

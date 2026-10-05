@@ -78,8 +78,7 @@ def fetch(document: dict, cache: Path) -> bytes:
     digest = hashlib.sha256(data).hexdigest()
     if digest != document["sha256"]:
         raise RuntimeError(
-            f"{document['id']}: the publisher's file changed (sha256 {digest});"
-            " update the manifest"
+            f"{document['id']}: the publisher's file changed (sha256 {digest}); update the manifest"
         )
     cache.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
