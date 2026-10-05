@@ -28,7 +28,7 @@ MEDIA_TYPES = {
 class Report:
     created: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
-    # Memberships --prune would remove, shown as one block so the owner reads them before allowing it.
+    # Memberships --prune would remove, shown as one block read before --prune is allowed.
     would_remove: list[str] = field(default_factory=list)
 
     def note(self, line: str) -> None:
@@ -200,7 +200,7 @@ def ensure_members(
     membership: dict[str, set[str]] = {}
     names: dict[str, str] = {}
     # Every Group's members, one call per Group: a role's memberships outside the benchmark are what
-    # would let it read documents the questions do not expect. Fine for a staging Tenant's few Groups.
+    # would let it read documents the questions do not expect. Fine for a staging Tenant.
     for group in _pages(api, "/api/groups"):
         if group.get("systemKey"):
             continue
