@@ -40,6 +40,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ANN", "S"]
 "tests/*" = ["S101"]
 # URLs come from the manifest and the operator's configuration, never from a response.
 "memoryos_bench/*" = ["S310"]
+# Authoring aids hold Vietnamese prompts and docstrings; their URLs are the configured judge endpoint.
+"authoring/*" = ["E501", "S310"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

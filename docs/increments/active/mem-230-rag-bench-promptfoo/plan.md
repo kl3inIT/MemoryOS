@@ -118,14 +118,31 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
 
 Method: [question authoring and bias controls](design.md#question-authoring-and-bias-controls).
 
-- [ ] Page extraction from the originals and a seeded page sampler that emits review bundles (text, and page images
-  for scanned and mixed pages); the seed and quota table committed.
-- [ ] Draft by department in batches from sampled pages; overlap check; numeric gold checked on images.
-- [ ] Re-author or drop the 90 MEM-141 candidates.
-- [ ] Blind validation by a third model, twice per question; rewrite or drop on disagreement.
-- [ ] Generate per-role expectations from `layout.json`; stratified seeded `dev`/`test` split.
-- [ ] `check`: every quote is on its page of the original, every expectation matches the layout.
-- [ ] `review.md` with a random 20% sample for the owner; freeze the set.
+- [x] [`authoring/pages.py`](../../../../tools/rag-benchmark/authoring/pages.py) extracts 1,750 pages from the 61
+  originals (1,075 read from images, 462 prose, 213 tables). [`corpus/sample.json`](../../../../tools/rag-benchmark/corpus/sample.json),
+  seed 230: 24 pages per department, one page of every question document first (49 of 49 covered) and the rest at
+  random; finance has 12 table pages. A first draw that was uniform over pages left the short quarterly statements
+  out and was replaced before any question was written.
+- [x] Drafted 2026-10-05 by six Claude agents from [`authoring/BRIEF.md`](../../../../tools/rag-benchmark/authoring/BRIEF.md):
+  17 per department and 40 across departments, ambiguous, general knowledge and sensitive; 125 in all. Pages with
+  identity numbers and relatives were left out, and one question about a board member's spouse was replaced. The 90
+  MEM-141 candidates were reused only where their fact sat on a drawn page and was re-authored from it.
+- [x] Blind validation on the staging host (`cx/gpt-6-luna` and `cx/gpt-6-sol`, both must pass): 111 of 125 at first.
+  The rejections taught three rules now in the brief and the tool: quotes stand alone, `as_of` reaches the validator,
+  the whole-document pass is skipped for scanned evidence. 12 questions were sent back once; 5 still rejected
+  (finance-014, cross-009, cross-012, cross-020, cross-021) were dropped. The shared Codex accounts rate-limit
+  above two concurrent requests; the run moved to the server after the workstation ran out of memory.
+- [x] [`corpus/questions.jsonl`](../../../../tools/rag-benchmark/corpus/questions.jsonl): 120 questions, every quote on
+  its page of the original (pieces joined by `|` each checked, Unicode-normalised), trigram overlap at most 0.41,
+  per-role expectations derived from `layout.json`, split 75 dev / 45 test. lookup 30, cross-department 13, near-miss
+  12, temporal 10, aggregate 10, multi-hop 10, absent 9, general knowledge 8, ambiguous 6, sensitive 6, false
+  premise 6.
+- [x] Review, 2026-10-06. The owner delegated it ("bạn thấy ổn là được"), so the 24-question seeded sample
+  (viewer eval `eval-JrW-2026-10-05T19:05:12`) was reviewed by Claude, the drafting family; the validators remain the
+  independent check. No gold answer was wrong. Two defects of the derived expectations were found and fixed for the
+  whole set: general-knowledge and sensitive questions are `grounded_only` (14), since only grounded mode must
+  decline them; a near-miss or false-premise question read only in part is `partial`, not `follow_gold`.
+  The set is frozen at 120.
 
 ## P5 — promptfoo
 
