@@ -429,8 +429,22 @@ services:
     <<: *staging-service-defaults
     image: ${MEMORYOS_PROMPTFOO_IMAGE:-ghcr.io/promptfoo/promptfoo:0.123.1@sha256:2dfddde000886e9a0bcce799478095a2e7d1e4438a6c6669ac04001e8ae29b85}
     container_name: memoryos-promptfoo
+    # The viewer creates and runs evals too: the OpenAI-compatible provider is 9Router under the benchmark's
+    # own key, read from its secret file so it never sits in the environment file.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - OPENAI_API_KEY="$$(cat /run/secrets/promptfoo_judge_api_key)" exec docker-entrypoint.sh "$$@"
+      - promptfoo
+    command:
+      - node
+      - dist/src/server/index.js
+    secrets:
+      - promptfoo_judge_api_key
     environment:
-      # Nothing leaves the host except the providers an eval names.
+      OPENAI_BASE_URL: ${MEMORYOS_PROMPTFOO_OPENAI_BASE_URL:-https://9router.zeromail.vn/v1}
+      # Nothing leaves the host except the providers an eval names; remote generation would send prompts to
+      # promptfoo's cloud.
       PROMPTFOO_DISABLE_TELEMETRY: "1"
       PROMPTFOO_DISABLE_UPDATE: "1"
       PROMPTFOO_DISABLE_REMOTE_GENERATION: "true"
@@ -564,6 +578,8 @@ secrets:
     file: ${MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY_FILE:?Set MEMORYOS_REDISINSIGHT_ENCRYPTION_KEY_FILE}
   redisinsight_oauth2_client_secret:
     file: ${MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET_FILE:?Set MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET_FILE}
+  promptfoo_judge_api_key:
+    file: ${MEMORYOS_PROMPTFOO_JUDGE_API_KEY_FILE:-/apps/memoryos/secrets/inspection/promptfoo-judge-api-key.txt}
   promptfoo_oauth2_client_secret:
     file: ${MEMORYOS_PROMPTFOO_OAUTH2_CLIENT_SECRET_FILE:-/apps/memoryos/secrets/inspection/promptfoo-oauth2-client-secret.txt}
   promptfoo_oauth2_cookie_secret:
