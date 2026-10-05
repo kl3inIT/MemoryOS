@@ -33,7 +33,9 @@ def main(argv: list[str] | None = None) -> int:
     sign_in = commands.add_parser(
         "login", help="sign one role in through the browser (offline token)"
     )
-    sign_in.add_argument("--role", required=True)
+    sign_in.add_argument(
+        "--role", required=True, nargs="+", help="one or more roles, signed in in turn"
+    )
     sign_in.add_argument(
         "--issuer",
         default=os.environ.get("MEMORYOS_ISSUER", "https://auth.kl3in.tech/realms/memoryos"),
@@ -60,7 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     store = TokenStore(args.home / "tokens.json")
 
     if args.command == "login":
-        login(store, args.role, args.issuer)
+        for role in args.role:
+            login(store, role, args.issuer)
         return 0
     if args.command == "fingerprint":
         print(fingerprint(manifest, layout))

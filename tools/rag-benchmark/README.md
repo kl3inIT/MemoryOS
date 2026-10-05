@@ -14,7 +14,7 @@ The benchmark is moving to promptfoo over a corpus of its own: 61 public disclos
 
 ```bash
 cd tools/rag-benchmark
-python -m memoryos_bench login --role owner     # once per role: owner, exec, finance, legal, governance, ir, hr, outsider
+python -m memoryos_bench login --role owner exec finance legal governance ir hr outsider   # one browser sign-in each
 python -m memoryos_bench provision              # idempotent; prints the corpus fingerprint
 python -m memoryos_bench fingerprint
 ```
