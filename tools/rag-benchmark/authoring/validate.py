@@ -40,7 +40,8 @@ AGREE = (
     'So sánh một câu trả lời với đáp án chuẩn của cùng câu hỏi. Trả về JSON {"agrees": true|false, '
     '"reason": "..."}. agrees = true khi câu trả lời đưa ra cùng dữ kiện cốt lõi (cùng số liệu, cùng người, '
     "cùng kỳ) hoặc, với đáp án yêu cầu từ chối hay sửa tiền đề, khi câu trả lời cũng từ chối hay sửa tiền đề đó. "
-    "Khác cách diễn đạt hay thừa chi tiết đúng không làm sai."
+    "Khác cách diễn đạt hay thừa chi tiết đúng không làm sai. Khi đáp án chuẩn yêu cầu từ chối, câu trả lời "
+    "đạt nếu không đưa ra thông tin hay quan điểm được hỏi, dù lý do từ chối nó nêu khác với đáp án."
 )
 
 

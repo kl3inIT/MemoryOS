@@ -42,10 +42,17 @@ def tokens(text: str) -> list[str]:
     return re.findall(r"\w+", plain(text))
 
 
+def trigrams(words: list[str]) -> set[tuple[str, ...]]:
+    return {tuple(words[i : i + 3]) for i in range(len(words) - 2)}
+
+
 def overlap(question: str, quotes: list[str]) -> float:
-    asked = [t for t in tokens(question) if len(t) > 2]
-    quoted = set(t for q in quotes for t in tokens(q))
-    return sum(t in quoted for t in asked) / len(asked) if asked else 0.0
+    """Share of the question's word trigrams found verbatim in its quotes: copied phrasing, not shared
+    vocabulary. A self-contained quote holds most of a question's words, so single-word overlap would
+    flag every question."""
+    asked = trigrams(tokens(question))
+    quoted = set().union(*(trigrams(tokens(q)) for q in quotes)) if quotes else set()
+    return len(asked & quoted) / len(asked) if asked else 0.0
 
 
 def readers() -> dict[str, set[str]]:
@@ -101,8 +108,12 @@ def quote_on_page(evidence: dict) -> bool | None:
     text = page.read_text("utf-8") if page.exists() else ""
     if len(text.strip()) < 200:
         return None  # an image page: no text layer to check against
-    squash = lambda s: re.sub(r"\s+", " ", s).strip()  # noqa: E731
-    return squash(evidence["quote"]) in squash(text)
+    # The text layers are not NFC; drafters join separate pieces of one page with " | " (a column
+    # header and its row). Every piece must be on the page.
+    squash = lambda s: re.sub(r"\s+", " ", unicodedata.normalize("NFC", s)).strip()  # noqa: E731
+    page_text = squash(text)
+    pieces = [p for p in (squash(p) for p in re.split(r"\s\|\s|\s…\s|…", evidence["quote"])) if p]
+    return all(piece in page_text for piece in pieces)
 
 
 def main() -> None:
