@@ -35,10 +35,18 @@ promptfoo, baselines, removal of the old runner), P7, and P8.
      Let's Encrypt certificate 36 for the exact domain and proxy host 32 to `memoryos-promptfoo-oauth2-proxy:4180`,
      with the Redis Insight host's settings. HTTP redirects to HTTPS; HTTPS validates and answers 502 until the
      service is deployed. The other hosts still answer.
-- [ ] Leave draft and merge only after steps 1–4: `STAGING_AUTO_DEPLOY` is on and `MEMORYOS_PROMPTFOO_PUBLIC_URL` is
-  required, so an early merge fails the deployment. Set MEM-230 back to In Progress after the merge. The staging
-  deployment starts the service. Sign in with the inspector role; a user without it is refused.
-  Remove the hand-run `/apps/promptfoo` container and its volume.
+- [x] Merged as #544 (`b46c6fff`); the staging deployment succeeded. `deploy.sh` recreates only Keycloak, the API,
+  worker, web and interpreter, so the staging-only tools are started by an operator from the accepted configuration:
+
+  ```sh
+  files=(); while IFS= read -r f; do files+=(-f "$f"); done < /apps/memoryos/deployments/current.compose
+  docker compose --project-name memoryos --env-file /apps/memoryos/deployments/current.base.env     --env-file /apps/memoryos/deployments/current.env "${files[@]}"     up -d --no-deps --wait promptfoo promptfoo-oauth2-proxy
+  ```
+
+  Both became healthy; the public origin redirects to the realm with client `memoryos-promptfoo`, PKCE and the exact
+  callback, and the API redirects too without a session.
+- [ ] Browser check: the owner (inspector role) reaches the viewer; a user without the role is refused.
+- [ ] Remove the hand-run `/apps/promptfoo` container and its volume.
 - [ ] 9Router key `memoryos-benchmark`.
 
 ## P2 — Corpus
