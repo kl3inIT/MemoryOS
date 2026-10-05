@@ -174,6 +174,8 @@ MEMORYOS_PGWEB_PUBLIC_URL # exact HTTPS origin
 MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET
 MEMORYOS_REDISINSIGHT_PUBLIC_URL # exact HTTPS origin
 MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET
+MEMORYOS_PROMPTFOO_PUBLIC_URL # exact HTTPS origin of the RAG benchmark viewer (MEM-230)
+MEMORYOS_PROMPTFOO_OAUTH2_CLIENT_SECRET
 MEMORYOS_MINIO_CONSOLE_PUBLIC_URL # exact HTTPS origin; callback is /oauth_callback
 MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET
 MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET
@@ -193,7 +195,7 @@ MEMORYOS_MCP_ADMIN_CLIENT_SECRET   # required with MEMORYOS_MCP_ENDPOINT_URL and
 With `MEMORYOS_MCP_ENDPOINT_URL` the script also configures the MCP endpoint's scope, audience, Claude client policy
 and the ChatGPT client; the [MCP endpoint runbook](mcp-endpoint.md) owns that part.
 
-Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set all three inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb and Redis Insight OAuth secrets remain separate from the MinIO OIDC secret. Store every client secret outside Git; mount pgweb/Redis Insight secrets into their OAuth2 Proxies and the MinIO OIDC secret directly into MinIO.
+Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set every inspection URL to an exact HTTPS origin without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb, Redis Insight and promptfoo OAuth secrets remain separate from the MinIO OIDC secret. Store every client secret outside Git; mount the pgweb, Redis Insight and promptfoo secrets into their OAuth2 Proxies and the MinIO OIDC secret directly into MinIO.
 
 If a future invitee email is already owned by an unrelated unverified Keycloak user, invitation issue fails closed. An operator must inspect that exact user in the `memoryos` realm, confirm ownership out of band, and delete or repair it through the Keycloak admin console before retrying. MemoryOS never takes over or deletes the account automatically.
 
