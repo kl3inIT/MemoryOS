@@ -115,13 +115,13 @@ def agrees(model: str, question: dict, reply: str, key: str) -> tuple[bool, str]
 
 def validate(question: dict, key: str) -> dict:
     passages = "\n\n".join(
-        f"[{e['document']}, trang {e['page']}]\n{e['quote']}" for e in question["evidence"]
+        f"[{label(e['document'])}, trang {e['page']}]\n{e['quote']}" for e in question["evidence"]
     )
     documents, skipped = [], []
     for document in sorted({e["document"] for e in question["evidence"]}):
         text, readable = document_text(document)
         if readable:
-            documents.append(f"=== {document} ===\n{text}")
+            documents.append(f"=== {label(document)} ===\n{text}")
         else:
             skipped.append(document)
     results = {}
