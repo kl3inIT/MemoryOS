@@ -10,8 +10,9 @@ from memoryos_bench.api import Api
 
 # A turn that reads, rewrites and selects can take minutes on a scanned corpus.
 REPLY_TIMEOUT_SECONDS = 600
-# Enough of each cited span for a faithfulness judge; a span longer than this is cut.
-PASSAGE_CHARS = 6000
+# The whole cited span: the first baseline cut spans at 6,000 characters and lost figures the answer
+# took from further in. This bounds only a pathological span.
+PASSAGE_CHARS = 60_000
 TITLE_ID = re.compile(r"\.(pdf|docx?|xlsx?)$", re.IGNORECASE)
 
 

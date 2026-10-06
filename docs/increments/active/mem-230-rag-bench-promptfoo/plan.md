@@ -171,6 +171,21 @@ Method: [question authoring and bias controls](design.md#question-authoring-and-
   near-miss answer with Haxaco's dismissal as Savico's; in standard mode a question whose evidence is a scanned
   regulation was answered from general knowledge with no search at all; some turns end `CHAT_EXECUTION_FAILED`.
 
+- [x] First baseline, 2026-10-05, corpus `6f95c22c…`, chat model `cx/gpt-6-luna`, 2 concurrent turns (3 and 4
+  locked both Codex accounts and failed 15 of 24 turns; MEM-231). Standard 48% of 359 graded rows, grounded 60% of
+  373; no forbidden document reached in either; every grounded `[n]` named a source; correctness on answerable rows
+  78% and 80%. It exposed three measurement defects, fixed before it is used as the reference:
+  - a list-valued var (`forbidden`) made promptfoo expand a test per item, asking 86 id-role pairs twice; the lists
+    are JSON strings now;
+  - cited spans were cut at 6,000 characters, losing figures the answer took from further in (now 60,000);
+  - promptfoo's `context-faithfulness` failed 42 correct, cited answers, 24 with every figure in context, on spaced
+    figures from extraction ("46.621.079. 163") and on correct inferences. It is replaced by an `llm-rubric` over the
+    question, the answer and the cited text that accepts formatting differences, figures given by the question and
+    correct calculation or date reasoning. A live re-run of the 30 affected questions with full spans, re-graded:
+    46 of 47 correct answers judged faithful; the remaining one is a real defect (a Supervisory Board election
+    question called political by the guardrail).
+  - `--replay` re-grades stored replies with changed checks, without new turns.
+
 ## P6 — Baselines and removal
 
 - [ ] Ungrounded and grounded baselines on `main`, with the fingerprint.

@@ -9,7 +9,7 @@ and false-premise questions of the `cross` set by every role; ambiguous, general
 ones by `exec`. General-knowledge and sensitive questions run in grounded mode only.
 
 How a reply is scored follows the role's derived expectation:
-- answer: built-in `factuality` against the gold answer, and `context-faithfulness` against the
+- answer: built-in `factuality` against the gold answer, and an `llm-rubric` for faithfulness to the
   passages the reply cited;
 - partial, abstain, follow_gold: built-in `llm-rubric` stating what the reply must do;
 - always: no forbidden or tempting document read or cited; in grounded mode, every [n] names a source.
@@ -40,6 +40,15 @@ JUDGE = "openai:chat:cx/gpt-6-luna"
 LENIENT = (
     " Dữ kiện đúng khác có trong tài liệu (kể cả không có trong đáp án chuẩn) không làm câu trả lời sai, "
     "miễn không mâu thuẫn với đáp án chuẩn."
+)
+FAITHFUL = (
+    "Đầu vào gồm CÂU HỎI, CÂU TRẢ LỜI và TÀI LIỆU ĐÃ TRÍCH DẪN. Đạt khi mọi khẳng định về dữ kiện, số liệu, "
+    "tên, ngày trong CÂU TRẢ LỜI đều có căn cứ trong TÀI LIỆU ĐÃ TRÍCH DẪN hoặc là dữ kiện CÂU HỎI đã cho. Coi "
+    "là cùng một số khi chỉ khác dấu phân cách, khoảng trắng chèn vào do trích xuất văn bản, hay đơn vị quy đổi "
+    "(đồng sang tỷ đồng). Suy luận đúng từ tài liệu là có căn cứ: phép tính từ số liệu trong tài liệu, so sánh "
+    "ngày tháng, suy ra văn bản nào có hiệu lực ở một thời điểm từ ngày ban hành của các văn bản. Câu dẫn dắt, "
+    "diễn đạt lại hay nhận xét không chứa dữ kiện mới không cần căn cứ; nói không tìm thấy thông tin cũng "
+    "không cần căn cứ. Trượt khi có dữ kiện không có trong tài liệu hoặc mâu thuẫn với tài liệu."
 )
 RUBRIC = {
     "partial": (
@@ -108,12 +117,16 @@ def assertions(question: dict, expectation: dict, mode: str) -> list[dict]:
                 "metric": "correctness",
             }
         )
+        # Built-in llm-rubric over the answer and the cited text together. promptfoo's context-faithfulness
+        # (English, claim by claim) failed correct answers whose figures the extraction had spaced
+        # ("46.621.079. 163"); 24 of 42 such failures in the first baseline had every figure in context.
         checks.append(
             {
-                "type": "context-faithfulness",
-                "transform": "output.answer",
-                "contextTransform": "output.context || '(không có nguồn)'",
-                "threshold": 0.7,
+                "type": "llm-rubric",
+                "value": FAITHFUL,
+                # \\n: the JavaScript expression needs the escape, not a raw newline inside its string.
+                "transform": "'CÂU HỎI:\\n' + context.vars.question + '\\n\\nCÂU TRẢ LỜI:\\n' + output.answer"
+                " + '\\n\\nTÀI LIỆU ĐÃ TRÍCH DẪN:\\n' + (output.context || '(không có)')",
                 "metric": "faithfulness",
             }
         )
@@ -135,6 +148,11 @@ def main() -> None:
     parser.add_argument("--mode", choices=["standard", "grounded"], required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--only", help="comma-separated question ids, for a smoke run")
+    parser.add_argument(
+        "--replay",
+        action="store_true",
+        help="re-grade stored replies ($MEMORYOS_REPLAY) of answer rows; no new turns",
+    )
     args = parser.parse_args()
     only = set(args.only.split(",")) if args.only else None
     tests = []
@@ -146,17 +164,21 @@ def main() -> None:
             continue
         for role in asked_by(question):
             expectation = question["expectations"][role]
+            if args.replay and expectation["expect"] != "answer":
+                continue
             tests.append(
                 {
                     "description": f"{question['id']} · {role} · {expectation['expect']}",
                     # `query` is what promptfoo's context assertions read the question from.
                     "vars": {
+                        "id": question["id"],
                         "question": question["question"],
                         "query": question["question"],
                         "role": role,
                         "mode": args.mode,
-                        "forbidden": expectation["forbidden_documents"],
-                        "must_not_cite": expectation.get("must_not_cite", []),
+                        # JSON strings: promptfoo expands a list-valued var into one test per item.
+                        "forbidden": json.dumps(expectation["forbidden_documents"]),
+                        "must_not_cite": json.dumps(expectation.get("must_not_cite", [])),
                     },
                     "assert": assertions(question, expectation, args.mode),
                     "metadata": {
@@ -173,7 +195,12 @@ def main() -> None:
     config = {
         "description": f"MEM-230 benchmark · {args.mode}",
         "prompts": ["{{question}}"],
-        "providers": [{"id": "file://memoryos_provider.py", "label": f"MemoryOS {args.mode}"}],
+        "providers": [
+            {
+                "id": "file://replay_provider.py" if args.replay else "file://memoryos_provider.py",
+                "label": f"{'replay' if args.replay else 'MemoryOS'} {args.mode}",
+            }
+        ],
         "defaultTest": {"options": {"provider": {"id": JUDGE, "config": {"showThinking": False}}}},
         # Measured 2026-10-05 on staging, 24 tests each: 2 concurrent turns ran clean; 3 and 4 hit the
         # per-minute limit of the two Codex accounts behind 9Router, which locked both and failed 15 of 24
