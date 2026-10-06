@@ -207,7 +207,56 @@ Method: [question authoring and bias controls](design.md#question-authoring-and-
 - [ ] Poisoned documents from `promptfoo redteam poison` in their own Source and role; `pii:direct` and `rbac`.
   Report how often the answer follows a planted instruction.
 
-## P8 — Helper ablation
+## P8 — Helper ablation, then additions
 
-- [ ] Variants per the design, two runs each; estimate the cost and check the 9Router balance before running.
-  Decide each helper step and MEM-210.
+Subtract first, then add to the leanest pipeline that keeps its score: an addition measured on a pipeline that later
+loses steps would have to be measured again. Every variant keeps OpenSearch hybrid retrieval, weighted RRF and the
+access rechecks.
+
+How variants run (ADR 0002, no product switch): a branch that is never merged reads `MEMORYOS_SEARCH_ABLATION`; its
+`core` jar is built from the released commit and layered on the released API image on staging, and the release is
+restored by Compose when the runs end. Each variant is one grounded run of all 375 rows at 2 concurrent turns (about an
+hour); a second run only where a variant lands within judge noise of V0. Measured per variant: pass rate overall, per
+category and per split, turn time (median, p90), helper calls and tokens from `ai_usage`.
+
+Decision rule, changed from the design: the test split alone (about 137 rows) is too small against ±5 rows of judge
+noise, so a step is dropped only when removing it costs no more than noise on both splits, no category falls by more
+than 10 points, and no access leak appears.
+
+### P8a — Subtract
+
+| Variant | Change |
+| --- | --- |
+| V0 | Released pipeline, run on the variant image |
+| V1 `no-rewrite` | No semantic or keyword rewrite: the model's queries and the raw question |
+| V2 `no-scope` | No source-type or time-window inference |
+| V3 `no-select` | No LLM section selection: the top 10 sections by RRF |
+| V4 `no-classify` | No per-section classification: every section with its adjacent chunks |
+| V5 all of V1–V4 | Model queries → OpenSearch → top 10 sections with neighbours (Embabel `ToolishRag` shape) |
+
+- [ ] Variant branch, image and runs; decide each step and MEM-210.
+
+### P8b — Query-time additions, on the P8a winner
+
+| Variant | Addition | Benchmark defect (MEM-232) |
+| --- | --- | --- |
+| A4 | Cross-encoder reranker (`bge-reranker-v2-m3`, self-hosted, multilingual) instead of LLM selection | wrong sections, latency |
+| A5 | Document date, source and period in each evidence header | older period |
+| A6 | Answer guidance: check the premise, prefer the latest or restated figure, answer only about the entity asked | false premise, older period |
+| A7 | Drop sections classified not relevant (the reference keeps them) | other company |
+| A8 | Forced first search in standard mode | no search |
+
+- [ ] Check memory on the staging host before hosting the reranker; a paid reranker needs the owner's approval.
+
+### P8c — Index-time additions, re-indexing only the benchmark Sources
+
+| Variant | Addition | Benchmark defect |
+| --- | --- | --- |
+| A1 | Title and section heading in the embedded and BM25 text (Onyx `title_prefix`) | other company, not found |
+| A2 | Contextual retrieval: an LLM sentence of document context per chunk (Anthropic) | other company, not found |
+| A3 | Organization, period and supersession extracted at ingestion, used to filter, rank and show | older period, other company |
+
+A recency boost on provider dates cannot help here: every benchmark document was uploaded the same day, so ordering by
+period needs A3. A2 and A3 cost an LLM call per chunk or document; count the chunks and report the cost before running.
+
+- [ ] Additions that win become ordinary pull requests through CI; A3 gets its own increment with a design.
