@@ -1,160 +1,86 @@
 # MemoryOS RAG benchmark
 
-Measures what a retrieval or Chat change did: whether search still finds the right documents, whether the reply cites
-and answers from them, whether it declines when the corpus cannot answer, and whether a Group-scoped document ever
-reaches an actor who may not read it.
+Measures what a retrieval or Chat change did: whether the reply answers correctly from the documents it cites,
+declines when the corpus cannot answer, keeps to the right period and company, and never reaches a document the
+asking role may not read. It runs on [promptfoo](https://www.promptfoo.dev/) on staging over a corpus of its own.
 
-Design and delivery order: [MEM-141](../../docs/increments/completed/mem-141-rag-benchmark/design.md).
+Design and delivery: [MEM-230](../../docs/increments/active/mem-230-rag-bench-promptfoo/design.md). The current
+baseline is in [docs/tests/chat.md](../../docs/tests/chat.md#rag-benchmark-baseline-mem-230--2026-10-06).
 
-## Benchmark corpus (MEM-230)
+## Layout
 
-The benchmark is moving to promptfoo over a corpus of its own: 61 public disclosures listed in
-[`corpus/manifest.json`](corpus/manifest.json), placed by [`corpus/layout.json`](corpus/layout.json) in
-`Benchmark - …` Sources and Groups. `memoryos_bench` builds it and needs only the Python standard library:
+| Path | Holds |
+| --- | --- |
+| `corpus/manifest.json` | the 61 public disclosures (49 Savico, 12 Haxaco as near-miss noise): stable id, department, period, sha256, URL |
+| `corpus/layout.json` | the `Benchmark - …` Sources and Groups, the roles (`exec`, `finance`, `legal`, `governance`, `ir`, `hr`, `outsider`) and the grounded agent |
+| `corpus/questions.jsonl` | the 120 frozen questions, each with evidence passages and an expectation per role |
+| `memoryos_bench/` | login, provisioning, fingerprint and the Chat client; Python standard library only |
+| `authoring/` | how the questions were drawn, validated and frozen ([brief](authoring/BRIEF.md), [review](corpus/review.md)) |
+| `promptfoo/` | the provider, the custom assertions and the config builder |
+
+## Corpus
 
 ```bash
 cd tools/rag-benchmark
-python -m memoryos_bench login --role owner exec finance legal governance ir hr outsider   # one browser sign-in each
-python -m memoryos_bench provision              # idempotent; prints the corpus fingerprint
+python -m memoryos_bench login --role owner exec finance legal governance ir hr outsider
+python -m memoryos_bench provision      # idempotent; prints the corpus fingerprint
 python -m memoryos_bench fingerprint
 ```
 
-Tokens and the download cache live in `$MEMORYOS_BENCH_HOME` (default `~/.memoryos-bench`). The runner below still
-serves the old Savico question set until the questions move ([plan](../../docs/increments/active/mem-230-rag-bench-promptfoo/plan.md)).
+`login` keeps offline tokens of the public `memoryos-integration` client (PKCE) in `$MEMORYOS_BENCH_HOME`
+(default `~/.memoryos-bench`), with the download cache. A baseline records the fingerprint it ran on; results on
+another fingerprint are not comparable.
 
-## Setup
+## Run
 
-```bash
-cd tools/rag-benchmark
-uv sync --extra dev          # or: pip install -e ".[dev]"
-cp .env.example .env         # fill from Infisical; never commit values
-```
+`build_config.py` writes one promptfoo config per mode: `standard` asks the built-in assistant, `grounded` the
+`Benchmark - grounded` agent. Each question is asked by the roles its department and category name, and each reply is
+scored by the role's expectation:
 
-The realm enables no password grant and access tokens live five minutes, so sign each actor in once
-through the browser before a run. `login` uses the public `memoryos-integration` client with PKCE and
-its loopback redirect, asks for the account every time (`prompt=login`), and keeps the refresh token in
-`~/.memoryos-rag-benchmark/tokens.json`, outside the repository. The run renews access tokens from it;
-sign in again when the realm's session limits end it.
-
-```bash
-rag-benchmark login --actor exec              # sign in as the account the label stands for
-rag-benchmark login --actor finance
-rag-benchmark login --actor all-departments
-rag-benchmark login --actor outsider
-```
-
-A service-account client (`MEMORYOS_BENCHMARK_CLIENT_*`) or a captured bearer token still works per
-actor; see `.env.example`.
-
-## Actors
-
-Questions name actors by label; each label stands for one account whose Group membership decides what it
-reads. `freeze` records that corpus per actor, and `check` fails when a question expects an actor to read
-a document outside its corpus, or forbids one it can read.
-
-| Label | Reads |
-| --- | --- |
-| `exec` | every Savico department Source (Group "Savico Executive") |
-| `finance` | the Savico finance Source only |
-| `all-departments` | the five Savico department Sources, and Tasco through "Savico - HROD" |
-| `outsider` | nothing (Basic only) |
-
-## Use
+| Check | Metric | How |
+| --- | --- | --- |
+| A document the role may not read was read or cited | `leakage` | `assertions.py` |
+| The question's tempting document (another period or company) was cited | `tempting` | `assertions.py` |
+| Every inline `[n]` names one of the message's sources (grounded) | `citation` | `assertions.py` |
+| An answerable row matches the gold answer | `correctness` | `factuality` |
+| Every fact in the answer is in the cited text | `faithfulness` | `llm-rubric` |
+| A decline, partial or behaviour row does what its rubric states | `behaviour` | `llm-rubric` |
 
 ```bash
-rag-benchmark freeze                 # each actor's corpus, and their union in datasets/corpus.json
-rag-benchmark check                  # validate questions against each actor's corpus; report drift
-rag-benchmark run --retrieval-only   # search page only: recall@k and nDCG@5
-rag-benchmark run --only cross_department
-rag-benchmark run --label baseline --save-baseline
-rag-benchmark run --label chunk-512  # compared against the baseline; exits non-zero on a regression or a leak
-rag-benchmark run --grounded --label grounded-on   # grounded answers on; compared with baseline.grounded.json
+python promptfoo/build_config.py --mode grounded --out promptfoo/grounded.yaml
+python promptfoo/build_config.py --mode grounded --only cross-039 --out promptfoo/smoke.yaml
 ```
 
-Each run writes `runs/<label>.json` (every question and actor: retrieval, timeline documents, citations,
-answer, verdict, leaks) and `runs/<label>.md` (the table a person reads, with a row per actor).
-
-A leak fails the run on its own: a forbidden document on the search page, among the documents the Chat
-timeline read, or in a citation, or a forbidden fact (a figure, a name) in the answer text. A document
-outside the actor's frozen corpus is shown as a warning to read, because the corpus is enumerated through
-probe queries and can miss a document.
-
-`/api/search` measures retrieval alone; a Chat run adds query rewriting, filters and section selection. Read a
-chunking or index change from the retrieval metrics and a prompt or tool change from the Chat metrics.
-
-## Questions
-
-`datasets/questions.jsonl`, one JSON object per line, categories `lookup`, `multi_hop`, `aggregate`,
-`temporal`, `abstain`, `ambiguous`, `group`, `cross_department`, `general_knowledge` (questions no
-Tenant document answers, such as "Việt Nam có bao nhiêu tỉnh?") and `sensitive` (politics, leaders and
-religion, including indirect phrasings). Every `abstain`, `general_knowledge` and `sensitive` question
-sets `expect_abstain`. Only a `--grounded` run asks `general_knowledge` and `sensitive` questions, since
-an ungrounded reply may answer them from the model's own knowledge; `sensitive` also assumes the Tenant
-turned on the politics, leaders and religion topics. Every gold document id comes from the
-frozen corpus; `check` names any that does not. Write each question from a passage that was read, not
-from memory.
-
-A question names one `actor` (and, for `group`, the `denied_actor` that must not reach its gold
-documents), or gives `expect`, one entry per actor, which `cross_department` requires:
-
-```json
-{"id": "cross_department-002", "category": "cross_department", "question": "…",
- "expect": {
-   "exec":     {"gold_document_ids": ["<agm>", "<fs>"], "gold_answer": "…"},
-   "finance":  {"gold_document_ids": ["<fs>"], "gold_answer": "…", "partial": true,
-                "forbidden_document_ids": ["<agm>"], "forbidden_facts": ["01/2024/NQ-ĐHĐCĐ"]},
-   "outsider": {"expect_abstain": true, "forbidden_document_ids": ["<agm>", "<fs>"]}
- }}
-```
-
-A `partial` actor must answer the part it may read and must not supply the rest; filling it from
-general knowledge is wrong even when it happens to be right. It is not required to announce what is
-missing.
-
-## Scoring
-
-An `expect_abstain` actor is scored on what the reply reached, not on its wording: it is correct when
-the reply declines and names no forbidden document and no forbidden fact. Declining while citing a
-document the actor may read is still a refusal — the search page returns those documents, and saying
-"they are not about this" is the right answer.
-
-A reply declines when the message's `refusalReason` (`no_evidence`, `uncited`, `blocked_topic`) is set;
-when it is null or absent (an ungrounded reply, or a server older than grounded mode) the wording decides,
-through the phrase list in `metrics.abstained`. A reply that reached a forbidden document never declines.
-
-*Asserted without citation* counts finished replies that do not decline and carry no inline `[n]` whose
-number is one of the message's own `sources[].citationId`. It is reported overall and per category, and
-`falseRefusal` is the share of answerable questions that were declined; read both as the difference
-between a grounded-on and a grounded-off run.
-
-Every other answer goes to the judge, which runs `MEMORYOS_JUDGE_TRIALS` times (3 by default, keep it
-odd) at temperature 0 and records the majority; a split verdict keeps its count in `judgeReason`, and a
-failed judge call is reported rather than outvoted. The report carries `judgeDisagreement`, the share of
-judged answers whose trials disagreed: it measures the measurement, not the system, and a high value
-means the correctness figure beside it is soft.
-
-Each result keeps the turn's `timeline`: per tool step, the queries, the **filters** and the documents
-read. An empty answer is diagnosed from the filters, so a result without them cannot be reread.
-
-## Grounded runs
-
-`--grounded` labels a run made against a Tenant or agent with grounded answers on. It is compared with
-`datasets/baseline.grounded.json` instead of `baseline.json`, and it also fails on any answer asserted
-without citation and on any answered `sensitive` question. An ungrounded run only reports both. The
-shipped grounded baseline records no question, so it compares with nothing until a grounded run
-records it:
+On staging the workspace is `/apps/memoryos/promptfoo/bench`, mounted in the `memoryos-promptfoo` container at
+`/workspace/bench`. The judge is `cx/gpt-6-luna` through 9Router, its key read from the viewer's secret:
 
 ```bash
-rag-benchmark run --grounded --label grounded-baseline --save-baseline
+docker exec -w /workspace/bench/promptfoo -e MEMORYOS_BENCH_HOME=/home/promptfoo/.promptfoo/memoryos \
+  memoryos-promptfoo sh -c 'OPENAI_API_KEY=$(cat /run/secrets/promptfoo_judge_api_key) \
+  promptfoo eval -c grounded.yaml -j 2 --no-cache --no-progress-bar --no-table'
 ```
 
-Times are from sending the question to reading the finished reply: the client polls saved history and
-does not read the event stream, so time to first text is not measured.
+Keep 2 concurrent turns: Chat and the judge share the two Codex accounts behind 9Router, and 3 or more lock both
+(MEM-231). Results open in the viewer at `MEMORYOS_PROMPTFOO_PUBLIC_URL`, behind OAuth2 Proxy and the
+`memoryos-inspector` role.
+
+## Re-grading without new turns
+
+A change to the checks alone is measured on stored replies:
+
+```bash
+python promptfoo/export_replay.py <eval id> /home/promptfoo/.promptfoo/replay.json   # inside the container
+python promptfoo/build_config.py --mode grounded --replay --out promptfoo/replay-grounded.yaml
+MEMORYOS_REPLAY=/home/promptfoo/.promptfoo/replay.json promptfoo eval -c replay-grounded.yaml -j 2 --no-cache
+```
+
+Re-grading unchanged replies moves a single check by up to 5 rows; read smaller differences between runs as judge
+noise.
 
 ## Tests
 
 ```bash
-uv run pytest        # metrics, question validation and the regression gate
-uv run ruff check .
-uv run ruff format --check .
+uv run --with pytest pytest
+uv run --with ruff ruff check .
+uv run --with ruff ruff format --check .
 ```

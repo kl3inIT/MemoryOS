@@ -16,7 +16,7 @@ read `document_chunks`, do not look at any MemoryOS answer. Work only from the f
   answer is unique, (b) build temporal / multi-hop / near-miss questions. Every question still starts from a drawn
   page: at least one evidence item must be a drawn page.
 - Old candidate questions (written from an older system's chunks — biased): 
-  `D:/MemoryOS-mem230/tools/rag-benchmark/datasets/questions.jsonl`. You may re-author an old question only if its
+  `tools/rag-benchmark/datasets/questions.jsonl` (removed in P6; in git history before it). You may re-author an old question only if its
   fact is on one of your drawn pages; re-read the page and rewrite it from scratch. Otherwise ignore them.
 
 ## Quota for your department (answerable questions use only your department's Savico documents)
