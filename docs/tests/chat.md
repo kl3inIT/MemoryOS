@@ -244,6 +244,30 @@ Current scope and limits: [catalog spec](../specs/chat-models.md). New local pro
 
 The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse` uses an authorized local snapshot, real OpenSearch, live embeddings/provider, PostgreSQL transcript and HTTP SSE. It records each Search cycle, first text, total duration and nullable native usage, and checks revenue/travel facts plus the long Word document's cited role coverage. Model-selected tool counts are observations, not fixed assertions. The snapshot is the authority fixture; real SQL permissions and multi-source/date behavior are covered separately above. See [measured results and limits](../increments/completed/mem-11-production-chat/latency-verification.md). No corpus or answer receipts are checked in.
 
+## RAG benchmark baseline (MEM-230) — 2026-10-06
+
+promptfoo on staging over the isolated benchmark corpus (fingerprint `6f95c22c5f14`, 120 frozen questions asked by
+seven roles), chat and judge model `cx/gpt-6-luna`, 2 concurrent turns. Replies from the v2 runs, re-graded with
+the corrected expectations (evals `eval-lxZ-2026-10-06T07:04:54` and `eval-GnC-2026-10-06T07:23:06`).
+
+| Check | Standard | Grounded |
+| --- | --- | --- |
+| Rows passing every check | 226/360 (62.8%) | 274/371 (73.9%) |
+| Leakage: a document the role may not read was read or cited | 0 | 0 |
+| Tempting: another period's or company's document cited | 20 | 19 |
+| Correctness on answerable rows (`factuality`) | 109/139 | 104/137 |
+| Faithfulness to the cited text | 126/139 | 135/137 |
+| Every `[n]` names a source | — | 371/371 |
+
+Grounded by category: absent, general-knowledge and sensitive 94–100%, lookup 88%, aggregate 79%, cross-department
+76%, false premise 68%, multi-hop 63%, temporal 57%, near miss 45%. Dev 74% and test 73%. Turn time median 16 s,
+p90 25 s. Infrastructure errors (1 standard, 4 grounded) are not graded.
+
+Re-grading unchanged replies moved single checks by up to 5 rows, so a difference of that size between runs is
+judge noise. The weak categories are product defects, not grading: another period's or an unadjusted figure, a
+Haxaco fact given as Savico's, a fact present in the corpus not found, a false premise not corrected, and in
+standard mode a turn that answers without searching.
+
 ## Grounded backend (Phase 3.1)
 
 | Contract | Verification |

@@ -188,7 +188,14 @@ Method: [question authoring and bias controls](design.md#question-authoring-and-
 
 ## P6 — Baselines and removal
 
-- [ ] Ungrounded and grounded baselines on `main`, with the fingerprint.
+- [x] Baseline v2, 2026-10-06, corpus `6f95c22c…`, recorded in
+  [docs/tests/chat.md](../../../tests/chat.md#rag-benchmark-baseline-mem-230--2026-10-06). A hand audit of 30
+  random failed grounded rows found 14 bench errors, 9 of them one design flaw: a role without the evidence
+  documents was expected to decline although the same fact (charter capital, address, Supervisory Board) is in
+  documents it may read, so correct, leak-free answers failed. Abstain and partial rows outside the
+  unanswerable categories now pass on a correct answer or a decline and fail on a wrong, borrowed or invented
+  fact; reading a tempting document is no longer a failure, citing it is, under its own `tempting` metric.
+  The v2 replies were re-graded with `--replay`; the re-graded runs are the baseline.
 - [ ] Remove the MEM-141 runner except what the provider reuses; update `tools/rag-benchmark/README.md`,
   `docs/tests/` and the roadmap, and record the MEM-141 and MEM-195 items this closes.
 
