@@ -32,6 +32,7 @@ import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -65,6 +66,15 @@ import tools.jackson.databind.ObjectMapper;
 
 /** One per turn. Embabel owns inference/tool continuation; this tool owns grounded retrieval. */
 public final class SearchTool implements AutoCloseable {
+    // MEM-230 P8 ablation branch, never merged: comma-separated helper steps to skip.
+    private static final Set<String> ABLATION = Arrays.stream(
+            Objects.requireNonNullElse(System.getenv("MEMORYOS_SEARCH_ABLATION"), "").split(","))
+            .map(String::strip).filter(step -> !step.isEmpty()).collect(Collectors.toUnmodifiableSet());
+    private static final boolean NO_REWRITE = ABLATION.contains("no-rewrite");
+    private static final boolean NO_SCOPE = ABLATION.contains("no-scope");
+    private static final boolean NO_SELECT = ABLATION.contains("no-select");
+    private static final boolean NO_CLASSIFY = ABLATION.contains("no-classify");
+
     private static final ChatToolEvent.Call SEARCH_CALL = new ChatToolEvent.Call("search", "search_knowledge");
     private final DocumentSearchService search;
     private final ActorId actor;
@@ -258,7 +268,8 @@ public final class SearchTool implements AutoCloseable {
             if (candidates.isEmpty()) return "Search evidence exceeds the available context. Ask a more focused question.";
             String selectionPrompt = selectionPrompt(sectionEntries, selectionQuery);
             List<Integer> choices;
-            try {
+            if (NO_SELECT) choices = IntStream.rangeClosed(1, Math.min(limits.sections(), candidates.size())).boxed().toList();
+            else try {
                 var selection = helper(Stage.SELECTION, runner -> runner.createObject(selectionPrompt, Selection.class));
                 checkActive.run();
                 choices = validate(selection, candidates.size());
@@ -344,15 +355,15 @@ public final class SearchTool implements AutoCloseable {
 
     private Preparation prepare(List<String> queries, SourceSearchScope scope, SearchFilters explicit) {
         var tasks = new ArrayList<Callable<Object>>();
-        if (queryExpansion == null) {
+        if (queryExpansion == null && !NO_REWRITE) {
             tasks.add(() -> semanticQuery(queries.getFirst()));
             tasks.add(this::keywordQueries);
         }
         // A persona or tool source restriction is the outer bound the scope decision works within.
         var candidates = explicit.sources().isEmpty() ? scope.types() : scope.types().stream()
                 .filter(explicit.sources()::contains).collect(Collectors.toUnmodifiableSet());
-        if (limits.autoDetectFilters() && !scopeDecisionSettled) tasks.add(() -> sourceChoice(queries, candidates));
-        if (limits.autoDetectFilters() && !timeDetected) tasks.add(this::timeChoice);
+        if (limits.autoDetectFilters() && !NO_SCOPE && !scopeDecisionSettled) tasks.add(() -> sourceChoice(queries, candidates));
+        if (limits.autoDetectFilters() && !NO_SCOPE && !timeDetected) tasks.add(this::timeChoice);
         String semantic = queryExpansion == null ? queries.getFirst() : queryExpansion.semantic();
         List<String> keywords = queryExpansion == null ? List.of() : queryExpansion.keywords();
         Set<SourceType> plan = Set.of();
@@ -565,6 +576,7 @@ public final class SearchTool implements AutoCloseable {
             checkActive.run();
             return main;
         }
+        if (NO_CLASSIFY) return adjacent;
         boolean neighbors = adjacent.stream().anyMatch(p -> p.ordinal() < section.start() || p.ordinal() > section.end());
         int allowance = Math.max(32, limits.selectionTokens() - tokens.estimate(SearchPrompts.CLASSIFY + query + hit.title()) - 128);
         String above = adjacent.stream().filter(p -> p.ordinal() < section.start()).map(SearchPage.Passage::content).collect(Collectors.joining("\n"));
