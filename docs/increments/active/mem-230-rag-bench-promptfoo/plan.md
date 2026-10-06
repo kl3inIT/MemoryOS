@@ -196,8 +196,11 @@ Method: [question authoring and bias controls](design.md#question-authoring-and-
   unanswerable categories now pass on a correct answer or a decline and fail on a wrong, borrowed or invented
   fact; reading a tempting document is no longer a failure, citing it is, under its own `tempting` metric.
   The v2 replies were re-graded with `--replay`; the re-graded runs are the baseline.
-- [ ] Remove the MEM-141 runner except what the provider reuses; update `tools/rag-benchmark/README.md`,
-  `docs/tests/` and the roadmap, and record the MEM-141 and MEM-195 items this closes.
+- [x] Removed the MEM-141 runner (`rag_benchmark/`, `datasets/`, its tests and the httpx dependency); the provider
+  reused nothing from it. `promptfoo/export_replay.py` writes a past eval's replies for `--replay`, and the README
+  describes the promptfoo benchmark. This closes MEM-141's open items (a question set, a scored run) and MEM-195's
+  grounded baseline. Not carried over: the retrieval-only run over `/api/search` (recall@k, nDCG@5); a chunking or
+  index change is now read from the Chat metrics, until a retrieval check is added to the promptfoo config.
 
 ## P7 — Red team
 

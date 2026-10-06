@@ -5,20 +5,15 @@ build-backend = "hatchling.build"
 [project]
 name = "memoryos-rag-benchmark"
 version = "0.1.0"
-description = "MemoryOS retrieval and answer benchmark: measures search, citations, abstention and Group authority"
+description = "MemoryOS RAG benchmark on promptfoo: corpus provisioning, question authoring and the MemoryOS provider"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { text = "MIT" }
 authors = [{ name = "MemoryOS" }]
-dependencies = [
-  "httpx>=0.28.1",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3.0", "mypy>=1.13.0", "ruff>=0.7.0"]
-
-[project.scripts]
-rag-benchmark = "rag_benchmark.cli:main"
 
 [tool.mypy]
 python_version = "3.11"
@@ -27,7 +22,7 @@ warn_unreachable = true
 pretty = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["rag_benchmark", "memoryos_bench"]
+packages = ["memoryos_bench"]
 
 [tool.ruff]
 line-length = 100
