@@ -40,6 +40,15 @@ class ChatGroundingPromptTest {
     }
 
     @Test
+    void searchIsTheDefaultAndExistingKnowledgeIsNoLongerAReasonToSkipIt() {
+        // MEM-230: standard turns answered organization questions from general knowledge without searching.
+        assertTrue(ChatPrompts.SEARCH_GUIDANCE.contains("Your default is to search."));
+        assertTrue(ChatPrompts.SEARCH_GUIDANCE.contains("If you are at all unsure, search."));
+        assertTrue(ChatPrompts.SEARCH_GUIDANCE.contains("searches the documents of the organization you work for"));
+        assertFalse(ChatPrompts.SEARCH_GUIDANCE.contains("answer the user directly without"));
+    }
+
+    @Test
     void theRuleTravelsWithSearchAndStaysOutOfATurnWithoutIt() {
         String withSearch = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, true, NOW);
         String withoutSearch = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, NOW);

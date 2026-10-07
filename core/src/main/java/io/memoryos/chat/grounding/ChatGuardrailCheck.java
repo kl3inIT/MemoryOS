@@ -56,6 +56,21 @@ public final class ChatGuardrailCheck {
     }
 
     /**
+     * Whether a standard turn is routed by the check: it offers {@code search_knowledge} (the agent allows it and the
+     * model calls tools) and is not Deep research. Such a turn calls the search first unless the check reads the
+     * message as conversation; it stays standard, not grounded.
+     */
+    public static boolean routesSearch(ChatTurnSetup setup) {
+        var options = setup.options();
+        return !options.grounded() && options.searches() && setup.binding().toolCalling() && !setup.research().enabled();
+    }
+
+    /** Whether the check also asks if the message is conversation: a grounded turn, or a routed standard one. */
+    private static boolean asksConversational(ChatTurnSetup setup) {
+        return setup.options().grounded() || routesSearch(setup);
+    }
+
+    /**
      * The System One connection the Tenant runs the check on (MEM-198), or null when it runs on a language model.
      * A chosen connection that cannot be used is a failure, not a reason to change classifier.
      */
@@ -72,14 +87,14 @@ public final class ChatGuardrailCheck {
     public Result check(ModelBinding binding, ChatTurnSetup setup, String question, List<ChatMessage> earlier,
             ChatSettingsService.TurnPolicy policy, Consumer<ModelAccounting> accounting) {
         return check(question, policy, topics -> classifier.classify(binding, question, earlier,
-                setup.options().grounded(), topics, accounting));
+                asksConversational(setup), topics, accounting));
     }
 
     /** The same check with the answers of a System One connection; {@code used} is told what the service reported. */
     public Result checkOn(SystemOneConnectionService.Connection connection, ChatTurnSetup setup, String question,
             List<ChatMessage> earlier, ChatSettingsService.TurnPolicy policy, Consumer<Usage> used) {
         return check(question, policy, topics -> classifier.classify(connection, question, earlier,
-                setup.options().grounded(), topics, used));
+                asksConversational(setup), topics, used));
     }
 
     private static Result check(String question, ChatSettingsService.TurnPolicy policy,

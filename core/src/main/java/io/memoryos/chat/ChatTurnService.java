@@ -481,10 +481,12 @@ public final class ChatTurnService implements AutoCloseable {
 
     /**
      * MEM-195 Check 1, before the answer model: a blocked question ends the turn with the Tenant's message; a
-     * conversational message in grounded mode is answered normally. Returns whether the answer model runs.
+     * conversational message in grounded mode is answered normally. A standard turn that offers search_knowledge is
+     * routed by the same call: unless it is read as conversation, it searches first. Returns whether the answer model runs.
      */
     private boolean checkGuardrails(Active run) {
-        if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
+        boolean routesSearch = ChatGuardrailCheck.routesSearch(run.setup);
+        if (guardrails == null || !(routesSearch || ChatGuardrailCheck.applies(run.setup, run.policy))) return true;
         long started = System.nanoTime();
         // One call, on the Tenant's System One connection (MEM-198), else on the check's own task model, else the
         // conversation's model. It is not asked again on another classifier: when it gives no verdict, the answer
@@ -524,6 +526,9 @@ public final class ChatTurnService implements AutoCloseable {
             return false;
         }
         var options = run.setup.options();
+        // Biased to search, as Onyx's former search classifier: only a conversational verdict lets the model decide.
+        if (routesSearch && (result == null || result.kind() == ChatGuardrailCheck.Kind.QUESTION))
+            run.setup = run.setup.withOptions(options = options.withSearchFirst(true));
         if (result != null && result.kind() == ChatGuardrailCheck.Kind.CONVERSATIONAL && options.grounded())
             run.setup = run.setup.withOptions(options.withGrounded(false));
         boolean grounded = run.setup.options().grounded();

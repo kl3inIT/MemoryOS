@@ -37,8 +37,8 @@ import tools.jackson.databind.json.JsonMapper;
  * per topic). Greetings and thanks never reach the model.
  *
  * <p>MEM-198, ADR 0026: the check is a {@link JevGuardrail} of the spring-ai-typesafe library. Each enabled topic is a
- * hazard, a yes/no question answered with a probability, and a grounded turn adds one more question, whether the
- * message is conversation. A System One connection answers the questions itself. A language model is asked the same
+ * hazard, a yes/no question answered with a probability, and a grounded turn or a standard turn that searches first
+ * adds one more question, whether the message is conversation. A System One connection answers the questions itself. A language model is asked the same
  * questions and answers with one JSON object of probabilities, which is read into the library's
  * {@link SystemOneResponse}; either way {@link JevGuardrail#evaluate} decides, so both classifiers share the questions,
  * the answer type and the thresholds. A probability between the two thresholds is a review, not a block: the turn is
@@ -65,7 +65,7 @@ public final class GroundingClassifier {
      */
     static final double REVIEW_THRESHOLD = 0.35;
     static final double ACTION_THRESHOLD = 0.70;
-    /** The question a grounded turn adds; it is not a hazard, so it is read beside the guardrail's verdict. */
+    /** The question that tells conversation apart; it is not a hazard, so it is read beside the guardrail's verdict. */
     static final String CONVERSATIONAL = "CONVERSATIONAL";
     /** The conversation markers and the blocked mark, which only this class may write. */
     private static final Pattern MARKER = Pattern.compile("<(BEGIN|END) CONVERSATION>|\\[blocked]", Pattern.CASE_INSENSITIVE);
@@ -100,24 +100,24 @@ public final class GroundingClassifier {
      * The check on a language model.
      *
      * @param earlier  the messages before this one, oldest first; only the last {@link #EARLIER_MESSAGES} are read
-     * @param grounded whether the turn answers from documents only, which is when conversation must be told apart
+     * @param conversational whether conversation must be told apart: the turn is grounded or searches first
      * @param topics   the enabled sensitive topics; empty when none apply
      */
-    public Verdict classify(ModelBinding binding, String message, List<ChatMessage> earlier, boolean grounded,
+    public Verdict classify(ModelBinding binding, String message, List<ChatMessage> earlier, boolean conversational,
                             List<ChatGuardrails.Topic> topics, Consumer<ModelAccounting> accounting) {
         if (greeting(message)) return Verdict.CONVERSATIONAL;
-        if (!grounded && topics.isEmpty()) return Verdict.QUESTION;
-        var questions = questions(grounded, topics);
+        if (!conversational && topics.isEmpty()) return Verdict.QUESTION;
+        var questions = questions(conversational, topics);
         // A model held to a schema by its provider answers the fixed type. Any other is asked for text and read
         // leniently: a typed answer asked for in the prompt alone is what small models get wrong.
         if (binding.structuredOutput()) {
             var scored = calls.generateObject(binding, instructions(questions, true), conversation(earlier, message),
                     Answers.class, TIMEOUT, MAX_OUTPUT_TOKENS, TEMPERATURE, accounting);
-            return verdict(answers(scored, questions.keySet()), grounded, topics);
+            return verdict(answers(scored, questions.keySet()), conversational, topics);
         }
         String reply = calls.generateObject(binding, instructions(questions, false), conversation(earlier, message),
                 String.class, TIMEOUT, MAX_OUTPUT_TOKENS, TEMPERATURE, accounting);
-        return verdict(answers(reply, questions.keySet()), grounded, topics);
+        return verdict(answers(reply, questions.keySet()), conversational, topics);
     }
 
     /**
@@ -126,21 +126,21 @@ public final class GroundingClassifier {
      * @param used told what the service reported, for the usage record
      */
     public Verdict classify(SystemOneConnectionService.Connection connection, String message, List<ChatMessage> earlier,
-                            boolean grounded, List<ChatGuardrails.Topic> topics, Consumer<Usage> used) {
+                            boolean conversational, List<ChatGuardrails.Topic> topics, Consumer<Usage> used) {
         if (greeting(message)) return Verdict.CONVERSATIONAL;
-        if (!grounded && topics.isEmpty()) return Verdict.QUESTION;
+        if (!conversational && topics.isEmpty()) return Verdict.QUESTION;
         var asked = new LinkedHashMap<String, Question>();
-        questions(grounded, topics).forEach((id, question) -> asked.put(id, noul(question)));
+        questions(conversational, topics).forEach((id, question) -> asked.put(id, noul(question)));
         var response = Objects.requireNonNull(systemOne).client(connection).systemOne(conversation(earlier, message), asked);
         used.accept(response.usage());
-        return verdict(response, grounded, topics);
+        return verdict(response, conversational, topics);
     }
 
     /**
      * The questions of one check, by id, as plain text: one per enabled topic under its {@link #label}, then whether
-     * the message is conversation when the turn is grounded. Both classifiers are asked exactly these.
+     * the message is conversation when that is asked. Both classifiers are asked exactly these.
      */
-    static Map<String, String> questions(boolean grounded, List<ChatGuardrails.Topic> topics) {
+    static Map<String, String> questions(boolean conversational, List<ChatGuardrails.Topic> topics) {
         var questions = new LinkedHashMap<String, String>();
         for (int index = 0; index < topics.size(); index++) {
             var topic = topics.get(index);
@@ -152,7 +152,7 @@ public final class GroundingClassifier {
                     .map(example -> "\"" + example + "\"").collect(Collectors.joining(", ")));
             questions.put(label(index), text.toString());
         }
-        if (grounded) questions.put(CONVERSATIONAL, "Is the last Person message a greeting, thanks, small talk or a question "
+        if (conversational) questions.put(CONVERSATIONAL, "Is the last Person message a greeting, thanks, small talk or a question "
                 + "about the assistant itself, with nothing to look up?");
         return questions;
     }
@@ -174,7 +174,7 @@ public final class GroundingClassifier {
      * The verdict of the answers, from either classifier. The guardrail decides the topics; of several topics above
      * the threshold the most probable blocks. Whether the message is conversation is read beside it.
      */
-    static Verdict verdict(SystemOneResponse response, boolean grounded, List<ChatGuardrails.Topic> topics) {
+    static Verdict verdict(SystemOneResponse response, boolean conversational, List<ChatGuardrails.Topic> topics) {
         var guardrail = guardrail(topics);
         boolean review = false;
         if (guardrail != null) {
@@ -186,8 +186,8 @@ public final class GroundingClassifier {
             }
             review = screened.outcome() == JevGuardrail.Outcome.REVIEW;
         }
-        boolean conversational = grounded && response.noul(CONVERSATIONAL).isTrue();
-        return new Verdict(conversational ? Kind.CONVERSATIONAL : Kind.QUESTION, null, review);
+        boolean chat = conversational && response.noul(CONVERSATIONAL).isTrue();
+        return new Verdict(chat ? Kind.CONVERSATIONAL : Kind.QUESTION, null, review);
     }
 
     /** A topic's id in one request: {@code TOPIC_1}…{@code TOPIC_n} in the order of the enabled topics (MEM-208). */

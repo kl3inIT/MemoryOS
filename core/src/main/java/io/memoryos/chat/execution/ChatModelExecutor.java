@@ -237,6 +237,9 @@ public final class ChatModelExecutor {
             // MEM-195: the first inference may only call search_knowledge, so the answer starts from the documents.
             guard.grounded(true);
             guard.firstCycle(selected.requireTool("search_knowledge"));
+        } else if (setup.options().searchFirst()) {
+            // A standard turn the check did not read as conversation searches first and stays standard.
+            guard.firstCycle(selected.requireTool("search_knowledge"));
         }
         var guards = new CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new CopyOnWriteArrayList<CompletableFuture<Void>>();

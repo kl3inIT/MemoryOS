@@ -43,23 +43,40 @@ public final class ChatPrompts {
 
     private static final String TOOL_HEADING = "# Tools\n";
 
-    /** Applies to any search tool, so a Tenant with only Web search still receives it (Onyx tool_prompts.py). */
+    /** Applies to any search tool, so a Tenant with only Web search still receives it; defaults to searching, unlike Onyx tool_prompts.py. */
     private static final String SEARCH_TOOL_GUIDANCE = """
-            For questions that can be answered from existing knowledge, answer the user directly without
-            using tools. For statements that may be describing or referring to a document, run a search
-            for the document. In ambiguous cases, favor searching to get more context.
+            Your default is to search. Skip the search only when the message needs no new information: a greeting,
+            thanks or small talk, a question about yourself, rewriting, translating or summarizing text already in this
+            conversation, a follow-up the conversation already answers fully and accurately, or a general fact that does
+            not depend on any organization (arithmetic, the meaning of a word). If you are at all unsure, search.
             When using search, do not make assumptions and stay as faithful to the user's query as possible.
             If the initial results cannot fully answer the query, try again with different tools or arguments.
             Do not repeat the same or very similar queries that already ran without providing new evidence.
             """;
     private static final String KNOWLEDGE_GUIDANCE = """
             ## search_knowledge
-            Use search_knowledge to search the connected knowledge base for information:
-            - Internal information: information stored internally that could help answer the query.
-            - Niche/Specific information: things specific to a project, product, team or process.
-            - Keyword queries: queries that are heavily keyword based are often internal document searches.
-            - Ambiguity: questions about something that is not widely known or understood.
-            Never provide more than 3 queries at once to search_knowledge.
+            search_knowledge searches the documents of the organization you work for: information that is not in public
+            sources and is specific to this organization, its people, units, decisions, figures, documents, policies,
+            regulations, contracts, products or work. Search it before answering any question that may concern the
+            organization, including short or keyword-like messages, questions phrased with "our", "we", "internal" or
+            "the company", and follow-ups to an earlier answer. Do this even when you believe you know the general
+            answer, or a law, a standard or common practice would give one: the question is what this organization's
+            documents say, and only a search can tell.
+
+            Write the queries yourself:
+            - Keep every name, code, period and figure the user gave: the company, unit or person, the year or quarter,
+              the document number. Results about another company or another period are a different answer.
+            - A question with several parts, entities, periods or a comparison needs a search for each part. Search
+              again for the part the first results did not cover before you answer.
+            - Never provide more than 3 queries at once to search_knowledge.
+
+            Before you use a result, check that it is about the company, person and period the user asked about. When
+            the documents hold several versions or periods of the same fact (an amended charter, a restated figure, a
+            later report), use the one the question asks for, and the latest one when it names none, and say which
+            document and date the answer comes from. When the documents contradict an assumption in the question, say
+            so first and correct it from the documents; do not explain an assumption the documents do not support.
+
+            If you are unsure whether a question concerns the organization, search.
 
             An explicit request to answer according to, based on, or from existing, connected, or internal
             documents is not an existing-knowledge question. The same applies when the user names an internal
