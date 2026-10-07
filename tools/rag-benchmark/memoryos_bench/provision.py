@@ -230,15 +230,50 @@ def _name(layout: dict, groups: dict[str, str], group_id: str) -> str:
     return next((layout["groups"][k] for k, v in groups.items() if v == group_id), "")
 
 
+def corpus_problems(api: Api, manifest: dict, layout: dict) -> list[str]:
+    """Every manifest document absent from its Source or not searchable there.
+
+    A run on a corpus with any problem measures missing evidence, not retrieval: on 2026-10-05
+    thirteen of 61 uploads failed extraction while the OCR service restarted, and 32 of 106
+    answerable questions lost evidence.
+    """
+    existing = {s["name"]: s["id"] for s in api.get("/api/sources")}
+    problems = []
+    for key, spec in layout["sources"].items():
+        source_id = existing.get(spec["name"])
+        if source_id is None:
+            problems.append(f"missing source: {spec['name']}")
+            continue
+        items = {item["sha256"]: item for item in _items(api, source_id)}
+        for document in manifest["documents"]:
+            if source_of(document) != key:
+                continue
+            item = items.get(document["sha256"])
+            if item is None:
+                problems.append(f"not uploaded: {document['id']} ({spec['name']})")
+            elif item["status"] != "INDEXED" or item["searchStatus"] != "READY":
+                problems.append(
+                    f"not searchable: {document['id']} ({item['status']}/{item['searchStatus']},"
+                    f" {item.get('searchErrorCode') or item.get('errorCode')})"
+                )
+    return problems
+
+
 def wait_until_searchable(
     api: Api, layout: dict, sources: dict[str, str], timeout: float, report: Report
 ) -> None:
     deadline = time.monotonic() + timeout
+    retried: set[str] = set()
     while True:
         waiting, failed = [], []
         for source_id in sources.values():
             for item in _items(api, source_id):
-                if item["searchStatus"] == "FAILED":
+                # An extraction failure is often transient (a dependency restarting): retry it once.
+                if item["status"] == "FAILED" and item["id"] not in retried:
+                    api.post(f"/api/sources/{source_id}/items/{item['id']}/index-attempts")
+                    retried.add(item["id"])
+                    waiting.append(item["filename"])
+                elif item["status"] == "FAILED" or item["searchStatus"] == "FAILED":
                     failed.append(
                         f"{item['filename']}"
                         f" ({item.get('searchErrorCode') or item.get('errorCode')})"
