@@ -105,6 +105,13 @@ public final class SearchTool implements AutoCloseable {
             Pattern.compile("^-?\\s*P\\s*(\\d+)\\s*([DWMY])$", Pattern.CASE_INSENSITIVE);
 
     private @Nullable SandboxDocuments sandbox;
+    /** MEM-230 V4E (never merged): names a chunk id per evidence block for broadenChunk/zoomOut. */
+    private @Nullable P8EmbabelRag expander;
+
+    public SearchTool withExpander(P8EmbabelRag expander) {
+        this.expander = expander;
+        return this;
+    }
 
     /** Stages the source file behind each returned hit for run_python and says so in its evidence, as Onyx does. */
     public SearchTool withSandbox(SandboxDocuments sandbox) {
@@ -304,6 +311,7 @@ public final class SearchTool implements AutoCloseable {
             var withContext = IntStream.range(0, selectedSections.size()).filter(i -> !contexts.get(i).isEmpty())
                     .mapToObj(selectedSections::get).toList();
             var authorized = new HashSet<>(search.authorizedSections(result, withContext));
+            var groupSections = new LinkedHashMap<String, List<SearchSection>>();
             for (int i = 0; i < selectedSections.size(); i++) {
                 checkActive.run();
                 var selectedSection = selectedSections.get(i);
@@ -312,6 +320,7 @@ public final class SearchTool implements AutoCloseable {
                 if (passages.isEmpty() || !authorized.contains(selectedSection)) continue;
                 String key = hit.documentId() + ":" + hit.generation();
                 metadata.putIfAbsent(key, hit);
+                groupSections.computeIfAbsent(key, ignored -> new ArrayList<>()).add(selectedSection);
                 var ordered = groups.computeIfAbsent(key, ignored -> new TreeMap<>());
                 passages.forEach(p -> ordered.putIfAbsent(p.ordinal(), p));
             }
@@ -329,13 +338,13 @@ public final class SearchTool implements AutoCloseable {
                 for (var passage : group.getValue().values()) {
                     if (!adjacent.isEmpty() && passage.ordinal() != adjacent.getLast().ordinal() + 1) {
                         appendEvidence(metadata.get(group.getKey()), adjacent, output, budget,
-                                sandboxNames.get(metadata.get(group.getKey()).documentId()));
+                                sandboxNames.get(metadata.get(group.getKey()).documentId()), result, groupSections.get(group.getKey()));
                         adjacent.clear();
                     }
                     adjacent.add(passage);
                 }
                 if (!adjacent.isEmpty()) appendEvidence(metadata.get(group.getKey()), adjacent, output, budget,
-                        sandboxNames.get(metadata.get(group.getKey()).documentId()));
+                        sandboxNames.get(metadata.get(group.getKey()).documentId()), result, groupSections.get(group.getKey()));
             }
             checkActive.run();
             return output.length() == prefixLength ? "No evidence fits the available context." : output.toString();
@@ -653,7 +662,7 @@ public final class SearchTool implements AutoCloseable {
     }
 
     private void appendEvidence(SearchHit hit, List<SearchPage.Passage> passages, StringBuilder output, int budget,
-                                @Nullable String sandboxName) {
+                                @Nullable String sandboxName, SearchResults result, List<SearchSection> sections) {
         // Reduce distant neighbors first so a large merged section cannot crowd out its matching passage.
         var included = new ArrayList<>(passages);
         int anchor = Math.clamp(hit.ordinal(), included.getFirst().ordinal(), included.getLast().ordinal());
@@ -671,7 +680,14 @@ public final class SearchTool implements AutoCloseable {
                 included.stream().map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList())
                 .described(hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
                         DocumentSourceMetadata.providerUrl(hit.origins())), call());
-        if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included, sandboxName));
+        // V4E: the block's anchor is the authorized selected section inside its passage range.
+        int first = included.getFirst().ordinal(), last = included.getLast().ordinal();
+        var exp = expander;
+        var block = exp == null || source == null ? null : sections.stream()
+                .filter(section -> section.end() >= first && section.start() <= last).findFirst().orElse(null);
+        String title = block == null || exp == null ? hit.title()
+                : hit.title() + " (chunk " + exp.remember(result, block, NO_CLASSIFY ? 2 : 0) + ")";
+        if (source != null) output.append(evidenceText(source.citationId(), title, included, sandboxName));
         if (source != null && p8Contradicted.contains(P8Rerank.key(hit)))
             output.append("(This source contradicts an assumption in the user's question; correct the assumption.)%n".formatted());
     }

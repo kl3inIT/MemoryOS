@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 import java.util.stream.Collectors;
@@ -52,7 +53,11 @@ public final class P8EmbabelRag implements VectorSearch, TextSearch, ResultExpan
     /** The tool a grounded turn must call first. */
     public static final String FIRST_TOOL = "vectorSearch";
 
-    private record Read(SearchResults results, SearchSection section) {}
+    /** MEM-230 V4E (never merged): search_knowledge as V4 plus only the ToolishRag expander tools. */
+    public static final boolean V4E = "v4e".equals(System.getenv("MEMORYOS_P8_SELECT"));
+
+    /** A returned chunk id: the ranked result and section it came from, and the neighbours already shown around it. */
+    private record Read(SearchResults results, SearchSection section, int neighbors) {}
 
     private final DocumentSearchService search;
     private final ActorId actor;
@@ -65,6 +70,7 @@ public final class P8EmbabelRag implements VectorSearch, TextSearch, ResultExpan
     private final IntSupplier availableTokens;
     private final TokenCountEstimator tokens;
     private final Map<String, Read> reads = new ConcurrentHashMap<>();
+    private final AtomicInteger nextId = new AtomicInteger();
 
     public P8EmbabelRag(DocumentSearchService search, ActorId actor, @Nullable Collection<UUID> allowedSourceIds,
                         @Nullable Instant knowledgeCutoff, ChatEvidence evidence, ChatToolActivity activity,
@@ -93,6 +99,30 @@ public final class P8EmbabelRag implements VectorSearch, TextSearch, ResultExpan
         }).toList();
     }
 
+    /**
+     * V4E: only broadenChunk and zoomOut. ToolishRag adds search tools only for the capabilities its operations
+     * implement, so an expander-only view yields exactly the ResultExpander tools.
+     */
+    public List<Tool> expanderTools() {
+        ResultExpander expander = this::expandResult;
+        var rag = new ToolishRag("knowledge", "Expand authorized evidence returned by search_knowledge", expander);
+        String prefix = rag.toolPrefix() + "_";
+        return rag.tools().stream().map(tool -> {
+            String name = tool.getDefinition().getName();
+            return name.startsWith(prefix) ? tool.withName(name.substring(prefix.length())) : tool;
+        }).toList();
+    }
+
+    /**
+     * V4E: a short id for a section search_knowledge returned this turn, after its final authorization recheck.
+     * The expander accepts only ids handed out here or by a previous expansion.
+     */
+    public String remember(SearchResults results, SearchSection section, int neighborsShown) {
+        String id = "c" + nextId.incrementAndGet();
+        reads.put(id, new Read(results, section, neighborsShown));
+        return id;
+    }
+
     @Override public boolean supportsType(String type) { return "Chunk".equals(type); }
 
     @Override
@@ -114,7 +144,8 @@ public final class P8EmbabelRag implements VectorSearch, TextSearch, ResultExpan
         checkActive.run();
         var read = reads.get(id);
         if (read == null) return List.of();
-        int neighbors = method == Method.ZOOM_OUT ? 5 : Math.clamp(elementsToAdd, 1, 5);
+        int neighbors = method == Method.ZOOM_OUT ? 5
+                : V4E ? Math.min(5, read.neighbors() + Math.max(1, elementsToAdd)) : Math.clamp(elementsToAdd, 1, 5);
         List<SearchPage.Passage> passages;
         try {
             passages = search.window(read.results(), read.section(), neighbors);
@@ -126,7 +157,7 @@ public final class P8EmbabelRag implements VectorSearch, TextSearch, ResultExpan
         // The window read performed IO: recheck before any passage leaves.
         if (search.authorizedSections(read.results(), List.of(read.section())).isEmpty() || passages.isEmpty()) return List.of();
         var call = call(method == Method.ZOOM_OUT ? "zoomOut" : "broadenChunk");
-        var chunk = chunk(read, passages, call, Math.max(0, availableTokens.getAsInt()));
+        var chunk = chunk(new Read(read.results(), read.section(), neighbors), passages, call, Math.max(0, availableTokens.getAsInt()));
         if (chunk == null) return List.of();
         reading(call, List.of(new ChatToolEvent.ReadingDocument(read.section().anchor().documentId(),
                 read.section().anchor().generation(), title(read.section().anchor().title()),
@@ -159,7 +190,7 @@ public final class P8EmbabelRag implements VectorSearch, TextSearch, ResultExpan
             var out = new ArrayList<SimilarityResult<Chunk>>();
             var documents = new ArrayList<ChatToolEvent.ReadingDocument>();
             for (var section : authorized) {
-                var read = new Read(results, section);
+                var read = new Read(results, section, 0);
                 var chunk = chunk(read, section.passages(), call, budget);
                 if (chunk == null) break;
                 budget -= tokens.estimate(chunk.getText());
@@ -189,7 +220,7 @@ public final class P8EmbabelRag implements VectorSearch, TextSearch, ResultExpan
                 .described(hit.mediaType(), hit.origins().stream().map(DocumentSourceMetadata::type).distinct().toList(),
                         DocumentSourceMetadata.providerUrl(hit.origins())), call);
         if (source == null) return null;
-        String id = key;
+        String id = V4E ? "c" + nextId.incrementAndGet() : key;
         reads.put(id, read);
         return Chunk.Companion.create("[" + source.citationId() + "] " + hit.title() + "\n" + body, hit.documentId().toString(),
                 Map.of(), id);

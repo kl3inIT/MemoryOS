@@ -83,7 +83,11 @@ public final class ChatPrompts {
             A failed search means retrieval was unavailable, not that no relevant documents exist.
             """;
     /** The knowledge-base composition, used when Persona instructions are resolved with search enabled. */
-    public static final String SEARCH_GUIDANCE = e1(TOOL_HEADING + SEARCH_TOOL_GUIDANCE + "\n" + KNOWLEDGE_GUIDANCE);
+    public static final String SEARCH_GUIDANCE = e1(TOOL_HEADING + SEARCH_TOOL_GUIDANCE + "\n" + KNOWLEDGE_GUIDANCE)
+            // MEM-230 V4E (never merged): the one added sentence for the expander tools.
+            + ("v4e".equals(System.getenv("MEMORYOS_P8_SELECT"))
+            ? "When a cited passage lacks the context you need, call broadenChunk (neighbouring chunks) or zoomOut"
+                    + " (a wider window) with the chunk id shown in its evidence header.\n" : "");
 
     /** MEM-230 E1 (never merged): with Embabel ToolishRag tools, the same guidance names them instead of search_knowledge. */
     private static boolean p8E1() { return "embabel".equals(System.getenv("MEMORYOS_P8_SELECT")); }

@@ -306,6 +306,14 @@ public final class ChatModelExecutor {
                         .knowledgeCutoff(setup.options().knowledgeCutoff());
                 if (sandbox != null) searchTool.withSandbox(sandbox);
                 runner = runner.withTools(Tool.fromInstance(searchTool));
+                if (P8EmbabelRag.V4E) {
+                    // MEM-230 V4E (never merged): ToolishRag's broadenChunk and zoomOut over search_knowledge's chunk ids.
+                    var expander = new P8EmbabelRag(search, setup.actor(), setup.options().sourceAllowlist(),
+                            setup.options().knowledgeCutoff(), setup.evidence(), activity, events::accept, guard::checkActive,
+                            guard::availableContextTokens, selected.policy().tokens());
+                    searchTool.withExpander(expander);
+                    runner = runner.withTools(expander.expanderTools());
+                }
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
                 if (image == null) throw TurnFailure.MODEL_UNAVAILABLE.exception();
