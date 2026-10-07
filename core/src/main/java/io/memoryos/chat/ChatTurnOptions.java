@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boolean sourcesRestricted,
                               @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
                               @Nullable Instant knowledgeCutoff, String taskPrompt, boolean codeInterpreter,
-                              ModelSampling sampling, boolean grounded, String topicRules) {
+                              ModelSampling sampling, boolean grounded, String topicRules, boolean searchFirst) {
     public static final ChatTurnOptions DEFAULT = builder().build();
     public ChatTurnOptions {
         sourceIds = List.copyOf(sourceIds);
@@ -70,26 +70,35 @@ public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boole
 
         public ChatTurnOptions build() {
             return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
-                    knowledgeCutoff, taskPrompt, codeInterpreter, sampling, grounded, "");
+                    knowledgeCutoff, taskPrompt, codeInterpreter, sampling, grounded, "", false);
         }
     }
 
     /** The same restrictions with this turn's creativity and reasoning level. */
     public ChatTurnOptions withSampling(ModelSampling value) {
         return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
-                knowledgeCutoff, taskPrompt, codeInterpreter, value, grounded, topicRules);
+                knowledgeCutoff, taskPrompt, codeInterpreter, value, grounded, topicRules, searchFirst);
     }
 
     /** The same restrictions, answering from documents only or not; the agent's own search setting is kept. */
     public ChatTurnOptions withGrounded(boolean value) {
         return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
-                knowledgeCutoff, taskPrompt, codeInterpreter, sampling, value, topicRules);
+                knowledgeCutoff, taskPrompt, codeInterpreter, sampling, value, topicRules, searchFirst);
     }
 
     /** The same turn, with the blocked topics as the answer model's own instruction. */
     public ChatTurnOptions withTopicRules(String value) {
         return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
-                knowledgeCutoff, taskPrompt, codeInterpreter, sampling, grounded, value);
+                knowledgeCutoff, taskPrompt, codeInterpreter, sampling, grounded, value, searchFirst);
+    }
+
+    /**
+     * MEM-230 route (never merged): a standard turn the check read as a question calls search_knowledge first, without
+     * becoming grounded.
+     */
+    public ChatTurnOptions withSearchFirst(boolean value) {
+        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
+                knowledgeCutoff, taskPrompt, codeInterpreter, sampling, grounded, topicRules, value);
     }
 
     /** Whether the turn offers {@code search_knowledge}: the agent allows it, or the turn is grounded. */

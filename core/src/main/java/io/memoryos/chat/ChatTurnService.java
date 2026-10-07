@@ -524,6 +524,13 @@ public final class ChatTurnService implements AutoCloseable {
             return false;
         }
         var options = run.setup.options();
+        if (ChatGuardrailCheck.routes(run.setup)) {
+            // MEM-230 route (never merged): a question calls search_knowledge first; the turn stays standard.
+            String verdict = result == null ? "unchecked" : result.kind().name().toLowerCase(Locale.ROOT);
+            LOG.atInfo().addKeyValue("event", "p8.route").addKeyValue("verdict", verdict).log("P8 standard turn routed");
+            if (result != null && result.kind() == ChatGuardrailCheck.Kind.QUESTION)
+                run.setup = run.setup.withOptions(options = options.withSearchFirst(true));
+        }
         if (result != null && result.kind() == ChatGuardrailCheck.Kind.CONVERSATIONAL && options.grounded())
             run.setup = run.setup.withOptions(options.withGrounded(false));
         boolean grounded = run.setup.options().grounded();

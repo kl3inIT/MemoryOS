@@ -238,6 +238,9 @@ public final class ChatModelExecutor {
             // MEM-195: the first inference may only call search_knowledge, so the answer starts from the documents.
             guard.grounded(true);
             guard.firstCycle(selected.requireTool(P8EmbabelRag.ENABLED ? P8EmbabelRag.FIRST_TOOL : "search_knowledge"));
+        } else if (setup.options().searchFirst()) {
+            // MEM-230 route (never merged): the check read a standard turn as a question; search first, stay standard.
+            guard.firstCycle(selected.requireTool("search_knowledge"));
         }
         var guards = new CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new CopyOnWriteArrayList<CompletableFuture<Void>>();

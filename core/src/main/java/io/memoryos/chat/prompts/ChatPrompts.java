@@ -83,7 +83,52 @@ public final class ChatPrompts {
             A failed search means retrieval was unavailable, not that no relevant documents exist.
             """;
     /** The knowledge-base composition, used when Persona instructions are resolved with search enabled. */
-    public static final String SEARCH_GUIDANCE = e1(TOOL_HEADING + SEARCH_TOOL_GUIDANCE + "\n" + KNOWLEDGE_GUIDANCE)
+    // MEM-230 search guidance v2 (never merged): MEMORYOS_P8_PROMPT=v2, scratchpad p8/prompt-v2.md verbatim.
+    private static final boolean PROMPT_V2 = "v2".equals(System.getenv("MEMORYOS_P8_PROMPT"));
+    private static final String SEARCH_TOOL_GUIDANCE_V2 = """
+            Answer without a tool only when the message needs nothing looked up: a greeting, thanks or small talk, a question
+            about yourself, rewriting or translating text already in this conversation, or a general fact that clearly does not
+            depend on any organization (arithmetic, the meaning of a word). Search in every other case, and when unsure.
+            When using search, do not make assumptions and stay as faithful to the user's query as possible.
+            If the initial results cannot fully answer the query, try again with different tools or arguments.
+            Do not repeat the same or very similar queries that already ran without providing new evidence.
+            """;
+    private static final String KNOWLEDGE_OPENING = """
+            Use search_knowledge to search the connected knowledge base for information:
+            - Internal information: information stored internally that could help answer the query.
+            - Niche/Specific information: things specific to a project, product, team or process.
+            - Keyword queries: queries that are heavily keyword based are often internal document searches.
+            - Ambiguity: questions about something that is not widely known or understood.
+            Never provide more than 3 queries at once to search_knowledge.
+            """;
+    private static final String KNOWLEDGE_OPENING_V2 = """
+            search_knowledge searches the documents of the organization you work for. Search it before answering any question
+            that may concern the organization, its people, decisions, figures, documents, policies, contracts, products or
+            work, including short or keyword-like messages and follow-ups to an earlier answer. Do this even when you believe
+            you know the answer, or a law, a standard or common practice would give one: the question is what this
+            organization's documents say, and only a search can tell.
+
+            Write the queries yourself:
+            - Keep every name, code, period and figure the user gave: the company, unit or person, the year or quarter, the
+              document number. Results about another company or another period are a different answer.
+            - A question with several parts, entities, periods or a comparison needs a search for each part. Search again for
+              the part the first results did not cover before you answer.
+            - Never provide more than 3 queries at once to search_knowledge.
+
+            Before you use a result, check that it is about the company, person and period the user asked about. When the
+            documents hold several versions or periods of the same fact (an amended charter, a restated figure, a later
+            report), use the one the question asks for, and the latest one when it names none, and say which document and
+            date the answer comes from. When the documents contradict an assumption in the question, say so first and correct
+            it from the documents; do not explain an assumption the documents do not support.
+            """;
+
+    private static String v2(String toolGuidance, String knowledge) {
+        if (!PROMPT_V2) return toolGuidance + "\n" + knowledge;
+        if (!knowledge.contains(KNOWLEDGE_OPENING)) throw new IllegalStateException("Knowledge guidance v2 anchor missing");
+        return SEARCH_TOOL_GUIDANCE_V2 + "\n" + knowledge.replace(KNOWLEDGE_OPENING, KNOWLEDGE_OPENING_V2);
+    }
+
+    public static final String SEARCH_GUIDANCE = e1(TOOL_HEADING + v2(SEARCH_TOOL_GUIDANCE, KNOWLEDGE_GUIDANCE))
             // MEM-230 V4E (never merged): the one added sentence for the expander tools.
             + ("v4e".equals(System.getenv("MEMORYOS_P8_SELECT"))
             ? "When a cited passage lacks the context you need, call broadenChunk (neighbouring chunks) or zoomOut"
