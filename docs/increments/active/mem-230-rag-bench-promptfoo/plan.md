@@ -270,6 +270,14 @@ than 10 points, and no access leak appears.
   rechecks), and V1 a second time. Jev is `openrouter/typesafe/jev-1.13` through 9Router's `/v1/systemone`, the only
   model taken from OpenRouter; a probe of 68 calls cost 0.0012 USD and 50 parallel calls took 1 s.
 
+- [x] Found 2026-10-07 by the retrieval probe: 13 of the 61 benchmark uploads (6 Savico, 7 Haxaco) had failed
+  extraction on 2026-10-05 with `SOURCE_EXTRACTION_CONNECTION_FAILED` while the OCR service restarted, after one
+  attempt. 32 of 106 answerable questions lost some or all evidence, so the v2 baseline and every P8 run measured an
+  incomplete corpus: variant-to-variant differences hold, absolute rates and the per-category reading of MEM-232 do
+  not. The 13 were re-indexed; `memoryos_bench check` now fails on any missing or unsearchable document, `provision`
+  retries a failed extraction once, and the provider refuses every turn while the check fails. V0, V4, B1 and E1 run
+  again on the complete corpus.
+
 ### P8c — Index-time additions, re-indexing only the benchmark Sources
 
 | Variant | Addition | Benchmark defect |

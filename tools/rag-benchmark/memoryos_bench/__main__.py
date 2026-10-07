@@ -10,7 +10,7 @@ from pathlib import Path
 
 from memoryos_bench.api import Api
 from memoryos_bench.auth import RoleSession, TokenStore, login
-from memoryos_bench.provision import fingerprint, provision
+from memoryos_bench.provision import corpus_problems, fingerprint, provision
 
 CORPUS = Path(__file__).resolve().parent.parent / "corpus"
 HOME = Path(os.environ.get("MEMORYOS_BENCH_HOME", Path.home() / ".memoryos-bench"))
@@ -59,6 +59,13 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     commands.add_parser("fingerprint", help="print the corpus fingerprint")
+    check = commands.add_parser(
+        "check", help="fail unless every manifest document is uploaded and searchable"
+    )
+    check.add_argument(
+        "--origin",
+        default=os.environ.get("MEMORYOS_ORIGIN", "https://memoryos.72-62-193-33.nip.io"),
+    )
 
     args = parser.parse_args(argv)
     manifest, layout = _json(CORPUS / "manifest.json"), _json(CORPUS / "layout.json")
@@ -71,6 +78,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "fingerprint":
         print(fingerprint(manifest, layout))
         return 0
+
+    if args.command == "check":
+        api = Api(args.origin, RoleSession(store, layout["administrator"]))
+        problems = corpus_problems(api, manifest, layout)
+        for line in problems:
+            print(line, file=sys.stderr)
+        print(f"fingerprint {fingerprint(manifest, layout)}: {len(problems)} problem(s)")
+        return 1 if problems else 0
 
     # Each role's actor is whoever signed in for it, so no account is named anywhere.
     actors = {

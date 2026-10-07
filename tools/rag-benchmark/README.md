@@ -25,11 +25,13 @@ cd tools/rag-benchmark
 python -m memoryos_bench login --role owner exec finance legal governance ir hr outsider
 python -m memoryos_bench provision      # idempotent; prints the corpus fingerprint
 python -m memoryos_bench fingerprint
+python -m memoryos_bench check          # fails unless all 61 documents are uploaded and searchable
 ```
 
 `login` keeps offline tokens of the public `memoryos-integration` client (PKCE) in `$MEMORYOS_BENCH_HOME`
 (default `~/.memoryos-bench`), with the download cache. A baseline records the fingerprint it ran on; results on
-another fingerprint are not comparable.
+another fingerprint are not comparable. `provision` retries a failed extraction once; the provider refuses every turn while
+`check` would fail, because a run on an incomplete corpus grades missing evidence, not retrieval.
 
 ## Run
 
