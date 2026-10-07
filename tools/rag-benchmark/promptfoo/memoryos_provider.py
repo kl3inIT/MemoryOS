@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -23,6 +24,8 @@ from memoryos_bench.provision import corpus_problems  # noqa: E402
 ORIGIN = os.environ.get("MEMORYOS_ORIGIN", "https://memoryos.72-62-193-33.nip.io")
 HOME = Path(os.environ.get("MEMORYOS_BENCH_HOME", Path.home() / ".memoryos-bench"))
 GROUNDED_AGENT = "Benchmark - grounded"
+RETRYABLE = {"CHAT_EXECUTION_FAILED"}
+RETRY_WAITS = (35, 70)
 
 _lock = threading.Lock()
 _sessions: dict[str, RoleSession] = {}
@@ -86,6 +89,14 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
             if not persona:
                 raise RuntimeError(f"{role} cannot see the {GROUNDED_AGENT} agent; run provision")
         reply = ask(api, variables["question"], persona)
+        # A provider error fails the turn at once (MEM-231): on 2026-10-07 one dropped Codex stream made
+        # 9Router lock gpt-6-luna for 30 s and 27 turns failed inside that window. Asking again after the
+        # lock measures the answer instead of the outage; a turn that still fails stays an error.
+        for wait in RETRY_WAITS:
+            if reply["status"] == "COMPLETED" or reply.get("failureCode") not in RETRYABLE:
+                break
+            time.sleep(wait)
+            reply = ask(api, variables["question"], persona)
         if reply["status"] != "COMPLETED":
             # A failed turn is a system error, not a refusal; grading it would score it as declining.
             return {
