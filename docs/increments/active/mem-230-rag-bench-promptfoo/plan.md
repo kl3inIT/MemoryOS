@@ -234,7 +234,24 @@ than 10 points, and no access leak appears.
 | V4 `no-classify` | No per-section classification: every section with its adjacent chunks |
 | V5 all of V1–V4 | Model queries → OpenSearch → top 10 sections with neighbours (Embabel `ToolishRag` shape) |
 
-- [ ] Variant branch, image and runs; decide each step and MEM-210.
+- [x] Run 2026-10-06, one grounded run each of 375 rows on the variant image (evals `eval-Gaz`, `eval-cDl`, `eval-Ayy`,
+  `eval-LAu`, `eval-qPU`, `eval-n8I`). Input tokens are the day's `ai_usage` CHAT delta over the run.
+
+  | Variant | Pass | Dev / test | Temporal | Near miss | Turn median / p90 | Input tokens |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | V0 | 74.3% | 74% / 75% | 60% | 41% | 18.2 s / 26.4 s | 23.9 M |
+  | V1 `no-rewrite` | 72.4% | 76% / 67% | 66% | 39% | 16.3 s / 24.3 s | 23.0 M |
+  | V2 `no-scope` | 74.3% | 75% / 73% | 60% | 45% | 18.2 s / 24.6 s | 23.2 M |
+  | V3 `no-select` | 68.0% | 72% / 62% | 43% | 45% | 20.3 s / 28.3 s | 24.5 M |
+  | V4 `no-classify` | 73.9% | 75% / 72% | 57% | 43% | 16.3 s / 24.4 s | 18.6 M |
+  | V5 all off | 68.5% | 73% / 61% | 47% | 39% | 10.1 s / 13.3 s | 12.6 M |
+
+  No access leak and every `[n]` named a source in all six. Readings: the per-section classification earns nothing
+  (V4 matches V0 on both splits, 2 s and 22% of input tokens less); LLM section selection is the one step that
+  carries the score (V3 loses 13 points on test, temporal falls to 43%), and it is almost all of what the simplest
+  pipeline loses (V5 is twice as fast and loses about 6 points). Source and time inference cost nothing to drop on
+  this corpus, but its uploads share one date and one source type, so it is not decided here. The rewrite is
+  undecided: dev and test disagree, so V1 runs again in P8b. MEM-210 narrows to the selection step.
 
 ### P8b — Query-time additions, on the P8a winner
 
@@ -246,7 +263,12 @@ than 10 points, and no access leak appears.
 | A7 | Drop sections classified not relevant (the reference keeps them) | other company |
 | A8 | Forced first search in standard mode | no search |
 
-- [ ] Check memory on the staging host before hosting the reranker; a paid reranker needs the owner's approval.
+- [ ] Run on the V4 base: A4a `bge-reranker-v2-m3` (self-hosted on the serving node's GPU for the probe, removed
+  after), A4b Jev ranking each candidate on "contains the answer", A4c A4b plus dropping passages Jev marks as
+  injected instructions, weighting the subject asked and noting a contradicted premise in the evidence, E1 Embabel
+  `ToolishRag` over our OpenSearch (`VectorSearch`, `TextSearch`, `ResultExpander` adapters keeping the access
+  rechecks), and V1 a second time. Jev is `openrouter/typesafe/jev-1.13` through 9Router's `/v1/systemone`, the only
+  model taken from OpenRouter; a probe of 68 calls cost 0.0012 USD and 50 parallel calls took 1 s.
 
 ### P8c — Index-time additions, re-indexing only the benchmark Sources
 
