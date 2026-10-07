@@ -528,7 +528,8 @@ public final class ChatTurnService implements AutoCloseable {
             // MEM-230 route (never merged): a question calls search_knowledge first; the turn stays standard.
             String verdict = result == null ? "unchecked" : result.kind().name().toLowerCase(Locale.ROOT);
             LOG.atInfo().addKeyValue("event", "p8.route").addKeyValue("verdict", verdict).log("P8 standard turn routed");
-            if (result != null && result.kind() == ChatGuardrailCheck.Kind.QUESTION)
+            // Biased to search: only an explicit conversational verdict skips it; no verdict searches.
+            if (result == null || result.kind() == ChatGuardrailCheck.Kind.QUESTION)
                 run.setup = run.setup.withOptions(options = options.withSearchFirst(true));
         }
         if (result != null && result.kind() == ChatGuardrailCheck.Kind.CONVERSATIONAL && options.grounded())
