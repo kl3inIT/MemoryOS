@@ -74,6 +74,7 @@ public final class SearchTool implements AutoCloseable {
     private static final boolean NO_SCOPE = ABLATION.contains("no-scope");
     private static final boolean NO_SELECT = ABLATION.contains("no-select");
     private static final boolean NO_CLASSIFY = ABLATION.contains("no-classify");
+    private final Set<String> p8Contradicted = new HashSet<>();
 
     private static final ChatToolEvent.Call SEARCH_CALL = new ChatToolEvent.Call("search", "search_knowledge");
     private final DocumentSearchService search;
@@ -268,7 +269,11 @@ public final class SearchTool implements AutoCloseable {
             if (candidates.isEmpty()) return "Search evidence exceeds the available context. Ask a more focused question.";
             String selectionPrompt = selectionPrompt(sectionEntries, selectionQuery);
             List<Integer> choices;
-            if (NO_SELECT) choices = IntStream.rangeClosed(1, Math.min(limits.sections(), candidates.size())).boxed().toList();
+            var p8 = P8Rerank.choose(selectionQuery, candidates, limits.sections());
+            if (p8 != null) {
+                choices = p8.choices();
+                p8Contradicted.addAll(p8.contradicted());
+            } else if (NO_SELECT) choices = IntStream.rangeClosed(1, Math.min(limits.sections(), candidates.size())).boxed().toList();
             else try {
                 var selection = helper(Stage.SELECTION, runner -> runner.createObject(selectionPrompt, Selection.class));
                 checkActive.run();
@@ -667,6 +672,8 @@ public final class SearchTool implements AutoCloseable {
                 .described(hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
                         DocumentSourceMetadata.providerUrl(hit.origins())), call());
         if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included, sandboxName));
+        if (source != null && p8Contradicted.contains(P8Rerank.key(hit)))
+            output.append("(This source contradicts an assumption in the user's question; correct the assumption.)%n".formatted());
     }
 
     private static String evidenceText(int id, String title, List<SearchPage.Passage> passages,
