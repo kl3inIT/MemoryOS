@@ -395,11 +395,21 @@ public class OpenSearchIndexService implements SearchIndex {
         var embeddings = active.embeddings();
         var texts = queries.stream().map(SearchQuery::text).distinct().toList();
         var vectors = new LinkedHashMap<String, float[]>();
-        for (int offset = 0; offset < texts.size(); offset += embeddings.batchSize()) {
+        // E1: a BM25-only query needs no embedding.
+        var embedded = P8_E1 ? queries.stream().filter(query -> !query.keyword()).map(SearchQuery::text).distinct().toList() : texts;
+        for (int offset = 0; offset < embedded.size(); offset += embeddings.batchSize()) {
             checkActive.run();
-            var inputs = texts.subList(offset, Math.min(offset + embeddings.batchSize(), texts.size()));
+            var inputs = embedded.subList(offset, Math.min(offset + embeddings.batchSize(), embedded.size()));
             var output = timings.measure(SearchTimings.Stage.EMBEDDING, () -> embeddings.queries(inputs, queryCaller(scope.tenant(), scope.actor())));
             for (int i = 0; i < inputs.size(); i++) vectors.put(inputs.get(i), output.get(i));
+        }
+        if (P8_E1) {
+            // MEM-230 E1 (never merged): each query runs one branch only, BM25 for keyword queries and kNN otherwise.
+            List<Callable<List<SearchHit>>> single = queries.stream().<Callable<List<SearchHit>>>map(query ->
+                    () -> timings.measure(SearchTimings.Stage.HYBRID, () -> searchPrepared(active, scope.tenant(), query.text(),
+                            vectors.getOrDefault(query.text(), new float[0]), List.of(), filters, scope.sources().keySet().stream().map(UUID::toString).toList(),
+                            List.of(), scope.accessTokens(), query.keyword() ? 1 : 2))).toList();
+            return SearchTasks.run(single, checkActive);
         }
         List<Callable<List<SearchHit>>> tasks = texts.stream().<Callable<List<SearchHit>>>map(text ->
                 () -> timings.measure(SearchTimings.Stage.HYBRID, () -> searchPrepared(active, scope.tenant(), text, vectors.get(text), List.of(), filters,
@@ -437,6 +447,16 @@ public class OpenSearchIndexService implements SearchIndex {
     private List<SearchHit> searchPrepared(SearchGenerations.Active active, TenantId tenant, String query, float[] vector,
             List<String> mediaTypes, SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles,
             @Nullable Collection<String> accessTokens) {
+        return searchPrepared(active, tenant, query, vector, mediaTypes, restrictions, sourceIds, privateFiles, accessTokens, 0);
+    }
+
+    /** MEM-230 E1 (never merged): when set, {@link #batch} runs a single retrieval branch per query. */
+    private static final boolean P8_E1 = "embabel".equals(System.getenv("MEMORYOS_P8_SELECT"));
+
+    /** Branch 0 is the hybrid request; 1 only its BM25 sub-query; 2 only its kNN sub-query. */
+    private List<SearchHit> searchPrepared(SearchGenerations.Active active, TenantId tenant, String query, float[] vector,
+            List<String> mediaTypes, SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles,
+            @Nullable Collection<String> accessTokens, int branch) {
         String identity = active.identity();
         List<Object> filters = new ArrayList<>();
         filters.add(term("tenant_id", tenant.value().toString()));
@@ -460,10 +480,13 @@ public class OpenSearchIndexService implements SearchIndex {
             filters.add(Map.of("nested", Map.of("path", "source_metadata", "query", Map.of("bool", Map.of("filter", origins)))));
         // No existence check first: an index not created yet (a fresh deployment before its first write) has no results.
         // The normalization travels with the request, so a search depends on no cluster-side pipeline object.
-        var response = gateway.jsonOrMissing("POST", "/" + readAlias(identity) + "/_search", Map.of(), Map.of(
+        var response = gateway.jsonOrMissing("POST", "/" + readAlias(identity) + "/_search", Map.of(), branch == 0 ? Map.of(
                 "size", properties.candidateLimit(), "_source", Map.of("excludes", List.of("vector")),
                 "search_pipeline", hybridPipeline(),
-                "query", hybridQuery(query, vector, filters, active.generation().minimumSemanticScore())));
+                "query", hybridQuery(query, vector, filters, active.generation().minimumSemanticScore())) : Map.of(
+                "size", properties.candidateLimit(), "_source", Map.of("excludes", List.of("vector")),
+                "query", ((List<?>) ((Map<?, ?>) ((Map<?, ?>) hybridQuery(query, vector, filters,
+                        active.generation().minimumSemanticScore())).get("hybrid")).get("queries")).get(branch - 1)));
         if (OpenSearchGateway.indexMissing(response)) return List.of();
         var hits = new ArrayList<SearchHit>();
         for (var hit : response.path("hits").path("hits")) {

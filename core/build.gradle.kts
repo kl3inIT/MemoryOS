@@ -40,6 +40,8 @@ dependencies {
     implementation(libs.spring.ai.openai)
     implementation(libs.embabel.api)
     implementation(libs.embabel.openai)
+    // MEM-230 E1 experiment (never merged): Embabel's ToolishRag over MemoryOS retrieval.
+    implementation("com.embabel.agent:embabel-agent-rag-core:1.5.2")
     // System One (ADR 0026): JevGuardrail and, through it, the protocol client, which runs on a RestClient from
     // OutboundHttp.
     implementation(libs.typesafe.spring.ai)
@@ -87,4 +89,14 @@ dependencies {
     testImplementation(libs.testcontainers.postgresql)
     testRuntimeOnly(libs.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+// MEM-230 E1 (never merged): the staging image only swaps core's jar, so rag-core's classes ride inside it.
+tasks.jar {
+    from({
+        configurations.runtimeClasspath.get().filter { it.name.startsWith("embabel-agent-rag-core") }.map { zipTree(it) }
+    }) {
+        exclude("META-INF/MANIFEST.MF", "META-INF/spring/**", "META-INF/spring.factories", "META-INF/maven/**")
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

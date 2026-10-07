@@ -83,7 +83,19 @@ public final class ChatPrompts {
             A failed search means retrieval was unavailable, not that no relevant documents exist.
             """;
     /** The knowledge-base composition, used when Persona instructions are resolved with search enabled. */
-    public static final String SEARCH_GUIDANCE = TOOL_HEADING + SEARCH_TOOL_GUIDANCE + "\n" + KNOWLEDGE_GUIDANCE;
+    public static final String SEARCH_GUIDANCE = e1(TOOL_HEADING + SEARCH_TOOL_GUIDANCE + "\n" + KNOWLEDGE_GUIDANCE);
+
+    /** MEM-230 E1 (never merged): with Embabel ToolishRag tools, the same guidance names them instead of search_knowledge. */
+    private static boolean p8E1() { return "embabel".equals(System.getenv("MEMORYOS_P8_SELECT")); }
+
+    private static String e1(String guidance) {
+        if (!p8E1()) return guidance;
+        return guidance.replace("## search_knowledge\n", "## vectorSearch, textSearch, broadenChunk and zoomOut\n")
+                .replace("Never provide more than 3 queries at once to search_knowledge.\n",
+                        "Use vectorSearch for meaning and textSearch for exact names, numbers and keywords. Each result has a"
+                        + " chunkId; call broadenChunk or zoomOut with it to read the surrounding text.\n")
+                .replace("search_knowledge", "vectorSearch or textSearch");
+    }
 
     private static final String WEB_GUIDANCE = """
             ## web_search
@@ -180,11 +192,11 @@ public final class ChatPrompts {
 
     private static String toolGuidance(Set<String> tools, boolean siteFilter) {
         var text = new StringBuilder();
-        boolean internal = tools.contains("search_knowledge"), web = tools.contains("web_search");
+        boolean internal = tools.contains("search_knowledge") || p8E1() && tools.contains("vectorSearch"), web = tools.contains("web_search");
         if (internal) text.append(SEARCH_GUIDANCE);
         if (web) {
             heading(text);
-            if (internal) text.append("Choose search_knowledge for team/internal information and web_search for public online information; use both when the question needs both.\n");
+            if (internal) text.append(e1("Choose search_knowledge for team/internal information and web_search for public online information; use both when the question needs both.\n"));
             text.append("If initial results are insufficient, try different tools or arguments. Avoid repeating the same or very similar queries already run in the conversation.\n");
             text.append(WEB_GUIDANCE);
             text.append(siteFilter

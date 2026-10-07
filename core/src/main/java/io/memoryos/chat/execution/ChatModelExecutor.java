@@ -25,6 +25,7 @@ import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.research.ResearchTelemetry;
 import io.memoryos.chat.tools.FileReaderTool;
 import io.memoryos.chat.tools.McpTools;
+import io.memoryos.chat.tools.P8EmbabelRag;
 import io.memoryos.chat.tools.RunPythonTool;
 import io.memoryos.chat.tools.SandboxDocuments;
 import io.memoryos.chat.tools.WebTools;
@@ -236,7 +237,7 @@ public final class ChatModelExecutor {
         if (setup.options().grounded()) {
             // MEM-195: the first inference may only call search_knowledge, so the answer starts from the documents.
             guard.grounded(true);
-            guard.firstCycle(selected.requireTool("search_knowledge"));
+            guard.firstCycle(selected.requireTool(P8EmbabelRag.ENABLED ? P8EmbabelRag.FIRST_TOOL : "search_knowledge"));
         }
         var guards = new CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new CopyOnWriteArrayList<CompletableFuture<Void>>();
@@ -291,7 +292,12 @@ public final class ChatModelExecutor {
                     && interpreter.configured() && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy();
             // Onyx llm_loop.py: search hits with a stored original are staged for the Python calls that follow.
             var sandbox = python && originals != null ? new SandboxDocuments(originals, setup.actor()) : null;
-            if (selected.toolCalling() && setup.options().searches()) {
+            if (selected.toolCalling() && setup.options().searches() && P8EmbabelRag.ENABLED) {
+                // MEM-230 E1 (never merged): Embabel ToolishRag tools over MemoryOS retrieval replace search_knowledge.
+                runner = runner.withTools(new P8EmbabelRag(search, setup.actor(), setup.options().sourceAllowlist(),
+                        setup.options().knowledgeCutoff(), setup.evidence(), activity, events::accept, guard::checkActive,
+                        guard::availableContextTokens, selected.policy().tokens()).tools());
+            } else if (selected.toolCalling() && setup.options().searches()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, outputBound)).withoutThinking());
