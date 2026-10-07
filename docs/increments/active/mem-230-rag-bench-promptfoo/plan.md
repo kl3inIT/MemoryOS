@@ -278,6 +278,26 @@ than 10 points, and no access leak appears.
   retries a failed extraction once, and the provider refuses every turn while the check fails. V0, V4, B1 and E1 run
   again on the complete corpus.
 
+- [x] Complete corpus, 2026-10-07, 61 documents, every run 375 rows with its error rows asked again (evals `eval-n43`
+  + `eval-LXG`, `eval-z0a`, `eval-cCK`, `eval-49s` + `eval-pR0`). B1 (bge) did not run: the reranker was removed from
+  the serving node, which is production.
+
+  | Variant | Pass | Dev / test | Near miss | Temporal | Multi-hop | False premise | Lookup | Turn median |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | V0 released | 67.2% | 68% / 65% | 27% | 57% | 63% | 55% | 92% | 18.4 s |
+  | V4 `no-classify` | 68.8% | 71% / 65% | 27% | 50% | 70% | 55% | 93% | 14.2 s |
+  | E1 Embabel `ToolishRag` | 58.9% | 59% / 58% | 36% | 43% | 50% | 45% | 73% | 8.2 s |
+  | V4E V4 + `broadenChunk`/`zoomOut` | 65.6% | 66% / 65% | 30% | 43% | 60% | 55% | 88% | 12.2 s |
+
+  Readings: the complete corpus lowers every rate the incomplete one flattered, chiefly near miss (41% to 27%),
+  because 12 Haxaco documents instead of 5 make the other-company trap real; lookup rises (88% to 92%) because the
+  evidence is now there. V4 holds against V0 on both splits and is 4 s faster, so the per-section classification is
+  dropped. Embabel's native tool loop is 8 points worse but twice as fast and best on near miss, where the model's own
+  queries keep the company name. In V4E the model never called the expander tools (0 of 462 turns), so model-driven
+  expansion adds nothing over V4's adjacent chunks. The retrieval probe on 61 documents agrees on chunking: the
+  structure-aware chunks win at an equal token budget, hybrid beats vector-only, and every chunking leaves 14–18% of the
+  top 10 from Haxaco, so company and period confusion is a metadata problem (MEM-232), not a chunking one.
+
 ### P8c — Index-time additions, re-indexing only the benchmark Sources
 
 | Variant | Addition | Benchmark defect |
