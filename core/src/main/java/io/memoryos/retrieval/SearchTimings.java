@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /** Bounded stage names only: questions, document metadata and identities are never metric tags. */
 @Component
 public class SearchTimings {
-    public enum Stage { PREFETCH, SEMANTIC_REWRITE, KEYWORD_REWRITE, SOURCE_FILTER, TIME_FILTER, EMBEDDING, HYBRID, AUTHORIZATION, FUSION, SELECTION, EXPANSION, CLASSIFICATION }
+    public enum Stage { PREFETCH, SEMANTIC_REWRITE, KEYWORD_REWRITE, SOURCE_FILTER, TIME_FILTER, EMBEDDING, HYBRID, AUTHORIZATION, FUSION, SELECTION, EXPANSION }
     private final MeterRegistry meters;
     private final ObservationRegistry observations;
 

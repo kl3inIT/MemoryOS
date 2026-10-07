@@ -226,7 +226,7 @@ Current scope and limits: [catalog spec](../specs/chat-models.md). New local pro
 | --- | --- |
 | Duplicate contributions sum, k=50, deterministic rank/query tie breaks, grouping before candidate bounds | `DocumentSearchServiceTest`, `SearchToolTest` |
 | First-call rewrite, later same-source query omission, expansion reuse on a new source type, per-turn state | `SearchToolTest` |
-| Three-chunk representatives, full section boundaries, neighbor classification, overlap merge and bounded context | `SearchToolTest` |
+| Three-chunk representatives, full section boundaries, adjacent chunks, overlap merge and bounded context | `SearchToolTest` |
 | Minimum supported helper reasoning after native conversion; answer options unchanged | `OpenAiProviderAdapterTest`, including actual SDK HTTP request serialization |
 | Helper timeout covers native attempts; cooperative cancellation drains native work before terminal usage persistence | `SearchTasksTest`; `ChatSessionApiIntegrationTest.stopInterruptsNativeTypedHelperWorkAndDrainsItBeforePersistingTheOutcome` |
 | The provider read timeout ends a silent gap but not a long answer that keeps streaming | `OpenAiCancellationTest.streamOutlivesTheReadTimeoutWhileTokensArriveAndFailsOnASilentGap` |
@@ -273,8 +273,8 @@ standard mode a turn that answers without searching.
 | Contract | Verification |
 | --- | --- |
 | Native named tool binding, argument bounds, empty/invalid selection fallback, NOT_RELEVANT keeping the main section, per-cycle source scope latching, reference time bounds, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
-| Follow-up rewrite receives history, rewrites cache per turn, query weights remain distinct; context classification sees real neighbors, and a NOT_RELEVANT classification keeps the selected main section without the misleading neighbor | `SearchToolTest.followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight`; `classificationReadsNeighborsAndKeepsTheMainSectionWhenNotRelevant` |
-| FULL_DOCUMENT reads at most five neighbors per side; Stop during query rewriting cancels the phase and prevents retrieval | `SearchToolTest.fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow`; `stopDuringQueryRewriteCancelsThePhaseAndPreventsRetrieval` |
+| Follow-up rewrite receives history, rewrites cache per turn, query weights remain distinct; every selected section returns two neighboring chunks per side with no classification helper call and two authorization rechecks | `SearchToolTest.followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight`; `everySelectedSectionReturnsItsAdjacentChunksWithoutAClassificationHelperCall` |
+| Stop during query rewriting cancels the phase and prevents retrieval | `SearchToolTest.stopDuringQueryRewriteCancelsThePhaseAndPreventsRetrieval` |
 | Same native process records typed selection and streaming usage once; denied content never reaches either model prompt | `ChatSessionApiIntegrationTest.nativeSearchToolSelectsExpandsStreamsSourcesAndPersistsTypedAndStreamingUsageOnce` |
 | Stop interrupts a blocking retrieval on a virtual thread and prevents later queries/tools/inference while retaining partial text | `ChatSessionApiIntegrationTest.stopInterruptsBlockingRetrievalOnVirtualThreadAndPreventsFurtherToolsAndInference` |
 | Tool content is included in context limits; native typed usage is not double counted; unknown usage stays unknown and native budget stops inference | `ChatModelGuardTest` |

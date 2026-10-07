@@ -291,8 +291,8 @@ than 10 points, and no access leak appears.
 
   Readings: the complete corpus lowers every rate the incomplete one flattered, chiefly near miss (41% to 27%),
   because 12 Haxaco documents instead of 5 make the other-company trap real; lookup rises (88% to 92%) because the
-  evidence is now there. V4 holds against V0 on both splits and is 4 s faster, so the per-section classification is
-  dropped. Embabel's native tool loop is 8 points worse but twice as fast and best on near miss, where the model's own
+  evidence is now there. V4 holds against V0 on both splits and is 4 s faster, so MEM-210 drops the per-section
+  classification. Embabel's native tool loop is 8 points worse but twice as fast and best on near miss, where the model's own
   queries keep the company name. In V4E the model never called the expander tools (0 of 462 turns), so model-driven
   expansion adds nothing over V4's adjacent chunks. The retrieval probe on 61 documents agrees on chunking: the
   structure-aware chunks win at an equal token budget, hybrid beats vector-only, and every chunking leaves 14–18% of the

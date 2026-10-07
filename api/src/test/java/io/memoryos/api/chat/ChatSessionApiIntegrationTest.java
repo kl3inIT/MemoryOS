@@ -1363,10 +1363,6 @@ class ChatSessionApiIntegrationTest {
             if (text.contains("provide a set of keyword only queries")) return response("{\"queries\":[]}", "stop", 7);
             if (text.contains("You scope an internal search to a time filter")) return response("{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
             assertTrue(text.contains("Annual leave is twelve days."));
-            if (text.contains("# Main Section:")) {
-                assertTrue(text.contains("Employee handbook"));
-                return response("{\"classification\":\"INCLUDE_ADJACENT_SECTIONS\"}", "stop", 7);
-            }
             return response("{\"sections\":[1]}", "stop", 7);
         });
         var calls = new AtomicInteger();
@@ -1379,6 +1375,7 @@ class ChatSessionApiIntegrationTest {
                     ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                     ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
             assertTrue(prompt.toString().contains("[1] HR policy"));
+            assertTrue(prompt.toString().contains("Employee handbook"));
             assertTrue(prompt.getContents().contains("cite relevant statements INLINE"));
             return Flux.just(response("Annual leave is twelve days [1].", "stop", 12));
         });
@@ -1390,8 +1387,8 @@ class ChatSessionApiIntegrationTest {
         assertEquals("Annual leave is twelve days [1].", saved.path("content").asText());
         assertEquals(document.toString(), saved.path("sources").get(0).path("documentId").asText());
         assertEquals(generation.toString(), saved.path("sources").get(0).path("generation").asText());
-        assertEquals(59L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id").param("id", UUID.fromString(id)).query(Long.class).single());
-        verify(model, times(5)).call(any(Prompt.class));
+        assertEquals(52L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id").param("id", UUID.fromString(id)).query(Long.class).single());
+        verify(model, times(4)).call(any(Prompt.class));
         verify(model, times(2)).stream(any(Prompt.class));
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
@@ -1421,7 +1418,6 @@ class ChatSessionApiIntegrationTest {
             if (text.contains("provide a standalone query")) return response("{\"query\":\"leave\"}", "stop", 7);
             if (text.contains("provide a set of keyword only queries")) return response("{\"queries\":[]}", "stop", 7);
             if (text.contains("You scope an internal search to a time filter")) return response("{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
-            if (text.contains("# Main Section:")) return response("{\"classification\":\"MAIN_SECTION_ONLY\"}", "stop", 7);
             return response("{\"sections\":[1]}", "stop", 7);
         });
         var phases = new ConcurrentHashMap<String, AtomicInteger>();
@@ -6277,7 +6273,6 @@ class ChatSessionApiIntegrationTest {
                 new SearchHit(contractor, generation, 2, titles.get(contractor), "text/plain", corpus.get(contractor).get(2), "[]", Instant.EPOCH, .95),
                 new SearchHit(policy, generation, 2, titles.get(policy), "text/plain", corpus.get(policy).get(2), "[]", Instant.EPOCH, .9)));
         var semanticOutputs = new CopyOnWriteArrayList<String>();
-        var contextChoices = new CopyOnWriteArrayList<String>();
         var helperReceipts = new CopyOnWriteArrayList<Map<String, Object>>();
         when(searchIndex.identity()).thenReturn("live-grounding-corpus");
         when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<SearchQuery>>getArgument(1)
@@ -6312,10 +6307,8 @@ class ChatSessionApiIntegrationTest {
                 var response = provider.call(request);
                 assertNotNull(response.getResult());
                 String output = response.getResult().getOutput().getText();
-                helperReceipts.add(Map.of("classification", request.getContents().contains("# Section Above:"),
-                        "hasNeighborFact", request.getContents().contains("17"), "output", output == null ? "" : output,
+                helperReceipts.add(Map.of("hasNeighborFact", request.getContents().contains("17"), "output", output == null ? "" : output,
                         "ms", (System.nanoTime() - started) / 1_000_000));
-                if (request.getContents().contains("# Section Above:")) contextChoices.add(output);
                 if (request.getContents().contains("provide a standalone query")) {
                     var result = response.getResult();
                     assertNotNull(result);
@@ -6328,7 +6321,7 @@ class ChatSessionApiIntegrationTest {
             var first = groundedReply(session, session.path("rootMessageId").asText(),
                     "Theo chính sách AV-42, nhân viên chính thức có bao nhiêu ngày nghỉ phép mỗi năm? Chỉ trả lời số ngày và trích dẫn nguồn.");
             String answer = first.path("content").asText();
-            assertTrue(answer.contains("17"), answer + "; context choices=" + contextChoices);
+            assertTrue(answer.contains("17"), answer);
             assertFalse(answer.contains("26") || answer.contains("99"), answer);
             assertGroundedCitation(first, policy);
             int rewritesBeforeFollowUp = semanticOutputs.size();
