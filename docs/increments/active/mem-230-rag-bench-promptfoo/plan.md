@@ -189,7 +189,7 @@ Method: [question authoring and bias controls](design.md#question-authoring-and-
 ## P6 — Baselines and removal
 
 - [x] Baseline v2, 2026-10-06, corpus `6f95c22c…`, recorded in
-  [docs/tests/chat.md](../../../tests/chat.md#rag-benchmark-baseline-mem-230--2026-10-06). A hand audit of 30
+  [docs/tests/chat.md](../../../tests/chat.md#rag-benchmark-baseline-mem-230--2026-10-08). A hand audit of 30
   random failed grounded rows found 14 bench errors, 9 of them one design flaw: a role without the evidence
   documents was expected to decline although the same fact (charter capital, address, Supervisory Board) is in
   documents it may read, so correct, leak-free answers failed. Abstain and partial rows outside the
@@ -308,6 +308,13 @@ than 10 points, and no access leak appears.
   the skipped search seen once in P5 is rare and a classifier forcing the first search would cost a call on every
   standard turn for nothing measurable. The routing switch of the probe build never fired, so routing itself was not
   measured. Company, period and premise handling stays with MEM-232 (metadata), where a prompt alone did not help.
+
+- [x] Baseline v3, 2026-10-08, on `main` at `0782687f` (classification removed, #567) and the complete corpus:
+  standard 63.4%, grounded 66.4%, no leak, no error row, turn median 10.3 s in both modes (18–20 s before). Recorded
+  in [docs/tests/chat.md](../../../tests/chat.md#rag-benchmark-baseline-mem-230--2026-10-08) as the reference.
+  The probe builds had replaced the staging API container while the pipeline deployed, which left a pending
+  transaction and blocked later deployments for a day; it was finished with the workflow's `recovery_release`. A probe
+  that replaces a container must hold the deployment first.
 
 ### P8c — Index-time additions, re-indexing only the benchmark Sources
 
