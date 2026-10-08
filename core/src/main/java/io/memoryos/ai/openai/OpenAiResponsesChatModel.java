@@ -59,7 +59,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
 
     @Override public boolean nativeWebSearch() { return webSearch; }
 
-    /** Synchronous helpers (selection, classification) never search the Web. */
+    /** Synchronous helpers (query rewrites, filters, selection) never search the Web. */
     @Override public ChatResponse call(Prompt prompt) { return completions.call(prompt); }
 
     @Override
