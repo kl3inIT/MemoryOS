@@ -244,29 +244,40 @@ Current scope and limits: [catalog spec](../specs/chat-models.md). New local pro
 
 The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse` uses an authorized local snapshot, real OpenSearch, live embeddings/provider, PostgreSQL transcript and HTTP SSE. It records each Search cycle, first text, total duration and nullable native usage, and checks revenue/travel facts plus the long Word document's cited role coverage. Model-selected tool counts are observations, not fixed assertions. The snapshot is the authority fixture; real SQL permissions and multi-source/date behavior are covered separately above. See [measured results and limits](../increments/completed/mem-11-production-chat/latency-verification.md). No corpus or answer receipts are checked in.
 
-## RAG benchmark baseline (MEM-230) — 2026-10-06
+## RAG benchmark baseline (MEM-230) — 2026-10-08
 
-promptfoo on staging over the isolated benchmark corpus (fingerprint `6f95c22c5f14`, 120 frozen questions asked by
-seven roles), chat and judge model `cx/gpt-6-luna`, 2 concurrent turns. Replies from the v2 runs, re-graded with
-the corrected expectations (evals `eval-lxZ-2026-10-06T07:04:54` and `eval-GnC-2026-10-06T07:23:06`).
+promptfoo on staging over the complete benchmark corpus (61 documents, fingerprint `6f95c22c5f14`, 120 frozen
+questions asked by seven roles), `main` at `0782687f`, chat and judge model `cx/gpt-6-luna`, 2 concurrent turns, no
+error row (evals `eval-ifh-2026-10-08T10:34:13` and `eval-Yi1-2026-10-08T11:17:04`).
 
 | Check | Standard | Grounded |
 | --- | --- | --- |
-| Rows passing every check | 226/360 (62.8%) | 274/371 (73.9%) |
+| Rows passing every check | 229/361 (63.4%) | 249/375 (66.4%) |
 | Leakage: a document the role may not read was read or cited | 0 | 0 |
-| Tempting: another period's or company's document cited | 20 | 19 |
-| Correctness on answerable rows (`factuality`) | 109/139 | 104/137 |
-| Faithfulness to the cited text | 126/139 | 135/137 |
-| Every `[n]` names a source | — | 371/371 |
+| Tempting: another period's or company's document cited | 35 | 35 |
+| Correctness on answerable rows (`factuality`) | 120/139 | 122/139 |
+| Faithfulness to the cited text | 133/139 | 129/139 |
+| Every `[n]` names a source | — | 375/375 |
+| Turn time, median / p90 | 10.3 s / 13.0 s | 10.3 s / 12.9 s |
 
-Grounded by category: absent, general-knowledge and sensitive 94–100%, lookup 88%, aggregate 79%, cross-department
-76%, false premise 68%, multi-hop 63%, temporal 57%, near miss 45%. Dev 74% and test 73%. Turn time median 16 s,
-p90 25 s. Infrastructure errors (1 standard, 4 grounded) are not graded.
+| Category | Standard | Grounded |
+| --- | --- | --- |
+| Absent | 94% | 89% |
+| General knowledge, sensitive (grounded only) | — | 88%, 100% |
+| Lookup | 83% | 92% |
+| Aggregate | 73% | 83% |
+| Cross-department | 57% | 60% |
+| Multi-hop | 63% | 53% |
+| Temporal | 57% | 53% |
+| False premise | 50% | 55% |
+| Ambiguous | 83% | 50% |
+| Near miss | 25% | 23% |
 
-Re-grading unchanged replies moved single checks by up to 5 rows, so a difference of that size between runs is
-judge noise. The weak categories are product defects, not grading: another period's or an unadjusted figure, a
-Haxaco fact given as Savico's, a fact present in the corpus not found, a false premise not corrected, and in
-standard mode a turn that answers without searching.
+Dev and test agree (standard 64% and 63%, grounded 68% and 64%). Re-grading unchanged replies moves single checks by
+up to 5 rows, so a difference of that size between runs is judge noise. This replaces the 2026-10-06 figures, which
+ran while 13 of the 61 documents had failed extraction and so flattered the near-miss and temporal categories; the
+benchmark now refuses to run on an incomplete corpus. The weak categories are one product defect: an answer taken
+from another company's or another period's document (MEM-232).
 
 ## Grounded backend (Phase 3.1)
 
