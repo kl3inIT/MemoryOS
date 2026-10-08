@@ -298,6 +298,17 @@ than 10 points, and no access leak appears.
   structure-aware chunks win at an equal token budget, hybrid beats vector-only, and every chunking leaves 14–18% of the
   top 10 from Haxaco, so company and period confusion is a metadata problem (MEM-232), not a chunking one.
 
+- [x] Search-first routing and a rewritten search guidance, probed 2026-10-07 on the complete corpus and not adopted.
+  The guidance told the model to search by default and to check the company, period and premise of each result
+  (A6, A8). Standard mode: released 65.1% (dev 69% / test 59%), with the guidance and V4 63.7% (65% / 61%); grounded:
+  V4 68.8%, with the guidance 65.2% (near miss 27% to 22%, false premise 55% to 40%, multi-hop 70% to 59%; 19 rows lost
+  to a name-resolution failure of the benchmark container). Of 16 messages that need nothing looked up, the released
+  guidance searched for none and the new one for 5 (10–18 s each instead of 4 s). Of 20 organization questions phrased
+  like general knowledge and asked without the company's name, the released standard mode searched for all 20, so
+  the skipped search seen once in P5 is rare and a classifier forcing the first search would cost a call on every
+  standard turn for nothing measurable. The routing switch of the probe build never fired, so routing itself was not
+  measured. Company, period and premise handling stays with MEM-232 (metadata), where a prompt alone did not help.
+
 ### P8c — Index-time additions, re-indexing only the benchmark Sources
 
 | Variant | Addition | Benchmark defect |
