@@ -206,7 +206,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
@@ -324,17 +323,6 @@ class ChatSessionApiIntegrationTest {
         catalogFixture();
         actor = actor();
         other = actor();
-        // A standard turn that offers search_knowledge is routed by the guardrail check first.
-        when(model.call(any(Prompt.class))).thenAnswer(call -> routing(call.getArgument(0), 0.02));
-    }
-
-    /**
-     * The guardrail check's answer when {@code prompt} is that check, else null: the probability that the message is
-     * conversation. Null-safe, because stubbing the model again runs the previous answer with no argument.
-     */
-    private static @Nullable ChatResponse routing(@Nullable Prompt prompt, double conversational) {
-        if (prompt == null || !prompt.getContents().contains("Judge ONLY THE LAST Person message")) return null;
-        return response("{\"answers\":[{\"id\":\"CONVERSATIONAL\",\"probability\":" + conversational + "}]}", "stop", 7);
     }
 
     /** The model the Tenant's Chat default names in this suite. */
@@ -1350,29 +1338,6 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
-    void aStandardQuestionSearchesFirstWithoutBecomingGroundedAndConversationIsLeftToTheModel() throws Exception {
-        var choices = new CopyOnWriteArrayList<String>();
-        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
-            Prompt prompt = call.getArgument(0);
-            choices.add(prompt.getOptions() instanceof OpenAiChatOptions options ? String.valueOf(options.getToolChoice()) : "");
-            return Flux.just(response("Answer from general knowledge", "stop", 12));
-        });
-        var session = create();
-        var reply = send(session, UUID.randomUUID().toString());
-        awaitOutcome(reply.path("assistantMessageId").asText(), "COMPLETED");
-        // The first inference must call search_knowledge, yet the turn is not grounded: its uncited answer is kept.
-        assertEquals(List.of("required"), choices);
-        assertEquals("Answer from general knowledge", history(session).get(1).path("content").asText());
-
-        when(model.call(any(Prompt.class))).thenAnswer(call -> routing(call.getArgument(0), 0.97));
-        var chat = create();
-        var conversational = send(chat, UUID.randomUUID().toString());
-        awaitOutcome(conversational.path("assistantMessageId").asText(), "COMPLETED");
-        assertEquals(2, choices.size());
-        assertNotEquals("required", choices.getLast(), "conversation is left to the model");
-    }
-
-    @Test
     void nativeSearchToolSelectsExpandsStreamsSourcesAndPersistsTypedAndStreamingUsageOnce() throws Exception {
         var document = UUID.randomUUID();
         var hidden = UUID.randomUUID();
@@ -1392,8 +1357,6 @@ class ChatSessionApiIntegrationTest {
                 List.of(new SearchPage.Passage(0, "Employee handbook", "[]"), new SearchPage.Passage(1, "Annual policy", "[]")), 0, 3, true));
         when(searchIndex.document(tenant, document, generation, 3, 2)).thenReturn(new SearchDocument(document, generation, "HR policy", "text/plain", List.of(), 3, 3, false));
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
-            var routed = routing(call.getArgument(0), 0.02);
-            if (routed != null) return routed;
             String text = call.<Prompt>getArgument(0).getContents();
             assertFalse(text.contains("PRIVATE DENIED CONTENT"));
             if (text.contains("provide a standalone query")) return response("{\"query\":\"leave\"}", "stop", 7);
@@ -1425,8 +1388,7 @@ class ChatSessionApiIntegrationTest {
         assertEquals(document.toString(), saved.path("sources").get(0).path("documentId").asText());
         assertEquals(generation.toString(), saved.path("sources").get(0).path("generation").asText());
         assertEquals(52L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id").param("id", UUID.fromString(id)).query(Long.class).single());
-        // The routing check, two rewrites, the time filter and the selection.
-        verify(model, times(5)).call(any(Prompt.class));
+        verify(model, times(4)).call(any(Prompt.class));
         verify(model, times(2)).stream(any(Prompt.class));
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
@@ -1871,8 +1833,6 @@ class ChatSessionApiIntegrationTest {
         var interrupted = new CountDownLatch(1);
         var virtual = new AtomicBoolean();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
-            var routed = routing(call.getArgument(0), 0.02);
-            if (routed != null) return routed;
             String text = call.<Prompt>getArgument(0).getContents();
             return response(text.contains("provide a standalone query") ? "{\"query\":\"leave\"}"
                     : text.contains("provide a set of keyword only queries") ? "{\"queries\":[]}" : "{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
@@ -1901,7 +1861,7 @@ class ChatSessionApiIntegrationTest {
         assertTrue(interrupted.await(3, TimeUnit.SECONDS));
         verify(searchIndex).batch(any(), any(), any(), any());
         verify(model).stream(any(Prompt.class));
-        verify(model, times(4)).call(any(Prompt.class));
+        verify(model, times(3)).call(any(Prompt.class));
         assertEquals("Checking documents.", history(session).get(1).path("content").asText());
     }
 
@@ -1909,9 +1869,7 @@ class ChatSessionApiIntegrationTest {
     void stopInterruptsNativeTypedHelperWorkAndDrainsItBeforePersistingTheOutcome() throws Exception {
         var entered = new CountDownLatch(3);
         var drained = new CountDownLatch(3);
-        when(model.call(any(Prompt.class))).thenAnswer(call -> {
-            var routed = routing(call.getArgument(0), 0.02);
-            if (routed != null) return routed;
+        when(model.call(any(Prompt.class))).thenAnswer(_ -> {
             entered.countDown();
             try { new CountDownLatch(1).await(); }
             finally { drained.countDown(); }
@@ -1930,7 +1888,7 @@ class ChatSessionApiIntegrationTest {
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isAccepted());
         awaitOutcome(id, "CANCELED");
         assertEquals(0, drained.getCount(), "Terminal outcome must follow native helper drain");
-        verify(model, times(4)).call(any(Prompt.class));
+        verify(model, times(3)).call(any(Prompt.class));
         verify(model).stream(any(Prompt.class));
         verify(searchIndex, never()).batch(any(), any(), any(), any());
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id=:id AND input_tokens IS NULL")
@@ -1942,9 +1900,7 @@ class ChatSessionApiIntegrationTest {
         var entered = new CountDownLatch(3);
         var release = new CountDownLatch(1);
         var returned = new CountDownLatch(3);
-        when(model.call(any(Prompt.class))).thenAnswer(call -> {
-            var routed = routing(call.getArgument(0), 0.02);
-            if (routed != null) return routed;
+        when(model.call(any(Prompt.class))).thenAnswer(_ -> {
             entered.countDown();
             boolean done = false;
             while (!done) {
@@ -1973,7 +1929,7 @@ class ChatSessionApiIntegrationTest {
                     .param("id", UUID.fromString(id)).query(Long.class).single());
         } finally { release.countDown(); }
         assertTrue(returned.await(3, TimeUnit.SECONDS));
-        Mockito.verify(model, Mockito.after(500).times(4)).call(any(Prompt.class));
+        Mockito.verify(model, Mockito.after(500).times(3)).call(any(Prompt.class));
         verify(model).stream(any(Prompt.class));
         verify(searchIndex, never()).batch(any(), any(), any(), any());
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id=:id AND status='CANCELED' AND input_tokens IS NULL AND output_tokens IS NULL")

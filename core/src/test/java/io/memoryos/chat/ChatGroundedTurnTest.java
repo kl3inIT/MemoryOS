@@ -2,7 +2,6 @@ package io.memoryos.chat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -16,13 +15,11 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import io.memoryos.ai.DataBoundary;
 import io.memoryos.ai.ModelBinding;
-import io.memoryos.ai.ModelCalls;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.ai.systemone.SystemOneProvider;
 import io.memoryos.audit.AuditAction;
@@ -60,18 +57,13 @@ import org.mockito.ArgumentCaptor;
 import org.springaicommunity.typesafe.response.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 
-/**
- * MEM-195: a grounded turn answers only with a citation, and a blocked question never reaches the answer model. A
- * standard turn that offers search_knowledge is routed by the same check and searches first unless it is conversation.
- */
+/** MEM-195: a grounded turn answers only with a citation, and a blocked question never reaches the answer model. */
 class ChatGroundedTurnTest {
     private final ChatTurnPersistence persistence = mock(ChatTurnPersistence.class);
     private final ChatModelExecutor model = mock(ChatModelExecutor.class);
     private final ChatModelSelector models = mock(ChatModelSelector.class);
     private final ChatSettingsService settings = mock(ChatSettingsService.class);
     private final ChatGuardrailCheck guardrails = mock(ChatGuardrailCheck.class);
-    /** The check the service runs: the mock, or a real one over a stubbed model call. */
-    private ChatGuardrailCheck check = guardrails;
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final ModelClients.Lease lease = mock(ModelClients.Lease.class);
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60),
@@ -93,16 +85,8 @@ class ChatGroundedTurnTest {
 
     /** Messages before the question in the context, newest first, as the conversation's history holds them. */
     private List<ChatMessage> earlierNewestFirst = List.of();
-    /** The person's message of the turn. */
-    private String questionText = "Vợ bác Hồ là ai?";
 
     private void prepare(boolean toolCalling, ChatSettingsService.TurnPolicy policy, ChatGuardrailCheck.Kind kind) {
-        // The agent itself does not search; grounded mode adds the search tool only while it applies.
-        prepare(toolCalling, policy, kind, ChatTurnOptions.builder().searchEnabled(false).grounded(true).build());
-    }
-
-    private void prepare(boolean toolCalling, ChatSettingsService.TurnPolicy policy, ChatGuardrailCheck.Kind kind,
-                         ChatTurnOptions options) {
         var binding = ModelBinding.builder(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
                 ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false)
                 .credentialRejection(failure -> failure instanceof Refused || failure.getCause() instanceof Refused).build();
@@ -114,19 +98,21 @@ class ChatGroundedTurnTest {
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
+        // The agent itself does not search; grounded mode adds the search tool only while it applies.
+        var grounded = ChatTurnOptions.builder().searchEnabled(false).grounded(true).build();
         when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
-                "", options, "0", null, List.of(), Set.of("search", "web_search"), null), false, false, false));
+                "", grounded, "0", null, List.of(), Set.of("search", "web_search"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
         var question = ChatMessage.builder(pair.userMessageId(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
                 .parentMessageId(parent)
                 .latestChildMessageId(pair.assistantMessageId())
-                .content(questionText)
+                .content("Vợ bác Hồ là ai?")
                 .finishedAt(Instant.now())
                 .build();
         when(persistence.loadContext(any(), any(), any())).thenReturn(ChatTurnPersistence.TurnContext.builder(actor,
                 new TenantId(UUID.randomUUID()), "Answer",
                 Stream.concat(Stream.of(question), earlierNewestFirst.stream()).toList())
-                .options(options)
+                .options(grounded)
                 .build());
         when(settings.turnPolicy(any())).thenReturn(policy);
         when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), 0));
@@ -136,7 +122,7 @@ class ChatGroundedTurnTest {
     }
 
     private ChatTurnService service(AtomicReference<Runnable> queued) {
-        return new ChatTurnService(persistence, model, limits, queued::set, streams, models, null, null, settings, null, null, null, check,
+        return new ChatTurnService(persistence, model, limits, queued::set, streams, models, null, null, settings, null, null, null, guardrails,
                 new ChatTurnMetrics(meters));
     }
 
@@ -359,7 +345,6 @@ class ChatGroundedTurnTest {
             verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
             assertEquals(true, setup.getValue().options().grounded());
             assertEquals(true, setup.getValue().options().searches());
-            assertFalse(setup.getValue().options().searchFirst(), "a grounded turn forces search on its own path");
         }
     }
 
@@ -496,135 +481,5 @@ class ChatGroundedTurnTest {
         verify(audit).recordSeparately(event.capture());
         verify(audit, never()).record(any());
         assertEquals(AuditAction.CHAT_GUARDRAIL_BLOCK, event.getValue().action());
-    }
-
-    /** A standard agent that searches: not grounded, with search_knowledge offered. */
-    private static final ChatTurnOptions STANDARD = ChatTurnOptions.builder().build();
-
-    /** The real check over a stubbed language model that answers {@code reply}; returns the model calls. */
-    private ModelCalls realCheck(String reply) {
-        var calls = mock(ModelCalls.class);
-        when(calls.generateObject(any(), anyString(), anyString(), eq(String.class), any(), anyInt(), any(), any()))
-                .thenReturn(reply);
-        check = new ChatGuardrailCheck(new GroundingClassifier(calls, null), mock(AuditTrail.class), null);
-        return calls;
-    }
-
-    private ChatTurnSetup answered() {
-        var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
-        verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
-        return setup.getValue();
-    }
-
-    @Test
-    void aStandardQuestionSearchesFirstAndStaysStandard() {
-        prepare(true, ChatSettingsService.TurnPolicy.NONE, ChatGuardrailCheck.Kind.QUESTION, STANDARD);
-        var calls = realCheck("{\"CONVERSATIONAL\": 0.02}");
-        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
-        var queued = new AtomicReference<Runnable>();
-        try (var service = service(queued)) {
-            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
-            queued.get().run();
-            // One call, which also asks whether the message is conversation.
-            var instructions = ArgumentCaptor.forClass(String.class);
-            verify(calls).generateObject(any(), instructions.capture(), anyString(), eq(String.class), any(), anyInt(), any(), any());
-            assertTrue(instructions.getValue().contains("CONVERSATIONAL: Is the last Person message a greeting"));
-            var options = answered().options();
-            assertTrue(options.searchFirst());
-            assertFalse(options.grounded());
-            // Not grounded: no citation rule, so an answer the model gives without documents is kept.
-            verifyStored("Việt Nam hiện có 34 tỉnh, thành phố.", null);
-            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "question").timer().count());
-        }
-    }
-
-    @Test
-    void aConversationalStandardMessageIsLeftToTheModel() {
-        prepare(true, ChatSettingsService.TurnPolicy.NONE, ChatGuardrailCheck.Kind.QUESTION, STANDARD);
-        realCheck("{\"CONVERSATIONAL\": 0.97}");
-        answers("Mình là trợ lý tài liệu của tổ chức.");
-        var queued = new AtomicReference<Runnable>();
-        try (var service = service(queued)) {
-            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
-            queued.get().run();
-            assertFalse(answered().options().searchFirst());
-            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "conversational").timer().count());
-        }
-    }
-
-    @Test
-    void aStandardTurnWithoutAVerdictStillSearchesFirst() {
-        prepare(true, ChatSettingsService.TurnPolicy.NONE, ChatGuardrailCheck.Kind.QUESTION, STANDARD);
-        when(guardrails.check(any(), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("no verdict"));
-        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
-        var queued = new AtomicReference<Runnable>();
-        try (var service = service(queued)) {
-            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
-            queued.get().run();
-            var options = answered().options();
-            assertTrue(options.searchFirst(), "biased to search: only a conversational verdict skips it");
-            assertFalse(options.grounded());
-            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "unchecked").timer().count());
-        }
-    }
-
-    @Test
-    void aStandardGreetingReachesNoClassifierAndIsNotForcedToSearch() {
-        questionText = "Xin chào";
-        prepare(true, ChatSettingsService.TurnPolicy.NONE, ChatGuardrailCheck.Kind.QUESTION, STANDARD);
-        var calls = realCheck("{\"CONVERSATIONAL\": 0.02}");
-        answers("Chào bạn!");
-        var queued = new AtomicReference<Runnable>();
-        try (var service = service(queued)) {
-            service.send(actor, session, parent, UUID.randomUUID(), "Xin chào", null);
-            queued.get().run();
-            verifyNoInteractions(calls);
-            assertFalse(answered().options().searchFirst());
-            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "conversational").timer().count());
-        }
-    }
-
-    @Test
-    void aStandardTurnThatCannotSearchIsNotChecked() {
-        prepare(true, ChatSettingsService.TurnPolicy.NONE, ChatGuardrailCheck.Kind.QUESTION,
-                ChatTurnOptions.builder().searchEnabled(false).build());
-        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
-        var queued = new AtomicReference<Runnable>();
-        try (var service = service(queued)) {
-            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
-            queued.get().run();
-            verify(guardrails, never()).check(any(), any(), any(), any(), any(), any());
-            assertFalse(answered().options().searchFirst());
-            assertNull(meters.find("memoryos.chat.guardrail.check").timer());
-        }
-    }
-
-    @Test
-    void aModelWithoutToolCallingIsNotRoutedToSearch() {
-        prepare(false, ChatSettingsService.TurnPolicy.NONE, ChatGuardrailCheck.Kind.QUESTION, STANDARD);
-        answers("Việt Nam hiện có 34 tỉnh, thành phố.");
-        var queued = new AtomicReference<Runnable>();
-        try (var service = service(queued)) {
-            service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
-            queued.get().run();
-            verify(guardrails, never()).check(any(), any(), any(), any(), any(), any());
-            assertFalse(answered().options().searchFirst());
-        }
-    }
-
-    @Test
-    void onlyAStandardSearchingTurnOutsideDeepResearchIsRouted() {
-        var setup = mock(ChatTurnSetup.class);
-        var binding = mock(ModelBinding.class);
-        when(setup.binding()).thenReturn(binding);
-        when(binding.toolCalling()).thenReturn(true);
-        when(setup.options()).thenReturn(STANDARD);
-        when(setup.research()).thenReturn(ChatTurnSetup.Research.OFF);
-        assertTrue(ChatGuardrailCheck.routesSearch(setup));
-        when(setup.research()).thenReturn(new ChatTurnSetup.Research(true, false, null, List.of()));
-        assertFalse(ChatGuardrailCheck.routesSearch(setup), "Deep research runs its own agents");
-        when(setup.research()).thenReturn(ChatTurnSetup.Research.OFF);
-        when(setup.options()).thenReturn(STANDARD.withGrounded(true));
-        assertFalse(ChatGuardrailCheck.routesSearch(setup), "a grounded turn forces search on its own path");
     }
 }

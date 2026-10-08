@@ -528,7 +528,7 @@
       "id": 11,
       "type": "timeseries",
       "title": "Checks by result",
-      "description": "Checks on grounded turns, on standard turns that offer search_knowledge (a question or no verdict searches first), and on every turn while a topic or phrase is enabled. Conversation, question, blocked, or unchecked (no verdict; the turn is answered).",
+      "description": "Conversation, question, blocked, or unavailable (the turn fails closed).",
       "gridPos": {
         "x": 0,
         "y": 22,
