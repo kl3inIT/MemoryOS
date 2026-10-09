@@ -20,6 +20,8 @@ final class IngestionMetrics {
 
     private final Map<OperationWorkload, Map<Outcome, Counter>> outcomes = new EnumMap<>(OperationWorkload.class);
     private final Map<OperationWorkload, Timer> initialQueueWait = new EnumMap<>(OperationWorkload.class);
+    private final Counter extractionRetryScheduled;
+    private final Counter extractionRetriesExhausted;
 
     IngestionMetrics(MeterRegistry registry) {
         for (var workload : OperationWorkload.values()) {
@@ -38,6 +40,19 @@ final class IngestionMetrics {
                             Duration.ofMinutes(5), Duration.ofMinutes(15), Duration.ofHours(1))
                     .register(registry));
         }
+        // Both series exist from startup, so increase() sees the first failure rather than a new series.
+        extractionRetryScheduled = extractionUnavailable(registry, "retry_scheduled");
+        extractionRetriesExhausted = extractionUnavailable(registry, "exhausted");
+    }
+
+    private static Counter extractionUnavailable(MeterRegistry registry, String outcome) {
+        return Counter.builder("memoryos.extraction.unavailable")
+                .description("Source documents whose extraction service could not be reached, by what the attempt did next")
+                .tag("outcome", outcome).register(registry);
+    }
+
+    void extractionUnavailable(boolean exhausted) {
+        record((exhausted ? extractionRetriesExhausted : extractionRetryScheduled)::increment);
     }
 
     void completed(OperationWorkload workload, IngestionCoordinator.Outcome outcome) {

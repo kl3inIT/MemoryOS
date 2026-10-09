@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -81,9 +82,53 @@ class DefaultIngestionCoordinatorTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ExtractionFailure.class, names = {"MALFORMED", "CONNECTION_FAILED"})
-    void typedExtractionFailureReportsFailedAndPersistsFailure(ExtractionFailure failure) throws Exception {
+    @EnumSource(value = ExtractionFailure.class, mode = EnumSource.Mode.EXCLUDE, names = "CONNECTION_FAILED")
+    void aFailureOfTheDocumentFailsItAtOnce(ExtractionFailure failure) throws Exception {
         var indexing = mock(ConnectorIndexingPort.class);
+        var work = extractionFails(indexing, failure, 1);
+
+        verify(indexing).fail(eq(work), eq("SOURCE_EXTRACTION_" + failure.name()), eq("test failure"), any());
+        verify(indexing, Mockito.never()).retry(any(), any(), any(), any(), ArgumentMatchers.anyInt(), any());
+        assertUnavailable(0, 0);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1,PT30S", "2,PT2M", "3,PT5M", "4,PT10M", "5,PT15M"})
+    void anUnreachableExtractionServiceIsAskedAgainAfterALongerWaitEachTime(int attempt, Duration wait)
+            throws Exception {
+        var indexing = mock(ConnectorIndexingPort.class);
+        when(indexing.retry(any(), any(), any(), any(), ArgumentMatchers.anyInt(), any())).thenReturn(true);
+        var work = extractionFails(indexing, ExtractionFailure.CONNECTION_FAILED, attempt);
+
+        verify(indexing).retry(eq(work), eq("SOURCE_EXTRACTION_CONNECTION_FAILED"), eq("test failure"), any(),
+                eq(6), eq(wait));
+        verify(indexing, Mockito.never()).fail(any(), any(), any(), any());
+        assertUnavailable(1, 0);
+    }
+
+    @Test
+    void theSixthUnreachableAttemptIsCountedAsExhausted() throws Exception {
+        var indexing = mock(ConnectorIndexingPort.class);
+        when(indexing.retry(any(), any(), any(), any(), ArgumentMatchers.anyInt(), any())).thenReturn(true);
+        var work = extractionFails(indexing, ExtractionFailure.CONNECTION_FAILED, 6);
+
+        // The repository fails the attempt once the budget of six is spent; the wait is then unused.
+        verify(indexing).retry(eq(work), eq("SOURCE_EXTRACTION_CONNECTION_FAILED"), eq("test failure"), any(),
+                eq(6), any());
+        assertUnavailable(0, 1);
+    }
+
+    @Test
+    void aStaleUnreachableAttemptIsNotCounted() throws Exception {
+        var indexing = mock(ConnectorIndexingPort.class);
+        extractionFails(indexing, ExtractionFailure.CONNECTION_FAILED, 1);
+
+        assertUnavailable(0, 0);
+    }
+
+    /** Runs one claimed index delivery whose extraction throws {@code failure}; returns the claimed work. */
+    private IndexWork extractionFails(ConnectorIndexingPort indexing, ExtractionFailure failure, int attempt)
+            throws Exception {
         var scheduler = mock(ScheduledExecutorService.class);
         ScheduledFuture<?> renewal = mock(ScheduledFuture.class);
         Mockito.doReturn(renewal).when(scheduler)
@@ -95,7 +140,7 @@ class DefaultIngestionCoordinatorTest {
         when(reference.metadata()).thenReturn(metadata);
         var work = new IndexWork(delivery.operationId(), delivery.tenantId(),
                 UUID.randomUUID(), new SourceId(UUID.randomUUID()), null, UUID.randomUUID(), reference,
-                SourceInputDescriptor.binary(), Duration.ofSeconds(2));
+                SourceInputDescriptor.binary(), Duration.ofSeconds(2), attempt);
         when(indexing.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId())).thenReturn(Optional.of(work));
         var storage = mock(ObjectStorage.class);
         var content = mock(ObjectContent.class);
@@ -115,10 +160,16 @@ class DefaultIngestionCoordinatorTest {
                 .isEqualTo(IngestionCoordinator.Outcome.FAILED);
         assertOutcome("INGESTION", "FAILED");
         assertWait("INGESTION", 1);
-        verify(indexing).fail(eq(work), eq("SOURCE_EXTRACTION_" + failure.name()), eq("test failure"), any());
-        verify(indexing, Mockito.never()).retry(any(), any(), any(), any(), ArgumentMatchers.anyInt(), any());
         verify(content).close();
         verify(renewal).cancel(false);
+        return work;
+    }
+
+    private void assertUnavailable(int retryScheduled, int exhausted) {
+        assertThat(registry.get("memoryos.extraction.unavailable").tag("outcome", "retry_scheduled").counter().count())
+                .isEqualTo(retryScheduled);
+        assertThat(registry.get("memoryos.extraction.unavailable").tag("outcome", "exhausted").counter().count())
+                .isEqualTo(exhausted);
     }
 
     @Test

@@ -111,8 +111,8 @@ class PaddleOcrVlClientTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"413,WRITE_LIMIT", "408,TIMEOUT", "504,TIMEOUT", "500,INTERNAL", "502,CONNECTION_FAILED",
-            "503,CONNECTION_FAILED", "400,INTERNAL"})
+    @CsvSource({"413,WRITE_LIMIT", "408,TIMEOUT", "504,TIMEOUT", "500,INTERNAL", "429,CONNECTION_FAILED",
+            "502,CONNECTION_FAILED", "503,CONNECTION_FAILED", "400,INTERNAL"})
     void anHttpFailureMapsOntoAnExtractionFailure(int status, ExtractionFailure expected) throws Exception {
         serve(status, "{\"errorCode\":" + status + ",\"errorMsg\":\"document text must not reach the log\"}");
         assertFailure(expected, client(Duration.ofSeconds(10)));
@@ -152,6 +152,15 @@ class PaddleOcrVlClientTest {
         try (var client = new PaddleOcrVlClient(new PaddleOcrVlProperties(closed, Duration.ofSeconds(10), 200, null, null), mapper)) {
             assertFailure(ExtractionFailure.CONNECTION_FAILED, client);
         }
+    }
+
+    @Test
+    void aServiceThatDropsTheConnectionMidRequestIsAConnectionFailure() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        // Closing the exchange without an answer is what a restarting container does to a request it held.
+        server.createContext("/", HttpExchange::close);
+        server.start();
+        assertFailure(ExtractionFailure.CONNECTION_FAILED, client(Duration.ofSeconds(10)));
     }
 
     @Test
