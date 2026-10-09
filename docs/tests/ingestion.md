@@ -392,3 +392,15 @@ The latest diagnostic change passed all 47 focused cases (18 financial diagnosti
 `DoclingSourceContentExtractorTest.distinguishesConnectionFailuresFromProcessingTimeoutsWithoutResubmitting` covers typed connection failures separately from document/HTTP timeouts. The coordinator's typed-failure regression covers persisted `SOURCE_EXTRACTION_CONNECTION_FAILED`; the complete backend gate passed after correcting an unrelated fresh-database cross-Tenant fixture.
 
 The real Orca Source flow was exercised against the deliberately stopped isolated Docling container: a scanned-PDF reindex failed with `SOURCE_EXTRACTION_CONNECTION_FAILED` and displayed service/network guidance, not a document timeout. Restarting Docling and reindexing the same file succeeded. Final real API state was 12/12 indexed with no current errors. The local parser used its installed Tesseract `vie,eng`; no timeout was increased and no fake browser API state was used. Exact operations, retained historical-error behavior and capture limitations are in the [MEM-88 verification ledger](../increments/completed/mem-88-google-drive-acl-sync/verification.md#real-orca-feedback-verification--2026-09-13).
+
+## Unreachable extraction service is retried — MEM-234, 2026-10-09
+
+| Contract | Evidence |
+| --- | --- |
+| A document failure (every `ExtractionFailure` but `CONNECTION_FAILED`) fails the attempt at once and is never retried | `DefaultIngestionCoordinatorTest.aFailureOfTheDocumentFailsItAtOnce` |
+| `CONNECTION_FAILED` hands the attempt back with a budget of six and waits of 30 s, 2, 5, 10 and 15 min by attempt | `DefaultIngestionCoordinatorTest.anUnreachableExtractionServiceIsAskedAgainAfterALongerWaitEachTime` |
+| The sixth unreachable attempt is the exhausted one; a stale claim counts nothing | `DefaultIngestionCoordinatorTest.theSixthUnreachableAttemptIsCountedAsExhausted`, `aStaleUnreachableAttemptIsNotCounted` |
+| A claim reports which attempt of the budget it is | `PostgresSourceLifecycleTest.unexpectedProcessingFailureRetriesThenTerminatesDurably` |
+| PaddleOCR-VL: HTTP 429, 502, 503 and a connection dropped mid-request are `CONNECTION_FAILED`; 500 and 400 stay `INTERNAL`, a passed deadline stays `TIMEOUT` | `PaddleOcrVlClientTest` |
+
+Not yet run: stopping `paddleocr-vl-api` on staging during an upload of scanned PDFs and watching the files index after it returns.
