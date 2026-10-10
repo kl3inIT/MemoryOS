@@ -1,6 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ChatWebSettings } from "@/features/chat/web-search/chat-web-settings";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/** The page became a tab of AI Providers; its old address still leads there. */
 export const Route = createFileRoute("/_authenticated/admin/web-search")({
-  component: ChatWebSettings,
+  beforeLoad: () => {
+    throw redirect({ to: "/admin/ai-providers", search: { tab: "web-search" }, replace: true });
+  },
 });

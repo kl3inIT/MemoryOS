@@ -1,6 +1,4 @@
-import { ImageIcon } from "lucide-react";
 import { ConnectionStatusBadge } from "@/components/composites/connection-form";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -37,12 +35,7 @@ export function ChatImageSettings() {
   const activeProvider =
     active && catalog.find((provider) => provider.provider === active.provider);
   return (
-    <SettingsLayout>
-      <PageHeader
-        title={ui("Tạo ảnh")}
-        icon={<ImageIcon />}
-        description={ui("Cài đặt nhà cung cấp Chat dùng để tạo và sửa ảnh.")}
-      />
+    <>
       {providers.isError || connections.isError ? (
         <Alert variant="destructive">
           <AlertTitle>{ui("Không tải được cài đặt tạo ảnh.")}</AlertTitle>
@@ -110,6 +103,6 @@ export function ChatImageSettings() {
           <AlertTitle>{problemMessage(imageProblem(select.error))}</AlertTitle>
         </Alert>
       ) : null}
-    </SettingsLayout>
+    </>
   );
 }

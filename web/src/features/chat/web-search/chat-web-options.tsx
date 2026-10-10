@@ -162,7 +162,12 @@ export function ChatWebModes({
       </ToggleGroup>
       <WebAvailabilityNote support={support} />
       {support.canManage && (
-        <Link to="/admin/web-search" className={menuRow} onClick={onDone}>
+        <Link
+          to="/admin/ai-providers"
+          search={{ tab: "web-search" }}
+          className={menuRow}
+          onClick={onDone}
+        >
           <Settings aria-hidden="true" />
           {ui("Cài đặt Web")}
         </Link>

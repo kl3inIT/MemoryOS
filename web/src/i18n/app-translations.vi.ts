@@ -2212,6 +2212,7 @@ Object.assign(englishUi, {
   "Estimated daily cost": "Chi phí ước tính theo ngày",
   Monitoring: "Theo dõi",
   "AI costs": "Chi phí AI",
+  "AI Providers": "Provider AI",
   Period: "Khoảng thời gian",
   "Last 7 days": "7 ngày qua",
   "Last 30 days": "30 ngày qua",

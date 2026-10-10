@@ -3,7 +3,7 @@
 - [x] L2-4b, L2-4d Sources and Users: primary button size and icon, Sources page icon
 - [x] L2-n2 binary sizes read GB
 - [x] L2-n10 one `h1` on the chat page
-- [x] L2-3a, L2-3b administration menu folds; *Thêm nguồn* leaves it
+- [x] L2-3a, L2-3b *Thêm nguồn* leaves the administration menu; the section fold was removed on the owner's review (2026-10-10)
 - [x] L2-4c, L2-n1 two date shapes and locale numbers
 - [x] L2-5a, L2-5c, L2-5d copy: one name for a conversation, destructive actions say what is lost
 - [x] L2-4a, L2-n8 Meetings and Users filters are the registry select; Meetings filters in the address
@@ -11,7 +11,7 @@
 - [x] L2-n3, L2-n6 Models: *Thêm kết nối* on a connected preset; brand loader and skeleton rows
 - [x] L2-n5, L2-n7 Web search says why it is off; Users drops a column every row repeats
 - [x] L2-n9 finger-sized tabs, view choices, selects and filter chips
-- [x] Critique 3: administration menu open while it fits and remembered; search mode in the search field
+- [x] Critique 3: search mode in the search field
 - [x] Critique 3: Meetings opens with every meeting; shared page-size control; Library on a phone
 - [x] Critique 3, the rest: Users row menu as the shared menu; Meetings drops the ended badge and leads to the live meeting; Models guidance and tooltips; a finger-sized image chip
 - [x] Critique 4: one height for a select and a field; the Library row menu always visible; a stat tile marked as a filter; the search shortcut shown; a focus ring on project links; no date under a day heading

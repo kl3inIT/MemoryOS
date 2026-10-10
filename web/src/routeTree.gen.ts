@@ -25,6 +25,7 @@ import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
 import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
+import { Route as AuthenticatedAdminAiProvidersRouteImport } from './routes/_authenticated.admin.ai-providers'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated.admin.audit'
 import { Route as AuthenticatedAdminChatRouteImport } from './routes/_authenticated.admin.chat'
 import { Route as AuthenticatedAdminChatHistoryRouteImport } from './routes/_authenticated.admin.chat-history'
@@ -146,6 +147,12 @@ const AuthenticatedAdminAiCostsRoute =
   AuthenticatedAdminAiCostsRouteImport.update({
     id: '/ai-costs',
     path: '/ai-costs',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminAiProvidersRoute =
+  AuthenticatedAdminAiProvidersRouteImport.update({
+    id: '/ai-providers',
+    path: '/ai-providers',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
@@ -410,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/admin/ai-providers': typeof AuthenticatedAdminAiProvidersRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/chat': typeof AuthenticatedAdminChatRoute
   '/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
@@ -466,6 +474,7 @@ export interface FileRoutesByTo {
   '/search': typeof AuthenticatedSearchRoute
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/admin/ai-providers': typeof AuthenticatedAdminAiProvidersRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/chat': typeof AuthenticatedAdminChatRoute
   '/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
@@ -524,6 +533,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/_authenticated/admin/ai-providers': typeof AuthenticatedAdminAiProvidersRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/chat': typeof AuthenticatedAdminChatRoute
   '/_authenticated/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
@@ -585,6 +595,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/agents'
     | '/admin/ai-costs'
+    | '/admin/ai-providers'
     | '/admin/audit'
     | '/admin/chat'
     | '/admin/chat-history'
@@ -641,6 +652,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/agents'
     | '/admin/ai-costs'
+    | '/admin/ai-providers'
     | '/admin/audit'
     | '/admin/chat'
     | '/admin/chat-history'
@@ -698,6 +710,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/admin/agents'
     | '/_authenticated/admin/ai-costs'
+    | '/_authenticated/admin/ai-providers'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/chat'
     | '/_authenticated/admin/chat-history'
@@ -863,6 +876,13 @@ declare module '@tanstack/react-router' {
       path: '/ai-costs'
       fullPath: '/admin/ai-costs'
       preLoaderRoute: typeof AuthenticatedAdminAiCostsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/ai-providers': {
+      id: '/_authenticated/admin/ai-providers'
+      path: '/ai-providers'
+      fullPath: '/admin/ai-providers'
+      preLoaderRoute: typeof AuthenticatedAdminAiProvidersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/audit': {
@@ -1223,6 +1243,7 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
   AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
+  AuthenticatedAdminAiProvidersRoute: typeof AuthenticatedAdminAiProvidersRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminChatRoute: typeof AuthenticatedAdminChatRoute
   AuthenticatedAdminChatHistoryRoute: typeof AuthenticatedAdminChatHistoryRoute
@@ -1249,6 +1270,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
   AuthenticatedAdminAiCostsRoute: AuthenticatedAdminAiCostsRoute,
+  AuthenticatedAdminAiProvidersRoute: AuthenticatedAdminAiProvidersRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminChatRoute: AuthenticatedAdminChatRoute,
   AuthenticatedAdminChatHistoryRoute: AuthenticatedAdminChatHistoryRoute,
