@@ -80,7 +80,9 @@ for (const width of [1440, 390]) {
     await expect(page).toHaveURL(/\/admin\/ai-providers\?tab=voice$/, { timeout: 30_000 });
     // The e2e dev server compiles the admin route on first use.
     // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
-    await expect(page.getByRole("heading", { name: "AI Providers", exact: true, level: 1 })).toBeAttached({
+    await expect(
+      page.getByRole("heading", { name: "AI Providers", exact: true, level: 1 }),
+    ).toBeAttached({
       timeout: 30_000,
     });
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
