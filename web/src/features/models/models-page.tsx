@@ -1,8 +1,6 @@
-import { Sparkles } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { SectionHeader } from "@/components/composites/section-header";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { BrandLoader } from "@/components/brand-loader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -60,21 +58,17 @@ function ModelsAdministration() {
   const hasProviders = Boolean(providers.data?.length);
 
   return (
-    <SettingsLayout wide>
-      <PageHeader
-        title={ui("Models")}
-        icon={<Sparkles />}
-        actions={
-          <Button
-            prominence="secondary"
-            pending={page.reloading.pending}
-            disabled={page.busy}
-            onClick={() => void page.reload()}
-          >
-            {ui("Refresh catalog")}
-          </Button>
-        }
-      />
+    <>
+      <div className="flex justify-end">
+        <Button
+          prominence="secondary"
+          pending={page.reloading.pending}
+          disabled={page.busy}
+          onClick={() => void page.reload()}
+        >
+          {ui("Refresh catalog")}
+        </Button>
+      </div>
 
       {/* Models by task — the Onyx default card plus its per-flow defaults */}
       {hasProviders && !catalogError && (
@@ -175,7 +169,7 @@ function ModelsAdministration() {
           onConfirm={page.remove}
         />
       )}
-    </SettingsLayout>
+    </>
   );
 }
 

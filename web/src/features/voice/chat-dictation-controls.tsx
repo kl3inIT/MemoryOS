@@ -45,7 +45,7 @@ export function ChatDictationButton({ disabled = false }: { disabled?: boolean }
         aria-label={ui("Cấu hình nhập bằng giọng nói")}
         title={ui("Chưa có nhà cung cấp nhận dạng giọng nói. Mở trang cấu hình Giọng nói.")}
       >
-        <Link to="/admin/voice">
+        <Link to="/admin/ai-providers" search={{ tab: "voice" }}>
           <Mic />
         </Link>
       </IconButton>

@@ -75,14 +75,16 @@ for (const width of [1440, 390]) {
       await route.fulfill({ json: connections[0] });
     });
 
-    await page.goto("/admin/voice");
+    // The page's old address leads to its tab.
+    await page.goto("/admin/ai-providers?tab=voice");
+    await expect(page).toHaveURL(/\/admin\/ai-providers\?tab=voice$/, { timeout: 30_000 });
     // The e2e dev server compiles the admin route on first use.
     // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
-    await expect(page.getByRole("heading", { name: "Voice", exact: true, level: 1 })).toBeAttached({
+    await expect(page.getByRole("heading", { name: "AI Providers", exact: true, level: 1 })).toBeAttached({
       timeout: 30_000,
     });
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
-    await expect(page.getByRole("link", { name: "Voice", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "AI Providers", exact: true })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -149,7 +151,7 @@ test("a member without model management never requests voice configuration", asy
     protectedRequests += 1;
     await route.fulfill({ status: 403 });
   });
-  await page.goto("/admin/voice");
+  await page.goto("/admin/ai-providers?tab=voice");
   await expect(
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible({ timeout: 30_000 });

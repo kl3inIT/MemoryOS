@@ -20,7 +20,7 @@ import { AiCostsPage } from "./ai-costs-page";
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof RouterModule>()),
-  Link: ({ children }: { children: ReactNode }) => <a href="/admin/models">{children}</a>,
+  Link: ({ children }: { children: ReactNode }) => <a href="/admin/ai-providers">{children}</a>,
 }));
 
 describe("AI cost periods and daily series", () => {
