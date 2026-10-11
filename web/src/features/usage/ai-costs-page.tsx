@@ -273,7 +273,7 @@ function Summary({
         tone={value && value.unknownCostCalls > 0 ? "warning" : undefined}
       >
         {value && value.unknownCostCalls > 0 ? (
-          <Link to="/admin/models" className="underline underline-offset-2">
+          <Link to="/admin/ai-providers" className="underline underline-offset-2">
             {ui("Model prices")}
           </Link>
         ) : (

@@ -45,14 +45,14 @@ for (const width of [1280, 390]) {
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
     await expect(page.getByRole("link", { name: "Admin Panel", exact: true })).toHaveAttribute(
       "href",
-      "/admin/models",
+      "/admin/ai-providers",
     );
     await page.getByRole("link", { name: "Admin Panel", exact: true }).click();
-    await expect(page).toHaveURL(/\/admin\/models$/);
+    await expect(page).toHaveURL(/\/admin\/ai-providers$/);
     // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
-    await expect(page.getByRole("heading", { name: "Models", exact: true })).toBeAttached();
+    await expect(page.getByRole("heading", { name: "AI Providers", exact: true })).toBeAttached();
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
-    await expect(page.getByRole("link", { name: "Models", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "AI Providers", exact: true })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -62,9 +62,9 @@ for (const width of [1280, 390]) {
     await page.getByRole("button", { name: "Member", exact: true }).click();
     // The account menu and sidebar are distinct real entry points.
     const accountEntry = page.getByRole("menuitem", { name: "Admin Panel", exact: true });
-    await expect(accountEntry).toHaveAttribute("href", "/admin/models");
+    await expect(accountEntry).toHaveAttribute("href", "/admin/ai-providers");
     await accountEntry.click();
-    await expect(page).toHaveURL(/\/admin\/models$/);
+    await expect(page).toHaveURL(/\/admin\/ai-providers$/);
     await page.getByRole("button", { name: "Connect OpenAI-Compatible", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Add provider", exact: true });
     await expect(dialog).toBeVisible();
@@ -102,7 +102,7 @@ test("denied Models deep link never requests the protected catalog", async ({ pa
       await route.fulfill({ status: 403 });
     },
   );
-  await page.goto("/admin/models");
+  await page.goto("/admin/ai-providers");
   await expect(
     page.getByRole("heading", { name: "You don’t have access to this area." }),
   ).toBeVisible();

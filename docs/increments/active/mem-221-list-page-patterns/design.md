@@ -14,7 +14,7 @@ The critique left the direction of each P2 group to the owner. This batch takes 
 
 ### The administration menu
 
-- **L2-3a.** The menu listed every section open, 20 links on one screen, and scrolled on a laptop. A section folds (`Collapsible` on the sidebar group). Every section is open while the menu fits the screen; when it would scroll, every section but the open page's folds. A section the person folds or opens stays that way on this browser. The icon-only sidebar keeps every section open since it has no section labels.
+- **L2-3a.** The menu listed every section open, 20 links on one screen, and scrolled on a laptop. Folding a section under its heading was tried and removed on the owner's review (2026-10-10): every section stays open and a heading is not a control. The open page's link scrolls into view on navigation, so the current page is never below the fold; the menu still scrolls on a laptop.
 - **L2-3b.** *Thêm nguồn* leaves the menu. It was an action listed as a place; the Sources page carries the same link as its primary button.
 
 ### One pattern per list page
@@ -43,7 +43,7 @@ The critique left the direction of each P2 group to the owner. This batch takes 
 
 ### After the third critique
 
-The rescan after this batch scored 25/40 against 26: two of its three major findings were this batch's own. Folding the administration menu and moving the search mode into the display menu each traded noise for recall. Both are corrected above. The rescan's other findings in this batch: the Meetings period default, the page-size control on Users and Groups (`PageSizeSelect`), and the Library on a phone (one scrolling tab row, icon-only filter and display buttons, a 44 px filter pill).
+The rescan after this batch scored 25/40 against 26: two of its three major findings were this batch's own. Folding the administration menu and moving the search mode into the display menu each traded noise for recall. The search mode is corrected above; the fold was first relaxed to open while the menu fits, then removed. The rescan's other findings in this batch: the Meetings period default, the page-size control on Users and Groups (`PageSizeSelect`), and the Library on a phone (one scrolling tab row, icon-only filter and display buttons, a 44 px filter pill).
 
 ### After the fourth critique
 

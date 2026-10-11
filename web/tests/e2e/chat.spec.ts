@@ -626,7 +626,7 @@ for (const manager of [false, true]) {
       await expect(page.getByRole("alert")).toContainText("Provider từ chối API key");
       await expect(page.getByRole("link", { name: "Cập nhật API key" })).toHaveAttribute(
         "href",
-        "/admin/models",
+        "/admin/ai-providers",
       );
     } else {
       await expect(page.getByRole("alert")).toContainText("Model không dùng được");

@@ -97,10 +97,10 @@ for (const width of [1440, 390]) {
       configured = true;
       await route.fulfill({ json: {} });
     });
-    await page.goto("/admin/web-search");
+    await page.goto("/admin/ai-providers?tab=web-search");
     if (width === 1440) {
       const administration = page.getByRole("navigation", { name: "Điều hướng quản trị" });
-      await expect(administration.getByRole("link", { name: "Tìm kiếm Web" })).toBeVisible();
+      await expect(administration.getByRole("link", { name: "Provider AI" })).toBeVisible();
     }
     const search = page.getByRole("region", { name: "Công cụ tìm kiếm", exact: true });
     const reader = page.getByRole("region", { name: "Trình đọc trang Web", exact: true });
@@ -164,7 +164,7 @@ for (const width of [1440, 390]) {
     await page.route("**/api/chat/web/connections/NINEROUTER/test", (route) =>
       route.fulfill({ status: 204 }),
     );
-    await page.goto("/admin/web-search");
+    await page.goto("/admin/ai-providers?tab=web-search");
     const search = page.getByRole("region", { name: "Công cụ tìm kiếm", exact: true });
     await search
       .getByRole("region", { name: "9Router", exact: true })
