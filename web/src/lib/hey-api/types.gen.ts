@@ -681,6 +681,85 @@ export type LarkCredentialTestResponse = {
     missingScopes: Array<string>;
 };
 
+export type LarkRootRequest = {
+    kind: 'WIKI_SPACE' | 'DRIVE_FOLDER';
+    /**
+     * A Wiki space ID, or the link or token of a Drive folder
+     */
+    value: string;
+};
+
+export type LarkScopeRequest = {
+    roots: Array<LarkRootRequest>;
+    syncIntervalMinutes: number;
+};
+
+export type CreateLarkSourceRequest = {
+    /**
+     * Identifies the request so a retry recovers its receipt
+     */
+    requestId: string;
+    name: string;
+    credentialId: string;
+    scope: LarkScopeRequest;
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
+    groupIds?: Array<string>;
+};
+
+export type ReplaceLarkScopeRequest = {
+    requestId: string;
+    /**
+     * Credential revision the scope was reviewed against
+     */
+    expectedCredentialRevision: number;
+    scope: LarkScopeRequest;
+};
+
+export type UpdateLarkPauseRequest = {
+    expectedRevision: number;
+    paused: boolean;
+};
+
+export type UpdateLarkScheduleRequest = {
+    syncIntervalMinutes: number;
+};
+
+export type LarkSelectionReceiptResponse = {
+    sourceId: string;
+    operation: SourceOperation;
+};
+
+export type LarkRootResponse = {
+    kind: 'WIKI_SPACE' | 'DRIVE_FOLDER';
+    token: string;
+    /**
+     * The name Lark gave the space or the folder when it was verified
+     */
+    displayName?: string;
+};
+
+export type LarkSpaceOptionResponse = {
+    spaceId: string;
+    name: string;
+};
+
+export type LarkConfigurationResponse = {
+    sourceId: string;
+    credentialId: string;
+    credentialName: string;
+    credentialStatus: string;
+    credentialRevision: number;
+    scopeRevision: number;
+    rootCount: number;
+    syncIntervalMinutes: number;
+    scheduleRevision: number;
+    syncPaused: boolean;
+    lastSyncedAt?: string;
+    pendingWork: boolean;
+    errorCode?: string;
+    pendingSelectionOperation?: SourceOperation;
+};
+
 export type GoogleDriveServiceAccountRequest = {
     name: string;
     /**
@@ -1598,7 +1677,7 @@ export type SearchRequest = {
     updatedTo?: string;
     page?: number;
     pageSize?: number;
-    sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     documentSetIds?: Array<string>;
 };
 
@@ -1615,7 +1694,7 @@ export type Result = {
     updatedAt: string;
     score: number;
     sections: Array<Section>;
-    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     authors: Array<string>;
     providerUrl: string | null;
 };
@@ -1656,7 +1735,7 @@ export type SourceFacets = {
 };
 
 export type SourceTypeFacet = {
-    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
     count: number;
 };
 
@@ -3200,7 +3279,7 @@ export type ChatSource = {
     fileLocation?: FileLocation;
     web?: WebLocation;
     mediaType?: string;
-    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     providerUrl?: string;
 };
 
@@ -3261,7 +3340,7 @@ export type ReasoningSegment = {
 };
 
 export type SearchFilters = {
-    sources?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    sources?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     created?: Interval;
     updated?: Interval;
 };
@@ -3453,7 +3532,7 @@ export type AvailableModel = {
 export type SourceOption = {
     id?: string;
     name?: string;
-    type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
 };
 
 export type ChatPersona = {
@@ -3586,7 +3665,7 @@ export type ChatLibraryEntryDocument = {
     title: string | null;
     sourceId: string;
     sourceName: string;
-    sourceType: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    sourceType: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
     /**
      * The document in its provider, when it has one
      */
@@ -3638,7 +3717,7 @@ export type ChatLibraryEntryReason = {
 export type ChatLibrarySource = {
     id: string;
     name: string;
-    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
     /**
      * What admits the viewer: every member, a Group of theirs, or the provider's own grants
      */
@@ -3692,7 +3771,7 @@ export type ChatLibraryDocumentPage = {
 export type ChatLibrarySourceOption = {
     id: string;
     name: string;
-    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
 };
 
 export type InterpreterHealthResponse = {
@@ -19480,3 +19559,398 @@ export type TestLarkCredentialResponses = {
 };
 
 export type TestLarkCredentialResponse = TestLarkCredentialResponses[keyof TestLarkCredentialResponses];
+
+export type CreateLarkSourceData = {
+    body: CreateLarkSourceRequest;
+    path?: never;
+    query?: never;
+    url: '/api/sources/lark';
+};
+
+export type CreateLarkSourceErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateLarkSourceError = CreateLarkSourceErrors[keyof CreateLarkSourceErrors];
+
+export type CreateLarkSourceResponses = {
+    /**
+     * Scope accepted for verification
+     */
+    202: LarkSelectionReceiptResponse;
+};
+
+export type CreateLarkSourceResponse = CreateLarkSourceResponses[keyof CreateLarkSourceResponses];
+
+export type GetLarkConfigurationData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark';
+};
+
+export type GetLarkConfigurationErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetLarkConfigurationError = GetLarkConfigurationErrors[keyof GetLarkConfigurationErrors];
+
+export type GetLarkConfigurationResponses = {
+    /**
+     * Lark configuration
+     */
+    200: LarkConfigurationResponse;
+};
+
+export type GetLarkConfigurationResponse = GetLarkConfigurationResponses[keyof GetLarkConfigurationResponses];
+
+export type GetLarkSelectionRequestData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/sources/lark/selection-requests/{requestId}';
+};
+
+export type GetLarkSelectionRequestErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetLarkSelectionRequestError = GetLarkSelectionRequestErrors[keyof GetLarkSelectionRequestErrors];
+
+export type GetLarkSelectionRequestResponses = {
+    /**
+     * Lark scope receipt
+     */
+    200: LarkSelectionReceiptResponse;
+};
+
+export type GetLarkSelectionRequestResponse = GetLarkSelectionRequestResponses[keyof GetLarkSelectionRequestResponses];
+
+export type ReplaceLarkScopeData = {
+    body: ReplaceLarkScopeRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/scope';
+};
+
+export type ReplaceLarkScopeErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type ReplaceLarkScopeError = ReplaceLarkScopeErrors[keyof ReplaceLarkScopeErrors];
+
+export type ReplaceLarkScopeResponses = {
+    /**
+     * Scope accepted for verification
+     */
+    202: LarkSelectionReceiptResponse;
+};
+
+export type ReplaceLarkScopeResponse = ReplaceLarkScopeResponses[keyof ReplaceLarkScopeResponses];
+
+export type UpdateLarkScheduleData = {
+    body: UpdateLarkScheduleRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/schedule';
+};
+
+export type UpdateLarkScheduleErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateLarkScheduleError = UpdateLarkScheduleErrors[keyof UpdateLarkScheduleErrors];
+
+export type UpdateLarkScheduleResponses = {
+    /**
+     * Updated Lark configuration
+     */
+    200: LarkConfigurationResponse;
+};
+
+export type UpdateLarkScheduleResponse = UpdateLarkScheduleResponses[keyof UpdateLarkScheduleResponses];
+
+export type UpdateLarkPauseData = {
+    body: UpdateLarkPauseRequest;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/pause';
+};
+
+export type UpdateLarkPauseErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateLarkPauseError = UpdateLarkPauseErrors[keyof UpdateLarkPauseErrors];
+
+export type UpdateLarkPauseResponses = {
+    /**
+     * Updated Lark configuration
+     */
+    200: LarkConfigurationResponse;
+};
+
+export type UpdateLarkPauseResponse = UpdateLarkPauseResponses[keyof UpdateLarkPauseResponses];
+
+export type SynchronizeLarkSourceData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/sync';
+};
+
+export type SynchronizeLarkSourceErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type SynchronizeLarkSourceError = SynchronizeLarkSourceErrors[keyof SynchronizeLarkSourceErrors];
+
+export type SynchronizeLarkSourceResponses = {
+    /**
+     * Run scheduled
+     */
+    202: SourceOperation;
+};
+
+export type SynchronizeLarkSourceResponse = SynchronizeLarkSourceResponses[keyof SynchronizeLarkSourceResponses];
+
+export type GetLarkRootsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/roots';
+};
+
+export type GetLarkRootsErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetLarkRootsError = GetLarkRootsErrors[keyof GetLarkRootsErrors];
+
+export type GetLarkRootsResponses = {
+    /**
+     * Lark roots
+     */
+    200: Array<LarkRootResponse>;
+};
+
+export type GetLarkRootsResponse = GetLarkRootsResponses[keyof GetLarkRootsResponses];
+
+export type ListLarkSpacesData = {
+    body?: never;
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/sources/lark/credentials/{credentialId}/spaces';
+};
+
+export type ListLarkSpacesErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ListLarkSpacesError = ListLarkSpacesErrors[keyof ListLarkSpacesErrors];
+
+export type ListLarkSpacesResponses = {
+    /**
+     * Wiki spaces a source may name
+     */
+    200: Array<LarkSpaceOptionResponse>;
+};
+
+export type ListLarkSpacesResponse = ListLarkSpacesResponses[keyof ListLarkSpacesResponses];

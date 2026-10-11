@@ -624,6 +624,77 @@ export const zLarkCredentialTestResponse = z.object({
     missingScopes: z.array(z.string())
 });
 
+export const zLarkRootRequest = z.object({
+    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
+    value: z.string().min(0).max(2048)
+});
+
+export const zLarkScopeRequest = z.object({
+    roots: z.array(zLarkRootRequest).min(1).max(100),
+    syncIntervalMinutes: z.int().gte(1).lte(525600)
+});
+
+export const zCreateLarkSourceRequest = z.object({
+    requestId: z.uuid(),
+    name: z.string().min(0).max(120),
+    credentialId: z.uuid(),
+    scope: zLarkScopeRequest,
+    access: z.enum([
+        'PUBLIC',
+        'PRIVATE',
+        'SYNC'
+    ]),
+    groupIds: z.array(z.uuid()).min(0).max(100).optional()
+});
+
+export const zReplaceLarkScopeRequest = z.object({
+    requestId: z.uuid(),
+    expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    scope: zLarkScopeRequest
+});
+
+export const zUpdateLarkPauseRequest = z.object({
+    expectedRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    paused: z.boolean()
+});
+
+export const zUpdateLarkScheduleRequest = z.object({
+    syncIntervalMinutes: z.int().gte(1).lte(525600)
+});
+
+export const zLarkSelectionReceiptResponse = z.object({
+    sourceId: z.uuid(),
+    operation: zSourceOperation
+});
+
+export const zLarkRootResponse = z.object({
+    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
+    token: z.string(),
+    displayName: z.string().optional()
+});
+
+export const zLarkSpaceOptionResponse = z.object({
+    spaceId: z.string(),
+    name: z.string()
+});
+
+export const zLarkConfigurationResponse = z.object({
+    sourceId: z.uuid(),
+    credentialId: z.uuid(),
+    credentialName: z.string(),
+    credentialStatus: z.string(),
+    credentialRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    scopeRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    rootCount: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    syncIntervalMinutes: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    scheduleRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    syncPaused: z.boolean(),
+    lastSyncedAt: z.iso.datetime().optional(),
+    pendingWork: z.boolean(),
+    errorCode: z.string().optional(),
+    pendingSelectionOperation: zSourceOperation.optional()
+});
+
 export const zGoogleDriveServiceAccountRequest = z.object({
     name: z.string().min(0).max(120),
     serviceAccountKeyJson: z.string().min(0).max(16384),
@@ -1520,7 +1591,8 @@ export const zSearchRequest = z.object({
     sourceTypes: z.array(z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ])).optional(),
     documentSetIds: z.array(z.uuid()).optional()
 });
@@ -1550,7 +1622,8 @@ export const zResult = z.object({
     sourceTypes: z.array(z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ])),
     authors: z.array(z.string()),
     providerUrl: z.string().nullable()
@@ -1560,7 +1633,8 @@ export const zSourceTypeFacet = z.object({
     type: z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ]),
     count: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
@@ -3196,7 +3270,8 @@ export const zSearchFilters = z.object({
     sources: z.array(z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ])).optional(),
     created: zInterval.optional(),
     updated: zInterval.optional()
@@ -3273,7 +3348,8 @@ export const zChatSource = z.object({
     sourceTypes: z.array(z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ])),
     providerUrl: z.string().optional()
 });
@@ -3512,7 +3588,8 @@ export const zSourceOption = z.object({
     type: z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ]).optional()
 });
 
@@ -3574,7 +3651,8 @@ export const zChatLibraryEntryDocument = z.object({
     sourceType: z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ]),
     providerUrl: z.string().nullable()
 });
@@ -3661,7 +3739,8 @@ export const zChatLibrarySource = z.object({
     type: z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ]),
     access: z.enum([
         'PUBLIC',
@@ -3705,7 +3784,8 @@ export const zChatLibrarySourceOption = z.object({
     type: z.enum([
         'FILE',
         'GOOGLE_DRIVE',
-        'SHAREPOINT'
+        'SHAREPOINT',
+        'LARK'
     ])
 });
 
@@ -8024,3 +8104,96 @@ export const zTestLarkCredentialPath = z.object({
  * Lark credential works
  */
 export const zTestLarkCredentialResponse = zLarkCredentialTestResponse;
+
+export const zCreateLarkSourceBody = zCreateLarkSourceRequest;
+
+/**
+ * Scope accepted for verification
+ */
+export const zCreateLarkSourceResponse = zLarkSelectionReceiptResponse;
+
+export const zGetLarkConfigurationPath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Lark configuration
+ */
+export const zGetLarkConfigurationResponse = zLarkConfigurationResponse;
+
+export const zGetLarkSelectionRequestPath = z.object({
+    requestId: z.uuid()
+});
+
+/**
+ * Lark scope receipt
+ */
+export const zGetLarkSelectionRequestResponse = zLarkSelectionReceiptResponse;
+
+export const zReplaceLarkScopeBody = zReplaceLarkScopeRequest;
+
+export const zReplaceLarkScopeHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zReplaceLarkScopePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Scope accepted for verification
+ */
+export const zReplaceLarkScopeResponse = zLarkSelectionReceiptResponse;
+
+export const zUpdateLarkScheduleBody = zUpdateLarkScheduleRequest;
+
+export const zUpdateLarkScheduleHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateLarkSchedulePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Updated Lark configuration
+ */
+export const zUpdateLarkScheduleResponse = zLarkConfigurationResponse;
+
+export const zUpdateLarkPauseBody = zUpdateLarkPauseRequest;
+
+export const zUpdateLarkPausePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Updated Lark configuration
+ */
+export const zUpdateLarkPauseResponse = zLarkConfigurationResponse;
+
+export const zSynchronizeLarkSourcePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Run scheduled
+ */
+export const zSynchronizeLarkSourceResponse = zSourceOperation;
+
+export const zGetLarkRootsPath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Lark roots
+ */
+export const zGetLarkRootsResponse = z.array(zLarkRootResponse);
+
+export const zListLarkSpacesPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Wiki spaces a source may name
+ */
+export const zListLarkSpacesResponse = z.array(zLarkSpaceOptionResponse);
