@@ -82,38 +82,46 @@ def _guard_to_datetime(pandas: object) -> None:
     pandas.to_datetime = to_datetime  # type: ignore[attr-defined]
 
 
-class _PandasImportHook:
-    """Wraps pandas.to_datetime right after pandas finishes importing."""
+class _AfterImport:
+    """Runs ``installed(module)`` right after the module ``name`` finishes importing."""
 
-    @staticmethod
-    def find_spec(name: str, path: object = None, target: object = None) -> object:
-        if name != "pandas":
+    def __init__(self, name: str, installed: object) -> None:
+        self._name = name
+        self._installed = installed
+
+    def find_spec(self, name: str, path: object = None, target: object = None) -> object:
+        if name != self._name:
             return None
         spec = importlib.machinery.PathFinder.find_spec(name, path)
         if spec is None or spec.loader is None:
             return spec
         execute = spec.loader.exec_module
+        installed = self._installed
 
         def exec_module(module: object) -> None:
             execute(module)
             try:
-                _guard_to_datetime(module)
-            except Exception:  # noqa: BLE001 - a guard that cannot install must never break pandas
+                installed(module)  # type: ignore[operator]
+            except Exception:  # noqa: BLE001 - a hook that cannot install must never break the import
                 pass
 
         spec.loader.exec_module = exec_module  # type: ignore[method-assign]
         return spec
 
 
-sys.meta_path.insert(0, _PandasImportHook())
+sys.meta_path.insert(0, _AfterImport("pandas", _guard_to_datetime))
 
 
-# Figures a run leaves open become chart data plus PNG at exit (memoryos_charts.capture).
-try:
+# Figures a run leaves open become chart data plus PNG at exit (memoryos_charts.capture). Only a run that imports
+# pyplot can have figures, so the capture and matplotlib (about half a second of start-up) are loaded then, not on
+# every start. Exit handlers run last-registered first: registering after pyplot has imported puts the capture ahead
+# of pyplot's own handler, which closes every figure.
+def _capture_figures_at_exit(pyplot: object) -> None:
     import atexit
 
     from memoryos_charts.capture import capture_open_figures
 
     atexit.register(capture_open_figures)
-except ImportError:
-    pass
+
+
+sys.meta_path.insert(0, _AfterImport("matplotlib.pyplot", _capture_figures_at_exit))
