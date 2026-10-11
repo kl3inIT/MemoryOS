@@ -15,7 +15,7 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const searchPageSearchSchema = z.object({
   q: optional(z.string().trim().min(1).max(1000)),
   type: optional(z.string().min(1).max(255)),
-  source: optional(z.enum(["FILE", "GOOGLE_DRIVE", "SHAREPOINT"])),
+  source: optional(z.enum(["FILE", "GOOGLE_DRIVE", "SHAREPOINT", "LARK"])),
   time: optional(z.enum(["7d", "30d", "365d"])),
   from: optional(day),
   to: optional(day),
