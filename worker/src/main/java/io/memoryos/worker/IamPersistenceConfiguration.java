@@ -12,8 +12,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
 
 @Configuration(proxyBeanMethods = false)
-@EntityScan("io.memoryos.iam")
-@EnableJpaRepositories(basePackages = "io.memoryos.iam")
+// MEM-243: the AI catalog's persistence holds the OCR connections the Worker reads for each document.
+@EntityScan({"io.memoryos.iam", "io.memoryos.ai.persistence"})
+@EnableJpaRepositories(basePackages = {"io.memoryos.iam", "io.memoryos.ai.persistence"})
 @Import(IamWorkerComponents.class)
 class IamPersistenceConfiguration {
 
