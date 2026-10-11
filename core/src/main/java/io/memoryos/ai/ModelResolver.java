@@ -15,8 +15,7 @@ public final class ModelResolver {
     private static final Logger LOG = LoggerFactory.getLogger(ModelResolver.class);
     private final ModelCatalogService catalog;
     private final ProviderAdapterRegistry adapters;
-    private final ProviderCredentials credentials;
-    private final ModelClients clients;
+    private final ModelLeases leases;
     private final Duration providerReadTimeout;
     private final boolean costCapped;
 
@@ -24,12 +23,11 @@ public final class ModelResolver {
      * {@code providerReadTimeout} bounds connecting and each read gap of a provider call; {@code costCapped} says the
      * deployment caps spending, so every model must carry its pricing.
      */
-    public ModelResolver(ModelCatalogService catalog, ProviderAdapterRegistry adapters, ProviderCredentials credentials,
-                             ModelClients clients, Duration providerReadTimeout, boolean costCapped) {
+    public ModelResolver(ModelCatalogService catalog, ProviderAdapterRegistry adapters, ModelLeases leases,
+                             Duration providerReadTimeout, boolean costCapped) {
         this.catalog = catalog;
         this.adapters = adapters;
-        this.credentials = credentials;
-        this.clients = clients;
+        this.leases = leases;
         this.providerReadTimeout = providerReadTimeout;
         this.costCapped = costCapped;
     }
@@ -157,23 +155,8 @@ public final class ModelResolver {
         var provider = selection.provider();
         if (model.settings().pricing() == null && costCapped)
             throw AiException.invalid("A cost budget requires configured model pricing.");
-        var lease = clients.acquire(model.id(), provider.revision() + ":" + model.revision(), () -> {
-            var adapter = adapters.require(provider.adapterType());
-            var key = credentials.resolve(provider.tenantId(), provider.id(), provider.credential());
-            if (adapter.credentialRequirement() == ProviderAdapter.CredentialRequirement.REQUIRED && key.isBlank())
-                throw AiException.providerUnavailable();
-            try {
-                return adapter.create(new ProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), providerReadTimeout);
-            } catch (AiException expected) { throw expected; }
-            catch (RuntimeException failure) {
-                LOG.atWarn().addKeyValue("event", "ai.model.client_initialization_failed")
-                        .addKeyValue("model_configuration_id", model.id())
-                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat model client initialization failed");
-                throw AiException.providerUnavailable();
-            }
-        });
-        if (!lease.binding().service().getName().equals(model.modelName())
-                || (costCapped && lease.binding().service().getPricingModel() == null)) {
+        var lease = leases.lease(provider, model);
+        if (costCapped && lease.binding().service().getPricingModel() == null) {
             lease.close();
             throw AiException.providerUnavailable();
         }

@@ -21,6 +21,7 @@ public class OcrConnectionEntity {
     @Column(nullable = false, length = 2048) private String endpoint = "";
     @Column(columnDefinition = "text") private @Nullable String credential;
     @Enumerated(EnumType.STRING) @Column(name = "data_boundary", nullable = false) private DataBoundary dataBoundary;
+    @Column(name = "model_configuration_id") private @Nullable UUID modelConfigurationId;
     @Column(nullable = false) private boolean active;
     @Version private @Nullable Long revision;
 
@@ -34,10 +35,13 @@ public class OcrConnectionEntity {
     public String endpoint() { return endpoint; }
     public @Nullable String credential() { return credential; }
     public DataBoundary dataBoundary() { return dataBoundary; }
+    public @Nullable UUID modelConfigurationId() { return modelConfigurationId; }
     public boolean active() { return active; }
     public long revision() { return revision == null ? 0 : revision; }
-    public void configure(String endpoint, @Nullable String credential, DataBoundary dataBoundary) {
+    public void configure(String endpoint, @Nullable String credential, DataBoundary dataBoundary,
+                          @Nullable UUID modelConfigurationId) {
         this.endpoint = endpoint; this.credential = credential; this.dataBoundary = dataBoundary;
+        this.modelConfigurationId = modelConfigurationId;
     }
     public void select(boolean active) { this.active = active; }
 }

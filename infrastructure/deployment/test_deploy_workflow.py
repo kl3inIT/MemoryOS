@@ -159,7 +159,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(deploy.index("docker pull --quiet"), deploy.index('> "$state/pending"'))
         # A runtime accepted before the interpreter joined the release has no interpreter container.
         self.assertIn('has_interpreter "$state/current.env"', deploy)
-        self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
+        # Each captured component is found by its Compose service, so a runtime without the interpreter is not read.
+        self.assertIn('--filter "label=com.docker.compose.service=$component"', deploy)
 
     def test_only_a_main_build_pushes_and_only_the_gate_makes_a_release(self):
         main_push = "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}\n        uses: ./.github/actions/push-release-images"
@@ -307,7 +308,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         # interpreter kept the earlier transaction's labels and every later deployment stopped here.
         rollout = SCRIPT.split("rollout() {", 1)[1].split("\n}\n", 1)[0]
         self.assertEqual(rollout.count("compose up -d"), rollout.count("--force-recreate"))
-        program = SCRIPT.split("--argjson count \"${#previous_components[@]}\" '", 1)[1].split("\n    ')", 1)[0]
+        program = SCRIPT.split("previous=$(docker inspect \"${previous_containers[@]}\" | jq --exit-status '", 1)[1]
+        program = program.split("\n    ')", 1)[0]
         jq = shutil.which("jq")
         if jq is None:
             self.skipTest("jq is required to run the runtime check")
@@ -318,14 +320,18 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             return {"Name": "/memoryos-" + name, "Image": "sha256:" + "0" * 64,
                     "State": {"Running": True, "Health": {"Status": health}},
                     "Config": {"Labels": {"org.opencontainers.image.revision": revision,
+                                          "com.docker.compose.service": name,
                                           "com.docker.compose.project.config_files": files}}}
 
         def check(runtime):
-            return subprocess.run([jq, "--exit-status", "--argjson", "count", str(len(runtime)), program],
+            return subprocess.run([jq, "--exit-status", program],
                                   input=json.dumps(runtime), capture_output=True, text=True)
 
         two_transactions = [container("api", "c-2-1"), container("worker", "c-1-1"), container("web", "c-1-1")]
         self.assertEqual(0, check(two_transactions).returncode)
+        # MEM-244: the Worker's replicas are one service, each captured, none a mixed runtime.
+        replicas = two_transactions + [container("worker", "c-1-1")]
+        self.assertEqual(0, check(replicas).returncode)
         mixed_release = [container("api", "c-2-1"), container("worker", "c-1-1", revision="d" * 40), container("web", "c-1-1")]
         self.assertIn("Unhealthy or mixed runtime", check(mixed_release).stderr)
         unhealthy = [container("api", "c-2-1"), container("worker", "c-2-1", health="starting"), container("web", "c-2-1")]
@@ -430,6 +436,9 @@ elif args[:2] == ["exec", "memoryos-postgres"] and any("to_regclass" in arg for 
     print("t" if (root / "schema").read_text().strip() else "f")
 elif args[:2] == ["exec", "memoryos-postgres"]:
     print((root / "schema").read_text(), end="")
+elif args[0] == "compose" and "ps" in args:
+    # Each service runs as one container named for it here; the Worker's replicas are found the same way.
+    print("memoryos-" + args[-1])
 elif args[0] == "compose":
     pass
 else:
@@ -507,7 +516,9 @@ else:
         result = self.operate("rollback")
         self.assertNotEqual(result.returncode, 0)
         calls = self.docker_calls()
-        self.assertTrue(any("stop" in call and "api" in call and "worker" in call for call in calls))
+        # The Worker is stopped with its own longer timeout, so it can finish what it started (MEM-244).
+        self.assertTrue(any("stop" in call and "worker" in call for call in calls))
+        self.assertTrue(any("stop" in call and "api" in call for call in calls))
         self.assertFalse(any("up" in call or "pg_restore" in call for call in calls))
         self.assertEqual(self.pending.read_text().strip(), self.release)
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)

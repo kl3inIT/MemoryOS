@@ -2314,6 +2314,7 @@ Object.assign(englishUi, {
   "Writes the summary, decisions and action items of a recorded meeting.":
     "Viết tóm tắt, quyết định và việc cần làm của một cuộc họp đã ghi.",
   "Transcript corrections": "Sửa transcript",
+  "Reading scans": "Đọc bản scan",
   "Proposes what was said where the speech provider was unsure.":
     "Đề xuất lại câu nói ở những chỗ nhận dạng giọng nói chưa chắc.",
   Off: "Tắt",

@@ -8,14 +8,20 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { OcrConnectionCard } from "./ocr-connection-card";
-import { ocrProblem, useOcrConnections, type OcrProvider } from "./use-ocr-connections";
+import {
+  ocrProblem,
+  useOcrConnections,
+  useVisionModels,
+  type OcrProvider,
+} from "./use-ocr-connections";
 
-/** The OCR tab: what reads scans and images, Docling's own OCR or one OCR connection. */
+/** The OCR tab: what reads scans and images, Docling's own OCR, an OCR service or a model that reads images. */
 export function OcrSettings() {
   const ui = useAppTranslation();
   const manager = useApplicationSession().capabilities.includes("MODELS_MANAGE");
   const problemMessage = useProblemMessage();
   const { providers, connections, select } = useOcrConnections(manager);
+  const vision = useVisionModels(manager);
   if (!manager)
     return (
       <p role="alert" className="p-6">
@@ -70,6 +76,7 @@ export function OcrSettings() {
                 key={`${provider.provider}:${connection?.revision ?? "new"}`}
                 provider={provider}
                 connection={connection}
+                models={vision.models}
                 disabled={select.isPending}
                 onSelect={() => choose(provider.provider)}
               />

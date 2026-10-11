@@ -143,7 +143,11 @@ export const zEmbeddingProviderResponse = z.object({
 });
 
 export const zOcrSelectionRequest = z.object({
-    provider: z.enum(['PADDLEOCR_VL']).optional()
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ]).optional()
 });
 
 export const zOcrConnectionRequest = z.object({
@@ -154,15 +158,21 @@ export const zOcrConnectionRequest = z.object({
         'REMOVE'
     ]),
     credentialValue: z.string().min(0).max(8192).optional(),
-    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL']),
+    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL']).optional(),
+    modelConfigurationId: z.uuid().optional(),
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
 export const zOcrConnectionResponse = z.object({
-    provider: z.enum(['PADDLEOCR_VL']),
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ]),
     endpoint: z.string(),
     credentialConfigured: z.boolean().optional(),
     dataBoundary: z.enum(['INTERNAL', 'EXTERNAL']),
+    modelConfigurationId: z.uuid().optional(),
     active: z.boolean().optional(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
@@ -1720,7 +1730,8 @@ export const zEmbeddingProviderTestResponse = z.object({
 
 export const zOcrConnectionTestRequest = z.object({
     endpoint: z.string().min(0).max(2048),
-    credentialValue: z.string().min(0).max(8192).optional()
+    credentialValue: z.string().min(0).max(8192).optional(),
+    modelConfigurationId: z.uuid().optional()
 });
 
 /**
@@ -2822,9 +2833,15 @@ export const zDocumentSpreadsheet = z.object({
 });
 
 export const zOcrProviderResponse = z.object({
-    provider: z.enum(['PADDLEOCR_VL']),
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ]),
     requiresKey: z.boolean().optional(),
-    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL'])
+    usesModel: z.boolean().optional(),
+    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL']),
+    defaultEndpoint: z.string().optional()
 });
 
 export const zMeetingSummary = z.object({
@@ -4146,7 +4163,11 @@ export const zSelectOcrProviderResponse = z.void();
 export const zSaveOcrConnectionBody = zOcrConnectionRequest;
 
 export const zSaveOcrConnectionPath = z.object({
-    provider: z.enum(['PADDLEOCR_VL'])
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ])
 });
 
 /**
@@ -5562,7 +5583,11 @@ export const zTestEmbeddingProviderResponse = zEmbeddingProviderTestResponse;
 export const zTestOcrConnectionBody = zOcrConnectionTestRequest;
 
 export const zTestOcrConnectionPath = z.object({
-    provider: z.enum(['PADDLEOCR_VL'])
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ])
 });
 
 /**
@@ -7854,7 +7879,8 @@ export const zGetAiCostSummaryQuery = z.object({
         'SPEECH_TO_TEXT',
         'TEXT_TO_SPEECH',
         'MEETING_MINUTES',
-        'MEETING_CORRECTION'
+        'MEETING_CORRECTION',
+        'OCR'
     ]).optional()
 });
 
@@ -7920,7 +7946,8 @@ export const zListAiCostDaysQuery = z.object({
         'SPEECH_TO_TEXT',
         'TEXT_TO_SPEECH',
         'MEETING_MINUTES',
-        'MEETING_CORRECTION'
+        'MEETING_CORRECTION',
+        'OCR'
     ]).optional()
 });
 
@@ -7953,7 +7980,8 @@ export const zListAiCostBreakdownQuery = z.object({
         'SPEECH_TO_TEXT',
         'TEXT_TO_SPEECH',
         'MEETING_MINUTES',
-        'MEETING_CORRECTION'
+        'MEETING_CORRECTION',
+        'OCR'
     ]).optional()
 });
 

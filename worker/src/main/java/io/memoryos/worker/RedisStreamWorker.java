@@ -19,10 +19,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +58,10 @@ final class RedisStreamWorker implements SmartLifecycle {
     private final String consumerId = "memoryos-worker-" + UUID.randomUUID();
 
     private volatile boolean running;
+    /** One reader a workload: it reads a batch from Redis and waits for the batch's work. */
     private ExecutorService consumers;
+    /** The deliveries the readers started. */
+    private ExecutorService deliveries;
 
     RedisStreamWorker(
             StringRedisTemplate redis,
@@ -83,34 +88,51 @@ final class RedisStreamWorker implements SmartLifecycle {
         }
         topology.reconcileTopology();
         running = true;
-        ExecutorService startedConsumers = Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("memoryos-redis-consumer-", 0).factory()
-        );
-        consumers = startedConsumers;
+        consumers = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("memoryos-redis-consumer-", 0).factory());
+        deliveries = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("memoryos-redis-delivery-", 0).factory());
+        var started = deliveries;
         for (var workload : OperationWorkload.values()) {
-            startedConsumers.submit(() -> consume(workload, startedConsumers));
+            consumers.submit(() -> consume(workload, started));
         }
     }
 
+    /**
+     * Stops reading, then lets the work already started finish within {@code shutdownGrace}: a deploy or a scale-down
+     * no longer cuts a document off half read. Work still running then is interrupted; it records nothing, stays
+     * pending, and is read again by another Worker once its lease lapses.
+     */
     @Override
     public synchronized void stop() {
         running = false;
         if (consumers == null) {
             return;
         }
-        consumers.shutdownNow();
+        consumers.shutdown();
+        deliveries.shutdown();
         try {
-            if (!consumers.awaitTermination(
-                    properties.consumerBlock().plusSeconds(5).toMillis(),
-                    TimeUnit.MILLISECONDS
-            )) {
+            long deadline = System.nanoTime() + properties.shutdownGrace().toNanos();
+            boolean finished = deliveries.awaitTermination(properties.shutdownGrace().toMillis(), TimeUnit.MILLISECONDS);
+            if (!finished) {
+                LOGGER.atWarn().addKeyValue("event", "redis.delivery.shutdown_cut")
+                        .addKeyValue("grace_ms", properties.shutdownGrace().toMillis())
+                        .log("Work outlasted the shutdown grace; it is left to its lease");
+                deliveries.shutdownNow();
+                deliveries.awaitTermination(5, TimeUnit.SECONDS);
+            }
+            long left = Math.max(0, deadline - System.nanoTime());
+            if (!consumers.awaitTermination(Math.max(TimeUnit.NANOSECONDS.toMillis(left),
+                    properties.consumerBlock().plusSeconds(5).toMillis()), TimeUnit.MILLISECONDS)) {
+                consumers.shutdownNow();
                 LOGGER.atWarn().addKeyValue("event", "redis.consumer.shutdown_timeout")
                         .log("Redis consumers exceeded the shutdown window");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            consumers.shutdownNow();
+            deliveries.shutdownNow();
         } finally {
             consumers = null;
+            deliveries = null;
         }
     }
 
@@ -219,7 +241,12 @@ final class RedisStreamWorker implements SmartLifecycle {
     ) {
         var tasks = new ArrayList<Future<?>>(records.size());
         for (var record : records) {
-            tasks.add(executor.submit(() -> process(settings, workload, record)));
+            try {
+                tasks.add(executor.submit(() -> process(settings, workload, record)));
+            } catch (RejectedExecutionException stopping) {
+                // The Worker stopped between reading and starting: the record stays pending for the next reader.
+                break;
+            }
         }
         for (Future<?> task : tasks) {
             try {
@@ -276,6 +303,10 @@ final class RedisStreamWorker implements SmartLifecycle {
                                 ? RedisExecutionMetrics.DeliveryOutcome.ACKED
                                 : RedisExecutionMetrics.DeliveryOutcome.ACK_MISSED
                 );
+            } catch (CancellationException stopped) {
+                metrics.delivery(workload, RedisExecutionMetrics.DeliveryOutcome.PENDING);
+                LOGGER.atInfo().addKeyValue("event", "redis.delivery.left_for_reclaim")
+                        .log("Delivery stopped with the Worker and stays pending for its lease");
             } catch (RuntimeException exception) {
                 span.setStatus(StatusCode.ERROR);
                 span.setAttribute("error.type", exception.getClass().getName());

@@ -1,6 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.ai.ModelClients;
+import io.memoryos.ai.ModelLeases;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ProviderAdapterRegistry;
@@ -19,8 +20,13 @@ class ChatModelCatalogConfiguration {
     @Bean(destroyMethod = "close")
     ModelClients chatModelClients(@Value("${memoryos.chat.catalog.max-clients:32}") int capacity) { return new ModelClients(capacity); }
     @Bean
-    ModelResolver chatModelResolver(ModelCatalogService catalog, ProviderAdapterRegistry adapters, ProviderCredentials credentials,
-                                       ModelClients clients, ChatExecutionProperties limits) {
-        return new ModelResolver(catalog, adapters, credentials, clients, limits.providerReadTimeout(), limits.costCapped());
+    ModelLeases chatModelLeases(ProviderAdapterRegistry adapters, ProviderCredentials credentials, ModelClients clients,
+                                ChatExecutionProperties limits) {
+        return new ModelLeases(adapters, credentials, clients, limits.providerReadTimeout());
+    }
+    @Bean
+    ModelResolver chatModelResolver(ModelCatalogService catalog, ProviderAdapterRegistry adapters, ModelLeases leases,
+                                       ChatExecutionProperties limits) {
+        return new ModelResolver(catalog, adapters, leases, limits.providerReadTimeout(), limits.costCapped());
     }
 }

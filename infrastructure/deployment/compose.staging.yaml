@@ -79,7 +79,6 @@ services:
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
       SPRING_PROFILES_ACTIVE: production,staging
       MEMORYOS_ENVIRONMENT: staging
-      MEMORYOS_SCHEDULER_NAME: ${MEMORYOS_SCHEDULER_NAME:-memoryos-worker-staging-1}
 
   mailpit:
     <<: *staging-service-defaults

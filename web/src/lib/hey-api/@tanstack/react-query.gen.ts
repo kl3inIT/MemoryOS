@@ -2554,7 +2554,7 @@ export const testEmbeddingProviderMutation = (options?: Partial<Options<TestEmbe
 };
 
 /**
- * Read a small test picture with a connection; a cloud provider may charge for it
+ * Read a small test picture with a connection; a cloud service or a model's provider may charge for it
  */
 export const testOcrConnectionMutation = (options?: Partial<Options<TestOcrConnectionData>>): UseMutationOptions<TestOcrConnectionResponse, TestOcrConnectionError, Options<TestOcrConnectionData>> => {
     const mutationOptions: UseMutationOptions<TestOcrConnectionResponse, TestOcrConnectionError, Options<TestOcrConnectionData>> = {

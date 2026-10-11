@@ -10,7 +10,8 @@
 - [x] `compose.base.yaml`, the Worker configuration and `production.env.example` lose the endpoint; runbook step to create the connection after the deploy
 - [x] Tests: `OcrConnectionServiceTest`, `OcrReadersTest`, `OcrConnectionProbeTest`, `PaddleOcrVlRoutingTest` and the extraction tests on the new signatures
 - [x] `docs/specs/ingestion.md`, `docs/tests/ingestion.md`, `ARCHITECTURE.md`, runbooks
-- [ ] CI; after the deploy, the PaddleOCR-VL connection on staging and production
+- [x] CI; the PaddleOCR-VL connection created and chosen on staging
+- [ ] The PaddleOCR-VL connection on production, when this release is promoted
 
 ## Pull request 2 — OCR tab
 
@@ -20,14 +21,22 @@
 
 ## Pull request 3 — model reader
 
-- [ ] Page pictures as JPEG within a limit; bounded concurrency
-- [ ] The reader calls the chosen model through the `ai` API, with its usage
+- [x] V149 `MODEL` connection type naming a model configuration; V150 validates the `OCR` usage flow
+- [x] `ModelLeases` out of `ModelResolver`; `OcrPageReader` (one page, the adapter's `ChatModel` and request policy, usage as `OCR`)
+- [x] `ModelOcrAdapter` and `ModelOcrReader`: pages as JPEG, four at a time, one block a page; `jbig2-imageio`
+- [x] The Worker wires the provider adapters and their clients through `OcrWorkerComponents`
+- [x] API and tab: a model connection names a model that reads images
+- [x] Tests: `OcrPageReaderTest` (Anthropic wire), `ModelOcrReaderTest`, `OcrConnectionServiceTest`, `OcrConnectionProbeTest`, `ocr-settings.test.tsx`
+- [x] Staging: the model connection's test on Claude Haiku, with its usage; a whole scan in the Worker was not run ([verification](verification.md))
 
 ## Pull request 4 — AI Hay
 
-- [ ] `AiHayOcrAdapter`, `known-services.json` price per page, the `OCR` usage flow
-- [ ] Live test with a key the owner provides
+- [x] V151 `AIHAY`; `PagePictureOcrReader` shared by the model reader and AI Hay
+- [x] `AiHayOcrAdapter` on `OutboundHttp`; `OcrServiceUsage` pricing a page from `ocr/known-services.json`
+- [x] The tab offers AI Hay with its public address, a key and the data boundary
+- [x] Tests: `AiHayOcrAdapterTest` (loopback server), `ocr-settings.test.tsx`
+- [ ] Live test with a key the owner provides: not run, no key was available
 
 ## After the merges
 
-- [ ] Staging: a scan read by each reader; verification; move to `completed/`
+- [x] Verification and the move to `completed/`; what staging did not cover is listed in [verification](verification.md)

@@ -1,6 +1,9 @@
 package io.memoryos.ingestion.extraction;
 
+import io.memoryos.ai.ocr.OcrPageReader;
 import io.memoryos.ai.ocr.OcrProvider;
+import io.memoryos.ai.ocr.OcrServiceUsage;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
@@ -12,8 +15,13 @@ final class OcrAdapterRegistry {
     private final Map<OcrProvider, OcrAdapter> adapters = new EnumMap<>(OcrProvider.class);
 
     /** The adapters this build installs, calling their services with these settings. */
-    static OcrAdapterRegistry installed(PaddleOcrVlProperties paddle, ObjectMapper mapper) {
-        return new OcrAdapterRegistry(List.of(new PaddleOcrVlOcrAdapter(paddle, mapper)));
+    /** A page picture a cloud service reads answers within this, or the page has failed. */
+    private static final Duration PAGE_TIMEOUT = Duration.ofMinutes(1);
+
+    static OcrAdapterRegistry installed(PaddleOcrVlProperties paddle, OcrPageReader pages, OcrServiceUsage usage,
+            ObjectMapper mapper) {
+        return new OcrAdapterRegistry(List.of(new PaddleOcrVlOcrAdapter(paddle, mapper), new ModelOcrAdapter(pages, mapper),
+                new AiHayOcrAdapter(usage, PAGE_TIMEOUT, mapper)));
     }
 
     OcrAdapterRegistry(Collection<? extends OcrAdapter> installed) {

@@ -62,14 +62,15 @@ spring:
 db-scheduler:
   enabled: true
   table-name: scheduled_tasks
-  scheduler-name: ${MEMORYOS_SCHEDULER_NAME:}
+  scheduler-name: ${MEMORYOS_SCHEDULER_NAME:${HOSTNAME:}}
   threads: 2
   polling-interval: 5s
   heartbeat-interval: 30s
   missed-heartbeats-limit: 4
   immediate-execution-enabled: true
   delay-startup-until-context-ready: true
-  polling-strategy: fetch
+  # Replicas pick due tasks with SELECT ... FOR UPDATE SKIP LOCKED instead of all reading the same rows (MEM-244).
+  polling-strategy: lock-and-fetch
   priority-enabled: false
   shutdown-max-wait: 30s
 
@@ -149,6 +150,8 @@ memoryos:
     consumer-block: 2s
     reclaim-interval: 10s
     reclaim-idle: 2m
+    # MEM-244: how long a stopping Worker lets started work finish; below the container's stop grace period.
+    shutdown-grace: ${MEMORYOS_WORKER_SHUTDOWN_GRACE:100s}
     max-stream-depth: 1000
     ingestion:
       stream: memoryos:execution:ingestion:operations:v1

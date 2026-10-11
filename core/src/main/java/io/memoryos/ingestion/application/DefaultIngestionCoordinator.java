@@ -21,6 +21,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -172,6 +173,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     .log("Rolled back stale index publication");
             return Outcome.SKIPPED;
         } catch (ExtractionException exception) {
+            if (Thread.currentThread().isInterrupted()) throw leftForReclaim(exception);
             String errorCode = "SOURCE_EXTRACTION_" + exception.failure().name();
             boolean retryable = exception.failure().retryable();
             LOGGER.atWarn().addKeyValue("event", "ingestion.extraction.failed")
@@ -198,6 +200,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             }
             return Outcome.FAILED;
         } catch (RuntimeException exception) {
+            if (Thread.currentThread().isInterrupted()) throw leftForReclaim(exception);
             String errorCode = failureStage + "_" + (exception instanceof ObjectStorageException storageFailure
                     ? SourceStorageFailure.code(storageFailure) : "INTERNAL");
             LOGGER.atWarn().addKeyValue("event", "ingestion.retry.requested")
@@ -220,6 +223,16 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         } finally {
             renewal.cancel(false);
         }
+    }
+
+    /**
+     * Work cut off because the Worker is stopping is not the document's failure: nothing is recorded, the delivery stays
+     * pending, and the work is read again once its lease lapses. An extractor keeps the interrupt when it reports one.
+     */
+    static CancellationException leftForReclaim(Exception cause) {
+        var cancelled = new CancellationException("Work stopped with the Worker; left to its lease");
+        cancelled.initCause(cause);
+        return cancelled;
     }
 
     private static void logIndexStage(String stage, long started) {
