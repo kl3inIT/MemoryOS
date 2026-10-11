@@ -11,6 +11,10 @@ import io.memoryos.connector.googledrive.GoogleGroupSynchronizer;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveAclRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
+import io.memoryos.connector.lark.LarkConnectionService;
+import io.memoryos.connector.lark.LarkSyncAdapter;
+import io.memoryos.connector.lark.persistence.JdbcLarkSourceRepository;
+import io.memoryos.connector.lark.persistence.JdbcLarkSyncRepository;
 import io.memoryos.connector.sharepoint.SharePointConnectionService;
 import io.memoryos.connector.sharepoint.SharePointSyncAdapter;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository;
@@ -25,7 +29,9 @@ class SourceDocumentUrlTest {
                     mock(JdbcGoogleDriveAclRepository.class), mock(GoogleDriveConnectionService.class),
                     mock(GoogleGroupSynchronizer.class)),
             new SharePointSyncAdapter(mock(JdbcSharePointSyncRepository.class), mock(JdbcSharePointSourceRepository.class),
-                    mock(JdbcSourceSyncRepository.class), mock(SharePointConnectionService.class))));
+                    mock(JdbcSourceSyncRepository.class), mock(SharePointConnectionService.class)),
+            new LarkSyncAdapter(mock(JdbcLarkSyncRepository.class), mock(JdbcLarkSourceRepository.class),
+                    mock(LarkConnectionService.class))));
 
     @Test
     void googleDriveOpensItsFileIdWhateverAddressWasRecorded() {
@@ -46,6 +52,20 @@ class SourceDocumentUrlTest {
             assertNull(adapters.documentUrl(SourceType.SHAREPOINT, "01ABC", rejected), rejected);
         }
         assertNull(adapters.documentUrl(SourceType.SHAREPOINT, "01ABC", null));
+    }
+
+    @Test
+    void larkOpensTheAddressLarkReturnedOnlyOnALarkHost() {
+        String page = "https://tenant.jp.larksuite.com/wiki/NodeToken";
+        String feishu = "https://tenant.feishu.cn/docx/DocToken";
+        assertEquals(page, adapters.documentUrl(SourceType.LARK, "DocToken", page));
+        assertEquals(feishu, adapters.documentUrl(SourceType.LARK, "DocToken", feishu));
+        for (String rejected : List.of("http://tenant.larksuite.com/wiki/x", "https://larksuite.com.evil.test/wiki/x",
+                "https://user@tenant.larksuite.com/wiki/x", "https://evil-larksuite.com/wiki/x",
+                "https://tenant.larksuite.com/wiki/a b")) {
+            assertNull(adapters.documentUrl(SourceType.LARK, "DocToken", rejected), rejected);
+        }
+        assertNull(adapters.documentUrl(SourceType.LARK, "DocToken", null));
     }
 
     @Test

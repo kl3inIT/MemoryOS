@@ -23,13 +23,16 @@ class SourceAdapterRegistryTest {
     void everyExternalProviderHasExactlyOneSynchronizationAdapterOrStartupFails() {
         var drive = SourceSyncAdapters.credentials(SourceType.GOOGLE_DRIVE, (_, _, _) -> true);
         var sharePoint = SourceSyncAdapters.credentials(SourceType.SHAREPOINT, (_, _, _) -> true);
+        var lark = SourceSyncAdapters.credentials(SourceType.LARK, (_, _, _) -> true);
 
         assertEquals("No synchronization adapter for SHAREPOINT", assertThrows(IllegalStateException.class,
                 () -> new SourceSyncAdapterRegistry(List.of(drive))).getMessage());
+        assertEquals("No synchronization adapter for LARK", assertThrows(IllegalStateException.class,
+                () -> new SourceSyncAdapterRegistry(List.of(drive, sharePoint))).getMessage());
         assertEquals("Two synchronization adapters for GOOGLE_DRIVE", assertThrows(IllegalStateException.class,
-                () -> new SourceSyncAdapterRegistry(List.of(drive, sharePoint, drive))).getMessage());
+                () -> new SourceSyncAdapterRegistry(List.of(drive, sharePoint, lark, drive))).getMessage());
         assertEquals("A synchronization adapter for FILE", assertThrows(IllegalStateException.class,
-                () -> new SourceSyncAdapterRegistry(List.of(drive, sharePoint,
+                () -> new SourceSyncAdapterRegistry(List.of(drive, sharePoint, lark,
                         SourceSyncAdapters.credentials(SourceType.FILE, (_, _, _) -> true)))).getMessage());
     }
 
@@ -37,12 +40,16 @@ class SourceAdapterRegistryTest {
     void everyExternalProviderHasExactlyOneSelectionAdapterOrStartupFails() {
         var drive = selection(SourceType.GOOGLE_DRIVE);
         var sharePoint = selection(SourceType.SHAREPOINT);
+        var lark = selection(SourceType.LARK);
 
         assertEquals("No selection adapter for GOOGLE_DRIVE", assertThrows(IllegalStateException.class,
                 () -> new SourceSelectionAdapterRegistry(List.of(sharePoint))).getMessage());
+        assertEquals("No selection adapter for LARK", assertThrows(IllegalStateException.class,
+                () -> new SourceSelectionAdapterRegistry(List.of(drive, sharePoint))).getMessage());
         assertEquals("Two selection adapters for SHAREPOINT", assertThrows(IllegalStateException.class,
-                () -> new SourceSelectionAdapterRegistry(List.of(drive, sharePoint, sharePoint))).getMessage());
-        assertEquals(drive, new SourceSelectionAdapterRegistry(List.of(drive, sharePoint)).require(SourceType.GOOGLE_DRIVE));
+                () -> new SourceSelectionAdapterRegistry(List.of(drive, sharePoint, lark, sharePoint))).getMessage());
+        assertEquals(drive, new SourceSelectionAdapterRegistry(List.of(drive, sharePoint, lark)).require(SourceType.GOOGLE_DRIVE));
+        assertEquals(lark, new SourceSelectionAdapterRegistry(List.of(drive, sharePoint, lark)).require(SourceType.LARK));
     }
 
     @Test

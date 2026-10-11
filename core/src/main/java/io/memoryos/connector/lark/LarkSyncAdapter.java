@@ -50,6 +50,8 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
     private static final int MAX_CONTENT_BYTES = 100 * 1024 * 1024;
     // A snapshot is stored as JSON, like the other native snapshots; its input format identifies the reader.
     private static final String SNAPSHOT_MEDIA_TYPE = "application/json";
+    /** The longest name a stored object carries. */
+    private static final int MAX_FILENAME = 255;
 
     private final JdbcLarkSyncRepository runs;
     private final JdbcLarkSourceRepository lark;
@@ -271,7 +273,7 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
                         String filename = read.filename().equals(entry.token()) && !entry.name().isBlank()
                                 ? entry.name() : read.filename();
                         yield new SyncRun.Content(new SourceInputDescriptor(SourceInputFormat.BINARY, entry.token(),
-                                version, entry.url()), filename, read.mediaType(), false, read.bytes(),
+                                version, entry.url()), stored(filename, ""), read.mediaType(), false, read.bytes(),
                                 entry.createdAt(), entry.modifiedAt());
                     }
                 };
@@ -298,7 +300,7 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
                 LarkGateway.Snapshot snapshot) {
             String name = entry.name().isBlank() ? entry.token() : entry.name();
             return new SyncRun.Content(new SourceInputDescriptor(format, entry.token(), version, entry.url()),
-                    name + ".json", SNAPSHOT_MEDIA_TYPE, true, snapshot.bytes(), entry.createdAt(),
+                    stored(name, ".json"), SNAPSHOT_MEDIA_TYPE, true, snapshot.bytes(), entry.createdAt(),
                     entry.modifiedAt());
         }
 
@@ -332,6 +334,18 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
     private static boolean runLevel(LarkProviderException exception) {
         return exception.failure() == Failure.AUTHENTICATION || exception.failure() == Failure.QUOTA
                 || exception.failure() == Failure.UNAVAILABLE;
+    }
+
+    /**
+     * A name a stored object may carry: at most {@link #MAX_FILENAME} characters with {@code suffix}, keeping the
+     * extension of a file whose name is cut.
+     */
+    static String stored(String name, String suffix) {
+        String clean = name.strip();
+        if (clean.length() + suffix.length() <= MAX_FILENAME) return clean + suffix;
+        int dot = clean.lastIndexOf('.');
+        String extension = suffix.isEmpty() && dot > 0 && clean.length() - dot <= 16 ? clean.substring(dot) : suffix;
+        return clean.substring(0, MAX_FILENAME - extension.length()).strip() + extension;
     }
 
     /** Lark versions an object by the second it was last edited. */
