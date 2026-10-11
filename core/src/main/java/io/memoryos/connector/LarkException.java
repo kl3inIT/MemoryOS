@@ -36,6 +36,13 @@ public final class LarkException extends BusinessException {
                 "Lark rejected the app credential");
     }
 
+    /** The app works but Lark refuses what was asked to its tenant token. */
+    public static LarkException scopeMissing() {
+        return new LarkException("SOURCE_LARK_SCOPE_MISSING", FailureCategory.CONFLICT,
+                "The Lark app lacks a permission for this. Grant the scopes the credential lists, then publish the app.",
+                "Lark refused a scope to the tenant token");
+    }
+
     public static LarkException throttled() {
         return new LarkException("SOURCE_LARK_QUOTA", FailureCategory.SERVICE_UNAVAILABLE,
                 "Lark is limiting requests from this app. Try again later.", "Lark throttled the request");
