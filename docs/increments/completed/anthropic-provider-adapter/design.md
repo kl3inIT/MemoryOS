@@ -8,7 +8,7 @@ A second chat `ProviderAdapter`, type `anthropic`, speaks the Messages API, and 
 
 A Claude model behind a router (9Router, OpenRouter) stays on the `openai` adapter: the adapter follows the endpoint's protocol, never the model name.
 
-The registry is open for this ([ADR 0019](../../decisions/0019-provider-families-use-adapters-behind-a-registry.md), [provider extension](../../specs/chat-models.md#credentials-and-provider-extension)), so no ADR is added.
+The registry is open for this ([ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md), [provider extension](../../../specs/chat-models.md#credentials-and-provider-extension)), so no ADR is added.
 
 ## Design
 
@@ -32,7 +32,7 @@ No request or stream is hand-written.
 
 ### Decisions
 
-- **Transport.** The adapter owns its OkHttp transport, as the OpenAI adapter does, because a stream must stop from another thread before and after its headers, and only `Call.cancel()` does that safely. Authentication and the API version come from the SDK's `AnthropicBackend`. No redirect is followed and nothing is retried.
+- **Transport.** The adapter owns its OkHttp transport, as the OpenAI adapter does, because a stream must stop from another thread before and after its headers, and only `Call.cancel()` does that safely. Authentication and the API version come from the SDK's `AnthropicBackend`. No redirect is followed and nothing is retried. A cancel closes a received response before the subscription upstream is cancelled, since a blocked read holds the SDK reader's lock; a read that fails because of that close ends the stream, and a request without a response is cancelled only after the subscription is, so a stop never reaches Spring AI, which logs every stream failure, as one.
 - **Thinking text.** Spring AI 2.0 keeps streamed thinking text until the response ends and publishes it per delta from 2.1. Until then `AnthropicCancellation` reads the SDK's typed stream events where the SDK hands the stream to Spring AI, through an interface proxy; the class comment says what removes it.
 - **Thinking across tools.** Spring AI puts the thinking blocks and signatures of a response in the assistant message's metadata and reads them back from there. Embabel carries that metadata across its tool loop, so the replay needs no code here; the wire test rebuilds the message from its metadata alone to prove it.
 - **Levels.** `LOW`, `MEDIUM` and `HIGH` ask for adaptive thinking with that effort. A model that only takes a budget is configured with `thinkingBudget`, never inferred from its name, and gets 2,048, 8,192 or 16,384 tokens, kept below the output bound. `OFF`, helper calls and an inference that must call a tool send thinking disabled.
@@ -46,10 +46,10 @@ No request or stream is hand-written.
 - A Claude tokenizer profile: the adapter estimates with O200K and the 5% input margin, which undercounts Claude's tokenizer on some text.
 - `thinkingBudget` in the model editor; it is settable through the API.
 - The `openai` adapter refusing `api.anthropic.com`, and removing its reading of Anthropic's listing fields.
-- Anthropic's hosted Web search (the open item of [Chat web search](../chat-web-search/plan.md)), an `xhigh` level, the 1M-token context beta, Bedrock and Vertex, a Gemini adapter.
+- Anthropic's hosted Web search (the open item of [Chat web search](../../active/chat-web-search/plan.md)), an `xhigh` level, the 1M-token context beta, Bedrock and Vertex, a Gemini adapter.
 
 ## Risks
 
-- **Not yet run against Anthropic.** Every behaviour is proven against a local server with recorded event shapes. A live turn on staging needs a key and the owner's approval of the spend.
-- **Forced tools and earlier thinking.** A forced tool call sends thinking disabled while earlier assistant messages still carry thinking blocks. The API documents that as accepted; the staging run confirms it.
+- **Run against Anthropic** on staging on 2026-10-11 ([verification](verification.md)).
+- **Forced tools and earlier thinking.** A forced tool call sends thinking disabled while earlier assistant messages still carry thinking blocks. The API documents that as accepted; the staging run did not reach a forced tool call.
 - **Spring AI 2.1.** The upgrade publishes thinking per delta and removes the need for the event proxy.
