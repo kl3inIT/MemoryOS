@@ -21,6 +21,7 @@ const unchanged = [
   "Claude",
   "Anthropic",
   "OCR",
+  "Docling",
   "ChatGPT",
   "Google Drive",
   "Tiếng Việt",

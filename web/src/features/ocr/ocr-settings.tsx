@@ -43,9 +43,9 @@ export function OcrSettings() {
           <SectionHeader id="ocr-readers" title={ui("Đọc bản scan và ảnh")} />
           <ProviderCard
             as="section"
-            aria-label="Docling"
+            aria-label={ui("Docling")}
             logo={<FileText />}
-            name="Docling"
+            name={ui("Docling")}
             description={ui("Tích hợp sẵn")}
             selected={builtIn}
             actions={
