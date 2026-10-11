@@ -100,7 +100,7 @@ for (const width of [1440, 390]) {
     await page.goto("/admin/ai-providers?tab=web-search");
     if (width === 1440) {
       const administration = page.getByRole("navigation", { name: "Điều hướng quản trị" });
-      await expect(administration.getByRole("link", { name: "Provider AI" })).toBeVisible();
+      await expect(administration.getByRole("link", { name: "AI Provider" })).toBeVisible();
     }
     const search = page.getByRole("region", { name: "Công cụ tìm kiếm", exact: true });
     const reader = page.getByRole("region", { name: "Trình đọc trang Web", exact: true });
