@@ -11,7 +11,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.connector.LarkSourceService;
+import io.memoryos.connector.LarkException;
 import io.memoryos.connector.LarkSourceService.Configuration;
 import io.memoryos.connector.LarkSourceService.Root;
 import io.memoryos.connector.LarkSourceService.RootKind;
@@ -20,13 +20,13 @@ import io.memoryos.connector.LarkSourceService.Scope;
 import io.memoryos.connector.LarkSourceService.SelectionReceipt;
 import io.memoryos.connector.LarkSourceService.SpaceOption;
 import io.memoryos.connector.SourceAccess;
-import io.memoryos.connector.LarkException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
+import io.memoryos.connector.lark.DefaultLarkSourceService;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.ActorId;
@@ -81,8 +81,9 @@ class LarkSourceApiTest {
     @Autowired
     private JdbcClient jdbcClient;
 
+    // The selection processor needs the concrete service, so the mock replaces that bean rather than the port.
     @MockitoBean
-    private LarkSourceService sources;
+    private DefaultLarkSourceService sources;
 
     private ActorAuthenticationToken owner;
     private ActorAuthenticationToken member;
