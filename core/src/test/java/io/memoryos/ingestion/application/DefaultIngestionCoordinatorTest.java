@@ -38,6 +38,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -124,6 +125,48 @@ class DefaultIngestionCoordinatorTest {
         extractionFails(indexing, ExtractionFailure.CONNECTION_FAILED, 1);
 
         assertUnavailable(0, 0);
+    }
+
+    @Test
+    void workCutOffBecauseTheWorkerStopsRecordsNothingAndStaysPending() throws Exception {
+        // MEM-244: a deploy interrupts the read; the extractor reports TIMEOUT and keeps the interrupt.
+        var indexing = mock(ConnectorIndexingPort.class);
+        var scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> renewal = mock(ScheduledFuture.class);
+        Mockito.doReturn(renewal).when(scheduler)
+                .scheduleAtFixedRate(any(Runnable.class), eq(30L), eq(30L), eq(TimeUnit.SECONDS));
+        var delivery = new OperationDelivery(new TenantId(UUID.randomUUID()), OperationWorkload.INGESTION,
+                new SourceOperationId(UUID.randomUUID()), UUID.randomUUID());
+        var reference = mock(StoredObjectReference.class);
+        var metadata = mock(ObjectMetadata.class);
+        when(reference.metadata()).thenReturn(metadata);
+        var work = new IndexWork(delivery.operationId(), delivery.tenantId(),
+                UUID.randomUUID(), new SourceId(UUID.randomUUID()), null, UUID.randomUUID(), reference,
+                SourceInputDescriptor.binary(), Duration.ofSeconds(2), 1);
+        when(indexing.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId())).thenReturn(Optional.of(work));
+        var storage = mock(ObjectStorage.class);
+        var content = mock(ObjectContent.class);
+        when(storage.open(reference.key())).thenReturn(content);
+        when(content.metadata()).thenReturn(metadata);
+        var extractor = mock(SourceContentExtractor.class);
+        when(extractor.extract(any(), any(), ArgumentMatchers.anyLong(), any(), any())).thenAnswer(call -> {
+            Thread.currentThread().interrupt();
+            throw new ExtractionException(ExtractionFailure.TIMEOUT, "interrupted");
+        });
+        var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
+                mock(DocumentCommandPort.class), extractor, storage, mock(StoredObjectRegistry.class),
+                mock(TransactionTemplate.class), scheduler,
+                mock(ExtractionArtifactPort.class), registry, mock(SourceSyncProcessor.class),
+                mock(SelectionValidationProcessor.class));
+
+        try {
+            assertThatThrownBy(() -> coordinator.process(delivery)).isInstanceOf(CancellationException.class);
+        } finally {
+            Thread.interrupted();
+        }
+        verify(indexing, Mockito.never()).fail(any(), any(), any(), any());
+        verify(indexing, Mockito.never()).retry(any(), any(), any(), any(), ArgumentMatchers.anyInt(), any());
+        verify(renewal).cancel(false);
     }
 
     /** Runs one claimed index delivery whose extraction throws {@code failure}; returns the claimed work. */
