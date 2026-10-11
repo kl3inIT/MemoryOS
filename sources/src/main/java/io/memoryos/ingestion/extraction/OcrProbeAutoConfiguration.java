@@ -1,5 +1,6 @@
 package io.memoryos.ingestion.extraction;
 
+import io.memoryos.ai.ocr.OcrPageReader;
 import io.memoryos.ai.ocr.OcrProbe;
 import java.time.Duration;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -17,8 +18,8 @@ public class OcrProbeAutoConfiguration {
     private static final Duration TEST_TIMEOUT = Duration.ofMinutes(1);
 
     @Bean
-    OcrProbe ocrProbe(PaddleOcrVlProperties paddle, ObjectMapper mapper) {
+    OcrProbe ocrProbe(PaddleOcrVlProperties paddle, OcrPageReader pages, ObjectMapper mapper) {
         return new OcrConnectionProbe(OcrAdapterRegistry.installed(new PaddleOcrVlProperties(TEST_TIMEOUT,
-                paddle.maxPages(), paddle.revision(), paddle.maxConcurrentRequests()), mapper));
+                paddle.maxPages(), paddle.revision(), paddle.maxConcurrentRequests()), pages, mapper));
     }
 }
