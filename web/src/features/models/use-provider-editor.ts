@@ -232,7 +232,7 @@ export function useProviderEditor(props: ProviderEditorProps) {
           try {
             await createChatModel({
               path: { providerId: result.data.id },
-              body: modelBody(reportedDraft(model, adapter)),
+              body: modelBody(reportedDraft(model, adapter), adapter),
               signal,
             });
           } catch (cause) {

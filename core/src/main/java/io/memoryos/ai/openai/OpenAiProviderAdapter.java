@@ -14,6 +14,7 @@ import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.KnownModels;
 import io.memoryos.shared.OutboundHttp;
 import io.memoryos.shared.OutboundHttp.Limits;
 import io.memoryos.shared.OutboundHttp.ResponseTooLargeException;

@@ -41,9 +41,11 @@ azure-speech = { module = "com.microsoft.cognitiveservices.speech:client-sdk", v
 typesafe-spring-ai = { module = "org.springaicommunity:typesafe-spring-ai", version.ref = "typesafe" }
 spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
 spring-ai-openai = { module = "org.springframework.ai:spring-ai-openai" }
+spring-ai-anthropic = { module = "org.springframework.ai:spring-ai-anthropic" }
 embabel-api = { module = "com.embabel.agent:embabel-agent-api", version.ref = "embabel" }
 embabel-platform = { module = "com.embabel.agent:embabel-agent-starter-platform", version.ref = "embabel" }
 embabel-openai = { module = "com.embabel.agent:embabel-agent-openai", version.ref = "embabel" }
+embabel-anthropic = { module = "com.embabel.agent:embabel-agent-anthropic", version.ref = "embabel" }
 embabel-byok = { module = "com.embabel.agent:embabel-agent-byok-autoconfigure", version.ref = "embabel" }
 mcp = { module = "io.modelcontextprotocol.sdk:mcp", version.ref = "mcp-sdk" }
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }

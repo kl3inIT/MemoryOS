@@ -38,12 +38,14 @@ dependencies {
     implementation(platform(libs.aws.sdk.bom))
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.spring.ai.openai)
+    implementation(libs.spring.ai.anthropic)
     implementation(libs.embabel.api)
     implementation(libs.embabel.openai)
+    implementation(libs.embabel.anthropic)
     // System One (ADR 0026): JevGuardrail and, through it, the protocol client, which runs on a RestClient from
     // OutboundHttp.
     implementation(libs.typesafe.spring.ai)
-    // The OpenAI provider owns its OkHttp transport for raw-call cancellation (OpenAiCancellation).
+    // The OpenAI and Anthropic providers own their OkHttp transport for raw-call cancellation.
     implementation(libs.okhttp)
     implementation(libs.mcp)
     implementation(libs.opensearch.java)
