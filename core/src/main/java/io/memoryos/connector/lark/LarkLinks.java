@@ -1,7 +1,7 @@
 package io.memoryos.connector.lark;
 
+import io.memoryos.connector.LarkException;
 import io.memoryos.connector.LarkGateway;
-import io.memoryos.connector.SourceException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Locale;
@@ -21,7 +21,7 @@ final class LarkLinks {
     static String spaceId(String value) {
         String trimmed = value == null ? "" : value.strip();
         if (!SPACE_ID.matcher(trimmed).matches())
-            throw SourceException.invalidRootLink("Choose a Wiki space from the list.");
+            throw LarkException.invalidRoot("Choose a Wiki space from the list.");
         return trimmed;
     }
 
@@ -44,7 +44,7 @@ final class LarkLinks {
         } catch (URISyntaxException malformed) {
             // Refused below with the same explanation.
         }
-        throw SourceException.invalidRootLink("Paste the link of a Lark Drive folder, as its address bar shows it.");
+        throw LarkException.invalidRoot("Paste the link of a Lark Drive folder, as its address bar shows it.");
     }
 
     /** Where a reader opens an object, when Lark returned an address on a Lark host; null otherwise. */

@@ -43,6 +43,12 @@ public final class LarkException extends BusinessException {
                 "Lark refused a scope to the tenant token");
     }
 
+    /** A Wiki space ID or a Drive folder link that names nothing Lark could be asked about. */
+    public static LarkException invalidRoot(String safeMessage) {
+        return new LarkException("SOURCE_LARK_ROOT_INVALID", FailureCategory.VALIDATION, safeMessage,
+                "Lark space ID or folder link is malformed or on another region");
+    }
+
     public static LarkException throttled() {
         return new LarkException("SOURCE_LARK_QUOTA", FailureCategory.SERVICE_UNAVAILABLE,
                 "Lark is limiting requests from this app. Try again later.", "Lark throttled the request");
