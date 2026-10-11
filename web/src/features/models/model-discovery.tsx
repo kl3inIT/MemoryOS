@@ -44,7 +44,7 @@ export function ModelDiscovery({
       try {
         await createChatModel({
           path: { providerId: provider.id },
-          body: modelBody(reportedDraft(model, adapter)),
+          body: modelBody(reportedDraft(model, adapter), adapter),
           signal,
         });
       } catch (cause) {

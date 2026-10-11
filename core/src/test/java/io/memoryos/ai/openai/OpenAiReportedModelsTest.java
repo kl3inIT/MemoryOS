@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.memoryos.ai.KnownModels;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ProviderAdapter.ReportedModel;
 import io.memoryos.ai.ModelSettings;

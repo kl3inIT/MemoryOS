@@ -86,22 +86,38 @@ const model: ManagedModel = {
 };
 
 describe("model configuration transitions", () => {
+  it("sends the Messages API only the options it takes", () => {
+    const anthropic: InstalledAdapter = { ...adapter, type: "anthropic" };
+    let draft = changeModelDraft(modelDraft(model), "completionTokens", true);
+    draft = { ...draft, reasoningEffort: "minimal", temperature: "0.4", topP: "0.9" };
+    expect(modelDraftError(draft, anthropic)).toBe("Choose a supported reasoning effort.");
+    draft = { ...draft, reasoningEffort: "medium" };
+    expect(modelDraftError(draft, anthropic)).toBeNull();
+    expect(modelBody(draft, anthropic).settings?.options).toEqual({
+      topP: 0.9,
+      reasoningEffort: "medium",
+    });
+    draft = { ...draft, reasoning: false };
+    expect(modelBody(draft, anthropic).settings?.options).toEqual({ temperature: 0.4, topP: 0.9 });
+    expect(modelDraftError({ ...draft, temperature: "1.5" }, anthropic)).not.toBeNull();
+  });
+
   it("removes incompatible sampling and reasoning keys without treating the output limit as a boolean", () => {
     let draft = changeModelDraft(modelDraft(model), "completionTokens", true);
-    expect(modelBody(draft).settings?.options).toEqual({
+    expect(modelBody(draft, adapter).settings?.options).toEqual({
       maxCompletionTokens: true,
       reasoningEffort: "high",
     });
-    expect(modelBody(draft).settings?.maxOutputTokens).toBe(256);
+    expect(modelBody(draft, adapter).settings?.maxOutputTokens).toBe(256);
     draft = changeModelDraft(draft, "reasoning", false);
     draft = changeModelDraft(draft, "completionTokens", false);
-    expect(modelBody(draft).settings?.options).toEqual({ maxCompletionTokens: false });
+    expect(modelBody(draft, adapter).settings?.options).toEqual({ maxCompletionTokens: false });
   });
 
   it("sends no output limit when it is left blank, so the provider default applies", () => {
     const draft = { ...modelDraft(model, adapter), maxOutputTokens: "" };
     expect(modelDraftError(draft, adapter)).toBeNull();
-    expect(modelBody(draft).settings?.maxOutputTokens).toBeNull();
+    expect(modelBody(draft, adapter).settings?.maxOutputTokens).toBeNull();
     expect(modelDraftError({ ...draft, maxOutputTokens: "0" }, adapter)).not.toBeNull();
   });
 
@@ -110,14 +126,16 @@ describe("model configuration transitions", () => {
     expect(modelDraftError(modelDraft(model, adapter), adapter)).toBeNull();
     const retired = { ...modelDraft(model, adapter), tokenizerProfile: "retired-profile" };
     expect(modelDraftError(retired, adapter)).not.toBeNull();
-    expect(modelBody(retired).settings?.tokenizerProfile).toBe("retired-profile");
+    expect(modelBody(retired, adapter).settings?.tokenizerProfile).toBe("retired-profile");
   });
 
   it("keeps unknown pricing distinct from an explicit zero pair and rejects partial prices and output at context", () => {
     const draft = modelDraft(model);
-    expect(modelBody(draft).settings?.pricing).toBeNull();
+    expect(modelBody(draft, adapter).settings?.pricing).toBeNull();
     expect(modelDraftError({ ...draft, inputPrice: "0" }, adapter)).not.toBeNull();
-    expect(modelBody({ ...draft, inputPrice: "0", outputPrice: "0" }).settings?.pricing).toEqual({
+    expect(
+      modelBody({ ...draft, inputPrice: "0", outputPrice: "0" }, adapter).settings?.pricing,
+    ).toEqual({
       inputPerMillion: 0,
       outputPerMillion: 0,
       cachedInputPerMillion: null,
@@ -132,7 +150,7 @@ describe("model configuration transitions", () => {
 
   it("prefills installed metadata for a known model name and leaves an unknown name untouched", () => {
     const known = changeModelDraft(modelDraft(), "modelName", "gpt-5", adapter);
-    expect(modelBody(known).settings).toMatchObject({
+    expect(modelBody(known, adapter).settings).toMatchObject({
       contextWindow: 272_000,
       maxOutputTokens: 128_000,
       capabilities: {
@@ -144,7 +162,7 @@ describe("model configuration transitions", () => {
       },
       pricing: { inputPerMillion: 1.25, outputPerMillion: 10, cachedInputPerMillion: 0.125 },
     });
-    expect(modelBody(known).settings?.options).toEqual({ maxCompletionTokens: true });
+    expect(modelBody(known, adapter).settings?.options).toEqual({ maxCompletionTokens: true });
     expect(known.displayName).toBe("gpt-5");
     const custom = changeModelDraft(modelDraft(), "modelName", "llama-3.1-8b", adapter);
     expect(custom.contextWindow).toBe(modelDraft().contextWindow);

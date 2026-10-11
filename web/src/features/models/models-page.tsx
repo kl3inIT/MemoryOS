@@ -184,7 +184,7 @@ function ModelsEditors({ page }: { page: ReturnType<typeof useModelsAdministrati
         models={models.filter((model) => model.providerId === editor.initial?.id)}
         providers={providers.data ?? []}
         adapters={adapters.data}
-        preferredAdapterType={editor.initial ? undefined : "openai"}
+        preferredAdapterType={editor.initial ? undefined : (editor.preset?.adapterType ?? "openai")}
         preferredBaseUrl={editor.preset?.baseUrl}
         preferredName={editor.preset?.name}
         onClose={close}

@@ -339,9 +339,9 @@ export function modelDraftError(
     if (value.trim() && (!Number.isFinite(Number(value)) || Number(value) < 0))
       return "Prices must be finite, nonnegative USD per million tokens.";
   }
-  if (!draft.completionTokens) {
+  if (!draft.completionTokens || !openAiOptions(adapter)) {
     for (const [key, label, min, max] of [
-      ["temperature", "Temperature", 0, 2],
+      ["temperature", "Temperature", 0, openAiOptions(adapter) ? 2 : 1],
       ["topP", "Top P", 0, 1],
       ["frequencyPenalty", "Frequency penalty", -2, 2],
       ["presencePenalty", "Presence penalty", -2, 2],
@@ -361,21 +361,38 @@ export function modelDraftError(
   if (
     draft.reasoning &&
     draft.reasoningEffort &&
-    !["minimal", "low", "medium", "high"].includes(draft.reasoningEffort)
+    !reasoningEfforts(adapter).includes(draft.reasoningEffort)
   )
     return "Choose a supported reasoning effort.";
   return null;
 }
 
-export function modelBody(draft: ModelDraft): ModelBody {
-  const options: ManagedModel["settings"]["options"] = {
-    maxCompletionTokens: draft.completionTokens,
-  };
-  if (!draft.completionTokens)
-    for (const key of ["temperature", "topP", "frequencyPenalty", "presencePenalty"] as const) {
-      if (draft[key].trim()) options[key] = Number(draft[key]);
-    }
-  if (draft.reasoning && draft.reasoningEffort) options.reasoningEffort = draft.reasoningEffort;
+/** Whether the adapter takes the OpenAI option families; the Messages API has neither them nor the penalties. */
+export function openAiOptions(adapter: InstalledAdapter | undefined) {
+  return adapter?.type !== "anthropic";
+}
+
+/** The reasoning levels a model configuration may name on this adapter. */
+export function reasoningEfforts(adapter: InstalledAdapter | undefined) {
+  return openAiOptions(adapter) ? ["minimal", "low", "medium", "high"] : ["low", "medium", "high"];
+}
+
+export function modelBody(draft: ModelDraft, adapter: InstalledAdapter | undefined): ModelBody {
+  const options: ManagedModel["settings"]["options"] = {};
+  if (openAiOptions(adapter)) {
+    options.maxCompletionTokens = draft.completionTokens;
+    if (!draft.completionTokens)
+      for (const key of ["temperature", "topP", "frequencyPenalty", "presencePenalty"] as const) {
+        if (draft[key].trim()) options[key] = Number(draft[key]);
+      }
+  } else {
+    // A reasoning model on the Messages API takes no temperature.
+    if (!draft.reasoning && draft.temperature.trim())
+      options.temperature = Number(draft.temperature);
+    if (draft.topP.trim()) options.topP = Number(draft.topP);
+  }
+  if (draft.reasoning && reasoningEfforts(adapter).includes(draft.reasoningEffort))
+    options.reasoningEffort = draft.reasoningEffort;
   return {
     modelName: draft.modelName.trim(),
     displayName: draft.displayName.trim(),
