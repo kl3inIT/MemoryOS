@@ -22,6 +22,7 @@ embabel = "1.5.2"
 opensearch-java = "3.10.0"
 msal4j = "1.26.0"
 microsoft-graph = "6.70.0"
+lark-oapi = "2.8.5"
 google-api-drive = "v3-rev20260916-2.0.0"
 google-api-sheets = "v4-rev20260921-2.0.0"
 google-api-docs = "v1-rev20260928-2.0.0"
@@ -56,6 +57,7 @@ spring-ai-model-tool = { module = "org.springframework.ai:spring-ai-autoconfigur
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
 msal4j = { module = "com.microsoft.azure:msal4j", version.ref = "msal4j" }
 microsoft-graph = { module = "com.microsoft.graph:microsoft-graph", version.ref = "microsoft-graph" }
+lark-oapi = { module = "com.larksuite.oapi:oapi-sdk", version.ref = "lark-oapi" }
 google-api-drive = { module = "com.google.apis:google-api-services-drive", version.ref = "google-api-drive" }
 google-api-sheets = { module = "com.google.apis:google-api-services-sheets", version.ref = "google-api-sheets" }
 google-api-docs = { module = "com.google.apis:google-api-services-docs", version.ref = "google-api-docs" }

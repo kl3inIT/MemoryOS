@@ -5,18 +5,22 @@
 
 ## 1. Fixtures and the gateway port
 
-- [ ] Recorded responses of the test tenant under `sources/src/test/resources/lark/` (spaces, nodes, docx blocks,
-  folder listing, collaborators, link settings, contact users, failure bodies), app and user identifiers kept,
-  no token or secret.
-- [ ] `LarkGateway` and its records, `LarkProviderException` in `core` root.
+- [x] Recorded answers of the test tenant under `sources/src/test/resources/lark/` (spaces, nodes, Docx blocks,
+  folder listing, sheet, collaborators, link setting, contact users, refusals); names and emails replaced, no token
+  or secret.
+- [x] `LarkGateway` and its records, `LarkProviderException` in `core` root.
 
 ## 2. Transport and gateway (`sources`)
 
-- [ ] `oapi-sdk` in the version catalog; `LarkTransport` with the four transport rules.
-- [ ] `RestLarkGateway`: tenant token, bot info, scope probe, spaces, nodes, folder files, docx blocks, sheet values,
-  file download, collaborators, link setting, contact users, chat/department/space members; failure mapping.
-- [ ] `LarkProviderProperties`, metrics, auto-configuration; `RestLarkGatewayTest` on a local HTTP server serving
-  the fixtures.
+- [x] `oapi-sdk` 2.8.5 in the version catalog; `LarkTransport` with the four transport rules, its budget passed
+  through a `ScopedValue` because the SDK's request carries no options.
+- [x] `RestLarkGateway`: its own tenant token per session (the SDK's token cache is process-wide and keyed by App ID
+  alone, so it is switched off), bot info, scope probe, spaces, nodes, folder and files, Docx and Sheet snapshots,
+  file download, collaborators with the link setting, users by `open_id`, chat, department and space members;
+  failure mapping.
+- [x] `LarkProviderProperties`, metrics, auto-configuration; `RestLarkGatewayTest` (22 tests) on a local HTTP server
+  serving the fixtures. Run with `javac` and the JUnit console on 2026-10-12 because the workstation had no memory
+  for a Gradle daemon; the Gradle gate is left to CI. The gateway was also run against the test tenant itself.
 
 ## 3. Credential
 
