@@ -249,6 +249,10 @@ memoryos:
     docs-api-base-url: https://docs.googleapis.com/v1
     admin-api-base-url: https://admin.googleapis.com/admin/directory/v1
     group-sync-interval: ${MEMORYOS_GOOGLE_DRIVE_GROUP_SYNC_INTERVAL:PT1H}
+  lark:
+    # MEM-245. Empty: Lark credentials cannot be stored or read; the other providers are unaffected.
+    credential-encryption-key: ${MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:}
   sharepoint:
     credential-encryption-key: ${MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:}
