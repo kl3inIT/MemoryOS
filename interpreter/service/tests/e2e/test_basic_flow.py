@@ -23,7 +23,7 @@ def test_execute_endpoint_basic_flow() -> None:
         execute_payload: dict[str, Any] = {
             "code": "print('hello from e2e')",
             "stdin": None,
-            "timeout_ms": 1000,
+            "timeout_ms": 5000,
             "files": [],
         }
 

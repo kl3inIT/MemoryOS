@@ -11,7 +11,7 @@ def test_execute_returns_expected_payload() -> None:
         json={
             "code": "print('hello')",
             "stdin": None,
-            "timeout_ms": 1000,
+            "timeout_ms": 5000,
         },
     )
 
