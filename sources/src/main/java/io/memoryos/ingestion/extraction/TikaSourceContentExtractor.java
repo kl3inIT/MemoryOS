@@ -4,7 +4,6 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
-import io.memoryos.ingestion.SourceContentExtractor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public final class TikaSourceContentExtractor implements SourceContentExtractor, AutoCloseable {
+public final class TikaSourceContentExtractor implements AutoCloseable {
 
     private static final Duration DEFAULT_EXTRACTION_TIMEOUT = Duration.ofSeconds(90);
     private static final Duration PROCESS_EXIT_GRACE = Duration.ofSeconds(5);
@@ -40,7 +39,6 @@ public final class TikaSourceContentExtractor implements SourceContentExtractor,
         }
     }
 
-    @Override
     public DocumentContent extract(InputStream content, long sizeBytes, String filename,
             SourceInputDescriptor input) throws ExtractionException {
         Objects.requireNonNull(content, "content must not be null");

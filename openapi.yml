@@ -358,6 +358,136 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ocr/selection:
+    put:
+      tags:
+      - OCR
+      summary: Choose the connection that reads scans and images; null returns them
+        to Docling's own OCR
+      operationId: selectOcrProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OcrSelectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: OCR reader saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ocr/connections/{provider}:
+    put:
+      tags:
+      - OCR
+      summary: Configure one OCR connection without choosing it as the reader
+      operationId: saveOcrConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OcrConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved OCR connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OcrConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}:
     get:
       tags:
@@ -7847,6 +7977,72 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ocr/connections/{provider}/test:
+    post:
+      tags:
+      - OCR
+      summary: Read a small test picture with a connection; a cloud provider may charge
+        for it
+      operationId: testOcrConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OcrConnectionTestRequest"
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: The connection read the test picture
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings:
     get:
       tags:
@@ -15260,6 +15456,107 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ocr/providers:
+    get:
+      tags:
+      - OCR
+      summary: List the installed OCR providers and what a connection of each needs
+      operationId: listOcrProviders
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Installed OCR providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OcrProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ocr/connections:
+    get:
+      tags:
+      - OCR
+      summary: List OCR connections for model managers; the active one reads scans
+        and images
+      operationId: listOcrConnections
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: OCR connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OcrConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/transcript:
     get:
       tags:
@@ -21269,6 +21566,68 @@ components:
       - inUse
       - name
       - revision
+    OcrSelectionRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+    OcrConnectionRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        credentialAction:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - credentialAction
+      - dataBoundary
+      - endpoint
+    OcrConnectionResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+        endpoint:
+          type: string
+        credentialConfigured:
+          type: boolean
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        active:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - dataBoundary
+      - endpoint
+      - provider
     MeetingUpdateRequest:
       type: object
       description: What the owner fills in once the meeting is under way
@@ -24981,6 +25340,19 @@ components:
       - latencyMs
       - model
       - ok
+    OcrConnectionTestRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+      required:
+      - endpoint
     MeetingCreateRequest:
       type: object
       description: What the owner enters before recording
@@ -27825,6 +28197,23 @@ components:
       - csv
       - name
       - truncated
+    OcrProviderResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+        requiresKey:
+          type: boolean
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+      required:
+      - dataBoundary
+      - provider
     MeetingSummary:
       type: object
       properties:

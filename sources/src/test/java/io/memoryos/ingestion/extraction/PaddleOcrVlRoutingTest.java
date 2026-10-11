@@ -12,6 +12,7 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.memoryos.shared.TenantId;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -26,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -40,6 +42,7 @@ import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.jspecify.annotations.Nullable;
 import org.mockito.ArgumentCaptor;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -48,21 +51,25 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * MEM-192. The provider is chosen by the text layer, not the file extension: a scan or an image goes
- * to PaddleOCR-VL when it is configured, a text layer to Docling without OCR, and without
- * PaddleOCR-VL Docling keeps reading scans with its own OCR. A PaddleOCR-VL failure is final.
+ * MEM-192, MEM-243. The reader is chosen by the text layer, not the file extension: a scan or an image goes
+ * to the Tenant's PaddleOCR-VL connection when it has one, a text layer to Docling without OCR, and without
+ * a reader Docling keeps reading scans with its own OCR. A PaddleOCR-VL failure is final.
  */
 class PaddleOcrVlRoutingTest {
     private static final String SENTENCE = "Doanh thu hop nhat quy ba tang so voi cung ky nam truoc nho mang logistics. ";
     private final ObjectMapper mapper = new ObjectMapper();
     private final BoundedDoclingClient docling = mock(BoundedDoclingClient.class);
+    private static final TenantId TENANT = new TenantId(UUID.randomUUID());
     private final AtomicInteger paddleCalls = new AtomicInteger();
     private HttpServer server;
+    /** The Tenant's reader the extraction is given; null reads with Docling's own OCR. */
+    private @Nullable OcrReader ocr;
 
     @TempDir Path temporary;
 
     @AfterEach
     void stop() {
+        if (ocr != null) ocr.close();
         if (server != null) server.stop(0);
     }
 
@@ -166,8 +173,8 @@ class PaddleOcrVlRoutingTest {
         var closed = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
         server.stop(0);
         server = null;
-        var paddle = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(closed, Duration.ofSeconds(10), 200, null, null), mapper);
-        try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling, paddle, new SimpleMeterRegistry())) {
+        ocr = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), closed, mapper);
+        try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling, new SimpleMeterRegistry())) {
             var error = assertThrows(ExtractionException.class, () -> extract(extractor, scan(1), "scan.pdf"));
             assertEquals(ExtractionFailure.CONNECTION_FAILED, error.failure());
             verifyNoInteractions(docling);
@@ -189,8 +196,8 @@ class PaddleOcrVlRoutingTest {
         serve(200, fixture("financial-statement-page.json"));
         try (var extractor = withPaddle()) {
             byte[] png = png();
-            var result = new SourceContentExtractorRouter(extractor, mapper)
-                    .extract(new ByteArrayInputStream(png), png.length, "scan.png", SourceInputDescriptor.binary());
+            var result = new SourceContentExtractorRouter(extractor, tenant -> ocr, mapper)
+                    .extract(TENANT, new ByteArrayInputStream(png), png.length, "scan.png", SourceInputDescriptor.binary());
 
             assertEquals("paddleocr-vl", result.metadata().get("parser"));
             assertEquals("image/png", result.mediaType());
@@ -206,10 +213,9 @@ class PaddleOcrVlRoutingTest {
     void withoutPaddleOcrVlAnImageIsNotReadAsASource() throws Exception {
         try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling, new SimpleMeterRegistry())) {
             byte[] png = png();
-            var error = assertThrows(ExtractionException.class, () -> new SourceContentExtractorRouter(extractor, mapper)
-                    .extract(new ByteArrayInputStream(png), png.length, "scan.png", SourceInputDescriptor.binary()));
+            var error = assertThrows(ExtractionException.class, () -> new SourceContentExtractorRouter(extractor, tenant -> null, mapper)
+                    .extract(TENANT, new ByteArrayInputStream(png), png.length, "scan.png", SourceInputDescriptor.binary()));
             assertEquals(ExtractionFailure.UNSUPPORTED, error.failure());
-            assertFalse(extractor.readsImage("image/png"));
         }
     }
 
@@ -219,7 +225,7 @@ class PaddleOcrVlRoutingTest {
         Path file = temporary.resolve("attachment.pdf");
         Files.write(file, scan(1));
         try (var extractor = withPaddle()) {
-            var result = extractor.extractChatFile(file, "attachment.pdf", "application/pdf");
+            var result = extractor.extractChatFile(file, "attachment.pdf", "application/pdf", ocr);
             assertEquals("paddleocr-vl", result.metadata().get("parser"));
             assertTrue(result.metadata().get("parser_configuration").contains(";maxInput=262144000;"));
             verifyNoInteractions(docling);
@@ -233,7 +239,7 @@ class PaddleOcrVlRoutingTest {
         Path file = temporary.resolve("attachment.pdf");
         Files.write(file, textPdf(1));
         try (var extractor = withPaddle()) {
-            var result = extractor.extractChatFile(file, "attachment.pdf", "application/pdf");
+            var result = extractor.extractChatFile(file, "attachment.pdf", "application/pdf", ocr);
             assertEquals("docling", result.metadata().get("parser"));
             verify(docling).convertFile(any(), any(), any(), eq(false));
             assertEquals(0, paddleCalls.get());
@@ -246,8 +252,8 @@ class PaddleOcrVlRoutingTest {
         Path file = temporary.resolve("photo.png");
         Files.write(file, png());
         try (var extractor = withPaddle()) {
-            assertTrue(extractor.readsImage("image/png"));
-            assertNull(extractor.readChatImage(file, "photo.png", "image/png"),
+            assertTrue(ocr.readsImage("image/png"));
+            assertNull(ocr.read(PaddleOcrVlClient.Input.of(file), null, "photo.png", "image/png", 262_144_000),
                     "no text is not a failure for an attachment; the ordinary image description follows");
             assertEquals(1, paddleCalls.get());
         }
@@ -259,7 +265,7 @@ class PaddleOcrVlRoutingTest {
         Path file = temporary.resolve("scan.png");
         Files.write(file, png());
         try (var extractor = withPaddle()) {
-            var error = assertThrows(ExtractionException.class, () -> extractor.readChatImage(file, "scan.png", "image/png"));
+            var error = assertThrows(ExtractionException.class, () -> ocr.read(PaddleOcrVlClient.Input.of(file), null, "scan.png", "image/png", 262_144_000));
             assertEquals(ExtractionFailure.INTERNAL, error.failure());
         }
     }
@@ -272,7 +278,7 @@ class PaddleOcrVlRoutingTest {
             byte[] png = png();
             System.arraycopy(png, 0, huge, 0, png.length);
             var error = assertThrows(ExtractionException.class,
-                    () -> extractor.extract(huge, "huge.png", "image/png", SourceInputDescriptor.binary()));
+                    () -> extractor.extract(huge, "huge.png", "image/png", SourceInputDescriptor.binary(), ocr));
             assertEquals(ExtractionFailure.WRITE_LIMIT, error.failure());
             assertEquals(0, paddleCalls.get());
         }
@@ -284,7 +290,7 @@ class PaddleOcrVlRoutingTest {
         try (var extractor = withPaddle(2)) {
             byte[] tiff = tiff(frame(40, 30), frame(40, 30), frame(40, 30));
             var error = assertThrows(ExtractionException.class,
-                    () -> extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary()));
+                    () -> extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary(), ocr));
             assertEquals(ExtractionFailure.WRITE_LIMIT, error.failure());
             assertEquals(0, paddleCalls.get());
         }
@@ -299,7 +305,7 @@ class PaddleOcrVlRoutingTest {
             byte[] tiff = tiff(frame(40, 30), large);
             assertTrue(tiff.length < 20_971_520, "refused for its pixels, not its bytes");
             var error = assertThrows(ExtractionException.class,
-                    () -> extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary()));
+                    () -> extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary(), ocr));
             assertEquals(ExtractionFailure.WRITE_LIMIT, error.failure());
             assertEquals(0, paddleCalls.get());
         }
@@ -313,7 +319,7 @@ class PaddleOcrVlRoutingTest {
                 var images = new BufferedImage[frames];
                 Arrays.fill(images, frame(40, 30));
                 byte[] tiff = tiff(images);
-                var result = extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary());
+                var result = extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary(), ocr);
                 assertEquals("paddleocr-vl", result.metadata().get("parser"));
                 assertEquals(frames, paddleCalls.get());
             }
@@ -321,39 +327,30 @@ class PaddleOcrVlRoutingTest {
     }
 
     @Test
-    void anEmptyEndpointLeavesTheProviderAbsent() {
+    void theServiceSettingsHaveDefaultsAndBounds() {
         var source = new MapConfigurationPropertySource(Map.of(
-                "memoryos.extraction.paddleocr-vl.endpoint", "",
                 "memoryos.extraction.paddleocr-vl.revision", ""));
         var bound = new Binder(source)
                 .bindOrCreate("memoryos.extraction.paddleocr-vl",
                         Bindable.of(PaddleOcrVlProperties.class));
-        assertFalse(bound.configured());
         assertEquals(PaddleOcrVlProperties.DEFAULT_REVISION, bound.revision());
         assertEquals(Duration.ofMinutes(30), bound.timeout());
         assertEquals(2, bound.maxConcurrentRequests());
 
         var configured = new Binder(
                 new MapConfigurationPropertySource(Map.of(
-                        "memoryos.extraction.paddleocr-vl.endpoint", "http://172.24.244.79:8080",
                         "memoryos.extraction.paddleocr-vl.timeout", "15m",
                         "memoryos.extraction.paddleocr-vl.max-concurrent-requests", "3")))
                 .bind("memoryos.extraction.paddleocr-vl",
                         Bindable.of(PaddleOcrVlProperties.class)).get();
-        assertTrue(configured.configured());
         assertEquals(Duration.ofMinutes(15), configured.timeout());
         assertEquals(3, configured.maxConcurrentRequests());
-        assertFalse(configured.parserConfiguration(1).contains("172.24.244.79"), "the endpoint is not the parser's identity");
-        for (var invalid : List.of("ftp://ocr:1", "http://user@ocr:1", "http://ocr:1/?q=1")) {
-            assertThrows(IllegalArgumentException.class,
-                    () -> new PaddleOcrVlProperties(URI.create(invalid), null, 0, null, null));
-        }
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, null, 201, null, null));
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, Duration.ZERO, 0, null, null));
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, null, 0, "a;b", null));
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, null, 0, null, 0));
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, null, 0, null, 17));
-        assertEquals(16, new PaddleOcrVlProperties(null, null, 0, null, 16).maxConcurrentRequests());
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 201, null, null));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(Duration.ZERO, 0, null, null));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, "a;b", null));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, null, 0));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, null, 17));
+        assertEquals(16, new PaddleOcrVlProperties(null, 0, null, 16).maxConcurrentRequests());
     }
 
     private DoclingSourceContentExtractor withPaddle() {
@@ -361,9 +358,9 @@ class PaddleOcrVlRoutingTest {
     }
 
     private DoclingSourceContentExtractor withPaddle(int maxPages) {
-        var paddle = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(
-                URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Duration.ofSeconds(10), maxPages, null, null), mapper);
-        return new DoclingSourceContentExtractor(properties(), mapper, docling, paddle, new SimpleMeterRegistry());
+        ocr = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(Duration.ofSeconds(10), maxPages, null, null),
+                URI.create("http://127.0.0.1:" + server.getAddress().getPort()), mapper);
+        return new DoclingSourceContentExtractor(properties(), mapper, docling, new SimpleMeterRegistry());
     }
 
     private static DoclingProperties properties() {
@@ -371,7 +368,7 @@ class PaddleOcrVlRoutingTest {
     }
 
     private DocumentContent extract(DoclingSourceContentExtractor extractor, byte[] bytes, String name) throws ExtractionException {
-        return extractor.extract(new ByteArrayInputStream(bytes), bytes.length, name, SourceInputDescriptor.binary());
+        return extractor.extract(new ByteArrayInputStream(bytes), bytes.length, name, SourceInputDescriptor.binary(), ocr);
     }
 
     private void doclingAnswers() {

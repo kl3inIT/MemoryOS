@@ -2,6 +2,7 @@ package io.memoryos.ingestion.extraction;
 
 import ai.docling.serve.api.DoclingServeApi;
 import io.memoryos.document.application.StructuredDocumentChunker;
+import io.memoryos.shared.TenantId;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -11,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -37,7 +39,7 @@ public final class ChatFileResourceProbe {
                 (_, method, _) -> { throw new AssertionError("OCR is outside this probe: " + method.getName()); });
         var docling = new DoclingSourceContentExtractor(new DoclingProperties(null, null, null, 0), mapper, noOcr,
                 new SimpleMeterRegistry());
-        var extractor = new BoundedChatFileExtractor(docling, mapper);
+        var extractor = new BoundedChatFileExtractor(docling, tenant -> null, mapper);
         var active = new AtomicInteger(); var peakActive = new AtomicInteger(); var heapPeak = new AtomicLong();
         var memory = ManagementFactory.getMemoryMXBean();
         var ready = new CountDownLatch(callers); var start = new CountDownLatch(1);
@@ -62,7 +64,7 @@ public final class ChatFileResourceProbe {
                             return count;
                         }
                     }) {
-                        var content = extractor.extract(input, size, "large.xlsx");
+                        var content = extractor.extract(new TenantId(UUID.randomUUID()), input, size, "large.xlsx");
                         if (!content.normalizedText().contains("B1: 127")) throw new AssertionError("Missing table value");
                         var chunks = new StructuredDocumentChunker(mapper).chunk(content.title(), content.structuredJson());
                         if (chunks.stream().noneMatch(chunk -> chunk.content().contains("[B1] 127"))) throw new AssertionError("Missing chunk value");

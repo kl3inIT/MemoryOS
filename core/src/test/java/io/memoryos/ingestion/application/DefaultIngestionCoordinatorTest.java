@@ -147,7 +147,7 @@ class DefaultIngestionCoordinatorTest {
         when(storage.open(reference.key())).thenReturn(content);
         when(content.metadata()).thenReturn(metadata);
         var extractor = mock(SourceContentExtractor.class);
-        when(extractor.extract(content.inputStream(), metadata.sizeBytes(), reference.filename(), work.input()))
+        when(extractor.extract(work.tenantId(), content.inputStream(), metadata.sizeBytes(), reference.filename(), work.input()))
                 .thenThrow(new ExtractionException(
                         failure, "test failure"));
         var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),

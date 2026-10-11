@@ -5,6 +5,7 @@ import io.memoryos.document.ExtractedDocument.Page;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,11 +13,8 @@ import javax.imageio.ImageIO;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Reads scans and images with PaddleOCR-VL. Its failures stand: there is no fallback to Docling or
- * Tesseract, whose misread amounts would be indexed as if they were right (MEM-192).
- */
-final class PaddleOcrVlExtractor implements AutoCloseable {
+/** Reads scans and images with the PaddleOCR-VL service of one OCR connection. */
+final class PaddleOcrVlExtractor implements OcrReader {
     static final Set<String> IMAGES = Set.of("image/png", "image/jpeg", "image/tiff", "image/webp", "image/bmp");
     /** The Chat image bound, which the GPU node's layout service must also be able to decode. */
     private static final long MAX_IMAGE_BYTES = 20_971_520;
@@ -25,8 +23,8 @@ final class PaddleOcrVlExtractor implements AutoCloseable {
     private final PaddleOcrVlClient client;
     private final ObjectMapper mapper;
 
-    PaddleOcrVlExtractor(PaddleOcrVlProperties properties, ObjectMapper mapper) {
-        this(properties, mapper, new PaddleOcrVlClient(properties, mapper));
+    PaddleOcrVlExtractor(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper) {
+        this(properties, mapper, new PaddleOcrVlClient(properties, service, mapper));
     }
 
     PaddleOcrVlExtractor(PaddleOcrVlProperties properties, ObjectMapper mapper, PaddleOcrVlClient client) {
@@ -35,11 +33,9 @@ final class PaddleOcrVlExtractor implements AutoCloseable {
         this.client = client;
     }
 
-    /**
-     * @param layout the PDF's pages; null for an image
-     * @return the document, or null when the layout holds no text at all (a photograph)
-     */
-    @Nullable DocumentContent read(PaddleOcrVlClient.Input input, @Nullable PdfLayout layout, String filename,
+    @Override public boolean readsImage(String mediaType) { return IMAGES.contains(mediaType); }
+
+    @Override public @Nullable DocumentContent read(PaddleOcrVlClient.Input input, @Nullable PdfLayout layout, String filename,
             String mediaType, long maxInput) throws ExtractionException {
         if (layout == null) admitImage(input, properties.maxPages());
         else if (layout.pages() < 1) throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
@@ -51,14 +47,6 @@ final class PaddleOcrVlExtractor implements AutoCloseable {
         return DocumentAssembly.publish(mapper, blocks, pages, null, mediaType, filename,
                 Map.of("parser", "paddleocr-vl", "parser_configuration", properties.parserConfiguration(maxInput)),
                 "paddleocr_vl");
-    }
-
-    /** A blank result is malformed, as it is for Docling: an index entry that answers nothing is not a success. */
-    DocumentContent extract(PaddleOcrVlClient.Input input, @Nullable PdfLayout layout, String filename,
-            String mediaType, long maxInput) throws ExtractionException {
-        var content = read(input, layout, filename, mediaType, maxInput);
-        if (content == null) throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
-        return content;
     }
 
     /**

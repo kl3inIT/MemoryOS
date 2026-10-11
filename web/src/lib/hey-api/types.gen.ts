@@ -158,6 +158,27 @@ export type EmbeddingProviderResponse = {
     inUse: boolean;
 };
 
+export type OcrSelectionRequest = {
+    provider?: 'PADDLEOCR_VL';
+};
+
+export type OcrConnectionRequest = {
+    endpoint: string;
+    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
+    credentialValue?: string;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    revision?: number;
+};
+
+export type OcrConnectionResponse = {
+    provider: 'PADDLEOCR_VL';
+    endpoint: string;
+    credentialConfigured?: boolean;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    active?: boolean;
+    revision?: number;
+};
+
 /**
  * What the owner fills in once the meeting is under way
  */
@@ -1654,6 +1675,11 @@ export type EmbeddingProviderTestResponse = {
     error: string | null;
 };
 
+export type OcrConnectionTestRequest = {
+    endpoint: string;
+    credentialValue?: string;
+};
+
 /**
  * What the owner enters before recording
  */
@@ -2705,6 +2731,12 @@ export type DocumentSpreadsheetSheet = {
     name: string;
     csv: string;
     truncated: boolean;
+};
+
+export type OcrProviderResponse = {
+    provider: 'PADDLEOCR_VL';
+    requiresKey?: boolean;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
 };
 
 export type MeetingSummary = {
@@ -4128,6 +4160,98 @@ export type UpdateEmbeddingProviderResponses = {
 };
 
 export type UpdateEmbeddingProviderResponse = UpdateEmbeddingProviderResponses[keyof UpdateEmbeddingProviderResponses];
+
+export type SelectOcrProviderData = {
+    body: OcrSelectionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/ocr/selection';
+};
+
+export type SelectOcrProviderErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SelectOcrProviderError = SelectOcrProviderErrors[keyof SelectOcrProviderErrors];
+
+export type SelectOcrProviderResponses = {
+    /**
+     * OCR reader saved
+     */
+    204: void;
+};
+
+export type SelectOcrProviderResponse = SelectOcrProviderResponses[keyof SelectOcrProviderResponses];
+
+export type SaveOcrConnectionData = {
+    body: OcrConnectionRequest;
+    path: {
+        provider: 'PADDLEOCR_VL';
+    };
+    query?: never;
+    url: '/api/ocr/connections/{provider}';
+};
+
+export type SaveOcrConnectionErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SaveOcrConnectionError = SaveOcrConnectionErrors[keyof SaveOcrConnectionErrors];
+
+export type SaveOcrConnectionResponses = {
+    /**
+     * Saved OCR connection
+     */
+    200: OcrConnectionResponse;
+};
+
+export type SaveOcrConnectionResponse = SaveOcrConnectionResponses[keyof SaveOcrConnectionResponses];
 
 export type DeleteMeetingData = {
     body?: never;
@@ -9410,6 +9534,53 @@ export type TestEmbeddingProviderResponses = {
 
 export type TestEmbeddingProviderResponse = TestEmbeddingProviderResponses[keyof TestEmbeddingProviderResponses];
 
+export type TestOcrConnectionData = {
+    body?: OcrConnectionTestRequest;
+    path: {
+        provider: 'PADDLEOCR_VL';
+    };
+    query?: never;
+    url: '/api/ocr/connections/{provider}/test';
+};
+
+export type TestOcrConnectionErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestOcrConnectionError = TestOcrConnectionErrors[keyof TestOcrConnectionErrors];
+
+export type TestOcrConnectionResponses = {
+    /**
+     * The connection read the test picture
+     */
+    204: void;
+};
+
+export type TestOcrConnectionResponse = TestOcrConnectionResponses[keyof TestOcrConnectionResponses];
+
 export type ListMeetingsData = {
     body?: never;
     path?: never;
@@ -14661,6 +14832,96 @@ export type ReadSearchDocumentOriginalResponses = {
 };
 
 export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
+
+export type ListOcrProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ocr/providers';
+};
+
+export type ListOcrProvidersErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListOcrProvidersError = ListOcrProvidersErrors[keyof ListOcrProvidersErrors];
+
+export type ListOcrProvidersResponses = {
+    /**
+     * Installed OCR providers
+     */
+    200: Array<OcrProviderResponse>;
+};
+
+export type ListOcrProvidersResponse = ListOcrProvidersResponses[keyof ListOcrProvidersResponses];
+
+export type ListOcrConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ocr/connections';
+};
+
+export type ListOcrConnectionsErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListOcrConnectionsError = ListOcrConnectionsErrors[keyof ListOcrConnectionsErrors];
+
+export type ListOcrConnectionsResponses = {
+    /**
+     * OCR connections
+     */
+    200: Array<OcrConnectionResponse>;
+};
+
+export type ListOcrConnectionsResponse = ListOcrConnectionsResponses[keyof ListOcrConnectionsResponses];
 
 export type ExportMeetingTranscriptData = {
     body?: never;

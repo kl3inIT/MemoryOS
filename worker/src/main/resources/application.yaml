@@ -91,6 +91,9 @@ management:
 
 memoryos:
   chat:
+    # MEM-243: an OCR connection's key is sealed with the catalog key, as every provider connection's is.
+    catalog:
+      encryption-key: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY:}
     retention:
       # Onyx HARD_DELETE_CHATS: off keeps a deleted conversation and its generated files, on removes them.
       hard-delete: ${MEMORYOS_CHAT_HARD_DELETE:false}
@@ -99,9 +102,8 @@ memoryos:
       endpoint: ${MEMORYOS_EXTRACTION_DOCLING_ENDPOINT:http://localhost:5001}
       engine-revision: ${MEMORYOS_EXTRACTION_DOCLING_ENGINE_REVISION:sha256:0525640504db7ed8a53e0e443882727888f6a3746948b1b7a8820efe95567bd3}
       api-key: ${MEMORYOS_EXTRACTION_DOCLING_API_KEY:}
-    # MEM-192. Empty endpoint: no PaddleOCR-VL, and Docling keeps its own OCR for scans.
+    # MEM-192. How a PaddleOCR-VL service is called; which one reads scans is the Tenant's OCR connection (MEM-243).
     paddleocr-vl:
-      endpoint: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_ENDPOINT:}
       timeout: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_TIMEOUT:30m}
       revision: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_REVISION:}
       max-concurrent-requests: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS:2}

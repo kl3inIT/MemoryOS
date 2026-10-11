@@ -1,5 +1,6 @@
 package io.memoryos.ingestion.extraction;
 
+import io.memoryos.ai.ocr.OcrConnectionService;
 import io.memoryos.ingestion.ChatFileExtractor;
 import io.memoryos.ingestion.SourceContentExtractor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -11,13 +12,18 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfiguration(after = FileProviderAutoConfiguration.class)
 @ConditionalOnBean(DoclingSourceContentExtractor.class)
 public class SourceContentExtractorAutoConfiguration {
+    @Bean(destroyMethod = "close")
+    OcrReaders ocrReaders(OcrConnectionService connections, PaddleOcrVlProperties paddle, ObjectMapper mapper) {
+        return new OcrReaders(connections, OcrAdapterRegistry.installed(paddle, mapper));
+    }
     @Bean
-    ChatFileExtractor chatFileExtractor(DoclingSourceContentExtractor docling, ObjectMapper mapper) {
-        return new BoundedChatFileExtractor(docling, mapper);
+    ChatFileExtractor chatFileExtractor(DoclingSourceContentExtractor docling, OcrReaders ocr, ObjectMapper mapper) {
+        return new BoundedChatFileExtractor(docling, ocr::forTenant, mapper);
     }
     @Bean
     @ConditionalOnMissingBean(SourceContentExtractor.class)
-    SourceContentExtractor sourceContentExtractor(DoclingSourceContentExtractor docling, ObjectMapper mapper) {
-        return new SourceContentExtractorRouter(docling, mapper);
+    SourceContentExtractor sourceContentExtractor(DoclingSourceContentExtractor docling, OcrReaders ocr,
+            ObjectMapper mapper) {
+        return new SourceContentExtractorRouter(docling, ocr::forTenant, mapper);
     }
 }
