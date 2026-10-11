@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-const aiProviderTabs = ["models", "system-one", "web-search", "voice", "image-generation"] as const;
+const aiProviderTabs = [
+  "models",
+  "system-one",
+  "web-search",
+  "voice",
+  "image-generation",
+  "ocr",
+] as const;
 export type AiProviderTab = (typeof aiProviderTabs)[number];
 
 export const DEFAULT_AI_PROVIDERS_SEARCH = { tab: "models" } as const;

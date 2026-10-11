@@ -14,8 +14,9 @@
 
 ## Pull request 2 — OCR tab
 
-- [ ] `features/ocr`: reader choice (Docling, connections, models that read images), connection cards, connection dialog, test
-- [ ] The tab on `/admin/ai-providers`
+- [x] `features/ocr`: the reader choice (Docling or a connection), connection cards, the connection dialog with address, key when the type needs one, data boundary and test; the model choice joins with pull request 3
+- [x] The *OCR* tab on `/admin/ai-providers`; `ocr_connection.change` in the audit labels
+- [x] `ocr-settings.test.tsx`; screenshots at 1440 and 390 reviewed
 
 ## Pull request 3 — model reader
 

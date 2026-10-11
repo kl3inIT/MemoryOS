@@ -20,6 +20,7 @@ const unchanged = [
   "MemoryOS MCP",
   "Claude",
   "Anthropic",
+  "OCR",
   "ChatGPT",
   "Google Drive",
   "Tiếng Việt",

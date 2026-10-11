@@ -12,7 +12,7 @@ const providersRoute = getRouteApi("/_authenticated/admin/ai-providers");
 type ProviderTab = {
   id: AiProviderTab;
   label: AppText;
-  /** Loaded when the tab opens, so one tab never ships the other four. */
+  /** Loaded when the tab opens, so one tab never ships the others. */
   content: ComponentType;
 };
 
@@ -60,6 +60,13 @@ const providerTabs: readonly ProviderTab[] = [
       })),
     ),
   },
+  {
+    id: "ocr",
+    label: appText("OCR"),
+    content: lazy(() =>
+      import("@/features/ocr/ocr-settings").then((module) => ({ default: module.OcrSettings })),
+    ),
+  },
 ];
 
 /**
@@ -88,7 +95,7 @@ export function AiProvidersPage() {
           void navigate({ search: { tab: value as AiProviderTab }, resetScroll: false })
         }
       >
-        {/* Five tabs outgrow a phone, so the row scrolls sideways under the same rule. */}
+        {/* Six tabs outgrow a phone, so the row scrolls sideways under the same rule. */}
         <div ref={tabRow} className="overflow-x-auto border-b border-border-subtle pb-1.5">
           <TabsList variant="line" aria-label={ui("AI Providers")}>
             {providerTabs.map((each) => (
