@@ -70,70 +70,52 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
     private final DoclingProperties properties;
     private final DoclingServeApi client;
     private final ObjectMapper mapper;
-    private final @Nullable PaddleOcrVlExtractor paddle;
     private final TikaSourceContentExtractor nativeReader = new TikaSourceContentExtractor();
     private final DoclingFallbackMetrics fallbacks;
 
     public DoclingSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper, MeterRegistry registry) {
-        this(properties, PaddleOcrVlProperties.disabled(), mapper, registry);
-    }
-
-    public DoclingSourceContentExtractor(DoclingProperties properties, PaddleOcrVlProperties paddle, ObjectMapper mapper,
-            MeterRegistry registry) {
-        this(properties, mapper, BoundedDoclingClient.create(properties),
-                paddle.configured() ? new PaddleOcrVlExtractor(paddle, mapper) : null, registry);
+        this(properties, mapper, BoundedDoclingClient.create(properties), registry);
     }
 
     DoclingSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper, DoclingServeApi client,
             MeterRegistry registry) {
-        this(properties, mapper, client, null, registry);
-    }
-
-    /**
-     * @param paddle the OCR provider for scans and images; with it Docling reads text layers only,
-     *               without it Docling keeps its own OCR (staging and local development have no GPU)
-     */
-    DoclingSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper, DoclingServeApi client,
-            @Nullable PaddleOcrVlExtractor paddle, MeterRegistry registry) {
         this.properties = properties;
         this.mapper = mapper;
         this.client = client;
-        this.paddle = paddle;
         this.fallbacks = new DoclingFallbackMetrics(registry, FALLBACK_ON);
     }
 
     public static boolean usesDocling(String mediaType) { return FORMATS.containsKey(mediaType); }
 
-    /** An image goes to PaddleOCR-VL when it is configured; otherwise images keep their earlier readers. */
-    public boolean readsImage(String mediaType) { return paddle != null && PaddleOcrVlExtractor.IMAGES.contains(mediaType); }
-
-    private boolean doclingOcr() { return paddle == null; }
-
-    public DocumentContent extract(InputStream content, long sizeBytes, String filename,
-            SourceInputDescriptor input) throws ExtractionException {
+    /**
+     * @param ocr the Tenant's OCR reader. With one, scans and the images it reads are its, and Docling reads text
+     *            layers only; without one, Docling keeps its own OCR (an organization without an OCR service)
+     */
+    DocumentContent extract(InputStream content, long sizeBytes, String filename,
+            SourceInputDescriptor input, @Nullable OcrReader ocr) throws ExtractionException {
         if (sizeBytes < 1 || sizeBytes > ObjectUploadSpecification.MAX_SIZE_BYTES) throw failure(ExtractionFailure.WRITE_LIMIT);
         byte[] bytes;
         try {
             bytes = content.readNBytes((int) sizeBytes + 1);
             if (bytes.length != sizeBytes) throw failure(ExtractionFailure.MALFORMED);
         } catch (IOException e) { throw failure(ExtractionFailure.INTERNAL); }
-        return extract(bytes, filename, TIKA.detect(bytes, filename), input);
+        return extract(bytes, filename, TIKA.detect(bytes, filename), input, ocr);
     }
 
-    public DocumentContent extract(byte[] bytes, String filename, String mediaType,
-            SourceInputDescriptor input) throws ExtractionException {
+    DocumentContent extract(byte[] bytes, String filename, String mediaType,
+            SourceInputDescriptor input, @Nullable OcrReader ocr) throws ExtractionException {
         if (bytes.length < 1 || bytes.length > ObjectUploadSpecification.MAX_SIZE_BYTES) throw failure(ExtractionFailure.WRITE_LIMIT);
         PdfLayout layout = null;
         if ("application/pdf".equals(mediaType)) {
             try (var pdf = Loader.loadPDF(bytes)) {
-                layout = admit(pdf);
+                layout = admit(pdf, ocr != null);
             } catch (InvalidPasswordException e) {
                 throw failure(ExtractionFailure.ENCRYPTED);
             } catch (IOException e) { throw failure(ExtractionFailure.MALFORMED); }
         }
-        // A scan or an image is PaddleOCR-VL's, and its failure stands: no Docling OCR, no native read.
-        if (paddle != null && (layout != null && layout.scanned() || readsImage(mediaType))) {
-            return paddle.extract(PaddleOcrVlClient.Input.of(bytes), layout, filename, mediaType,
+        // A scan or an image is the OCR reader's, and its failure stands: no Docling OCR, no native read.
+        if (ocr != null && (layout != null && layout.scanned() || ocr.readsImage(mediaType))) {
+            return ocr.extract(PaddleOcrVlClient.Input.of(bytes), layout, filename, mediaType,
                     ObjectUploadSpecification.MAX_SIZE_BYTES);
         }
         int pages = layout == null ? 0 : layout.pages();
@@ -148,12 +130,12 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
         var request = ConvertDocumentRequest.builder()
                 .source(FileSource.builder().filename("document" + FORMATS.get(mediaType))
                         .base64String(Base64.getEncoder().encodeToString(bytes)).build())
-                .options(properties.options(doclingOcr()))
+                .options(properties.options(ocr == null))
                 .target(InBodyTarget.builder().build()).build();
         ExtractionException serviceFailure;
         try {
             var result = bounded.convertDocument(request);
-            return canonical(result, filename, mediaType, ObjectUploadSpecification.MAX_SIZE_BYTES);
+            return canonical(result, filename, mediaType, ObjectUploadSpecification.MAX_SIZE_BYTES, ocr == null);
         } catch (ExtractionException e) {
             serviceFailure = e;
         } catch (RuntimeException e) {
@@ -166,16 +148,17 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
     /**
      * Admission and routing in one PDFBox pass: encryption and the page limit, each page's size, and
      * whether the text layer is thin enough to call the document a scan. Density is measured only
-     * when PaddleOCR-VL is there to read a scan; it is the same threshold a native fallback must meet.
+     * when an OCR reader is there to read a scan; it is the same threshold a native fallback must meet.
      */
-    private PdfLayout admit(PDDocument pdf) throws ExtractionException, IOException {
+    private PdfLayout admit(PDDocument pdf, boolean measureDensity) throws ExtractionException, IOException {
         if (pdf.isEncrypted()) throw failure(ExtractionFailure.ENCRYPTED);
         if (pdf.getNumberOfPages() > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
-        return PdfLayout.of(pdf, paddle != null);
+        return PdfLayout.of(pdf, measureDensity);
     }
 
     /** Disk-backed multipart prevents a 250 MiB file becoming several base64/JSON heap copies. */
-    public DocumentContent extractChatFile(Path file, String filename, String mediaType) throws ExtractionException {
+    DocumentContent extractChatFile(Path file, String filename, String mediaType, @Nullable OcrReader ocr)
+            throws ExtractionException {
         if (!(client instanceof BoundedDoclingClient bounded) || !usesDocling(mediaType)) throw failure(ExtractionFailure.UNSUPPORTED);
         PdfLayout layout = null;
         try {
@@ -183,19 +166,19 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             if (size < 1 || size > 262_144_000) throw failure(ExtractionFailure.WRITE_LIMIT);
             if ("application/pdf".equals(mediaType)) {
                 try (var pdf = Loader.loadPDF(file.toFile())) {
-                    layout = admit(pdf);
+                    layout = admit(pdf, ocr != null);
                 }
             }
         } catch (InvalidPasswordException encrypted) { throw failure(ExtractionFailure.ENCRYPTED); }
         catch (IOException invalid) { throw failure(ExtractionFailure.MALFORMED); }
-        if (paddle != null && layout != null && layout.scanned()) {
-            return paddle.extract(PaddleOcrVlClient.Input.of(file), layout, filename, mediaType, 262_144_000);
+        if (ocr != null && layout != null && layout.scanned()) {
+            return ocr.extract(PaddleOcrVlClient.Input.of(file), layout, filename, mediaType, 262_144_000);
         }
         int pages = layout == null ? 0 : layout.pages();
         ExtractionException serviceFailure;
         try {
-            var result = bounded.convertFile(file, FORMATS.get(mediaType), properties, doclingOcr());
-            return canonical(result, filename, mediaType, 262_144_000);
+            var result = bounded.convertFile(file, FORMATS.get(mediaType), properties, ocr == null);
+            return canonical(result, filename, mediaType, 262_144_000, ocr == null);
         } catch (ExtractionException e) {
             serviceFailure = e;
         } catch (IOException transport) {
@@ -204,16 +187,6 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             serviceFailure = requestFailure(e);
         }
         return fallBack(serviceFailure, mediaType, pages, () -> nativeReader.extractChatFile(file, filename, mediaType));
-    }
-
-    /**
-     * A Chat image read by PaddleOCR-VL. A photograph without text returns null, so the attachment
-     * keeps its ordinary image description; a failure of the service still fails the attachment.
-     */
-    public @Nullable DocumentContent readChatImage(Path file, String filename, String mediaType)
-            throws ExtractionException {
-        if (paddle == null || !readsImage(mediaType)) throw failure(ExtractionFailure.UNSUPPORTED);
-        return paddle.read(PaddleOcrVlClient.Input.of(file), null, filename, mediaType, 262_144_000);
     }
 
     @FunctionalInterface
@@ -266,7 +239,8 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                 content.structuredJson(), null);
     }
 
-    private DocumentContent canonical(BoundedDoclingClient.CanonicalResponse result, String filename, String mediaType, long maxInput) throws ExtractionException {
+    private DocumentContent canonical(BoundedDoclingClient.CanonicalResponse result, String filename, String mediaType,
+            long maxInput, boolean doclingOcr) throws ExtractionException {
             if (result == null || !"success".equals(result.status()) || result.errors() == null
                     || !result.errors().isEmpty() || result.document() == null
                     || !result.document().path("json_content").isObject()) throw failure(ExtractionFailure.MALFORMED);
@@ -277,7 +251,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             JsonNode orientation = document.path("body").path("meta").path("memoryos__orientation");
             return DocumentAssembly.publish(mapper, blocks, pages(document.path("pages")),
                     orientation.isObject() ? orientation : null, mediaType, filename,
-                    Map.of("parser", "docling", "parser_configuration", properties.parserConfiguration(maxInput, doclingOcr())),
+                    Map.of("parser", "docling", "parser_configuration", properties.parserConfiguration(maxInput, doclingOcr)),
                     "docling");
     }
 
@@ -397,7 +371,6 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
 
     @Override public void close() {
         nativeReader.close();
-        if (paddle != null) paddle.close();
         if (client instanceof BoundedDoclingClient bounded) bounded.close();
     }
 }

@@ -2006,6 +2006,7 @@ Object.assign(englishUi, {
   "Changed Web search": "Đã đổi Tìm kiếm Web",
   "Changed voice": "Đã đổi Giọng nói",
   "Changed image generation": "Đã đổi Tạo ảnh",
+  "Changed OCR": "Đã đổi OCR",
   "Changed Code Interpreter": "Đã đổi Code Interpreter",
   "Changed Chat settings": "Đã đổi cài đặt Chat",
   "Question blocked": "Câu hỏi bị chặn",

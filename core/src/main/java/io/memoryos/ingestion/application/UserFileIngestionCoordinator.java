@@ -43,7 +43,7 @@ public class UserFileIngestionCoordinator implements IngestionCoordinator {
             DocumentContent parsed;
             try (var content = storage.open(work.object().key())) {
                 if (!content.metadata().equals(work.object().metadata())) throw new IllegalStateException("file metadata changed");
-                parsed = extractor.extract(content.inputStream(), content.metadata().sizeBytes(), work.object().filename());
+                parsed = extractor.extract(work.tenantId(), content.inputStream(), content.metadata().sizeBytes(), work.object().filename());
             }
             if (lost.get()) return Outcome.SKIPPED;
             var canonical = artifacts.stage(work.tenantId(), parsed);

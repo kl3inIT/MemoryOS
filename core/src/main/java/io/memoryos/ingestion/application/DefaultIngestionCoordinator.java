@@ -138,6 +138,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 failureStage = "SOURCE_EXTRACTION";
                 logIndexStage(failureStage, started);
                 content = extractor.extract(
+                        work.tenantId(),
                         objectContent.inputStream(),
                         expected.sizeBytes(),
                         work.object().filename(),

@@ -90,14 +90,14 @@ final class PaddleOcrVlClient implements AutoCloseable {
         }
     }
 
-    PaddleOcrVlClient(PaddleOcrVlProperties properties, ObjectMapper mapper) {
-        this(properties, mapper, MAX_RESPONSE_BYTES);
+    /** @param service the connection's address, without {@code /layout-parsing} */
+    PaddleOcrVlClient(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper) {
+        this(properties, service, mapper, MAX_RESPONSE_BYTES);
     }
 
-    PaddleOcrVlClient(PaddleOcrVlProperties properties, ObjectMapper mapper, int maxResponseBytes) {
+    PaddleOcrVlClient(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper, int maxResponseBytes) {
         this.maxResponseBytes = maxResponseBytes;
-        this.endpoint = URI.create(Objects.requireNonNull(properties.endpoint(), "endpoint").toString()
-                .replaceAll("/+$", "") + "/layout-parsing");
+        this.endpoint = URI.create(service.toString().replaceAll("/+$", "") + "/layout-parsing");
         this.timeout = properties.timeout();
         this.mapper = mapper;
         this.permits = new Semaphore(Objects.requireNonNull(properties.maxConcurrentRequests()), true);

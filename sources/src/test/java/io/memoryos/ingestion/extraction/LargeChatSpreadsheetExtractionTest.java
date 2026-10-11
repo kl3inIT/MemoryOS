@@ -7,11 +7,13 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import io.memoryos.document.application.StructuredDocumentChunker;
+import io.memoryos.shared.TenantId;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
+import java.util.UUID;
 import javax.imageio.ImageIO;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,6 +24,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Real OOXML with referenced PNG pictures, not padded bytes or a mocked extraction response. */
 class LargeChatSpreadsheetExtractionTest {
+    private static final TenantId TENANT = new TenantId(UUID.randomUUID());
     @TempDir Path temporary;
 
     @ParameterizedTest
@@ -33,7 +36,7 @@ class LargeChatSpreadsheetExtractionTest {
         var mapper = new ObjectMapper();
         var docling = mock(DoclingSourceContentExtractor.class);
         try (var input = Files.newInputStream(file)) {
-            var parsed = new BoundedChatFileExtractor(docling, mapper).extract(input, size, "large.xlsx");
+            var parsed = new BoundedChatFileExtractor(docling, tenant -> null, mapper).extract(TENANT, input, size, "large.xlsx");
             assertTrue(parsed.normalizedText().contains("B1: 127"));
             assertTrue(parsed.structuredJson().length() < 10_000);
             assertTrue(new StructuredDocumentChunker(mapper).chunk(parsed.title(), parsed.structuredJson())
@@ -41,7 +44,7 @@ class LargeChatSpreadsheetExtractionTest {
         }
         try (var input = Files.newInputStream(file)) {
             assertEquals(ExtractionFailure.WRITE_LIMIT, assertThrows(ExtractionException.class,
-                    () -> new SourceContentExtractorRouter(docling, mapper).extract(input, size, "large.xlsx", SourceInputDescriptor.binary())).failure());
+                    () -> new SourceContentExtractorRouter(docling, tenant -> null, mapper).extract(TENANT, input, size, "large.xlsx", SourceInputDescriptor.binary())).failure());
         }
         Mockito.verifyNoInteractions(docling);
     }

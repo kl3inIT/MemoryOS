@@ -142,6 +142,31 @@ export const zEmbeddingProviderResponse = z.object({
     inUse: z.boolean()
 });
 
+export const zOcrSelectionRequest = z.object({
+    provider: z.enum(['PADDLEOCR_VL']).optional()
+});
+
+export const zOcrConnectionRequest = z.object({
+    endpoint: z.string().min(0).max(2048),
+    credentialAction: z.enum([
+        'KEEP',
+        'REPLACE',
+        'REMOVE'
+    ]),
+    credentialValue: z.string().min(0).max(8192).optional(),
+    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL']),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zOcrConnectionResponse = z.object({
+    provider: z.enum(['PADDLEOCR_VL']),
+    endpoint: z.string(),
+    credentialConfigured: z.boolean().optional(),
+    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL']),
+    active: z.boolean().optional(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
 /**
  * What the owner fills in once the meeting is under way
  */
@@ -1588,6 +1613,11 @@ export const zEmbeddingProviderTestResponse = z.object({
     error: z.string().nullable()
 });
 
+export const zOcrConnectionTestRequest = z.object({
+    endpoint: z.string().min(0).max(2048),
+    credentialValue: z.string().min(0).max(8192).optional()
+});
+
 /**
  * What the owner enters before recording
  */
@@ -2684,6 +2714,12 @@ export const zDocumentSpreadsheetSheet = z.object({
 
 export const zDocumentSpreadsheet = z.object({
     sheets: z.array(zDocumentSpreadsheetSheet)
+});
+
+export const zOcrProviderResponse = z.object({
+    provider: z.enum(['PADDLEOCR_VL']),
+    requiresKey: z.boolean().optional(),
+    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL'])
 });
 
 export const zMeetingSummary = z.object({
@@ -3988,6 +4024,24 @@ export const zUpdateEmbeddingProviderPath = z.object({
  * Successful result
  */
 export const zUpdateEmbeddingProviderResponse = zEmbeddingProviderResponse;
+
+export const zSelectOcrProviderBody = zOcrSelectionRequest;
+
+/**
+ * OCR reader saved
+ */
+export const zSelectOcrProviderResponse = z.void();
+
+export const zSaveOcrConnectionBody = zOcrConnectionRequest;
+
+export const zSaveOcrConnectionPath = z.object({
+    provider: z.enum(['PADDLEOCR_VL'])
+});
+
+/**
+ * Saved OCR connection
+ */
+export const zSaveOcrConnectionResponse = zOcrConnectionResponse;
 
 export const zDeleteMeetingPath = z.object({
     meetingId: z.uuid()
@@ -5393,6 +5447,17 @@ export const zTestEmbeddingProviderBody = zEmbeddingProviderTestRequest;
  * The outcome of one embedding call
  */
 export const zTestEmbeddingProviderResponse = zEmbeddingProviderTestResponse;
+
+export const zTestOcrConnectionBody = zOcrConnectionTestRequest;
+
+export const zTestOcrConnectionPath = z.object({
+    provider: z.enum(['PADDLEOCR_VL'])
+});
+
+/**
+ * The connection read the test picture
+ */
+export const zTestOcrConnectionResponse = z.void();
 
 /**
  * Meetings
@@ -6803,6 +6868,16 @@ export const zReadSearchDocumentOriginalQuery = z.object({
  * Original bytes, under the object's declared media type
  */
 export const zReadSearchDocumentOriginalResponse = z.string();
+
+/**
+ * Installed OCR providers
+ */
+export const zListOcrProvidersResponse = z.array(zOcrProviderResponse);
+
+/**
+ * OCR connections
+ */
+export const zListOcrConnectionsResponse = z.array(zOcrConnectionResponse);
 
 export const zExportMeetingTranscriptPath = z.object({
     meetingId: z.uuid()

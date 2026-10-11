@@ -46,7 +46,7 @@ class UserFileIngestionCoordinatorTest {
         else when(files.renew(work)).thenReturn(false);
         var content = mock(ObjectContent.class);
         when(content.metadata()).thenReturn(metadata); when(storage.open(any())).thenReturn(content);
-        when(extractor.extract(any(), anyLong(), any())).thenAnswer(_ -> {
+        when(extractor.extract(any(), any(), anyLong(), any())).thenAnswer(_ -> {
             renewal.get().run();
             return new DocumentContent("text/plain", "test.txt", "stale text", Map.of());
         });

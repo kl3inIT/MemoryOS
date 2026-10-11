@@ -622,7 +622,7 @@ class PostgresSourceRunHistoryTest {
 
     private IngestionCoordinator.Outcome process(OperationDelivery delivery) {
         var mapper = new ObjectMapper();
-        SourceContentExtractor extractor = (input, size, name, descriptor) -> {
+        SourceContentExtractor extractor = (tenant, input, size, name, descriptor) -> {
             if (extractionFails) throw new ExtractionException(ExtractionFailure.MALFORMED, "private diagnostics");
             return new DocumentContent("text/plain", name, "Extracted content", Map.of());
         };
