@@ -79,7 +79,9 @@ The image entrypoint fetches nothing over the network: its launcher turns every 
 | `MEMORYOS_REDIS_POOL_MAX_IDLE` | No | Maximum idle worker Redis connections; staging default `8`. |
 | `MEMORYOS_REDIS_POOL_MIN_IDLE` | No | Minimum idle worker Redis connections; staging default `0`. |
 | `MEMORYOS_REDIS_POOL_MAX_WAIT` | No | Bounded wait for a pooled Redis connection; staging default `2s`. |
-| `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
+| `MEMORYOS_SCHEDULER_NAME` | No | db-scheduler instance identity; unset, each replica takes its container hostname, unique across replicas (MEM-244). |
+| `MEMORYOS_WORKER_REPLICAS` | No | Worker containers Compose runs, default `1`. Each holds `MEMORYOS_WORKER_DATABASE_POOL_SIZE` connections; `deploy.sh` refuses a count the application role's connection limit cannot hold. |
+| `MEMORYOS_WORKER_SHUTDOWN_GRACE` | No | How long a stopping Worker lets started work finish, default `100s`, below the container's 120 s stop grace period. Work still running is left to its lease and read again by another Worker. |
 | `SPRING_PROFILES_ACTIVE` | No | Local Gradle and IntelliJ launches use Arconia development bootstrap mode, whose checked-in bootstrap properties activate `development`. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
 `MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT` (8 hours unused; a session also ends 7 days after the password, with Keycloak's SSO session), object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
