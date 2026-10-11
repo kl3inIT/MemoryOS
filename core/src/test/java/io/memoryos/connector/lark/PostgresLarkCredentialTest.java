@@ -115,22 +115,24 @@ class PostgresLarkCredentialTest {
         var session = session(Set.of());
         larkAnswers(session);
         try (var draft = draft(name, "secret-value")) {
-            return service.create(owner, draft).id();
+            return service.create(owner, draft);
         }
     }
 
     @Test
     void createVerifiesWithLarkThenStoresTheEncryptedSecretAndTheBot() {
-        var session = session(Set.of("wiki:wiki:readonly"));
+        var session = session(Set.of("wiki:wiki:readonly", "drive:drive:readonly"));
         larkAnswers(session);
-        LarkCredentialService.Created created;
+        CredentialId id;
         try (var draft = draft("Lark app", "secret-value")) {
-            created = service.create(owner, draft);
+            id = service.create(owner, draft);
         }
-        // A working credential with a scope still to grant is stored, and names the scope.
-        assertEquals("MemoryOS Test", created.verification().botName());
-        assertEquals(Set.of("wiki:wiki:readonly"), created.verification().missingScopes());
-        var stored = credentials.readUsable(tenant, created.id());
+        // A working credential with scopes still to grant is stored, and names them.
+        var view = service.list(owner).getFirst();
+        assertEquals("MemoryOS Test", view.botName());
+        assertEquals(List.of("drive:drive:readonly", "wiki:wiki:readonly"), view.missingScopes());
+        assertEquals("ACTIVE", view.status());
+        var stored = credentials.readUsable(tenant, id);
         assertEquals(APP_ID, stored.appId());
         assertEquals(LarkGateway.Region.LARK, stored.region());
         assertEquals("ou_bot", stored.botOpenId());
@@ -143,11 +145,11 @@ class PostgresLarkCredentialTest {
         var cipher = new CredentialCipher(new byte[32], "lark-test-v1", "LARK_APP");
         var envelope = new CredentialCipher.EncryptedCredential(
                 stored.secretCiphertext(), stored.secretNonce(), stored.secretKeyVersion());
-        assertThrows(Exception.class, () -> cipher.decrypt(new TenantId(UUID.randomUUID()), created.id().value(), "app-secret", envelope));
+        assertThrows(Exception.class, () -> cipher.decrypt(new TenantId(UUID.randomUUID()), id.value(), "app-secret", envelope));
         assertThrows(Exception.class, () -> cipher.decrypt(tenant, UUID.randomUUID(), "app-secret", envelope));
-        assertThrows(Exception.class, () -> cipher.decrypt(tenant, created.id().value(), "client-secret", envelope));
+        assertThrows(Exception.class, () -> cipher.decrypt(tenant, id.value(), "client-secret", envelope));
         assertThrows(Exception.class, () -> new CredentialCipher(new byte[32], "lark-test-v1", "SHAREPOINT_APP")
-                .decrypt(tenant, created.id().value(), "app-secret", envelope));
+                .decrypt(tenant, id.value(), "app-secret", envelope));
     }
 
     @Test
@@ -201,7 +203,7 @@ class PostgresLarkCredentialTest {
             assertThrows(SourceException.class, () -> service.replaceSecret(owner, id, 2, draft));
         }
         try (var draft = draft("Replaced", "new-secret")) {
-            assertEquals(2, service.replaceSecret(owner, id, 1, draft).credentialRevision());
+            assertEquals(2, service.replaceSecret(owner, id, 1, draft));
         }
         var stored = credentials.readUsable(tenant, id);
         try (var credential = credentials.credential(tenant, stored)) {
@@ -253,7 +255,7 @@ class PostgresLarkCredentialTest {
         assertThrows(SourceException.class, () -> service.rename(scoped, id, 1, "Not mine"));
         CredentialId scopedId;
         try (var draft = draft("Scoped credential", "secret")) {
-            scopedId = service.create(scoped, draft).id();
+            scopedId = service.create(scoped, draft);
         }
         assertEquals(List.of(scopedId), service.list(scoped).stream().map(LarkCredentialService.CredentialView::id).toList());
         assertEquals(2, service.list(owner).size());
@@ -270,6 +272,7 @@ class PostgresLarkCredentialTest {
         assertEquals("Renamed bot", result.botName());
         assertEquals(Set.of("im:chat:readonly"), result.missingScopes());
         assertEquals("Renamed bot", credentials.readUsable(tenant, id).botName());
+        assertEquals(List.of("im:chat:readonly"), service.list(owner).getFirst().missingScopes());
 
         larkFails(LarkProviderException.Failure.AUTHENTICATION);
         assertEquals("SOURCE_LARK_CREDENTIAL_REJECTED",

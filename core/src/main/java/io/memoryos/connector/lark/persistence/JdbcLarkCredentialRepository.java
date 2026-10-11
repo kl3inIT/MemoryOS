@@ -13,7 +13,9 @@ import io.memoryos.shared.TenantId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -48,7 +50,7 @@ public class JdbcLarkCredentialRepository {
     public void requireConfigured() { encryption.cipher(); }
 
     public CredentialId create(TenantId tenantId, ActorId owner, String name, LarkGateway.Region region, String appId,
-            byte[] appSecret, LarkGateway.Bot bot) {
+            byte[] appSecret, LarkGateway.Bot bot, Set<String> missingScopes) {
         if (!sources.lockActiveTenant(tenantId)) throw SourceException.notFound();
         UUID credentialId = UUID.randomUUID();
         jdbc.sql("""
@@ -59,19 +61,21 @@ public class JdbcLarkCredentialRepository {
         var encrypted = encrypt(tenantId, credentialId, appSecret);
         jdbc.sql("""
                 INSERT INTO lark_credentials (tenant_id, credential_id, region, app_id, secret_ciphertext,
-                    secret_nonce, secret_key_version, bot_name, bot_open_id)
-                VALUES (:tenant, :credential, :region, :app, :ciphertext, :nonce, :version, :botName, :botOpenId)
+                    secret_nonce, secret_key_version, bot_name, bot_open_id, missing_scopes)
+                VALUES (:tenant, :credential, :region, :app, :ciphertext, :nonce, :version, :botName, :botOpenId,
+                    :missing)
                 """).param("tenant", tenantId.value()).param("credential", credentialId)
                 .param("region", region.name()).param("app", appId)
                 .param("ciphertext", encrypted.ciphertext()).param("nonce", encrypted.nonce())
                 .param("version", encrypted.keyVersion())
-                .param("botName", bot.appName()).param("botOpenId", bot.openId()).update();
+                .param("botName", bot.appName()).param("botOpenId", bot.openId())
+                .param("missing", joined(missingScopes)).update();
         return new CredentialId(credentialId);
     }
 
     public List<CredentialView> list(TenantId tenantId, @Nullable ActorId owner) {
         return jdbc.sql("""
-                SELECT c.id, c.name, l.region, l.app_id, c.status, l.bot_name, c.credential_revision,
+                SELECT c.id, c.name, l.region, l.app_id, c.status, l.bot_name, l.missing_scopes, c.credential_revision,
                   c.created_at, c.updated_at,
                   (SELECT COUNT(*) FROM connector_credential_pairs p
                    WHERE p.tenant_id = c.tenant_id AND p.credential_id = c.id) AS source_count
@@ -84,7 +88,7 @@ public class JdbcLarkCredentialRepository {
                 .param("owner", owner == null ? null : owner.value())
                 .query((r, _) -> new CredentialView(new CredentialId(r.getObject("id", UUID.class)), r.getString("name"),
                         r.getString("region"), r.getString("app_id"), r.getString("status"), r.getString("bot_name"),
-                        r.getLong("credential_revision"), r.getTimestamp("created_at").toInstant(),
+                        split(r.getString("missing_scopes")), r.getLong("credential_revision"), r.getTimestamp("created_at").toInstant(),
                         r.getTimestamp("updated_at").toInstant(), r.getLong("source_count"), List.of()))
                 .list();
     }
@@ -126,18 +130,19 @@ public class JdbcLarkCredentialRepository {
     }
 
     public long replaceSecret(TenantId tenantId, CredentialId credentialId, long expectedRevision, String name,
-            byte[] appSecret, LarkGateway.Bot bot) {
+            byte[] appSecret, LarkGateway.Bot bot, Set<String> missingScopes) {
         var row = lock(tenantId, credentialId).orElseThrow(SourceException::notFound);
         requireRevision(row, expectedRevision);
         var encrypted = encrypt(tenantId, row.credentialId(), appSecret);
         jdbc.sql("""
                 UPDATE lark_credentials SET secret_ciphertext = :ciphertext, secret_nonce = :nonce,
                     secret_key_version = :version, bot_name = :botName, bot_open_id = :botOpenId,
-                    updated_at = CURRENT_TIMESTAMP
+                    missing_scopes = :missing, updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND credential_id = :credential
                 """).param("ciphertext", encrypted.ciphertext()).param("nonce", encrypted.nonce())
                 .param("version", encrypted.keyVersion()).param("botName", bot.appName())
-                .param("botOpenId", bot.openId()).param("tenant", tenantId.value())
+                .param("botOpenId", bot.openId()).param("missing", joined(missingScopes))
+                .param("tenant", tenantId.value())
                 .param("credential", row.credentialId()).update();
         jdbc.sql("""
                 UPDATE credentials SET name = :name, status = 'ACTIVE',
@@ -167,16 +172,18 @@ public class JdbcLarkCredentialRepository {
                 .query((r, _) -> new SourceId(r.getObject("id", UUID.class))).list();
     }
 
-    /** Records the bot a successful credential test named; a stale revision simply loses the race. */
-    public void recordBot(TenantId tenantId, CredentialId credentialId, long expectedRevision, LarkGateway.Bot bot) {
+    /** Records what a successful credential test learned; a stale revision simply loses the race. */
+    public void recordVerification(TenantId tenantId, CredentialId credentialId, long expectedRevision,
+            LarkGateway.Bot bot, Set<String> missingScopes) {
         jdbc.sql("""
                 UPDATE lark_credentials lark SET bot_name = :botName, bot_open_id = :botOpenId,
-                    updated_at = CURRENT_TIMESTAMP
+                    missing_scopes = :missing, updated_at = CURRENT_TIMESTAMP
                 FROM credentials credential
                 WHERE lark.tenant_id = :tenant AND lark.credential_id = :credential
                   AND credential.tenant_id = lark.tenant_id AND credential.id = lark.credential_id
                   AND credential.credential_revision = :revision
                 """).param("botName", bot.appName()).param("botOpenId", bot.openId())
+                .param("missing", joined(missingScopes))
                 .param("tenant", tenantId.value()).param("credential", credentialId.value())
                 .param("revision", expectedRevision).update();
     }
@@ -211,6 +218,16 @@ public class JdbcLarkCredentialRepository {
 
     private CredentialCipher.EncryptedCredential encrypt(TenantId tenantId, UUID credentialId, byte[] appSecret) {
         return encryption.cipher().encrypt(tenantId, credentialId, APP_SECRET, appSecret);
+    }
+
+    /** Scope names hold no space, so a space separates them; sorted, so the same set is the same text. */
+    private static String joined(Set<String> scopes) {
+        String text = scopes.stream().sorted().collect(Collectors.joining(" "));
+        return text.length() > 1024 ? text.substring(0, text.lastIndexOf(' ', 1024)) : text;
+    }
+
+    private static List<String> split(@Nullable String scopes) {
+        return scopes == null || scopes.isBlank() ? List.of() : List.of(scopes.split(" "));
     }
 
     private static void requireRevision(Stored row, long expectedRevision) {

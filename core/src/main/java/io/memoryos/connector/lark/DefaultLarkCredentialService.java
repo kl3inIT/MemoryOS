@@ -55,7 +55,7 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
     }
 
     @Override
-    public Created create(ActorId actorId, Draft draft) {
+    public CredentialId create(ActorId actorId, Draft draft) {
         String name = requireName(draft.name());
         String appId = requireAppId(draft.appId());
         byte[] secret = requireSecret(draft.appSecret());
@@ -69,18 +69,19 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
         }
         var created = Objects.requireNonNull(transactions.execute(_ -> {
             TenantId tenantId = requireManagement(actorId);
-            var id = credentials.create(tenantId, actorId, name, draft.region(), appId, secret, verification.bot());
+            var id = credentials.create(tenantId, actorId, name, draft.region(), appId, secret, verification.bot(),
+                    verification.missingScopes());
             audit.record(AuditRecord.of(AuditAction.CREDENTIAL_CREATE, tenantId).actor(actorId)
                     .resource("CREDENTIAL", id.value(), name).detail("provider", "LARK")
                     .detail("authentication", "APP_SECRET").build());
             return id;
         }));
         Arrays.fill(secret, (byte) 0);
-        return new Created(created, verification.result());
+        return created;
     }
 
     @Override
-    public Replaced replaceSecret(ActorId actorId, CredentialId credentialId, long expectedRevision, Draft draft) {
+    public long replaceSecret(ActorId actorId, CredentialId credentialId, long expectedRevision, Draft draft) {
         String name = requireName(draft.name());
         String appId = requireAppId(draft.appId());
         byte[] secret = requireSecret(draft.appSecret());
@@ -98,14 +99,14 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
             TenantId tenantId = requireManagement(actorId);
             requireCredentialMutation(actorId, credentialId);
             long replaced = credentials.replaceSecret(tenantId, credentialId, expectedRevision, name, secret,
-                    verification.bot());
+                    verification.bot(), verification.missingScopes());
             audit.record(AuditRecord.of(AuditAction.CREDENTIAL_UPDATE, tenantId).actor(actorId)
                     .resource("CREDENTIAL", credentialId.value(), name).detail("provider", "LARK")
                     .detail("change", "REPLACE_AUTHENTICATION").build());
             return replaced;
         }));
         Arrays.fill(secret, (byte) 0);
-        return new Replaced(revision, verification.result());
+        return revision;
     }
 
     @Override
@@ -138,8 +139,8 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
             var actions = new ArrayList<>(List.of("rename", "replace_secret", "test"));
             if (view.sourceCount() == 0) actions.add("delete");
             return new CredentialView(view.id(), view.name(), view.region(), view.appId(), view.status(),
-                    view.botName(), view.credentialRevision(), view.createdAt(), view.updatedAt(),
-                    view.sourceCount(), List.copyOf(actions));
+                    view.botName(), view.missingScopes(), view.credentialRevision(), view.createdAt(),
+                    view.updatedAt(), view.sourceCount(), List.copyOf(actions));
         }).toList();
     }
 
@@ -164,7 +165,8 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
                 throw rejected;
             }
             transactions.executeWithoutResult(_ ->
-                    credentials.recordBot(tenantId, credentialId, stored.revision(), verification.bot()));
+                    credentials.recordVerification(tenantId, credentialId, stored.revision(), verification.bot(),
+                            verification.missingScopes()));
             return verification.result();
         }
     }

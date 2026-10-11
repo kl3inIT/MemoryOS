@@ -25,6 +25,8 @@ CREATE TABLE lark_credentials (
     -- The bot identity Lark returned at the last successful verification: what people add to a space or a folder.
     bot_name VARCHAR(255),
     bot_open_id VARCHAR(64),
+    -- The read scopes Lark refused to the tenant token at that verification, separated by spaces.
+    missing_scopes VARCHAR(1024) NOT NULL DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (tenant_id, credential_id),

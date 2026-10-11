@@ -11,10 +11,10 @@ import org.jspecify.annotations.Nullable;
 
 public interface LarkCredentialService {
     /** Verifies the draft with Lark before anything is stored. */
-    Created create(ActorId actorId, Draft draft);
+    CredentialId create(ActorId actorId, Draft draft);
 
     /** Replaces the App Secret of the same app, fencing every Source that uses the credential. */
-    Replaced replaceSecret(ActorId actorId, CredentialId credentialId, long expectedRevision, Draft draft);
+    long replaceSecret(ActorId actorId, CredentialId credentialId, long expectedRevision, Draft draft);
 
     void rename(ActorId actorId, CredentialId credentialId, long expectedRevision, String name);
 
@@ -40,10 +40,14 @@ public interface LarkCredentialService {
         @Override public @NonNull String toString() { return "LarkDraft[redacted]"; }
     }
 
+    /** {@code missingScopes} are those of the last verification, sorted. */
     record CredentialView(CredentialId id, String name, String region, String appId, String status,
-                          @Nullable String botName, long credentialRevision, Instant createdAt, Instant updatedAt,
-                          long sourceCount, List<String> actions) {
-        public CredentialView { actions = List.copyOf(actions); }
+                          @Nullable String botName, List<String> missingScopes, long credentialRevision,
+                          Instant createdAt, Instant updatedAt, long sourceCount, List<String> actions) {
+        public CredentialView {
+            missingScopes = List.copyOf(missingScopes);
+            actions = List.copyOf(actions);
+        }
     }
 
     /**
@@ -53,8 +57,4 @@ public interface LarkCredentialService {
     record TestResult(String botName, Set<String> missingScopes) {
         public TestResult { missingScopes = Set.copyOf(missingScopes); }
     }
-
-    record Created(CredentialId id, TestResult verification) {}
-
-    record Replaced(long credentialRevision, TestResult verification) {}
 }
