@@ -1996,6 +1996,12 @@ Object.assign(vietnameseUi, {
   "Provider embedding hoặc OpenSearch chưa sẵn sàng.":
     "The embedding provider or OpenSearch is not available.",
   "Yêu cầu thất bại. Tải lại rồi thử lại.": "The request failed. Reload and try again.",
+  // MEM-243 OCR: the tab, its readers and a connection
+  "Không tải được kết nối OCR.": "Could not load the OCR connections.",
+  "Đọc bản scan và ảnh": "Reading scans and images",
+  "Tích hợp sẵn": "Built in",
+  "Dùng Docling": "Use Docling",
+  "Địa chỉ dịch vụ": "Service address",
   // MEM-198 System One: the page, its connections and the task
   "Không tải được cấu hình System One.": "Could not load the System One settings.",
   "Thêm kết nối": "Add a connection",
