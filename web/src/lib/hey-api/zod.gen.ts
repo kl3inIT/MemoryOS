@@ -143,7 +143,11 @@ export const zEmbeddingProviderResponse = z.object({
 });
 
 export const zOcrSelectionRequest = z.object({
-    provider: z.enum(['PADDLEOCR_VL', 'MODEL']).optional()
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ]).optional()
 });
 
 export const zOcrConnectionRequest = z.object({
@@ -160,7 +164,11 @@ export const zOcrConnectionRequest = z.object({
 });
 
 export const zOcrConnectionResponse = z.object({
-    provider: z.enum(['PADDLEOCR_VL', 'MODEL']),
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ]),
     endpoint: z.string(),
     credentialConfigured: z.boolean().optional(),
     dataBoundary: z.enum(['INTERNAL', 'EXTERNAL']),
@@ -2720,10 +2728,15 @@ export const zDocumentSpreadsheet = z.object({
 });
 
 export const zOcrProviderResponse = z.object({
-    provider: z.enum(['PADDLEOCR_VL', 'MODEL']),
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ]),
     requiresKey: z.boolean().optional(),
     usesModel: z.boolean().optional(),
-    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL'])
+    dataBoundary: z.enum(['INTERNAL', 'EXTERNAL']),
+    defaultEndpoint: z.string().optional()
 });
 
 export const zMeetingSummary = z.object({
@@ -4039,7 +4052,11 @@ export const zSelectOcrProviderResponse = z.void();
 export const zSaveOcrConnectionBody = zOcrConnectionRequest;
 
 export const zSaveOcrConnectionPath = z.object({
-    provider: z.enum(['PADDLEOCR_VL', 'MODEL'])
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ])
 });
 
 /**
@@ -5455,7 +5472,11 @@ export const zTestEmbeddingProviderResponse = zEmbeddingProviderTestResponse;
 export const zTestOcrConnectionBody = zOcrConnectionTestRequest;
 
 export const zTestOcrConnectionPath = z.object({
-    provider: z.enum(['PADDLEOCR_VL', 'MODEL'])
+    provider: z.enum([
+        'PADDLEOCR_VL',
+        'MODEL',
+        'AIHAY'
+    ])
 });
 
 /**

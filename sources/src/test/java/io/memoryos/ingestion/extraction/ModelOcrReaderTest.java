@@ -38,7 +38,7 @@ class ModelOcrReaderTest {
     private final OcrPageReader pages = mock(OcrPageReader.class);
     private final OcrConnectionService.Connection connection = new OcrConnectionService.Connection(UUID.randomUUID(),
             UUID.randomUUID(), OcrProvider.MODEL, "", null, DataBoundary.EXTERNAL, UUID.randomUUID(), 1);
-    private final ModelOcrReader reader = new ModelOcrReader(pages, connection, mapper);
+    private final OcrReader reader = new ModelOcrAdapter(pages, mapper).reader(connection, "");
 
     @Test
     void eachPageIsReadAsAJpegAndItsTextKeepsItsPage() throws Exception {

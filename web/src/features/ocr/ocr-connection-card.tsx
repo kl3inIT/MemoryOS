@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useStore } from "@tanstack/react-form";
-import { ScanText, Sparkles } from "lucide-react";
+import { Cloud, ScanText, Sparkles } from "lucide-react";
 import { useAppForm } from "@/components/form/app-form";
 import {
   ConnectionCard,
@@ -30,6 +30,17 @@ import {
 const endpointHints: Partial<Record<OcrProvider, string>> = {
   PADDLEOCR_VL: "http://ocr.internal:8080",
 };
+/** Product names are proper nouns; a model's connection is named for what it is. */
+const names = {
+  PADDLEOCR_VL: "PaddleOCR-VL",
+  AIHAY: "AI Hay",
+  MODEL: "Model AI",
+} as const satisfies Record<OcrProvider, string>;
+const logos: Record<OcrProvider, typeof Cloud> = {
+  PADDLEOCR_VL: ScanText,
+  AIHAY: Cloud,
+  MODEL: Sparkles,
+};
 
 /** One OCR reader type: its card and its connection dialog. */
 export function OcrConnectionCard({
@@ -52,10 +63,11 @@ export function OcrConnectionCard({
   const configured = provider.usesModel
     ? !!connection?.modelConfigurationId
     : !!connection && (!provider.requiresKey || !!connection.credentialConfigured);
-  const name = provider.usesModel ? ui("Model AI") : ui("PaddleOCR-VL");
+  const name = ui(names[provider.provider]);
+  const Logo = logos[provider.provider];
   return (
     <ConnectionCard
-      logo={provider.usesModel ? <Sparkles /> : <ScanText />}
+      logo={<Logo />}
       name={name}
       description={
         connection ? (
@@ -115,7 +127,7 @@ function OcrConnectionDialog({
   const { save, test } = useOcrConnectionMutations();
   const form = useAppForm({
     defaultValues: {
-      endpoint: connection?.endpoint ?? "",
+      endpoint: connection?.endpoint ?? provider.defaultEndpoint ?? "",
       key: "",
       dataBoundary: connection?.dataBoundary ?? provider.dataBoundary,
       model: connection?.modelConfigurationId ?? "",
@@ -180,6 +192,13 @@ function OcrConnectionDialog({
         tested={test.isSuccess}
         error={failure ? ocrProblem(failure) : undefined}
         onClose={onClose}
+        notice={
+          provider.requiresKey ? (
+            <p className="font-secondary-body text-content-muted">
+              {ui("Kiểm tra kết nối đọc một ảnh thật và có thể tính phí nhà cung cấp.")}
+            </p>
+          ) : undefined
+        }
       >
         {provider.usesModel ? (
           <form.Field name="model">

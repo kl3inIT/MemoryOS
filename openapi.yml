@@ -441,6 +441,7 @@ paths:
           enum:
           - PADDLEOCR_VL
           - MODEL
+          - AIHAY
       requestBody:
         content:
           application/json:
@@ -8002,6 +8003,7 @@ paths:
           enum:
           - PADDLEOCR_VL
           - MODEL
+          - AIHAY
       requestBody:
         content:
           application/json:
@@ -21579,6 +21581,7 @@ components:
           enum:
           - PADDLEOCR_VL
           - MODEL
+          - AIHAY
     OcrConnectionRequest:
       type: object
       properties:
@@ -21619,6 +21622,7 @@ components:
           enum:
           - PADDLEOCR_VL
           - MODEL
+          - AIHAY
         endpoint:
           type: string
         credentialConfigured:
@@ -28221,6 +28225,7 @@ components:
           enum:
           - PADDLEOCR_VL
           - MODEL
+          - AIHAY
         requiresKey:
           type: boolean
         usesModel:
@@ -28230,6 +28235,8 @@ components:
           enum:
           - INTERNAL
           - EXTERNAL
+        defaultEndpoint:
+          type: string
       required:
       - dataBoundary
       - provider

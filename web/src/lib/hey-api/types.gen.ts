@@ -159,7 +159,7 @@ export type EmbeddingProviderResponse = {
 };
 
 export type OcrSelectionRequest = {
-    provider?: 'PADDLEOCR_VL' | 'MODEL';
+    provider?: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
 };
 
 export type OcrConnectionRequest = {
@@ -172,7 +172,7 @@ export type OcrConnectionRequest = {
 };
 
 export type OcrConnectionResponse = {
-    provider: 'PADDLEOCR_VL' | 'MODEL';
+    provider: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
     endpoint: string;
     credentialConfigured?: boolean;
     dataBoundary: 'INTERNAL' | 'EXTERNAL';
@@ -2740,10 +2740,11 @@ export type DocumentSpreadsheetSheet = {
 };
 
 export type OcrProviderResponse = {
-    provider: 'PADDLEOCR_VL' | 'MODEL';
+    provider: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
     requiresKey?: boolean;
     usesModel?: boolean;
     dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    defaultEndpoint?: string;
 };
 
 export type MeetingSummary = {
@@ -4216,7 +4217,7 @@ export type SelectOcrProviderResponse = SelectOcrProviderResponses[keyof SelectO
 export type SaveOcrConnectionData = {
     body: OcrConnectionRequest;
     path: {
-        provider: 'PADDLEOCR_VL' | 'MODEL';
+        provider: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
     };
     query?: never;
     url: '/api/ocr/connections/{provider}';
@@ -9544,7 +9545,7 @@ export type TestEmbeddingProviderResponse = TestEmbeddingProviderResponses[keyof
 export type TestOcrConnectionData = {
     body?: OcrConnectionTestRequest;
     path: {
-        provider: 'PADDLEOCR_VL' | 'MODEL';
+        provider: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
     };
     query?: never;
     url: '/api/ocr/connections/{provider}/test';

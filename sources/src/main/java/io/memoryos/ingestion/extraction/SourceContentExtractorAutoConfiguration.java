@@ -2,6 +2,7 @@ package io.memoryos.ingestion.extraction;
 
 import io.memoryos.ai.ocr.OcrConnectionService;
 import io.memoryos.ai.ocr.OcrPageReader;
+import io.memoryos.ai.ocr.OcrServiceUsage;
 import io.memoryos.ingestion.ChatFileExtractor;
 import io.memoryos.ingestion.SourceContentExtractor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -15,8 +16,8 @@ import tools.jackson.databind.ObjectMapper;
 public class SourceContentExtractorAutoConfiguration {
     @Bean(destroyMethod = "close")
     OcrReaders ocrReaders(OcrConnectionService connections, PaddleOcrVlProperties paddle, OcrPageReader pages,
-            ObjectMapper mapper) {
-        return new OcrReaders(connections, OcrAdapterRegistry.installed(paddle, pages, mapper));
+            OcrServiceUsage usage, ObjectMapper mapper) {
+        return new OcrReaders(connections, OcrAdapterRegistry.installed(paddle, pages, usage, mapper));
     }
     @Bean
     ChatFileExtractor chatFileExtractor(DoclingSourceContentExtractor docling, OcrReaders ocr, ObjectMapper mapper) {

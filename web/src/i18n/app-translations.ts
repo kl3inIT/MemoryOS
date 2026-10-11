@@ -24,6 +24,7 @@ const unchanged = [
   "Docling",
   "PaddleOCR-VL",
   "Model AI",
+  "AI Hay",
   "ChatGPT",
   "Google Drive",
   "Tiếng Việt",

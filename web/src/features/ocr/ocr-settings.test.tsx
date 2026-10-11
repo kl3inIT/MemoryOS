@@ -43,6 +43,13 @@ const paddle: OcrProviderResponse = {
   usesModel: false,
   dataBoundary: "INTERNAL",
 };
+const aiHay: OcrProviderResponse = {
+  provider: "AIHAY",
+  requiresKey: true,
+  usesModel: false,
+  dataBoundary: "EXTERNAL",
+  defaultEndpoint: "https://api.ai-hay.vn",
+};
 const modelReader: OcrProviderResponse = {
   provider: "MODEL",
   requiresKey: false,
@@ -215,6 +222,27 @@ it("reads with a model that reads images, chosen among the catalog's", async () 
         modelConfigurationId: haiku.id,
         revision: 0,
         credentialAction: "KEEP",
+      },
+    }),
+  );
+});
+
+it("connects a cloud service with its public address, a key and an external boundary", async () => {
+  show([], [aiHay]);
+  await userEvent.click(await screen.findByRole("button", { name: "Kết nối" }));
+  expect(screen.getByLabelText(/Địa chỉ dịch vụ/)).toHaveValue("https://api.ai-hay.vn");
+  expect(screen.getByRole("button", { name: "Lưu" })).toBeDisabled();
+  await userEvent.type(screen.getByLabelText(/Khóa API/), "secret-key");
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await waitFor(() =>
+    expect(saveOcrConnection).toHaveBeenCalledWith({
+      path: { provider: "AIHAY" },
+      body: {
+        endpoint: "https://api.ai-hay.vn",
+        dataBoundary: "EXTERNAL",
+        revision: 0,
+        credentialAction: "REPLACE",
+        credentialValue: "secret-key",
       },
     }),
   );

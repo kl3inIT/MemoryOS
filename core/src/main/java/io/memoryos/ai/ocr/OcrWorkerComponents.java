@@ -22,7 +22,8 @@ import org.springframework.context.annotation.Import;
  * which scans all
  * of {@code io.memoryos} and wires the same beans for Chat, does not register them twice.
  */
-@Import({OcrConnectionService.class, OcrPageReader.class, ProviderConnections.class, ProviderCredentials.class,
+@Import({OcrConnectionService.class, OcrPageReader.class, OcrServiceUsage.class, ProviderConnections.class,
+        ProviderCredentials.class,
         ModelCatalogRepository.class, OpenAiProviderConfiguration.class, AnthropicProviderConfiguration.class})
 public class OcrWorkerComponents {
     @Bean
