@@ -6,7 +6,6 @@ import { PageHeader, SettingsLayout } from "@/components/composites/settings-lay
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { appText, type AppText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { cn } from "@/lib/utils";
 
 const providersRoute = getRouteApi("/_authenticated/admin/ai-providers");
 
@@ -15,8 +14,6 @@ type ProviderTab = {
   label: AppText;
   /** Loaded when the tab opens, so one tab never ships the other four. */
   content: ComponentType;
-  /** The model catalog needs the wide page; the connection lists read better at the standard width. */
-  wide?: boolean;
 };
 
 const providerTabs: readonly ProviderTab[] = [
@@ -26,11 +23,10 @@ const providerTabs: readonly ProviderTab[] = [
     content: lazy(() =>
       import("@/features/models/models-page").then((module) => ({ default: module.ModelsPage })),
     ),
-    wide: true,
   },
   {
     id: "system-one",
-    label: appText("Phân loại (System One)"),
+    label: appText("System One"),
     content: lazy(() =>
       import("@/features/system-one/system-one-page").then((module) => ({
         default: module.SystemOnePage,
@@ -103,12 +99,8 @@ export function AiProvidersPage() {
         </div>
         {providerTabs.map((each) => (
           <TabsContent key={each.id} value={each.id} className="mt-6">
-            <div
-              className={cn(
-                "flex min-w-0 flex-col gap-8",
-                !each.wide && "max-w-(--page-width-standard)",
-              )}
-            >
+            {/* Every tab spans the page, so switching tabs never moves the content's right edge. */}
+            <div className="flex min-w-0 flex-col gap-8">
               <Suspense fallback={<p role="status">{ui("Đang tải…")}</p>}>
                 <each.content />
               </Suspense>

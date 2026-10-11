@@ -1997,7 +1997,6 @@ Object.assign(vietnameseUi, {
     "The embedding provider or OpenSearch is not available.",
   "Yêu cầu thất bại. Tải lại rồi thử lại.": "The request failed. Reload and try again.",
   // MEM-198 System One: the page, its connections and the task
-  "Phân loại (System One)": "Classification (System One)",
   "Không tải được cấu hình System One.": "Could not load the System One settings.",
   "Thêm kết nối": "Add a connection",
   "Chạy bước kiểm tra câu hỏi bằng model phân loại nhanh thay cho LLM.":
