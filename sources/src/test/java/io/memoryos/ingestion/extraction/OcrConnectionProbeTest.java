@@ -13,6 +13,7 @@ import io.memoryos.ai.DataBoundary;
 import io.memoryos.ai.ocr.OcrConnectionService;
 import io.memoryos.ai.ocr.OcrPageReader;
 import io.memoryos.ai.ocr.OcrProvider;
+import io.memoryos.ai.ocr.OcrServiceUsage;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -27,7 +28,7 @@ class OcrConnectionProbeTest {
     private final ObjectMapper mapper = new ObjectMapper();
     private final OcrPageReader pages = mock(OcrPageReader.class);
     private final OcrAdapterRegistry adapters = OcrAdapterRegistry.installed(
-            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), pages, mapper);
+            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), pages, mock(OcrServiceUsage.class), mapper);
     private HttpServer server;
 
     @AfterEach void stop() { if (server != null) server.stop(0); }

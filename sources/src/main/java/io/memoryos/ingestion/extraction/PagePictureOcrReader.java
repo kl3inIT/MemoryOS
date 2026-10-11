@@ -1,15 +1,14 @@
 package io.memoryos.ingestion.extraction;
 
-import io.memoryos.ai.AiException;
-import io.memoryos.ai.ocr.OcrConnectionService;
-import io.memoryos.ai.ocr.OcrPageReader;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractedDocument.Block;
 import io.memoryos.document.ExtractedDocument.Kind;
 import io.memoryos.document.ExtractedDocument.Location;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,36 +25,46 @@ import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Reads scans and images with the catalog model of one OCR connection: each page is rendered as a JPEG and read in a
- * call of its own, a few pages at a time, and a page's text becomes one block on that page. A model returns text, not
- * a layout, so a table arrives as Markdown inside its page's block and no block carries a position.
+ * Reads scans and images with something that reads one page picture at a time, a catalog model or an OCR service: each
+ * page is rendered as a JPEG and read in a call of its own, a few pages at a time, and a page's text becomes one block
+ * on that page. Such a reader returns text, not a layout, so a table arrives as Markdown inside its page's block and no
+ * block carries a position.
  */
-final class ModelOcrReader implements OcrReader {
-    private static final Logger LOG = LoggerFactory.getLogger(ModelOcrReader.class);
-    static final Set<String> IMAGES = Set.of("image/png", "image/jpeg", "image/webp");
+final class PagePictureOcrReader implements OcrReader {
+    /** The text of one page picture; empty when it holds none. */
+    @FunctionalInterface
+    interface PageText {
+        String read(byte[] picture, String mediaType) throws ExtractionException;
+    }
+
+    /**
+     * @param parser the reader's name in a document's metadata, such as {@code model-ocr}
+     * @param identity what tells one configuration of the reader from another in {@code parser_configuration}
+     * @param images image types sent as they are; another image is sent as a JPEG
+     * @param maxPictureBytes the largest picture the reader takes
+     */
+    record Settings(String parser, String identity, Set<String> images, int maxPictureBytes) {}
+
     /** The page limit a scan has with every reader. */
     static final int MAX_PAGES = 200;
     /** Enough for body text at a readable size; a provider downsizes a larger picture anyway. */
     private static final float DPI = 150;
-    /** A picture over this is rendered again at a lower resolution; providers refuse or resize beyond a few megabytes. */
-    private static final int MAX_PICTURE_BYTES = 4_194_304;
-    /** The Chat image bound, which an image sent as it is must keep. */
+    /** The Chat image bound. */
     private static final long MAX_IMAGE_BYTES = 20_971_520;
-    /** Pages one document has at the provider at once. */
+    /** Pages one document has at the reader at once. */
     private static final int CONCURRENT_PAGES = 4;
+    private static final Set<String> IMAGES = Set.of("image/png", "image/jpeg", "image/webp");
 
-    private final OcrPageReader pages;
-    private final OcrConnectionService.Connection connection;
+    private final PageText page;
+    private final Settings settings;
     private final ObjectMapper mapper;
 
-    ModelOcrReader(OcrPageReader pages, OcrConnectionService.Connection connection, ObjectMapper mapper) {
-        this.pages = pages;
-        this.connection = connection;
+    PagePictureOcrReader(PageText page, Settings settings, ObjectMapper mapper) {
+        this.page = page;
+        this.settings = settings;
         this.mapper = mapper;
     }
 
@@ -65,23 +74,42 @@ final class ModelOcrReader implements OcrReader {
             String filename, String mediaType, long maxInput) throws ExtractionException {
         List<String> texts = layout == null ? List.of(image(input, mediaType)) : pdf(input, layout);
         var blocks = new ArrayList<Block>();
-        for (int page = 0; page < texts.size(); page++) {
-            if (texts.get(page).isBlank()) continue;
-            blocks.add(new Block(blocks.size(), Kind.PARAGRAPH, texts.get(page), null,
-                    List.of(Location.page(page + 1, null)), null, null, null));
+        for (int index = 0; index < texts.size(); index++) {
+            if (texts.get(index).isBlank()) continue;
+            blocks.add(new Block(blocks.size(), Kind.PARAGRAPH, texts.get(index), null,
+                    List.of(Location.page(index + 1, null)), null, null, null));
         }
         if (blocks.isEmpty()) return null;
         return DocumentAssembly.publish(mapper, blocks, layout == null ? List.of() : layout.sizes(), null, mediaType,
-                filename, Map.of("parser", "model-ocr", "parser_configuration", parserConfiguration(maxInput)),
-                "model_ocr");
+                filename, Map.of("parser", settings.parser(), "parser_configuration", parserConfiguration(maxInput)),
+                settings.parser().replace('-', '_'));
     }
 
+    /** An image the reader takes is sent as it is; any other, or one too large, is sent as a JPEG. */
     private String image(PaddleOcrVlClient.Input input, String mediaType) throws ExtractionException {
         try {
             if (input.size() < 1 || input.size() > MAX_IMAGE_BYTES) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
+            byte[] bytes;
             try (var stream = input.open()) {
-                return page(stream.readAllBytes(), mediaType);
+                bytes = stream.readAllBytes();
             }
+            if (settings.images().contains(mediaType) && bytes.length <= settings.maxPictureBytes())
+                return page.read(bytes, mediaType);
+            var decoded = ImageIO.read(new ByteArrayInputStream(bytes));
+            if (decoded == null) throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
+            var opaque = new BufferedImage(decoded.getWidth(), decoded.getHeight(), BufferedImage.TYPE_INT_RGB);
+            var canvas = opaque.createGraphics();
+            try {
+                // JPEG has no transparency; a transparent picture is read on white, as it is seen.
+                canvas.setColor(Color.WHITE);
+                canvas.fillRect(0, 0, opaque.getWidth(), opaque.getHeight());
+                canvas.drawImage(decoded, 0, 0, null);
+            } finally {
+                canvas.dispose();
+            }
+            byte[] picture = jpeg(opaque);
+            if (picture.length > settings.maxPictureBytes()) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
+            return page.read(picture, "image/jpeg");
         } catch (IOException unreadable) {
             throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
         }
@@ -97,11 +125,11 @@ final class ModelOcrReader implements OcrReader {
                 var readers = Executors.newVirtualThreadPerTaskExecutor()) {
             var renderer = new PDFRenderer(document);
             try {
-                for (int page = 0; page < layout.pages(); page++) {
+                for (int index = 0; index < layout.pages(); index++) {
                     permits.acquire();
                     byte[] picture;
                     try {
-                        picture = picture(renderer, page);
+                        picture = picture(renderer, index);
                     } catch (IOException unreadable) {
                         permits.release();
                         throw unreadable;
@@ -112,7 +140,8 @@ final class ModelOcrReader implements OcrReader {
                     }
                     readings.add(readers.submit(() -> {
                         try {
-                            return page(picture, "image/jpeg");
+                            // A page still too large at half the resolution is kept as read with no text.
+                            return picture.length > settings.maxPictureBytes() ? "" : page.read(picture, "image/jpeg");
                         } finally {
                             permits.release();
                         }
@@ -136,9 +165,11 @@ final class ModelOcrReader implements OcrReader {
         }
     }
 
-    private static byte[] picture(PDFRenderer renderer, int page) throws IOException {
-        byte[] picture = jpeg(renderer.renderImageWithDPI(page, DPI, ImageType.RGB));
-        return picture.length <= MAX_PICTURE_BYTES ? picture : jpeg(renderer.renderImageWithDPI(page, DPI / 2, ImageType.RGB));
+    /** A picture over the reader's limit is rendered again at half the resolution. */
+    private byte[] picture(PDFRenderer renderer, int index) throws IOException {
+        byte[] picture = jpeg(renderer.renderImageWithDPI(index, DPI, ImageType.RGB));
+        return picture.length <= settings.maxPictureBytes() ? picture
+                : jpeg(renderer.renderImageWithDPI(index, DPI / 2, ImageType.RGB));
     }
 
     private static byte[] jpeg(BufferedImage image) throws IOException {
@@ -147,26 +178,8 @@ final class ModelOcrReader implements OcrReader {
         return bytes.toByteArray();
     }
 
-    /**
-     * One page's text. A model that is gone or no longer reads images is the connection's configuration; any other
-     * failure is the provider's, which did not answer, so the document may be read again once it does.
-     */
-    private String page(byte[] picture, String mediaType) throws ExtractionException {
-        try {
-            return pages.read(connection, picture, mediaType);
-        } catch (AiException configuration) {
-            LOG.atWarn().addKeyValue("event", "model_ocr.page.refused").addKeyValue("error_code", configuration.code())
-                    .log("The OCR connection's model cannot read a page");
-            throw DocumentAssembly.failure(ExtractionFailure.INTERNAL);
-        } catch (RuntimeException provider) {
-            LOG.atWarn().addKeyValue("event", "model_ocr.page.failed")
-                    .addKeyValue("error_type", provider.getClass().getName()).log("The OCR connection's model did not read a page");
-            throw DocumentAssembly.failure(ExtractionFailure.CONNECTION_FAILED);
-        }
-    }
-
     private String parserConfiguration(long maxInput) {
-        return "memoryos-extraction-v2;model-ocr=" + connection.modelConfigurationId() + ";dpi=" + (int) DPI
+        return "memoryos-extraction-v2;" + settings.parser() + "=" + settings.identity() + ";dpi=" + (int) DPI
                 + ";maxPages=" + MAX_PAGES + ";maxInput=" + maxInput + ";maxOutput=33554432";
     }
 

@@ -17,7 +17,7 @@ Owner decisions 2026-10-11: MemoryOS is a product that customers self-host, so e
 | --- | --- | --- | --- | --- |
 | Docling (built in) | Internal | The PDF or image | Docling's document | Today's rules |
 | `PADDLEOCR_VL` connection | Set by the administrator, `INTERNAL` by default | The whole PDF or image, up to 200 pages | Layout blocks with tables and positions, as today | None: its failure stands (MEM-192) |
-| `AIHAY` connection | `EXTERNAL` | One page picture as JPEG, at most 1.4 MB | The page's Markdown | None |
+| `AIHAY` connection | Set by the administrator, `EXTERNAL` by default | One page picture as JPEG or PNG, at most 1.4 MB | The page's Markdown, one block a page | None |
 | `MODEL` connection: a catalog model that reads images | Its provider's | One page picture, JPEG at 150 DPI | The page's text, tables as Markdown, one block a page without positions | None |
 
 A reader's failure fails the document's extraction with the typed failure it has today (`UNAVAILABLE` retried as in MEM-234, `MALFORMED`, `WRITE_LIMIT`), never falls back to another reader whose misread amounts would be indexed as right.
@@ -52,6 +52,12 @@ A model is called where the scan is: in the Worker. Two ways were weighed. `Mode
 What Embabel's guard would have bounded is bounded here by construction: one call a page, 8,192 output tokens a page, 200 pages a document, four pages of a document at the provider at once, and the provider read timeout (`memoryos.extraction.model-ocr.read-timeout`, two minutes). Each page's usage is recorded under the flow `OCR` with its cost from the model's price.
 
 A page is rendered by PDFBox; `jbig2-imageio` is added because black-and-white scans are commonly JBIG2. JPEG 2000 page images are not decoded (its plugin's licence is not compatible), so such a page reads as empty.
+
+### Page-picture readers and AI Hay
+
+The model reader and AI Hay share `PagePictureOcrReader`: it renders, bounds, reads four pages at a time and assembles, and an adapter supplies only how one picture is read and its limits. A picture over the reader's limit is rendered again at half the resolution, and a page still over it is kept as read with no text, as BeyondPilot does, so one oversized page does not fail a document.
+
+`AiHayOcrAdapter` posts `{"image": <base64>}` to `/v1/ocr` under the connection's address with the key as a Bearer token, through `OutboundHttp` (no redirect, a one-minute deadline, a bounded answer). A failure's kind is read from the status: 400 and 413 are a picture the service will not read, a page without text; 429, 5xx and no answer are `CONNECTION_FAILED`, retried; a refused key, a redirect and an answer that is not its JSON are `INTERNAL`. Each page read is recorded under `OCR` as one call priced from `ocr/known-services.json`, kept by hand since LiteLLM's metadata holds token prices only.
 
 ### Test
 

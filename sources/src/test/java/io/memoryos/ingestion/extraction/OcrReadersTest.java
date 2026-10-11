@@ -11,6 +11,7 @@ import io.memoryos.ai.DataBoundary;
 import io.memoryos.ai.ocr.OcrConnectionService;
 import io.memoryos.ai.ocr.OcrPageReader;
 import io.memoryos.ai.ocr.OcrProvider;
+import io.memoryos.ai.ocr.OcrServiceUsage;
 import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.util.List;
@@ -24,7 +25,7 @@ class OcrReadersTest {
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final UUID id = UUID.randomUUID();
     private final OcrReaders readers = new OcrReaders(connections, OcrAdapterRegistry.installed(
-            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), mock(OcrPageReader.class), new ObjectMapper()));
+            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), mock(OcrPageReader.class), mock(OcrServiceUsage.class), new ObjectMapper()));
 
     @Test
     void withoutAChosenReaderDoclingReadsScans() {

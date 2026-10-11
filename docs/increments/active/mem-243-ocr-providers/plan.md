@@ -30,7 +30,10 @@
 
 ## Pull request 4 — AI Hay
 
-- [ ] `AiHayOcrAdapter`, `known-services.json` price per page, the `OCR` usage flow
+- [x] V151 `AIHAY`; `PagePictureOcrReader` shared by the model reader and AI Hay
+- [x] `AiHayOcrAdapter` on `OutboundHttp`; `OcrServiceUsage` pricing a page from `ocr/known-services.json`
+- [x] The tab offers AI Hay with its public address, a key and the data boundary
+- [x] Tests: `AiHayOcrAdapterTest` (loopback server), `ocr-settings.test.tsx`
 - [ ] Live test with a key the owner provides
 
 ## After the merges
