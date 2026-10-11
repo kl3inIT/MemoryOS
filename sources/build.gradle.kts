@@ -22,6 +22,7 @@ dependencies {
     implementation(libs.spring.security.oauth2.jose)
     implementation(libs.tika.core)
     implementation(libs.imageio.webp)
+    runtimeOnly(libs.pdfbox.jbig2)
     implementation(libs.tika.parser.pdf)
     implementation(libs.tika.parser.microsoft)
     implementation(libs.tika.parser.text)

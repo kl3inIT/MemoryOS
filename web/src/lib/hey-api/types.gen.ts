@@ -159,22 +159,27 @@ export type EmbeddingProviderResponse = {
 };
 
 export type OcrSelectionRequest = {
-    provider?: 'PADDLEOCR_VL';
+    provider?: 'PADDLEOCR_VL' | 'MODEL';
 };
 
 export type OcrConnectionRequest = {
     endpoint: string;
     credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
     credentialValue?: string;
-    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    dataBoundary?: 'INTERNAL' | 'EXTERNAL';
+    modelConfigurationId?: string;
     revision?: number;
 };
 
 export type OcrConnectionResponse = {
-    provider: 'PADDLEOCR_VL';
+    provider: 'PADDLEOCR_VL' | 'MODEL';
     endpoint: string;
     credentialConfigured?: boolean;
     dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    /**
+     * The catalog model a model connection reads with
+     */
+    modelConfigurationId?: string;
     active?: boolean;
     revision?: number;
 };
@@ -1678,6 +1683,7 @@ export type EmbeddingProviderTestResponse = {
 export type OcrConnectionTestRequest = {
     endpoint: string;
     credentialValue?: string;
+    modelConfigurationId?: string;
 };
 
 /**
@@ -2734,8 +2740,9 @@ export type DocumentSpreadsheetSheet = {
 };
 
 export type OcrProviderResponse = {
-    provider: 'PADDLEOCR_VL';
+    provider: 'PADDLEOCR_VL' | 'MODEL';
     requiresKey?: boolean;
+    usesModel?: boolean;
     dataBoundary: 'INTERNAL' | 'EXTERNAL';
 };
 
@@ -4209,7 +4216,7 @@ export type SelectOcrProviderResponse = SelectOcrProviderResponses[keyof SelectO
 export type SaveOcrConnectionData = {
     body: OcrConnectionRequest;
     path: {
-        provider: 'PADDLEOCR_VL';
+        provider: 'PADDLEOCR_VL' | 'MODEL';
     };
     query?: never;
     url: '/api/ocr/connections/{provider}';
@@ -9537,7 +9544,7 @@ export type TestEmbeddingProviderResponse = TestEmbeddingProviderResponses[keyof
 export type TestOcrConnectionData = {
     body?: OcrConnectionTestRequest;
     path: {
-        provider: 'PADDLEOCR_VL';
+        provider: 'PADDLEOCR_VL' | 'MODEL';
     };
     query?: never;
     url: '/api/ocr/connections/{provider}/test';
@@ -18567,7 +18574,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/summary';
 };
@@ -18752,7 +18759,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/daily';
 };
@@ -18792,7 +18799,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/breakdown';
 };

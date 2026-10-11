@@ -20,8 +20,13 @@
 
 ## Pull request 3 — model reader
 
-- [ ] Page pictures as JPEG within a limit; bounded concurrency
-- [ ] The reader calls the chosen model through the `ai` API, with its usage
+- [x] V149 `MODEL` connection type naming a model configuration; V150 validates the `OCR` usage flow
+- [x] `ModelLeases` out of `ModelResolver`; `OcrPageReader` (one page, the adapter's `ChatModel` and request policy, usage as `OCR`)
+- [x] `ModelOcrAdapter` and `ModelOcrReader`: pages as JPEG, four at a time, one block a page; `jbig2-imageio`
+- [x] The Worker wires the provider adapters and their clients through `OcrWorkerComponents`
+- [x] API and tab: a model connection names a model that reads images
+- [x] Tests: `OcrPageReaderTest` (Anthropic wire), `ModelOcrReaderTest`, `OcrConnectionServiceTest`, `OcrConnectionProbeTest`, `ocr-settings.test.tsx`
+- [ ] Staging: a scan read by a model, with its usage and cost
 
 ## Pull request 4 — AI Hay
 

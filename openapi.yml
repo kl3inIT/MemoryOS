@@ -440,6 +440,7 @@ paths:
           type: string
           enum:
           - PADDLEOCR_VL
+          - MODEL
       requestBody:
         content:
           application/json:
@@ -7981,8 +7982,8 @@ paths:
     post:
       tags:
       - OCR
-      summary: Read a small test picture with a connection; a cloud provider may charge
-        for it
+      summary: Read a small test picture with a connection; a cloud service or a model's
+        provider may charge for it
       operationId: testOcrConnection
       parameters:
       - name: X-MemoryOS-CSRF
@@ -8000,6 +8001,7 @@ paths:
           type: string
           enum:
           - PADDLEOCR_VL
+          - MODEL
       requestBody:
         content:
           application/json:
@@ -20282,6 +20284,7 @@ paths:
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
           - MEETING_CORRECTION
+          - OCR
       responses:
         "400":
           description: Invalid period or filter
@@ -20535,6 +20538,7 @@ paths:
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
           - MEETING_CORRECTION
+          - OCR
       responses:
         "400":
           description: Invalid period or filter
@@ -20624,6 +20628,7 @@ paths:
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
           - MEETING_CORRECTION
+          - OCR
       responses:
         "400":
           description: Invalid period or filter
@@ -21573,6 +21578,7 @@ components:
           type: string
           enum:
           - PADDLEOCR_VL
+          - MODEL
     OcrConnectionRequest:
       type: object
       properties:
@@ -21595,13 +21601,15 @@ components:
           enum:
           - INTERNAL
           - EXTERNAL
+        modelConfigurationId:
+          type: string
+          format: uuid
         revision:
           type: integer
           format: int64
           minimum: 0
       required:
       - credentialAction
-      - dataBoundary
       - endpoint
     OcrConnectionResponse:
       type: object
@@ -21610,6 +21618,7 @@ components:
           type: string
           enum:
           - PADDLEOCR_VL
+          - MODEL
         endpoint:
           type: string
         credentialConfigured:
@@ -21619,6 +21628,10 @@ components:
           enum:
           - INTERNAL
           - EXTERNAL
+        modelConfigurationId:
+          type: string
+          format: uuid
+          description: The catalog model a model connection reads with
         active:
           type: boolean
         revision:
@@ -25351,6 +25364,9 @@ components:
           type: string
           maxLength: 8192
           minLength: 0
+        modelConfigurationId:
+          type: string
+          format: uuid
       required:
       - endpoint
     MeetingCreateRequest:
@@ -28204,7 +28220,10 @@ components:
           type: string
           enum:
           - PADDLEOCR_VL
+          - MODEL
         requiresKey:
+          type: boolean
+        usesModel:
           type: boolean
         dataBoundary:
           type: string

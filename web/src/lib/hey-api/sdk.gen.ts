@@ -2193,7 +2193,7 @@ export const testEmbeddingProvider = <ThrowOnError extends boolean = true>(optio
 });
 
 /**
- * Read a small test picture with a connection; a cloud provider may charge for it
+ * Read a small test picture with a connection; a cloud service or a model's provider may charge for it
  */
 export const testOcrConnection = <ThrowOnError extends boolean = true>(options: Options<TestOcrConnectionData, ThrowOnError>): RequestResult<TestOcrConnectionResponses, TestOcrConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestOcrConnectionResponses, TestOcrConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

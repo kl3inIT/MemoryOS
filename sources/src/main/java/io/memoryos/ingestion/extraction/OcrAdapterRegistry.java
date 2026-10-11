@@ -1,5 +1,6 @@
 package io.memoryos.ingestion.extraction;
 
+import io.memoryos.ai.ocr.OcrPageReader;
 import io.memoryos.ai.ocr.OcrProvider;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -12,8 +13,8 @@ final class OcrAdapterRegistry {
     private final Map<OcrProvider, OcrAdapter> adapters = new EnumMap<>(OcrProvider.class);
 
     /** The adapters this build installs, calling their services with these settings. */
-    static OcrAdapterRegistry installed(PaddleOcrVlProperties paddle, ObjectMapper mapper) {
-        return new OcrAdapterRegistry(List.of(new PaddleOcrVlOcrAdapter(paddle, mapper)));
+    static OcrAdapterRegistry installed(PaddleOcrVlProperties paddle, OcrPageReader pages, ObjectMapper mapper) {
+        return new OcrAdapterRegistry(List.of(new PaddleOcrVlOcrAdapter(paddle, mapper), new ModelOcrAdapter(pages, mapper)));
     }
 
     OcrAdapterRegistry(Collection<? extends OcrAdapter> installed) {

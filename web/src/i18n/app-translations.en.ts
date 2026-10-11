@@ -2002,6 +2002,8 @@ Object.assign(vietnameseUi, {
   "Tích hợp sẵn": "Built in",
   "Dùng Docling": "Use Docling",
   "Địa chỉ dịch vụ": "Service address",
+  "Model đọc được ảnh": "A model that reads images",
+  "Chọn model đọc được ảnh": "Choose a model that reads images",
   // MEM-198 System One: the page, its connections and the task
   "Không tải được cấu hình System One.": "Could not load the System One settings.",
   "Thêm kết nối": "Add a connection",

@@ -71,7 +71,7 @@ class OcrConnectionController {
         return OcrConnectionResponse.from(connections.save(identity.actorId(), provider,
                 new OcrConnectionService.Input(request.endpoint(),
                         new ProviderCredentials.Change(request.credentialAction(), request.credentialValue()),
-                        request.dataBoundary(), request.revision())));
+                        request.dataBoundary(), request.modelConfigurationId(), request.revision())));
     }
 
     @PutMapping("/selection")
@@ -85,11 +85,12 @@ class OcrConnectionController {
     @PostMapping("/connections/{provider}/test")
     @ApiResponse(responseCode = "204", description = "The connection read the test picture", content = @Content)
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(operationId = "testOcrConnection", summary = "Read a small test picture with a connection; a cloud provider may charge for it")
+    @Operation(operationId = "testOcrConnection", summary = "Read a small test picture with a connection; a cloud service or a model's provider may charge for it")
     void test(@CurrentActor IdentityContext identity, @PathVariable OcrProvider provider,
             @Valid @RequestBody(required = false) OcrConnectionTestRequest request) {
         var test = connections.forTest(identity.actorId(), provider,
-                request == null ? null : new OcrConnectionService.ProbeInput(request.endpoint(), request.credentialValue()));
+                request == null ? null : new OcrConnectionService.ProbeInput(request.endpoint(), request.credentialValue(),
+                        request.modelConfigurationId()));
         String key = test.credential() != null ? test.credential() : connections.key(test.connection());
         if (!probe.reads(test.connection(), key)) throw AiException.providerUnavailable();
     }

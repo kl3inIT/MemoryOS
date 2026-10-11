@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import io.memoryos.ai.DataBoundary;
 import io.memoryos.ai.ocr.OcrConnectionService;
+import io.memoryos.ai.ocr.OcrPageReader;
 import io.memoryos.ai.ocr.OcrProvider;
 import io.memoryos.shared.TenantId;
 import java.time.Duration;
@@ -22,8 +23,8 @@ class OcrReadersTest {
     private final OcrConnectionService connections = mock(OcrConnectionService.class);
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final UUID id = UUID.randomUUID();
-    private final OcrReaders readers = new OcrReaders(connections, new OcrAdapterRegistry(List.of(new PaddleOcrVlOcrAdapter(
-            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), new ObjectMapper()))));
+    private final OcrReaders readers = new OcrReaders(connections, OcrAdapterRegistry.installed(
+            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), mock(OcrPageReader.class), new ObjectMapper()));
 
     @Test
     void withoutAChosenReaderDoclingReadsScans() {
@@ -49,6 +50,6 @@ class OcrReadersTest {
 
     private OcrConnectionService.Connection connection(long revision) {
         return new OcrConnectionService.Connection(id, tenant.value(), OcrProvider.PADDLEOCR_VL, "http://ocr.internal:8080",
-                null, DataBoundary.INTERNAL, revision);
+                null, DataBoundary.INTERNAL, null, revision);
     }
 }
