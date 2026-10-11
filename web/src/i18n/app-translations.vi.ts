@@ -2734,4 +2734,127 @@ Object.assign(englishUi, {
     "Google từ chối service account. Trong Admin console, cấp ủy quyền toàn miền cho client ID của nó với mọi scope đã liệt kê rồi thử lại.",
   "The primary admin email must belong to an active Google Workspace administrator who can read users and groups.":
     "Email quản trị viên chính phải thuộc một quản trị viên Google Workspace đang hoạt động, có quyền đọc người dùng và nhóm.",
+  // Lark setup, synchronization and failures (MEM-245).
+  "{{count}} missing": "Thiếu {{count}}",
+  "{{v1}} and its stored App Secret were deleted.": "Đã xóa {{v1}} cùng App Secret đã lưu.",
+  "{{v1}} is not a member of any Wiki space yet.":
+    "{{v1}} chưa là thành viên của không gian Wiki nào.",
+  "{{v1}} signs in as {{v2}} and has every scope it needs.":
+    "{{v1}} đăng nhập dưới tên {{v2}} và có đủ mọi scope cần thiết.",
+  "{{v1}} signs in as {{v2}}, but {{v3}} scopes are missing.":
+    "{{v1}} đăng nhập dưới tên {{v2}}, nhưng còn thiếu {{v3}} scope.",
+  "“{{v1}}” is not a Drive folder link on {{v2}}.":
+    "“{{v1}}” không phải liên kết thư mục Drive trên {{v2}}.",
+  "Add the app's bot as a member of each Wiki space, and share each Drive folder with it.":
+    "Thêm bot của app làm thành viên của từng không gian Wiki, và chia sẻ từng thư mục Drive với bot.",
+  Bot: "Bot",
+  "Choose a synchronization interval between one minute and one year.":
+    "Chọn chu kỳ đồng bộ từ một phút đến một năm.",
+  "Choose at most {{v1}} spaces and folders.": "Chọn tối đa {{v1}} không gian và thư mục.",
+  "Copy the App ID and App Secret from Credentials & Basic Info.":
+    "Sao chép App ID và App Secret từ trang Credentials & Basic Info.",
+  "Create a Lark credential": "Tạo credential Lark",
+  "Create and publish the app before entering its credentials.":
+    "Tạo và phát hành app trước khi nhập thông tin xác thực của nó.",
+  "Drive folder": "Thư mục Drive",
+  "Drive folders": "Thư mục Drive",
+  "e.g. Acme Lark": "ví dụ: Lark Acme",
+  "e.g. Sales Wiki": "ví dụ: Wiki Kinh doanh",
+  Granted: "Đã cấp",
+  "Group members can search and read what this Source imports. Lark's own sharing is not synchronized.":
+    "Thành viên nhóm được tìm kiếm và đọc nội dung Nguồn này nhập về. Quyền chia sẻ của Lark không được đồng bộ.",
+  "In the Lark Developer Console, create a custom app for your organization and enable its bot.":
+    "Trong Lark Developer Console, tạo một custom app cho tổ chức và bật bot của nó.",
+  "Index Wiki spaces, Docs, Sheets and Drive files from Lark.":
+    "Lập chỉ mục không gian Wiki, Docs, Sheets và tệp Drive từ Lark.",
+  "Lark configuration": "Cấu hình Lark",
+  "Lark credentials": "Credential Lark",
+  "Lark custom app prerequisite": "Chuẩn bị custom app Lark",
+  "Lark is checking that the app can read every space and folder in this scope. Your Source is not active yet. Leaving this page does not cancel verification; return here to recover its status.":
+    "Lark đang kiểm tra app có đọc được mọi không gian và thư mục trong phạm vi này không. Nguồn chưa hoạt động. Rời trang này không hủy việc xác minh; quay lại đây để xem trạng thái.",
+  "Lark is checking the submitted spaces and folders. The saved scope still applies.":
+    "Lark đang kiểm tra các không gian và thư mục vừa gửi. Phạm vi đã lưu vẫn được áp dụng.",
+  "Lark refused these scopes to the app identity. Add them as app identity scopes and publish the app, then test again.":
+    "Lark từ chối các scope này với app identity. Hãy thêm chúng dưới dạng scope của app identity, phát hành app rồi kiểm tra lại.",
+  "Loading Lark configuration…": "Đang tải cấu hình Lark…",
+  "Loading saved spaces and folders…": "Đang tải không gian và thư mục đã lưu…",
+  "Loading Wiki spaces…": "Đang tải không gian Wiki…",
+  "No Lark credentials yet": "Chưa có credential Lark",
+  "One folder link per line.": "Mỗi dòng một liên kết thư mục.",
+  "Permanently delete this unused credential and its stored App Secret. Credentials attached to any Source cannot be deleted.":
+    "Xóa vĩnh viễn credential không dùng này cùng App Secret đã lưu. Không thể xóa credential đang gắn với Nguồn nào.",
+  Region: "Khu vực",
+  "Register the Lark custom app once, then every Lark Source in this organization can use it.":
+    "Đăng ký custom app Lark một lần, rồi mọi Nguồn Lark trong tổ chức này đều dùng được.",
+  "Replace App Secret": "Thay App Secret",
+  "Replace the Lark App Secret": "Thay App Secret của Lark",
+  "Replacing the App Secret affects all": "Thay App Secret ảnh hưởng đến cả",
+  "Saved spaces and folders could not be loaded. Refresh status before editing the scope.":
+    "Không tải được không gian và thư mục đã lưu. Hãy làm mới trạng thái trước khi sửa phạm vi.",
+  Scopes: "Scope",
+  "Sources using this credential. Saved scopes and documents are retained.":
+    "Nguồn đang dùng credential này. Phạm vi và tài liệu đã lưu được giữ lại.",
+  "Supply the App ID of the Lark app, which starts with cli_.":
+    "Nhập App ID của app Lark, bắt đầu bằng cli_.",
+  "The app's bot is not a member of any Wiki space yet.":
+    "Bot của app chưa là thành viên của không gian Wiki nào.",
+  "The credential is verified with Lark before it is stored, so what Lark rejects is never saved.":
+    "Credential được Lark xác minh trước khi lưu, nên thứ Lark từ chối sẽ không bao giờ được lưu.",
+  "The schedule changed in another session. Reload the saved interval before trying again.":
+    "Lịch đã thay đổi ở phiên khác. Hãy tải lại chu kỳ đã lưu trước khi thử lại.",
+  "This credential needs updating. Replace its App Secret in Lark setup; saved scope and documents are retained.":
+    "Credential này cần cập nhật. Thay App Secret của nó trong thiết lập Lark; phạm vi và tài liệu đã lưu được giữ lại.",
+  "Under Permissions & Scopes, add the scopes below as app identity scopes, then publish a version of the app.":
+    "Trong Permissions & Scopes, thêm các scope dưới đây dưới dạng scope của app identity, rồi phát hành một phiên bản của app.",
+  "Wiki space": "Không gian Wiki",
+  "Wiki spaces": "Không gian Wiki",
+  "Connect Lark": "Kết nối Lark",
+  "Files appear here after synchronization acquires them from Lark.":
+    "Tệp sẽ xuất hiện ở đây sau khi đồng bộ lấy chúng từ Lark.",
+  "List Wiki spaces and their pages": "Liệt kê không gian Wiki và các trang của chúng",
+  "List Drive folders and download files": "Liệt kê thư mục Drive và tải tệp",
+  "Read documents": "Đọc tài liệu",
+  "Read spreadsheets": "Đọc bảng tính",
+  "Read who a document is shared with": "Đọc tài liệu được chia sẻ với ai",
+  "Read the members of a group a document is shared with":
+    "Đọc thành viên của nhóm được chia sẻ tài liệu",
+  "Paste the App Secret before saving.": "Dán App Secret trước khi lưu.",
+  "Lark is not configured on this server. Contact an administrator.":
+    "Máy chủ này chưa cấu hình Lark. Hãy liên hệ quản trị viên.",
+  "Supply the App Secret, between 1 and 256 characters.": "Nhập App Secret, từ 1 đến 256 ký tự.",
+  "Lark rejected the App ID or the App Secret. Copy both from the app's Credentials page.":
+    "Lark từ chối App ID hoặc App Secret. Hãy sao chép cả hai từ trang Credentials của app.",
+  "The Lark credential changed while the scope was being verified. Submit the scope again.":
+    "Credential Lark đã thay đổi trong lúc xác minh phạm vi. Hãy gửi lại phạm vi.",
+  "The Lark app lacks a permission for this. Grant the scopes the credential lists, then publish the app.":
+    "App Lark thiếu quyền cho thao tác này. Hãy cấp các scope mà credential liệt kê rồi phát hành app.",
+  "Update the Lark credential before continuing.":
+    "Hãy cập nhật credential Lark trước khi tiếp tục.",
+  "Choose Wiki spaces from the list and paste Drive folder links as the address bar shows them.":
+    "Chọn không gian Wiki trong danh sách và dán liên kết thư mục Drive đúng như thanh địa chỉ hiển thị.",
+  "Lark could not verify every space and folder. Check that the app's bot can open each one.":
+    "Lark không xác minh được mọi không gian và thư mục. Hãy kiểm tra bot của app mở được từng mục.",
+  "Lark no longer accepts the App Secret. Replace it in Lark setup; saved scope and documents are retained.":
+    "Lark không còn chấp nhận App Secret. Hãy thay nó trong thiết lập Lark; phạm vi và tài liệu đã lưu được giữ lại.",
+  "The Lark app cannot open a space or folder in scope. Add its bot to the space or share the folder with it.":
+    "App Lark không mở được một không gian hoặc thư mục trong phạm vi. Hãy thêm bot vào không gian hoặc chia sẻ thư mục với bot.",
+  "A space or folder in scope no longer exists or is no longer shared with the app.":
+    "Một không gian hoặc thư mục trong phạm vi không còn tồn tại hoặc không còn được chia sẻ với app.",
+  "Lark is limiting requests from this app. Try again later.":
+    "Lark đang giới hạn yêu cầu từ app này. Hãy thử lại sau.",
+  "Lark did not answer. Try again in a moment.": "Lark không phản hồi. Hãy thử lại sau giây lát.",
+  "Lark returned an answer that could not be read. Try again.":
+    "Lark trả về phản hồi không đọc được. Hãy thử lại.",
+  "An item in Lark is larger than MemoryOS reads. It was skipped.":
+    "Một mục trong Lark lớn hơn mức MemoryOS đọc được nên đã bị bỏ qua.",
+  "The Lark run failed unexpectedly. Review this run and synchronize again.":
+    "Lượt Lark thất bại ngoài dự kiến. Hãy xem lại lượt này và đồng bộ lại.",
+  "The Lark credential is unavailable. Test it and replace its App Secret if needed.":
+    "Credential Lark không khả dụng. Hãy kiểm tra và thay App Secret nếu cần.",
+  "Check the credential name, the App ID and App Secret, and the chosen spaces and folders.":
+    "Hãy kiểm tra tên credential, App ID và App Secret, cùng các không gian và thư mục đã chọn.",
+  "{{v1}} was verified with Lark and its App Secret replaced.":
+    "{{v1}} đã được Lark xác minh và App Secret đã được thay.",
+  "{{v1}} was verified with Lark and is ready to use with a Source.":
+    "{{v1}} đã được Lark xác minh và sẵn sàng dùng cho một Nguồn.",
 });
