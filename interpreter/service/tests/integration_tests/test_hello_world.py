@@ -28,8 +28,8 @@ def test_execute_returns_expected_payload() -> None:
 def test_a_run_that_draws_nothing_does_not_load_matplotlib() -> None:
     """The executor's start-up file loads the chart capture only when the code imports pyplot.
 
-    Importing matplotlib on every start cost about half a second of each run, which is what left the one-second
-    budget above without room on a busy runner.
+    Importing matplotlib on every start cost about half a second of each run, which left the
+    one-second budget above without room on a busy runner.
     """
     client = TestClient(create_app())
 
