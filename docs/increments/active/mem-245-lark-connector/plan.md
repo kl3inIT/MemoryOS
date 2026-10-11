@@ -24,10 +24,13 @@
 
 ## 3. Credential
 
-- [ ] Migration: `LARK_APP` kind and statuses, `lark_credentials`.
-- [ ] `LarkCredentialService` (create, replace secret, rename, delete, list, test) with audit.
-- [ ] API controller, contract, OpenAPI and web client regenerated.
-- [ ] Web credential section with the scope guide.
+- [x] Migration `V151`: `LARK_APP` kind and statuses, `lark_credentials` (V149 and V150 are taken by work in flight
+  on another branch; whichever merges second renumbers).
+- [x] `LarkCredentialService` (create, replace secret, rename, delete, list, test) with audit; the read scopes
+  Lark refused at the last verification are kept on the credential, so the list names them without a new test.
+- [x] API controller and contract; `openapi.yml` extended by hand from the SharePoint entries and the web client
+  generated from it (`OpenApiContractTest` runs in CI).
+- [ ] Web credential section with the scope guide (with the setup page of step 4).
 
 ## 4. Selection and Source
 
