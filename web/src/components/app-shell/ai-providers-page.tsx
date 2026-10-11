@@ -14,6 +14,11 @@ type ProviderTab = {
   label: AppText;
   /** Loaded when the tab opens, so one tab never ships the other four. */
   content: ComponentType;
+  /**
+   * The model catalog needs the wide page; the connection lists keep the standard width they had as pages of their
+   * own, centred. The whole page takes the open tab's width, so the header and tabs stay aligned with the content.
+   */
+  wide?: boolean;
 };
 
 const providerTabs: readonly ProviderTab[] = [
@@ -23,6 +28,7 @@ const providerTabs: readonly ProviderTab[] = [
     content: lazy(() =>
       import("@/features/models/models-page").then((module) => ({ default: module.ModelsPage })),
     ),
+    wide: true,
   },
   {
     id: "system-one",
@@ -79,7 +85,7 @@ export function AiProvidersPage() {
   }, [tab]);
 
   return (
-    <SettingsLayout wide>
+    <SettingsLayout wide={providerTabs.find((each) => each.id === tab)?.wide}>
       <PageHeader title={ui("AI Providers")} icon={<Sparkles />} />
       <Tabs
         value={tab}
@@ -99,7 +105,6 @@ export function AiProvidersPage() {
         </div>
         {providerTabs.map((each) => (
           <TabsContent key={each.id} value={each.id} className="mt-6">
-            {/* Every tab spans the page, so switching tabs never moves the content's right edge. */}
             <div className="flex min-w-0 flex-col gap-8">
               <Suspense fallback={<p role="status">{ui("Đang tải…")}</p>}>
                 <each.content />
