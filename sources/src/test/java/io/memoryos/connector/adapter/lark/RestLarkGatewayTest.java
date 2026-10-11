@@ -104,6 +104,8 @@ class RestLarkGatewayTest {
             assertEquals(ObjectType.DOCX, first.objType());
             assertEquals("docx-so-tay", first.objToken());
             assertTrue(first.hasChild());
+            assertNotNull(first.url());
+            assertTrue(first.url().endsWith("/wiki/node-so-tay"));
             assertNull(first.parentNodeToken());
             assertNotNull(first.objEditedAt());
             assertTrue(first.objEditedAt().isAfter(Instant.parse("2026-10-11T00:00:00Z")));

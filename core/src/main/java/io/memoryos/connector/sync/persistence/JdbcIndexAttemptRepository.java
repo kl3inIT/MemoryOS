@@ -67,6 +67,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                   CASE c.connector_type
                     WHEN 'GOOGLE_DRIVE' THEN v.scope_revision = s.scope_revision AND m.eligible AND NOT m.excluded
                     WHEN 'SHAREPOINT' THEN v.scope_revision = s.scope_revision
+                    WHEN 'LARK' THEN v.scope_revision = s.scope_revision
                     ELSE FALSE
                   END AS eligible
                 FROM connector_item_versions v
@@ -577,6 +578,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         WHEN 'GOOGLE_DRIVE' THEN v.scope_revision = s.scope_revision
                           AND (:ignoreEligibility OR m.eligible) AND NOT m.excluded AND m.root_id IS NOT NULL
                         WHEN 'SHAREPOINT' THEN v.scope_revision = s.scope_revision
+                        WHEN 'LARK' THEN v.scope_revision = s.scope_revision
+                    WHEN 'LARK' THEN v.scope_revision = s.scope_revision
                         ELSE FALSE
                       END
                     """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())

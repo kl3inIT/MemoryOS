@@ -3,7 +3,8 @@ package io.memoryos.connector;
 public enum SourceType {
     FILE,
     GOOGLE_DRIVE,
-    SHAREPOINT;
+    SHAREPOINT,
+    LARK;
 
     /**
      * Whether the Source reads an external provider. Uploaded files have none: nothing to select, synchronize or

@@ -119,7 +119,7 @@ spring:
         streamable-http:
           mcp-endpoint: /mcp
         instructions: >-
-          MemoryOS holds the organization's documents from Google Drive, SharePoint and uploads. Every tool returns
+          MemoryOS holds the organization's documents from Google Drive, SharePoint, Lark Suite and uploads. Every tool returns
           only what the signed-in person may read now.
           Use search for a question. Use search_with_filters only when the person limits it to a source, a document
           set, a period or a file type, and pass only the filters they asked for. Call fetch with the id of a result

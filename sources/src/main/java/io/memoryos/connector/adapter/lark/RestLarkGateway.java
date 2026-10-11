@@ -216,7 +216,7 @@ public final class RestLarkGateway implements LarkGateway, AutoCloseable {
                         nodes.add(new Node(node.getNodeToken(), spaceId, blankToNull(node.getParentNodeToken()),
                                 ObjectType.of(node.getObjType()), node.getObjToken(),
                                 node.getTitle() == null ? "" : node.getTitle(), Boolean.TRUE.equals(node.getHasChild()),
-                                seconds(node.getObjEditTime()), seconds(node.getObjCreateTime())));
+                                seconds(node.getObjEditTime()), seconds(node.getObjCreateTime()), blankToNull(node.getUrl())));
                     }
                 return new NodePage(nodes, more(data.getHasMore(), data.getPageToken()));
             });

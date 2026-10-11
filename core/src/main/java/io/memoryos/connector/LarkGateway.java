@@ -143,11 +143,12 @@ public interface LarkGateway {
     }
 
     /**
-     * A Wiki node: a place in a space's tree pointing at one object. {@code objToken} is what the object's own APIs take.
+     * A Wiki node: a place in a space's tree pointing at one object. {@code objToken} is what the object's own APIs
+     * take; {@code url} is the address Lark returns, which a reader opens.
      */
     record Node(String nodeToken, String spaceId, @Nullable String parentNodeToken, ObjectType objType,
                 String objToken, String title, boolean hasChild, @Nullable Instant objEditedAt,
-                @Nullable Instant objCreatedAt) {
+                @Nullable Instant objCreatedAt, @Nullable String url) {
         public Node {
             Objects.requireNonNull(nodeToken, "nodeToken");
             Objects.requireNonNull(spaceId, "spaceId");
