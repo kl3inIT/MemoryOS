@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
+import io.memoryos.BusinessException;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.LarkException;
 import io.memoryos.connector.LarkGateway;
@@ -186,7 +187,7 @@ class PostgresLarkSelectionTest {
                 new Scope(List.of(new Root(RootKind.DRIVE_FOLDER, FOLDER_LINK),
                         new Root(RootKind.DRIVE_FOLDER, "fldDriveTest01")), 30),
                 new Scope(List.of(new Root(RootKind.WIKI_SPACE, SPACE)), 0))) {
-            assertThrows(SourceException.class, () -> sources.create(owner, UUID.randomUUID(), "Lark", credential,
+            assertThrows(BusinessException.class, () -> sources.create(owner, UUID.randomUUID(), "Lark", credential,
                     invalid, SourceAccess.PUBLIC, List.of()), invalid.toString());
         }
         assertThrows(SourceException.class, () -> sources.create(owner, UUID.randomUUID(), " ", credential, scope(),
@@ -211,6 +212,9 @@ class PostgresLarkSelectionTest {
         // The same request ID with other content is another request, and is refused.
         assertThrows(SourceException.class, () -> sources.create(owner, requestId, "Other name", credential, scope(),
                 SourceAccess.PUBLIC, List.of()));
+        // Access decides who reads the documents, so it is part of what the request ID names.
+        assertThrows(SourceException.class, () -> sources.create(owner, requestId, "Lark", credential, scope(),
+                SourceAccess.PRIVATE, List.of()));
     }
 
     @Test

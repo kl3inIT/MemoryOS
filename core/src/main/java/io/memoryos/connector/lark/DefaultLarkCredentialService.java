@@ -59,6 +59,14 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
         String name = requireName(draft.name());
         String appId = requireAppId(draft.appId());
         byte[] secret = requireSecret(draft.appSecret());
+        try {
+            return create(actorId, draft, name, appId, secret);
+        } finally {
+            Arrays.fill(secret, (byte) 0);
+        }
+    }
+
+    private CredentialId create(ActorId actorId, Draft draft, String name, String appId, byte[] secret) {
         transactions.executeWithoutResult(_ -> {
             requireManagement(actorId);
             credentials.requireConfigured();
@@ -67,7 +75,7 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
         try (var credential = new LarkGateway.Credential(draft.region(), appId, secret)) {
             verification = verify(credential);
         }
-        var created = Objects.requireNonNull(transactions.execute(_ -> {
+        return Objects.requireNonNull(transactions.execute(_ -> {
             TenantId tenantId = requireManagement(actorId);
             var id = credentials.create(tenantId, actorId, name, draft.region(), appId, secret, verification.bot(),
                     verification.missingScopes());
@@ -76,8 +84,6 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
                     .detail("authentication", "APP_SECRET").build());
             return id;
         }));
-        Arrays.fill(secret, (byte) 0);
-        return created;
     }
 
     @Override
@@ -85,6 +91,15 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
         String name = requireName(draft.name());
         String appId = requireAppId(draft.appId());
         byte[] secret = requireSecret(draft.appSecret());
+        try {
+            return replaceSecret(actorId, credentialId, expectedRevision, draft, name, appId, secret);
+        } finally {
+            Arrays.fill(secret, (byte) 0);
+        }
+    }
+
+    private long replaceSecret(ActorId actorId, CredentialId credentialId, long expectedRevision, Draft draft,
+            String name, String appId, byte[] secret) {
         transactions.executeWithoutResult(_ -> {
             var stored = requireCredentialMutation(actorId, credentialId);
             if (stored.region() != draft.region() || !stored.appId().equals(appId))
@@ -95,7 +110,7 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
         try (var credential = new LarkGateway.Credential(draft.region(), appId, secret)) {
             verification = verify(credential);
         }
-        long revision = Objects.requireNonNull(transactions.execute(_ -> {
+        return Objects.requireNonNull(transactions.execute(_ -> {
             TenantId tenantId = requireManagement(actorId);
             requireCredentialMutation(actorId, credentialId);
             long replaced = credentials.replaceSecret(tenantId, credentialId, expectedRevision, name, secret,
@@ -105,8 +120,6 @@ public class DefaultLarkCredentialService implements LarkCredentialService {
                     .detail("change", "REPLACE_AUTHENTICATION").build());
             return replaced;
         }));
-        Arrays.fill(secret, (byte) 0);
-        return revision;
     }
 
     @Override

@@ -101,6 +101,11 @@ public class JdbcLarkCredentialRepository {
         return read(tenantId, credentialId, true);
     }
 
+    /** The credential whatever its status, for showing it; only opening a session needs a usable one. */
+    public Stored read(TenantId tenantId, CredentialId credentialId) {
+        return read(tenantId, credentialId, false).orElseThrow(SourceException::notFound);
+    }
+
     public Stored readUsable(TenantId tenantId, CredentialId credentialId) {
         var row = read(tenantId, credentialId, false).orElseThrow(SourceException::notFound);
         if (!row.usable()) throw LarkException.needsUpdate();

@@ -106,8 +106,11 @@ public class DefaultLarkSourceService implements LarkSourceService {
             requireCredentialOwner(creation.authority(), actor, credential.ownerActorId());
             if (!credential.usable()) throw SourceException.conflict("Lark credential is unavailable");
             var roots = roots(scope, credential.region());
+            // Access decides who reads the documents, so a retry under the same request must name the same access.
+            var extra = new ArrayList<String>(List.of(access.name()));
+            groups.forEach(group -> extra.add(group.value().toString()));
             String hash = hash("CREATE", sourceName, credentialId.value().toString(), roots,
-                    scope.syncIntervalMinutes(), groups.stream().map(group -> group.value().toString()).toList());
+                    scope.syncIntervalMinutes(), extra);
             var existing = selections.receipt(tenant, actor, requestId, hash);
             if (existing.isPresent()) return existing.get();
             var source = new SourceId(UUID.randomUUID());

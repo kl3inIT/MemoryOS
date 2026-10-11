@@ -41,7 +41,8 @@ public class LarkConnectionService {
     @Transactional(readOnly = true)
     public State state(TenantId tenantId, SourceId sourceId) {
         var credentialId = sources.credentialId(tenantId, sourceId);
-        var stored = credentials.readUsable(tenantId, credentialId);
+        // The state names a credential that needs an update, so a Source stays readable, pausable and schedulable.
+        var stored = credentials.read(tenantId, credentialId);
         return new State(credentialId, stored.name(), stored.status(), stored.revision());
     }
 

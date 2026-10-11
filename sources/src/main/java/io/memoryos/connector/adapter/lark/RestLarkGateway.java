@@ -498,8 +498,13 @@ public final class RestLarkGateway implements LarkGateway, AutoCloseable {
         var code = answer.get("code");
         int value = code != null && code.isJsonPrimitive() && code.getAsJsonPrimitive().isNumber() ? code.getAsInt() : -1;
         if (value == 0 && raw.getStatusCode() < 400) return answer;
-        // Lark refuses a wrong App ID or secret on the token request with a code of its own.
-        if (tokenRequest) throw new LarkProviderException(raw.getStatusCode() == 429 ? QUOTA : AUTHENTICATION);
+        // Lark refuses a wrong App ID or secret on the token request with a code of its own; a limit or an outage
+        // keeps its own meaning, so the credential is not marked for an update it does not need.
+        if (tokenRequest) {
+            var refused = failure(raw.getStatusCode(), value, Set.of());
+            throw refused.failure() == QUOTA || refused.failure() == UNAVAILABLE ? refused
+                    : new LarkProviderException(AUTHENTICATION);
+        }
         Set<String> scopes = Set.of();
         try {
             if (answer.has("error")) scopes = scopes(Jsons.DEFAULT.fromJson(answer.get("error"), Error.class));

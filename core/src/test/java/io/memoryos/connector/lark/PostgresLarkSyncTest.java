@@ -2,6 +2,7 @@ package io.memoryos.connector.lark;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -21,6 +22,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.LarkException;
 import io.memoryos.connector.LarkGateway;
 import io.memoryos.connector.LarkGateway.ObjectType;
 import io.memoryos.connector.LarkProviderException;
@@ -93,6 +95,7 @@ class PostgresLarkSyncTest {
     private JdbcSourceSyncRepository attempts;
     private JdbcLarkSourceRepository lark;
     private SourceSyncEngine service;
+    private LarkConnectionService currentConnections;
 
     @AfterEach
     void closeDatabase() {
@@ -119,7 +122,7 @@ class PostgresLarkSyncTest {
         lark = new JdbcLarkSourceRepository(jdbc, sources);
         var credentialRows = new JdbcLarkCredentialRepository(jdbc, sources,
                 new LarkCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test"));
-        var currentConnections = new LarkConnectionService(credentialRows, lark, mock(LarkGateway.class), manager);
+        currentConnections = new LarkConnectionService(credentialRows, lark, mock(LarkGateway.class), manager);
         var indexing = new JdbcIndexAttemptRepository(jdbc, sources, documents, SourceSyncAdapters.registry(
                 SourceSyncAdapters.credentials(SourceType.LARK, currentConnections::current)));
 
@@ -327,6 +330,16 @@ class PostgresLarkSyncTest {
         assertEquals(List.of("FAILED"), runStatuses());
         var summary = new JdbcSourceQueryRepository(jdbc).summary(tenant, owner, source, true, true, true);
         assertEquals("SOURCE_LARK_AUTHENTICATION", summary.errorCode());
+    }
+
+    @Test
+    void theStateOfASourceNamesACredentialThatNeedsAnUpdate() {
+        jdbc.sql("UPDATE credentials SET status = 'NEEDS_UPDATE' WHERE tenant_id = :tenant AND id = :id")
+                .param("tenant", tenant.value()).param("id", credential.value()).update();
+
+        // The Source stays readable, pausable and schedulable; only opening a session needs a usable credential.
+        assertEquals("NEEDS_UPDATE", currentConnections.state(tenant, source).status());
+        assertThrows(LarkException.class, () -> currentConnections.openCredential(tenant, credential));
     }
 
     @Test
