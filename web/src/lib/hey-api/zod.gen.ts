@@ -593,6 +593,37 @@ export const zSharePointCredentialResponse = z.object({
     actions: z.array(z.string())
 });
 
+export const zRenameLarkCredentialRequest = z.object({
+    name: z.string().min(0).max(120)
+});
+
+export const zLarkCredentialRequest = z.object({
+    name: z.string().min(0).max(120),
+    region: z.enum(['LARK', 'FEISHU']),
+    appId: z.string().min(0).max(64),
+    appSecret: z.string().min(0).max(256)
+});
+
+export const zLarkCredentialResponse = z.object({
+    id: z.uuid(),
+    name: z.string(),
+    region: z.string(),
+    appId: z.string(),
+    status: z.string(),
+    botName: z.string().optional(),
+    missingScopes: z.array(z.string()),
+    credentialRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+    sourceCount: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    actions: z.array(z.string())
+});
+
+export const zLarkCredentialTestResponse = z.object({
+    botName: z.string(),
+    missingScopes: z.array(z.string())
+});
+
 export const zGoogleDriveServiceAccountRequest = z.object({
     name: z.string().min(0).max(120),
     serviceAccountKeyJson: z.string().min(0).max(16384),
@@ -7929,3 +7960,67 @@ export const zDeleteChatFileArtifactPath = z.object({
  * File deleted
  */
 export const zDeleteChatFileArtifactResponse = z.void();
+
+/**
+ * Lark credentials
+ */
+export const zListLarkCredentialsResponse = z.array(zLarkCredentialResponse);
+
+export const zCreateLarkCredentialBody = zLarkCredentialRequest;
+
+/**
+ * Stored Lark credential
+ */
+export const zCreateLarkCredentialResponse = zLarkCredentialResponse;
+
+export const zDeleteLarkCredentialHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zDeleteLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential deleted
+ */
+export const zDeleteLarkCredentialResponse = z.void();
+
+export const zRenameLarkCredentialBody = zRenameLarkCredentialRequest;
+
+export const zRenameLarkCredentialHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zRenameLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential renamed
+ */
+export const zRenameLarkCredentialResponse = z.void();
+
+export const zReplaceLarkCredentialSecretBody = zLarkCredentialRequest;
+
+export const zReplaceLarkCredentialSecretHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zReplaceLarkCredentialSecretPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Updated Lark credential
+ */
+export const zReplaceLarkCredentialSecretResponse = zLarkCredentialResponse;
+
+export const zTestLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential works
+ */
+export const zTestLarkCredentialResponse = zLarkCredentialTestResponse;

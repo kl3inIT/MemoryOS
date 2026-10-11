@@ -635,6 +635,52 @@ export type SharePointCredentialResponse = {
     actions: Array<string>;
 };
 
+export type RenameLarkCredentialRequest = {
+    name: string;
+};
+
+export type LarkCredentialRequest = {
+    name: string;
+    /**
+     * Lark international or Feishu
+     */
+    region: 'LARK' | 'FEISHU';
+    /**
+     * App ID of the custom app, starting with cli_
+     */
+    appId: string;
+    /**
+     * App Secret of the custom app
+     */
+    appSecret: string;
+};
+
+export type LarkCredentialResponse = {
+    id: string;
+    name: string;
+    region: string;
+    appId: string;
+    status: string;
+    /**
+     * The bot Lark named at the last verification: what is added to a space or a folder
+     */
+    botName?: string;
+    /**
+     * Read scopes Lark refused to the app's tenant token at the last verification
+     */
+    missingScopes: Array<string>;
+    credentialRevision: number;
+    createdAt: string;
+    updatedAt: string;
+    sourceCount: number;
+    actions: Array<string>;
+};
+
+export type LarkCredentialTestResponse = {
+    botName: string;
+    missingScopes: Array<string>;
+};
+
 export type GoogleDriveServiceAccountRequest = {
     name: string;
     /**
@@ -19147,3 +19193,290 @@ export type DeleteChatFileArtifactResponses = {
 };
 
 export type DeleteChatFileArtifactResponse = DeleteChatFileArtifactResponses[keyof DeleteChatFileArtifactResponses];
+
+export type ListLarkCredentialsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/credentials/lark';
+};
+
+export type ListLarkCredentialsErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ListLarkCredentialsError = ListLarkCredentialsErrors[keyof ListLarkCredentialsErrors];
+
+export type ListLarkCredentialsResponses = {
+    /**
+     * Lark credentials
+     */
+    200: Array<LarkCredentialResponse>;
+};
+
+export type ListLarkCredentialsResponse = ListLarkCredentialsResponses[keyof ListLarkCredentialsResponses];
+
+export type CreateLarkCredentialData = {
+    body: LarkCredentialRequest;
+    path?: never;
+    query?: never;
+    url: '/api/credentials/lark';
+};
+
+export type CreateLarkCredentialErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type CreateLarkCredentialError = CreateLarkCredentialErrors[keyof CreateLarkCredentialErrors];
+
+export type CreateLarkCredentialResponses = {
+    /**
+     * Stored Lark credential
+     */
+    201: LarkCredentialResponse;
+};
+
+export type CreateLarkCredentialResponse = CreateLarkCredentialResponses[keyof CreateLarkCredentialResponses];
+
+export type DeleteLarkCredentialData = {
+    body?: never;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/lark/{credentialId}';
+};
+
+export type DeleteLarkCredentialErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type DeleteLarkCredentialError = DeleteLarkCredentialErrors[keyof DeleteLarkCredentialErrors];
+
+export type DeleteLarkCredentialResponses = {
+    /**
+     * Lark credential deleted
+     */
+    204: void;
+};
+
+export type DeleteLarkCredentialResponse = DeleteLarkCredentialResponses[keyof DeleteLarkCredentialResponses];
+
+export type RenameLarkCredentialData = {
+    body: RenameLarkCredentialRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/lark/{credentialId}';
+};
+
+export type RenameLarkCredentialErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type RenameLarkCredentialError = RenameLarkCredentialErrors[keyof RenameLarkCredentialErrors];
+
+export type RenameLarkCredentialResponses = {
+    /**
+     * Lark credential renamed
+     */
+    204: void;
+};
+
+export type RenameLarkCredentialResponse = RenameLarkCredentialResponses[keyof RenameLarkCredentialResponses];
+
+export type ReplaceLarkCredentialSecretData = {
+    body: LarkCredentialRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/lark/{credentialId}/secret';
+};
+
+export type ReplaceLarkCredentialSecretErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ReplaceLarkCredentialSecretError = ReplaceLarkCredentialSecretErrors[keyof ReplaceLarkCredentialSecretErrors];
+
+export type ReplaceLarkCredentialSecretResponses = {
+    /**
+     * Updated Lark credential
+     */
+    200: LarkCredentialResponse;
+};
+
+export type ReplaceLarkCredentialSecretResponse = ReplaceLarkCredentialSecretResponses[keyof ReplaceLarkCredentialSecretResponses];
+
+export type TestLarkCredentialData = {
+    body?: never;
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/lark/{credentialId}/test';
+};
+
+export type TestLarkCredentialErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type TestLarkCredentialError = TestLarkCredentialErrors[keyof TestLarkCredentialErrors];
+
+export type TestLarkCredentialResponses = {
+    /**
+     * Lark credential works
+     */
+    200: LarkCredentialTestResponse;
+};
+
+export type TestLarkCredentialResponse = TestLarkCredentialResponses[keyof TestLarkCredentialResponses];

@@ -13,7 +13,7 @@ public record LarkCredentialRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) @NotBlank @Size(max = 120) String name,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Lark international or Feishu")
         @NotNull LarkGateway.Region region,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "App ID of the custom app, cli_…")
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "App ID of the custom app, starting with cli_")
         @NotBlank @Size(max = 64) String appId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "App Secret of the custom app")
         @NotBlank @Size(max = 256) String appSecret) {

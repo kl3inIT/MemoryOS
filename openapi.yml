@@ -21087,6 +21087,388 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/credentials/lark:
+    get:
+      tags:
+      - Credentials
+      summary: List reusable Tenant-owned Lark credentials
+      operationId: listLarkCredentials
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark credentials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Credentials
+      summary: Verify a Lark custom app with Lark and store it; nothing is stored when Lark rejects it
+      operationId: createLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Stored Lark credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}:
+    put:
+      tags:
+      - Credentials
+      summary: Rename a Lark credential with a revision precondition
+      operationId: renameLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameLarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Lark credential renamed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Credentials
+      summary: Delete an unused Lark credential with a revision precondition
+      operationId: deleteLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Lark credential deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}/secret:
+    put:
+      tags:
+      - Credentials
+      summary: Replace the App Secret of an existing Lark credential of the same app
+      operationId: replaceLarkCredentialSecret
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated Lark credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}/test:
+    post:
+      tags:
+      - Credentials
+      summary: "Ask Lark for a tenant token, read the bot and probe the read scopes; records what Lark said"
+      operationId: testLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark credential works
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialTestResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
 components:
   schemas:
     ReplaceSharePointScopeRequest:
@@ -22676,6 +23058,109 @@ components:
       - sourceCount
       - status
       - updatedAt
+    RenameLarkCredentialRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+      required:
+      - name
+    LarkCredentialRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        region:
+          type: string
+          description: Lark international or Feishu
+          enum:
+          - LARK
+          - FEISHU
+        appId:
+          type: string
+          description: "App ID of the custom app, starting with cli_"
+          maxLength: 64
+          minLength: 0
+        appSecret:
+          type: string
+          description: App Secret of the custom app
+          maxLength: 256
+          minLength: 0
+      required:
+      - appId
+      - appSecret
+      - name
+      - region
+    LarkCredentialResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        region:
+          type: string
+        appId:
+          type: string
+        status:
+          type: string
+        botName:
+          type: string
+          description: "The bot Lark named at the last verification: what is added to a space or a folder"
+        missingScopes:
+          type: array
+          description: Read scopes Lark refused to the app's tenant token at the last verification
+          items:
+            type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        sourceCount:
+          type: integer
+          format: int64
+        actions:
+          type: array
+          items:
+            type: string
+      required:
+      - actions
+      - appId
+      - createdAt
+      - credentialRevision
+      - id
+      - missingScopes
+      - name
+      - region
+      - sourceCount
+      - status
+      - updatedAt
+    LarkCredentialTestResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        botName:
+          type: string
+        missingScopes:
+          type: array
+          items:
+            type: string
+      required:
+      - botName
+      - missingScopes
     GoogleDriveServiceAccountRequest:
       type: object
       additionalProperties: false
