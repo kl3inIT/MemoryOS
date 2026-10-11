@@ -10,7 +10,8 @@
 - [x] `compose.base.yaml`, the Worker configuration and `production.env.example` lose the endpoint; runbook step to create the connection after the deploy
 - [x] Tests: `OcrConnectionServiceTest`, `OcrReadersTest`, `OcrConnectionProbeTest`, `PaddleOcrVlRoutingTest` and the extraction tests on the new signatures
 - [x] `docs/specs/ingestion.md`, `docs/tests/ingestion.md`, `ARCHITECTURE.md`, runbooks
-- [ ] CI; after the deploy, the PaddleOCR-VL connection on staging and production
+- [x] CI; the PaddleOCR-VL connection created and chosen on staging
+- [ ] The PaddleOCR-VL connection on production, when this release is promoted
 
 ## Pull request 2 — OCR tab
 
@@ -26,7 +27,7 @@
 - [x] The Worker wires the provider adapters and their clients through `OcrWorkerComponents`
 - [x] API and tab: a model connection names a model that reads images
 - [x] Tests: `OcrPageReaderTest` (Anthropic wire), `ModelOcrReaderTest`, `OcrConnectionServiceTest`, `OcrConnectionProbeTest`, `ocr-settings.test.tsx`
-- [ ] Staging: a scan read by a model, with its usage and cost
+- [x] Staging: the model connection's test on Claude Haiku, with its usage; a whole scan in the Worker was not run ([verification](verification.md))
 
 ## Pull request 4 — AI Hay
 
@@ -34,8 +35,8 @@
 - [x] `AiHayOcrAdapter` on `OutboundHttp`; `OcrServiceUsage` pricing a page from `ocr/known-services.json`
 - [x] The tab offers AI Hay with its public address, a key and the data boundary
 - [x] Tests: `AiHayOcrAdapterTest` (loopback server), `ocr-settings.test.tsx`
-- [ ] Live test with a key the owner provides
+- [ ] Live test with a key the owner provides: not run, no key was available
 
 ## After the merges
 
-- [ ] Staging: a scan read by each reader; verification; move to `completed/`
+- [x] Verification and the move to `completed/`; what staging did not cover is listed in [verification](verification.md)
