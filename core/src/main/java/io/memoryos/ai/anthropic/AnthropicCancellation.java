@@ -16,6 +16,7 @@ import com.anthropic.core.http.StreamResponse;
 import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.services.async.MessageServiceAsync;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationHandler;
@@ -89,8 +90,10 @@ final class AnthropicCancellation implements AutoCloseable {
                 // options, not in thread state. The view shares the connection pool.
                 var view = client.withOptions(options -> options.httpClient(scope));
                 return call.apply(events == null ? view : observed(view, events))
-                        // Close the raw response first: a blocked read holds the SDK reader's lock.
-                        .doOnCancel(scope::close)
+                        // Close the raw response first: a blocked read holds the SDK reader's lock. The read then ends
+                        // the stream rather than failing it, and the request is cancelled only once nothing listens,
+                        // so a stop never reaches Spring AI, which logs every stream failure, as one.
+                        .doOnCancel(scope::stop)
                         .doFinally(ignored -> scope.close());
             } catch (RuntimeException | Error failure) {
                 scope.close();
@@ -146,6 +149,8 @@ final class AnthropicCancellation implements AutoCloseable {
     private static final class Scope implements HttpClient {
         private final HttpClient transport;
         private final AtomicBoolean closed = new AtomicBoolean();
+        /** Set on cancel, before the subscription upstream is cancelled: a response is closed, a request is left. */
+        private final AtomicBoolean stopping = new AtomicBoolean();
         private final AtomicReference<@Nullable HttpResponse> response = new AtomicReference<>();
         private volatile @Nullable CompletableFuture<HttpResponse> future;
 
@@ -166,7 +171,7 @@ final class AnthropicCancellation implements AutoCloseable {
             pending.whenComplete((received, _) -> {
                 if (received != null) {
                     response.set(received);
-                    if (closed.get()) closeResponse();
+                    if (stopping.get() || closed.get()) closeResponse();
                 }
             });
             if (closed.get()) {
@@ -174,6 +179,11 @@ final class AnthropicCancellation implements AutoCloseable {
                 closeResponse();
             }
             return pending;
+        }
+
+        void stop() {
+            stopping.set(true);
+            closeResponse();
         }
 
         @Override public void close() {
@@ -283,12 +293,32 @@ final class AnthropicCancellation implements AutoCloseable {
             for (int index = 0; index < received.headers().size(); index++)
                 builder.put(received.headers().name(index), received.headers().value(index));
             var headers = builder.build();
-            var body = Objects.requireNonNull(received.body());
+            var closing = new AtomicBoolean();
+            // A read that fails because this response was closed ends the stream: the close is a stop, not a failure.
+            var body = new FilterInputStream(Objects.requireNonNull(received.body()).byteStream()) {
+                @Override public int read() throws IOException {
+                    try {
+                        return super.read();
+                    } catch (IOException failure) {
+                        if (closing.get()) return -1;
+                        throw failure;
+                    }
+                }
+                @Override public int read(byte[] buffer, int offset, int length) throws IOException {
+                    try {
+                        return super.read(buffer, offset, length);
+                    } catch (IOException failure) {
+                        if (closing.get()) return -1;
+                        throw failure;
+                    }
+                }
+            };
             return backend.prepareResponse(new HttpResponse() {
                 @Override public int statusCode() { return received.code(); }
                 @Override public Headers headers() { return headers; }
-                @Override public InputStream body() { return body.byteStream(); }
+                @Override public InputStream body() { return body; }
                 @Override public void close() {
+                    closing.set(true);
                     // ResponseBody.close() may drain chunked SSE instead of stopping its producer.
                     call.cancel();
                     received.close();

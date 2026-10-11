@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.embabel.common.ai.model.LlmOptions;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -34,6 +38,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -297,6 +302,11 @@ class AnthropicProviderAdapterTest {
     void cancellingAStreamClosesItsConnectionBeforeAndAfterTheResponseStarts() throws Exception {
         var meters = new SimpleMeterRegistry();
         var adapter = new AnthropicProviderAdapter(ObservationRegistry.NOOP, meters);
+        // A stop the turn asked for is not a provider failure, so Spring AI must not log one.
+        var logs = new ListAppender<ILoggingEvent>();
+        var springAi = (Logger) LoggerFactory.getLogger("org.springframework.ai");
+        logs.start();
+        springAi.addAppender(logs);
         try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
              var executor = Executors.newVirtualThreadPerTaskExecutor();
              var client = adapter.create(new ProviderAdapter.Connection("http://127.0.0.1:" + server.getLocalPort(), "fixture-only"),
@@ -348,7 +358,14 @@ class AnthropicProviderAdapterTest {
                     assertEquals(-1, eof.get(10, TimeUnit.SECONDS));
                 } finally { subscription.dispose(); }
             }
-        } finally { meters.close(); }
+            // The reader thread sees the closed connection shortly after the cancel returns.
+            Thread.sleep(500);
+            assertEquals(List.of(), logs.list.stream().filter(event -> event.getLevel().isGreaterOrEqual(Level.WARN))
+                    .map(ILoggingEvent::getFormattedMessage).toList());
+        } finally {
+            springAi.detachAppender(logs);
+            meters.close();
+        }
     }
 
     private static JsonNode call(ProviderAdapter.Client client, LlmOptions options, List<Received> received) {
