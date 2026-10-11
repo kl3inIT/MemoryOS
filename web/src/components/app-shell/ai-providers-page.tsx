@@ -14,11 +14,6 @@ type ProviderTab = {
   label: AppText;
   /** Loaded when the tab opens, so one tab never ships the other four. */
   content: ComponentType;
-  /**
-   * The model catalog needs the wide page; the connection lists keep the standard width they had as pages of their
-   * own, centred. The whole page takes the open tab's width, so the header and tabs stay aligned with the content.
-   */
-  wide?: boolean;
 };
 
 const providerTabs: readonly ProviderTab[] = [
@@ -28,7 +23,6 @@ const providerTabs: readonly ProviderTab[] = [
     content: lazy(() =>
       import("@/features/models/models-page").then((module) => ({ default: module.ModelsPage })),
     ),
-    wide: true,
   },
   {
     id: "system-one",
@@ -85,7 +79,8 @@ export function AiProvidersPage() {
   }, [tab]);
 
   return (
-    <SettingsLayout wide={providerTabs.find((each) => each.id === tab)?.wide}>
+    // One standard width for every tab, as BeyondPilot keeps one frame, so the header and tabs never move.
+    <SettingsLayout>
       <PageHeader title={ui("AI Providers")} icon={<Sparkles />} />
       <Tabs
         value={tab}
