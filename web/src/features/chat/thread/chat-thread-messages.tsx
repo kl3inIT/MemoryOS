@@ -100,7 +100,7 @@ function ChatFailureNotice({ code }: { code?: string }) {
     );
   } else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED" && manager) {
     title = ui("Provider từ chối API key");
-    detail = <Link to="/admin/models">{ui("Cập nhật API key")}</Link>;
+    detail = <Link to="/admin/ai-providers">{ui("Cập nhật API key")}</Link>;
   } else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED") {
     title = ui("Model không dùng được");
     detail = ui("Hãy chọn model khác hoặc báo quản trị viên.");

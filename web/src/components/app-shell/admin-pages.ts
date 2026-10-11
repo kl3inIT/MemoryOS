@@ -1,11 +1,8 @@
 import { useMatchRoute, type LinkProps } from "@tanstack/react-router";
 import {
-  AudioLines,
   Blocks,
   Bot,
   Cable,
-  Globe,
-  ImageIcon,
   KeyRound,
   Library,
   MessageSquare,
@@ -16,7 +13,6 @@ import {
   ScrollText,
   SquareTerminal,
   Sparkles,
-  Split,
   User,
   Users,
   type LucideIcon,
@@ -30,14 +26,10 @@ export type AdminPage =
   | "documentSets"
   | "users"
   | "groups"
-  | "web"
-  | "voice"
-  | "images"
   | "interpreter"
   | "chat"
   | "providers"
-  | "models"
-  | "system-one"
+  | "aiProviders"
   | "searchSettings"
   | "mcp"
   | "mcpEndpoint"
@@ -77,47 +69,11 @@ const readSources = (authority: AdminAuthority) => authority.canReadSources;
 /** Every administration page, in sidebar order within its section. */
 export const adminPages: readonly AdminPageEntry[] = [
   {
-    id: "models",
-    to: "/admin/models",
-    label: appText("Mô hình"),
-    title: appText("Models"),
+    id: "aiProviders",
+    to: "/admin/ai-providers",
+    label: appText("AI Providers"),
+    title: appText("AI Providers"),
     icon: Sparkles,
-    group: "configuration",
-    visible: manageModels,
-  },
-  {
-    id: "system-one",
-    to: "/admin/system-one",
-    label: appText("Phân loại (System One)"),
-    title: appText("Phân loại (System One)"),
-    icon: Split,
-    group: "configuration",
-    visible: manageModels,
-  },
-  {
-    id: "web",
-    to: "/admin/web-search",
-    label: appText("Tìm kiếm Web"),
-    title: appText("Tìm kiếm Web"),
-    icon: Globe,
-    group: "configuration",
-    visible: manageModels,
-  },
-  {
-    id: "voice",
-    to: "/admin/voice",
-    label: appText("Giọng nói"),
-    title: appText("Giọng nói"),
-    icon: AudioLines,
-    group: "configuration",
-    visible: manageModels,
-  },
-  {
-    id: "images",
-    to: "/admin/image-generation",
-    label: appText("Tạo ảnh"),
-    title: appText("Tạo ảnh"),
-    icon: ImageIcon,
     group: "configuration",
     visible: manageModels,
   },
@@ -262,7 +218,7 @@ const entryOrder: readonly AdminPage[] = [
   "sources",
   "users",
   "providers",
-  "models",
+  "aiProviders",
   "mcp",
   "agents",
   "audit",
