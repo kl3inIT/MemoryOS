@@ -57,7 +57,8 @@
 
 ## 7. Verification and consolidation
 
-- [ ] Staging run on the test tenant: setup, sync, search and chat as two readers with different access; browser
-  screenshots reviewed.
-- [ ] `ARCHITECTURE.md`, `docs/specs/connector.md`, `docs/tests/connector.md`, setup runbook (scopes for the tenant
-  token type); roadmap reconciled; MEM-118's Lark section points here.
+- [x] Staging run on the test tenant: setup, sync and search as readers with different access, a revoked share,
+  and the browser review with its three fixes looked at again ([verification](verification.md)). Chat grounding on
+  Lark documents was not exercised; it reads through the search scope verified here.
+- [x] `ARCHITECTURE.md`, `docs/specs/connector.md`, `docs/tests/connector.md`, the
+  [setup runbook](../../../runbooks/lark-connector.md); roadmap reconciled; MEM-118's Lark section points here.

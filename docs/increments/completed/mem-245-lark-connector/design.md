@@ -2,7 +2,7 @@
 
 Status: **design accepted 2026-10-12; implementation in progress.** Linear:
 [MEM-245](https://linear.app/memory-os/issue/MEM-245). It is the Lark Suite part of
-[MEM-118](../mem-118-connector-adapters-lark/design.md#6-lark-suite) (which absorbed MEM-128), split out so the
+[MEM-118](../../active/mem-118-connector-adapters-lark/design.md#6-lark-suite) (which absorbed MEM-128), split out so the
 connector standardization and the reader hierarchy can close on their own.
 
 ## Problem
