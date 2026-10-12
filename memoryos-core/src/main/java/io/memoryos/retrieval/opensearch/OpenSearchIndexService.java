@@ -315,7 +315,10 @@ public class OpenSearchIndexService implements SearchIndex {
                 body.append(mapper.writeValueAsString(source)).append('\n');
             }
             // A cancelled FUTURE's index can be deleted while its chunks are embedded; the alias went with it.
-            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString());
+            // Only the last batch waits for a refresh, which makes every batch visible to the count below: waiting
+            // on each cost a second a batch, thirty seconds for a document of nine hundred chunks (MEM-248).
+            boolean last = offset + embeddings.batchSize() >= document.chunks().size();
+            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString(), last);
             if (OpenSearchGateway.indexMissing(response)) return false;
             if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
             int acknowledged = 0;
@@ -555,7 +558,8 @@ public class OpenSearchIndexService implements SearchIndex {
             for (String id : batch) {
                 body.append(mapper.writeValueAsString(Map.of("update", Map.of("_id", id)))).append('\n').append(update).append('\n');
             }
-            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString());
+            // As for a content write, only the last batch waits for the refresh that shows them all.
+            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString(), offset + ACCESS_UPDATE_BATCH >= ids.size());
             if (OpenSearchGateway.indexMissing(response)) { invalidate(identity); return; }
             // Every chunk must accept the same fields; a missing chunk means a concurrent rewrite, so the work retries.
             if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
