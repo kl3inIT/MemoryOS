@@ -70,6 +70,9 @@ public interface LarkGateway {
         /** One page of a department's direct members. */
         MemberPage departmentMembers(String departmentId, @Nullable String pageToken);
 
+        /** One page of every department below a department, at any depth. */
+        DepartmentPage departmentChildren(String departmentId, @Nullable String pageToken);
+
         /** One page of a Wiki space's members. */
         CollaboratorPage spaceMembers(String spaceId, @Nullable String pageToken);
 
@@ -233,6 +236,11 @@ public interface LarkGateway {
         public User { Objects.requireNonNull(openId, "openId"); }
 
         @Override public @NonNull String toString() { return "User[" + openId + "]"; }
+    }
+
+    /** Departments, by {@code open_department_id}. */
+    record DepartmentPage(List<String> departmentIds, @Nullable String pageToken) {
+        public DepartmentPage { departmentIds = List.copyOf(departmentIds); }
     }
 
     /** Members of a chat or a department, by {@code open_id}. */

@@ -18,7 +18,7 @@ final class LarkProviderMetrics {
     /** What the connector asked Lark for. */
     enum Operation {
         TOKEN, BOT, SCOPES, SPACES, SPACE, NODES, FOLDER, FILES, DOCX, SHEET, CONTENT, PERMISSIONS, USERS,
-        CHAT_MEMBERS, DEPARTMENT_MEMBERS, SPACE_MEMBERS
+        CHAT_MEMBERS, DEPARTMENT_MEMBERS, DEPARTMENT_CHILDREN, SPACE_MEMBERS
     }
 
     private final Map<Operation, Counter> succeeded = new EnumMap<>(Operation.class);

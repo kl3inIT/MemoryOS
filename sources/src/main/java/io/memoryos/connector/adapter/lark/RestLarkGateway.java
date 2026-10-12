@@ -24,6 +24,7 @@ import com.lark.oapi.core.utils.Jsons;
 import com.lark.oapi.service.auth.v3.model.InternalTenantAccessTokenReq;
 import com.lark.oapi.service.auth.v3.model.InternalTenantAccessTokenReqBody;
 import com.lark.oapi.service.contact.v3.model.BatchUserReq;
+import com.lark.oapi.service.contact.v3.model.ChildrenDepartmentReq;
 import com.lark.oapi.service.contact.v3.model.FindByDepartmentUserReq;
 import com.lark.oapi.service.docx.v1.model.ListDocumentBlockReq;
 import com.lark.oapi.service.drive.v1.model.BatchQueryMetaReq;
@@ -422,6 +423,19 @@ public final class RestLarkGateway implements LarkGateway, AutoCloseable {
                     for (var user : data.getItems())
                         if (user.getOpenId() != null) members.add(user.getOpenId());
                 return new MemberPage(members, more(data.getHasMore(), data.getPageToken()));
+            });
+        }
+
+        @Override public DepartmentPage departmentChildren(String departmentId, @Nullable String pageToken) {
+            return metrics.record(Operation.DEPARTMENT_CHILDREN, () -> {
+                var data = typed(() -> client.contact().v3().department().children(ChildrenDepartmentReq.newBuilder()
+                        .departmentId(departmentId).departmentIdType("open_department_id").fetchChild(true)
+                        .pageSize(NODE_PAGE).pageToken(pageToken).build(), tenant)).getData();
+                var departments = new ArrayList<String>();
+                if (data.getItems() != null)
+                    for (var department : data.getItems())
+                        if (department.getOpenDepartmentId() != null) departments.add(department.getOpenDepartmentId());
+                return new DepartmentPage(departments, more(data.getHasMore(), data.getPageToken()));
             });
         }
 

@@ -278,6 +278,32 @@ class RestLarkGatewayTest {
     }
 
     @Test
+    void aChatADepartmentAndTheDepartmentsBelowItNameTheirPeopleByOpenId() throws Exception {
+        try (var fixture = lark(Map.of(
+                "/open-apis/im/v1/chats/oc_kinh-doanh/members", "chat-members",
+                "/open-apis/contact/v3/departments/od-kinh-doanh/children", "department-children",
+                "/open-apis/contact/v3/users/find_by_department", "department-users"));
+             var gateway = gateway(fixture); var session = gateway.open(credential())) {
+            var chat = session.chatMembers("oc_kinh-doanh", null);
+            assertEquals(List.of("ou_minh-tran", "ou_lan-nguyen"), chat.openIds());
+            assertNull(chat.pageToken());
+
+            // Every department below, at any depth, so a department counts the people of its sub-departments.
+            assertEquals(List.of("od-kinh-doanh-mien-bac"),
+                    session.departmentChildren("od-kinh-doanh", null).departmentIds());
+            assertTrue(fixture.requests.stream().anyMatch(uri -> uri.getPath().endsWith("/children")
+                    && uri.getQuery().contains("fetch_child=true")
+                    && uri.getQuery().contains("department_id_type=open_department_id")));
+
+            assertEquals(List.of("ou_lan-nguyen"),
+                    session.departmentMembers("od-kinh-doanh-mien-bac", null).openIds());
+            assertTrue(fixture.requests.stream().anyMatch(uri -> uri.getPath().endsWith("/find_by_department")
+                    && uri.getQuery().contains("department_id=od-kinh-doanh-mien-bac")
+                    && uri.getQuery().contains("user_id_type=open_id")));
+        }
+    }
+
+    @Test
     void aRefusedScopeNamesTheScopesAndARefusedDocumentNamesNone() throws Exception {
         try (var fixture = new Fixture(exchange -> {
             if (token(exchange)) return ok(TOKEN);
