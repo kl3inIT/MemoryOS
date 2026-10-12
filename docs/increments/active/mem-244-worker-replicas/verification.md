@@ -19,6 +19,21 @@ Release `4877daeb` (with the Lark connector): the Worker started in 13.2 s on th
 
 That check found the relay's ceiling: after a Worker restart the search operation of a document just read stayed `NOT_STARTED` with `dispatch_attempts = 0` for more than two minutes while the search relay published 2 rows every 5 s (06:13:24, :29, :34 …), every stream was empty and no transaction ran longer than 3 s. Without a restart the same operation was published 2 s after its creation and done in 7 s. Pull request 4 follows from it.
 
+## Pull request 4 on staging (2026-10-12)
+
+Release `68c10df7`, one Worker, 44 seconds after it started (the case that took 150 s before). Sixteen scanned PDFs of at most 1.2 MB were reindexed at once.
+
+| Measure | Before (`4877daeb`, after a restart) | After |
+| --- | --- | --- |
+| Search operation, creation to publication | 73 s average, 150 s at worst | 0.9 s average, 1.9 s at worst (17 operations) |
+| Search operation, creation to start | not measured apart | 10.4 s average, 34.1 s at worst: two run at once, the rest wait for a slot |
+| Publications an operation | up to 2 | 1 each |
+| Consumers a group in Redis | more than 230 | 3 |
+
+All sixteen documents `SUCCEEDED` on attempt 1 and their seventeen search operations ended `SUCCESS` on attempt 1. Eight documents ran at once; the ninth started 33 s after its creation, when the first slot came free, where a reader that waited for its batch would have started it after the slowest of the eight (254 s). No ERROR was logged; the streams were empty afterwards.
+
+What bounds search now is the Worker: two search operations at once (`MEMORYOS_WORKER_SEARCH_BATCH_SIZE`). Publishing right after commit would save under a second of the 10 s, so it is not added.
+
 ## Two replicas on production (2026-10-12)
 
 Release `3ed6da57`, `MEMORYOS_WORKER_REPLICAS=2`, the application role's connection limit raised from 40 to 60 (15 + 2 × 10 + 10 = 45), PaddleOCR-VL requests lowered from 8 to 4 a Worker so the serving node still receives 8.
