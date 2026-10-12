@@ -327,6 +327,7 @@ services:
       MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI: ${MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI:?Set MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI}
       MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI: ${MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI:?Set MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI}
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_LARK_CREDENTIAL_KEY_VERSION: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_LARK_CREDENTIAL_KEY_VERSION}
       MEMORYOS_MCP_REDIRECT_URI: ${MEMORYOS_MCP_REDIRECT_URI:?Set MEMORYOS_MCP_REDIRECT_URI}
       # MEM-114: optional; unset, the deployment has no MCP endpoint and its switch stays locked.
       MEMORYOS_MCP_ENDPOINT_URL: ${MEMORYOS_MCP_ENDPOINT_URL:-}
@@ -340,6 +341,7 @@ services:
       MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
       MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/lark_credential_encryption_key
       MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/mcp_credential_encryption_key
       # MEM-207: the memoryos-mcp-admin client secret, with which the API keeps the trusted apps in Keycloak.
       MEMORYOS_MCP_ADMIN_CLIENT_SECRET_FILE: /run/secrets/mcp_admin_client_secret
@@ -357,6 +359,7 @@ services:
       - opensearch_password
       - chat_catalog_encryption_key
       - google_drive_credential_encryption_key
+      - lark_credential_encryption_key
       - mcp_credential_encryption_key
       - mcp_admin_client_secret
     depends_on:
@@ -451,11 +454,13 @@ services:
       MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
       MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_LARK_CREDENTIAL_KEY_VERSION: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_LARK_CREDENTIAL_KEY_VERSION}
       MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}
       MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
       MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
       MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE: /run/secrets/docling_api_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/lark_credential_encryption_key
       MEMORYOS_EMBEDDING_ENDPOINT: ${MEMORYOS_EMBEDDING_ENDPOINT:-}
       # The embedding provider chosen on the Search settings page keeps its key encrypted with the
       # catalog key (MEM-135), and the worker embeds every indexed chunk with it.
@@ -468,6 +473,7 @@ services:
       - opensearch_password
       - docling_api_key
       - google_drive_credential_encryption_key
+      - lark_credential_encryption_key
       - chat_catalog_encryption_key
     depends_on:
       api:
@@ -694,6 +700,8 @@ secrets:
     file: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/chat-catalog-key.txt}
   google_drive_credential_encryption_key:
     file: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/google-drive-credential-key.txt}
+  lark_credential_encryption_key:
+    file: ${MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/lark-credential-key.txt}
   mcp_credential_encryption_key:
     file: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/mcp-credential-key.txt}
   mcp_admin_client_secret:

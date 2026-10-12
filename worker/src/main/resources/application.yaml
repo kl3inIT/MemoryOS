@@ -108,6 +108,10 @@ memoryos:
       timeout: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_TIMEOUT:30m}
       revision: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_REVISION:}
       max-concurrent-requests: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS:2}
+  lark:
+    # MEM-245. Empty: Lark credentials cannot be stored or read; the other providers are unaffected.
+    credential-encryption-key: ${MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:}
   sharepoint:
     credential-encryption-key: ${MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:}

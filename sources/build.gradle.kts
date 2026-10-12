@@ -12,6 +12,8 @@ dependencies {
     implementation(libs.msal4j)
     // SharePoint through the Microsoft Graph SDK (MEM-226); its OkHttp transport is built in GraphTransport.
     implementation(libs.microsoft.graph)
+    // Lark Suite through Lark's SDK; its requests run on LarkTransport (MEM-245).
+    implementation(libs.lark.oapi)
     // Google Drive through Google's API clients; their OAuth library sends the token requests (MEM-226).
     implementation(libs.google.api.drive)
     implementation(libs.google.api.sheets)

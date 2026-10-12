@@ -80,14 +80,14 @@ public class McpEndpointTools {
     @McpTool(name = "search", title = "Search organization knowledge", generateOutputSchema = true,
             description = """
                     Searches the organization's documents in MemoryOS that the signed-in person may read: contracts, \
-                    policies, reports, meeting minutes and files from Google Drive, SharePoint and uploads. Use it for \
-                    anything that is not public knowledge and is specific to the person, their team, their work or \
+                    policies, reports, meeting minutes and files from Google Drive, SharePoint, Lark Suite and uploads. Use it \
+                    for anything that is not public knowledge and is specific to the person, their team, their work or \
                     their organization. When the person limits the search to a source, a document set, a period or a \
                     file type, use search_with_filters instead.
 
                     Returns {"results": [{id, title, url, sourceNumber, text, updatedAt, sources}]}, at most 10, \
                     best first. text holds the passages that matched, cut at 2,000 characters. url opens the document \
-                    where it lives: Google Drive, SharePoint, or MemoryOS for an upload. updatedAt is when it last \
+                    where it lives: Google Drive, SharePoint, Lark, or MemoryOS for an upload. updatedAt is when it last \
                     changed there. Link each claim to its result's url as a Markdown link so the person can open the \
                     source. Call fetch with a result's id to read the whole document when the passages are not \
                     enough. An empty list means nothing the person can read matched; say so rather than guessing.
@@ -106,7 +106,7 @@ public class McpEndpointTools {
             generateOutputSchema = true,
             description = """
                     Use this instead of search when the person limits the search to where documents come from \
-                    (Google Drive, SharePoint or files uploaded to MemoryOS), to their document sets, to a period, \
+                    (Google Drive, SharePoint, Lark Suite or files uploaded to MemoryOS), to their document sets, to a period, \
                     or to a file type. Pass only the filters the person asked for; never add one to narrow results \
                     yourself. A filter left out keeps everything.
 
@@ -270,7 +270,7 @@ public class McpEndpointTools {
         });
     }
 
-    /** A Drive or SharePoint Document opens in its provider; any other opens in MemoryOS's own document view. */
+    /** A Drive, SharePoint or Lark Document opens in its provider; any other opens in MemoryOS's own document view. */
     private String url(UUID documentId, @Nullable String providerUrl) {
         if (providerUrl != null) return providerUrl;
         URI origin = endpoint.origin().orElseThrow(() -> new IllegalStateException("MCP endpoint URL is not configured"));
@@ -365,7 +365,7 @@ public class McpEndpointTools {
      * {@code url} opens the document where it lives, so a client can link a claim to it, as Onyx and Glean return it;
      * {@code sourceNumber} counts from 1 in rank order; {@code text} is the matching passages; {@code updatedAt} is
      * when the provider last changed it; {@code sources} names where the document comes from (GOOGLE_DRIVE,
-     * SHAREPOINT, FILE), as far as the person may see.
+     * SHAREPOINT, LARK, FILE), as far as the person may see.
      */
     public record SearchResult(String id, String title, String url, int sourceNumber, String text, String updatedAt,
                                List<String> sources) {}

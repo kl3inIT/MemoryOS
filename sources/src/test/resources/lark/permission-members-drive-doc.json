@@ -1,0 +1,26 @@
+{
+ "code": 0,
+ "data": {
+  "items": [
+   {
+    "external_label": false,
+    "member_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "member_type": "openid",
+    "name": "Test Owner",
+    "perm": "full_access",
+    "perm_type": "container",
+    "type": "user"
+   },
+   {
+    "external_label": false,
+    "member_id": "cli_aa4102bd7238de15",
+    "member_type": "appid",
+    "name": "Test Owner",
+    "perm": "view",
+    "perm_type": "container",
+    "type": "app"
+   }
+  ]
+ },
+ "msg": "Success"
+}

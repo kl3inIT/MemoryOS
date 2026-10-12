@@ -55,7 +55,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                       AND m.file_id = item.provider_file_id AND m.eligible AND NOT m.excluded
                       AND v.scope_revision = s.scope_revision
                 ))
-                OR (connector.connector_type = 'SHAREPOINT' AND EXISTS (
+                OR (connector.connector_type IN ('SHAREPOINT', 'LARK') AND EXISTS (
                     SELECT 1 FROM source_sync_state s
                     JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
                     WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id

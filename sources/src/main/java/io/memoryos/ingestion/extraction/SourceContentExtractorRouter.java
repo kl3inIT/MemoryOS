@@ -3,6 +3,8 @@ package io.memoryos.ingestion.extraction;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.adapter.googledrive.GoogleDocsSourceContentExtractor;
 import io.memoryos.connector.adapter.googledrive.GoogleSheetsSourceContentExtractor;
+import io.memoryos.connector.adapter.lark.LarkDocxSourceContentExtractor;
+import io.memoryos.connector.adapter.lark.LarkSheetSourceContentExtractor;
 import io.memoryos.connector.adapter.sharepoint.SharePointPageSourceContentExtractor;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
@@ -26,6 +28,8 @@ public final class SourceContentExtractorRouter implements SourceContentExtracto
     private final GoogleSheetsSourceContentExtractor sheets;
     private final GoogleDocsSourceContentExtractor docs;
     private final SharePointPageSourceContentExtractor sharePointPages;
+    private final LarkDocxSourceContentExtractor larkDocuments;
+    private final LarkSheetSourceContentExtractor larkSheets;
 
     /** @param ocr the Tenant's OCR reader, null when Docling reads its scans */
     SourceContentExtractorRouter(DoclingSourceContentExtractor docling, Function<TenantId, @Nullable OcrReader> ocr,
@@ -36,6 +40,8 @@ public final class SourceContentExtractorRouter implements SourceContentExtracto
         sheets = new GoogleSheetsSourceContentExtractor(mapper);
         docs = new GoogleDocsSourceContentExtractor(mapper);
         sharePointPages = new SharePointPageSourceContentExtractor(mapper);
+        larkDocuments = new LarkDocxSourceContentExtractor(mapper);
+        larkSheets = new LarkSheetSourceContentExtractor(mapper);
     }
 
     @Override public DocumentContent extract(TenantId tenant, InputStream content, long size, String filename,
@@ -44,6 +50,8 @@ public final class SourceContentExtractorRouter implements SourceContentExtracto
             case GOOGLE_SHEETS -> sheets.extract(content, size, filename, input);
             case GOOGLE_DOCS -> docs.extract(content, size, filename, input);
             case SHAREPOINT_PAGE -> sharePointPages.extract(content, size, filename, input);
+            case LARK_DOCX -> larkDocuments.extract(content, size, filename, input);
+            case LARK_SHEET -> larkSheets.extract(content, size, filename, input);
             case BINARY -> binary(tenant, content, size, filename, input);
         };
     }
