@@ -32,5 +32,5 @@
 - [x] A Worker reads into free slots instead of waiting for a batch
 - [x] The topology task deletes consumers of Workers that are gone
 - [x] Convention in `docs/conventions.md`; numbers and the corrected statements in the ingestion spec
-- [ ] CI; staging: time from a row's creation to its start for a burst of documents, before and after
-- [ ] Decide on publishing after commit from those numbers
+- [x] CI; staging: time from a row's creation to its start for a burst of documents, before and after ([verification](verification.md))
+- [x] Publishing after commit is not added: a search operation is published 0.9 s after its creation on average
