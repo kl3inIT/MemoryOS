@@ -27,7 +27,7 @@ Release `68c10df7`, one Worker, 44 seconds after it started (the case that took 
 | --- | --- | --- |
 | Search operation, creation to publication | 73 s average, 150 s at worst | 0.9 s average, 1.9 s at worst (17 operations) |
 | Search operation, creation to start | not measured apart | 10.4 s average, 34.1 s at worst: two run at once, the rest wait for a slot |
-| Publications an operation | up to 2 | 1 each |
+| Publications an operation | not measured | 1 each |
 | Consumers a group in Redis | more than 230 | 3 |
 
 All sixteen documents `SUCCEEDED` on attempt 1 and their seventeen search operations ended `SUCCESS` on attempt 1. Eight documents ran at once; the ninth started 33 s after its creation, when the first slot came free, where a reader that waited for its batch would have started it after the slowest of the eight (254 s). No ERROR was logged; the streams were empty afterwards.
