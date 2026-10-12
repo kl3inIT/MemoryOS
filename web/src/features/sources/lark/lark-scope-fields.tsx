@@ -5,14 +5,7 @@ import { useId } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -122,7 +115,6 @@ export function LarkScopeFields({
           spellCheck={false}
           onChange={(event) => onChange({ ...draft, folderLinksText: event.target.value })}
         />
-        <FieldDescription>{ui("One folder link per line.")}</FieldDescription>
       </Field>
       <LarkIntervalField
         interval={draft.interval}
