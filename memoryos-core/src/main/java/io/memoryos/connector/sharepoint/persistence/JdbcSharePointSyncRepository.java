@@ -227,24 +227,50 @@ public class JdbcSharePointSyncRepository {
                 """).param("tenant", run.tenantId().value()).param("id", run.id()).update();
     }
 
-    /** Remembers an item the Source holds, and marks it seen when a prune run is listing the scope. */
+    /**
+     * Remembers an item the Source holds, and marks it seen when a prune run is listing the scope. {@code location}
+     * is where SharePoint keeps it; a listing that does not say keeps what an earlier one said.
+     */
     public void observe(TenantId tenant, SourceId source, String providerFileId, String kind, @Nullable String driveId,
             @Nullable String siteId, @Nullable String name, @Nullable String path, @Nullable String contentVersion,
-            @Nullable String eTag, long size, @Nullable UUID pruneRun) {
+            @Nullable String eTag, long size, @Nullable UUID pruneRun, @Nullable Location location) {
         jdbc.sql("""
                 INSERT INTO sharepoint_items (tenant_id, source_id, provider_file_id, kind, drive_id, site_id, name,
-                    path, content_version, e_tag, size_bytes, last_seen_at, last_seen_prune_run)
+                    path, content_version, e_tag, size_bytes, last_seen_at, last_seen_prune_run, list_id,
+                    list_item_id, web_url)
                 VALUES (:tenant, :source, :file, :kind, :drive, :site, :name, :path, :version, :etag, :size,
-                    CURRENT_TIMESTAMP, :run)
+                    CURRENT_TIMESTAMP, :run, :list, :row, :web)
                 ON CONFLICT (tenant_id, source_id, provider_file_id) DO UPDATE SET kind = EXCLUDED.kind,
                     drive_id = EXCLUDED.drive_id, site_id = EXCLUDED.site_id, name = EXCLUDED.name,
                     path = EXCLUDED.path, content_version = EXCLUDED.content_version, e_tag = EXCLUDED.e_tag,
                     size_bytes = EXCLUDED.size_bytes, last_seen_at = CURRENT_TIMESTAMP,
-                    last_seen_prune_run = COALESCE(EXCLUDED.last_seen_prune_run, sharepoint_items.last_seen_prune_run)
+                    last_seen_prune_run = COALESCE(EXCLUDED.last_seen_prune_run, sharepoint_items.last_seen_prune_run),
+                    list_id = COALESCE(EXCLUDED.list_id, sharepoint_items.list_id),
+                    list_item_id = COALESCE(EXCLUDED.list_item_id, sharepoint_items.list_item_id),
+                    web_url = COALESCE(EXCLUDED.web_url, sharepoint_items.web_url)
                 """).param("tenant", tenant.value()).param("source", source.value()).param("file", providerFileId)
                 .param("kind", kind).param("drive", driveId).param("site", siteId).param("name", name)
                 .param("path", path).param("version", contentVersion).param("etag", eTag).param("size", size)
-                .param("run", pruneRun).update();
+                .param("run", pruneRun).param("list", location == null ? null : location.listId())
+                .param("row", location == null ? null : location.listItemId())
+                .param("web", location == null ? null : location.webUrl()).update();
+    }
+
+    /** The run moved on to {@code phase}; a later slice starts there. */
+    public void phase(Run run, Phase phase) {
+        jdbc.sql("""
+                UPDATE sharepoint_sync_runs SET phase = :phase
+                WHERE tenant_id = :tenant AND id = :id AND status = 'IN_PROGRESS'
+                """).param("phase", phase.name()).param("tenant", run.tenantId().value()).param("id", run.id()).update();
+    }
+
+    /** The last item whose permissions this run read. */
+    public void permissionCheckpoint(Run run, String providerFileId) {
+        jdbc.sql("""
+                UPDATE sharepoint_sync_runs SET permission_checkpoint = :file
+                WHERE tenant_id = :tenant AND id = :id AND status = 'IN_PROGRESS'
+                """).param("file", providerFileId).param("tenant", run.tenantId().value()).param("id", run.id())
+                .update();
     }
 
     public void forget(TenantId tenant, SourceId source, String providerFileId) {
@@ -305,7 +331,8 @@ public class JdbcSharePointSyncRepository {
                 r.getTimestamp("window_end").toInstant(), r.getString("checkpoint_drive_id"),
                 r.getString("checkpoint_site_id"), r.getString("checkpoint_link"), r.getString("checkpoint_folder_id"),
                 folders(r.getString("checkpoint_folders")), r.getBoolean("listing_complete"),
-                r.getBoolean("scope_resolved"));
+                r.getBoolean("scope_resolved"), Phase.valueOf(r.getString("phase")),
+                r.getString("permission_checkpoint"));
     }
 
     private static List<String> folders(@Nullable String stored) {
@@ -319,9 +346,19 @@ public class JdbcSharePointSyncRepository {
     public record Run(TenantId tenantId, UUID id, SourceId sourceId, String kind, @Nullable Instant windowStart,
                       Instant windowEnd, @Nullable String checkpointDriveId, @Nullable String checkpointSiteId,
                       @Nullable String checkpointLink, @Nullable String checkpointFolderId,
-                      List<String> checkpointFolders, boolean listingComplete, boolean scopeResolved) {
+                      List<String> checkpointFolders, boolean listingComplete, boolean scopeResolved, Phase phase,
+                      @Nullable String permissionCheckpoint) {
         public boolean prune() { return "PRUNE".equals(kind); }
     }
+
+    /**
+     * What a run does, in order: its content, then for a Source that admits readers by SharePoint's permissions the
+     * membership of the groups named there and, when due, the permissions of every item it holds, then its end.
+     */
+    public enum Phase { CONTENT, GROUPS, PERMISSIONS, FINISH }
+
+    /** Where SharePoint keeps an item: the list and row of a file, which a page has none of, and the site. */
+    public record Location(@Nullable String listId, @Nullable String listItemId, String webUrl) {}
 
     /** A library the run walks; {@code itemId} is set when the root is a folder inside it. */
     public record Target(String driveId, @Nullable String siteId, @Nullable String itemId) {}

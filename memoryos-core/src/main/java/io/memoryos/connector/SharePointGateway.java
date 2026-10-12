@@ -51,6 +51,36 @@ public interface SharePointGateway {
          */
         PageContent page(String siteId, String pageId);
 
+        /**
+         * Who SharePoint lets read one list item, as its role assignments, read whole. This and the three calls
+         * below go to SharePoint REST on {@code tenantHost}, which accepts only the application token of a
+         * certificate credential: a client-secret credential, and any address outside the Tenant host, raise
+         * {@link SharePointProviderException.Failure#AUTHORIZATION} before a request is sent. The item is found by
+         * the identifier of its list, never by the library's title, which follows the site language.
+         */
+        List<RoleAssignment> itemRoleAssignments(String tenantHost, String webUrl, String listId, String listItemId);
+
+        /** Who SharePoint lets read one site page, found by its server-relative address as Microsoft wrote it. */
+        List<RoleAssignment> pageRoleAssignments(String tenantHost, String webUrl, String serverRelativeUrl);
+
+        /** The role assignments of the site itself, which is where group membership starts from. */
+        List<RoleAssignment> webRoleAssignments(String tenantHost, String webUrl);
+
+        /** The direct members of a SharePoint group of the site: people, and Entra groups placed inside it. */
+        List<Principal> siteGroupMembers(String tenantHost, String webUrl, long groupId);
+
+        /**
+         * One page of the direct members of an Entra group, through Microsoft Graph. A group that no longer exists
+         * raises {@link SharePointProviderException.Failure#NOT_FOUND}.
+         */
+        EntraMemberPage entraGroupMembers(String groupId, @Nullable String link);
+
+        /** One page of every group of the directory. */
+        EntraGroupPage entraGroups(@Nullable String link);
+
+        /** The scope of each sharing link of a drive item: {@code anonymous}, {@code organization} or {@code users}. */
+        List<String> sharingLinkScopes(String driveId, String itemId);
+
         @Override void close();
     }
 
@@ -144,7 +174,7 @@ public interface SharePointGateway {
                      @Nullable String mimeType, @Nullable String quickXorHash, @Nullable String eTag,
                      @Nullable Instant createdAt, @Nullable Instant lastModifiedAt,
                      @Nullable String parentId, @Nullable String parentPath, @Nullable String webUrl,
-                     @Nullable String downloadUrl, @Nullable String driveId) {
+                     @Nullable String downloadUrl, @Nullable String driveId, @Nullable ListItem listItem) {
         public DriveItem {
             Objects.requireNonNull(id, "id");
         }
@@ -158,6 +188,61 @@ public interface SharePointGateway {
         }
 
         @Override public @NonNull String toString() { return "DriveItem[" + id + (deleted ? ",deleted]" : "]"); }
+    }
+
+    /**
+     * Where SharePoint itself keeps a drive item: the list and the row in it, and the site that owns the list.
+     * Its permissions are read there.
+     */
+    record ListItem(String listId, String listItemId, String webUrl) {
+        public ListItem {
+            Objects.requireNonNull(listId, "listId");
+            Objects.requireNonNull(listItemId, "listItemId");
+            Objects.requireNonNull(webUrl, "webUrl");
+        }
+    }
+
+    /** What SharePoint names in a role assignment or lists in a group. */
+    enum PrincipalType { USER, ENTRA_GROUP, SHAREPOINT_GROUP, OTHER }
+
+    /**
+     * {@code id} is the principal's number in its site, which is how a SharePoint group is asked for its members.
+     * {@code loginName} is the claim SharePoint knows it by; for an Entra group it carries the group's identifier.
+     */
+    record Principal(PrincipalType type, long id, String loginName, @Nullable String title,
+                     @Nullable String userPrincipalName) {
+        public Principal {
+            Objects.requireNonNull(type, "type");
+            Objects.requireNonNull(loginName, "loginName");
+        }
+    }
+
+    /** {@code limitedAccessOnly}: every role bound is Limited Access, which lets nobody read the item itself. */
+    record RoleAssignment(Principal member, boolean limitedAccessOnly) {
+        public RoleAssignment {
+            Objects.requireNonNull(member, "member");
+        }
+    }
+
+    /** A direct member of an Entra group: a person, or another group when {@code group}. */
+    record EntraMember(boolean group, String id, @Nullable String displayName, @Nullable String userPrincipalName) {
+        public EntraMember {
+            Objects.requireNonNull(id, "id");
+        }
+    }
+
+    record EntraMemberPage(List<EntraMember> members, @Nullable String nextLink) {
+        public EntraMemberPage { members = List.copyOf(members); }
+    }
+
+    record EntraGroup(String id, @Nullable String displayName) {
+        public EntraGroup {
+            Objects.requireNonNull(id, "id");
+        }
+    }
+
+    record EntraGroupPage(List<EntraGroup> groups, @Nullable String nextLink) {
+        public EntraGroupPage { groups = List.copyOf(groups); }
     }
 
     record DeltaPage(List<DriveItem> items, @Nullable String nextLink, @Nullable String deltaLink) {

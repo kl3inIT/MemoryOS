@@ -16,7 +16,10 @@ final class SharePointProviderMetrics {
     private static final String NAME = "memoryos.connector.sharepoint.request";
 
     /** What the connector asked Microsoft for. */
-    enum Operation { TOKEN, ROOT_SITE, SITE, LIBRARIES, FOLDER, SITES, DELTA, CHILDREN, ITEM, CONTENT, PAGES, PAGE }
+    enum Operation {
+        TOKEN, ROOT_SITE, SITE, LIBRARIES, FOLDER, SITES, DELTA, CHILDREN, ITEM, CONTENT, PAGES, PAGE,
+        ROLE_ASSIGNMENTS, SITE_GROUP, ENTRA_GROUP, SHARING_LINKS
+    }
 
     private final Map<Operation, Counter> succeeded = new EnumMap<>(Operation.class);
     private final Map<Operation, Map<SharePointProviderException.Failure, Counter>> failed =

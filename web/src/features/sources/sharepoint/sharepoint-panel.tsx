@@ -1,12 +1,14 @@
 import { formatUiDay, formatUiMoment } from "@/i18n/format";
 import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { KeyRound, RefreshCw, TriangleAlert } from "lucide-react";
+import { KeyRound, Link2, RefreshCw, TriangleAlert } from "lucide-react";
+import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Switch } from "@/components/ui/switch";
 import type {
   SharePointConfigurationResponse,
   SharePointCredentialResponse,
@@ -107,6 +109,28 @@ export function SharePointPanel({
       />
       <SharePointNotices configuration={configuration} panel={panel} />
       <CredentialCard configuration={configuration} credential={panel.credential} />
+      {source.access === "SYNC" ? (
+        <SettingRows>
+          <SettingRow
+            htmlFor="sharepoint-sharing-links"
+            descriptionId="sharepoint-sharing-links-description"
+            icon={<Link2 />}
+            title={ui("Treat sharing links as public")}
+            description={ui(
+              "A file with a sharing link for the organization or for anyone becomes readable by every member. Without this, only the people and groups SharePoint names can read it.",
+            )}
+            control={
+              <Switch
+                id="sharepoint-sharing-links"
+                aria-describedby="sharepoint-sharing-links-description"
+                checked={configuration.treatSharingLinksAsPublic}
+                disabled={!panel.permissions.sharingLinks || panel.controlsDisabled}
+                onCheckedChange={panel.setSharingLinksPublic}
+              />
+            }
+          />
+        </SettingRows>
+      ) : null}
       <SharePointScopeCard
         configuration={configuration}
         roots={panel.roots}

@@ -129,10 +129,15 @@ public class SourceAccessPolicy {
         return access;
     }
 
-    /** The access a Source changes to, under the rule of its type at creation. */
-    public SourceAccess change(IamAccess authority, SourceType type, SourceAccess requested) {
-        return access(adapters.permissionSync(type), authority.authority() == Authority.GLOBAL,
+    /**
+     * The access a Source changes to, under the rule of its type at creation and what its provider requires of it.
+     * The caller holds the Source's lock in its transaction.
+     */
+    public SourceAccess change(IamAccess authority, SourceId source, SourceType type, SourceAccess requested) {
+        SourceAccess access = access(adapters.permissionSync(type), authority.authority() == Authority.GLOBAL,
                 Objects.requireNonNull(requested, "access must not be null"));
+        adapters.accessChanging(type, authority.tenantId(), source, access);
+        return access;
     }
 
     private Creation resolve(IamAccess authority, ActorId actorId, SourceType type, @Nullable SourceAccess requestedAccess,

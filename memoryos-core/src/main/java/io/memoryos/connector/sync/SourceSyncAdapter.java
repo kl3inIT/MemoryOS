@@ -1,6 +1,7 @@
 package io.memoryos.connector.sync;
 
 import io.memoryos.connector.ConnectorSyncPort.Work;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceType;
@@ -49,6 +50,13 @@ public interface SourceSyncAdapter {
      * keeps a checkpoint worth continuing.
      */
     default void resumed(TenantId tenant, SourceId source, ActorId actor) {
+    }
+
+    /**
+     * Inside the transaction that changes a Source's access, before the access is stored: what the provider itself
+     * requires of it, raised as a business failure, and what the provider schedules for it.
+     */
+    default void accessChanging(TenantId tenant, SourceId source, SourceAccess access) {
     }
 
     /** Inside the transaction that removes one item from a Source: keeps later runs from acquiring it again. */

@@ -10,7 +10,13 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.SharePointGateway.EntraMember;
+import io.memoryos.connector.SharePointGateway.EntraMemberPage;
+import io.memoryos.connector.SharePointGateway.Principal;
+import io.memoryos.connector.SharePointGateway.PrincipalType;
+import io.memoryos.connector.SharePointGateway.RoleAssignment;
 import io.memoryos.connector.SharePointSourceService;
+import io.memoryos.connector.SourceAclChanged;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.sync.LockingStatementCounter;
 import io.memoryos.connector.SharePointGateway;
@@ -25,7 +31,9 @@ import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.sync.SourceSyncAdapterRegistry;
 import io.memoryos.connector.sync.SourceSyncAdapters;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointAclRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepository;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointGroupRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository;
@@ -106,6 +114,8 @@ class PostgresSharePointSyncTest {
     private TransactionTemplate tx;
     private ObjectStorage storage;
     private Answer<Void> storeObject;
+    /** Every permission change the runs published. */
+    private final List<SourceAclChanged> aclChanges = new ArrayList<>();
 
     @AfterEach
     void closeDatabase() {
@@ -172,7 +182,10 @@ class PostgresSharePointSyncTest {
                         Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), manager);
         service = new SourceSyncEngine(attempts, sources, items, indexing, documents, writes,
-                SourceSyncAdapters.registry(new SharePointSyncAdapter(runs, sharePoint, attempts, connections)), manager);
+                SourceSyncAdapters.registry(new SharePointSyncAdapter(runs, sharePoint, attempts, connections,
+                        new JdbcSharePointAclRepository(jdbc, event -> aclChanges.add((SourceAclChanged) event)),
+                        new SharePointGroupSynchronizer(new JdbcSharePointGroupRepository(jdbc),
+                                Duration.ofMinutes(5), false))), manager);
         seedSource();
     }
 
@@ -662,6 +675,290 @@ class PostgresSharePointSyncTest {
         assertEquals(0, service.enqueueDue(10), "the scheduler leaves a paused Source alone");
     }
 
+    @Test
+    void aSourceThatDoesNotAdmitReadersBySharePointPermissionsReadsNone() {
+        acquires(listed("file-1", "7"));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+
+        verify(session, never()).itemRoleAssignments(any(), any(), any(), any());
+        verify(session, never()).webRoleAssignments(any(), any());
+        assertEquals(0, count("sharepoint_acl_snapshots"));
+        assertEquals(0, count("sharepoint_group_runs"));
+    }
+
+    @Test
+    void permissionsAreReadWhenAnItemIsAcquiredAndTheGroupsNamedThereAreAskedForTheirMembers() {
+        autoSync();
+        acquires(listed("file-1", "7"));
+        when(session.itemRoleAssignments(HOST, WEB, LIST, "7")).thenReturn(List.of(
+                assigned(user("An@contoso.onmicrosoft.com")), assigned(MEMBERS), assigned(entra(ACCOUNTING, "Kế toán")),
+                new RoleAssignment(user("limited@contoso.com"), true)));
+        when(session.webRoleAssignments(HOST, WEB)).thenReturn(List.of(assigned(MEMBERS),
+                assigned(entra(ACCOUNTING, "Kế toán"))));
+        when(session.siteGroupMembers(HOST, WEB, 9)).thenReturn(List.of(user("binh@contoso.com")));
+        when(session.entraGroupMembers(ACCOUNTING, null)).thenReturn(new EntraMemberPage(List.of(
+                new EntraMember(false, "user-1", "Chi", "chi@contoso.com"),
+                new EntraMember(true, AUDIT, "Audit", null)), "next"));
+        when(session.entraGroupMembers(ACCOUNTING, "next")).thenReturn(new EntraMemberPage(List.of(
+                new EntraMember(false, "user-2", "Dung", "dung@contoso.com")), null));
+        when(session.entraGroupMembers(AUDIT, null)).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.NOT_FOUND));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+
+        assertEquals("[\"an@contoso.com\"]", snapshot("file-1", "user_emails"));
+        assertEquals("[\"audit_" + AUDIT + "\", \"" + WEB.toLowerCase() + "::finance members\", \"kế toán_"
+                + ACCOUNTING + "\"]", snapshot("file-1", "group_ids"), "a group inside a group is named too");
+        assertEquals("false", snapshot("file-1", "access_public"));
+        assertEquals(List.of("file-1"), aclChanges.stream().map(SourceAclChanged::providerFileId).toList());
+        assertEquals(List.of("binh@contoso.com"), members(WEB.toLowerCase() + "::finance members"));
+        assertEquals(List.of("chi@contoso.com", "dung@contoso.com"), members("kế toán_" + ACCOUNTING));
+        assertEquals(List.of(), members("audit_" + AUDIT), "a group that is gone admits nobody");
+        assertEquals(1, count("sharepoint_group_runs"));
+        assertEquals("COMPLETED", jdbc.sql("""
+                SELECT r.status FROM sharepoint_group_runs r JOIN sharepoint_sources s ON s.tenant_id = r.tenant_id
+                    AND s.source_id = r.source_id AND s.active_group_generation = r.generation
+                WHERE r.tenant_id = :tenant
+                """).param("tenant", tenant.value()).query(String.class).single());
+        // The item was asked about when it was acquired; the read of every item in the same run skips it.
+        verify(session, times(1)).itemRoleAssignments(HOST, WEB, LIST, "7");
+        assertFalse(permissionsDue(), "the next read of every item is an interval away");
+    }
+
+    @Test
+    void aLaterRunSeesAChangeOfPermissionsOnAnItemWhoseContentDidNotChange() {
+        autoSync();
+        acquires(listed("file-1", "7"));
+        when(session.itemRoleAssignments(HOST, WEB, LIST, "7")).thenReturn(List.of(assigned(user("an@contoso.com"))));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+
+        // The change log reports nothing, and the permissions are not due: nothing is asked.
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        verify(session, times(1)).itemRoleAssignments(HOST, WEB, LIST, "7");
+
+        permissionsDueNow();
+        when(session.itemRoleAssignments(HOST, WEB, LIST, "7")).thenReturn(List.of(assigned(user("binh@contoso.com")),
+                assigned(entra("c:0-.f|rolemanager|spo-grid-all-users/" + ACCOUNTING, "Everyone except external users"))));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+
+        assertEquals("[\"binh@contoso.com\"]", snapshot("file-1", "user_emails"));
+        assertEquals("true", snapshot("file-1", "access_public"));
+        assertEquals("2", snapshot("file-1", "observation_revision"));
+        assertEquals(2, aclChanges.size());
+
+        // An unchanged answer is recorded without telling anybody.
+        permissionsDueNow();
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        assertEquals(2, aclChanges.size());
+    }
+
+    @Test
+    void anItemSharePointNoLongerHasIsReadByNobodyAndAFailedReadKeepsTheLastAnswer() {
+        autoSync();
+        acquires(listed("file-1", "7"), listed("file-2", "8"));
+        when(session.itemRoleAssignments(eq(HOST), eq(WEB), eq(LIST), any()))
+                .thenReturn(List.of(assigned(user("an@contoso.com"))));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+
+        permissionsDueNow();
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
+        when(session.itemRoleAssignments(HOST, WEB, LIST, "7")).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.NOT_FOUND));
+        when(session.itemRoleAssignments(HOST, WEB, LIST, "8")).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.MALFORMED));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+
+        assertEquals("[]", snapshot("file-1", "user_emails"));
+        assertEquals("SUCCEEDED", snapshot("file-1", "status"));
+        assertEquals("[\"an@contoso.com\"]", snapshot("file-2", "user_emails"));
+        assertEquals("FAILED", snapshot("file-2", "status"));
+        assertEquals("SOURCE_SHAREPOINT_MALFORMED", snapshot("file-2", "error_code"));
+    }
+
+    @Test
+    void groupMembershipIsReplacedOnlyByAReadThatReachedEverySite() {
+        autoSync();
+        acquires(listed("file-1", "7"));
+        when(session.webRoleAssignments(HOST, WEB)).thenReturn(List.of(assigned(MEMBERS)));
+        when(session.siteGroupMembers(HOST, WEB, 9)).thenReturn(List.of(user("an@contoso.com")));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        String group = WEB.toLowerCase() + "::finance members";
+        assertEquals(List.of("an@contoso.com"), members(group));
+
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
+        // Within the interval nothing is asked again.
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        verify(session, times(1)).webRoleAssignments(HOST, WEB);
+
+        groupsDueNow();
+        when(session.webRoleAssignments(HOST, WEB)).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.MALFORMED));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        assertEquals(List.of("an@contoso.com"), members(group), "a read that failed removes nobody");
+
+        groupsDueNow();
+        doReturn(List.of(assigned(MEMBERS))).when(session).webRoleAssignments(HOST, WEB);
+        when(session.siteGroupMembers(HOST, WEB, 9)).thenReturn(List.of(user("binh@contoso.com")));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        assertEquals(List.of("binh@contoso.com"), members(group), "leaving the group ends its access");
+        assertEquals(1, count("sharepoint_group_runs"), "earlier generations are removed");
+        assertEquals(0, count("sharepoint_group_work"));
+    }
+
+    @Test
+    void microsoftRefusingToListPermissionsFailsTheRunWithWhatTheApplicationLacks() {
+        autoSync();
+        acquires(listed("file-1", "7"));
+        when(session.webRoleAssignments(HOST, WEB)).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.AUTHORIZATION));
+        var operation = enqueue();
+
+        assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(operation)));
+
+        assertEquals("SOURCE_SHAREPOINT_SYNC_PERMISSIONS_DENIED", jdbc.sql(
+                "SELECT error_code FROM source_sync_attempts WHERE id = :id").param("id", operation.value())
+                .query(String.class).single());
+        assertEquals("PENDING", status("file-1"), "what the run acquired stays, readable by nobody");
+        assertNull(jdbc.sql("SELECT active_group_generation FROM sharepoint_sources WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).query(Long.class).optional().orElse(null));
+    }
+
+    @Test
+    void anItemHeldFromBeforeItsListWasRememberedIsAskedAboutOnceMore() {
+        autoSync();
+        seedItem("file-old", "Old.docx");
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
+        when(session.item(DRIVE, "file-old")).thenReturn(listed("file-old", "12"));
+        when(session.itemRoleAssignments(HOST, WEB, LIST, "12")).thenReturn(List.of(assigned(user("an@contoso.com"))));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+
+        assertEquals("[\"an@contoso.com\"]", snapshot("file-old", "user_emails"));
+        assertEquals("12", jdbc.sql("SELECT list_item_id FROM sharepoint_items WHERE provider_file_id = 'file-old'")
+                .query(String.class).single());
+        // The site it belongs to is now known, so its groups are asked about from the next read on.
+        permissionsDueNow();
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        verify(session, times(1)).item(DRIVE, "file-old");
+    }
+
+    @Test
+    void aPageIsAskedAboutByItsAddressInItsSiteAndASharingLinkCountsOnlyWhenTheSourceSaysSo() {
+        autoSync();
+        collectPages();
+        acquires(listed("file-1", "7"));
+        var metadata = new SharePointGateway.SitePageMetadata("page-1", "Trang chủ",
+                WEB + "/SitePages/Trang%20ch%E1%BB%A7.aspx", "etag-1", Instant.now());
+        when(session.pages(eq(SITE), any())).thenReturn(new SharePointGateway.SitePageList(List.of(metadata), null));
+        when(session.page(SITE, "page-1")).thenReturn(new SharePointGateway.PageContent(metadata,
+                "{\"schema\":\"memoryos-sharepoint-page-v1\"}".getBytes(StandardCharsets.UTF_8)));
+        when(session.pageRoleAssignments(HOST, WEB, "/sites/Finance/SitePages/Trang%20ch%E1%BB%A7.aspx"))
+                .thenReturn(List.of(assigned(user("an@contoso.com"))));
+        when(session.sharingLinkScopes(DRIVE, "file-1")).thenReturn(List.of("organization"));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+
+        assertEquals("[\"an@contoso.com\"]", snapshot("page-1", "user_emails"));
+        assertEquals("false", snapshot("file-1", "access_public"));
+        verify(session, never()).sharingLinkScopes(any(), any());
+
+        jdbc.sql("UPDATE sharepoint_sources SET treat_sharing_links_as_public = TRUE WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).update();
+        permissionsDueNow();
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(), null, "delta-link"));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        assertEquals("true", snapshot("file-1", "access_public"));
+    }
+
+    private static final String HOST = "contoso.sharepoint.com";
+    private static final String WEB = "https://contoso.sharepoint.com/sites/Finance";
+    private static final String LIST = "0f8fad5b-d9cb-469f-a165-70867728950e";
+    private static final String ACCOUNTING = "5f4dcc3b-5aa7-45d6-8cf3-99de8a2b4c1e";
+    private static final String AUDIT = "9b2e4c1a-7d3f-4e5a-8b6c-1f2a3b4c5d6e";
+    private static final Principal MEMBERS = new Principal(PrincipalType.SHAREPOINT_GROUP, 9, "Finance Members",
+            "Finance Members", null);
+
+    private void autoSync() {
+        jdbc.sql("UPDATE connector_credential_pairs SET access_type = 'SYNC' WHERE tenant_id = :tenant AND id = :source")
+                .param("tenant", tenant.value()).param("source", source.value()).update();
+    }
+
+    /** The change log reports these files, and each can be downloaded. */
+    private void acquires(SharePointGateway.DriveItem... files) {
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointGateway.DeltaPage(List.of(files), null, "delta-link"));
+        for (var file : files) when(session.item(DRIVE, file.id())).thenReturn(file);
+        when(session.content(any(), eq(HOST), anyInt()))
+                .thenReturn(new SharePointGateway.Content("Report.pdf", "application/pdf", "content".getBytes()));
+    }
+
+    /** A file with the list row SharePoint keeps it in. */
+    private SharePointGateway.DriveItem listed(String id, String listItemId) {
+        var modified = Instant.now();
+        return new SharePointGateway.DriveItem(id, id + ".pdf", false, false, 12, "application/pdf", "hash-" + id,
+                "etag-" + id, modified, modified, "root-1", "/Reports", WEB + "/Shared%20Documents/" + id + ".pdf",
+                null, DRIVE, new SharePointGateway.ListItem(LIST, listItemId, WEB));
+    }
+
+    private static RoleAssignment assigned(Principal principal) {
+        return new RoleAssignment(principal, false);
+    }
+
+    private static Principal user(String userPrincipalName) {
+        return new Principal(PrincipalType.USER, 11, "i:0#.f|membership|" + userPrincipalName, null, userPrincipalName);
+    }
+
+    private static Principal entra(String loginName, String title) {
+        return new Principal(PrincipalType.ENTRA_GROUP, 12, loginName, title, null);
+    }
+
+    private String snapshot(String providerFileId, String column) {
+        return jdbc.sql("SELECT CAST(" + column + " AS TEXT) FROM sharepoint_acl_snapshots "
+                        + "WHERE tenant_id = :tenant AND source_id = :source AND file_id = :file")
+                .param("tenant", tenant.value()).param("source", source.value()).param("file", providerFileId)
+                .query(String.class).single();
+    }
+
+    /** The members of a group in the generation readers are checked against. */
+    private List<String> members(String groupId) {
+        return jdbc.sql("""
+                SELECT m.member_email FROM sharepoint_group_members m
+                JOIN sharepoint_sources s ON s.tenant_id = m.tenant_id AND s.source_id = m.source_id
+                    AND s.active_group_generation = m.generation
+                WHERE m.tenant_id = :tenant AND m.source_id = :source AND m.group_id = :group ORDER BY m.member_email
+                """).param("tenant", tenant.value()).param("source", source.value()).param("group", groupId)
+                .query(String.class).list();
+    }
+
+    private int count(String table) {
+        return jdbc.sql("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).query(Integer.class).single();
+    }
+
+    private boolean permissionsDue() {
+        return jdbc.sql("SELECT next_permission_sync_at <= CURRENT_TIMESTAMP FROM sharepoint_sources WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).query(Boolean.class).single();
+    }
+
+    private void permissionsDueNow() {
+        jdbc.sql("""
+                UPDATE sharepoint_sources SET next_permission_sync_at = CURRENT_TIMESTAMP - INTERVAL '1 minute'
+                WHERE tenant_id = :tenant
+                """).param("tenant", tenant.value()).update();
+    }
+
+    private void groupsDueNow() {
+        jdbc.sql("UPDATE sharepoint_group_runs SET started_at = started_at - INTERVAL '1 hour' WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).update();
+    }
+
     private void folderRoot(String itemId) {
         jdbc.sql("""
                 UPDATE sharepoint_roots SET kind = 'FOLDER', item_id = :item
@@ -671,7 +968,7 @@ class PostgresSharePointSyncTest {
 
     private static SharePointGateway.DriveItem folder(String id) {
         return new SharePointGateway.DriveItem(id, id, true, false, 0, null, null, "etag-" + id, Instant.now(),
-                Instant.now(), "root-1", "/Reports", null, null, DRIVE);
+                Instant.now(), "root-1", "/Reports", null, null, DRIVE, null);
     }
 
     private String attemptStatus(SourceOperationId operation) {
@@ -713,12 +1010,12 @@ class PostgresSharePointSyncTest {
     private SharePointGateway.DriveItem file(String id, String name, Instant modified) {
         return new SharePointGateway.DriveItem(id, name, false, false, 12, "application/pdf", "hash-" + id,
                 "etag-" + id, modified, modified, "root-1", "/Reports",
-                "https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/" + name, null, DRIVE);
+                "https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/" + name, null, DRIVE, null);
     }
 
     private static SharePointGateway.DriveItem tombstone(String id) {
         return new SharePointGateway.DriveItem(id, null, false, true, 0, null, null, null, null, null,
-                "root-1", null, null, null, DRIVE);
+                "root-1", null, null, null, DRIVE, null);
     }
 
     private void seedTenant() {

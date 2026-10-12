@@ -14,6 +14,7 @@ import {
   synchronizeSharePointSourceMutation,
   updateSharePointPauseMutation,
   updateSharePointScheduleMutation,
+  updateSharePointSharingLinksMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceOperation, SourceSummary } from "@/lib/hey-api/types.gen";
 import { can } from "@/lib/resource-permissions";
@@ -24,7 +25,7 @@ import { waitForSourceOperation } from "@/features/sources/shared/source-operati
 import { useSourceSelectionOperation } from "@/features/sources/shared/source-selection-operation";
 import { sharePointScopeRequest, type SharePointScopeDraft } from "./sharepoint-scope";
 
-type PanelAction = "sync" | "pause" | "schedule" | "scope";
+type PanelAction = "sync" | "pause" | "schedule" | "scope" | "sharing-links";
 
 export type SharePointSchedule = Pick<
   SharePointScopeDraft,
@@ -74,6 +75,10 @@ export function useSharePointPanel({
   const updatePause = useMutation({ ...updateSharePointPauseMutation(), retry: false });
   const updateSchedule = useMutation({ ...updateSharePointScheduleMutation(), retry: false });
   const replaceScope = useMutation({ ...replaceSharePointScopeMutation(), retry: false });
+  const updateSharingLinks = useMutation({
+    ...updateSharePointSharingLinksMutation(),
+    retry: false,
+  });
   const tracking = useSourceSelectionOperation({
     provider: "sharepoint",
     scope: source.id,
@@ -206,6 +211,14 @@ export function useSharePointPanel({
     await refresh();
   }
 
+  async function setSharingLinksPublic(treatAsPublic: boolean) {
+    await updateSharingLinks.mutateAsync({
+      path: { sourceId: source.id },
+      body: { treatAsPublic },
+    });
+    await refresh();
+  }
+
   async function saveSchedule(schedule: SharePointSchedule, scheduleRevision: number) {
     await updateSchedule.mutateAsync({
       path: { sourceId: source.id },
@@ -249,6 +262,8 @@ export function useSharePointPanel({
     statusRefresh,
     permissions: {
       configure: can(source, "manageConfiguration"),
+      // The choice widens who reads the Source, so it follows who may change its visibility.
+      sharingLinks: authority === "global",
       schedule: can(source, "edit"),
       synchronize: can(source, "edit"),
     },
@@ -266,6 +281,8 @@ export function useSharePointPanel({
     setEditingSchedule,
     synchronize: () => run("sync", sync),
     togglePause: () => run("pause", togglePause),
+    setSharingLinksPublic: (treatAsPublic: boolean) =>
+      run("sharing-links", () => setSharingLinksPublic(treatAsPublic)),
     saveScope: () => run("scope", saveScope),
     saveSchedule: (schedule: SharePointSchedule, scheduleRevision: number) =>
       run("schedule", () => saveSchedule(schedule, scheduleRevision)),

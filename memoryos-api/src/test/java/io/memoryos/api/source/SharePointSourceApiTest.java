@@ -225,6 +225,27 @@ class SharePointSourceApiTest {
     }
 
     @Test
+    void sharingLinksAreTreatedAsPublicOnlyWhenTheSourceIsToldSo() throws Exception {
+        when(sources.setSharingLinksPublic(any(), any(), eq(true))).thenReturn(configuration());
+
+        mockMvc.perform(put("/api/sources/{id}/sharepoint/sharing-links", SOURCE)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"treatAsPublic\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.treatSharingLinksAsPublic").value(false));
+        verify(sources).setSharingLinksPublic(any(), any(), eq(true));
+
+        mockMvc.perform(put("/api/sources/{id}/sharepoint/sharing-links", SOURCE)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void synchronizeSchedulesARun() throws Exception {
         when(sources.synchronize(any(), any())).thenReturn(new SourceOperationView(
                 new SourceOperationId(UUID.randomUUID()), SourceOperationType.SYNC_SOURCE,
@@ -282,7 +303,7 @@ class SharePointSourceApiTest {
     private static Configuration configuration() {
         return new Configuration(new SourceId(SOURCE), new CredentialId(UUID.randomUUID()), "Entra app", "ACTIVE",
                 2L, 4L, ScopeMode.SPECIFIC, 2L, List.of(), List.of("*/Archive/*"), true, false, 30, 168, 7L,
-                false, "contoso.sharepoint.com", null, null, false, null, null);
+                false, "contoso.sharepoint.com", null, null, false, null, null, false);
     }
 
     private static String createBody() {

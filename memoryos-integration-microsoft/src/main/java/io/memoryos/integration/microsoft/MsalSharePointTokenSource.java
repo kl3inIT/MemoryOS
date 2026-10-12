@@ -34,11 +34,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Client-credentials tokens for an Entra application. One token lives in one provider session; msal4j's
- * cache belongs to the application instance built here and is never shared between Tenants.
+ * Client-credentials tokens for an Entra application. The application built for a credential lives in one provider
+ * session and answers for each scope the session asks about; msal4j's cache belongs to that instance and is never
+ * shared between Tenants.
  */
 final class MsalSharePointTokenSource implements SharePointTokenSource {
-    private static final String GRAPH_SCOPE = "https://graph.microsoft.com/.default";
     private static final Pattern AADSTS = Pattern.compile("AADSTS(\\d{4,7})");
 
     private final SharePointProviderProperties properties;
@@ -49,10 +49,11 @@ final class MsalSharePointTokenSource implements SharePointTokenSource {
         this.executor = executor;
     }
 
-    @Override public String token(SharePointGateway.Credential credential) {
+    @Override public Tokens open(SharePointGateway.Credential credential) {
         IClientCredential secret = clientCredential(credential);
+        ConfidentialClientApplication application;
         try {
-            var application = ConfidentialClientApplication.builder(credential.clientId(), secret)
+            application = ConfidentialClientApplication.builder(credential.clientId(), secret)
                     .authority(authority(credential.directoryId()))
                     .executorService(executor)
                     // The authority is pinned by configuration, so no instance discovery round trip is needed.
@@ -60,14 +61,22 @@ final class MsalSharePointTokenSource implements SharePointTokenSource {
                     .connectTimeoutForDefaultHttpClient(Math.toIntExact(properties.connectTimeout().toMillis()))
                     .readTimeoutForDefaultHttpClient(Math.toIntExact(properties.requestTimeout().toMillis()))
                     .build();
-            var parameters = ClientCredentialParameters.builder(Set.of(GRAPH_SCOPE)).build();
+        } catch (MalformedURLException exception) {
+            throw new SharePointProviderException(MALFORMED);
+        } catch (MsalException exception) {
+            throw failure(exception);
+        }
+        return scope -> token(application, scope);
+    }
+
+    private String token(ConfidentialClientApplication application, String scope) {
+        try {
+            var parameters = ClientCredentialParameters.builder(Set.of(scope)).build();
             var result = application.acquireToken(parameters)
                     .get(properties.acquisitionTimeout().toMillis(), TimeUnit.MILLISECONDS);
             String token = result.accessToken();
             if (token == null || token.isBlank()) throw new SharePointProviderException(MALFORMED);
             return token;
-        } catch (MalformedURLException exception) {
-            throw new SharePointProviderException(MALFORMED);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new SharePointProviderException(UNAVAILABLE);

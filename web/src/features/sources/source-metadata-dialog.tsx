@@ -24,7 +24,8 @@ import { SourceAccessField } from "@/features/sources/shared/source-form-fields"
 export type SourceMetadataField = "name" | "access";
 
 const fileAccessModes = ["PUBLIC", "PRIVATE"] as const;
-const googleDriveAccessModes = ["SYNC", "PRIVATE", "PUBLIC"] as const;
+/** A provider whose own permissions a Source can follow. SharePoint accepts it only with a certificate credential. */
+const providerAccessModes = ["SYNC", "PRIVATE", "PUBLIC"] as const;
 
 /** Renames a Source or changes who can read it. Mounted only while open. */
 export function SourceMetadataDialog({
@@ -131,7 +132,11 @@ export function SourceMetadataDialog({
               {() => (
                 <SourceAccessField
                   label={ui("Visibility")}
-                  modes={source.type === "GOOGLE_DRIVE" ? googleDriveAccessModes : fileAccessModes}
+                  modes={
+                    source.type === "GOOGLE_DRIVE" || source.type === "SHAREPOINT"
+                      ? providerAccessModes
+                      : fileAccessModes
+                  }
                   disabled={disabled || pending}
                 />
               )}

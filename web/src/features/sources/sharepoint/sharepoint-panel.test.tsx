@@ -20,6 +20,7 @@ import {
   handleListSourceGroups,
   handleSynchronizeSharePointSource,
   handleUpdateSharePointPause,
+  handleUpdateSharePointSharingLinks,
 } from "@/lib/hey-api/msw.gen";
 import { server } from "@/test/msw";
 import { SharePointPanel } from "./sharepoint-panel";
@@ -67,6 +68,7 @@ function setup(
     status: "SUCCEEDED",
     errorCode: null,
   },
+  shown: SourceSummary = source,
 ) {
   let configuration: SharePointConfigurationResponse = {
     sourceId: source.id,
@@ -87,6 +89,7 @@ function setup(
     syncPaused: false,
     tenantHost: "contoso.sharepoint.com",
     pendingWork: false,
+    treatSharingLinksAsPublic: false,
     ...initial,
   };
   let syncOperation: SourceOperation | null = null;
@@ -146,6 +149,12 @@ function setup(
       };
       return HttpResponse.json(configuration);
     }),
+    handleUpdateSharePointSharingLinks(async ({ request }) => {
+      record(request);
+      const body = (await request.json()) as { treatAsPublic: boolean };
+      configuration = { ...configuration, treatSharingLinksAsPublic: body.treatAsPublic };
+      return HttpResponse.json(configuration);
+    }),
     handleSynchronizeSharePointSource(({ request }) => {
       record(request);
       syncOperation = {
@@ -166,7 +175,7 @@ function setup(
     <QueryClientProvider client={queryClient}>
       <ApplicationSessionProvider session={owner}>
         <ActionNotifications>
-          <SharePointPanel source={source} sourceStale={false} onBusyChange={() => {}} />
+          <SharePointPanel source={shown} sourceStale={false} onBusyChange={() => {}} />
         </ActionNotifications>
       </ApplicationSessionProvider>
     </QueryClientProvider>,
@@ -194,6 +203,28 @@ describe("SharePoint panel", () => {
     const pause = requests.find((request) => request.url.endsWith("/sharepoint/pause"));
     expect(pause?.headers.get("X-MemoryOS-CSRF")).toBeTruthy();
     expect(await pause?.json()).toMatchObject({ expectedRevision: 3, paused: true });
+  });
+
+  it("offers the sharing link choice only for a Source that follows SharePoint permissions", async () => {
+    setup();
+    await screen.findByText("30 minutes");
+    expect(
+      screen.queryByRole("switch", { name: "Treat sharing links as public" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("saves the sharing link choice of an Auto Sync Source", async () => {
+    const { requests } = setup({}, undefined, { ...source, access: "SYNC" });
+    const user = userEvent.setup();
+    const choice = await screen.findByRole("switch", { name: "Treat sharing links as public" });
+    expect(choice).not.toBeChecked();
+    await user.click(choice);
+    const saved = requests.find((request) => request.url.endsWith("/sharepoint/sharing-links"));
+    expect(saved?.method).toBe("PUT");
+    expect(await saved?.json()).toEqual({ treatAsPublic: true });
+    expect(
+      await screen.findByRole("switch", { name: "Treat sharing links as public", checked: true }),
+    ).toBeInTheDocument();
   });
 
   it("requests a synchronization and reports completion", async () => {

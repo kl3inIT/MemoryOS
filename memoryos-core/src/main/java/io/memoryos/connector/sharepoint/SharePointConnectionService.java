@@ -47,6 +47,13 @@ public class SharePointConnectionService {
         return new State(credentialId, stored.name(), stored.status(), stored.revision(), stored.tenantHost());
     }
 
+    /** Whether the Source's credential proves itself with a certificate, which SharePoint REST requires. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean certificate(TenantId tenantId, SourceId sourceId) {
+        return credentials.lock(tenantId, sources.credentialId(tenantId, sourceId))
+                .filter(row -> row.authMethod() == SharePointGateway.AuthMethod.CERTIFICATE).isPresent();
+    }
+
     public Connection open(TenantId tenantId, SourceId sourceId) {
         return openCredential(tenantId, Objects.requireNonNull(
                 transactions.execute(_ -> sources.credentialId(tenantId, sourceId))));

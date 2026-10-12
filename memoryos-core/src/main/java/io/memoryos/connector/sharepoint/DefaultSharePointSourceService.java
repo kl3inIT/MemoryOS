@@ -4,6 +4,8 @@ import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.SharePointException;
+import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointSourceService;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
@@ -101,6 +103,10 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
                     .sorted(Comparator.comparing(group -> group.value().toString())).toList();
             var credential = credentials.lock(tenant, credentialId).orElseThrow(SourceException::notFound);
             if (!credential.usable()) throw SourceException.conflict("SharePoint credential is unavailable");
+            if (creation.access() == SourceAccess.SYNC
+                    && credential.authMethod() != SharePointGateway.AuthMethod.CERTIFICATE) {
+                throw SharePointException.syncRequiresCertificate();
+            }
             String hash = hash("CREATE", sourceName, credentialId.value().toString(), scope,
                     groups.stream().map(group -> group.value().toString()).toList());
             var existing = selections.receipt(tenant, actor, requestId, hash);
@@ -222,6 +228,23 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             if (before != paused)
                 record(tenant, actor, paused ? AuditAction.SOURCE_PAUSE : AuditAction.SOURCE_RESUME,
                         source, null, event -> event);
+            return configuration(tenant, source);
+        }));
+    }
+
+    /** The choice widens who reads the Source's files, so it is made by who may change the Source's access. */
+    @Override
+    public Configuration setSharingLinksPublic(ActorId actor, SourceId source, boolean treatAsPublic) {
+        return Objects.requireNonNull(transactions.execute(_ -> {
+            var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.SOURCES_MANAGE).tenantId();
+            sharePoint.lock(tenant, source);
+            boolean before = sharePoint.configuration(tenant, source).treatSharingLinksAsPublic();
+            if (before != treatAsPublic) {
+                sharePoint.setSharingLinksPublic(tenant, source, treatAsPublic);
+                sharePoint.requestSynchronization(tenant, source);
+                record(tenant, actor, AuditAction.SOURCE_UPDATE, source, null, event -> event
+                        .detail("change", "SHARING_LINKS").detail("after", Boolean.toString(treatAsPublic)));
+            }
             return configuration(tenant, source);
         }));
     }

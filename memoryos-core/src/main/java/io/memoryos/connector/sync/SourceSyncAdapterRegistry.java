@@ -1,5 +1,6 @@
 package io.memoryos.connector.sync;
 
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceType;
@@ -57,6 +58,12 @@ public final class SourceSyncAdapterRegistry {
     public void resumed(SourceType type, TenantId tenant, SourceId source, ActorId actor) {
         var adapter = adapters.get(type);
         if (adapter != null) adapter.resumed(tenant, source, actor);
+    }
+
+    /** Inside the transaction that changes a Source's access, before the access is stored. */
+    public void accessChanging(SourceType type, TenantId tenant, SourceId source, SourceAccess access) {
+        var adapter = adapters.get(type);
+        if (adapter != null) adapter.accessChanging(tenant, source, access);
     }
 
     /** Inside the transaction that removes one item from a Source. */

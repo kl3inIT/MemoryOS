@@ -195,7 +195,11 @@ function SharePointSourceSetup() {
             scopeError={scopeError}
           />
         ) : current === "access" ? (
-          <SharePointAccessStep {...steps} scoped={scoped} />
+          <SharePointAccessStep
+            {...steps}
+            scoped={scoped}
+            certificate={selected?.authMethod === "CERTIFICATE"}
+          />
         ) : (
           <SharePointReviewStep
             {...steps}

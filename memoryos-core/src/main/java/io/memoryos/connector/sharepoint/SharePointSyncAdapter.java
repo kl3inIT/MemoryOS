@@ -3,18 +3,26 @@ package io.memoryos.connector.sharepoint;
 import io.memoryos.BusinessException;
 import io.memoryos.FailureEvidence;
 import io.memoryos.connector.ConnectorSyncPort.Work;
+import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointGateway;
+import io.memoryos.connector.SharePointGateway.EntraMember;
+import io.memoryos.connector.SharePointGateway.Principal;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SharePointProviderException.Failure;
 import io.memoryos.connector.SharePointSourceService.RootKind;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.connector.SourceStorageFailure;
 import io.memoryos.connector.SourceType;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointAclRepository;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointAclRepository.Item;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository.Location;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository.Phase;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository.Retry;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository.Run;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository.Target;
@@ -33,13 +41,16 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +62,11 @@ import org.springframework.stereotype.Component;
  * is gone. A prune lists the whole scope and removes what it no longer finds, but only when the listing
  * finished, so a site that fails to answer never causes its documents to be deleted. The libraries and sites a
  * run covers are resolved once, when it starts.
+ *
+ * <p>For a Source that admits readers by SharePoint's own permissions (MEM-136), an item's permissions are read when
+ * it is acquired, and every run then reads again the permissions of each item the Source holds, when that is due, and
+ * the membership of the groups named there. The change log does not report a change of permissions alone, so the
+ * second read is the only way to see one.
  */
 @Component
 public class SharePointSyncAdapter implements SourceSyncAdapter {
@@ -62,18 +78,28 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
     private static final int MAX_RETRIES = 500;
     // A page snapshot is stored as JSON, like the other native snapshots; its input format identifies the reader.
     private static final String PAGE_MEDIA_TYPE = "application/json";
+    /** How often the permissions of every item are read again, as Onyx does. */
+    private static final Duration PERMISSION_INTERVAL = Duration.ofMinutes(30);
+    private static final int PERMISSION_BATCH = 64;
+    /** The library every site keeps its pages in; its address is the same in every site language. */
+    private static final String PAGES_LIBRARY = "/sitepages/";
 
     private final JdbcSharePointSyncRepository runs;
     private final JdbcSharePointSourceRepository sharePoint;
     private final JdbcSourceSyncRepository attempts;
     private final SharePointConnectionService connections;
+    private final JdbcSharePointAclRepository acls;
+    private final SharePointGroupSynchronizer groups;
 
     public SharePointSyncAdapter(JdbcSharePointSyncRepository runs, JdbcSharePointSourceRepository sharePoint,
-            JdbcSourceSyncRepository attempts, SharePointConnectionService connections) {
+            JdbcSourceSyncRepository attempts, SharePointConnectionService connections,
+            JdbcSharePointAclRepository acls, SharePointGroupSynchronizer groups) {
         this.runs = runs;
         this.sharePoint = sharePoint;
         this.attempts = attempts;
         this.connections = connections;
+        this.acls = acls;
+        this.groups = groups;
     }
 
     @Override
@@ -83,7 +109,7 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
 
     @Override
     public SourceProviderCapabilities capabilities() {
-        return new SourceProviderCapabilities(false);
+        return new SourceProviderCapabilities(true);
     }
 
     @Override
@@ -115,6 +141,18 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
         return connections.current(tenant, source, credentialRevision);
     }
 
+    /**
+     * Auto Sync needs a certificate credential. A Source that starts admitting readers by SharePoint's permissions
+     * has read none yet, so nobody reads its documents until its next run, which is asked for now.
+     */
+    @Override
+    public void accessChanging(TenantId tenant, SourceId source, SourceAccess access) {
+        if (access != SourceAccess.SYNC) return;
+        if (!connections.certificate(tenant, source)) throw SharePointException.syncRequiresCertificate();
+        acls.permissionsDue(tenant, source);
+        sharePoint.requestSynchronization(tenant, source);
+    }
+
     @Override
     public void postponed(TenantId tenant, SourceId source) {
         runs.postponePrune(tenant, source);
@@ -126,6 +164,10 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
             String code = "SOURCE_SHAREPOINT_" + provider.failure().name();
             if (provider.failure() == Failure.AUTHENTICATION) return RunFailure.reconnect(code);
             return RunFailure.retry(code, provider.retryAfter());
+        }
+        // Asking again changes nothing until an administrator grants the application what Auto Sync needs.
+        if (failure instanceof SharePointException denied && SharePointException.PERMISSIONS_DENIED.equals(denied.code())) {
+            return RunFailure.fail(denied.code());
         }
         if (failure instanceof BusinessException) return RunFailure.fail("SOURCE_SHAREPOINT_CONNECTION_UNAVAILABLE");
         return RunFailure.retry("SOURCE_SHAREPOINT_INTERNAL", null);
@@ -163,7 +205,9 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
             }
             String tenantHost = connection.tenantHost() == null
                     ? session.root().hostname() : connection.tenantHost();
-            return new Walk(run, current, session, tenantHost).walk();
+            // SharePoint's permissions are read only for a Source that admits readers by them.
+            var sharing = run.fenced(_ -> acls.sharing(work).orElse(null));
+            return new Walk(run, current, session, tenantHost, sharing.orElse(null)).walk();
         }
     }
 
@@ -240,15 +284,22 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
         private final Run current;
         private final SharePointGateway.Session session;
         private final String tenantHost;
+        /** How the Source reads SharePoint's permissions; null when it does not admit readers by them. */
+        private final JdbcSharePointAclRepository.@Nullable Sharing sharing;
+        /** The members of each group asked about in this slice, so a group many items name is asked once. */
+        private final Map<String, List<Principal>> siteGroups = new HashMap<>();
+        private final Map<String, List<EntraMember>> entraGroups = new HashMap<>();
         private final long deadline = System.nanoTime() + EXECUTION_NANOS;
         private int steps;
 
-        Walk(SyncRun run, Run current, SharePointGateway.Session session, String tenantHost) {
+        Walk(SyncRun run, Run current, SharePointGateway.Session session, String tenantHost,
+                JdbcSharePointAclRepository.@Nullable Sharing sharing) {
             this.run = run;
             this.work = run.work();
             this.current = current;
             this.session = session;
             this.tenantHost = tenantHost;
+            this.sharing = sharing;
         }
 
         private boolean sliceSpent() {
@@ -264,6 +315,42 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
         }
 
         Slice walk() {
+            Phase phase = current.phase();
+            if (phase == Phase.CONTENT) {
+                var pending = content();
+                if (pending != null) return pending;
+                phase = sharing == null ? Phase.FINISH : Phase.GROUPS;
+                if (!entered(phase)) return Slice.STOPPED;
+            }
+            // A Source that stopped admitting readers by SharePoint's permissions meanwhile reads no more of them.
+            // Membership comes first: a site answers for it in one request, so an application that may not read
+            // permissions is found out before every item is asked about.
+            if (phase == Phase.GROUPS && sharing != null) {
+                while (groups.advance(run, session, tenantHost)) {
+                    if (interrupted()) return interruption();
+                    if (System.nanoTime() >= deadline) return Slice.CONTINUE;
+                }
+                if (interrupted()) return interruption();
+                phase = sharing.permissionsDue() ? Phase.PERMISSIONS : Phase.FINISH;
+                if (!entered(phase)) return Slice.STOPPED;
+            }
+            if (phase == Phase.PERMISSIONS && sharing != null) {
+                var pending = permissions();
+                if (pending != null) return pending;
+                if (!entered(Phase.FINISH)) return Slice.STOPPED;
+            }
+            return finish();
+        }
+
+        private boolean entered(Phase phase) {
+            return run.fenced(_ -> {
+                runs.phase(current, phase);
+                return true;
+            }).isPresent();
+        }
+
+        /** The content of the run's scope; null once all of it was read. */
+        private @Nullable Slice content() {
             if (!current.prune()) {
                 var pending = retries();
                 if (pending != null) return pending;
@@ -315,9 +402,142 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                 cursorDrive = null;
                 cursorLink = null;
             }
-            var pending = pages(drivesDone ? current.checkpointSiteId() : null,
+            return pages(drivesDone ? current.checkpointSiteId() : null,
                     drivesDone ? current.checkpointLink() : null);
-            return pending == null ? finish() : pending;
+        }
+
+        /**
+         * Reads again who may read each item the Source holds, in the order of their identifiers; null once every
+         * item was asked about. An item this run already asked about, when it acquired it, is not asked twice.
+         */
+        private @Nullable Slice permissions() {
+            String after = current.permissionCheckpoint();
+            while (true) {
+                String from = after;
+                var batch = run.fenced(_ -> acls.items(work, from, current.windowEnd(), PERMISSION_BATCH));
+                if (batch.isEmpty()) return Slice.STOPPED;
+                if (batch.get().isEmpty()) break;
+                for (Item item : batch.get()) {
+                    if (System.nanoTime() >= deadline) return permissionCheckpoint(after) ? Slice.CONTINUE : Slice.STOPPED;
+                    permissions(item);
+                    if (interrupted()) return interruption();
+                    after = item.providerFileId();
+                }
+                if (!permissionCheckpoint(after)) return Slice.STOPPED;
+            }
+            return run.fenced(_ -> {
+                acls.permissionsRead(work, PERMISSION_INTERVAL);
+                return true;
+            }).isPresent() ? null : Slice.STOPPED;
+        }
+
+        private boolean permissionCheckpoint(@Nullable String providerFileId) {
+            if (providerFileId == null) return true;
+            return run.fenced(_ -> {
+                runs.permissionCheckpoint(current, providerFileId);
+                return true;
+            }).isPresent();
+        }
+
+        /**
+         * Who SharePoint lets read one item, read whole or not at all. A read that fails keeps the last complete
+         * answer in force, and before the first one nobody reads the item. An item SharePoint no longer has is read
+         * by nobody.
+         */
+        private void permissions(Item item) {
+            try {
+                var location = location(item);
+                if (location == null) {
+                    recordAclFailure(item, "SOURCE_SHAREPOINT_" + Failure.MALFORMED.name());
+                    return;
+                }
+                boolean linked = Objects.requireNonNull(sharing).sharingLinksPublic() && !item.page()
+                        && item.driveId() != null && session.sharingLinkScopes(item.driveId(), item.providerFileId())
+                                .stream().anyMatch(scope -> scope.equals("anonymous") || scope.equals("organization"));
+                var assignments = item.page()
+                        ? session.pageRoleAssignments(tenantHost, location.webUrl(), serverRelative(item))
+                        : session.itemRoleAssignments(tenantHost, location.webUrl(),
+                                Objects.requireNonNull(location.listId()), Objects.requireNonNull(location.listItemId()));
+                var readers = SharePointAccess.readers(location.webUrl(), assignments, new SharePointAccess.Groups() {
+                    @Override public List<Principal> siteGroup(long id) {
+                        return siteGroups.computeIfAbsent(location.webUrl() + "::" + id, _ -> members(
+                                () -> session.siteGroupMembers(tenantHost, location.webUrl(), id)));
+                    }
+
+                    @Override public List<EntraMember> entraGroup(String id) {
+                        return entraGroups.computeIfAbsent(id, _ -> members(() -> entraGroupMembers(id)));
+                    }
+                });
+                run.fenced(_ -> {
+                    acls.recordSuccess(work, item.providerFileId(), linked || readers.everyone(), readers.userEmails(),
+                            readers.groupIds());
+                    return true;
+                });
+            } catch (SharePointProviderException exception) {
+                if (runLevel(exception)) throw exception;
+                if (exception.failure() == Failure.NOT_FOUND) {
+                    run.fenced(_ -> {
+                        acls.recordSuccess(work, item.providerFileId(), false, List.of(), List.of());
+                        return true;
+                    });
+                    return;
+                }
+                recordAclFailure(item, "SOURCE_SHAREPOINT_" + exception.failure().name());
+            }
+        }
+
+        private void recordAclFailure(Item item, String code) {
+            run.fenced(_ -> {
+                acls.recordFailure(work, item.providerFileId(), code);
+                return true;
+            });
+        }
+
+        /**
+         * Where SharePoint keeps the item, or null when that cannot be told. A file acquired before this was
+         * remembered is asked about once more; a page lives in its site's page library.
+         */
+        private @Nullable Location location(Item item) {
+            if (item.webUrl() != null && (item.page() || (item.listId() != null && item.listItemId() != null))) {
+                return new Location(item.listId(), item.listItemId(), item.webUrl());
+            }
+            Location found;
+            if (item.page()) {
+                String web = pageWeb(item.path());
+                found = web == null ? null : new Location(null, null, web);
+            } else {
+                var kept = item.driveId() == null ? null : session.item(item.driveId(), item.providerFileId()).listItem();
+                found = kept == null ? null : new Location(kept.listId(), kept.listItemId(), kept.webUrl());
+            }
+            if (found != null) {
+                run.fenced(_ -> {
+                    acls.located(work, item.providerFileId(), found.listId(), found.listItemId(), found.webUrl());
+                    return true;
+                });
+            }
+            return found;
+        }
+
+        /** The groups inside an Entra group. Its people are kept by the group membership, not by a document. */
+        private List<EntraMember> entraGroupMembers(String id) {
+            var members = new ArrayList<EntraMember>();
+            String link = null;
+            do {
+                var page = session.entraGroupMembers(id, link);
+                for (EntraMember member : page.members()) if (member.group()) members.add(member);
+                link = page.nextLink();
+            } while (link != null);
+            return members;
+        }
+
+        /** A group that no longer exists has no members; nobody reads through it. */
+        private <T> List<T> members(Supplier<List<T>> read) {
+            try {
+                return read.get();
+            } catch (SharePointProviderException exception) {
+                if (exception.failure() != Failure.NOT_FOUND) throw exception;
+                return List.of();
+            }
         }
 
         /** Retries the items an earlier run failed on, one step each; null once none remains. */
@@ -335,6 +555,7 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                             observe(item, retry.driveId(), retry.siteId(), path(item));
                             return true;
                         });
+                        if (sharing != null) permissions(held(item));
                         acquire(item);
                     } else if (retry.siteId() != null) {
                         var page = session.page(retry.siteId(), retry.providerFileId());
@@ -342,6 +563,7 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                             observePage(retry.siteId(), page.metadata());
                             return true;
                         });
+                        if (sharing != null) permissions(held(page.metadata()));
                         acquirePage(retry.siteId(), page.metadata(), page);
                     }
                 } catch (SharePointProviderException exception) {
@@ -394,7 +616,10 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                             return !current.prune() && run.unchanged(metadata.pageId(), metadata.contentVersion(),
                                     null, metadata.lastModifiedAt());
                         }).orElse(true);
-                        if (!current.prune() && !unchanged) acquirePage(siteId, metadata, null);
+                        if (!current.prune() && !unchanged) {
+                            if (sharing != null) permissions(held(metadata));
+                            acquirePage(siteId, metadata, null);
+                        }
                         if (interrupted()) return interruption();
                     }
                     link = listed.nextLink();
@@ -408,9 +633,10 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
         }
 
         private void observePage(String siteId, SharePointGateway.SitePageMetadata metadata) {
+            String web = pageWeb(metadata.webUrl());
             runs.observe(work.tenantId(), work.sourceId(), metadata.pageId(), "PAGE", null, siteId,
                     metadata.title(), metadata.webUrl(), metadata.contentVersion(), metadata.eTag(), 0,
-                    current.prune() ? current.id() : null);
+                    current.prune() ? current.id() : null, web == null ? null : new Location(null, null, web));
             run.observed(metadata.pageId(), metadata.title());
         }
 
@@ -494,13 +720,18 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
                 }
                 return run.unchanged(item.id(), item.contentVersion(), item.createdAt(), item.lastModifiedAt());
             }).orElse(true);
-            if (!done) acquire(item);
+            if (done) return;
+            // Read before the content, so the document is never searchable ahead of who may read it.
+            if (sharing != null) permissions(held(item));
+            acquire(item);
         }
 
         private void observe(SharePointGateway.DriveItem item, @Nullable String driveId, @Nullable String siteId,
                 String path) {
+            var kept = item.listItem();
             runs.observe(work.tenantId(), work.sourceId(), item.id(), "FILE", driveId, siteId, item.name(), path,
-                    item.contentVersion(), item.eTag(), item.size(), current.prune() ? current.id() : null);
+                    item.contentVersion(), item.eTag(), item.size(), current.prune() ? current.id() : null,
+                    kept == null ? null : new Location(kept.listId(), kept.listItemId(), kept.webUrl()));
             run.observed(item.id(), item.name());
         }
 
@@ -602,6 +833,33 @@ public class SharePointSyncAdapter implements SourceSyncAdapter {
     private static boolean runLevel(SharePointProviderException exception) {
         return exception.failure() == Failure.AUTHENTICATION || exception.failure() == Failure.QUOTA
                 || exception.failure() == Failure.UNAVAILABLE;
+    }
+
+    /** A file as the permission read needs it, from what Microsoft just listed. */
+    private static Item held(SharePointGateway.DriveItem item) {
+        var kept = item.listItem();
+        return new Item(item.id(), false, item.driveId(), null, kept == null ? null : kept.listId(),
+                kept == null ? null : kept.listItemId(), kept == null ? null : kept.webUrl());
+    }
+
+    private static Item held(SharePointGateway.SitePageMetadata page) {
+        return new Item(page.pageId(), true, null, page.webUrl(), null, null, pageWeb(page.webUrl()));
+    }
+
+    /** The site a page belongs to: what its address has before the page library. Null when it has none. */
+    private static @Nullable String pageWeb(@Nullable String pageUrl) {
+        if (pageUrl == null) return null;
+        int library = pageUrl.toLowerCase(Locale.ROOT).lastIndexOf(PAGES_LIBRARY);
+        return library <= 0 ? null : pageUrl.substring(0, library);
+    }
+
+    /** The server-relative address of a page, with the percent-encoding Microsoft gave it. */
+    private static String serverRelative(Item page) {
+        try {
+            return Objects.requireNonNull(new URI(Objects.requireNonNull(page.path())).getRawPath());
+        } catch (URISyntaxException | NullPointerException malformed) {
+            throw new SharePointProviderException(Failure.MALFORMED);
+        }
     }
 
     private static String path(SharePointGateway.DriveItem item) {

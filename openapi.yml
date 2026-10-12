@@ -7,6 +7,70 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
+  /api/sources/{sourceId}/sharepoint/sharing-links:
+    put:
+      tags:
+      - Sources
+      summary: Choose whether a sharing link open to the organization or to anyone
+        makes its file public
+      operationId: updateSharePointSharingLinks
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSharePointSharingLinksRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated SharePoint configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/sharepoint/scope:
     put:
       tags:
@@ -141,6 +205,143 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SharePointConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/scope:
+    put:
+      tags:
+      - Sources
+      summary: Replace what a Lark source synchronizes; the new scope is verified
+        before it applies
+      operationId: replaceLarkScope
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceLarkScopeRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Scope accepted for verification
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/schedule:
+    put:
+      tags:
+      - Sources
+      summary: Update the automatic synchronization interval
+      operationId: updateLarkSchedule
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLarkScheduleRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated Lark configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkConfigurationResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2437,6 +2638,213 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SharePointCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}:
+    put:
+      tags:
+      - Credentials
+      summary: Rename a Lark credential with a revision precondition
+      operationId: renameLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameLarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Lark credential renamed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Credentials
+      summary: Delete an unused Lark credential with a revision precondition
+      operationId: deleteLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Lark credential deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}/secret:
+    put:
+      tags:
+      - Credentials
+      summary: Replace the App Secret of an existing Lark credential of the same app
+      operationId: replaceLarkCredentialSecret
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated Lark credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7107,6 +7515,126 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/lark/sync:
+    post:
+      tags:
+      - Sources
+      summary: Schedule a synchronization run now
+      operationId: synchronizeLarkSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Run scheduled
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/pause:
+    post:
+      tags:
+      - Sources
+      summary: Pause or resume future automatic synchronization
+      operationId: updateLarkPause
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLarkPauseRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated Lark configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/items/{itemId}/remove:
     post:
       tags:
@@ -7463,6 +7991,64 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/lark:
+    post:
+      tags:
+      - Sources
+      summary: Create a Lark source; its scope is verified with Lark before it takes
+        effect
+      operationId: createLarkSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLarkSourceRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Scope accepted for verification
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -10743,6 +11329,183 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SharePointCredentialTestResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark:
+    get:
+      tags:
+      - Credentials
+      summary: List reusable Tenant-owned Lark credentials
+      operationId: listLarkCredentials
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark credentials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Credentials
+      summary: Verify a Lark custom app with Lark and store it; nothing is stored
+        when Lark rejects it
+      operationId: createLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Stored Lark credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}/test:
+    post:
+      tags:
+      - Credentials
+      summary: "Ask Lark for a tenant token, read the bot and probe the read scopes;\
+        \ records what Lark said"
+      operationId: testLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark credential works
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialTestResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -14841,6 +15604,106 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/lark:
+    get:
+      tags:
+      - Sources
+      summary: Get Lark source configuration
+      operationId: getLarkConfiguration
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/roots:
+    get:
+      tags:
+      - Sources
+      summary: List the Wiki spaces and Drive folders in scope
+      operationId: getLarkRoots
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark roots
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkRootResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/items:
     get:
       tags:
@@ -15140,6 +16003,113 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SharePointSelectionPolicyResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/lark/selection-requests/{requestId}:
+    get:
+      tags:
+      - Sources
+      summary: Recover the receipt of an accepted scope request
+      operationId: getLarkSelectionRequest
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark scope receipt
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/lark/credentials/{credentialId}/spaces:
+    get:
+      tags:
+      - Sources
+      summary: "List the Wiki spaces the credential's app is a member of, read from\
+        \ Lark now"
+      operationId: listLarkSpaces
+      parameters:
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Wiki spaces a source may name
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkSpaceOptionResponse"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -21094,909 +22064,139 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/credentials/lark:
-    get:
-      tags:
-      - Credentials
-      summary: List reusable Tenant-owned Lark credentials
-      operationId: listLarkCredentials
-      responses:
-        "400":
-          description: Invalid Lark credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Lark credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Lark credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Lark credentials
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LarkCredentialResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    post:
-      tags:
-      - Credentials
-      summary: Verify a Lark custom app with Lark and store it; nothing is stored when Lark rejects it
-      operationId: createLarkCredential
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LarkCredentialRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Lark credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Lark credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Lark credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "201":
-          description: Stored Lark credential
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LarkCredentialResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/credentials/lark/{credentialId}:
-    put:
-      tags:
-      - Credentials
-      summary: Rename a Lark credential with a revision precondition
-      operationId: renameLarkCredential
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RenameLarkCredentialRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Lark credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Lark credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Lark credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: Lark credential renamed
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - Credentials
-      summary: Delete an unused Lark credential with a revision precondition
-      operationId: deleteLarkCredential
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      responses:
-        "400":
-          description: Invalid Lark credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Lark credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Lark credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: Lark credential deleted
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/credentials/lark/{credentialId}/secret:
-    put:
-      tags:
-      - Credentials
-      summary: Replace the App Secret of an existing Lark credential of the same app
-      operationId: replaceLarkCredentialSecret
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LarkCredentialRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Lark credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Lark credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Lark credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Updated Lark credential
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LarkCredentialResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/credentials/lark/{credentialId}/test:
-    post:
-      tags:
-      - Credentials
-      summary: "Ask Lark for a tenant token, read the bot and probe the read scopes; records what Lark said"
-      operationId: testLarkCredential
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid Lark credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Lark credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Lark credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Lark credential works
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LarkCredentialTestResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/lark:
-    post:
-      tags:
-      - Sources
-      summary: Create a Lark source; its scope is verified with Lark before it takes effect
-      operationId: createLarkSource
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateLarkSourceRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "202":
-          description: Scope accepted for verification
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/lark:
-    get:
-      tags:
-      - Sources
-      summary: Get Lark source configuration
-      operationId: getLarkConfiguration
-      parameters:
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Lark configuration
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/LarkConfigurationResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/lark/selection-requests/{requestId}:
-    get:
-      tags:
-      - Sources
-      summary: Recover the receipt of an accepted scope request
-      operationId: getLarkSelectionRequest
-      parameters:
-      - name: requestId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Lark scope receipt
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/lark/scope:
-    put:
-      tags:
-      - Sources
-      summary: Replace what a Lark source synchronizes; the new scope is verified before it applies
-      operationId: replaceLarkScope
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReplaceLarkScopeRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "202":
-          description: Scope accepted for verification
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/lark/schedule:
-    put:
-      tags:
-      - Sources
-      summary: Update the automatic synchronization interval
-      operationId: updateLarkSchedule
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateLarkScheduleRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Updated Lark configuration
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/LarkConfigurationResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/lark/pause:
-    post:
-      tags:
-      - Sources
-      summary: Pause or resume future automatic synchronization
-      operationId: updateLarkPause
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateLarkPauseRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Updated Lark configuration
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/LarkConfigurationResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/lark/sync:
-    post:
-      tags:
-      - Sources
-      summary: Schedule a synchronization run now
-      operationId: synchronizeLarkSource
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "202":
-          description: Run scheduled
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SourceOperation"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/lark/roots:
-    get:
-      tags:
-      - Sources
-      summary: List the Wiki spaces and Drive folders in scope
-      operationId: getLarkRoots
-      parameters:
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Lark roots
-          content:
-            '*/*':
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LarkRootResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/lark/credentials/{credentialId}/spaces:
-    get:
-      tags:
-      - Sources
-      summary: "List the Wiki spaces the credential's app is a member of, read from Lark now"
-      operationId: listLarkSpaces
-      parameters:
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid Lark scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Wiki spaces a source may name
-          content:
-            '*/*':
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LarkSpaceOptionResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
 components:
   schemas:
+    UpdateSharePointSharingLinksRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        treatAsPublic:
+          type: boolean
+      required:
+      - treatAsPublic
+    SharePointConfigurationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        credentialId:
+          type: string
+          format: uuid
+        credentialName:
+          type: string
+        credentialStatus:
+          type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        scopeRevision:
+          type: integer
+          format: int64
+        scopeMode:
+          type: string
+          enum:
+          - ALL_SITES
+          - SPECIFIC
+        rootCount:
+          type: integer
+          format: int64
+        excludedSites:
+          type: array
+          items:
+            type: string
+        excludedPaths:
+          type: array
+          items:
+            type: string
+        includeDocuments:
+          type: boolean
+        includePages:
+          type: boolean
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+        pruneIntervalHours:
+          type: integer
+          format: int32
+        scheduleRevision:
+          type: integer
+          format: int64
+        syncPaused:
+          type: boolean
+        tenantHost:
+          type: string
+        lastSyncedAt:
+          type: string
+          format: date-time
+        lastPrunedAt:
+          type: string
+          format: date-time
+        pendingWork:
+          type: boolean
+        errorCode:
+          type: string
+        pendingSelectionOperation:
+          $ref: "#/components/schemas/SourceOperation"
+        treatSharingLinksAsPublic:
+          type: boolean
+      required:
+      - credentialId
+      - credentialName
+      - credentialRevision
+      - credentialStatus
+      - excludedPaths
+      - excludedSites
+      - includeDocuments
+      - includePages
+      - pendingWork
+      - pruneIntervalHours
+      - rootCount
+      - scheduleRevision
+      - scopeMode
+      - scopeRevision
+      - sourceId
+      - syncIntervalMinutes
+      - syncPaused
+      - treatSharingLinksAsPublic
+    SourceOperation:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        status:
+          type: string
+          enum:
+          - NOT_STARTED
+          - IN_PROGRESS
+          - SUCCEEDED
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - completedAt
+      - createdAt
+      - errorCode
+      - id
+      - status
+      - type
     ReplaceSharePointScopeRequest:
       type: object
       additionalProperties: false
@@ -22080,43 +22280,6 @@ components:
       required:
       - operation
       - sourceId
-    SourceOperation:
-      type: object
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-        status:
-          type: string
-          enum:
-          - NOT_STARTED
-          - IN_PROGRESS
-          - SUCCEEDED
-          - FAILED
-          - SUPERSEDED
-          - CANCELLED
-        createdAt:
-          type: string
-          format: date-time
-        completedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
-        errorCode:
-          type:
-          - string
-          - "null"
-      required:
-      - completedAt
-      - createdAt
-      - errorCode
-      - id
-      - status
-      - type
     UpdateSharePointScheduleRequest:
       type: object
       additionalProperties: false
@@ -22134,7 +22297,83 @@ components:
       required:
       - pruneIntervalHours
       - syncIntervalMinutes
-    SharePointConfigurationResponse:
+    LarkRootRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+          - WIKI_SPACE
+          - DRIVE_FOLDER
+        value:
+          type: string
+          description: "A Wiki space ID, or the link or token of a Drive folder"
+          maxLength: 2048
+          minLength: 0
+      required:
+      - kind
+      - value
+    LarkScopeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        roots:
+          type: array
+          items:
+            $ref: "#/components/schemas/LarkRootRequest"
+          maxItems: 100
+          minItems: 1
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          maximum: 525600
+          minimum: 1
+      required:
+      - roots
+      - syncIntervalMinutes
+    ReplaceLarkScopeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        expectedCredentialRevision:
+          type: integer
+          format: int64
+          description: Credential revision the scope was reviewed against
+          exclusiveMinimum: 0
+        scope:
+          $ref: "#/components/schemas/LarkScopeRequest"
+      required:
+      - expectedCredentialRevision
+      - requestId
+      - scope
+    LarkSelectionReceiptResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        operation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - operation
+      - sourceId
+    UpdateLarkScheduleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          maximum: 525600
+          minimum: 1
+      required:
+      - syncIntervalMinutes
+    LarkConfigurationResponse:
       type: object
       additionalProperties: false
       properties:
@@ -22154,30 +22393,10 @@ components:
         scopeRevision:
           type: integer
           format: int64
-        scopeMode:
-          type: string
-          enum:
-          - ALL_SITES
-          - SPECIFIC
         rootCount:
           type: integer
           format: int64
-        excludedSites:
-          type: array
-          items:
-            type: string
-        excludedPaths:
-          type: array
-          items:
-            type: string
-        includeDocuments:
-          type: boolean
-        includePages:
-          type: boolean
         syncIntervalMinutes:
-          type: integer
-          format: int32
-        pruneIntervalHours:
           type: integer
           format: int32
         scheduleRevision:
@@ -22185,12 +22404,7 @@ components:
           format: int64
         syncPaused:
           type: boolean
-        tenantHost:
-          type: string
         lastSyncedAt:
-          type: string
-          format: date-time
-        lastPrunedAt:
           type: string
           format: date-time
         pendingWork:
@@ -22204,15 +22418,9 @@ components:
       - credentialName
       - credentialRevision
       - credentialStatus
-      - excludedPaths
-      - excludedSites
-      - includeDocuments
-      - includePages
       - pendingWork
-      - pruneIntervalHours
       - rootCount
       - scheduleRevision
-      - scopeMode
       - scopeRevision
       - sourceId
       - syncIntervalMinutes
@@ -23650,10 +23858,12 @@ components:
           type: string
         botName:
           type: string
-          description: "The bot Lark named at the last verification: what is added to a space or a folder"
+          description: "The bot Lark named at the last verification: what is added\
+            \ to a space or a folder"
         missingScopes:
           type: array
-          description: Read scopes Lark refused to the app's tenant token at the last verification
+          description: Read scopes Lark refused to the app's tenant token at the last
+            verification
           items:
             type: string
         credentialRevision:
@@ -23684,224 +23894,6 @@ components:
       - sourceCount
       - status
       - updatedAt
-    LarkCredentialTestResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        botName:
-          type: string
-        missingScopes:
-          type: array
-          items:
-            type: string
-      required:
-      - botName
-      - missingScopes
-    LarkRootRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        kind:
-          type: string
-          enum:
-          - WIKI_SPACE
-          - DRIVE_FOLDER
-        value:
-          type: string
-          description: "A Wiki space ID, or the link or token of a Drive folder"
-          maxLength: 2048
-          minLength: 0
-      required:
-      - kind
-      - value
-    LarkScopeRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        roots:
-          type: array
-          items:
-            $ref: "#/components/schemas/LarkRootRequest"
-          maxItems: 100
-          minItems: 1
-        syncIntervalMinutes:
-          type: integer
-          format: int32
-          maximum: 525600
-          minimum: 1
-      required:
-      - roots
-      - syncIntervalMinutes
-    CreateLarkSourceRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        requestId:
-          type: string
-          format: uuid
-          description: Identifies the request so a retry recovers its receipt
-        name:
-          type: string
-          maxLength: 120
-          minLength: 0
-        credentialId:
-          type: string
-          format: uuid
-        scope:
-          $ref: "#/components/schemas/LarkScopeRequest"
-        access:
-          type: string
-          enum:
-          - PUBLIC
-          - PRIVATE
-          - SYNC
-        groupIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-          maxItems: 100
-          minItems: 0
-      required:
-      - access
-      - credentialId
-      - name
-      - requestId
-      - scope
-    ReplaceLarkScopeRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        requestId:
-          type: string
-          format: uuid
-        expectedCredentialRevision:
-          type: integer
-          format: int64
-          description: Credential revision the scope was reviewed against
-          exclusiveMinimum: 0
-        scope:
-          $ref: "#/components/schemas/LarkScopeRequest"
-      required:
-      - expectedCredentialRevision
-      - requestId
-      - scope
-    UpdateLarkPauseRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        expectedRevision:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-        paused:
-          type: boolean
-      required:
-      - expectedRevision
-      - paused
-    UpdateLarkScheduleRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        syncIntervalMinutes:
-          type: integer
-          format: int32
-          maximum: 525600
-          minimum: 1
-      required:
-      - syncIntervalMinutes
-    LarkSelectionReceiptResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        sourceId:
-          type: string
-          format: uuid
-        operation:
-          $ref: "#/components/schemas/SourceOperation"
-      required:
-      - operation
-      - sourceId
-    LarkRootResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        kind:
-          type: string
-          enum:
-          - WIKI_SPACE
-          - DRIVE_FOLDER
-        token:
-          type: string
-        displayName:
-          type: string
-          description: The name Lark gave the space or the folder when it was verified
-      required:
-      - kind
-      - token
-    LarkSpaceOptionResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        spaceId:
-          type: string
-        name:
-          type: string
-      required:
-      - name
-      - spaceId
-    LarkConfigurationResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        sourceId:
-          type: string
-          format: uuid
-        credentialId:
-          type: string
-          format: uuid
-        credentialName:
-          type: string
-        credentialStatus:
-          type: string
-        credentialRevision:
-          type: integer
-          format: int64
-        scopeRevision:
-          type: integer
-          format: int64
-        rootCount:
-          type: integer
-          format: int64
-        syncIntervalMinutes:
-          type: integer
-          format: int32
-        scheduleRevision:
-          type: integer
-          format: int64
-        syncPaused:
-          type: boolean
-        lastSyncedAt:
-          type: string
-          format: date-time
-        pendingWork:
-          type: boolean
-        errorCode:
-          type: string
-        pendingSelectionOperation:
-          $ref: "#/components/schemas/SourceOperation"
-      required:
-      - credentialId
-      - credentialName
-      - credentialRevision
-      - credentialStatus
-      - pendingWork
-      - rootCount
-      - scheduleRevision
-      - scopeRevision
-      - sourceId
-      - syncIntervalMinutes
-      - syncPaused
     GoogleDriveServiceAccountRequest:
       type: object
       additionalProperties: false
@@ -26013,6 +26005,19 @@ components:
             null leaves it to global source management alone.
       required:
       - actorId
+    UpdateLarkPauseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedRevision:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+        paused:
+          type: boolean
+      required:
+      - expectedRevision
+      - paused
     UpdateSourceGroupsRequest:
       type: object
       additionalProperties: false
@@ -26071,6 +26076,42 @@ components:
           format: uuid
         scope:
           $ref: "#/components/schemas/SharePointScopeRequest"
+        access:
+          type: string
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+      required:
+      - access
+      - credentialId
+      - name
+      - requestId
+      - scope
+    CreateLarkSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: Identifies the request so a retry recovers its receipt
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        credentialId:
+          type: string
+          format: uuid
+        scope:
+          $ref: "#/components/schemas/LarkScopeRequest"
         access:
           type: string
           enum:
@@ -27600,6 +27641,19 @@ components:
           type: string
       required:
       - allSitesReadable
+    LarkCredentialTestResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        botName:
+          type: string
+        missingScopes:
+          type: array
+          items:
+            type: string
+      required:
+      - botName
+      - missingScopes
     RevokeGoogleDriveCredentialRequest:
       type: object
       additionalProperties: false
@@ -29018,6 +29072,23 @@ components:
       required:
       - items
       - nextCursor
+    LarkRootResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+          - WIKI_SPACE
+          - DRIVE_FOLDER
+        token:
+          type: string
+        displayName:
+          type: string
+          description: The name Lark gave the space or the folder when it was verified
+      required:
+      - kind
+      - token
     SourceItemPage:
       type: object
       additionalProperties: false
@@ -29287,6 +29358,17 @@ components:
       - maxExclusionsPerKind
       - maxRequestBytes
       - maxRootsPerSource
+    LarkSpaceOptionResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        spaceId:
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      - spaceId
     SourceGroupPage:
       type: object
       additionalProperties: false

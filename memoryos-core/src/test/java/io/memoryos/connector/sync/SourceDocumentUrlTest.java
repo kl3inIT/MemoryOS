@@ -18,7 +18,9 @@ import io.memoryos.connector.lark.persistence.JdbcLarkAclRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSourceRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSyncRepository;
 import io.memoryos.connector.sharepoint.SharePointConnectionService;
+import io.memoryos.connector.sharepoint.SharePointGroupSynchronizer;
 import io.memoryos.connector.sharepoint.SharePointSyncAdapter;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointAclRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
@@ -31,7 +33,8 @@ class SourceDocumentUrlTest {
                     mock(JdbcGoogleDriveAclRepository.class), mock(GoogleDriveConnectionService.class),
                     mock(GoogleGroupSynchronizer.class)),
             new SharePointSyncAdapter(mock(JdbcSharePointSyncRepository.class), mock(JdbcSharePointSourceRepository.class),
-                    mock(JdbcSourceSyncRepository.class), mock(SharePointConnectionService.class)),
+                    mock(JdbcSourceSyncRepository.class), mock(SharePointConnectionService.class),
+                    mock(JdbcSharePointAclRepository.class), mock(SharePointGroupSynchronizer.class)),
             new LarkSyncAdapter(mock(JdbcLarkSyncRepository.class), mock(JdbcLarkSourceRepository.class),
                     mock(LarkConnectionService.class), mock(JdbcLarkAclRepository.class),
                     mock(LarkDirectorySynchronizer.class))));

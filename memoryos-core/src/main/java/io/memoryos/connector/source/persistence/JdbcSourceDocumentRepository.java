@@ -97,13 +97,38 @@ public class JdbcSourceDocumentRepository {
                 AND snapshot.observation_revision>0
             WHERE sync_item.tenant_id=m.tenant_id AND sync_item.id=m.connector_item_id
                 AND snapshot.link_share IN ('anyone_readable','anyone_editable')
+            UNION ALL
+            SELECT 'ms_user:' || entry.email AS token
+            FROM connector_items sync_item
+            JOIN sharepoint_acl_snapshots snapshot ON snapshot.tenant_id=sync_item.tenant_id
+                AND snapshot.source_id=p.id AND snapshot.file_id=sync_item.provider_file_id
+                AND snapshot.observation_revision>0
+            CROSS JOIN LATERAL jsonb_array_elements_text(snapshot.user_emails) AS entry(email)
+            WHERE sync_item.tenant_id=m.tenant_id AND sync_item.id=m.connector_item_id
+            UNION ALL
+            SELECT 'ms_group:' || snapshot.source_id || ':' || entry.group_id AS token
+            FROM connector_items sync_item
+            JOIN sharepoint_acl_snapshots snapshot ON snapshot.tenant_id=sync_item.tenant_id
+                AND snapshot.source_id=p.id AND snapshot.file_id=sync_item.provider_file_id
+                AND snapshot.observation_revision>0
+            CROSS JOIN LATERAL jsonb_array_elements_text(snapshot.group_ids) AS entry(group_id)
+            WHERE sync_item.tenant_id=m.tenant_id AND sync_item.id=m.connector_item_id
+            UNION ALL
+            SELECT 'everyone' FROM connector_items sync_item
+            JOIN sharepoint_acl_snapshots snapshot ON snapshot.tenant_id=sync_item.tenant_id
+                AND snapshot.source_id=p.id AND snapshot.file_id=sync_item.provider_file_id
+                AND snapshot.observation_revision>0
+            WHERE sync_item.tenant_id=m.tenant_id AND sync_item.id=m.connector_item_id
+                AND snapshot.access_public
             """;
     /**
      * The reader's provider identities in {@code :tenant}: the verified login email, its domain, and the Google
      * Groups that list it in the active generation of an active service-account credential. A group whose members
      * include the whole customer admits every reader of the primary admin's domain. For Lark, the person each active
      * credential's directory lists under that email, and the chats, departments and spaces that contain them; a Lark
-     * identity is qualified by its credential, because Lark names people and departments per app. An unverified
+     * identity is qualified by its credential, because Lark names people and departments per app. For SharePoint,
+     * the verified login email again, and the groups that list it in the active generation of each Source's group
+     * membership; a group is qualified by its Source, because SharePoint groups belong to a site. An unverified
      * email grants nothing.
      */
     private static final String READER_TOKENS = """
@@ -142,6 +167,18 @@ public class JdbcSourceDocumentRepository {
                 WHERE member.tenant_id=person.tenant_id AND member.credential_id=person.credential_id
                     AND member.generation=person.generation AND member.open_id=person.open_id
             ) lark_token
+            WHERE profile.actor_id=:actor AND profile.email_verified AND profile.email ~ '^[^@[:space:]]+@[^@[:space:]]+$'
+            UNION ALL
+            SELECT 'ms_user:' || LOWER(profile.email) FROM actor_profiles profile
+            WHERE profile.actor_id=:actor AND profile.email_verified AND profile.email ~ '^[^@[:space:]]+@[^@[:space:]]+$'
+            UNION ALL
+            SELECT 'ms_group:' || s.source_id || ':' || member.group_id FROM actor_profiles profile
+            JOIN sharepoint_sources s ON s.tenant_id=:tenant AND s.active_group_generation IS NOT NULL
+            JOIN connector_credential_pairs ms_pair ON ms_pair.tenant_id=s.tenant_id AND ms_pair.id=s.source_id
+            JOIN credentials credential ON credential.tenant_id=ms_pair.tenant_id
+                AND credential.id=ms_pair.credential_id AND credential.status='ACTIVE'
+            JOIN sharepoint_group_members member ON member.tenant_id=s.tenant_id AND member.source_id=s.source_id
+                AND member.generation=s.active_group_generation AND member.member_email=LOWER(profile.email)
             WHERE profile.actor_id=:actor AND profile.email_verified AND profile.email ~ '^[^@[:space:]]+@[^@[:space:]]+$'
             """;
     private static final String READ_SCOPE = """

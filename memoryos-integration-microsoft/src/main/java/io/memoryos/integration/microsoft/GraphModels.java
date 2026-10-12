@@ -4,12 +4,15 @@ import static io.memoryos.connector.SharePointProviderException.Failure.LIMIT_EX
 import static io.memoryos.connector.SharePointProviderException.Failure.MALFORMED;
 
 import com.microsoft.graph.models.BaseSitePage;
+import com.microsoft.graph.models.DirectoryObject;
 import com.microsoft.graph.models.Drive;
 import com.microsoft.graph.models.DriveItem;
+import com.microsoft.graph.models.Group;
 import com.microsoft.graph.models.Site;
 import com.microsoft.graph.models.SitePage;
 import com.microsoft.graph.models.StandardWebPart;
 import com.microsoft.graph.models.TextWebPart;
+import com.microsoft.graph.models.User;
 import com.microsoft.graph.models.WebPart;
 import com.microsoft.kiota.serialization.UntypedString;
 import io.memoryos.connector.SharePointGateway;
@@ -83,7 +86,33 @@ final class GraphModels {
                 parent == null ? null : optional(parent.getId()),
                 root < 0 ? null : URLDecoder.decode(parentPath.substring(root + "root:".length()), StandardCharsets.UTF_8),
                 optional(item.getWebUrl()), optional(text(item.getAdditionalData().get(DOWNLOAD_URL))),
-                parentDrive == null ? driveId : parentDrive);
+                parentDrive == null ? driveId : parentDrive, listItem(item));
+    }
+
+    /** Where SharePoint keeps the item, or null when Graph did not say all of it. */
+    private static SharePointGateway.@Nullable ListItem listItem(DriveItem item) {
+        var ids = item.getSharepointIds();
+        if (ids == null) return null;
+        String listId = optional(ids.getListId());
+        String listItemId = optional(ids.getListItemId());
+        String webUrl = optional(ids.getSiteUrl());
+        return listId == null || listItemId == null || webUrl == null ? null
+                : new SharePointGateway.ListItem(listId, listItemId, webUrl);
+    }
+
+    /** A person or a group of an Entra group; null for a device, a contact or a service principal, which read nothing. */
+    static SharePointGateway.@Nullable EntraMember member(DirectoryObject member) {
+        return switch (member) {
+            case Group group -> new SharePointGateway.EntraMember(true, required(group.getId()),
+                    optional(group.getDisplayName()), null);
+            case User user -> new SharePointGateway.EntraMember(false, required(user.getId()),
+                    optional(user.getDisplayName()), optional(user.getUserPrincipalName()));
+            default -> null;
+        };
+    }
+
+    static SharePointGateway.EntraGroup group(Group group) {
+        return new SharePointGateway.EntraGroup(required(group.getId()), optional(group.getDisplayName()));
     }
 
     static SharePointGateway.SitePageMetadata pageMetadata(BaseSitePage page) {

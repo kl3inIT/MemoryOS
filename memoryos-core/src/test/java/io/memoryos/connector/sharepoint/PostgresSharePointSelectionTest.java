@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointSourceService;
 import io.memoryos.connector.SharePointSourceService.Scope;
@@ -16,17 +17,21 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceSelectionProcessor;
+import io.memoryos.connector.SourceType;
 import io.memoryos.connector.source.SourceAccessPolicy;
 import io.memoryos.connector.sync.SourceSyncAdapters;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointAclRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository;
+import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.sharepoint.persistence.SharePointCredentialConfiguration;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.group.DefaultGroupScopeService;
 import io.memoryos.iam.group.DefaultIamAuthorization;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
@@ -67,6 +72,8 @@ class PostgresSharePointSelectionTest {
     private SharePointSelectionAdapter processor;
     private JdbcSharePointSelectionRepository selections;
     private JdbcSharePointSourceRepository sharePoint;
+    private DefaultIamAuthorization authorization;
+    private SourceAccessPolicy access;
 
     @AfterEach
     void closeDatabase() {
@@ -84,15 +91,21 @@ class PostgresSharePointSelectionTest {
         credential = new CredentialId(UUID.randomUUID());
         seed();
 
-        var authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc));
+        authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc));
         var sourceRows = new JdbcSourceRepository(jdbc, event -> { });
         var documents = new JdbcSourceDocumentRepository(jdbc);
         var credentials = new JdbcSharePointCredentialRepository(jdbc, sourceRows,
                 new SharePointCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "v1"));
         selections = new JdbcSharePointSelectionRepository(jdbc);
         sharePoint = new JdbcSharePointSourceRepository(jdbc, sourceRows);
-        var access = new SourceAccessPolicy(authorization, sourceRows,
-                new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry());
+        // The SharePoint adapter itself answers what the provider requires of a Source's access.
+        var adapter = new SharePointSyncAdapter(mock(JdbcSharePointSyncRepository.class), sharePoint,
+                mock(JdbcSourceSyncRepository.class),
+                new SharePointConnectionService(credentials, sharePoint, mock(SharePointGateway.class), manager),
+                new JdbcSharePointAclRepository(jdbc, event -> { }), mock(SharePointGroupSynchronizer.class));
+        access = new SourceAccessPolicy(authorization, sourceRows,
+                new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)),
+                TestDatabase.noAudit(), SourceSyncAdapters.registry(adapter));
 
         session = mock(SharePointGateway.Session.class);
         when(session.root()).thenReturn(new SharePointGateway.RootSite("site-1", "https://contoso.sharepoint.com",
@@ -149,6 +162,58 @@ class PostgresSharePointSelectionTest {
         assertEquals(SourceSelectionProcessor.Result.COMPLETED, processor.execute(claim(receipt.operation().id())));
         assertEquals("PRIVATE", jdbc.sql("SELECT access_type FROM connector_credential_pairs WHERE id = :id")
                 .param("id", receipt.sourceId().value()).query(String.class).single());
+    }
+
+    @Test
+    void autoSyncNeedsACertificateCredentialAtCreationAndOnAChangeOfAccess() {
+        var refused = assertThrows(SharePointException.class, () -> sources.create(owner, UUID.randomUUID(),
+                "Finance", credential, scope(LIBRARY_URL), SourceAccess.SYNC, List.of()));
+        assertEquals("SOURCE_SHAREPOINT_SYNC_REQUIRES_CERTIFICATE", refused.code());
+
+        when(session.libraries("site-1")).thenReturn(List.of(new SharePointGateway.Library("drive-1", "Documents",
+                "/sites/Finance/Shared Documents")));
+        var receipt = sources.create(owner, UUID.randomUUID(), "Finance", credential, scope(LIBRARY_URL),
+                SourceAccess.PUBLIC, List.of());
+        processor.execute(claim(receipt.operation().id()));
+        var source = receipt.sourceId();
+        assertEquals("SOURCE_SHAREPOINT_SYNC_REQUIRES_CERTIFICATE",
+                assertThrows(SharePointException.class, () -> changeToAutoSync(source)).code());
+
+        certificate();
+        jdbc.sql("UPDATE source_sync_state SET next_sync_at = CURRENT_TIMESTAMP + INTERVAL '1 hour' WHERE source_id = :id")
+                .param("id", source.value()).update();
+        jdbc.sql("""
+                UPDATE sharepoint_sources SET next_permission_sync_at = CURRENT_TIMESTAMP + INTERVAL '1 hour'
+                WHERE source_id = :id
+                """).param("id", source.value()).update();
+        assertEquals(SourceAccess.SYNC, changeToAutoSync(source));
+        // Nobody reads the Source until its permissions were read, so that read is asked for at once.
+        assertTrue(jdbc.sql("""
+                SELECT y.next_sync_at <= CURRENT_TIMESTAMP AND s.next_permission_sync_at <= CURRENT_TIMESTAMP
+                FROM sharepoint_sources s JOIN source_sync_state y ON y.tenant_id = s.tenant_id
+                    AND y.source_id = s.source_id
+                WHERE s.source_id = :id
+                """).param("id", source.value()).query(Boolean.class).single());
+        assertNotNull(sources.create(owner, UUID.randomUUID(), "Legal", credential, scope(LIBRARY_URL),
+                SourceAccess.SYNC, List.of()));
+    }
+
+    private SourceAccess changeToAutoSync(SourceId source) {
+        return Objects.requireNonNull(tx.execute(_ -> access.change(
+                authorization.lockAndRequireExclusive(owner, IamCapability.SOURCES_MANAGE), source,
+                SourceType.SHAREPOINT, SourceAccess.SYNC)));
+    }
+
+    /** Replaces the stored client secret with a certificate, as the credential service does. */
+    private void certificate() {
+        jdbc.sql("""
+                UPDATE sharepoint_credentials SET auth_method = 'CERTIFICATE', secret_ciphertext = NULL,
+                    secret_nonce = NULL, secret_key_version = NULL, private_key_ciphertext = :ciphertext,
+                    private_key_nonce = :nonce, private_key_version = 'v1', certificate_der = :ciphertext,
+                    certificate_thumbprint = :thumbprint, certificate_not_after = CURRENT_TIMESTAMP + INTERVAL '1 year'
+                WHERE tenant_id = :tenant AND credential_id = :credential
+                """).param("ciphertext", new byte[32]).param("nonce", new byte[12]).param("thumbprint", "A".repeat(40))
+                .param("tenant", tenant.value()).param("credential", credential.value()).update();
     }
 
     @Test

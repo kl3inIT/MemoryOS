@@ -325,6 +325,7 @@ class OpenApiContractTest {
             "/api/sources/{sourceId}/sharepoint/scope",
             "/api/sources/{sourceId}/sharepoint/schedule",
             "/api/sources/{sourceId}/sharepoint/pause",
+            "/api/sources/{sourceId}/sharepoint/sharing-links",
             "/api/sources/{sourceId}/sharepoint/sync",
             "/api/credentials/sharepoint",
             "/api/credentials/sharepoint/{credentialId}",

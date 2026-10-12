@@ -34,6 +34,12 @@ public interface SharePointSourceService {
 
     Configuration setPaused(ActorId actorId, SourceId sourceId, long expectedScheduleRevision, boolean paused);
 
+    /**
+     * Whether a sharing link open to the organization or to anyone makes its file readable by every reader of a
+     * Source that admits readers by SharePoint's permissions. Changing it asks for the permissions to be read again.
+     */
+    Configuration setSharingLinksPublic(ActorId actorId, SourceId sourceId, boolean treatAsPublic);
+
     SourceOperationView synchronize(ActorId actorId, SourceId sourceId);
 
     enum ScopeMode { ALL_SITES, SPECIFIC }
@@ -69,7 +75,7 @@ public interface SharePointSourceService {
                          boolean includePages, int syncIntervalMinutes, int pruneIntervalHours, long scheduleRevision,
                          boolean syncPaused, @Nullable String tenantHost, @Nullable Instant lastSyncedAt,
                          @Nullable Instant lastPrunedAt, boolean pendingWork, @Nullable String errorCode,
-                         @Nullable SourceOperationView pendingSelectionOperation) {
+                         @Nullable SourceOperationView pendingSelectionOperation, boolean treatSharingLinksAsPublic) {
         public Configuration {
             excludedSites = List.copyOf(excludedSites);
             excludedPaths = List.copyOf(excludedPaths);

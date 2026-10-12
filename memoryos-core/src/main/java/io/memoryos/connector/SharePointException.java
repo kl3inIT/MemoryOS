@@ -8,6 +8,27 @@ public final class SharePointException extends BusinessException {
         super(code, category, safeMessage, diagnosticMessage);
     }
 
+    /** SharePoint or the directory refused to say who may read: the Entra application lacks what Auto Sync needs. */
+    public static final String PERMISSIONS_DENIED = "SOURCE_SHAREPOINT_SYNC_PERMISSIONS_DENIED";
+
+    /**
+     * SharePoint REST, which is where permissions are read, takes only the application token of a certificate
+     * credential.
+     */
+    public static SharePointException syncRequiresCertificate() {
+        return new SharePointException("SOURCE_SHAREPOINT_SYNC_REQUIRES_CERTIFICATE", FailureCategory.VALIDATION,
+                "Auto Sync reads SharePoint permissions, which needs a certificate credential. Use a certificate"
+                        + " credential, or choose another access.",
+                "SharePoint permission sync requested with a client-secret credential");
+    }
+
+    public static SharePointException permissionsDenied() {
+        return new SharePointException(PERMISSIONS_DENIED, FailureCategory.NOT_PERMITTED,
+                "Microsoft refused to list SharePoint permissions or group members. Grant the Entra application"
+                        + " SharePoint Sites.FullControl.All and Microsoft Graph GroupMember.Read.All.",
+                "SharePoint role assignments or group members refused for the application");
+    }
+
     public static SharePointException notConfigured() {
         return new SharePointException("SOURCE_SHAREPOINT_NOT_CONFIGURED", FailureCategory.SERVICE_UNAVAILABLE,
                 "SharePoint credentials are not configured. Contact the deployment owner.",

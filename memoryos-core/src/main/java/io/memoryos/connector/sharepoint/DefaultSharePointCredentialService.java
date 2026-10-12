@@ -95,11 +95,16 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
             }
             credentials.requireConfigured();
         });
+        boolean secret = draft.authMethod() == SharePointGateway.AuthMethod.CLIENT_SECRET;
         try (var authentication = authentication(draft)) {
             var verification = verify(draft.cloud(), directoryId, clientId, authentication);
             return Objects.requireNonNull(transactions.execute(_ -> {
                 TenantId tenantId = requireManagement(actorId);
                 requireCredentialMutation(actorId, credentialId);
+                // A Source that reads SharePoint's permissions would stop reading them under a client secret.
+                if (secret && credentials.servesPermissionSync(tenantId, credentialId)) {
+                    throw SharePointException.syncRequiresCertificate();
+                }
                 long revision = credentials.replaceAuthentication(tenantId, credentialId, expectedRevision, name,
                         authentication, verification.tenantHost());
                 audit.record(AuditRecord.of(AuditAction.CREDENTIAL_UPDATE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), name).detail("provider", "SHAREPOINT").detail("change", "REPLACE_AUTHENTICATION").build());

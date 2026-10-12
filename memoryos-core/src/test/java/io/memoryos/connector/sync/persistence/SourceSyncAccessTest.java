@@ -143,10 +143,10 @@ class SourceSyncAccessTest {
 
     @Test
     void readerTokensComeOnlyFromAVerifiedEmailOfAnActiveMember() {
-        assertEquals(Set.of("google_user:owner@example.test", "google_domain:example.test"),
-                repository.actorAccessTokens(tenant, owner));
-        assertEquals(Set.of("google_user:mate@example.test", "google_domain:example.test"),
-                repository.actorAccessTokens(tenant, mate));
+        assertEquals(Set.of("google_user:owner@example.test", "google_domain:example.test",
+                "ms_user:owner@example.test"), repository.actorAccessTokens(tenant, owner));
+        assertEquals(Set.of("google_user:mate@example.test", "google_domain:example.test",
+                "ms_user:mate@example.test"), repository.actorAccessTokens(tenant, mate));
         assertTrue(repository.actorAccessTokens(tenant, unverified).isEmpty());
         assertEquals(1, repository.actorAccessTokens(tenant, groupMember).size());
         jdbc.sql("UPDATE tenant_memberships SET status='INACTIVE' WHERE tenant_id=:tenant AND actor_id=:actor")
@@ -211,6 +211,96 @@ class SourceSyncAccessTest {
                         + "UPDATE google_drive_credentials SET connection_status='NEEDS_REAUTHORIZATION' WHERE credential_id=:id")
                 .param("id", credential).update();
         assertEquals(Set.of(), readersOf(team), "A credential that lost its authority stops granting membership");
+    }
+
+    @Test
+    void sharePointGrantsAdmitTheNamedPeopleAndTheMembersOfTheSourcesActiveGroupGeneration() {
+        UUID finance = sharePoint();
+        UUID legal = sharePoint();
+        String members = "https://contoso.sharepoint.com/sites/finance::finance members";
+        var direct = new DocumentId(sharePointDocument(finance, "direct", false, List.of("owner@example.test"), List.of()));
+        var grouped = new DocumentId(sharePointDocument(finance, "grouped", false, List.of(), List.of(members)));
+        var open = new DocumentId(sharePointDocument(finance, "open", true, List.of(), List.of()));
+        var unread = new DocumentId(sharePointDocument(finance, "unread", false, null, null));
+        var elsewhere = new DocumentId(sharePointDocument(legal, "elsewhere", false, List.of(), List.of(members)));
+
+        assertEquals(Set.of(owner), readersOf(direct), "an unverified email of the same spelling reads nothing");
+        assertEquals(Set.of(), readersOf(grouped), "nobody reads through a group before its members were read");
+        assertEquals(Set.copyOf(readers), readersOf(open));
+        assertEquals(Set.of(), readersOf(unread), "before the first complete read nobody reads");
+        assertEquals(new DocumentAccess(false, Set.of("ms_user:owner@example.test")),
+                repository.documentAccess(tenant, direct.value()));
+        assertEquals(new DocumentAccess(false, Set.of("ms_group:" + finance + ":" + members)),
+                repository.documentAccess(tenant, grouped.value()));
+        assertEquals(new DocumentAccess(true, Set.of()), repository.documentAccess(tenant, open.value()));
+
+        groupGeneration(finance, 1, Map.of(members, List.of("mate@example.test", "owner@example.test")));
+        assertEquals(Set.of(), readersOf(grouped), "a generation that is not active admits nobody");
+        activateGroups(finance, 1);
+        assertEquals(Set.of(owner, mate), readersOf(grouped));
+        assertEquals(Set.of(), readersOf(elsewhere), "a group of the same name in another Source is another group");
+        assertTrue(repository.actorAccessTokens(tenant, mate).contains("ms_group:" + finance + ":" + members));
+        assertTrue(repository.actorAccessTokens(tenant, unverified).isEmpty());
+
+        // Leaving the group ends the access at the next complete read, without anything being indexed again.
+        groupGeneration(finance, 2, Map.of(members, List.of("owner@example.test")));
+        activateGroups(finance, 2);
+        assertEquals(Set.of(owner), readersOf(grouped));
+
+        jdbc.sql("UPDATE credentials SET status='REVOKED' WHERE id=:id").param("id", finance).update();
+        assertEquals(Set.of(), readersOf(grouped), "membership read by a credential that stopped working admits nobody");
+    }
+
+    /** A SharePoint Source that admits readers by SharePoint's own permissions. */
+    private UUID sharePoint() {
+        UUID source = pair("SHAREPOINT", "SYNC");
+        jdbc.sql("WITH state AS (INSERT INTO source_sync_state (tenant_id, source_id) VALUES (:tenant, :source)) "
+                        + "INSERT INTO sharepoint_sources(tenant_id,source_id,scope_mode) VALUES(:tenant,:source,'ALL_SITES')")
+                .param("tenant", tenant.value()).param("source", source).update();
+        return source;
+    }
+
+    /** A SharePoint document; {@code emails} null means its permissions were never read whole. */
+    private UUID sharePointDocument(UUID source, String fileId, boolean everyone, @Nullable List<String> emails,
+            @Nullable List<String> groups) {
+        UUID document = UUID.randomUUID();
+        jdbc.sql("INSERT INTO documents(id,tenant_id,status,title,content_generation) VALUES(:id,:tenant,'ELIGIBLE',:title,:generation)")
+                .param("id", document).param("tenant", tenant.value()).param("title", fileId).param("generation", generation).update();
+        map(source, document, fileId);
+        jdbc.sql("INSERT INTO sharepoint_items(tenant_id,source_id,provider_file_id,kind) VALUES(:tenant,:source,:file,'FILE')")
+                .param("tenant", tenant.value()).param("source", source).param("file", fileId).update();
+        if (emails == null) {
+            jdbc.sql("""
+                    INSERT INTO sharepoint_acl_snapshots(tenant_id,source_id,file_id,status,last_attempt_at,error_code)
+                    VALUES(:tenant,:source,:file,'FAILED',CURRENT_TIMESTAMP,'SOURCE_SHAREPOINT_AUTHORIZATION')
+                    """).param("tenant", tenant.value()).param("source", source).param("file", fileId).update();
+            return document;
+        }
+        jdbc.sql("""
+                INSERT INTO sharepoint_acl_snapshots(tenant_id,source_id,file_id,observation_revision,access_public,user_emails,
+                    group_ids,status,last_attempt_at,last_success_at)
+                VALUES(:tenant,:source,:file,1,:everyone,CAST(:emails AS jsonb),CAST(:groups AS jsonb),'SUCCEEDED',
+                    CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+                """).param("tenant", tenant.value()).param("source", source).param("file", fileId).param("everyone", everyone)
+                .param("emails", JSON.writeValueAsString(emails)).param("groups", JSON.writeValueAsString(groups)).update();
+        return document;
+    }
+
+    private void groupGeneration(UUID source, long generation, Map<String, List<String>> members) {
+        jdbc.sql("""
+                INSERT INTO sharepoint_group_runs(tenant_id,source_id,generation,status,finished_at)
+                VALUES(:tenant,:source,:generation,'COMPLETED',CURRENT_TIMESTAMP)
+                """).param("tenant", tenant.value()).param("source", source).param("generation", generation).update();
+        members.forEach((group, emails) -> emails.forEach(email -> jdbc.sql("""
+                INSERT INTO sharepoint_group_members(tenant_id,source_id,generation,group_id,member_email)
+                VALUES(:tenant,:source,:generation,:group,:email)
+                """).param("tenant", tenant.value()).param("source", source).param("generation", generation)
+                .param("group", group).param("email", email).update()));
+    }
+
+    private void activateGroups(UUID source, long generation) {
+        jdbc.sql("UPDATE sharepoint_sources SET active_group_generation=:generation WHERE source_id=:source")
+                .param("generation", generation).param("source", source).update();
     }
 
     private UUID serviceAccount(String adminEmail) {

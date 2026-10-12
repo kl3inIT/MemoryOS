@@ -2,21 +2,8 @@
 
 import * as z from 'zod';
 
-export const zSharePointScopeRequest = z.object({
-    scopeMode: z.enum(['ALL_SITES', 'SPECIFIC']),
-    siteUrls: z.array(z.string().min(0).max(2048)).min(0).max(1000).optional(),
-    excludedSites: z.array(z.string().min(0).max(512)).min(0).max(100).optional(),
-    excludedPaths: z.array(z.string().min(0).max(512)).min(0).max(100).optional(),
-    includeDocuments: z.boolean(),
-    includePages: z.boolean(),
-    syncIntervalMinutes: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    pruneIntervalHours: z.int().gte(0).lte(8760).optional()
-});
-
-export const zReplaceSharePointScopeRequest = z.object({
-    requestId: z.uuid(),
-    expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    scope: zSharePointScopeRequest
+export const zUpdateSharePointSharingLinksRequest = z.object({
+    treatAsPublic: z.boolean()
 });
 
 export const zSourceOperation = z.object({
@@ -33,16 +20,6 @@ export const zSourceOperation = z.object({
     createdAt: z.iso.datetime(),
     completedAt: z.iso.datetime().nullable(),
     errorCode: z.string().nullable()
-});
-
-export const zSharePointSelectionReceiptResponse = z.object({
-    sourceId: z.uuid(),
-    operation: zSourceOperation
-});
-
-export const zUpdateSharePointScheduleRequest = z.object({
-    syncIntervalMinutes: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    pruneIntervalHours: z.int().gte(0).lte(8760)
 });
 
 export const zSharePointConfigurationResponse = z.object({
@@ -65,6 +42,76 @@ export const zSharePointConfigurationResponse = z.object({
     tenantHost: z.string().optional(),
     lastSyncedAt: z.iso.datetime().optional(),
     lastPrunedAt: z.iso.datetime().optional(),
+    pendingWork: z.boolean(),
+    errorCode: z.string().optional(),
+    pendingSelectionOperation: zSourceOperation.optional(),
+    treatSharingLinksAsPublic: z.boolean()
+});
+
+export const zSharePointScopeRequest = z.object({
+    scopeMode: z.enum(['ALL_SITES', 'SPECIFIC']),
+    siteUrls: z.array(z.string().min(0).max(2048)).min(0).max(1000).optional(),
+    excludedSites: z.array(z.string().min(0).max(512)).min(0).max(100).optional(),
+    excludedPaths: z.array(z.string().min(0).max(512)).min(0).max(100).optional(),
+    includeDocuments: z.boolean(),
+    includePages: z.boolean(),
+    syncIntervalMinutes: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    pruneIntervalHours: z.int().gte(0).lte(8760).optional()
+});
+
+export const zReplaceSharePointScopeRequest = z.object({
+    requestId: z.uuid(),
+    expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    scope: zSharePointScopeRequest
+});
+
+export const zSharePointSelectionReceiptResponse = z.object({
+    sourceId: z.uuid(),
+    operation: zSourceOperation
+});
+
+export const zUpdateSharePointScheduleRequest = z.object({
+    syncIntervalMinutes: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    pruneIntervalHours: z.int().gte(0).lte(8760)
+});
+
+export const zLarkRootRequest = z.object({
+    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
+    value: z.string().min(0).max(2048)
+});
+
+export const zLarkScopeRequest = z.object({
+    roots: z.array(zLarkRootRequest).min(1).max(100),
+    syncIntervalMinutes: z.int().gte(1).lte(525600)
+});
+
+export const zReplaceLarkScopeRequest = z.object({
+    requestId: z.uuid(),
+    expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    scope: zLarkScopeRequest
+});
+
+export const zLarkSelectionReceiptResponse = z.object({
+    sourceId: z.uuid(),
+    operation: zSourceOperation
+});
+
+export const zUpdateLarkScheduleRequest = z.object({
+    syncIntervalMinutes: z.int().gte(1).lte(525600)
+});
+
+export const zLarkConfigurationResponse = z.object({
+    sourceId: z.uuid(),
+    credentialId: z.uuid(),
+    credentialName: z.string(),
+    credentialStatus: z.string(),
+    credentialRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    scopeRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    rootCount: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    syncIntervalMinutes: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    scheduleRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    syncPaused: z.boolean(),
+    lastSyncedAt: z.iso.datetime().optional(),
     pendingWork: z.boolean(),
     errorCode: z.string().optional(),
     pendingSelectionOperation: zSourceOperation.optional()
@@ -627,82 +674,6 @@ export const zLarkCredentialResponse = z.object({
     updatedAt: z.iso.datetime(),
     sourceCount: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     actions: z.array(z.string())
-});
-
-export const zLarkCredentialTestResponse = z.object({
-    botName: z.string(),
-    missingScopes: z.array(z.string())
-});
-
-export const zLarkRootRequest = z.object({
-    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
-    value: z.string().min(0).max(2048)
-});
-
-export const zLarkScopeRequest = z.object({
-    roots: z.array(zLarkRootRequest).min(1).max(100),
-    syncIntervalMinutes: z.int().gte(1).lte(525600)
-});
-
-export const zCreateLarkSourceRequest = z.object({
-    requestId: z.uuid(),
-    name: z.string().min(0).max(120),
-    credentialId: z.uuid(),
-    scope: zLarkScopeRequest,
-    access: z.enum([
-        'PUBLIC',
-        'PRIVATE',
-        'SYNC'
-    ]),
-    groupIds: z.array(z.uuid()).min(0).max(100).optional()
-});
-
-export const zReplaceLarkScopeRequest = z.object({
-    requestId: z.uuid(),
-    expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    scope: zLarkScopeRequest
-});
-
-export const zUpdateLarkPauseRequest = z.object({
-    expectedRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    paused: z.boolean()
-});
-
-export const zUpdateLarkScheduleRequest = z.object({
-    syncIntervalMinutes: z.int().gte(1).lte(525600)
-});
-
-export const zLarkSelectionReceiptResponse = z.object({
-    sourceId: z.uuid(),
-    operation: zSourceOperation
-});
-
-export const zLarkRootResponse = z.object({
-    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
-    token: z.string(),
-    displayName: z.string().optional()
-});
-
-export const zLarkSpaceOptionResponse = z.object({
-    spaceId: z.string(),
-    name: z.string()
-});
-
-export const zLarkConfigurationResponse = z.object({
-    sourceId: z.uuid(),
-    credentialId: z.uuid(),
-    credentialName: z.string(),
-    credentialStatus: z.string(),
-    credentialRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    scopeRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    rootCount: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    syncIntervalMinutes: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    scheduleRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    syncPaused: z.boolean(),
-    lastSyncedAt: z.iso.datetime().optional(),
-    pendingWork: z.boolean(),
-    errorCode: z.string().optional(),
-    pendingSelectionOperation: zSourceOperation.optional()
 });
 
 export const zGoogleDriveServiceAccountRequest = z.object({
@@ -1537,6 +1508,11 @@ export const zAssignSourceManagerRequest = z.object({
     actorId: z.uuid().nullable()
 });
 
+export const zUpdateLarkPauseRequest = z.object({
+    expectedRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    paused: z.boolean()
+});
+
 export const zUpdateSourceGroupsRequest = z.object({
     groupIds: z.array(z.uuid()).min(0).max(100)
 });
@@ -1559,6 +1535,19 @@ export const zCreateSharePointSourceRequest = z.object({
     name: z.string().min(0).max(120),
     credentialId: z.uuid(),
     scope: zSharePointScopeRequest,
+    access: z.enum([
+        'PUBLIC',
+        'PRIVATE',
+        'SYNC'
+    ]),
+    groupIds: z.array(z.uuid()).min(0).max(100).optional()
+});
+
+export const zCreateLarkSourceRequest = z.object({
+    requestId: z.uuid(),
+    name: z.string().min(0).max(120),
+    credentialId: z.uuid(),
+    scope: zLarkScopeRequest,
     access: z.enum([
         'PUBLIC',
         'PRIVATE',
@@ -2154,6 +2143,11 @@ export const zSharePointCredentialTestResponse = z.object({
     tenantHost: z.string().optional()
 });
 
+export const zLarkCredentialTestResponse = z.object({
+    botName: z.string(),
+    missingScopes: z.array(z.string())
+});
+
 export const zRevokeGoogleDriveCredentialRequest = z.object({
     expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
@@ -2682,6 +2676,12 @@ export const zSourceRunErrorPage = z.object({
     nextCursor: z.string().nullable()
 });
 
+export const zLarkRootResponse = z.object({
+    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
+    token: z.string(),
+    displayName: z.string().optional()
+});
+
 export const zSourceItemPage = z.object({
     items: z.array(zSourceItem),
     nextCursor: z.string().nullable(),
@@ -2780,6 +2780,11 @@ export const zSharePointSelectionPolicyResponse = z.object({
     maxRootsPerSource: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     maxExclusionsPerKind: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     maxRequestBytes: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+export const zLarkSpaceOptionResponse = z.object({
+    spaceId: z.string(),
+    name: z.string()
 });
 
 export const zSourceGroupPage = z.object({
@@ -4073,6 +4078,17 @@ export const zApiProblem = z.object({
     })).optional()
 });
 
+export const zUpdateSharePointSharingLinksBody = zUpdateSharePointSharingLinksRequest;
+
+export const zUpdateSharePointSharingLinksPath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Updated SharePoint configuration
+ */
+export const zUpdateSharePointSharingLinksResponse = zSharePointConfigurationResponse;
+
 export const zReplaceSharePointScopeBody = zReplaceSharePointScopeRequest;
 
 export const zReplaceSharePointScopeHeaders = z.object({
@@ -4102,6 +4118,36 @@ export const zUpdateSharePointSchedulePath = z.object({
  * Updated SharePoint configuration
  */
 export const zUpdateSharePointScheduleResponse = zSharePointConfigurationResponse;
+
+export const zReplaceLarkScopeBody = zReplaceLarkScopeRequest;
+
+export const zReplaceLarkScopeHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zReplaceLarkScopePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Scope accepted for verification
+ */
+export const zReplaceLarkScopeResponse = zLarkSelectionReceiptResponse;
+
+export const zUpdateLarkScheduleBody = zUpdateLarkScheduleRequest;
+
+export const zUpdateLarkScheduleHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateLarkSchedulePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Updated Lark configuration
+ */
+export const zUpdateLarkScheduleResponse = zLarkConfigurationResponse;
 
 export const zUpdateGoogleDriveScheduleBody = zUpdateGoogleDriveScheduleRequest;
 
@@ -4534,6 +4580,49 @@ export const zReplaceSharePointCredentialAuthenticationPath = z.object({
  * Updated SharePoint credential
  */
 export const zReplaceSharePointCredentialAuthenticationResponse = zSharePointCredentialResponse;
+
+export const zDeleteLarkCredentialHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zDeleteLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential deleted
+ */
+export const zDeleteLarkCredentialResponse = z.void();
+
+export const zRenameLarkCredentialBody = zRenameLarkCredentialRequest;
+
+export const zRenameLarkCredentialHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zRenameLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential renamed
+ */
+export const zRenameLarkCredentialResponse = z.void();
+
+export const zReplaceLarkCredentialSecretBody = zLarkCredentialRequest;
+
+export const zReplaceLarkCredentialSecretHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zReplaceLarkCredentialSecretPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Updated Lark credential
+ */
+export const zReplaceLarkCredentialSecretResponse = zLarkCredentialResponse;
 
 export const zReplaceGoogleDriveServiceAccountBody = zGoogleDriveServiceAccountRequest;
 
@@ -5414,6 +5503,26 @@ export const zAssignSourceManagerPath = z.object({
  */
 export const zAssignSourceManagerResponse = zSourceSummary;
 
+export const zSynchronizeLarkSourcePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Run scheduled
+ */
+export const zSynchronizeLarkSourceResponse = zSourceOperation;
+
+export const zUpdateLarkPauseBody = zUpdateLarkPauseRequest;
+
+export const zUpdateLarkPausePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Updated Lark configuration
+ */
+export const zUpdateLarkPauseResponse = zLarkConfigurationResponse;
+
 export const zRemoveSourceItemPath = z.object({
     sourceId: z.uuid(),
     itemId: z.uuid()
@@ -5513,6 +5622,13 @@ export const zCreateSharePointSourceBody = zCreateSharePointSourceRequest;
  * Scope accepted for verification
  */
 export const zCreateSharePointSourceResponse = zSharePointSelectionReceiptResponse;
+
+export const zCreateLarkSourceBody = zCreateLarkSourceRequest;
+
+/**
+ * Scope accepted for verification
+ */
+export const zCreateLarkSourceResponse = zLarkSelectionReceiptResponse;
 
 export const zCreateGoogleDriveSourceBody = zCreateGoogleDriveSourceRequest;
 
@@ -6087,6 +6203,27 @@ export const zTestSharePointCredentialPath = z.object({
  * SharePoint credential works
  */
 export const zTestSharePointCredentialResponse = zSharePointCredentialTestResponse;
+
+/**
+ * Lark credentials
+ */
+export const zListLarkCredentialsResponse = z.array(zLarkCredentialResponse);
+
+export const zCreateLarkCredentialBody = zLarkCredentialRequest;
+
+/**
+ * Stored Lark credential
+ */
+export const zCreateLarkCredentialResponse = zLarkCredentialResponse;
+
+export const zTestLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential works
+ */
+export const zTestLarkCredentialResponse = zLarkCredentialTestResponse;
 
 export const zRevokeGoogleDriveCredentialBody = zRevokeGoogleDriveCredentialRequest;
 
@@ -6822,6 +6959,24 @@ export const zListSourceRunErrorsQuery = z.object({
  */
 export const zListSourceRunErrorsResponse = zSourceRunErrorPage;
 
+export const zGetLarkConfigurationPath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Lark configuration
+ */
+export const zGetLarkConfigurationResponse = zLarkConfigurationResponse;
+
+export const zGetLarkRootsPath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Lark roots
+ */
+export const zGetLarkRootsResponse = z.array(zLarkRootResponse);
+
 export const zListSourceItemsPath = z.object({
     sourceId: z.uuid()
 });
@@ -6916,6 +7071,24 @@ export const zGetSharePointSelectionRequestResponse = zSharePointSelectionReceip
  * SharePoint selection policy
  */
 export const zGetSharePointSelectionPolicyResponse = zSharePointSelectionPolicyResponse;
+
+export const zGetLarkSelectionRequestPath = z.object({
+    requestId: z.uuid()
+});
+
+/**
+ * Lark scope receipt
+ */
+export const zGetLarkSelectionRequestResponse = zLarkSelectionReceiptResponse;
+
+export const zListLarkSpacesPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Wiki spaces a source may name
+ */
+export const zListLarkSpacesResponse = z.array(zLarkSpaceOptionResponse);
 
 export const zListSourceGroupOptionsQuery = z.object({
     search: z.string().min(0).max(200).optional(),
@@ -8068,160 +8241,3 @@ export const zDeleteChatFileArtifactPath = z.object({
  * File deleted
  */
 export const zDeleteChatFileArtifactResponse = z.void();
-
-/**
- * Lark credentials
- */
-export const zListLarkCredentialsResponse = z.array(zLarkCredentialResponse);
-
-export const zCreateLarkCredentialBody = zLarkCredentialRequest;
-
-/**
- * Stored Lark credential
- */
-export const zCreateLarkCredentialResponse = zLarkCredentialResponse;
-
-export const zDeleteLarkCredentialHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zDeleteLarkCredentialPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Lark credential deleted
- */
-export const zDeleteLarkCredentialResponse = z.void();
-
-export const zRenameLarkCredentialBody = zRenameLarkCredentialRequest;
-
-export const zRenameLarkCredentialHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zRenameLarkCredentialPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Lark credential renamed
- */
-export const zRenameLarkCredentialResponse = z.void();
-
-export const zReplaceLarkCredentialSecretBody = zLarkCredentialRequest;
-
-export const zReplaceLarkCredentialSecretHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zReplaceLarkCredentialSecretPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Updated Lark credential
- */
-export const zReplaceLarkCredentialSecretResponse = zLarkCredentialResponse;
-
-export const zTestLarkCredentialPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Lark credential works
- */
-export const zTestLarkCredentialResponse = zLarkCredentialTestResponse;
-
-export const zCreateLarkSourceBody = zCreateLarkSourceRequest;
-
-/**
- * Scope accepted for verification
- */
-export const zCreateLarkSourceResponse = zLarkSelectionReceiptResponse;
-
-export const zGetLarkConfigurationPath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Lark configuration
- */
-export const zGetLarkConfigurationResponse = zLarkConfigurationResponse;
-
-export const zGetLarkSelectionRequestPath = z.object({
-    requestId: z.uuid()
-});
-
-/**
- * Lark scope receipt
- */
-export const zGetLarkSelectionRequestResponse = zLarkSelectionReceiptResponse;
-
-export const zReplaceLarkScopeBody = zReplaceLarkScopeRequest;
-
-export const zReplaceLarkScopeHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zReplaceLarkScopePath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Scope accepted for verification
- */
-export const zReplaceLarkScopeResponse = zLarkSelectionReceiptResponse;
-
-export const zUpdateLarkScheduleBody = zUpdateLarkScheduleRequest;
-
-export const zUpdateLarkScheduleHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zUpdateLarkSchedulePath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Updated Lark configuration
- */
-export const zUpdateLarkScheduleResponse = zLarkConfigurationResponse;
-
-export const zUpdateLarkPauseBody = zUpdateLarkPauseRequest;
-
-export const zUpdateLarkPausePath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Updated Lark configuration
- */
-export const zUpdateLarkPauseResponse = zLarkConfigurationResponse;
-
-export const zSynchronizeLarkSourcePath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Run scheduled
- */
-export const zSynchronizeLarkSourceResponse = zSourceOperation;
-
-export const zGetLarkRootsPath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Lark roots
- */
-export const zGetLarkRootsResponse = z.array(zLarkRootResponse);
-
-export const zListLarkSpacesPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Wiki spaces a source may name
- */
-export const zListLarkSpacesResponse = z.array(zLarkSpaceOptionResponse);

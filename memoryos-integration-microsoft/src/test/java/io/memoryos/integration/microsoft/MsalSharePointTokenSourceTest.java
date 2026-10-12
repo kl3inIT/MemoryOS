@@ -54,8 +54,9 @@ class MsalSharePointTokenSourceTest {
     @Test
     void sendsTheClientSecretToTheDirectoryTokenEndpoint() throws Exception {
         try (var fixture = new Fixture(_ -> token("secret-token"))) {
-            String token = source(fixture).token(SharePointGateway.Credential.clientSecret(
-                    SharePointGateway.Cloud.GLOBAL, DIRECTORY, CLIENT, "the-secret".getBytes(StandardCharsets.UTF_8)));
+            String token = source(fixture).open(SharePointGateway.Credential.clientSecret(
+                    SharePointGateway.Cloud.GLOBAL, DIRECTORY, CLIENT, "the-secret".getBytes(StandardCharsets.UTF_8)))
+                    .token(SharePointTokenSource.GRAPH_SCOPE);
             assertEquals("secret-token", token);
             assertTrue(fixture.path.contains(DIRECTORY), fixture.path);
             assertEquals(CLIENT, fixture.form.get("client_id"));
@@ -70,8 +71,9 @@ class MsalSharePointTokenSourceTest {
     @Test
     void signsAClientAssertionWithTheCertificateThumbprint() throws Exception {
         try (var material = certificate(); var fixture = new Fixture(_ -> token("certificate-token"))) {
-            String token = source(fixture).token(SharePointGateway.Credential.certificate(
-                    SharePointGateway.Cloud.GLOBAL, DIRECTORY, CLIENT, material.privateKey(), material.certificate()));
+            String token = source(fixture).open(SharePointGateway.Credential.certificate(
+                    SharePointGateway.Cloud.GLOBAL, DIRECTORY, CLIENT, material.privateKey(), material.certificate()))
+                    .token(SharePointTokenSource.GRAPH_SCOPE);
             assertEquals("certificate-token", token);
             assertEquals("urn:ietf:params:oauth:client-assertion-type:jwt-bearer", fixture.form.get("client_assertion_type"));
             assertNull(fixture.form.get("client_secret"));
@@ -98,12 +100,28 @@ class MsalSharePointTokenSourceTest {
     }
 
     @Test
+    void oneApplicationAnswersForEachScopeItIsAskedAbout() throws Exception {
+        try (var material = certificate(); var fixture = new Fixture(_ -> token("scoped-token"))) {
+            var tokens = source(fixture).open(SharePointGateway.Credential.certificate(
+                    SharePointGateway.Cloud.GLOBAL, DIRECTORY, CLIENT, material.privateKey(), material.certificate()));
+            // SharePoint REST takes a token of the Tenant host's own scope, signed with the same certificate.
+            assertEquals("scoped-token", tokens.token("https://contoso.sharepoint.com/.default"));
+            assertTrue(Objects.requireNonNull(fixture.form.get("scope"))
+                    .contains("https://contoso.sharepoint.com/.default"), fixture.form.get("scope"));
+            assertNotNull(fixture.form.get("client_assertion"));
+            tokens.token(SharePointTokenSource.GRAPH_SCOPE);
+            assertTrue(Objects.requireNonNull(fixture.form.get("scope"))
+                    .contains("https://graph.microsoft.com/.default"), fixture.form.get("scope"));
+        }
+    }
+
+    @Test
     void classifiesRejectionsAsAuthenticationFailures() throws Exception {
         try (var fixture = new Fixture(_ -> new Response(401, """
                 {"error":"invalid_client","error_description":"AADSTS7000215: Invalid client secret provided."}"""))) {
-            var exception = assertThrows(SharePointProviderException.class, () -> source(fixture).token(
+            var exception = assertThrows(SharePointProviderException.class, () -> source(fixture).open(
                     SharePointGateway.Credential.clientSecret(SharePointGateway.Cloud.GLOBAL, DIRECTORY, CLIENT,
-                            "wrong".getBytes(StandardCharsets.UTF_8))));
+                            "wrong".getBytes(StandardCharsets.UTF_8))).token(SharePointTokenSource.GRAPH_SCOPE));
             assertEquals(Failure.AUTHENTICATION, exception.failure());
             assertEquals(Reason.INVALID_CLIENT_SECRET, exception.reason());
         }
@@ -112,9 +130,9 @@ class MsalSharePointTokenSourceTest {
     @Test
     void reportsUnclassifiedDirectoryFailures() throws Exception {
         try (var fixture = new Fixture(_ -> new Response(503, "{\"error\":\"temporarily_unavailable\"}"))) {
-            var exception = assertThrows(SharePointProviderException.class, () -> source(fixture).token(
+            var exception = assertThrows(SharePointProviderException.class, () -> source(fixture).open(
                     SharePointGateway.Credential.clientSecret(SharePointGateway.Cloud.GLOBAL, DIRECTORY, CLIENT,
-                            "the-secret".getBytes(StandardCharsets.UTF_8))));
+                            "the-secret".getBytes(StandardCharsets.UTF_8))).token(SharePointTokenSource.GRAPH_SCOPE));
             assertEquals(Reason.UNCLASSIFIED, exception.reason());
         }
     }

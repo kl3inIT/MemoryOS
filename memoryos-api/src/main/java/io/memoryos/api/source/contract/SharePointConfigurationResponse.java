@@ -31,7 +31,8 @@ public record SharePointConfigurationResponse(
         @Nullable Instant lastPrunedAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean pendingWork,
         @Nullable String errorCode,
-        @Nullable SourceOperationResponse pendingSelectionOperation) {
+        @Nullable SourceOperationResponse pendingSelectionOperation,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean treatSharingLinksAsPublic) {
 
     public static SharePointConfigurationResponse from(Configuration value) {
         return new SharePointConfigurationResponse(value.sourceId().value(), value.credentialId().value(),
@@ -41,6 +42,7 @@ public record SharePointConfigurationResponse(
                 value.pruneIntervalHours(), value.scheduleRevision(), value.syncPaused(), value.tenantHost(),
                 value.lastSyncedAt(), value.lastPrunedAt(), value.pendingWork(), value.errorCode(),
                 value.pendingSelectionOperation() == null
-                        ? null : SourceOperationResponse.from(value.pendingSelectionOperation()));
+                        ? null : SourceOperationResponse.from(value.pendingSelectionOperation()),
+                value.treatSharingLinksAsPublic());
     }
 }

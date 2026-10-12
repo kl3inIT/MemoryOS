@@ -2867,3 +2867,22 @@ Object.assign(englishUi, {
   "Whoever the document is shared with in Lark can read it.":
     "Ai được chia sẻ tài liệu trên Lark thì đọc được.",
 });
+
+Object.assign(englishUi, {
+  "People with access in SharePoint": "Người có quyền trên SharePoint",
+  "Document access follows this Source's MemoryOS groups, not SharePoint permissions.":
+    "Quyền đọc tài liệu theo các nhóm MemoryOS của Nguồn này, không theo quyền trên SharePoint.",
+  "Whoever can open the item in SharePoint can read it.":
+    "Ai mở được mục này trên SharePoint thì đọc được.",
+  "Whoever can open an item in SharePoint can read it here. Nobody reads a document until its permissions were read, and the Entra application needs SharePoint Sites.FullControl.All and Microsoft Graph GroupMember.Read.All.":
+    "Ai mở được một mục trên SharePoint thì đọc được ở đây. Không ai đọc được tài liệu cho tới khi quyền của nó được đọc, và ứng dụng Entra cần quyền SharePoint Sites.FullControl.All và Microsoft Graph GroupMember.Read.All.",
+  "Auto Sync, which follows SharePoint's own permissions, needs a certificate credential. This credential uses a client secret.":
+    "Auto Sync, tức đọc theo quyền của chính SharePoint, cần credential dùng certificate. Credential này dùng client secret.",
+  "Auto Sync reads SharePoint permissions, which needs a certificate credential. Use a certificate credential, or choose another access.":
+    "Auto Sync đọc quyền của SharePoint nên cần credential dùng certificate. Hãy dùng credential certificate hoặc chọn chế độ truy cập khác.",
+  "Microsoft refused to list SharePoint permissions or group members. Grant the Entra application SharePoint Sites.FullControl.All and Microsoft Graph GroupMember.Read.All, then synchronize again.":
+    "Microsoft từ chối liệt kê quyền SharePoint hoặc thành viên nhóm. Hãy cấp cho ứng dụng Entra quyền SharePoint Sites.FullControl.All và Microsoft Graph GroupMember.Read.All rồi đồng bộ lại.",
+  "Treat sharing links as public": "Coi link chia sẻ là công khai",
+  "A file with a sharing link for the organization or for anyone becomes readable by every member. Without this, only the people and groups SharePoint names can read it.":
+    "Tệp có link chia sẻ cho cả tổ chức hoặc cho bất kỳ ai sẽ được mọi thành viên đọc. Khi tắt, chỉ những người và nhóm SharePoint nêu tên mới đọc được.",
+});

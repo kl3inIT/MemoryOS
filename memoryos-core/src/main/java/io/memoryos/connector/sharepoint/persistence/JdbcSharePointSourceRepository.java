@@ -156,7 +156,8 @@ public class JdbcSharePointSourceRepository {
                         r.getString("tenant_host"), instant(r.getTimestamp("last_synced_at")),
                         instant(r.getTimestamp("last_pruned_at")), instant(r.getTimestamp("refresh_window_end")),
                         r.getBoolean("pending"), r.getString("error_code"),
-                        SourceAccess.valueOf(r.getString("access_type"))))
+                        SourceAccess.valueOf(r.getString("access_type")),
+                        r.getBoolean("treat_sharing_links_as_public")))
                 .optional().orElseThrow(SourceException::notFound);
     }
 
@@ -229,6 +230,16 @@ public class JdbcSharePointSourceRepository {
         return expectedScheduleRevision + 1;
     }
 
+    /** Stores the choice and asks for the permissions of every item to be read again under it. */
+    public void setSharingLinksPublic(TenantId tenant, SourceId source, boolean treatAsPublic) {
+        jdbc.sql("""
+                UPDATE sharepoint_sources SET treat_sharing_links_as_public = :value,
+                    next_permission_sync_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("value", treatAsPublic).param("tenant", tenant.value()).param("source", source.value())
+                .update();
+    }
+
     public void requestSynchronization(TenantId tenant, SourceId source) {
         jdbc.sql("""
                 UPDATE source_sync_state SET next_sync_at = CURRENT_TIMESTAMP
@@ -276,14 +287,14 @@ public class JdbcSharePointSourceRepository {
                                    long scheduleRevision, boolean syncPaused, @Nullable String tenantHost,
                                    @Nullable Instant lastSyncedAt, @Nullable Instant lastPrunedAt,
                                    @Nullable Instant refreshWindowEnd, boolean pending, @Nullable String errorCode,
-                                   SourceAccess access) {
+                                   SourceAccess access, boolean treatSharingLinksAsPublic) {
         public Configuration view(SourceId source, CredentialId credential, String credentialName,
                 String credentialStatus, long credentialRevision, List<String> excludedSites,
                 List<String> excludedPaths, @Nullable SourceOperationView pendingSelection) {
             return new Configuration(source, credential, credentialName, credentialStatus, credentialRevision,
                     scopeRevision, scopeMode, rootCount, excludedSites, excludedPaths, includeDocuments, includePages,
                     syncIntervalMinutes, pruneIntervalHours, scheduleRevision, syncPaused, tenantHost, lastSyncedAt,
-                    lastPrunedAt, pending, errorCode, pendingSelection);
+                    lastPrunedAt, pending, errorCode, pendingSelection, treatSharingLinksAsPublic);
         }
     }
 }

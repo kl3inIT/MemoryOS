@@ -188,6 +188,31 @@ class PostgresSharePointCredentialTest {
     }
 
     @Test
+    void aClientSecretCannotReplaceTheAuthenticationWhileASourceReadsSharePointPermissions() {
+        var session = session();
+        when(provider.open(any())).thenReturn(session);
+        CredentialId id;
+        try (var draft = secretDraft("Auto Sync")) {
+            id = service.create(owner, draft);
+        }
+        var row = credentials.readUsable(tenant, id);
+        UUID sourceId = UUID.randomUUID();
+        jdbc.sql("INSERT INTO connectors (id, tenant_id, name, connector_type, status) VALUES (:id, :t, 'Source', 'SHAREPOINT', 'ACTIVE')")
+                .param("id", sourceId).param("t", tenant.value()).update();
+        jdbc.sql("INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status) VALUES (:id, :t, :id, :credential, 'SYNC', 'ACTIVE')")
+                .param("id", sourceId).param("t", tenant.value()).param("credential", id.value()).update();
+
+        try (var draft = new SharePointCredentialService.Draft("Auto Sync", row.directoryId(), row.clientId(),
+                SharePointGateway.Cloud.GLOBAL, SharePointGateway.AuthMethod.CLIENT_SECRET,
+                "new-secret".getBytes(StandardCharsets.UTF_8), null, null)) {
+            var refused = assertThrows(SharePointException.class,
+                    () -> service.replaceAuthentication(owner, id, 1, draft));
+            assertEquals("SOURCE_SHAREPOINT_SYNC_REQUIRES_CERTIFICATE", refused.code());
+        }
+        assertEquals(1, credentials.readUsable(tenant, id).revision(), "nothing was replaced");
+    }
+
+    @Test
     void tenantIsolationAndScopedManagerVisibility() {
         var session = session();
         when(provider.open(any())).thenReturn(session);

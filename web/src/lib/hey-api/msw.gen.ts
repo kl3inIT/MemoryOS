@@ -2,12 +2,43 @@
 
 import { http, type HttpHandler, HttpResponse, type HttpResponseResolver, type RequestHandlerOptions as RequestHandlerOptions2 } from 'msw';
 
-import type { AcceptAllMeetingCorrectionsData, AcceptAllMeetingCorrectionsResponses, AcceptMeetingCorrectionData, AcceptMeetingCorrectionResponses, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AddMcpTrustedAppData, AddMcpTrustedAppResponses, AddMeetingMinutesItemData, AddMeetingMinutesItemResponses, ArchiveAllChatSessionsResponses, ArchiveChatSessionResponses, AssignGroupManagerResponses, AssignSourceManagerData, AssignSourceManagerResponses, BookmarkMeetingMomentData, BookmarkMeetingMomentResponses, BranchChatSessionData, BranchChatSessionResponses, CancelChatMessageResponses, CancelSearchFutureGenerationResponses, ChangeChatLibraryFileData, ChangeChatLibraryFileResponses, ClientOptions, ConfigureChatSessionData, ConfigureChatSessionResponses, CopyChatLibraryFileResponses, CorrectMeetingWordsData, CorrectMeetingWordsResponses, CreateAiUsageLimitData, CreateAiUsageLimitResponses, CreateChatModelData, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaLabelData, CreateChatPersonaLabelResponses, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectResponses, CreateChatPromptShortcutData, CreateChatPromptShortcutResponses, CreateChatProviderData, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionResponses, CreateChatVoiceTicketData, CreateChatVoiceTicketResponses, CreateDocumentSetData, CreateDocumentSetResponses, CreateEmbeddingProviderData, CreateEmbeddingProviderResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveServiceAccountData, CreateGoogleDriveServiceAccountResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateIdentityProviderData, CreateIdentityProviderResponses, CreateInvitationData, CreateInvitationResponses, CreateLarkCredentialData, CreateLarkCredentialResponses, CreateLarkSourceData, CreateLarkSourceResponses, CreateMcpServerData, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientResponses, CreateMcpServerResponses, CreateMeetingData, CreateMeetingResponses, CreateMeetingTicketData, CreateMeetingTicketResponses, CreateProjectChatSessionData, CreateProjectChatSessionResponses, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutResponses, CreateSearchFutureGenerationData, CreateSearchFutureGenerationResponses, CreateSharePointCredentialData, CreateSharePointCredentialResponses, CreateSharePointSourceData, CreateSharePointSourceResponses, CreateSystemOneConnectionData, CreateSystemOneConnectionResponses, DeactivateUserResponses, DeleteAiUsageLimitResponses, DeleteAllChatSessionsResponses, DeleteChatFileArtifactResponses, DeleteChatFileResponses, DeleteChatImageArtifactResponses, DeleteChatModelResponses, DeleteChatPersonaLabelResponses, DeleteChatPersonaResponses, DeleteChatProjectResponses, DeleteChatPromptShortcutResponses, DeleteChatProviderResponses, DeleteChatSessionResponses, DeleteChatVoiceConnectionResponses, DeleteDocumentSetResponses, DeleteEmbeddingProviderResponses, DeleteGoogleDriveCredentialResponses, DeleteGroupResponses, DeleteIdentityProviderResponses, DeleteLarkCredentialResponses, DeleteMcpServerOAuthClientResponses, DeleteMcpServerResponses, DeleteMeetingResponses, DeletePublicChatPromptShortcutResponses, DeleteSharePointCredentialResponses, DeleteSourceResponses, DeleteSystemOneConnectionResponses, DisconnectMcpConnectionResponses, DisconnectMcpServerOAuthResponses, DiscoverGoogleDriveLinkedDocumentsResponses, DiscoverIdentityProviderData, DiscoverIdentityProviderResponses, DiscoverMcpServerOAuthResponses, DismissMeetingSpeakerSuggestionResponses, DownloadChatExportResponses, DownloadChatFileResponses, DownloadChatLibraryArchiveResponses, DownloadUsageReportResponses, EditChatMessageData, EditChatMessageResponses, EditMeetingMinutesItemData, EditMeetingMinutesItemResponses, EditMeetingMinutesSummaryData, EditMeetingMinutesSummaryResponses, EmptyChatLibraryTrashResponses, EndMeetingResponses, ExportAuditEventsResponses, ExportChatHistoryResponses, ExportMeetingMinutesData, ExportMeetingMinutesResponses, ExportMeetingTranscriptResponses, FinalizeChatFileUploadResponses, FinalizeMeetingRecordingResponses, FinalizeSourceUploadResponses, GenerateChatTitleResponses, GetAiCostDetailResponses, GetAiCostSummaryResponses, GetAuditCatalogResponses, GetAuditEventResponses, GetChatBranchesResponses, GetChatExportResponses, GetChatFeedbackResponses, GetChatFileArtifactChartResponses, GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactResponses, GetChatFilePolicyResponses, GetChatFileResponses, GetChatFileThumbnailResponses, GetChatGuardrailsResponses, GetChatHistoryResponses, GetChatHistoryTranscriptResponses, GetChatImageArtifactResponses, GetChatImageAvailabilityResponses, GetChatInterpreterHealthResponses, GetChatInterpreterSettingsResponses, GetChatLibraryArchiveResponses, GetChatLibraryTrashWindowResponses, GetChatLibraryUsageResponses, GetChatModelDefaultResponses, GetChatPersonaAvatarResponses, GetChatPersonaResponses, GetChatPreferencesResponses, GetChatProjectResponses, GetChatPromptShortcutPreferencesResponses, GetChatRetentionResponses, GetChatSessionResponses, GetChatSettingsResponses, GetChatSharingResponses, GetChatVoiceAvailabilityResponses, GetChatVoiceSettingsResponses, GetChatWebAvailabilityResponses, GetCurrentIdentityResponses, GetCurrentInvitationResponses, GetDocumentSetResponses, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeResponses, GetGroupResponses, GetLarkConfigurationResponses, GetLarkRootsResponses, GetLarkSelectionRequestResponses, GetMcpEndpointConnectionResponses, GetMcpEndpointInsightsResponses, GetMcpEndpointSettingsResponses, GetMcpServerResponses, GetMeetingMinutesHeadingResponses, GetMeetingResponses, GetMyAiCostsResponses, GetMyAiUsageStandingResponses, GetPersonaModelResponses, GetSearchDocumentResponses, GetSearchSettingsResponses, GetSharedChatHistoryResponses, GetSharedChatSessionResponses, GetSharePointConfigurationResponses, GetSharePointRootsResponses, GetSharePointSelectionPolicyResponses, GetSharePointSelectionRequestResponses, GetSourceOperationResponses, GetSourceResponses, GetSourceRunResponses, HideChatPromptShortcutData, HideChatPromptShortcutResponses, InitiateChatFileUploadData, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, KeepMeetingWordingResponses, LeaveChatPersonaResponses, ListAiCostBreakdownResponses, ListAiCostDaysResponses, ListAiUsageLimitsResponses, ListAuditEventsResponses, ListAvailableChatModelsResponses, ListChatExportsResponses, ListChatFilesResponses, ListChatGroupOptionsResponses, ListChatHistoryResponses, ListChatImageConnectionsResponses, ListChatImageProvidersResponses, ListChatLibraryArchivesResponses, ListChatLibraryDocumentSourcesResponses, ListChatLibraryDocumentsResponses, ListChatLibraryRecentResponses, ListChatLibraryResponses, ListChatLibrarySharedResponses, ListChatLibrarySourcesResponses, ListChatLibraryStarredResponses, ListChatModelFlowsResponses, ListChatModelPersonasResponses, ListChatPersonaLabelsResponses, ListChatPersonaModelsResponses, ListChatPersonaPinsResponses, ListChatPersonasForAdministrationResponses, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsResponses, ListChatPromptShortcutsResponses, ListChatProviderAdaptersResponses, ListChatProvidersResponses, ListChatSessionsResponses, ListChatVoiceConnectionsResponses, ListChatVoiceProvidersResponses, ListChatWebConnectionsResponses, ListChatWebEnginesData, ListChatWebEnginesResponses, ListConfiguredChatModelsResponses, ListDocumentSetsResponses, ListEmbeddingModelPresetsResponses, ListEmbeddingProvidersResponses, ListGoogleDriveCredentialsResponses, ListGroupCandidatesResponses, ListGroupCapabilitiesResponses, ListGroupMembersResponses, ListGroupSourcesResponses, ListGroupsResponses, ListIdentityProvidersResponses, ListInvitationsResponses, ListLarkCredentialsResponses, ListLarkSpacesResponses, ListMcpClientGrantsResponses, ListMcpConnectionsResponses, ListMcpEndpointActivityResponses, ListMcpGroupOptionsResponses, ListMcpServerOAuthClientsResponses, ListMcpServersResponses, ListMcpServerToolsResponses, ListMcpTrustedAppsResponses, ListMeetingCorrectionsResponses, ListMeetingsResponses, ListMeetingTranscribersResponses, ListOcrConnectionsResponses, ListOcrProvidersResponses, ListProjectChatSessionsResponses, ListPublicChatPromptShortcutsResponses, ListReportedProviderModelsData, ListReportedProviderModelsResponses, ListSharePointCredentialsResponses, ListSourceGroupOptionsResponses, ListSourceGroupsResponses, ListSourceIndexAttemptsResponses, ListSourceItemsResponses, ListSourceRunErrorsResponses, ListSourceRunsResponses, ListSourcesResponses, ListSystemOneConnectionsResponses, ListSystemOneTypesResponses, ListUsageReportsResponses, ListUsersResponses, MarkMeetingMinutesItemData, MarkMeetingMinutesItemResponses, MoveChatProjectData, MoveChatProjectResponses, NameMeetingSpeakerData, NameMeetingSpeakerResponses, PauseSourceResponses, PinChatReasoningEffortData, PinChatReasoningEffortResponses, PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileSpreadsheetResponses, PreviewChatRetentionResponses, ProposeMeetingCorrectionsResponses, PublishMeetingMinutesResponses, PurgeChatLibraryFileResponses, ReadChatDocumentOriginalResponses, ReadChatDocumentPassagesResponses, ReadChatDocumentSpreadsheetResponses, ReadChatFilePassagesResponses, ReadChatFileTextResponses, ReadSearchDocumentOriginalResponses, ReadSearchDocumentSpreadsheetResponses, RecordChatLibraryEntryOpenedResponses, RefreshMcpServerToolsResponses, RegenerateChatMessageData, RegenerateChatMessageResponses, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientResponses, ReindexSourceItemResponses, RemoveChatFeedbackResponses, RemoveGroupManagerResponses, RemoveGroupMemberResponses, RemoveGroupSourceResponses, RemoveMcpTrustedAppResponses, RemoveMeetingBookmarkResponses, RemoveMeetingMinutesItemResponses, RemoveSourceItemResponses, RenameChatPersonaLabelData, RenameChatPersonaLabelResponses, RenameChatSessionData, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, RenameLarkCredentialData, RenameLarkCredentialResponses, RenameSharePointCredentialData, RenameSharePointCredentialResponses, RenameSourceData, RenameSourceResponses, ReorderChatPersonasData, ReorderChatPersonasResponses, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGoogleDriveServiceAccountData, ReplaceGoogleDriveServiceAccountResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceLarkCredentialSecretData, ReplaceLarkCredentialSecretResponses, ReplaceLarkScopeData, ReplaceLarkScopeResponses, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointScopeData, ReplaceSharePointScopeResponses, ReplaceUserGroupsData, ReplaceUserGroupsResponses, RequestChatExportResponses, RequestChatLibraryArchiveData, RequestChatLibraryArchiveResponses, RequestUsageReportData, RequestUsageReportResponses, RerunMeetingMinutesResponses, ReserveMeetingRecordingData, ReserveMeetingRecordingResponses, RestoreChatLibraryFileResponses, RestoreChatPersonaResponses, RestoreSearchPastGenerationResponses, ResumeSourceResponses, RetryChatFileResponses, RevertAllMeetingCorrectionsData, RevertAllMeetingCorrectionsResponses, RevertMeetingCorrectionResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationResponses, RevokeMcpClientGrantResponses, RotateInvitationResponses, SaveChatGroundedData, SaveChatGroundedResponses, SaveChatGuardrailsData, SaveChatGuardrailsResponses, SaveChatHistoryVisibilityData, SaveChatHistoryVisibilityResponses, SaveChatImageConnectionData, SaveChatImageConnectionResponses, SaveChatPreferencesData, SaveChatPreferencesResponses, SaveChatRetentionData, SaveChatRetentionResponses, SaveChatSettingsData, SaveChatSettingsResponses, SaveChatVoiceConnectionData, SaveChatVoiceConnectionResponses, SaveChatWebConnectionData, SaveChatWebConnectionResponses, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyResponses, SaveMeetingMinutesHeadingData, SaveMeetingMinutesHeadingResponses, SaveOcrConnectionData, SaveOcrConnectionResponses, SaveSystemOneConnectionData, SaveSystemOneConnectionResponses, SearchChatLibraryContentResponses, SearchChatSessionsResponses, SearchDocumentsData, SearchDocumentsResponses, SearchPrincipalsResponses, SelectChatBranchData, SelectChatBranchResponses, SelectChatImageProviderData, SelectChatImageProviderResponses, SelectChatPersonaData, SelectChatPersonaResponses, SelectChatVoiceProviderData, SelectChatVoiceProviderResponses, SelectChatWebProviderData, SelectChatWebProviderResponses, SelectOcrProviderData, SelectOcrProviderResponses, SendChatMessageData, SendChatMessageResponses, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledResponses, SetChatFeedbackData, SetChatFeedbackResponses, SetChatModelDefaultResponses, SetChatModelFlowResponses, SetChatPersonaListingData, SetChatPersonaListingResponses, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesResponses, SetChatSharingData, SetChatSharingResponses, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponses, SetMcpServerToolEnabledData, SetMcpServerToolEnabledResponses, SetMcpTrustedAppEnabledData, SetMcpTrustedAppEnabledResponses, SetPersonaModelResponses, SetSystemOneTaskData, SetSystemOneTaskResponses, ShareChatPersonaData, ShareChatPersonaResponses, ShareDocumentSetData, ShareDocumentSetResponses, ShareMeetingData, ShareMeetingResponses, StarChatLibraryEntryResponses, StarMeetingUtteranceResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationResponses, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationResponses, StreamChatMessageResponses, SwitchSearchFutureGenerationResponses, SynchronizeGoogleDriveSourceResponses, SynchronizeLarkSourceResponses, SynchronizeSharePointSourceResponses, SynthesizeChatVoiceData, SynthesizeChatVoiceResponses, TestChatImageConnectionData, TestChatImageConnectionResponses, TestChatProviderData, TestChatProviderResponses, TestChatVoiceConnectionResponses, TestChatWebConnectionData, TestChatWebConnectionResponses, TestEmbeddingProviderData, TestEmbeddingProviderResponses, TestLarkCredentialResponses, TestOcrConnectionData, TestOcrConnectionResponses, TestSharePointCredentialResponses, TestSystemOneConnectionResponses, TransferChatPersonaData, TransferChatPersonaResponses, UnarchiveChatSessionResponses, UnstarChatLibraryEntryResponses, UnstarMeetingUtteranceResponses, UpdateAiUsageLimitData, UpdateAiUsageLimitResponses, UpdateChatInterpreterSettingsData, UpdateChatInterpreterSettingsResponses, UpdateChatModelData, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectResponses, UpdateChatPromptShortcutData, UpdateChatPromptShortcutResponses, UpdateChatProviderData, UpdateChatProviderResponses, UpdateChatVoiceSettingsData, UpdateChatVoiceSettingsResponses, UpdateDocumentSetData, UpdateDocumentSetResponses, UpdateEmbeddingProviderData, UpdateEmbeddingProviderResponses, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateIdentityProviderData, UpdateIdentityProviderResponses, UpdateLarkPauseData, UpdateLarkPauseResponses, UpdateLarkScheduleData, UpdateLarkScheduleResponses, UpdateMcpEndpointSettingsData, UpdateMcpEndpointSettingsResponses, UpdateMcpServerData, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientResponses, UpdateMcpServerResponses, UpdateMeetingData, UpdateMeetingNotesData, UpdateMeetingNotesResponses, UpdateMeetingResponses, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutResponses, UpdateSharePointPauseData, UpdateSharePointPauseResponses, UpdateSharePointScheduleData, UpdateSharePointScheduleResponses, UpdateSourceAccessData, UpdateSourceAccessResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelResponses } from './types.gen';
+import type { AcceptAllMeetingCorrectionsData, AcceptAllMeetingCorrectionsResponses, AcceptMeetingCorrectionData, AcceptMeetingCorrectionResponses, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AddMcpTrustedAppData, AddMcpTrustedAppResponses, AddMeetingMinutesItemData, AddMeetingMinutesItemResponses, ArchiveAllChatSessionsResponses, ArchiveChatSessionResponses, AssignGroupManagerResponses, AssignSourceManagerData, AssignSourceManagerResponses, BookmarkMeetingMomentData, BookmarkMeetingMomentResponses, BranchChatSessionData, BranchChatSessionResponses, CancelChatMessageResponses, CancelSearchFutureGenerationResponses, ChangeChatLibraryFileData, ChangeChatLibraryFileResponses, ClientOptions, ConfigureChatSessionData, ConfigureChatSessionResponses, CopyChatLibraryFileResponses, CorrectMeetingWordsData, CorrectMeetingWordsResponses, CreateAiUsageLimitData, CreateAiUsageLimitResponses, CreateChatModelData, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaLabelData, CreateChatPersonaLabelResponses, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectResponses, CreateChatPromptShortcutData, CreateChatPromptShortcutResponses, CreateChatProviderData, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionResponses, CreateChatVoiceTicketData, CreateChatVoiceTicketResponses, CreateDocumentSetData, CreateDocumentSetResponses, CreateEmbeddingProviderData, CreateEmbeddingProviderResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveServiceAccountData, CreateGoogleDriveServiceAccountResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateIdentityProviderData, CreateIdentityProviderResponses, CreateInvitationData, CreateInvitationResponses, CreateLarkCredentialData, CreateLarkCredentialResponses, CreateLarkSourceData, CreateLarkSourceResponses, CreateMcpServerData, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientResponses, CreateMcpServerResponses, CreateMeetingData, CreateMeetingResponses, CreateMeetingTicketData, CreateMeetingTicketResponses, CreateProjectChatSessionData, CreateProjectChatSessionResponses, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutResponses, CreateSearchFutureGenerationData, CreateSearchFutureGenerationResponses, CreateSharePointCredentialData, CreateSharePointCredentialResponses, CreateSharePointSourceData, CreateSharePointSourceResponses, CreateSystemOneConnectionData, CreateSystemOneConnectionResponses, DeactivateUserResponses, DeleteAiUsageLimitResponses, DeleteAllChatSessionsResponses, DeleteChatFileArtifactResponses, DeleteChatFileResponses, DeleteChatImageArtifactResponses, DeleteChatModelResponses, DeleteChatPersonaLabelResponses, DeleteChatPersonaResponses, DeleteChatProjectResponses, DeleteChatPromptShortcutResponses, DeleteChatProviderResponses, DeleteChatSessionResponses, DeleteChatVoiceConnectionResponses, DeleteDocumentSetResponses, DeleteEmbeddingProviderResponses, DeleteGoogleDriveCredentialResponses, DeleteGroupResponses, DeleteIdentityProviderResponses, DeleteLarkCredentialResponses, DeleteMcpServerOAuthClientResponses, DeleteMcpServerResponses, DeleteMeetingResponses, DeletePublicChatPromptShortcutResponses, DeleteSharePointCredentialResponses, DeleteSourceResponses, DeleteSystemOneConnectionResponses, DisconnectMcpConnectionResponses, DisconnectMcpServerOAuthResponses, DiscoverGoogleDriveLinkedDocumentsResponses, DiscoverIdentityProviderData, DiscoverIdentityProviderResponses, DiscoverMcpServerOAuthResponses, DismissMeetingSpeakerSuggestionResponses, DownloadChatExportResponses, DownloadChatFileResponses, DownloadChatLibraryArchiveResponses, DownloadUsageReportResponses, EditChatMessageData, EditChatMessageResponses, EditMeetingMinutesItemData, EditMeetingMinutesItemResponses, EditMeetingMinutesSummaryData, EditMeetingMinutesSummaryResponses, EmptyChatLibraryTrashResponses, EndMeetingResponses, ExportAuditEventsResponses, ExportChatHistoryResponses, ExportMeetingMinutesData, ExportMeetingMinutesResponses, ExportMeetingTranscriptResponses, FinalizeChatFileUploadResponses, FinalizeMeetingRecordingResponses, FinalizeSourceUploadResponses, GenerateChatTitleResponses, GetAiCostDetailResponses, GetAiCostSummaryResponses, GetAuditCatalogResponses, GetAuditEventResponses, GetChatBranchesResponses, GetChatExportResponses, GetChatFeedbackResponses, GetChatFileArtifactChartResponses, GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactResponses, GetChatFilePolicyResponses, GetChatFileResponses, GetChatFileThumbnailResponses, GetChatGuardrailsResponses, GetChatHistoryResponses, GetChatHistoryTranscriptResponses, GetChatImageArtifactResponses, GetChatImageAvailabilityResponses, GetChatInterpreterHealthResponses, GetChatInterpreterSettingsResponses, GetChatLibraryArchiveResponses, GetChatLibraryTrashWindowResponses, GetChatLibraryUsageResponses, GetChatModelDefaultResponses, GetChatPersonaAvatarResponses, GetChatPersonaResponses, GetChatPreferencesResponses, GetChatProjectResponses, GetChatPromptShortcutPreferencesResponses, GetChatRetentionResponses, GetChatSessionResponses, GetChatSettingsResponses, GetChatSharingResponses, GetChatVoiceAvailabilityResponses, GetChatVoiceSettingsResponses, GetChatWebAvailabilityResponses, GetCurrentIdentityResponses, GetCurrentInvitationResponses, GetDocumentSetResponses, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeResponses, GetGroupResponses, GetLarkConfigurationResponses, GetLarkRootsResponses, GetLarkSelectionRequestResponses, GetMcpEndpointConnectionResponses, GetMcpEndpointInsightsResponses, GetMcpEndpointSettingsResponses, GetMcpServerResponses, GetMeetingMinutesHeadingResponses, GetMeetingResponses, GetMyAiCostsResponses, GetMyAiUsageStandingResponses, GetPersonaModelResponses, GetSearchDocumentResponses, GetSearchSettingsResponses, GetSharedChatHistoryResponses, GetSharedChatSessionResponses, GetSharePointConfigurationResponses, GetSharePointRootsResponses, GetSharePointSelectionPolicyResponses, GetSharePointSelectionRequestResponses, GetSourceOperationResponses, GetSourceResponses, GetSourceRunResponses, HideChatPromptShortcutData, HideChatPromptShortcutResponses, InitiateChatFileUploadData, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, KeepMeetingWordingResponses, LeaveChatPersonaResponses, ListAiCostBreakdownResponses, ListAiCostDaysResponses, ListAiUsageLimitsResponses, ListAuditEventsResponses, ListAvailableChatModelsResponses, ListChatExportsResponses, ListChatFilesResponses, ListChatGroupOptionsResponses, ListChatHistoryResponses, ListChatImageConnectionsResponses, ListChatImageProvidersResponses, ListChatLibraryArchivesResponses, ListChatLibraryDocumentSourcesResponses, ListChatLibraryDocumentsResponses, ListChatLibraryRecentResponses, ListChatLibraryResponses, ListChatLibrarySharedResponses, ListChatLibrarySourcesResponses, ListChatLibraryStarredResponses, ListChatModelFlowsResponses, ListChatModelPersonasResponses, ListChatPersonaLabelsResponses, ListChatPersonaModelsResponses, ListChatPersonaPinsResponses, ListChatPersonasForAdministrationResponses, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsResponses, ListChatPromptShortcutsResponses, ListChatProviderAdaptersResponses, ListChatProvidersResponses, ListChatSessionsResponses, ListChatVoiceConnectionsResponses, ListChatVoiceProvidersResponses, ListChatWebConnectionsResponses, ListChatWebEnginesData, ListChatWebEnginesResponses, ListConfiguredChatModelsResponses, ListDocumentSetsResponses, ListEmbeddingModelPresetsResponses, ListEmbeddingProvidersResponses, ListGoogleDriveCredentialsResponses, ListGroupCandidatesResponses, ListGroupCapabilitiesResponses, ListGroupMembersResponses, ListGroupSourcesResponses, ListGroupsResponses, ListIdentityProvidersResponses, ListInvitationsResponses, ListLarkCredentialsResponses, ListLarkSpacesResponses, ListMcpClientGrantsResponses, ListMcpConnectionsResponses, ListMcpEndpointActivityResponses, ListMcpGroupOptionsResponses, ListMcpServerOAuthClientsResponses, ListMcpServersResponses, ListMcpServerToolsResponses, ListMcpTrustedAppsResponses, ListMeetingCorrectionsResponses, ListMeetingsResponses, ListMeetingTranscribersResponses, ListOcrConnectionsResponses, ListOcrProvidersResponses, ListProjectChatSessionsResponses, ListPublicChatPromptShortcutsResponses, ListReportedProviderModelsData, ListReportedProviderModelsResponses, ListSharePointCredentialsResponses, ListSourceGroupOptionsResponses, ListSourceGroupsResponses, ListSourceIndexAttemptsResponses, ListSourceItemsResponses, ListSourceRunErrorsResponses, ListSourceRunsResponses, ListSourcesResponses, ListSystemOneConnectionsResponses, ListSystemOneTypesResponses, ListUsageReportsResponses, ListUsersResponses, MarkMeetingMinutesItemData, MarkMeetingMinutesItemResponses, MoveChatProjectData, MoveChatProjectResponses, NameMeetingSpeakerData, NameMeetingSpeakerResponses, PauseSourceResponses, PinChatReasoningEffortData, PinChatReasoningEffortResponses, PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileSpreadsheetResponses, PreviewChatRetentionResponses, ProposeMeetingCorrectionsResponses, PublishMeetingMinutesResponses, PurgeChatLibraryFileResponses, ReadChatDocumentOriginalResponses, ReadChatDocumentPassagesResponses, ReadChatDocumentSpreadsheetResponses, ReadChatFilePassagesResponses, ReadChatFileTextResponses, ReadSearchDocumentOriginalResponses, ReadSearchDocumentSpreadsheetResponses, RecordChatLibraryEntryOpenedResponses, RefreshMcpServerToolsResponses, RegenerateChatMessageData, RegenerateChatMessageResponses, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientResponses, ReindexSourceItemResponses, RemoveChatFeedbackResponses, RemoveGroupManagerResponses, RemoveGroupMemberResponses, RemoveGroupSourceResponses, RemoveMcpTrustedAppResponses, RemoveMeetingBookmarkResponses, RemoveMeetingMinutesItemResponses, RemoveSourceItemResponses, RenameChatPersonaLabelData, RenameChatPersonaLabelResponses, RenameChatSessionData, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, RenameLarkCredentialData, RenameLarkCredentialResponses, RenameSharePointCredentialData, RenameSharePointCredentialResponses, RenameSourceData, RenameSourceResponses, ReorderChatPersonasData, ReorderChatPersonasResponses, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGoogleDriveServiceAccountData, ReplaceGoogleDriveServiceAccountResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceLarkCredentialSecretData, ReplaceLarkCredentialSecretResponses, ReplaceLarkScopeData, ReplaceLarkScopeResponses, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointScopeData, ReplaceSharePointScopeResponses, ReplaceUserGroupsData, ReplaceUserGroupsResponses, RequestChatExportResponses, RequestChatLibraryArchiveData, RequestChatLibraryArchiveResponses, RequestUsageReportData, RequestUsageReportResponses, RerunMeetingMinutesResponses, ReserveMeetingRecordingData, ReserveMeetingRecordingResponses, RestoreChatLibraryFileResponses, RestoreChatPersonaResponses, RestoreSearchPastGenerationResponses, ResumeSourceResponses, RetryChatFileResponses, RevertAllMeetingCorrectionsData, RevertAllMeetingCorrectionsResponses, RevertMeetingCorrectionResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationResponses, RevokeMcpClientGrantResponses, RotateInvitationResponses, SaveChatGroundedData, SaveChatGroundedResponses, SaveChatGuardrailsData, SaveChatGuardrailsResponses, SaveChatHistoryVisibilityData, SaveChatHistoryVisibilityResponses, SaveChatImageConnectionData, SaveChatImageConnectionResponses, SaveChatPreferencesData, SaveChatPreferencesResponses, SaveChatRetentionData, SaveChatRetentionResponses, SaveChatSettingsData, SaveChatSettingsResponses, SaveChatVoiceConnectionData, SaveChatVoiceConnectionResponses, SaveChatWebConnectionData, SaveChatWebConnectionResponses, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyResponses, SaveMeetingMinutesHeadingData, SaveMeetingMinutesHeadingResponses, SaveOcrConnectionData, SaveOcrConnectionResponses, SaveSystemOneConnectionData, SaveSystemOneConnectionResponses, SearchChatLibraryContentResponses, SearchChatSessionsResponses, SearchDocumentsData, SearchDocumentsResponses, SearchPrincipalsResponses, SelectChatBranchData, SelectChatBranchResponses, SelectChatImageProviderData, SelectChatImageProviderResponses, SelectChatPersonaData, SelectChatPersonaResponses, SelectChatVoiceProviderData, SelectChatVoiceProviderResponses, SelectChatWebProviderData, SelectChatWebProviderResponses, SelectOcrProviderData, SelectOcrProviderResponses, SendChatMessageData, SendChatMessageResponses, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledResponses, SetChatFeedbackData, SetChatFeedbackResponses, SetChatModelDefaultResponses, SetChatModelFlowResponses, SetChatPersonaListingData, SetChatPersonaListingResponses, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesResponses, SetChatSharingData, SetChatSharingResponses, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponses, SetMcpServerToolEnabledData, SetMcpServerToolEnabledResponses, SetMcpTrustedAppEnabledData, SetMcpTrustedAppEnabledResponses, SetPersonaModelResponses, SetSystemOneTaskData, SetSystemOneTaskResponses, ShareChatPersonaData, ShareChatPersonaResponses, ShareDocumentSetData, ShareDocumentSetResponses, ShareMeetingData, ShareMeetingResponses, StarChatLibraryEntryResponses, StarMeetingUtteranceResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationResponses, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationResponses, StreamChatMessageResponses, SwitchSearchFutureGenerationResponses, SynchronizeGoogleDriveSourceResponses, SynchronizeLarkSourceResponses, SynchronizeSharePointSourceResponses, SynthesizeChatVoiceData, SynthesizeChatVoiceResponses, TestChatImageConnectionData, TestChatImageConnectionResponses, TestChatProviderData, TestChatProviderResponses, TestChatVoiceConnectionResponses, TestChatWebConnectionData, TestChatWebConnectionResponses, TestEmbeddingProviderData, TestEmbeddingProviderResponses, TestLarkCredentialResponses, TestOcrConnectionData, TestOcrConnectionResponses, TestSharePointCredentialResponses, TestSystemOneConnectionResponses, TransferChatPersonaData, TransferChatPersonaResponses, UnarchiveChatSessionResponses, UnstarChatLibraryEntryResponses, UnstarMeetingUtteranceResponses, UpdateAiUsageLimitData, UpdateAiUsageLimitResponses, UpdateChatInterpreterSettingsData, UpdateChatInterpreterSettingsResponses, UpdateChatModelData, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectResponses, UpdateChatPromptShortcutData, UpdateChatPromptShortcutResponses, UpdateChatProviderData, UpdateChatProviderResponses, UpdateChatVoiceSettingsData, UpdateChatVoiceSettingsResponses, UpdateDocumentSetData, UpdateDocumentSetResponses, UpdateEmbeddingProviderData, UpdateEmbeddingProviderResponses, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateIdentityProviderData, UpdateIdentityProviderResponses, UpdateLarkPauseData, UpdateLarkPauseResponses, UpdateLarkScheduleData, UpdateLarkScheduleResponses, UpdateMcpEndpointSettingsData, UpdateMcpEndpointSettingsResponses, UpdateMcpServerData, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientResponses, UpdateMcpServerResponses, UpdateMeetingData, UpdateMeetingNotesData, UpdateMeetingNotesResponses, UpdateMeetingResponses, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutResponses, UpdateSharePointPauseData, UpdateSharePointPauseResponses, UpdateSharePointScheduleData, UpdateSharePointScheduleResponses, UpdateSharePointSharingLinksData, UpdateSharePointSharingLinksResponses, UpdateSourceAccessData, UpdateSourceAccessResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelResponses } from './types.gen';
 
 export type RequestHandlerOptions = RequestHandlerOptions2 & {
     baseUrl?: ClientOptions['baseUrl'];
     responseFallback?: 'error' | 'passthrough';
 };
+
+export type HandleUpdateSharePointSharingLinksResponse = {
+    body: UpdateSharePointSharingLinksResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/sources/{sourceId}/sharepoint/sharing-links` operation.
+ */
+export function handleUpdateSharePointSharingLinks(response?: HandleUpdateSharePointSharingLinksResponse | HttpResponseResolver<{
+    sourceId: string;
+}, UpdateSharePointSharingLinksData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        sourceId: string;
+    }, UpdateSharePointSharingLinksData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/sharepoint/sharing-links`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
 
 export type HandleReplaceSharePointScopeResponse = {
     body: ReplaceSharePointScopeResponses[202];
@@ -54,6 +85,68 @@ export function handleUpdateSharePointSchedule(response?: HandleUpdateSharePoint
     return http.put<{
         sourceId: string;
     }, UpdateSharePointScheduleData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/sharepoint/schedule`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleReplaceLarkScopeResponse = {
+    body: ReplaceLarkScopeResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
+ */
+export function handleReplaceLarkScope(response?: HandleReplaceLarkScopeResponse | HttpResponseResolver<{
+    sourceId: string;
+}, ReplaceLarkScopeData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        sourceId: string;
+    }, ReplaceLarkScopeData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/scope`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateLarkScheduleResponse = {
+    body: UpdateLarkScheduleResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
+ */
+export function handleUpdateLarkSchedule(response?: HandleUpdateLarkScheduleResponse | HttpResponseResolver<{
+    sourceId: string;
+}, UpdateLarkScheduleData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        sourceId: string;
+    }, UpdateLarkScheduleData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/schedule`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -1236,6 +1329,99 @@ export function handleReplaceSharePointCredentialAuthentication(response?: Handl
     return http.put<{
         credentialId: string;
     }, ReplaceSharePointCredentialAuthenticationData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/sharepoint/:credentialId/authentication`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleDeleteLarkCredentialResponse = {
+    body: DeleteLarkCredentialResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
+ */
+export function handleDeleteLarkCredential(response?: HandleDeleteLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleRenameLarkCredentialResponse = {
+    body: RenameLarkCredentialResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
+ */
+export function handleRenameLarkCredential(response?: HandleRenameLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, RenameLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        credentialId: string;
+    }, RenameLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleReplaceLarkCredentialSecretResponse = {
+    body: ReplaceLarkCredentialSecretResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
+ */
+export function handleReplaceLarkCredentialSecret(response?: HandleReplaceLarkCredentialSecretResponse | HttpResponseResolver<{
+    credentialId: string;
+}, ReplaceLarkCredentialSecretData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        credentialId: string;
+    }, ReplaceLarkCredentialSecretData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/secret`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -3717,6 +3903,68 @@ export function handleAssignSourceManager(response?: HandleAssignSourceManagerRe
     }, options);
 }
 
+export type HandleSynchronizeLarkSourceResponse = {
+    body: SynchronizeLarkSourceResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
+ */
+export function handleSynchronizeLarkSource(response?: HandleSynchronizeLarkSourceResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/sync`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateLarkPauseResponse = {
+    body: UpdateLarkPauseResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
+ */
+export function handleUpdateLarkPause(response?: HandleUpdateLarkPauseResponse | HttpResponseResolver<{
+    sourceId: string;
+}, UpdateLarkPauseData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        sourceId: string;
+    }, UpdateLarkPauseData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/pause`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleRemoveSourceItemResponse = {
     body: RemoveSourceItemResponses[202];
     status?: 202;
@@ -4010,6 +4258,33 @@ export type HandleCreateSharePointSourceResponse = {
  */
 export function handleCreateSharePointSource(response?: HandleCreateSharePointSourceResponse | HttpResponseResolver<never, CreateSharePointSourceData['body']>, options?: RequestHandlerOptions): HttpHandler {
     return http.post<never, CreateSharePointSourceData['body']>(`${options?.baseUrl ?? '*'}/api/sources/sharepoint`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateLarkSourceResponse = {
+    body: CreateLarkSourceResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `POST /api/sources/lark` operation.
+ */
+export function handleCreateLarkSource(response?: HandleCreateLarkSourceResponse | HttpResponseResolver<never, CreateLarkSourceData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateLarkSourceData['body']>(`${options?.baseUrl ?? '*'}/api/sources/lark`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -5852,6 +6127,91 @@ export function handleTestSharePointCredential(response?: HandleTestSharePointCr
     return http.post<{
         credentialId: string;
     }, never>(`${options?.baseUrl ?? '*'}/api/credentials/sharepoint/:credentialId/test`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListLarkCredentialsResponse = {
+    body: ListLarkCredentialsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/credentials/lark` operation.
+ */
+export function handleListLarkCredentials(response?: HandleListLarkCredentialsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateLarkCredentialResponse = {
+    body: CreateLarkCredentialResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/credentials/lark` operation.
+ */
+export function handleCreateLarkCredential(response?: HandleCreateLarkCredentialResponse | HttpResponseResolver<never, CreateLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleTestLarkCredentialResponse = {
+    body: TestLarkCredentialResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
+ */
+export function handleTestLarkCredential(response?: HandleTestLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/test`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -8002,6 +8362,68 @@ export function handleListSourceRunErrors(response?: HandleListSourceRunErrorsRe
     }, options);
 }
 
+export type HandleGetLarkConfigurationResponse = {
+    body: GetLarkConfigurationResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/{sourceId}/lark` operation.
+ */
+export function handleGetLarkConfiguration(response?: HandleGetLarkConfigurationResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetLarkRootsResponse = {
+    body: GetLarkRootsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
+ */
+export function handleGetLarkRoots(response?: HandleGetLarkRootsResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/roots`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleListSourceItemsResponse = {
     body: ListSourceItemsResponses[200];
     status?: 200;
@@ -8229,6 +8651,68 @@ export type HandleGetSharePointSelectionPolicyResponse = {
  */
 export function handleGetSharePointSelectionPolicy(response?: HandleGetSharePointSelectionPolicyResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
     return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/sources/sharepoint/selection-policy`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetLarkSelectionRequestResponse = {
+    body: GetLarkSelectionRequestResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
+ */
+export function handleGetLarkSelectionRequest(response?: HandleGetLarkSelectionRequestResponse | HttpResponseResolver<{
+    requestId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        requestId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/selection-requests/:requestId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListLarkSpacesResponse = {
+    body: ListLarkSpacesResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
+ */
+export function handleListLarkSpaces(response?: HandleListLarkSpacesResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/credentials/:credentialId/spaces`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -11454,460 +11938,11 @@ export function handleDeleteChatFileArtifact(response?: HandleDeleteChatFileArti
     }, options);
 }
 
-export type HandleListLarkCredentialsResponse = {
-    body: ListLarkCredentialsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/credentials/lark` operation.
- */
-export function handleListLarkCredentials(response?: HandleListLarkCredentialsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleCreateLarkCredentialResponse = {
-    body: CreateLarkCredentialResponses[201];
-    status?: 201;
-};
-
-/**
- * Handler for the `POST /api/credentials/lark` operation.
- */
-export function handleCreateLarkCredential(response?: HandleCreateLarkCredentialResponse | HttpResponseResolver<never, CreateLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<never, CreateLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 201 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleDeleteLarkCredentialResponse = {
-    body: DeleteLarkCredentialResponses[204];
-    status?: 204;
-};
-
-/**
- * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
- */
-export function handleDeleteLarkCredential(response?: HandleDeleteLarkCredentialResponse | HttpResponseResolver<{
-    credentialId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.delete<{
-        credentialId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return new HttpResponse(body, { status: response?.status ?? 204 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleRenameLarkCredentialResponse = {
-    body: RenameLarkCredentialResponses[204];
-    status?: 204;
-};
-
-/**
- * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
- */
-export function handleRenameLarkCredential(response?: HandleRenameLarkCredentialResponse | HttpResponseResolver<{
-    credentialId: string;
-}, RenameLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        credentialId: string;
-    }, RenameLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return new HttpResponse(body, { status: response?.status ?? 204 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleReplaceLarkCredentialSecretResponse = {
-    body: ReplaceLarkCredentialSecretResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
- */
-export function handleReplaceLarkCredentialSecret(response?: HandleReplaceLarkCredentialSecretResponse | HttpResponseResolver<{
-    credentialId: string;
-}, ReplaceLarkCredentialSecretData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        credentialId: string;
-    }, ReplaceLarkCredentialSecretData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/secret`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleTestLarkCredentialResponse = {
-    body: TestLarkCredentialResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
- */
-export function handleTestLarkCredential(response?: HandleTestLarkCredentialResponse | HttpResponseResolver<{
-    credentialId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<{
-        credentialId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/test`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleCreateLarkSourceResponse = {
-    body: CreateLarkSourceResponses[202];
-    status?: 202;
-};
-
-/**
- * Handler for the `POST /api/sources/lark` operation.
- */
-export function handleCreateLarkSource(response?: HandleCreateLarkSourceResponse | HttpResponseResolver<never, CreateLarkSourceData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<never, CreateLarkSourceData['body']>(`${options?.baseUrl ?? '*'}/api/sources/lark`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 202 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetLarkConfigurationResponse = {
-    body: GetLarkConfigurationResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/{sourceId}/lark` operation.
- */
-export function handleGetLarkConfiguration(response?: HandleGetLarkConfigurationResponse | HttpResponseResolver<{
-    sourceId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        sourceId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetLarkSelectionRequestResponse = {
-    body: GetLarkSelectionRequestResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
- */
-export function handleGetLarkSelectionRequest(response?: HandleGetLarkSelectionRequestResponse | HttpResponseResolver<{
-    requestId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        requestId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/selection-requests/:requestId`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleReplaceLarkScopeResponse = {
-    body: ReplaceLarkScopeResponses[202];
-    status?: 202;
-};
-
-/**
- * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
- */
-export function handleReplaceLarkScope(response?: HandleReplaceLarkScopeResponse | HttpResponseResolver<{
-    sourceId: string;
-}, ReplaceLarkScopeData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        sourceId: string;
-    }, ReplaceLarkScopeData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/scope`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 202 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleUpdateLarkScheduleResponse = {
-    body: UpdateLarkScheduleResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
- */
-export function handleUpdateLarkSchedule(response?: HandleUpdateLarkScheduleResponse | HttpResponseResolver<{
-    sourceId: string;
-}, UpdateLarkScheduleData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        sourceId: string;
-    }, UpdateLarkScheduleData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/schedule`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleUpdateLarkPauseResponse = {
-    body: UpdateLarkPauseResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
- */
-export function handleUpdateLarkPause(response?: HandleUpdateLarkPauseResponse | HttpResponseResolver<{
-    sourceId: string;
-}, UpdateLarkPauseData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<{
-        sourceId: string;
-    }, UpdateLarkPauseData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/pause`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleSynchronizeLarkSourceResponse = {
-    body: SynchronizeLarkSourceResponses[202];
-    status?: 202;
-};
-
-/**
- * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
- */
-export function handleSynchronizeLarkSource(response?: HandleSynchronizeLarkSourceResponse | HttpResponseResolver<{
-    sourceId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<{
-        sourceId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/sync`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 202 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetLarkRootsResponse = {
-    body: GetLarkRootsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
- */
-export function handleGetLarkRoots(response?: HandleGetLarkRootsResponse | HttpResponseResolver<{
-    sourceId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        sourceId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/roots`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleListLarkSpacesResponse = {
-    body: ListLarkSpacesResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
- */
-export function handleListLarkSpaces(response?: HandleListLarkSpacesResponse | HttpResponseResolver<{
-    credentialId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        credentialId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/credentials/:credentialId/spaces`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
 export type MswHandlerFactories = {
+    /**
+     * Handler for the `PUT /api/sources/{sourceId}/sharepoint/sharing-links` operation.
+     */
+    updateSharePointSharingLinks: typeof handleUpdateSharePointSharingLinks;
     /**
      * Handler for the `PUT /api/sources/{sourceId}/sharepoint/scope` operation.
      */
@@ -11916,6 +11951,14 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/sources/{sourceId}/sharepoint/schedule` operation.
      */
     updateSharePointSchedule: typeof handleUpdateSharePointSchedule;
+    /**
+     * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
+     */
+    replaceLarkScope: typeof handleReplaceLarkScope;
+    /**
+     * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
+     */
+    updateLarkSchedule: typeof handleUpdateLarkSchedule;
     /**
      * Handler for the `PUT /api/sources/{sourceId}/google-drive/schedule` operation.
      */
@@ -12068,6 +12111,18 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/credentials/sharepoint/{credentialId}/authentication` operation.
      */
     replaceSharePointCredentialAuthentication: typeof handleReplaceSharePointCredentialAuthentication;
+    /**
+     * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
+     */
+    deleteLarkCredential: typeof handleDeleteLarkCredential;
+    /**
+     * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
+     */
+    renameLarkCredential: typeof handleRenameLarkCredential;
+    /**
+     * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
+     */
+    replaceLarkCredentialSecret: typeof handleReplaceLarkCredentialSecret;
     /**
      * Handler for the `PUT /api/credentials/google-drive/{credentialId}/service-account` operation.
      */
@@ -12397,6 +12452,14 @@ export type MswHandlerFactories = {
      */
     assignSourceManager: typeof handleAssignSourceManager;
     /**
+     * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
+     */
+    synchronizeLarkSource: typeof handleSynchronizeLarkSource;
+    /**
+     * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
+     */
+    updateLarkPause: typeof handleUpdateLarkPause;
+    /**
      * Handler for the `POST /api/sources/{sourceId}/items/{itemId}/remove` operation.
      */
     removeSourceItem: typeof handleRemoveSourceItem;
@@ -12436,6 +12499,10 @@ export type MswHandlerFactories = {
      * Handler for the `POST /api/sources/sharepoint` operation.
      */
     createSharePointSource: typeof handleCreateSharePointSource;
+    /**
+     * Handler for the `POST /api/sources/lark` operation.
+     */
+    createLarkSource: typeof handleCreateLarkSource;
     /**
      * Handler for the `POST /api/sources/google-drive` operation.
      */
@@ -12684,6 +12751,18 @@ export type MswHandlerFactories = {
      * Handler for the `POST /api/credentials/sharepoint/{credentialId}/test` operation.
      */
     testSharePointCredential: typeof handleTestSharePointCredential;
+    /**
+     * Handler for the `GET /api/credentials/lark` operation.
+     */
+    listLarkCredentials: typeof handleListLarkCredentials;
+    /**
+     * Handler for the `POST /api/credentials/lark` operation.
+     */
+    createLarkCredential: typeof handleCreateLarkCredential;
+    /**
+     * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
+     */
+    testLarkCredential: typeof handleTestLarkCredential;
     /**
      * Handler for the `POST /api/credentials/google-drive/{credentialId}/revoke` operation.
      */
@@ -12977,6 +13056,14 @@ export type MswHandlerFactories = {
      */
     listSourceRunErrors: typeof handleListSourceRunErrors;
     /**
+     * Handler for the `GET /api/sources/{sourceId}/lark` operation.
+     */
+    getLarkConfiguration: typeof handleGetLarkConfiguration;
+    /**
+     * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
+     */
+    getLarkRoots: typeof handleGetLarkRoots;
+    /**
      * Handler for the `GET /api/sources/{sourceId}/items` operation.
      */
     listSourceItems: typeof handleListSourceItems;
@@ -13008,6 +13095,14 @@ export type MswHandlerFactories = {
      * Handler for the `GET /api/sources/sharepoint/selection-policy` operation.
      */
     getSharePointSelectionPolicy: typeof handleGetSharePointSelectionPolicy;
+    /**
+     * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
+     */
+    getLarkSelectionRequest: typeof handleGetLarkSelectionRequest;
+    /**
+     * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
+     */
+    listLarkSpaces: typeof handleListLarkSpaces;
     /**
      * Handler for the `GET /api/sources/group-options` operation.
      */
@@ -13452,66 +13547,6 @@ export type MswHandlerFactories = {
      * Handler for the `DELETE /api/chat/file-artifacts/{artifactId}` operation.
      */
     deleteChatFileArtifact: typeof handleDeleteChatFileArtifact;
-    /**
-     * Handler for the `GET /api/credentials/lark` operation.
-     */
-    listLarkCredentials: typeof handleListLarkCredentials;
-    /**
-     * Handler for the `POST /api/credentials/lark` operation.
-     */
-    createLarkCredential: typeof handleCreateLarkCredential;
-    /**
-     * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
-     */
-    deleteLarkCredential: typeof handleDeleteLarkCredential;
-    /**
-     * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
-     */
-    renameLarkCredential: typeof handleRenameLarkCredential;
-    /**
-     * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
-     */
-    replaceLarkCredentialSecret: typeof handleReplaceLarkCredentialSecret;
-    /**
-     * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
-     */
-    testLarkCredential: typeof handleTestLarkCredential;
-    /**
-     * Handler for the `POST /api/sources/lark` operation.
-     */
-    createLarkSource: typeof handleCreateLarkSource;
-    /**
-     * Handler for the `GET /api/sources/{sourceId}/lark` operation.
-     */
-    getLarkConfiguration: typeof handleGetLarkConfiguration;
-    /**
-     * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
-     */
-    getLarkSelectionRequest: typeof handleGetLarkSelectionRequest;
-    /**
-     * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
-     */
-    replaceLarkScope: typeof handleReplaceLarkScope;
-    /**
-     * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
-     */
-    updateLarkSchedule: typeof handleUpdateLarkSchedule;
-    /**
-     * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
-     */
-    updateLarkPause: typeof handleUpdateLarkPause;
-    /**
-     * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
-     */
-    synchronizeLarkSource: typeof handleSynchronizeLarkSource;
-    /**
-     * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
-     */
-    getLarkRoots: typeof handleGetLarkRoots;
-    /**
-     * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
-     */
-    listLarkSpaces: typeof handleListLarkSpaces;
 };
 
 export type CreateMswHandlersResult = {
@@ -13529,8 +13564,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         return (response, options) => handler(response, { ...config, ...options });
     }
     const pick: CreateMswHandlersResult['pick'] = {
+        updateSharePointSharingLinks: wrap(handleUpdateSharePointSharingLinks),
         replaceSharePointScope: wrap(handleReplaceSharePointScope),
         updateSharePointSchedule: wrap(handleUpdateSharePointSchedule),
+        replaceLarkScope: wrap(handleReplaceLarkScope),
+        updateLarkSchedule: wrap(handleUpdateLarkSchedule),
         updateGoogleDriveSchedule: wrap(handleUpdateGoogleDriveSchedule),
         replaceGoogleDriveRoots: wrap(handleReplaceGoogleDriveRoots),
         deleteEmbeddingProvider: wrap(handleDeleteEmbeddingProvider),
@@ -13569,6 +13607,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteSharePointCredential: wrap(handleDeleteSharePointCredential),
         renameSharePointCredential: wrap(handleRenameSharePointCredential),
         replaceSharePointCredentialAuthentication: wrap(handleReplaceSharePointCredentialAuthentication),
+        deleteLarkCredential: wrap(handleDeleteLarkCredential),
+        renameLarkCredential: wrap(handleRenameLarkCredential),
+        replaceLarkCredentialSecret: wrap(handleReplaceLarkCredentialSecret),
         replaceGoogleDriveServiceAccount: wrap(handleReplaceGoogleDriveServiceAccount),
         selectChatWebProvider: wrap(handleSelectChatWebProvider),
         saveChatWebConnection: wrap(handleSaveChatWebConnection),
@@ -13651,6 +13692,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         renameSource: wrap(handleRenameSource),
         pauseSource: wrap(handlePauseSource),
         assignSourceManager: wrap(handleAssignSourceManager),
+        synchronizeLarkSource: wrap(handleSynchronizeLarkSource),
+        updateLarkPause: wrap(handleUpdateLarkPause),
         removeSourceItem: wrap(handleRemoveSourceItem),
         reindexSourceItem: wrap(handleReindexSourceItem),
         listSourceGroups: wrap(handleListSourceGroups),
@@ -13661,6 +13704,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteSource: wrap(handleDeleteSource),
         updateSourceAccess: wrap(handleUpdateSourceAccess),
         createSharePointSource: wrap(handleCreateSharePointSource),
+        createLarkSource: wrap(handleCreateLarkSource),
         createGoogleDriveSource: wrap(handleCreateGoogleDriveSource),
         createFileSource: wrap(handleCreateFileSource),
         searchDocuments: wrap(handleSearchDocuments),
@@ -13723,6 +13767,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listSharePointCredentials: wrap(handleListSharePointCredentials),
         createSharePointCredential: wrap(handleCreateSharePointCredential),
         testSharePointCredential: wrap(handleTestSharePointCredential),
+        listLarkCredentials: wrap(handleListLarkCredentials),
+        createLarkCredential: wrap(handleCreateLarkCredential),
+        testLarkCredential: wrap(handleTestLarkCredential),
         revokeGoogleDriveCredential: wrap(handleRevokeGoogleDriveCredential),
         createGoogleDriveServiceAccount: wrap(handleCreateGoogleDriveServiceAccount),
         startGoogleDriveAuthorization: wrap(handleStartGoogleDriveAuthorization),
@@ -13796,6 +13843,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listSourceRuns: wrap(handleListSourceRuns),
         getSourceRun: wrap(handleGetSourceRun),
         listSourceRunErrors: wrap(handleListSourceRunErrors),
+        getLarkConfiguration: wrap(handleGetLarkConfiguration),
+        getLarkRoots: wrap(handleGetLarkRoots),
         listSourceItems: wrap(handleListSourceItems),
         listSourceIndexAttempts: wrap(handleListSourceIndexAttempts),
         getGoogleDriveConfiguration: wrap(handleGetGoogleDriveConfiguration),
@@ -13804,6 +13853,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         getGoogleDriveSelectionDraft: wrap(handleGetGoogleDriveSelectionDraft),
         getSharePointSelectionRequest: wrap(handleGetSharePointSelectionRequest),
         getSharePointSelectionPolicy: wrap(handleGetSharePointSelectionPolicy),
+        getLarkSelectionRequest: wrap(handleGetLarkSelectionRequest),
+        listLarkSpaces: wrap(handleListLarkSpaces),
         listSourceGroupOptions: wrap(handleListSourceGroupOptions),
         getGoogleDriveSelectionRequest: wrap(handleGetGoogleDriveSelectionRequest),
         getGoogleDriveSelectionPolicy: wrap(handleGetGoogleDriveSelectionPolicy),
@@ -13914,22 +13965,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteGoogleDriveCredential: wrap(handleDeleteGoogleDriveCredential),
         leaveChatPersona: wrap(handleLeaveChatPersona),
         deleteChatImageArtifact: wrap(handleDeleteChatImageArtifact),
-        deleteChatFileArtifact: wrap(handleDeleteChatFileArtifact),
-        listLarkCredentials: wrap(handleListLarkCredentials),
-        createLarkCredential: wrap(handleCreateLarkCredential),
-        deleteLarkCredential: wrap(handleDeleteLarkCredential),
-        renameLarkCredential: wrap(handleRenameLarkCredential),
-        replaceLarkCredentialSecret: wrap(handleReplaceLarkCredentialSecret),
-        testLarkCredential: wrap(handleTestLarkCredential),
-        createLarkSource: wrap(handleCreateLarkSource),
-        getLarkConfiguration: wrap(handleGetLarkConfiguration),
-        getLarkSelectionRequest: wrap(handleGetLarkSelectionRequest),
-        replaceLarkScope: wrap(handleReplaceLarkScope),
-        updateLarkSchedule: wrap(handleUpdateLarkSchedule),
-        updateLarkPause: wrap(handleUpdateLarkPause),
-        synchronizeLarkSource: wrap(handleSynchronizeLarkSource),
-        getLarkRoots: wrap(handleGetLarkRoots),
-        listLarkSpaces: wrap(handleListLarkSpaces)
+        deleteChatFileArtifact: wrap(handleDeleteChatFileArtifact)
     };
     const all: CreateMswHandlersResult['all'] = (options = {}) => {
         type OverrideValue<R> = R | [
@@ -13963,8 +13999,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.createSystemOneConnection, overrides.createSystemOneConnection),
             invoke(pick.testSystemOneConnection, overrides.testSystemOneConnection),
             invoke(pick.testChatImageConnection, overrides.testChatImageConnection),
-            invoke(pick.downloadChatLibraryArchive, overrides.downloadChatLibraryArchive),
             invoke(pick.listLarkSpaces, overrides.listLarkSpaces),
+            invoke(pick.downloadChatLibraryArchive, overrides.downloadChatLibraryArchive),
             invoke(pick.setAllMcpServerToolsEnabled, overrides.setAllMcpServerToolsEnabled),
             invoke(pick.refreshMcpServerTools, overrides.refreshMcpServerTools),
             invoke(pick.discoverMcpServerOAuth, overrides.discoverMcpServerOAuth),
@@ -14009,11 +14045,12 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.updatePublicChatPromptShortcut, overrides.updatePublicChatPromptShortcut),
             invoke(pick.saveChatImageConnection, overrides.saveChatImageConnection),
             invoke(pick.getSharePointSelectionRequest, overrides.getSharePointSelectionRequest),
+            invoke(pick.getLarkSelectionRequest, overrides.getLarkSelectionRequest),
             invoke(pick.getGoogleDriveSelectionRequest, overrides.getGoogleDriveSelectionRequest),
             invoke(pick.getChatLibraryArchive, overrides.getChatLibraryArchive),
-            invoke(pick.getLarkSelectionRequest, overrides.getLarkSelectionRequest),
             invoke(pick.saveMcpConnectionApiKey, overrides.saveMcpConnectionApiKey),
             invoke(pick.replaceSharePointCredentialAuthentication, overrides.replaceSharePointCredentialAuthentication),
+            invoke(pick.replaceLarkCredentialSecret, overrides.replaceLarkCredentialSecret),
             invoke(pick.replaceGoogleDriveServiceAccount, overrides.replaceGoogleDriveServiceAccount),
             invoke(pick.generateChatTitle, overrides.generateChatTitle),
             invoke(pick.renameChatSession, overrides.renameChatSession),
@@ -14033,6 +14070,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.testOcrConnection, overrides.testOcrConnection),
             invoke(pick.startMcpConnectionAuthorization, overrides.startMcpConnectionAuthorization),
             invoke(pick.testSharePointCredential, overrides.testSharePointCredential),
+            invoke(pick.testLarkCredential, overrides.testLarkCredential),
             invoke(pick.revokeGoogleDriveCredential, overrides.revokeGoogleDriveCredential),
             invoke(pick.unarchiveChatSession, overrides.unarchiveChatSession),
             invoke(pick.getChatHistory, overrides.getChatHistory),
@@ -14070,11 +14108,12 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.readChatDocumentOriginal, overrides.readChatDocumentOriginal),
             invoke(pick.downloadUsageReport, overrides.downloadUsageReport),
             invoke(pick.disconnectMcpConnection, overrides.disconnectMcpConnection),
-            invoke(pick.replaceLarkCredentialSecret, overrides.replaceLarkCredentialSecret),
-            invoke(pick.testLarkCredential, overrides.testLarkCredential),
             invoke(pick.changeChatLibraryFile, overrides.changeChatLibraryFile),
+            invoke(pick.updateSharePointSharingLinks, overrides.updateSharePointSharingLinks),
             invoke(pick.replaceSharePointScope, overrides.replaceSharePointScope),
             invoke(pick.updateSharePointSchedule, overrides.updateSharePointSchedule),
+            invoke(pick.replaceLarkScope, overrides.replaceLarkScope),
+            invoke(pick.updateLarkSchedule, overrides.updateLarkSchedule),
             invoke(pick.updateGoogleDriveSchedule, overrides.updateGoogleDriveSchedule),
             invoke(pick.replaceGoogleDriveRoots, overrides.replaceGoogleDriveRoots),
             invoke(pick.editMeetingMinutesSummary, overrides.editMeetingMinutesSummary),
@@ -14082,6 +14121,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.saveMeetingMinutesHeading, overrides.saveMeetingMinutesHeading),
             invoke(pick.synchronizeSharePointSource, overrides.synchronizeSharePointSource),
             invoke(pick.updateSharePointPause, overrides.updateSharePointPause),
+            invoke(pick.synchronizeLarkSource, overrides.synchronizeLarkSource),
+            invoke(pick.updateLarkPause, overrides.updateLarkPause),
             invoke(pick.synchronizeGoogleDriveSource, overrides.synchronizeGoogleDriveSource),
             invoke(pick.updateGoogleDrivePause, overrides.updateGoogleDrivePause),
             invoke(pick.finalizeMeetingRecording, overrides.finalizeMeetingRecording),
@@ -14090,14 +14131,10 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.revertAllMeetingCorrections, overrides.revertAllMeetingCorrections),
             invoke(pick.acceptAllMeetingCorrections, overrides.acceptAllMeetingCorrections),
             invoke(pick.getSharePointRoots, overrides.getSharePointRoots),
+            invoke(pick.getLarkRoots, overrides.getLarkRoots),
             invoke(pick.getGoogleDriveSelection, overrides.getGoogleDriveSelection),
             invoke(pick.getGoogleDriveSelectionTree, overrides.getGoogleDriveSelectionTree),
             invoke(pick.getGoogleDriveSelectionDraft, overrides.getGoogleDriveSelectionDraft),
-            invoke(pick.replaceLarkScope, overrides.replaceLarkScope),
-            invoke(pick.updateLarkSchedule, overrides.updateLarkSchedule),
-            invoke(pick.updateLarkPause, overrides.updateLarkPause),
-            invoke(pick.synchronizeLarkSource, overrides.synchronizeLarkSource),
-            invoke(pick.getLarkRoots, overrides.getLarkRoots),
             invoke(pick.markMeetingMinutesItem, overrides.markMeetingMinutesItem),
             invoke(pick.getSourceRun, overrides.getSourceRun),
             invoke(pick.removeMeetingBookmark, overrides.removeMeetingBookmark),
@@ -14166,6 +14203,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.updateMcpServer, overrides.updateMcpServer),
             invoke(pick.deleteSharePointCredential, overrides.deleteSharePointCredential),
             invoke(pick.renameSharePointCredential, overrides.renameSharePointCredential),
+            invoke(pick.deleteLarkCredential, overrides.deleteLarkCredential),
+            invoke(pick.renameLarkCredential, overrides.renameLarkCredential),
             invoke(pick.deleteChatProvider, overrides.deleteChatProvider),
             invoke(pick.updateChatProvider, overrides.updateChatProvider),
             invoke(pick.deleteChatPromptShortcut, overrides.deleteChatPromptShortcut),
@@ -14199,8 +14238,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.deleteGoogleDriveCredential, overrides.deleteGoogleDriveCredential),
             invoke(pick.deleteChatImageArtifact, overrides.deleteChatImageArtifact),
             invoke(pick.deleteChatFileArtifact, overrides.deleteChatFileArtifact),
-            invoke(pick.deleteLarkCredential, overrides.deleteLarkCredential),
-            invoke(pick.renameLarkCredential, overrides.renameLarkCredential),
             invoke(pick.shareMeeting, overrides.shareMeeting),
             invoke(pick.updateMeetingNotes, overrides.updateMeetingNotes),
             invoke(pick.replaceUserGroups, overrides.replaceUserGroups),
@@ -14232,13 +14269,13 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.replaceGroupCapabilities, overrides.replaceGroupCapabilities),
             invoke(pick.getSharePointConfiguration, overrides.getSharePointConfiguration),
             invoke(pick.listSourceRuns, overrides.listSourceRuns),
+            invoke(pick.getLarkConfiguration, overrides.getLarkConfiguration),
             invoke(pick.listSourceItems, overrides.listSourceItems),
             invoke(pick.listSourceIndexAttempts, overrides.listSourceIndexAttempts),
             invoke(pick.getGoogleDriveConfiguration, overrides.getGoogleDriveConfiguration),
             invoke(pick.exportMeetingTranscript, overrides.exportMeetingTranscript),
             invoke(pick.listGroupSources, overrides.listGroupSources),
             invoke(pick.listGroupCandidates, overrides.listGroupCandidates),
-            invoke(pick.getLarkConfiguration, overrides.getLarkConfiguration),
             invoke(pick.selectOcrProvider, overrides.selectOcrProvider),
             invoke(pick.getMcpEndpointSettings, overrides.getMcpEndpointSettings),
             invoke(pick.updateMcpEndpointSettings, overrides.updateMcpEndpointSettings),
@@ -14256,6 +14293,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.getChatInterpreterSettings, overrides.getChatInterpreterSettings),
             invoke(pick.updateChatInterpreterSettings, overrides.updateChatInterpreterSettings),
             invoke(pick.createSharePointSource, overrides.createSharePointSource),
+            invoke(pick.createLarkSource, overrides.createLarkSource),
             invoke(pick.createGoogleDriveSource, overrides.createGoogleDriveSource),
             invoke(pick.createFileSource, overrides.createFileSource),
             invoke(pick.listEmbeddingProviders, overrides.listEmbeddingProviders),
@@ -14265,6 +14303,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.discoverIdentityProvider, overrides.discoverIdentityProvider),
             invoke(pick.listSharePointCredentials, overrides.listSharePointCredentials),
             invoke(pick.createSharePointCredential, overrides.createSharePointCredential),
+            invoke(pick.listLarkCredentials, overrides.listLarkCredentials),
+            invoke(pick.createLarkCredential, overrides.createLarkCredential),
             invoke(pick.deleteAllChatSessions, overrides.deleteAllChatSessions),
             invoke(pick.listChatSessions, overrides.listChatSessions),
             invoke(pick.createChatSession, overrides.createChatSession),
@@ -14320,9 +14360,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.getAiCostDetail, overrides.getAiCostDetail),
             invoke(pick.listAiCostDays, overrides.listAiCostDays),
             invoke(pick.listAiCostBreakdown, overrides.listAiCostBreakdown),
-            invoke(pick.listLarkCredentials, overrides.listLarkCredentials),
-            invoke(pick.createLarkCredential, overrides.createLarkCredential),
-            invoke(pick.createLarkSource, overrides.createLarkSource),
             invoke(pick.deleteMeeting, overrides.deleteMeeting),
             invoke(pick.getMeeting, overrides.getMeeting),
             invoke(pick.updateMeeting, overrides.updateMeeting),

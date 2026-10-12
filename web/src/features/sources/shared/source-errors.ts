@@ -198,6 +198,10 @@ const statusMessages = {
     "Synchronization stopped because Microsoft rejected the credential. Test it and replace its authentication.",
   SOURCE_SHAREPOINT_AUTHORIZATION:
     "The Entra application is not allowed to read this content. Check its permissions and admin consent.",
+  SOURCE_SHAREPOINT_SYNC_REQUIRES_CERTIFICATE:
+    "Auto Sync reads SharePoint permissions, which needs a certificate credential. Use a certificate credential, or choose another access.",
+  SOURCE_SHAREPOINT_SYNC_PERMISSIONS_DENIED:
+    "Microsoft refused to list SharePoint permissions or group members. Grant the Entra application SharePoint Sites.FullControl.All and Microsoft Graph GroupMember.Read.All, then synchronize again.",
   SOURCE_SHAREPOINT_NOT_FOUND: "This item is no longer available to the Entra application.",
   SOURCE_SHAREPOINT_RESYNC_REQUIRED:
     "Microsoft no longer accepts the saved change token; this library is read again in full.",

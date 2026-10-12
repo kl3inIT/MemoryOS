@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
@@ -23,7 +24,10 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
 class RestSharePointGatewayTest {
+    private static final String LIST = "0f8fad5b-d9cb-469f-a165-70867728950e";
     private final ObjectMapper mapper = new ObjectMapper();
+    /** The scope of every token a session asked for, in order. */
+    private final List<String> scopes = Collections.synchronizedList(new ArrayList<>());
 
     @Test
     void readsTheRootSiteWithABearerTokenAndTheMicrosoftUserAgent() throws Exception {
@@ -364,9 +368,244 @@ class RestSharePointGatewayTest {
         }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
             var item = session.item("drive-1", "file-1");
             assertEquals("https://contoso.sharepoint.com/download?tempauth=short-lived", item.downloadUrl());
+            assertNull(item.listItem(), "Graph did not say where SharePoint keeps the item");
             assertEquals("S7GCo=", item.quickXorHash());
             assertEquals("/Báo cáo", item.parentPath());
             assertTrue(item.file());
+        }
+    }
+
+    @Test
+    void anItemCarriesTheListRowSharePointKeepsItIn() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertTrue(exchange.getRequestURI().getQuery().contains("sharepointIds"), exchange.getRequestURI().getQuery());
+            return ok("""
+                    {"value":[{"id":"file-1","name":"bao-cao.xlsx","size":12,"file":{"mimeType":"application/pdf"},
+                       "parentReference":{"driveId":"drive-1"},
+                       "sharepointIds":{"listId":"%s","listItemId":"7",
+                         "siteUrl":"https://contoso.sharepoint.com/sites/Finance"}},
+                      {"id":"file-2","name":"khac.docx","parentReference":{"driveId":"drive-1"},
+                       "sharepointIds":{"listId":"%s"}}]}""".formatted(LIST, LIST));
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var items = session.children("drive-1", "folder-1", null).items();
+            var kept = items.getFirst().listItem();
+            assertNotNull(kept);
+            assertEquals(LIST, kept.listId());
+            assertEquals("7", kept.listItemId());
+            assertEquals("https://contoso.sharepoint.com/sites/Finance", kept.webUrl());
+            assertNull(items.get(1).listItem(), "a list without its row cannot be asked about");
+        }
+    }
+
+    @Test
+    void readsTheRoleAssignmentsOfAListItemByItsListIdentifierWithTheTenantHostToken() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertEquals("Bearer rest-token", exchange.getRequestHeaders().getFirst("Authorization"));
+            assertEquals("application/json;odata=nometadata", exchange.getRequestHeaders().getFirst("Accept"));
+            assertTrue(exchange.getRequestHeaders().getFirst("User-Agent").startsWith("ISV|MemoryOS|"));
+            String self = "http://127.0.0.1:" + exchange.getLocalAddress().getPort();
+            if (exchange.getRequestURI().getRawQuery().contains("skiptoken")) {
+                return ok("""
+                        {"value":[{"Member":{"Id":9,"PrincipalType":8,"LoginName":"Finance Members","Title":"Finance Members"},
+                           "RoleDefinitionBindings":[{"RoleTypeKind":3}]}]}""");
+            }
+            assertEquals("/sites/Finance/_api/web/lists(guid'" + LIST + "')/items(7)/roleassignments",
+                    exchange.getRequestURI().getPath());
+            assertEquals("$expand=Member,RoleDefinitionBindings&$top=100", exchange.getRequestURI().getRawQuery());
+            return ok("""
+                    {"value":[
+                      {"Member":{"Id":11,"PrincipalType":1,"LoginName":"i:0#.f|membership|an@contoso.onmicrosoft.com",
+                         "Title":"An","UserPrincipalName":"an@contoso.onmicrosoft.com"},
+                       "RoleDefinitionBindings":[{"RoleTypeKind":2}]},
+                      {"Member":{"Id":12,"PrincipalType":4,
+                         "LoginName":"c:0t.c|tenant|5f4dcc3b-5aa7-45d6-8cf3-99de8a2b4c1e","Title":"Kế toán"},
+                       "RoleDefinitionBindings":[{"RoleTypeKind":1},{"RoleTypeKind":9}]},
+                      {"Member":{"Id":13,"PrincipalType":2,"LoginName":"list@contoso.com"},
+                       "RoleDefinitionBindings":[{"RoleTypeKind":1},{"RoleTypeKind":2}]}],
+                     "odata.nextLink":"%s/sites/Finance/_api/web/lists(guid'%s')/items(7)/roleassignments?$skiptoken=next"}"""
+                    .formatted(self, LIST));
+        }); var provider = provider(fixture, 0); var session = provider.open(certificate())) {
+            var assignments = session.itemRoleAssignments("127.0.0.1", fixture.base + "/sites/Finance/",
+                    LIST.toUpperCase(Locale.ROOT), "7");
+            assertEquals(4, assignments.size(), "both pages are read");
+            var user = assignments.getFirst();
+            assertEquals(SharePointGateway.PrincipalType.USER, user.member().type());
+            assertEquals("an@contoso.onmicrosoft.com", user.member().userPrincipalName());
+            assertFalse(user.limitedAccessOnly());
+            var group = assignments.get(1);
+            assertEquals(SharePointGateway.PrincipalType.ENTRA_GROUP, group.member().type());
+            assertEquals("c:0t.c|tenant|5f4dcc3b-5aa7-45d6-8cf3-99de8a2b4c1e", group.member().loginName());
+            assertEquals("Kế toán", group.member().title());
+            assertTrue(group.limitedAccessOnly(), "every role bound is Limited Access");
+            assertEquals(SharePointGateway.PrincipalType.OTHER, assignments.get(2).member().type());
+            assertFalse(assignments.get(2).limitedAccessOnly(), "one real role is enough");
+            assertEquals(SharePointGateway.PrincipalType.SHAREPOINT_GROUP, assignments.get(3).member().type());
+            assertEquals(9, assignments.get(3).member().id());
+            assertEquals(List.of(SharePointTokenSource.GRAPH_SCOPE, "https://127.0.0.1/.default"), scopes,
+                    "the REST token is asked for once, for the Tenant host");
+        }
+    }
+
+    @Test
+    void readsTheRoleAssignmentsOfAPageAndOfTheSiteItself() throws Exception {
+        try (var fixture = new Fixture(_ -> ok("{\"value\":[]}"));
+                var provider = provider(fixture, 0); var session = provider.open(certificate())) {
+            String web = fixture.base + "/sites/Finance";
+            assertTrue(session.pageRoleAssignments("127.0.0.1", web, "/sites/Finance/SitePages/B%C3%A1o%20c%C3%A1o's.aspx")
+                    .isEmpty());
+            // The address keeps Microsoft's own percent-encoding; only the quote is doubled.
+            assertEquals("/sites/Finance/_api/web/GetFileByServerRelativeUrl('/sites/Finance/SitePages/"
+                    + "B%C3%A1o%20c%C3%A1o''s.aspx')/ListItemAllFields/roleassignments",
+                    fixture.requests.getFirst().getRawPath());
+            assertTrue(session.webRoleAssignments("127.0.0.1", web).isEmpty());
+            assertEquals("/sites/Finance/_api/web/roleassignments", fixture.requests.get(1).getRawPath());
+            assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                    () -> session.pageRoleAssignments("127.0.0.1", web, "SitePages/Home.aspx")).failure());
+            assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                    () -> session.itemRoleAssignments("127.0.0.1", web, "Documents", "7")).failure(),
+                    "a list is named by its identifier, never by a title");
+            assertEquals(2, fixture.requests.size());
+        }
+    }
+
+    @Test
+    void listsTheDirectMembersOfASharePointGroup() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertEquals("/sites/Finance/_api/web/sitegroups/getbyid(9)/users", exchange.getRequestURI().getPath());
+            return ok("""
+                    {"value":[
+                      {"Id":11,"PrincipalType":1,"LoginName":"i:0#.f|membership|an@contoso.com","Title":"An",
+                       "UserPrincipalName":"an@contoso.com","Email":"an@contoso.com"},
+                      {"Id":12,"PrincipalType":4,"LoginName":"c:0t.c|tenant|5f4dcc3b-5aa7-45d6-8cf3-99de8a2b4c1e",
+                       "Title":"Kế toán","UserPrincipalName":null}]}""");
+        }); var provider = provider(fixture, 0); var session = provider.open(certificate())) {
+            var members = session.siteGroupMembers("127.0.0.1", fixture.base + "/sites/Finance", 9);
+            assertEquals(2, members.size());
+            assertEquals("an@contoso.com", members.getFirst().userPrincipalName());
+            assertEquals(SharePointGateway.PrincipalType.ENTRA_GROUP, members.get(1).type());
+            assertNull(members.get(1).userPrincipalName());
+        }
+    }
+
+    @Test
+    void aClientSecretCredentialNeverAsksSharePointRest() throws Exception {
+        try (var fixture = new Fixture(_ -> ok("{\"value\":[]}"));
+                var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            assertEquals(Failure.AUTHORIZATION, assertThrows(SharePointProviderException.class,
+                    () -> session.webRoleAssignments("127.0.0.1", fixture.base + "/sites/Finance")).failure());
+            assertEquals(0, fixture.requests.size());
+            assertEquals(List.of(SharePointTokenSource.GRAPH_SCOPE), scopes, "no REST token is asked for either");
+        }
+    }
+
+    @Test
+    void sharePointRestStaysOnTheTenantHost() throws Exception {
+        try (var fixture = new Fixture(_ -> ok("""
+                {"value":[],"odata.nextLink":"https://evil.example.com/_api/web/roleassignments?$skiptoken=next"}"""));
+                var provider = provider(fixture, 0); var session = provider.open(certificate())) {
+            assertEquals(Failure.AUTHORIZATION, assertThrows(SharePointProviderException.class,
+                    () -> session.webRoleAssignments("127.0.0.1", "https://evil.example.com/sites/Finance")).failure());
+            assertEquals(0, fixture.requests.size(), "a site on another host is never asked");
+            assertEquals(Failure.AUTHORIZATION, assertThrows(SharePointProviderException.class,
+                    () -> session.webRoleAssignments("127.0.0.1", fixture.base + "/sites/Finance")).failure());
+            assertEquals(1, fixture.requests.size(), "a continuation that leaves the host is not followed");
+            assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                    () -> session.webRoleAssignments("127.0.0.1", fixture.base + "/sites/Finance?x=1")).failure());
+        }
+    }
+
+    @Test
+    void classifiesSharePointRestStatusCodes() throws Exception {
+        // SharePoint answers 401 to an application token it does not take; the credential itself still works.
+        Map<Integer, Failure> expected = Map.of(401, Failure.AUTHORIZATION, 403, Failure.AUTHORIZATION,
+                404, Failure.NOT_FOUND, 429, Failure.QUOTA, 503, Failure.UNAVAILABLE, 400, Failure.MALFORMED);
+        for (var entry : expected.entrySet()) {
+            try (var fixture = new Fixture(exchange -> {
+                exchange.getResponseHeaders().add("Retry-After", "45");
+                return new Response(entry.getKey(),
+                        "{\"odata.error\":{\"message\":{\"value\":\"internal detail\"}}}".getBytes(StandardCharsets.UTF_8));
+            }); var provider = provider(fixture, 0); var session = provider.open(certificate())) {
+                var exception = assertThrows(SharePointProviderException.class,
+                        () -> session.itemRoleAssignments("127.0.0.1", fixture.base + "/sites/Finance", LIST, "7"));
+                assertEquals(entry.getValue(), exception.failure(), "status " + entry.getKey());
+                assertFalse(exception.getMessage().contains("internal detail"));
+                assertEquals(entry.getKey() == 429 || entry.getKey() == 503 ? Duration.ofSeconds(45) : null,
+                        exception.retryAfter(), "status " + entry.getKey());
+                assertEquals(1, fixture.requests.size(), "nothing is retried");
+            }
+        }
+    }
+
+    @Test
+    void rejectsSharePointRestAnswersItCannotUse() throws Exception {
+        try (var fixture = new Fixture(_ -> ok("{\"value\":[{\"Member\":{\"Id\":1,\"LoginName\":\""
+                + "x".repeat(4096) + "\"},\"RoleDefinitionBindings\":[]}]}"));
+                var provider = provider(fixture, 1024); var session = provider.open(certificate())) {
+            assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(SharePointProviderException.class,
+                    () -> session.webRoleAssignments("127.0.0.1", fixture.base.toString())).failure());
+        }
+        for (String body : List.of("not json", "{\"d\":{}}", "{\"value\":[{\"RoleDefinitionBindings\":[]}]}",
+                "{\"value\":[{\"Member\":{\"Id\":1},\"RoleDefinitionBindings\":[]}]}")) {
+            try (var fixture = new Fixture(_ -> ok(body));
+                    var provider = provider(fixture, 0); var session = provider.open(certificate())) {
+                assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                        () -> session.webRoleAssignments("127.0.0.1", fixture.base.toString())).failure(), body);
+            }
+        }
+    }
+
+    @Test
+    void listsThePeopleAndGroupsOfAnEntraGroupPageByPage() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertEquals("Bearer test-token", exchange.getRequestHeaders().getFirst("Authorization"));
+            if (exchange.getRequestURI().getPath().contains("gone")) return new Response(404, new byte[0]);
+            assertEquals("/v1.0/groups/group-1/members", exchange.getRequestURI().getPath());
+            if (exchange.getRequestURI().getQuery().contains("skiptoken")) {
+                return ok("""
+                        {"value":[{"@odata.type":"#microsoft.graph.group","id":"group-2","displayName":"Kế toán"},
+                          {"@odata.type":"#microsoft.graph.device","id":"device-1"}]}""");
+            }
+            assertTrue(exchange.getRequestURI().getQuery().contains("userPrincipalName"));
+            String self = "http://127.0.0.1:" + exchange.getLocalAddress().getPort();
+            return ok("""
+                    {"value":[{"@odata.type":"#microsoft.graph.user","id":"user-1","displayName":"An",
+                       "userPrincipalName":"an@contoso.com"}],
+                     "@odata.nextLink":"%s/v1.0/groups/group-1/members?$skiptoken=next"}""".formatted(self));
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var first = session.entraGroupMembers("group-1", null);
+            assertEquals(1, first.members().size());
+            assertFalse(first.members().getFirst().group());
+            assertEquals("an@contoso.com", first.members().getFirst().userPrincipalName());
+            var second = session.entraGroupMembers("group-1", first.nextLink());
+            assertEquals(1, second.members().size(), "a device is not a reader");
+            assertTrue(second.members().getFirst().group());
+            assertEquals("group-2", second.members().getFirst().id());
+            assertEquals("Kế toán", second.members().getFirst().displayName());
+            assertNull(second.nextLink());
+            assertEquals(Failure.NOT_FOUND, assertThrows(SharePointProviderException.class,
+                    () -> session.entraGroupMembers("gone", null)).failure());
+        }
+    }
+
+    @Test
+    void listsTheGroupsOfTheDirectoryAndTheScopesOfSharingLinks() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            if (exchange.getRequestURI().getPath().equals("/v1.0/groups")) {
+                assertTrue(exchange.getRequestURI().getQuery().contains("top=999"), exchange.getRequestURI().getQuery());
+                return ok("{\"value\":[{\"id\":\"group-1\",\"displayName\":\"Kế toán\"},{\"id\":\"group-2\"}]}");
+            }
+            assertEquals("/v1.0/drives/drive-1/items/file-1/permissions", exchange.getRequestURI().getPath());
+            return ok("""
+                    {"value":[{"id":"1","roles":["read"],"link":{"scope":"Organization","type":"view"}},
+                      {"id":"2","roles":["write"],"grantedToV2":{"user":{"id":"user-1"}}},
+                      {"id":"3","roles":["read"],"link":{"scope":"anonymous","type":"view"}}]}""");
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var groups = session.entraGroups(null);
+            assertEquals(2, groups.groups().size());
+            assertEquals("Kế toán", groups.groups().getFirst().displayName());
+            assertNull(groups.groups().get(1).displayName());
+            assertNull(groups.nextLink());
+            assertEquals(List.of("organization", "anonymous"), session.sharingLinkScopes("drive-1", "file-1"));
         }
     }
 
@@ -406,7 +645,8 @@ class RestSharePointGatewayTest {
     private static SharePointGateway.DriveItem item(String id, String downloadUrl) {
         return new SharePointGateway.DriveItem(id, "bao-cao.xlsx", false, false, 12,
                 "application/vnd.ms-excel", "S7GCo=", "\"{A},1\"", null, null, "root-1", "/Baocao",
-                "https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/bao-cao.xlsx", downloadUrl, "drive-1");
+                "https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/bao-cao.xlsx", downloadUrl, "drive-1",
+                null);
     }
 
     @Test
@@ -496,7 +736,15 @@ class RestSharePointGatewayTest {
         var properties = new SharePointProviderProperties(fixture.base, URI.create(fixture.base + "/v1.0"),
                 Duration.ofSeconds(1), requestTimeout, Duration.ofSeconds(10), 0, maxResponseBytes,
                 0, maxContentBytes == 0 ? 0 : maxContentBytes, null, contentTimeout);
-        return new RestSharePointGateway(properties, mapper, _ -> "test-token");
+        return new RestSharePointGateway(properties, mapper, _ -> scope -> {
+            scopes.add(scope);
+            return scope.equals(SharePointTokenSource.GRAPH_SCOPE) ? "test-token" : "rest-token";
+        });
+    }
+
+    private static SharePointGateway.Credential certificate() {
+        return SharePointGateway.Credential.certificate(SharePointGateway.Cloud.GLOBAL, UUID.randomUUID().toString(),
+                UUID.randomUUID().toString(), new byte[] {1}, new byte[] {2});
     }
 
     private static SharePointGateway.Credential credential() {

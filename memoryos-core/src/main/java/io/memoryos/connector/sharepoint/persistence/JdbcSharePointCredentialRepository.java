@@ -185,6 +185,16 @@ public class JdbcSharePointCredentialRepository {
                 .param("tenant", tenantId.value()).param("credential", credentialId.value()).update();
     }
 
+    /** Whether a Source of the credential admits readers by SharePoint's own permissions. */
+    public boolean servesPermissionSync(TenantId tenantId, CredentialId credentialId) {
+        return jdbc.sql("""
+                SELECT EXISTS (SELECT 1 FROM connector_credential_pairs
+                    WHERE tenant_id = :tenant AND credential_id = :credential AND access_type = 'SYNC'
+                      AND status <> 'DELETING')
+                """).param("tenant", tenantId.value()).param("credential", credentialId.value())
+                .query(Boolean.class).single();
+    }
+
     public List<SourceId> attachedSources(TenantId tenantId, CredentialId credentialId) {
         return jdbc.sql("""
                 SELECT id FROM connector_credential_pairs

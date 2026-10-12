@@ -10,6 +10,7 @@ import io.memoryos.api.source.contract.SharePointSelectionReceiptResponse;
 import io.memoryos.api.source.contract.SourceOperationResponse;
 import io.memoryos.api.source.contract.UpdateSharePointPauseRequest;
 import io.memoryos.api.source.contract.UpdateSharePointScheduleRequest;
+import io.memoryos.api.source.contract.UpdateSharePointSharingLinksRequest;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointSourceService;
 import io.memoryos.connector.SourceId;
@@ -145,6 +146,17 @@ final class SharePointSourceController {
             @CurrentActor IdentityContext identity, @PathVariable UUID sourceId,
             @Valid @RequestBody UpdateSharePointPauseRequest body) {
         return schedule(sources.setPaused(identity.actorId(), new SourceId(sourceId), body.expectedRevision(), body.paused()));
+    }
+
+    @Operation(operationId = "updateSharePointSharingLinks",
+            summary = "Choose whether a sharing link open to the organization or to anyone makes its file public")
+    @ApiResponse(responseCode = "200", description = "Updated SharePoint configuration", useReturnTypeSchema = true)
+    @PutMapping(value = "/{sourceId}/sharepoint/sharing-links", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<SharePointConfigurationResponse> updateSharingLinks(
+            @CurrentActor IdentityContext identity, @PathVariable UUID sourceId,
+            @Valid @RequestBody UpdateSharePointSharingLinksRequest body) {
+        return configuration(sources.setSharingLinksPublic(identity.actorId(), new SourceId(sourceId),
+                body.treatAsPublic()));
     }
 
     @Operation(operationId = "synchronizeSharePointSource", summary = "Schedule a synchronization run now")

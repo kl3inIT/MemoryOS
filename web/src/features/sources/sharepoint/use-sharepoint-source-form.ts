@@ -6,7 +6,7 @@ import { emptySharePointScopeDraft, type SharePointScopeDraft } from "./sharepoi
 
 type SharePointSourceValues = {
   sourceName: string;
-  access: "PUBLIC" | "PRIVATE";
+  access: "PUBLIC" | "PRIVATE" | "SYNC";
   groupIds: ReadonlySet<string>;
   scope: SharePointScopeDraft;
 };
@@ -38,7 +38,7 @@ export function useSharePointSourceForm({
     validators: {
       onDynamic: z.object({
         sourceName: zCreateSharePointSourceRequest.shape.name,
-        access: z.enum(["PUBLIC", "PRIVATE"]),
+        access: z.enum(["PUBLIC", "PRIVATE", "SYNC"]),
         groupIds: z.custom<ReadonlySet<string>>(),
         scope: z.custom<SharePointScopeDraft>(),
       }),

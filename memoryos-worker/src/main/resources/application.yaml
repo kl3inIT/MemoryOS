@@ -124,6 +124,8 @@ memoryos:
     acquisition-timeout: 15s
     max-requests: 64
     max-response-bytes: 1048576
+    group-sync-interval: ${MEMORYOS_SHAREPOINT_GROUP_SYNC_INTERVAL:PT5M}
+    enumerate-directory-groups: ${MEMORYOS_SHAREPOINT_ENUMERATE_DIRECTORY_GROUPS:false}
   google-drive:
     credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:}

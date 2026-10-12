@@ -13,6 +13,7 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import { SetupSection } from "@/features/sources/shared/setup-section";
 import { SourceAccessField, SourceGroupsField } from "@/features/sources/shared/source-form-fields";
+import { sourceAccessPresentation } from "@/features/sources/shared/source-status-presentation";
 import { SharePointScheduleFields } from "./sharepoint-schedule-fields";
 import { SharePointScopeFields } from "./sharepoint-scope-fields";
 import { parseSharePointLines, type SharePointScopeDraft } from "./sharepoint-scope";
@@ -92,8 +93,18 @@ export function SharePointAccessStep({
   busy,
   controlsDisabled,
   scoped,
-}: StepProps & { scoped: boolean }) {
+  certificate,
+}: StepProps & {
+  scoped: boolean;
+  /** Auto Sync reads SharePoint's permissions, which only a certificate credential can. */
+  certificate: boolean;
+}) {
   const ui = useAppTranslation();
+  const modes = [
+    ...(certificate ? (["SYNC"] as const) : []),
+    "PRIVATE",
+    ...(scoped ? [] : (["PUBLIC"] as const)),
+  ] as const;
   return (
     <form
       noValidate
@@ -119,13 +130,26 @@ export function SharePointAccessStep({
         </form.AppField>
         <form.AppField name="access">
           {() => (
-            <SourceAccessField
-              label={ui("Visibility")}
-              modes={scoped ? ["PRIVATE"] : ["PRIVATE", "PUBLIC"]}
-              disabled={controlsDisabled}
-            />
+            <SourceAccessField label={ui("Visibility")} modes={modes} disabled={controlsDisabled} />
           )}
         </form.AppField>
+        <form.Subscribe selector={(state) => state.values.access === "SYNC"}>
+          {(autoSync) =>
+            autoSync && certificate ? (
+              <FieldDescription>
+                {ui(
+                  "Whoever can open an item in SharePoint can read it here. Nobody reads a document until its permissions were read, and the Entra application needs SharePoint Sites.FullControl.All and Microsoft Graph GroupMember.Read.All.",
+                )}
+              </FieldDescription>
+            ) : certificate ? null : (
+              <FieldDescription>
+                {ui(
+                  "Auto Sync, which follows SharePoint's own permissions, needs a certificate credential. This credential uses a client secret.",
+                )}
+              </FieldDescription>
+            )
+          }
+        </form.Subscribe>
         <form.Subscribe selector={(state) => state.values.access === "PRIVATE"}>
           {(groupAccess) =>
             groupAccess ? (
@@ -238,7 +262,9 @@ export function SharePointReviewStep({
             <ReviewFact label={ui("Visibility")}>
               {values.access === "PUBLIC"
                 ? ui("Public · everyone in this organization")
-                : ui("Private · selected group members")}
+                : values.access === "SYNC"
+                  ? ui(sourceAccessPresentation.SYNC.label)
+                  : ui("Private · selected group members")}
             </ReviewFact>
             {values.access === "PRIVATE" ? (
               <ReviewFact label={ui("Access groups")}>

@@ -23,6 +23,10 @@ const providerAccessHelp: Partial<
     PRIVATE: "Document access follows this Source's MemoryOS groups, not Lark sharing.",
     SYNC: "Whoever the document is shared with in Lark can read it.",
   },
+  SHAREPOINT: {
+    PRIVATE: "Document access follows this Source's MemoryOS groups, not SharePoint permissions.",
+    SYNC: "Whoever can open the item in SharePoint can read it.",
+  },
 };
 
 /** The short answer to who can read; the help beside it states the rule. */
@@ -35,6 +39,7 @@ const readersLabel: Record<SourceSummary["access"], string> = {
 /** The provider whose sharing a SYNC Source follows, where it is not Google Drive. */
 const providerReadersLabel: Partial<Record<SourceSummary["type"], string>> = {
   LARK: "People with access in Lark",
+  SHAREPOINT: "People with access in SharePoint",
 };
 
 const shownGroupCount = 3;
