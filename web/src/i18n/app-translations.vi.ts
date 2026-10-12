@@ -2779,7 +2779,6 @@ Object.assign(englishUi, {
   "Loading saved spaces and folders…": "Đang tải không gian và thư mục đã lưu…",
   "Loading Wiki spaces…": "Đang tải không gian Wiki…",
   "No Lark credentials yet": "Chưa có credential Lark",
-  "One folder link per line.": "Mỗi dòng một liên kết thư mục.",
   "Permanently delete this unused credential and its stored App Secret. Credentials attached to any Source cannot be deleted.":
     "Xóa vĩnh viễn credential không dùng này cùng App Secret đã lưu. Không thể xóa credential đang gắn với Nguồn nào.",
   Region: "Khu vực",
@@ -2862,4 +2861,9 @@ Object.assign(englishUi, {
     "Ghép người dùng Lark với tài khoản MemoryOS theo email",
   "When publishing, set the app's availability to all members, so it can read every department.":
     "Khi phát hành, đặt phạm vi sử dụng app là mọi thành viên để app đọc được mọi phòng ban.",
+  "People with access in Lark": "Người có quyền trên Lark",
+  "Document access follows this Source's MemoryOS groups, not Lark sharing.":
+    "Quyền đọc tài liệu theo các nhóm MemoryOS của Nguồn này, không theo chia sẻ trên Lark.",
+  "Whoever the document is shared with in Lark can read it.":
+    "Ai được chia sẻ tài liệu trên Lark thì đọc được.",
 });

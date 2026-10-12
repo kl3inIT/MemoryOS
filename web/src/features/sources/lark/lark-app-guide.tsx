@@ -3,14 +3,6 @@ import { TriangleAlert } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { CopyableValue } from "@/features/sources/shared/copyable-value";
 
 /** The read scopes a Lark Source uses, each enabled for the app identity. */
@@ -64,28 +56,15 @@ export function LarkAppGuide() {
               )}
             </li>
           </ol>
-          <Table className="table-fixed">
-            <colgroup>
-              <col />
-              <col />
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">{ui("Scope")}</TableHead>
-                <TableHead scope="col">{ui("Why")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {SCOPES.map((scope) => (
-                <TableRow key={scope.name}>
-                  <TableCell className="py-2 align-middle">
-                    <CopyableValue value={scope.name} />
-                  </TableCell>
-                  <TableCell className="py-2 align-middle wrap-anywhere">{ui(scope.why)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {/* A list, not a table: a scope name is copied whole, and a column would cut it short. */}
+          <ul className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+            {SCOPES.map((scope) => (
+              <li key={scope.name}>
+                <CopyableValue value={scope.name} />
+                <span className="block wrap-anywhere">{ui(scope.why)}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </CollapsibleContent>
     </Collapsible>

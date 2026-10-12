@@ -69,6 +69,17 @@ async function openReadersHelp() {
 }
 
 describe("SourceSummaryCard", () => {
+  it("names the provider whose sharing a Lark Source follows", async () => {
+    renderCard({ ...drive, type: "LARK" });
+
+    expect(screen.getByText("People with access in Lark")).toBeTruthy();
+    expect(screen.queryByText("People with access in Google Drive")).toBeNull();
+    await openReadersHelp();
+    expect(
+      await screen.findByText("Whoever the document is shared with in Lark can read it."),
+    ).toBeTruthy();
+  });
+
   it("names source-permission readers briefly and explains the Google Drive rule in its help", async () => {
     const { requested } = renderCard(drive, [{ id: "finance", name: "Finance", systemKey: null }]);
 

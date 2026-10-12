@@ -39,4 +39,14 @@ searches returned the Q3 report alone, which her department still grants.
 
 Found here and fixed after: a sheet was titled by its stored snapshot name, `Bảng giá dịch vụ 2026.json`.
 
-Not verified yet: the setup page, the credential section and the Source panel in a browser.
+## Browser review on staging, 2026-10-12
+
+The provider list, the four setup steps, the credential dialog with its guide, the managed credential row and the
+Source panel were opened as the Tenant owner at 1440 and 390 pixels wide, in Vietnamese, and their screenshots
+read. Three faults were found and fixed after:
+
+- the Source summary said "People with access in Google Drive" for a Lark Source read by Lark's sharing;
+- the scope table of the credential guide cut each scope name short, so it could not be read before copying;
+- the sentence under the Drive folder field repeated what its placeholder shows.
+
+The fixed screens have not been looked at on staging again; that needs the release that carries them.
