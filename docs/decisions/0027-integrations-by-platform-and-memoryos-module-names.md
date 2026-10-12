@@ -4,8 +4,8 @@ Date: 2026-10-12
 
 ## Status
 
-Accepted; implementation started 2026-10-12 with the module names
-([MEM-247](../increments/active/mem-247-module-layout/design.md)). Supersedes
+Accepted; implemented 2026-10-12
+([MEM-247](../increments/completed/mem-247-module-layout/design.md)). Supersedes
 [ADR 0016](0016-integration-bundle-named-sources.md): its single `sources` bundle and its rule that a bundle
 package follows the capability it serves. [ADR 0015](0015-capability-module-map.md) stands for `core`: a package
 there still belongs to the capability that changes it.

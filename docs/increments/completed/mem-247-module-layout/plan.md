@@ -36,12 +36,12 @@ the owner. Production is not deployed while either is open.
 - [x] `SourcesDependencyRulesTest` becomes a rule test a module; in a platform module, packages serving different
   capabilities do not import each other.
 - [x] `Dockerfile`, CI filter and legs, deployment tests naming `sources/`.
-- [ ] Acceptance on staging: the Lark Source of MEM-245 synchronizes and the two readers still find what Lark
-  shares with them; the Google Drive and SharePoint credential lists load; an uploaded PDF and an uploaded
-  spreadsheet are extracted and searchable.
+- [x] Acceptance on staging for `0a7e440b` ([verification](verification.md)): the Lark Source synchronized and its
+  readers found what Lark shares with them; the three credential lists loaded; a Lark sheet, a Lark document and
+  a PDF were extracted again. Staging holds no Google snapshot, SharePoint page or XLSX to extract.
 
 ## 3. Consolidation
 
-- [ ] `ARCHITECTURE.md` (deployables and module map), `docs/guidelines/backend.md` ("Where things live"),
+- [x] `ARCHITECTURE.md` (deployables and module map), `docs/guidelines/backend.md` ("Where things live"),
   `docs/conventions.md` where it names the bundle, `AGENTS.md`.
-- [ ] Roadmap; the increment moves to `completed/` with its verification.
+- [x] Roadmap; the increment moves to `completed/` with its verification.
