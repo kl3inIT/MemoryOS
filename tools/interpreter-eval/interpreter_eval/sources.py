@@ -7,7 +7,7 @@ import textwrap
 from pathlib import Path
 
 REPOSITORY = Path(__file__).resolve().parents[3]
-PROMPTS = "core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java"
+PROMPTS = "memoryos-core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java"
 SITECUSTOMIZE = "interpreter/executor/sitecustomize.py"
 WORKTREE = "WORKTREE"
 

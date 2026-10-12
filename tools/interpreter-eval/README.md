@@ -1,7 +1,7 @@
 # run_python evaluation
 
 Measures what a change to the `run_python` guidance (`RUN_PYTHON_GUIDANCE` in
-[`ChatPrompts.java`](../../core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java)) or to the executor's
+[`ChatPrompts.java`](../../memoryos-core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java)) or to the executor's
 [`sitecustomize.py`](../../interpreter/executor/sitecustomize.py) does to a real model's data analysis. Run it when
 either changes, and when the executor's pandas, numpy or Python move.
 

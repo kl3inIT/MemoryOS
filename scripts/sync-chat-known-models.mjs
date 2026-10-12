@@ -15,7 +15,7 @@ const PROVIDERS = new Set(["openai", "anthropic", "gemini", "xai", "deepseek", "
 const OUTPUT = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
-  "core",
+  "memoryos-core",
   "src",
   "main",
   "resources",
