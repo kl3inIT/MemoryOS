@@ -74,7 +74,7 @@ public final class LarkSheetSourceContentExtractor {
             output.add(Block.table(index, title, List.of(Location.sheet(position, null, null)),
                     new Table(values.size(), columns, cells), title.isBlank() ? null : title));
         }
-        return output.finish(MEDIA_TYPE, filename, "lark-sheet-v1");
+        return output.finish(MEDIA_TYPE, LarkDocxSourceContentExtractor.name(filename), "lark-sheet-v1");
     }
 
     /**

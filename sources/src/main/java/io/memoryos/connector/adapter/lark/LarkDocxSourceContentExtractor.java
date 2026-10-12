@@ -83,7 +83,13 @@ public final class LarkDocxSourceContentExtractor {
         String title = text(page);
         if (!title.isBlank()) walk.heading(title, 1);
         walk.children(page, 0);
-        return output.finish(MEDIA_TYPE, title.isBlank() ? filename : title, "lark-docx-v1");
+        return output.finish(MEDIA_TYPE, title.isBlank() ? name(filename) : title, "lark-docx-v1");
+    }
+
+    /** The name Lark gave the object: a snapshot is stored under that name with {@code .json} after it. */
+    static String name(String filename) {
+        return filename.endsWith(".json") && filename.length() > 5
+                ? filename.substring(0, filename.length() - 5) : filename;
     }
 
     /** The text of one block: its text runs, the titles of the documents it mentions, its equations. */

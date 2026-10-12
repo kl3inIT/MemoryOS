@@ -127,7 +127,7 @@ class LarkExtractionTest {
                  {"block_id":"a","block_type":2,"children":["a","page"],
                   "text":{"elements":[{"text_run":{"content":"Một lần"}}]}}]"""), null);
         var content = documents.extract(stream(snapshot), snapshot.length, "tep.json", docxInput());
-        assertEquals("tep.json", content.title());
+        assertEquals("tep", content.title());
         assertEquals(1, content.normalizedText().split("Một lần", -1).length - 1);
     }
 
@@ -140,7 +140,7 @@ class LarkExtractionTest {
                 .formatted(mapper.writeValueAsString(firstRows(values, 6, 4))));
         var content = sheets.extract(stream(snapshot), snapshot.length, "Bảng giá dịch vụ 2026.json", sheetInput());
 
-        assertEquals("Bảng giá dịch vụ 2026.json", content.title());
+        assertEquals("Bảng giá dịch vụ 2026", content.title());
         assertEquals(LarkSheetSourceContentExtractor.MEDIA_TYPE, content.mediaType());
         var canonical = mapper.readTree(content.structuredJson());
         // A sheet without a row holds nothing and adds no block.
