@@ -67,6 +67,15 @@ compose() {
   "${args[@]}" "$@"
 }
 
+# MEM-244: the candidate Worker image makes its JDK AOT cache while the running Worker still works, so the new
+# Worker starts from it. worker-aot is the only container that can write the cache, and it reads no document. A
+# failure only costs the cache: the JVM ignores a cache that is missing or does not match, and the Worker starts
+# as it did before.
+train_worker_aot() {
+  target=candidate
+  compose --profile aot run --rm --no-deps -T worker-aot > /dev/null
+}
+
 rollout() {
   # Every service is recreated from this transaction's files, even when Compose sees no change in
   # it, as when the running release is deployed again: the containers then all name one transaction.
@@ -283,6 +292,9 @@ if [[ "$mode" == deploy ]]; then
   available=$(df --output=avail --block-size=1 "$root" | tail -n 1)
   (( available > 2 * database_size + 2000000000 )) || { echo "Not enough free space under $root for the backup" >&2; exit 1; }
   check_database_budget
+  if [[ ! -f "$tx/first-deployment" ]]; then
+    train_worker_aot || echo "deploy.sh: the Worker's AOT cache was not made; it starts without one" >&2
+  fi
 
   # Keep this reservation until health/revision verification and finalization.
   printf '%s\n' "$release" > "$state/pending"

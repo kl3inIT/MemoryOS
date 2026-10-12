@@ -83,6 +83,7 @@ The image entrypoint fetches nothing over the network: its launcher turns every 
 | `MEMORYOS_WORKER_REPLICAS` | No | Worker containers Compose runs, default `1`. Each holds `MEMORYOS_WORKER_DATABASE_POOL_SIZE` connections; `deploy.sh` refuses a count the application role's connection limit cannot hold. |
 | `MEMORYOS_WORKER_SHUTDOWN_GRACE` | No | How long a stopping Worker lets started work finish, default `100s`, below the container's 180 s stop grace period. Work still running is left to its lease and read again by another Worker. |
 | `MEMORYOS_WORKER_MEMORY_LIMIT` | No | Memory limit of each Worker container, default `4g`. The Worker's heap is half of it; the rest holds the Tika child JVMs and the tmpfs. |
+| `MEMORYOS_WORKER_AOT_VOLUME` | No | Docker volume holding the Worker's two newest JDK AOT caches (about 200 MB each), default `memoryos-worker-aot`. `deploy.sh` has each release's image make its cache before it stops the running Worker; the volume holds no data and may be deleted. |
 | `MEMORYOS_EXTRACTION_TIKA_MAX_PROCESSES` | No | Tika child JVMs one Worker runs at once, default `2`; each may use 512 MB of heap inside the Worker's memory limit. Reads beyond it wait. |
 | `SPRING_PROFILES_ACTIVE` | No | Local Gradle and IntelliJ launches use Arconia development bootstrap mode, whose checked-in bootstrap properties activate `development`. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
