@@ -9,20 +9,22 @@ import static io.memoryos.connector.SharePointProviderException.Failure.QUOTA;
 import static io.memoryos.connector.SharePointProviderException.Failure.RESYNC_REQUIRED;
 import static io.memoryos.connector.SharePointProviderException.Failure.UNAVAILABLE;
 
+import com.microsoft.graph.serviceclient.GraphServiceClient;
+import com.microsoft.kiota.authentication.AccessTokenProvider;
+import com.microsoft.kiota.authentication.AllowedHostsValidator;
+import com.microsoft.kiota.authentication.BaseBearerTokenAuthenticationProvider;
+import com.microsoft.kiota.http.middleware.options.RedirectHandlerOption;
 import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.adapter.RetryAfter;
+import io.memoryos.connector.adapter.sharepoint.GraphTransport.Exchange;
 import io.memoryos.connector.adapter.sharepoint.SharePointProviderMetrics.Operation;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
-import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.DateTimeException;
@@ -30,33 +32,36 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Flow;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import okhttp3.HttpUrl;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.jspecify.annotations.Nullable;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ArrayNode;
 
+/**
+ * SharePoint through the Microsoft Graph SDK (MEM-226): the SDK builds the requests and reads the answers into its
+ * typed models, on the transport of {@link GraphTransport}. What stays here is what MemoryOS decides: the budget of one
+ * operation, which hosts a continuation or a download may go to, what a status means, and what a field may hold
+ * ({@link GraphModels}).
+ *
+ * <p>Three addresses are still written out, with {@code withUrl}, because Graph addresses them by path or by a query
+ * the SDK's builders do not offer, and their shape is the one proven against a Tenant: a site by its server-relative
+ * path, a folder by its path, and a change log from a timestamp token.
+ */
 public final class RestSharePointGateway implements SharePointGateway, AutoCloseable {
-    static final String PAGE_SCHEMA = "memoryos-sharepoint-page-v1";
-    private static final String PAGE_FIELDS = "id,name,title,description,webUrl,eTag,lastModifiedDateTime";
-    private static final int MAX_WEB_PARTS = 200;
-    private static final int MAX_PART_TEXTS = 200;
-    private static final int MAX_PART_CHARS = 200_000;
-    private static final String ITEM_FIELDS =
-            "id,name,size,eTag,file,folder,deleted,createdDateTime,lastModifiedDateTime,parentReference,webUrl";
+    private static final String[] ITEM_FIELDS = {"id", "name", "size", "eTag", "file", "folder", "deleted",
+            "createdDateTime", "lastModifiedDateTime", "parentReference", "webUrl"};
+    private static final String[] PAGE_FIELDS = {"id", "name", "title", "description", "webUrl", "eTag",
+            "lastModifiedDateTime"};
     private final SharePointProviderProperties properties;
     private final ObjectMapper mapper;
-    private final HttpClient client;
+    private final GraphTransport transport;
     private final ExecutorService tokenExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private final SharePointTokenSource tokens;
     private final SharePointProviderMetrics metrics;
@@ -80,7 +85,7 @@ public final class RestSharePointGateway implements SharePointGateway, AutoClose
         if (connect.isNegative() || connect.isZero() || connect.compareTo(Duration.ofSeconds(30)) > 0) {
             connect = Duration.ofSeconds(3);
         }
-        this.client = HttpClient.newBuilder().connectTimeout(connect).followRedirects(HttpClient.Redirect.NEVER).build();
+        this.transport = new GraphTransport(connect, properties.userAgent());
         this.tokens = tokenSource == null ? new MsalSharePointTokenSource(properties, tokenExecutor) : tokenSource;
         this.metrics = new SharePointProviderMetrics(registry);
     }
@@ -92,110 +97,135 @@ public final class RestSharePointGateway implements SharePointGateway, AutoClose
     }
 
     @Override public void close() {
-        client.close();
+        transport.close();
         tokenExecutor.close();
     }
 
     private final class GraphSession implements Session {
-        private @Nullable String bearer;
+        private volatile @Nullable String bearer;
+        private final GraphServiceClient graph;
+        private final String base = properties.graphBaseUrl().toString();
 
-        private GraphSession(String bearer) { this.bearer = bearer; }
+        private GraphSession(String bearer) {
+            this.bearer = bearer;
+            // The token goes to the configured Graph host only; the SDK asks this validator before it attaches one.
+            var hosts = new AllowedHostsValidator(properties.graphBaseUrl().getHost());
+            graph = new GraphServiceClient(new BaseBearerTokenAuthenticationProvider(new AccessTokenProvider() {
+                @Override public String getAuthorizationToken(URI uri, @Nullable Map<String, Object> context) {
+                    return token();
+                }
+                @Override public AllowedHostsValidator getAllowedHostsValidator() { return hosts; }
+            }), transport.client());
+            graph.getRequestAdapter().setBaseUrl(base);
+        }
+
+        private String token() {
+            String token = bearer;
+            if (token == null) throw new SharePointProviderException(MALFORMED);
+            return token;
+        }
 
         @Override public RootSite root() {
-            return metrics.record(Operation.ROOT_SITE, () -> {
-                JsonNode node = get("/sites/root?$select=id,webUrl,siteCollection", new Budget());
-                return new RootSite(required(node, "id"), required(node, "webUrl"),
-                        required(node.path("siteCollection"), "hostname"));
-            });
+            return metrics.record(Operation.ROOT_SITE, () -> GraphModels.rootSite(json(x ->
+                    graph.sites().bySiteId("root").get(request -> {
+                        request.queryParameters.select = new String[] {"id", "webUrl", "siteCollection"};
+                        request.options.add(x);
+                    }))));
         }
 
         @Override public Site site(String hostname, String sitePath) {
-            return metrics.record(Operation.SITE, () -> site(get("/sites/" + encodePath(hostname) + ":"
-                    + encodePath(sitePath) + "?$select=id,webUrl,displayName,isPersonalSite", new Budget())));
+            String url = base + "/sites/" + encodePath(hostname) + ":" + encodePath(sitePath)
+                    + "?$select=id,webUrl,displayName,isPersonalSite";
+            return metrics.record(Operation.SITE, () -> GraphModels.site(json(x ->
+                    graph.sites().bySiteId("path").withUrl(url).get(request -> request.options.add(x)))));
         }
 
         @Override public List<Library> libraries(String siteId) {
-            return metrics.record(Operation.LIBRARIES, () -> libraries0(siteId));
-        }
-
-        private List<Library> libraries0(String siteId) {
-            var node = get("/sites/" + encodePath(siteId) + "/drives?$select=id,name,webUrl,driveType", new Budget());
-            var libraries = new ArrayList<Library>();
-            for (JsonNode drive : array(node)) {
-                if (!"documentLibrary".equals(drive.path("driveType").asString(""))
-                        && !"business".equals(drive.path("driveType").asString(""))) continue;
-                libraries.add(new Library(required(drive, "id"), required(drive, "name"),
-                        libraryPath(required(drive, "webUrl"))));
-            }
-            return List.copyOf(libraries);
+            return metrics.record(Operation.LIBRARIES, () -> {
+                var drives = json(x -> graph.sites().bySiteId(id(siteId)).drives().get(request -> {
+                    request.queryParameters.select = new String[] {"id", "name", "webUrl", "driveType"};
+                    request.options.add(x);
+                }));
+                var libraries = new ArrayList<Library>();
+                for (var drive : GraphModels.values(drives.getValue())) {
+                    var library = GraphModels.library(drive);
+                    if (library != null) libraries.add(library);
+                }
+                return List.copyOf(libraries);
+            });
         }
 
         @Override public Folder folder(String driveId, List<String> folderSegments) {
-            return metrics.record(Operation.FOLDER, () -> folder0(driveId, folderSegments));
-        }
-
-        private Folder folder0(String driveId, List<String> folderSegments) {
             if (folderSegments.isEmpty()) throw new SharePointProviderException(MALFORMED);
             String path = String.join("/", folderSegments.stream().map(RestSharePointGateway::encodePath).toList());
-            var node = get("/drives/" + encodePath(driveId) + "/root:/" + path + "?$select=id,name,folder", new Budget());
-            if (node.path("folder").isMissingNode()) throw new SharePointProviderException(NOT_FOUND);
-            return new Folder(required(node, "id"), required(node, "name"));
+            String url = base + "/drives/" + encodePath(driveId) + "/root:/" + path + "?$select=id,name,folder";
+            return metrics.record(Operation.FOLDER, () -> GraphModels.folder(json(x ->
+                    graph.drives().byDriveId(id(driveId)).items().byDriveItemId("root").withUrl(url)
+                            .get(request -> request.options.add(x)))));
         }
 
         @Override public SitePage sites(@Nullable String nextLink) {
-            return metrics.record(Operation.SITES, () -> sites0(nextLink));
-        }
-
-        private SitePage sites0(@Nullable String nextLink) {
-            var node = nextLink == null
-                    ? get("/sites/getAllSites?$select=id,name,webUrl,isPersonalSite", new Budget())
-                    : json(exchange(request(continuation(nextLink)), new Budget()));
-            var sites = new ArrayList<Site>();
-            for (JsonNode entry : array(node)) sites.add(site(entry));
-            String next = node.path("@odata.nextLink").asString("");
-            return new SitePage(sites, next.isBlank() ? null : next);
-        }
-
-        private Site site(JsonNode node) {
-            String name = node.path("name").asString("");
-            if (name.isBlank()) name = node.path("displayName").asString("");
-            return new Site(required(node, "id"), required(node, "webUrl"), name.isBlank() ? null : name,
-                    node.path("isPersonalSite").asBoolean(false));
+            return metrics.record(Operation.SITES, () -> {
+                var all = graph.sites().getAllSites();
+                var page = nextLink == null
+                        ? json(x -> all.get(request -> {
+                            request.queryParameters.select = new String[] {"id", "name", "webUrl", "isPersonalSite"};
+                            request.options.add(x);
+                        }))
+                        : json(x -> all.withUrl(continuation(nextLink)).get(request -> request.options.add(x)));
+                var sites = new ArrayList<Site>();
+                for (var site : GraphModels.values(page.getValue())) sites.add(GraphModels.site(site));
+                // A next link here is handed back as Graph sent it; it is checked when it is used.
+                String next = page.getOdataNextLink();
+                return new SitePage(sites, next == null || next.isBlank() ? null : next);
+            });
         }
 
         @Override public DeltaPage delta(String driveId, @Nullable String token, @Nullable String link) {
-            return metrics.record(Operation.DELTA, () -> delta0(driveId, token, link));
-        }
-
-        private DeltaPage delta0(String driveId, @Nullable String token, @Nullable String link) {
-            JsonNode node = link != null
-                    ? json(exchange(request(continuation(link)), new Budget()))
-                    : get("/drives/" + encodePath(driveId) + "/root/delta?$top=" + properties.pageSize()
-                            + "&$select=" + encodeQuery(ITEM_FIELDS)
-                            + (token == null ? "" : "&token=" + encodeQuery(instant(token))), new Budget());
-            var items = new ArrayList<DriveItem>();
-            for (JsonNode entry : array(node)) items.add(parseItem(entry, driveId));
-            return new DeltaPage(items, optionalLink(node, "@odata.nextLink"), optionalLink(node, "@odata.deltaLink"));
+            return metrics.record(Operation.DELTA, () -> {
+                var delta = graph.drives().byDriveId(id(driveId)).items().byDriveItemId("root").delta();
+                var page = link != null
+                        ? json(x -> delta.withUrl(continuation(link)).get(request -> request.options.add(x)))
+                        : token != null
+                                ? json(x -> delta.withUrl(base + "/drives/" + encodePath(driveId) + "/root/delta?$top="
+                                        + properties.pageSize() + "&$select=" + encodeQuery(String.join(",", ITEM_FIELDS))
+                                        + "&token=" + encodeQuery(instant(token))).get(request -> request.options.add(x)))
+                                : json(x -> delta.get(request -> {
+                                    request.queryParameters.top = properties.pageSize();
+                                    request.queryParameters.select = ITEM_FIELDS;
+                                    request.options.add(x);
+                                }));
+                var items = new ArrayList<DriveItem>();
+                for (var item : GraphModels.values(page.getValue())) items.add(GraphModels.item(item, driveId));
+                return new DeltaPage(items, GraphModels.link(page.getOdataNextLink()),
+                        GraphModels.link(page.getOdataDeltaLink()));
+            });
         }
 
         @Override public ItemPage children(String driveId, String itemId, @Nullable String link) {
-            return metrics.record(Operation.CHILDREN, () -> children0(driveId, itemId, link));
-        }
-
-        private ItemPage children0(String driveId, String itemId, @Nullable String link) {
-            JsonNode node = link != null
-                    ? json(exchange(request(continuation(link)), new Budget()))
-                    : get("/drives/" + encodePath(driveId) + "/items/" + encodePath(itemId) + "/children?$top="
-                            + properties.pageSize() + "&$select=" + encodeQuery(ITEM_FIELDS), new Budget());
-            var items = new ArrayList<DriveItem>();
-            for (JsonNode entry : array(node)) items.add(parseItem(entry, driveId));
-            return new ItemPage(items, optionalLink(node, "@odata.nextLink"));
+            return metrics.record(Operation.CHILDREN, () -> {
+                var children = graph.drives().byDriveId(id(driveId)).items().byDriveItemId(id(itemId)).children();
+                var page = link != null
+                        ? json(x -> children.withUrl(continuation(link)).get(request -> request.options.add(x)))
+                        : json(x -> children.get(request -> {
+                            request.queryParameters.top = properties.pageSize();
+                            request.queryParameters.select = ITEM_FIELDS;
+                            request.options.add(x);
+                        }));
+                var items = new ArrayList<DriveItem>();
+                for (var item : GraphModels.values(page.getValue())) items.add(GraphModels.item(item, driveId));
+                return new ItemPage(items, GraphModels.link(page.getOdataNextLink()));
+            });
         }
 
         @Override public DriveItem item(String driveId, String itemId) {
-            return metrics.record(Operation.ITEM, () -> parseItem(get("/drives/" + encodePath(driveId) + "/items/"
-                    + encodePath(itemId) + "?$select=" + encodeQuery(ITEM_FIELDS + ",@microsoft.graph.downloadUrl"),
-                    new Budget()), driveId));
+            var fields = new ArrayList<>(List.of(ITEM_FIELDS));
+            fields.add(GraphModels.DOWNLOAD_URL);
+            return metrics.record(Operation.ITEM, () -> GraphModels.item(json(x ->
+                    graph.drives().byDriveId(id(driveId)).items().byDriveItemId(id(itemId)).get(request -> {
+                        request.queryParameters.select = fields.toArray(String[]::new);
+                        request.options.add(x);
+                    })), driveId));
         }
 
         @Override public Content content(DriveItem item, String tenantHost, int maxBytes) {
@@ -205,7 +235,8 @@ public final class RestSharePointGateway implements SharePointGateway, AutoClose
         private Content content0(DriveItem item, String tenantHost, int maxBytes) {
             if (!item.file() || item.driveId() == null) throw new SharePointProviderException(MALFORMED);
             int limit = Math.min(maxBytes, properties.maxContentBytes());
-            var budget = new Budget();
+            // A download has its own, longer budget, and one request of it may take all that is left.
+            var budget = new Budget(properties.contentTimeout());
             byte[] bytes = item.downloadUrl() != null
                     ? download(URI.create(item.downloadUrl()), tenantHost, budget, limit)
                     : redirectedDownload(item, tenantHost, budget, limit);
@@ -214,118 +245,138 @@ public final class RestSharePointGateway implements SharePointGateway, AutoClose
                     item.mimeType() == null ? "application/octet-stream" : item.mimeType(), bytes);
         }
 
-        /** Without a download address Graph answers /content with one redirect, which must stay on the Tenant host. */
+        /**
+         * Without a download address Graph answers /content with one redirect to an address that carries its own
+         * short-lived credential. The SDK follows it under an option of this request: one hop, only to the Tenant host,
+         * and without the bearer token.
+         */
         private byte[] redirectedDownload(DriveItem item, String tenantHost, Budget budget, int limit) {
-            URI uri = URI.create(properties.graphBaseUrl() + "/drives/"
-                    + encodePath(Objects.requireNonNull(item.driveId())) + "/items/" + encodePath(item.id()) + "/content");
-            var response = send(request(uri), budget, 8_192);
-            if (response.statusCode() < 300 || response.statusCode() >= 400) throw httpFailure(response);
-            String location = response.headers().firstValue("Location").orElse("");
-            if (location.isBlank()) throw new SharePointProviderException(MALFORMED);
-            return download(URI.create(location), tenantHost, budget, limit);
+            return call(budget, limit, budget.remaining(), x -> {
+                var redirect = new RedirectHandlerOption(1, response -> onTenantHost(response, tenantHost, x),
+                        (request, url, proxy) -> request.removeHeader("Authorization"));
+                try (InputStream stream = graph.drives().byDriveId(id(Objects.requireNonNull(item.driveId()))).items()
+                        .byDriveItemId(id(item.id())).content().get(request -> {
+                            request.options.add(x);
+                            request.options.add(redirect);
+                        })) {
+                    return stream == null ? new byte[0] : stream.readAllBytes();
+                } catch (IOException failure) {
+                    throw new IllegalStateException(failure);
+                }
+            });
         }
 
+        /** The address in the item carries its own short-lived credential, so no bearer token is attached to it. */
         private byte[] download(URI uri, String tenantHost, Budget budget, int limit) {
-            requireTenantHost(uri, tenantHost);
-            // The address carries its own short-lived credential, so no bearer token is attached to it.
-            var request = HttpRequest.newBuilder(uri).header("User-Agent", properties.userAgent()).GET().build();
-            var response = send(request, budget, limit);
-            if (response.statusCode() < 200 || response.statusCode() >= 300) throw httpFailure(response);
-            return response.body();
+            requireTenantHost(uri.getScheme(), uri.getHost(), tenantHost);
+            return call(budget, limit, budget.remaining(), x -> {
+                var request = new Request.Builder().url(uri.toString()).tag(Exchange.class, x).build();
+                try (Response response = transport.client().newCall(request).execute()) {
+                    var body = response.body();
+                    return body == null ? new byte[0] : body.bytes();
+                } catch (IOException failure) {
+                    throw new IllegalStateException(failure);
+                }
+            });
         }
 
         @Override public SitePageList pages(String siteId, @Nullable String link) {
-            return metrics.record(Operation.PAGES, () -> pages0(siteId, link));
-        }
-
-        private SitePageList pages0(String siteId, @Nullable String link) {
-            JsonNode node = link != null
-                    ? json(exchange(request(continuation(link)), new Budget()))
-                    : get("/sites/" + encodePath(siteId) + "/pages/microsoft.graph.sitePage?$top="
-                            + properties.pageSize() + "&$select=" + encodeQuery(PAGE_FIELDS), new Budget());
-            var pages = new ArrayList<SitePageMetadata>();
-            for (JsonNode entry : array(node)) pages.add(pageMetadata(entry));
-            return new SitePageList(pages, optionalLink(node, "@odata.nextLink"));
+            return metrics.record(Operation.PAGES, () -> {
+                var sitePages = graph.sites().bySiteId(id(siteId)).pages().graphSitePage();
+                var page = link != null
+                        ? json(x -> sitePages.withUrl(continuation(link)).get(request -> request.options.add(x)))
+                        : json(x -> sitePages.get(request -> {
+                            request.queryParameters.top = properties.pageSize();
+                            request.queryParameters.select = PAGE_FIELDS;
+                            request.options.add(x);
+                        }));
+                var pages = new ArrayList<SitePageMetadata>();
+                for (var entry : GraphModels.values(page.getValue())) pages.add(GraphModels.pageMetadata(entry));
+                return new SitePageList(pages, GraphModels.link(page.getOdataNextLink()));
+            });
         }
 
         @Override public PageContent page(String siteId, String pageId) {
-            return metrics.record(Operation.PAGE, () -> page0(siteId, pageId));
-        }
-
-        private PageContent page0(String siteId, String pageId) {
-            JsonNode node = get("/sites/" + encodePath(siteId) + "/pages/" + encodePath(pageId)
-                    + "/microsoft.graph.sitePage?$expand=canvasLayout", new Budget());
-            var metadata = pageMetadata(node);
-            return new PageContent(metadata, snapshot(node, metadata));
+            return metrics.record(Operation.PAGE, () -> {
+                var page = json(x -> graph.sites().bySiteId(id(siteId)).pages().byBaseSitePageId(id(pageId))
+                        .graphSitePage().get(request -> {
+                            request.queryParameters.expand = new String[] {"canvasLayout"};
+                            request.options.add(x);
+                        }));
+                var metadata = GraphModels.pageMetadata(page);
+                return new PageContent(metadata, GraphModels.snapshot(mapper, page, metadata));
+            });
         }
 
         @Override public void close() { bearer = null; }
 
-        private JsonNode get(String path, Budget budget) {
-            return json(exchange(request(URI.create(properties.graphBaseUrl() + path)), budget));
+        /** One JSON answer of a new operation, within the response bound. */
+        private <T> T json(Function<Exchange, @Nullable T> request) {
+            var budget = new Budget(properties.acquisitionTimeout());
+            return call(budget, properties.maxResponseBytes(),
+                    Math.min(properties.requestTimeout().toNanos(), budget.remaining()), request);
         }
 
-        private HttpRequest request(URI uri) {
-            String token = bearer;
-            if (token == null) throw new SharePointProviderException(MALFORMED);
-            return HttpRequest.newBuilder(uri)
-                    .header("Authorization", "Bearer " + token)
-                    .header("Accept", "application/json")
-                    .header("User-Agent", properties.userAgent())
-                    .GET().build();
+        /**
+         * One request of an operation: it counts against the budget, runs for at most {@code timeoutNanos}, and
+         * whatever fails is reported as a provider failure without Microsoft's text.
+         */
+        private <T> T call(Budget budget, int limit, long timeoutNanos, Function<Exchange, @Nullable T> request) {
+            token();
+            budget.request();
+            var exchange = new Exchange(limit, timeoutNanos);
+            T value;
+            try {
+                value = request.apply(exchange);
+            } catch (RuntimeException failure) {
+                throw failure(failure, exchange);
+            }
+            budget.check();
+            if (value == null) throw new SharePointProviderException(MALFORMED);
+            return value;
         }
 
         /** Graph continuation links are absolute; only links back to the configured Graph host are followed. */
-        private URI continuation(String nextLink) {
+        private String continuation(String nextLink) {
             URI uri = URI.create(nextLink);
-            URI base = properties.graphBaseUrl();
-            if (!uri.isAbsolute() || !base.getHost().equalsIgnoreCase(uri.getHost())
-                    || base.getPort() != uri.getPort() || !base.getScheme().equalsIgnoreCase(uri.getScheme())) {
+            URI graphBase = properties.graphBaseUrl();
+            if (!uri.isAbsolute() || !graphBase.getHost().equalsIgnoreCase(uri.getHost())
+                    || graphBase.getPort() != uri.getPort() || !graphBase.getScheme().equalsIgnoreCase(uri.getScheme())) {
                 throw new SharePointProviderException(MALFORMED);
             }
-            return uri;
+            return nextLink;
         }
     }
 
-    private byte[] exchange(HttpRequest request, Budget budget) {
-        var response = send(request, budget, properties.maxResponseBytes());
-        int status = response.statusCode();
-        if (status < 200 || status >= 300) throw httpFailure(response);
-        return response.body();
-    }
-
-    private HttpResponse<byte[]> send(HttpRequest request, Budget budget, int limit) {
-        budget.request();
-        long timeout = Math.min(properties.requestTimeout().toNanos(), budget.remaining());
-        CompletableFuture<HttpResponse<byte[]>> future = client.sendAsync(request, info ->
-                new LimitedBody(info.statusCode() >= 200 && info.statusCode() < 300 ? limit : 8_192));
-        try {
-            HttpResponse<byte[]> response = future.get(timeout, TimeUnit.NANOSECONDS);
-            budget.check();
-            return response;
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            future.cancel(true);
-            throw new SharePointProviderException(UNAVAILABLE);
-        } catch (TimeoutException exception) {
-            future.cancel(true);
-            throw new SharePointProviderException(UNAVAILABLE);
-        } catch (ExecutionException exception) {
-            if (exception.getCause() instanceof SharePointProviderException provider) throw provider;
-            throw new SharePointProviderException(UNAVAILABLE);
-        }
+    /** Whether a redirect stays on the Tenant host; one that leaves it is refused and remembered on the exchange. */
+    private static boolean onTenantHost(Response response, String tenantHost, Exchange exchange) {
+        String location = response.header("Location");
+        HttpUrl target = location == null ? null : response.request().url().resolve(location);
+        if (target != null && tenantHost(target.scheme(), target.host(), tenantHost)) return true;
+        exchange.foreignRedirect = target != null;
+        return false;
     }
 
     /**
-     * Graph error bodies are never echoed; only the status classifies the failure. A throttled or unavailable
-     * response carries the wait Microsoft asked for in {@code Retry-After}.
+     * What a failed request means. Graph error bodies are never read; only the status classifies the failure, and a
+     * throttled or unavailable answer carries the wait Microsoft asked for in {@code Retry-After}. A connection that
+     * failed or a deadline that passed is the provider being unavailable; an answer that arrived and could not be
+     * read is malformed.
      */
-    private static SharePointProviderException httpFailure(HttpResponse<?> response) {
-        int status = response.statusCode();
-        var retryAfter = status == 429 || status == 503
-                ? RetryAfter.of(response.headers(), Clock.systemUTC()) : null;
-        return new SharePointProviderException(failure(status), SharePointProviderException.Reason.UNCLASSIFIED,
-                retryAfter);
+    private static SharePointProviderException failure(RuntimeException failure, Exchange exchange) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SharePointProviderException provider) return provider;
+            if (cause instanceof GraphTransport.TooLarge) return new SharePointProviderException(LIMIT_EXCEEDED);
+            if (cause instanceof GraphTransport.Status status) {
+                if (exchange.foreignRedirect) return new SharePointProviderException(AUTHORIZATION);
+                var retryAfter = status.code == 429 || status.code == 503
+                        ? RetryAfter.parse(status.retryAfter, Clock.systemUTC()) : null;
+                return new SharePointProviderException(failure(status.code),
+                        SharePointProviderException.Reason.UNCLASSIFIED, retryAfter);
+            }
+            if (cause.getCause() == cause) break;
+        }
+        return new SharePointProviderException(exchange.interrupted ? UNAVAILABLE : MALFORMED);
     }
 
     private static SharePointProviderException.Failure failure(int status) {
@@ -340,54 +391,17 @@ public final class RestSharePointGateway implements SharePointGateway, AutoClose
         };
     }
 
-    private JsonNode json(byte[] bytes) {
-        try {
-            JsonNode node = mapper.readTree(bytes);
-            if (node == null || !node.isObject()) throw new SharePointProviderException(MALFORMED);
-            return node;
-        } catch (JacksonException exception) {
-            throw new SharePointProviderException(MALFORMED);
-        }
-    }
-
     /**
      * Only an address on the Tenant SharePoint host may be downloaded, and its short-lived credential is
      * never logged or reported.
      */
-    private static void requireTenantHost(URI uri, String tenantHost) {
-        String host = uri.getHost();
+    private static void requireTenantHost(@Nullable String scheme, @Nullable String host, String tenantHost) {
+        if (!tenantHost(scheme, host, tenantHost)) throw new SharePointProviderException(AUTHORIZATION);
+    }
+
+    private static boolean tenantHost(@Nullable String scheme, @Nullable String host, String tenantHost) {
         boolean loopback = host != null && Set.of("localhost", "127.0.0.1", "[::1]").contains(host);
-        if (host == null || !host.equalsIgnoreCase(tenantHost)
-                || (!"https".equalsIgnoreCase(uri.getScheme()) && !loopback)) {
-            throw new SharePointProviderException(AUTHORIZATION);
-        }
-    }
-
-    private DriveItem parseItem(JsonNode node, String driveId) {
-        try {
-            JsonNode file = node.path("file");
-            JsonNode parent = node.path("parentReference");
-            String parentPath = parent.path("path").asString("");
-            int root = parentPath.indexOf("root:");
-            String parentDrive = optional(parent, "driveId");
-            return new DriveItem(required(node, "id"), optional(node, "name"), !node.path("folder").isMissingNode(),
-                    !node.path("deleted").isMissingNode(), node.path("size").asLong(0),
-                    optional(file, "mimeType"), optional(file.path("hashes"), "quickXorHash"), optional(node, "eTag"),
-                    instantOrNull(optional(node, "createdDateTime")), instantOrNull(optional(node, "lastModifiedDateTime")),
-                    optional(parent, "id"), root < 0 ? null : decode(parentPath.substring(root + "root:".length())),
-                    optional(node, "webUrl"), optional(node, "@microsoft.graph.downloadUrl"),
-                    parentDrive == null ? driveId : parentDrive);
-        } catch (DateTimeException exception) {
-            throw new SharePointProviderException(MALFORMED);
-        }
-    }
-
-    private static @Nullable Instant instantOrNull(@Nullable String value) {
-        return value == null ? null : Instant.parse(value);
-    }
-
-    private static String decode(String value) {
-        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        return host != null && host.equalsIgnoreCase(tenantHost) && ("https".equalsIgnoreCase(scheme) || loopback);
     }
 
     private static String instant(String token) {
@@ -398,121 +412,28 @@ public final class RestSharePointGateway implements SharePointGateway, AutoClose
         }
     }
 
-    private static @Nullable String optionalLink(JsonNode node, String field) {
-        String value = node.path(field).asString("");
-        if (value.length() > 8_192) throw new SharePointProviderException(LIMIT_EXCEEDED);
-        return value.isBlank() ? null : value;
-    }
-
-    private static @Nullable String optional(JsonNode node, String field) {
-        String value = node.path(field).asString("");
-        if (value.length() > 16_384) throw new SharePointProviderException(LIMIT_EXCEEDED);
-        return value.isBlank() ? null : value;
-    }
-
     private static String encodeQuery(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private static SitePageMetadata pageMetadata(JsonNode node) {
-        try {
-            String title = optional(node, "title");
-            if (title == null) title = optional(node, "name");
-            return new SitePageMetadata(required(node, "id"), title == null ? required(node, "id") : title,
-                    required(node, "webUrl"), optional(node, "eTag"),
-                    instantOrNull(optional(node, "lastModifiedDateTime")));
-        } catch (DateTimeException exception) {
-            throw new SharePointProviderException(MALFORMED);
-        }
-    }
-
-    /**
-     * The page as the reader consumes it: its title and description, the HTML of each text web part, and the
-     * searchable text Microsoft prepared for the other web parts. Layout and web part configuration are left out.
-     */
-    private byte[] snapshot(JsonNode node, SitePageMetadata metadata) {
-        var snapshot = mapper.createObjectNode();
-        snapshot.put("schema", PAGE_SCHEMA);
-        snapshot.put("kind", "SHAREPOINT_PAGE");
-        var source = snapshot.putObject("source");
-        source.put("id", metadata.pageId());
-        source.put("version", metadata.contentVersion());
-        var content = snapshot.putObject("content");
-        content.put("title", metadata.title());
-        content.put("webUrl", metadata.webUrl());
-        String description = optional(node, "description");
-        if (description != null) content.put("description", description);
-        String above = node.path("titleArea").path("textAboveTitle").asString("");
-        if (!above.isBlank()) content.put("textAboveTitle", above);
-        var parts = content.putArray("parts");
-        for (JsonNode section : node.path("canvasLayout").path("horizontalSections")) {
-            for (JsonNode column : section.path("columns")) {
-                for (JsonNode webPart : column.path("webparts")) part(parts, webPart);
-            }
-        }
-        for (JsonNode webPart : node.path("canvasLayout").path("verticalSection").path("webparts")) {
-            part(parts, webPart);
-        }
-        return mapper.writeValueAsBytes(snapshot);
-    }
-
-    private void part(ArrayNode parts, JsonNode webPart) {
-        if (parts.size() >= MAX_WEB_PARTS) throw new SharePointProviderException(LIMIT_EXCEEDED);
-        String html = webPart.path("innerHtml").asString("");
-        if (!html.isBlank()) {
-            var part = parts.addObject();
-            part.put("kind", "text");
-            part.put("html", html.length() > MAX_PART_CHARS ? html.substring(0, MAX_PART_CHARS) : html);
-            return;
-        }
-        JsonNode data = webPart.path("data");
-        var texts = data.path("serverProcessedContent").path("searchablePlainTexts");
-        String title = data.path("title").asString("");
-        if (!texts.isArray() && title.isBlank()) return;
-        var part = parts.addObject();
-        part.put("kind", "standard");
-        if (!title.isBlank()) part.put("title", title);
-        var values = part.putArray("texts");
-        for (JsonNode text : texts) {
-            String value = text.path("value").asString("");
-            if (value.isBlank()) continue;
-            if (values.size() >= MAX_PART_TEXTS) break;
-            values.add(value.length() > MAX_PART_CHARS ? value.substring(0, MAX_PART_CHARS) : value);
-        }
-    }
-
-    private JsonNode array(JsonNode node) {
-        JsonNode value = node.path("value");
-        if (!value.isArray()) throw new SharePointProviderException(MALFORMED);
-        return value;
-    }
-
-    /** Keeps the library's server-relative path, dropping scheme and host. */
-    private static String libraryPath(String webUrl) {
-        URI uri = URI.create(webUrl);
-        String path = uri.getPath();
-        if (path == null || path.isBlank()) throw new SharePointProviderException(MALFORMED);
-        return URLDecoder.decode(path, StandardCharsets.UTF_8);
-    }
-
-    private static String encodePath(String value) {
+    /** An identifier the SDK places in a path; it encodes it, and this refuses what no identifier holds. */
+    private static String id(String value) {
         if (value.isBlank() || value.length() > 2048 || value.contains("?") || value.contains("#")) {
             throw new SharePointProviderException(MALFORMED);
         }
-        return URLEncoder.encode(value, StandardCharsets.UTF_8)
-                .replace("+", "%20").replace("%2F", "/").replace("%3A", ":");
-    }
-
-    private static String required(JsonNode node, String field) {
-        String value = node.path(field).asString("");
-        if (value.isBlank()) throw new SharePointProviderException(MALFORMED);
-        if (value.length() > 16_384) throw new SharePointProviderException(LIMIT_EXCEEDED);
         return value;
     }
 
+    private static String encodePath(String value) {
+        return URLEncoder.encode(id(value), StandardCharsets.UTF_8)
+                .replace("+", "%20").replace("%2F", "/").replace("%3A", ":");
+    }
+
     private final class Budget {
-        private final long deadline = System.nanoTime() + properties.acquisitionTimeout().toNanos();
+        private final long deadline;
         private int requests;
+
+        Budget(Duration timeout) { deadline = System.nanoTime() + timeout.toNanos(); }
 
         void request() {
             check();
@@ -522,42 +443,5 @@ public final class RestSharePointGateway implements SharePointGateway, AutoClose
         long remaining() { return Math.max(1, deadline - System.nanoTime()); }
 
         void check() { if (System.nanoTime() - deadline >= 0) throw new SharePointProviderException(LIMIT_EXCEEDED); }
-    }
-
-    private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {
-        private final CompletableFuture<byte[]> result = new CompletableFuture<>();
-        private final ByteArrayOutputStream output = new ByteArrayOutputStream();
-        private final int limit;
-        private Flow.Subscription subscription;
-
-        LimitedBody(int limit) { this.limit = limit; }
-
-        @Override public CompletionStage<byte[]> getBody() { return result; }
-
-        @Override public void onSubscribe(Flow.Subscription subscription) {
-            this.subscription = subscription;
-            subscription.request(1);
-        }
-
-        @Override public void onNext(List<ByteBuffer> buffers) {
-            for (ByteBuffer buffer : buffers) {
-                if ((long) output.size() + buffer.remaining() > limit) {
-                    subscription.cancel();
-                    result.completeExceptionally(new SharePointProviderException(LIMIT_EXCEEDED));
-                    return;
-                }
-                if (buffer.hasArray()) {
-                    output.write(buffer.array(), buffer.arrayOffset() + buffer.position(), buffer.remaining());
-                    buffer.position(buffer.limit());
-                } else {
-                    while (buffer.hasRemaining()) output.write(buffer.get());
-                }
-            }
-            subscription.request(1);
-        }
-
-        @Override public void onError(Throwable error) { result.completeExceptionally(error); }
-
-        @Override public void onComplete() { result.complete(output.toByteArray()); }
     }
 }

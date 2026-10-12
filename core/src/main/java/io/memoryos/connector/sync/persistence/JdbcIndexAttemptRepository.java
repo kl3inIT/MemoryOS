@@ -509,6 +509,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
         return jdbcClient.sql("""
                         SELECT attempt.id,
                                attempt.created_at, attempt.started_at, attempt.processing_attempts,
+                               attempt.deferred_attempts,
                                attempt.tenant_id,
                                attempt.connector_id,
                                attempt.connector_credential_pair_id,
@@ -553,7 +554,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                                 SourceInputFormat.valueOf(resultSet.getString("input_format")),
                                 resultSet.getString("provider_file_id"), resultSet.getString("provider_version"),
                                 resultSet.getString("source_url")),
-                        WorkLeases.initialQueueWait(resultSet)
+                        WorkLeases.initialQueueWait(resultSet),
+                        resultSet.getInt("processing_attempts") - resultSet.getInt("deferred_attempts")
                 ))
                 .single();
     }

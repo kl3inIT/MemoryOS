@@ -413,7 +413,7 @@ function OAuthCredentialForm({
           <TriangleAlert aria-hidden="true" />
           <AlertDescription>
             {ui(
-              "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
+              "This credential has no saved OAuth app. Ask an organization administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
             )}
           </AlertDescription>
         </Alert>

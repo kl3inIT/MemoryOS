@@ -59,7 +59,9 @@ export function RecordingBar({
           ? ui("Đang lưu phần cuối…")
           : paused
             ? ui("Tạm dừng")
-            : ui("Đang ghi")}
+            : reconnecting
+              ? ui("Đang kết nối lại")
+              : ui("Đang ghi")}
       </span>
       <Button
         prominence="tertiary"
@@ -145,10 +147,7 @@ function Meter({
   });
   const shown = paused ? 0 : lit;
   return (
-    <span
-      className="inline-flex items-center gap-1.5 text-xs text-content-secondary"
-      aria-label={label}
-    >
+    <span className="inline-flex items-center gap-1.5 text-xs text-content-secondary">
       {label}
       <span className="flex h-3.5 items-end gap-0.5" aria-hidden="true">
         {Array.from({ length: BARS }, (_, index) => (

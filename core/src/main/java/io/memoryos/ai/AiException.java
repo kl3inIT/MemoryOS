@@ -59,6 +59,6 @@ public final class AiException extends BusinessException {
 
     public static AiException providerIncompatible() {
         return new AiException("CHAT_PROVIDER_INCOMPATIBLE", FailureCategory.VALIDATION,
-                "The endpoint did not answer as an OpenAI-compatible API.");
+                "The endpoint did not answer as the selected provider API.");
     }
 }

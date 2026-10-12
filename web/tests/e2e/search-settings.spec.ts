@@ -233,10 +233,11 @@ async function install(page: Page, initial: Partial<SearchSettingsResponse> = {}
 async function open(page: Page, width: number) {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/admin/search-settings");
-  // The e2e dev server compiles the admin route on first use.
+  // The e2e dev server compiles the admin route on first use. Below `md` the shell bar names the page and this
+  // heading is off screen, so the wait is for its presence.
   await expect(
     page.getByRole("heading", { name: "Cấu hình tìm kiếm", exact: true, level: 1 }),
-  ).toBeVisible({ timeout: 30_000 });
+  ).toBeAttached({ timeout: 30_000 });
 }
 
 async function noHorizontalScroll(page: Page) {

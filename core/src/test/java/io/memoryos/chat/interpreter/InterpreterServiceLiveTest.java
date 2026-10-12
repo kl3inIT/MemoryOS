@@ -17,7 +17,8 @@ class InterpreterServiceLiveTest {
     void realServiceRunsCodeOverAStreamedUnicodeFileAndReturnsTheGeneratedFile() throws Exception {
         var properties = new InterpreterProperties(System.getenv("MEMORYOS_INTERPRETER_LIVE_URL"),
                 System.getenv("MEMORYOS_INTERPRETER_LIVE_API_KEY"));
-        try (var client = new InterpreterClient(properties)) {
+        var client = new InterpreterClient(properties);
+        {
             assertTrue(client.health().healthy(), client.health().error());
             var input = "thang,doanh_thu\n1,10\n2,32\n".getBytes(StandardCharsets.UTF_8);
             var fileId = client.upload("báo cáo.csv", "text/csv", new ByteArrayInputStream(input));

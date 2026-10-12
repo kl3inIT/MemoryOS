@@ -7,6 +7,7 @@ import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import io.memoryos.document.StructuredContent;
 import io.memoryos.ingestion.ChatFileExtractor;
+import io.memoryos.shared.TenantId;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -16,7 +17,9 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
+import java.util.function.Function;
 import org.apache.tika.Tika;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;
@@ -27,14 +30,18 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
     /** Detection holds no per-call state, so one facade serves every file. */
     private static final Tika TIKA = new Tika();
     private final DoclingSourceContentExtractor docling;
+    private final Function<TenantId, @Nullable OcrReader> ocr;
     private final ObjectMapper mapper;
     private final Semaphore permit = new Semaphore(1);
 
-    public BoundedChatFileExtractor(DoclingSourceContentExtractor docling, ObjectMapper mapper) {
-        this.docling = docling; this.mapper = mapper;
+    /** @param ocr the Tenant's OCR reader, null when Docling reads its scans */
+    BoundedChatFileExtractor(DoclingSourceContentExtractor docling, Function<TenantId, @Nullable OcrReader> ocr,
+            ObjectMapper mapper) {
+        this.docling = docling; this.ocr = ocr; this.mapper = mapper;
     }
 
-    @Override public DocumentContent extract(InputStream stream, long size, String filename) throws ExtractionException {
+    @Override public DocumentContent extract(TenantId tenant, InputStream stream, long size, String filename)
+            throws ExtractionException {
         if (size < 1 || size > 262144000) throw StructuredContent.failure(ExtractionFailure.WRITE_LIMIT);
         Path file = null;
         boolean acquired = false;
@@ -59,10 +66,11 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
                     name.endsWith(".xlsm") ? "application/vnd.ms-excel.sheet.macroEnabled.12" : SpreadsheetSourceContentExtractor.XLSX);
             if (name.endsWith(".csv") || name.endsWith(".tsv")) return new SpreadsheetSourceContentExtractor(mapper).extractFile(file, filename,
                     name.endsWith(".tsv") ? "text/tab-separated-values" : "text/csv");
-            if (docling.readsImage(mediaType)) {
-                // PaddleOCR-VL reads the text of a scanned page or a screenshot; a photograph without
+            var reader = ocr.apply(tenant);
+            if (reader != null && reader.readsImage(mediaType)) {
+                // The OCR reader reads the text of a scanned page or a screenshot; a photograph without
                 // text keeps the image description below. A service failure fails the attachment.
-                var read = docling.readChatImage(file, filename, mediaType);
+                var read = reader.read(PaddleOcrVlClient.Input.of(file), null, filename, mediaType, 262_144_000);
                 if (read != null) return read;
             }
             if (Set.of("text/html", "application/xhtml+xml", "message/rfc822", "application/epub+zip",
@@ -71,7 +79,8 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
                     return tika.extractChatFile(file, filename, mediaType);
                 }
             }
-            if (DoclingSourceContentExtractor.usesDocling(mediaType)) return docling.extractChatFile(file, filename, mediaType);
+            if (DoclingSourceContentExtractor.usesDocling(mediaType))
+                return docling.extractChatFile(file, filename, mediaType, reader);
             if (mediaType.startsWith("text/") || Set.of("json", "xml", "yaml", "yml", "sql", "conf", "log", "mdx").contains(extension(name)))
                 return text(file, filename, mediaType);
             throw StructuredContent.failure(ExtractionFailure.UNSUPPORTED);

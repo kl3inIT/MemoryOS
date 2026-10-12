@@ -4,7 +4,13 @@ import { useEffect, useEffectEvent, useState } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TextButton } from "@/components/ui/text-button";
 import type { UserGroupOption } from "./user-groups-dialog";
 import type { UserRoleFilter, UsersSearch } from "./users-search";
@@ -19,6 +25,9 @@ type UsersFiltersProps = {
   onGroupChange: (groupId?: string) => void;
   onClear: () => void;
 };
+
+/** The value of the entry that leaves a filter open; a registry select item cannot hold an empty one. */
+const ANY = "any";
 
 export function UsersFilters({
   search,
@@ -61,7 +70,7 @@ export function UsersFilters({
         onSearchChange(normalized || undefined);
       }}
     >
-      <Field className="min-w-56 flex-1">
+      <Field className="min-w-56 flex-1 max-sm:basis-full">
         <FieldLabel htmlFor="users-search">{ui("Search users")}</FieldLabel>
         <InputGroup>
           <InputGroupAddon>
@@ -78,44 +87,50 @@ export function UsersFilters({
         </InputGroup>
       </Field>
 
-      <Field className="w-40">
+      <Field className="w-40 max-sm:min-w-0 max-sm:flex-1">
         <FieldLabel htmlFor="users-role">{ui("Role")}</FieldLabel>
-        <NativeSelect
-          id="users-role"
-          size="sm"
-          value={search.role ?? ""}
-          aria-label={ui("Filter by role")}
-          onChange={(event) =>
-            onRoleChange((event.target.value || undefined) as UserRoleFilter | undefined)
+        <Select
+          value={search.role ?? ANY}
+          onValueChange={(next) =>
+            onRoleChange(next === ANY ? undefined : (next as UserRoleFilter))
           }
         >
-          <option value="">{ui("All roles")}</option>
-          <option value="OWNER">{ui("Owner")}</option>
-          <option value="MEMBER">{ui("Member")}</option>
-        </NativeSelect>
+          <SelectTrigger id="users-role" aria-label={ui("Filter by role")} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" sideOffset={4}>
+            <SelectItem value={ANY}>{ui("All roles")}</SelectItem>
+            <SelectItem value="OWNER">{ui("Owner")}</SelectItem>
+            <SelectItem value="MEMBER">{ui("Member")}</SelectItem>
+          </SelectContent>
+        </Select>
       </Field>
 
       {groups ? (
-        <Field className="w-48">
+        <Field className="w-48 max-sm:min-w-0 max-sm:flex-1">
           <FieldLabel htmlFor="users-group">{ui("Group")}</FieldLabel>
-          <NativeSelect
-            id="users-group"
-            size="sm"
-            value={search.groupId ?? ""}
+          <Select
+            value={search.groupId ?? ANY}
             disabled={groupsLoading}
-            aria-label={ui("Filter by group")}
-            onChange={(event) => onGroupChange(event.target.value || undefined)}
+            onValueChange={(next) => onGroupChange(next === ANY ? undefined : next)}
           >
-            <option value="">{groupsLoading ? ui("Loading groups…") : ui("All groups")}</option>
-            {search.groupId && !selectedGroupAvailable ? (
-              <option value={search.groupId}>{ui("Selected group")}</option>
-            ) : null}
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </NativeSelect>
+            <SelectTrigger id="users-group" aria-label={ui("Filter by group")} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" sideOffset={4}>
+              <SelectItem value={ANY}>
+                {groupsLoading ? ui("Loading groups…") : ui("All groups")}
+              </SelectItem>
+              {search.groupId && !selectedGroupAvailable ? (
+                <SelectItem value={search.groupId}>{ui("Selected group")}</SelectItem>
+              ) : null}
+              {groups.map((group) => (
+                <SelectItem key={group.id} value={group.id}>
+                  {group.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       ) : null}
 

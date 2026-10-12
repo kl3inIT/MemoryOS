@@ -34,6 +34,6 @@ public class ChatTenantProvisioner {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void provision(TenantId tenantId) {
-        chats.provisionPersona(tenantId, persona.getName(), persona.getInstructions(), persona.getModel());
+        chats.provisionPersona(tenantId, persona.getName(), persona.getInstructions());
     }
 }

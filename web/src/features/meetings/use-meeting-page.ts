@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { useActionNotifications } from "@/components/ui/action-notifications";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   bookmarkMeetingMomentMutation,
@@ -10,6 +11,7 @@ import {
   unstarMeetingUtteranceMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { openMeetingSources, pickMeetingTab, ShareCancelledError } from "./meeting-capture";
+import type { MeetingPane } from "./meeting-panes";
 import type { MeetingRecorder } from "./meeting-recorder";
 import {
   endMeeting,
@@ -20,6 +22,7 @@ import {
 import type { TranscriptTarget } from "./meeting-transcript";
 import {
   invalidateMeetingList,
+  formatClock,
   meetingQueryKey,
   patchMeeting,
   trackOffsets,
@@ -77,22 +80,58 @@ function useLiveRecording(meetingId: string) {
 
 /** The recorded moments a reader marks: starred lines and bookmarks, each answered with the reader's marks. */
 function useMarks(meetingId: string) {
+  const ui = useAppTranslation();
   const cache = useQueryClient();
+  const notify = useActionNotifications();
+  const failureText = useFailureText();
   const starred = (marked: string[]) =>
     patchMeeting(cache, meetingId, (current) => ({ ...current, starred: marked }));
+  // The page is as long as the meeting, so a failure is said over it and not at its top.
+  const onError = (error: unknown) => notify({ title: failureText(error), tone: "error" });
+  /** A star shows as soon as it is pressed and is taken back if the server refuses it. */
+  const starring = (star: boolean) => ({
+    onMutate: ({ path }: { path: { utteranceId: string } }) => {
+      const before = cache.getQueryData<MeetingDetail>(meetingQueryKey(meetingId))?.starred;
+      patchMeeting(cache, meetingId, (current) => ({
+        ...current,
+        starred: star
+          ? [...current.starred, path.utteranceId]
+          : current.starred.filter((id) => id !== path.utteranceId),
+      }));
+      return before;
+    },
+    onSuccess: starred,
+    onError: (error: unknown, _sent: unknown, before: string[] | undefined) => {
+      if (before) starred(before);
+      onError(error);
+    },
+  });
   return {
-    star: useMutation({ ...starMeetingUtteranceMutation(), onSuccess: starred }),
-    unstar: useMutation({ ...unstarMeetingUtteranceMutation(), onSuccess: starred }),
+    star: useMutation({ ...starMeetingUtteranceMutation(), ...starring(true) }),
+    unstar: useMutation({ ...unstarMeetingUtteranceMutation(), ...starring(false) }),
     bookmark: useMutation({
       ...bookmarkMeetingMomentMutation(),
-      onSuccess: (bookmarks) =>
-        patchMeeting(cache, meetingId, (current) => ({ ...current, bookmarks })),
+      onSuccess: (bookmarks, { body }) => {
+        patchMeeting(cache, meetingId, (current) => ({ ...current, bookmarks }));
+        // The timeline it joins may be closed or out of view while the meeting is recorded.
+        notify({
+          title: ui("Đã đánh dấu thời điểm {{time}}", { time: formatClock(body.atMs) }),
+          tone: "success",
+        });
+      },
+      onError,
     }),
   };
 }
 
 /** The meeting page's data and every action it takes, with the failure of the last one. */
-export function useMeetingPage(meetingId: string, tabAudioMissing: boolean) {
+export function useMeetingPage(
+  meetingId: string,
+  tabAudioMissing: boolean,
+  /** The tab the address names, and how the page names another. */
+  pane: MeetingPane | undefined,
+  setPane: (pane: MeetingPane) => void,
+) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const navigate = useNavigate();
@@ -105,7 +144,6 @@ export function useMeetingPage(meetingId: string, tabAudioMissing: boolean) {
   const live = useLiveRecording(meetingId);
   const [tabMissing, setTabMissing] = useState(tabAudioMissing);
   const [target, setTarget] = useState<TranscriptTarget>();
-  const [pane, setPane] = useState<string>();
   const { star, unstar, bookmark } = useMarks(meetingId);
 
   const resume = useMutation({
@@ -150,7 +188,7 @@ export function useMeetingPage(meetingId: string, tabAudioMissing: boolean) {
     },
   });
 
-  const actions = [resume, end, shareTab, star, unstar, bookmark];
+  const actions = [resume, end, shareTab];
   /** One action at a time speaks: starting one clears what the last one said. */
   const clear = () => {
     for (const action of actions) action.reset();
@@ -165,8 +203,7 @@ export function useMeetingPage(meetingId: string, tabAudioMissing: boolean) {
           : failureText(resume.error);
     if (end.isError) return ui("Chưa kết thúc được cuộc họp. Hãy thử lại.");
     if (shareTab.isError) return ui("Không chia sẻ được tab. Hãy thử lại.");
-    const marked = [star, unstar, bookmark].find((action) => action.isError);
-    return marked ? failureText(marked.error) : undefined;
+    return undefined;
   }
 
   return {
@@ -193,17 +230,18 @@ export function useMeetingPage(meetingId: string, tabAudioMissing: boolean) {
       shareTab.mutate(live.recorder);
     },
     star: (utteranceId: string, starred: boolean) => {
-      clear();
       (starred ? star : unstar).mutate({ path: { meetingId, utteranceId } });
     },
     bookmark: (atMs: number) => {
-      clear();
       bookmark.mutate({ path: { meetingId }, body: { atMs, label: null } });
     },
-    /** Opens the transcript on one line, from wherever the page quotes it. */
-    reveal: (utteranceId: string) => {
+    /**
+     * Opens the transcript on one line, from wherever the page quotes it: a quote lands in the middle of the
+     * window, a place in the timeline at its top, where reading goes on from.
+     */
+    reveal: (utteranceId: string, block: TranscriptTarget["block"] = "center") => {
       setPane("transcript");
-      setTarget((current) => ({ utteranceId, seq: (current?.seq ?? 0) + 1 }));
+      setTarget((current) => ({ utteranceId, block, seq: (current?.seq ?? 0) + 1 }));
     },
   };
 }

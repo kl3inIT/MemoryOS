@@ -79,7 +79,9 @@ The image entrypoint fetches nothing over the network: its launcher turns every 
 | `MEMORYOS_REDIS_POOL_MAX_IDLE` | No | Maximum idle worker Redis connections; staging default `8`. |
 | `MEMORYOS_REDIS_POOL_MIN_IDLE` | No | Minimum idle worker Redis connections; staging default `0`. |
 | `MEMORYOS_REDIS_POOL_MAX_WAIT` | No | Bounded wait for a pooled Redis connection; staging default `2s`. |
-| `MEMORYOS_SCHEDULER_NAME` | No | Required production db-scheduler instance identity. It must be stable for one worker instance and unique across concurrent replicas. |
+| `MEMORYOS_SCHEDULER_NAME` | No | db-scheduler instance identity; unset, each replica takes its container hostname, unique across replicas (MEM-244). |
+| `MEMORYOS_WORKER_REPLICAS` | No | Worker containers Compose runs, default `1`. Each holds `MEMORYOS_WORKER_DATABASE_POOL_SIZE` connections; `deploy.sh` refuses a count the application role's connection limit cannot hold. |
+| `MEMORYOS_WORKER_SHUTDOWN_GRACE` | No | How long a stopping Worker lets started work finish, default `100s`, below the container's 120 s stop grace period. Work still running is left to its lease and read again by another Worker. |
 | `SPRING_PROFILES_ACTIVE` | No | Local Gradle and IntelliJ launches use Arconia development bootstrap mode, whose checked-in bootstrap properties activate `development`. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
 `MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT` (8 hours unused; a session also ends 7 days after the password, with Keycloak's SSO session), object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
@@ -174,6 +176,8 @@ MEMORYOS_PGWEB_PUBLIC_URL # exact HTTPS origin
 MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET
 MEMORYOS_REDISINSIGHT_PUBLIC_URL # exact HTTPS origin
 MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET
+MEMORYOS_PROMPTFOO_PUBLIC_URL # exact HTTPS origin of the RAG benchmark viewer (MEM-230)
+MEMORYOS_PROMPTFOO_OAUTH2_CLIENT_SECRET
 MEMORYOS_MINIO_CONSOLE_PUBLIC_URL # exact HTTPS origin; callback is /oauth_callback
 MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET
 MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET
@@ -193,7 +197,7 @@ MEMORYOS_MCP_ADMIN_CLIENT_SECRET   # required with MEMORYOS_MCP_ENDPOINT_URL and
 With `MEMORYOS_MCP_ENDPOINT_URL` the script also configures the MCP endpoint's scope, audience, Claude client policy
 and the ChatGPT client; the [MCP endpoint runbook](mcp-endpoint.md) owns that part.
 
-Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set all three inspection URLs to exact HTTPS origins without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb and Redis Insight OAuth secrets remain separate from the MinIO OIDC secret. Store every client secret outside Git; mount pgweb/Redis Insight secrets into their OAuth2 Proxies and the MinIO OIDC secret directly into MinIO.
+Run the script from a controlled operator shell with `jq` available. The bootstrap administrator authenticates in `master` while every read and write remains explicitly scoped to the `memoryos` target realm; it is never exposed to an inspection client. Set every inspection URL to an exact HTTPS origin without wildcards, callbacks, or trailing slashes. The script assigns `memoryos-inspector` only to the already reconciled initial owner, revokes stale grants of that dedicated role from every other realm user, and preserves the owner's credential. This is compatible with realms that enforce email-as-username and avoids a second privileged local account. The pgweb, Redis Insight and promptfoo OAuth secrets remain separate from the MinIO OIDC secret. Store every client secret outside Git; mount the pgweb, Redis Insight and promptfoo secrets into their OAuth2 Proxies and the MinIO OIDC secret directly into MinIO.
 
 If a future invitee email is already owned by an unrelated unverified Keycloak user, invitation issue fails closed. An operator must inspect that exact user in the `memoryos` realm, confirm ownership out of band, and delete or repair it through the Keycloak admin console before retrying. MemoryOS never takes over or deletes the account automatically.
 

@@ -50,7 +50,7 @@ class ChatHistoryServiceTest {
         asker = person("Trần Thu Hà", "ha@tasco.vn");
         reader = person("Nguyễn Văn An", "an@tasco.vn");
         persona = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,name,instructions,model,builtin_key) VALUES(:id,:tenant,'Default','','gpt','default')")
+        jdbc.sql("INSERT INTO persona(id,tenant_id,name,instructions,builtin_key) VALUES(:id,:tenant,'Default','','default')")
                 .param("id", persona).param("tenant", tenant).update();
         settings = mock(ChatSettingsService.class);
         when(settings.historyVisibility(any())).thenReturn(ChatHistoryVisibility.NORMAL);

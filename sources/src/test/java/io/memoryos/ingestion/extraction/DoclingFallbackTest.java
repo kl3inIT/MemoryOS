@@ -114,7 +114,7 @@ class DoclingFallbackTest {
         Path file = temporary.resolve("attachment.docx");
         Files.write(file, docx());
         try (var extractor = extractor()) {
-            var result = extractor.extractChatFile(file, "attachment.docx", DOCX);
+            var result = extractor.extractChatFile(file, "attachment.docx", DOCX, null);
             assertTrue(result.normalizedText().contains("Doanh thu hop nhat"));
             assertFallback(result, ExtractionFailure.MALFORMED);
         }
@@ -172,7 +172,7 @@ class DoclingFallbackTest {
 
     private static DocumentContent extract(DoclingSourceContentExtractor extractor, byte[] bytes, String name)
             throws ExtractionException {
-        return extractor.extract(new ByteArrayInputStream(bytes), bytes.length, name, SourceInputDescriptor.binary());
+        return extractor.extract(new ByteArrayInputStream(bytes), bytes.length, name, SourceInputDescriptor.binary(), null);
     }
 
     /** Every page carries several lines, comfortably above the per-page density a scan cannot reach. */

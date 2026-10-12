@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -246,6 +248,40 @@ class MeetingRepositoryTest {
         assertEquals(Meeting.CorrectionStatus.KEPT, kept.status());
         assertTrue(meetings.corrections(tenant, id).containsAll(List.of(accepted, kept)),
                 "both answers are what the list holds");
+    }
+
+    @Test void aRewrittenLineKeepsItsOtherProposalsOnTheirWords() {
+        UUID id = meeting(), run = UUID.randomUUID();
+        String text = "Bên Tát cô đã gửi bảng KPI quý tư.";
+        var line = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 0, 2000, text, 0.5, List.of());
+        var other = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 3000, 4000, text, 0.5, List.of());
+        meetings.insertUtterance(tenant, id, line);
+        meetings.insertUtterance(tenant, id, other);
+        var changed = offer(line.id(), run, 4, 10, "Tát cô", "Tasco");
+        var inside = offer(line.id(), run, 8, 10, "cô", "co");
+        var before = offer(line.id(), run, 0, 3, "Bên", "Bênh");
+        var after = offer(line.id(), run, 27, 33, "quý tư", "quý 4");
+        var elsewhere = offer(other.id(), run, 27, 33, "quý tư", "quý 4");
+        meetings.insertCorrections(tenant, id, run, List.of(changed, inside, before, after, elsewhere));
+
+        meetings.realign(tenant, line.id(), changed.id(), 4, 10, "Tasco".length() - "Tát cô".length(), owner);
+
+        var stored = meetings.corrections(tenant, id).stream()
+                .collect(Collectors.toMap(Meeting.Correction::id, Function.identity()));
+        String rewritten = "Bên Tasco đã gửi bảng KPI quý tư.";
+        var moved = stored.get(after.id());
+        assertEquals("quý tư", rewritten.substring(moved.start(), moved.end()), "what follows moves with the words");
+        assertEquals(Meeting.CorrectionStatus.PENDING, moved.status());
+        assertEquals(Meeting.CorrectionStatus.KEPT, stored.get(inside.id()).status(),
+                "an offer for words that are gone is declined");
+        assertEquals(before, stored.get(before.id()), "what stands before the change stays");
+        assertEquals(changed, stored.get(changed.id()), "the proposal being decided is left to its own decision");
+        assertEquals(elsewhere, stored.get(elsewhere.id()), "another line is not touched");
+    }
+
+    private static Meeting.Correction offer(UUID line, UUID run, int start, int end, String before, String after) {
+        return new Meeting.Correction(UUID.randomUUID(), line, run, start, end, before, after, "", 0.5, 0.5, 0.5,
+                false, Meeting.CorrectionStatus.PENDING);
     }
 
     private UUID meeting() {

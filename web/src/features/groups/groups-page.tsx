@@ -7,9 +7,8 @@ import { EmptyState } from "@/components/composites/empty-state";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { NativeSelect } from "@/components/ui/native-select";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
@@ -19,6 +18,8 @@ import { useGlobalCapability } from "@/features/identity/application-session-con
 import { listGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { GroupCard } from "./group-card";
 import type { GroupsSearch } from "./groups-search";
+
+const PAGE_SIZES = [20, 50, 100] as const;
 
 export function GroupsPage() {
   const ui = useAppTranslation();
@@ -208,23 +209,13 @@ export function GroupsPage() {
           onPrevious={() => updateView({ page: search.page - 1 })}
           onNext={() => updateView({ page: search.page + 1 })}
         >
-          <Field orientation="horizontal" className="w-auto">
-            <FieldLabel htmlFor="groups-page-size">{ui("Rows")}</FieldLabel>
-            <NativeSelect
-              id="groups-page-size"
-              size="sm"
-              value={search.size}
-              className="w-auto px-2"
-              aria-label={ui("Groups per page")}
-              onChange={(event) =>
-                updateView({ size: Number(event.target.value) as GroupsSearch["size"] }, true)
-              }
-            >
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </NativeSelect>
-          </Field>
+          <PageSizeSelect
+            label={ui("Groups per page")}
+            rowsLabel={ui("Rows")}
+            value={search.size}
+            sizes={PAGE_SIZES}
+            onSizeChange={(next) => updateView({ size: next as GroupsSearch["size"] }, true)}
+          />
         </TablePagination>
       ) : null}
     </SettingsLayout>

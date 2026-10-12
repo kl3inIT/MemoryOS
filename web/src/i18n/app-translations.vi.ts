@@ -108,13 +108,13 @@ export const englishUi: Record<string, string> = {
   Visibility: "Chế độ hiển thị",
   "Private · only members of the selected groups can search and read these files.":
     "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
-  "Public · everyone in this Tenant": "Công khai · mọi người trong Tenant này",
+  "Public · everyone in this organization": "Công khai · mọi người trong tổ chức này",
   "Private · selected group members": "Riêng tư · thành viên các nhóm đã chọn",
   "Optional · associate ordinary groups": "Không bắt buộc · liên kết các nhóm thông thường",
   Required: "Bắt buộc",
   None: "Không có",
   "Leave the selection empty for no group associations. Global Source management does not require an association.":
-    "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
+    "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn tổ chức không yêu cầu liên kết nhóm.",
   "Only members of these groups can read this Source.":
     "Chỉ thành viên các nhóm này đọc được Nguồn này.",
   "Select at least one group you manage.": "Chọn ít nhất một nhóm bạn quản lý.",
@@ -127,12 +127,12 @@ export const englishUi: Record<string, string> = {
   "Connection details": "Chi tiết kết nối",
   "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
     "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
-  "This connection has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect this credential.":
-    "Kết nối này chưa lưu ứng dụng OAuth. Hãy nhờ quản trị viên Tenant có quyền quản lý Nguồn toàn Tenant thêm ứng dụng và kết nối lại thông tin xác thực này.",
+  "This connection has no saved OAuth app. Ask an organization administrator with global Source management permission to add the app and reconnect this credential.":
+    "Kết nối này chưa lưu ứng dụng OAuth. Hãy nhờ quản trị viên tổ chức có quyền quản lý Nguồn toàn tổ chức thêm ứng dụng và kết nối lại thông tin xác thực này.",
   "Reconnect reuses the OAuth app saved with this shared credential.":
     "Kết nối lại sẽ sử dụng ứng dụng OAuth đã lưu cùng thông tin xác thực dùng chung này.",
-  "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.":
-    "Thông tin xác thực này chưa lưu ứng dụng OAuth. Hãy nhờ quản trị viên Tenant có quyền quản lý Nguồn toàn Tenant thêm ứng dụng và kết nối lại, hoặc tạo thông tin xác thực mới bằng ứng dụng OAuth của bạn.",
+  "This credential has no saved OAuth app. Ask an organization administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.":
+    "Thông tin xác thực này chưa lưu ứng dụng OAuth. Hãy nhờ quản trị viên tổ chức có quyền quản lý Nguồn toàn tổ chức thêm ứng dụng và kết nối lại, hoặc tạo thông tin xác thực mới bằng ứng dụng OAuth của bạn.",
   "Saved Drive selection": "Lựa chọn Drive đã lưu",
   "Saved selection": "Lựa chọn đã lưu",
   "Whole Google account": "Toàn bộ tài khoản Google",
@@ -276,7 +276,6 @@ export const englishUi: Record<string, string> = {
   "Connector setup": "Thiết lập kết nối",
   "Primary navigation": "Điều hướng chính",
   "Administration navigation": "Điều hướng quản trị",
-  Tenant: "Tổ chức",
   Users: "Người dùng",
   Groups: "Nhóm",
   "Documents & Knowledge": "Tài liệu và tri thức",
@@ -299,9 +298,9 @@ export const englishUi: Record<string, string> = {
     "Ứng dụng không thể tự khôi phục. Dữ liệu của bạn không thay đổi.",
   "Try again": "Thử lại",
   "This page could not be loaded.": "Không tải được trang này.",
-  "The route or its data failed to load. Your Tenant data is unchanged.":
+  "The route or its data failed to load. Your organization's data is unchanged.":
     "Không tải được trang hoặc dữ liệu. Dữ liệu tổ chức không thay đổi.",
-  "This path isn’t part of your Tenant.": "Đường dẫn này không thuộc tổ chức của bạn.",
+  "This path isn’t part of your organization.": "Đường dẫn này không thuộc tổ chức của bạn.",
   "No data changed. Return to MemoryOS.": "Không có dữ liệu nào thay đổi. Hãy trở về MemoryOS.",
   "Return home": "Về trang chủ",
   "Action notifications ({hotkey})": "Thông báo thao tác ({hotkey})",
@@ -397,7 +396,7 @@ export const englishUi: Record<string, string> = {
   "Make manager": "Đặt làm người quản lý",
   Manager: "Người quản lý",
   "Remove {{v1}}?": "Gỡ {{v1}}?",
-  "They will leave “{{v1}}”. Other group memberships and their Tenant account stay unchanged.":
+  "They will leave “{{v1}}”. Other group memberships and their organization account stay unchanged.":
     "Họ sẽ rời nhóm “{{v1}}”. Các nhóm khác và tài khoản tổ chức không thay đổi.",
   "Remove member": "Gỡ thành viên",
   "Member pages": "Trang thành viên",
@@ -411,13 +410,13 @@ export const englishUi: Record<string, string> = {
   "The capability registry could not be loaded. Existing grants have not been changed.":
     "Không tải được danh mục quyền. Các quyền hiện có không thay đổi.",
   "No capabilities are available.": "Chưa có quyền khả dụng.",
-  "Tenant-wide grant. Source associations below constrain only scoped group-manager authority.":
+  "Organization-wide grant. Source associations below constrain only scoped group-manager authority.":
     "Quyền trên toàn tổ chức. Liên kết nguồn bên dưới chỉ giới hạn quyền quản lý nhóm theo phạm vi.",
   Includes: "Bao gồm",
   "{{v1}} {{v2}}": "{{v1}} {{v2}}",
   Remove: "Gỡ",
   Grant: "Cấp quyền",
-  "Associations constrain scoped group-manager authority. They do not narrow the Tenant-wide Source grants above.":
+  "Associations constrain scoped group-manager authority. They do not narrow the organization-wide Source grants above.":
     "Liên kết giới hạn quyền quản lý nhóm theo phạm vi, không thu hẹp quyền nguồn trên toàn tổ chức ở trên.",
   "Loading associated Sources": "Đang tải nguồn liên kết",
   "Source associations could not be loaded.": "Không tải được liên kết nguồn.",
@@ -484,8 +483,8 @@ export const englishUi: Record<string, string> = {
   "Leave blank to keep the stored secret": "Để trống để giữ secret hiện tại",
   Disabled: "Đã tắt",
   "Allow just-in-time admission": "Cho phép gia nhập tự động (JIT)",
-  "Members of this provider can join the Tenant automatically on first sign-in.":
-    "Thành viên của nhà cung cấp này tự động gia nhập Tenant khi đăng nhập lần đầu.",
+  "Members of this provider can join the organization automatically on first sign-in.":
+    "Thành viên của nhà cung cấp này tự động gia nhập tổ chức khi đăng nhập lần đầu.",
   "Copy redirect URI": "Sao chép redirect URI",
   "Could not copy the redirect URI.": "Không sao chép được redirect URI.",
   "Members can no longer sign in through this provider. Existing accounts and sessions are not deleted.":
@@ -559,18 +558,18 @@ Object.assign(englishUi, {
   "{{v1}} for {{v2}}": "{{v1}} cho {{v2}}",
   "Remove {{v1}} from {{v2}}": "Xóa {{v1}} khỏi {{v2}}",
   "Checking your invitation…": "Đang kiểm tra lời mời…",
-  "Tenant invitation": "Lời mời vào tổ chức",
+  "Organization invitation": "Lời mời vào tổ chức",
   Join: "Tham gia",
-  "Sign in or create your local account. Once your verified email matches, MemoryOS will add you to the Tenant and take you to the application.":
+  "Sign in or create your local account. Once your verified email matches, MemoryOS will add you to the organization and take you to the application.":
     "Đăng nhập hoặc tạo tài khoản. Khi email đã xác minh khớp với lời mời, MemoryOS sẽ thêm bạn vào tổ chức và chuyển đến ứng dụng.",
   "Your access is scoped": "Phạm vi truy cập của bạn",
-  "This invitation grants Tenant member access. It does not grant administration permissions.":
+  "This invitation grants organization member access. It does not grant administration permissions.":
     "Lời mời này cấp quyền thành viên tổ chức, không cấp quyền quản trị.",
   "Continue to sign in": "Tiếp tục đăng nhập",
   "Link expires": "Liên kết hết hạn",
   "Invitation help": "Trợ giúp về lời mời",
   "Go to MemoryOS": "Đến MemoryOS",
-  "Ask a Tenant owner": "Liên hệ chủ sở hữu tổ chức",
+  "Ask an organization owner": "Liên hệ chủ sở hữu tổ chức",
   "Extracted document text with the selected match highlighted.":
     "Nội dung trích xuất từ tài liệu, có đánh dấu kết quả được chọn.",
   "Close document preview": "Đóng bản xem trước tài liệu",
@@ -963,8 +962,8 @@ Object.assign(englishUi, {
   Kind: "Loại",
   Prune: "Dọn dẹp",
   "No SharePoint credentials yet": "Chưa có credential SharePoint",
-  "Register the Entra application once, then every SharePoint Source in this Tenant can use it.":
-    "Đăng ký ứng dụng Entra một lần, rồi mọi Nguồn SharePoint trong Tenant này đều dùng được.",
+  "Register the Entra application once, then every SharePoint Source in this organization can use it.":
+    "Đăng ký ứng dụng Entra một lần, rồi mọi Nguồn SharePoint trong tổ chức này đều dùng được.",
 });
 Object.assign(englishUi, {
   "Manage connection": "Quản lý kết nối",
@@ -1305,7 +1304,7 @@ Object.assign(englishUi, {
   "Edit groups for {{v1}}": "Sửa nhóm cho {{v1}}",
   "No groups": "Chưa có nhóm",
   "Invite a member": "Mời thành viên",
-  "Invite someone to join this Tenant as a member.":
+  "Invite someone to join this organization as a member.":
     "Mời người khác tham gia tổ chức này với vai trò thành viên.",
   "One-time recovery link": "Liên kết khôi phục dùng một lần",
   "Copy this link now. MemoryOS cannot show it again after this dialog closes.":
@@ -1365,7 +1364,7 @@ Object.assign(englishUi, {
   "Show {{v1}} users, count unavailable": "Hiển thị người dùng {{v1}}, chưa có số lượng",
   "Show {{v1}} users, {{v2}}": "Hiển thị người dùng {{v1}}, {{v2}}",
   "Scrollable users table": "Bảng người dùng có thể cuộn",
-  "Tenant users": "Người dùng trong tổ chức",
+  "Organization users": "Người dùng trong tổ chức",
   Email: "Email",
   "Account type assigned after invitation acceptance":
     "Loại tài khoản được gán sau khi chấp nhận lời mời",
@@ -1410,7 +1409,7 @@ Object.assign(englishUi, {
     "Kho lưu trữ không nhận được tệp đúng như khai báo. Hãy tải lên lại.",
   "Object storage is temporarily unavailable. Retry the upload.":
     "Kho lưu trữ tạm thời không khả dụng. Thử tải lên lại.",
-  "Processing paused because this Tenant is inactive. Contact an administrator.":
+  "Processing paused because this organization is inactive. Contact an administrator.":
     "Đã tạm dừng xử lý vì tổ chức không hoạt động. Liên hệ quản trị viên.",
   "This file type could not be extracted.": "Không trích xuất được loại tệp này.",
   "Password-protected files cannot be indexed.":
@@ -1484,7 +1483,7 @@ Object.assign(englishUi, {
     "Xác thực lựa chọn thất bại. Lựa chọn đang dùng không thay đổi. Kiểm tra liên kết và quyền Google trước khi gửi đề xuất mới.",
   "The Google credential changed during verification. The proposal was not activated. Reload the saved selection before submitting again.":
     "Thông tin kết nối Google thay đổi trong lúc xác thực. Đề xuất chưa được kích hoạt. Tải lại lựa chọn đã lưu trước khi gửi lại.",
-  "Selection verification stopped because the initiating user no longer has permission or the Tenant is inactive. Ask an authorized administrator to submit a new proposal.":
+  "Selection verification stopped because the initiating user no longer has permission or the organization is inactive. Ask an authorized administrator to submit a new proposal.":
     "Xác thực lựa chọn đã dừng vì người khởi tạo không còn quyền hoặc tổ chức không hoạt động. Nhờ quản trị viên có quyền gửi đề xuất mới.",
   "The operation stopped because your permissions changed. Ask an authorized administrator to review access before trying again.":
     "Thao tác đã dừng vì quyền của bạn thay đổi. Nhờ quản trị viên kiểm tra quyền truy cập trước khi thử lại.",
@@ -1572,7 +1571,7 @@ Object.assign(englishUi, {
   "Search models...": "Tìm mô hình...",
   "Try another name or email.": "Thử tên hoặc email khác.",
   "There are no more users to add to this group.": "Không còn người dùng để thêm vào nhóm.",
-  "Add an eligible Tenant user to this group.":
+  "Add an eligible organization user to this group.":
     "Thêm người dùng đủ điều kiện của tổ chức vào nhóm.",
   "Remove manager": "Gỡ người quản lý",
   "Make manager": "Đặt làm người quản lý",
@@ -1586,10 +1585,10 @@ Object.assign(englishUi, {
   "Keycloak confirmed your account, but its email is not verified yet. Complete email verification, then open the invitation again.":
     "Keycloak đã xác nhận tài khoản nhưng email chưa được xác minh. Hoàn tất xác minh email rồi mở lại lời mời.",
   "Sign-in was not completed": "Chưa hoàn tất đăng nhập",
-  "Nothing was added to the Tenant. Open the invitation link and try signing in again.":
+  "Nothing was added to the organization. Open the invitation link and try signing in again.":
     "Chưa thêm gì vào tổ chức. Mở liên kết mời rồi thử đăng nhập lại.",
   "This invitation is no longer available": "Lời mời không còn khả dụng",
-  "The link may have expired, been revoked, rotated, or already used. Ask a Tenant owner for a fresh invitation.":
+  "The link may have expired, been revoked, rotated, or already used. Ask an organization owner for a fresh invitation.":
     "Liên kết có thể đã hết hạn, bị thu hồi, thay thế hoặc đã dùng. Nhờ chủ sở hữu tổ chức gửi lời mời mới.",
   "All file types": "Mọi loại tệp",
   "All time": "Mọi thời điểm",
@@ -1734,10 +1733,10 @@ Object.assign(englishUi, {
   "Activate {{name}}?": "Kích hoạt {{name}}?",
   "Deactivate {{name}}?": "Vô hiệu hóa {{name}}?",
   "Revoke the invitation for {{name}}?": "Thu hồi lời mời dành cho {{name}}?",
-  "They will regain access to this Tenant. Their existing identity and membership history stay intact.":
+  "They will regain access to this organization. Their existing identity and membership history stay intact.":
     "Người dùng sẽ được truy cập lại tổ chức. Danh tính và lịch sử thành viên được giữ nguyên.",
-  "They will lose access on their next protected request. Their identity and membership history stay intact.":
-    "Người dùng sẽ mất quyền truy cập từ yêu cầu được bảo vệ tiếp theo. Danh tính và lịch sử thành viên được giữ nguyên.",
+  "They will lose access to this organization right away. You can activate them again at any time; their identity and membership history stay intact.":
+    "Người dùng sẽ mất quyền truy cập tổ chức ngay. Bạn có thể kích hoạt lại bất cứ lúc nào; danh tính và lịch sử thành viên được giữ nguyên.",
   "The current recovery link will stop working. You can invite this email again later.":
     "Liên kết khôi phục hiện tại sẽ ngừng hoạt động. Bạn có thể mời lại email này sau.",
   "Activation email sent": "Đã gửi email kích hoạt",
@@ -1846,17 +1845,17 @@ Object.assign(englishUi, {
   "{{filename}}: processing may still be running. Refresh the source to check its status.":
     "{{filename}}: có thể vẫn đang xử lý. Làm mới nguồn để kiểm tra trạng thái.",
   "Manage models": "Quản lý mô hình",
-  "Configure Chat providers, credentials, models and access within the Tenant.":
+  "Configure Chat providers, credentials, models and access within the organization.":
     "Cấu hình nhà cung cấp Chat, thông tin xác thực, mô hình và quyền truy cập trong tổ chức.",
   "Create agents": "Tạo trợ lý",
   "Create custom Chat agents and share the agents they own or edit.":
     "Tạo trợ lý Chat tùy chỉnh và chia sẻ các trợ lý mình sở hữu hoặc được sửa.",
   "Manage agents": "Quản lý trợ lý",
-  "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.":
+  "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the organization.":
     "Sửa, chia sẻ, công khai, đánh dấu nổi bật, khôi phục và chuyển quyền sở hữu mọi trợ lý, sửa trợ lý mặc định, quản lý nhãn trợ lý và lệnh tắt dùng chung trong tổ chức.",
   "View audit log": "Xem nhật ký audit",
   "View conversation history": "Xem lịch sử hội thoại",
-  "Read and export the questions and answers of everyone in the Tenant. Every transcript read is itself recorded in the audit log.":
+  "Read and export the questions and answers of everyone in the organization. Every transcript read is itself recorded in the audit log.":
     "Đọc và xuất câu hỏi, câu trả lời của mọi người trong tổ chức. Mỗi lần mở một hội thoại đều được ghi vào nhật ký audit.",
   "Asked by": "Người hỏi",
   "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.":
@@ -1931,6 +1930,8 @@ Object.assign(englishUi, {
   Added: "Đã thêm",
   Admission: "Cách vào",
   Endpoint: "Endpoint",
+  "Account ID": "Account ID",
+  "System One": "System One",
   Change: "Thay đổi",
   Client: "Client",
   Task: "Tác vụ",
@@ -2005,6 +2006,7 @@ Object.assign(englishUi, {
   "Changed Web search": "Đã đổi Tìm kiếm Web",
   "Changed voice": "Đã đổi Giọng nói",
   "Changed image generation": "Đã đổi Tạo ảnh",
+  "Changed OCR": "Đã đổi OCR",
   "Changed Code Interpreter": "Đã đổi Code Interpreter",
   "Changed Chat settings": "Đã đổi cài đặt Chat",
   "Question blocked": "Câu hỏi bị chặn",
@@ -2043,16 +2045,16 @@ Object.assign(englishUi, {
   "Deleted a credential": "Đã xóa thông tin xác thực",
   "Exported the audit log": "Đã xuất nhật ký audit",
   "Access refused": "Bị từ chối truy cập",
-  "Read and export who changed sign-in, users, Groups, models, connections and Sources within the Tenant.":
+  "Read and export who changed sign-in, users, Groups, models, connections and Sources within the organization.":
     "Xem và xuất nhật ký ai đã thay đổi đăng nhập, người dùng, Nhóm, mô hình, kết nối và nguồn dữ liệu trong tổ chức.",
   "Manage MCP servers": "Quản lý máy chủ MCP",
-  "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the Tenant.":
+  "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the organization.":
     "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
   "IAM administration": "Quản trị danh tính và quyền truy cập",
   "Full identity, user, group, and Source administration.":
     "Toàn quyền quản trị danh tính, người dùng, nhóm và nguồn dữ liệu.",
   "Manage users": "Quản lý người dùng",
-  "Issue invitations and activate or deactivate Tenant users.":
+  "Issue invitations and activate or deactivate organization users.":
     "Gửi lời mời, kích hoạt hoặc vô hiệu hóa người dùng trong tổ chức.",
   "View groups": "Xem nhóm",
   "View Groups and their memberships.": "Xem các nhóm và thành viên của nhóm.",
@@ -2080,7 +2082,8 @@ Object.assign(englishUi, {
   "Loading model catalog…": "Đang tải danh mục mô hình…",
   "The complete catalog could not be loaded. Displayed records may be stale. Refresh before changing configurations or defaults.":
     "Không tải được toàn bộ danh mục. Dữ liệu hiển thị có thể đã cũ. Hãy làm mới trước khi thay đổi cấu hình hoặc mặc định.",
-  "Available connections": "Kết nối khả dụng",
+  "Add another": "Thêm kết nối",
+  "Add another {{name}} connection": "Thêm một kết nối {{name}} nữa",
   "Add Provider": "Thêm nhà cung cấp",
   "MemoryOS supports both popular providers and self-hosted models.":
     "MemoryOS hỗ trợ cả nhà cung cấp phổ biến lẫn mô hình tự triển khai.",
@@ -2141,12 +2144,12 @@ Object.assign(englishUi, {
   "Provider {{id}} and all its configured models will be removed.":
     "Nhà cung cấp {{id}} và toàn bộ mô hình của nó sẽ bị xóa.",
   "Model {{id}} will be removed.": "Mô hình {{id}} sẽ bị xóa.",
-  "Affected Persona defaults are cleared and their selection revisions advance. Transcript history is retained. A Tenant default must be replaced first. On a conflict, cancel, refresh the catalog and review before trying again.":
-    "Các mặc định Persona liên quan sẽ bị xóa và revision lựa chọn tăng lên. Lịch sử hội thoại được giữ nguyên. Phải thay mặc định Tenant trước. Nếu xung đột, hãy hủy, làm mới danh mục và kiểm tra lại trước khi thử lại.",
+  "Affected Persona defaults are cleared and their selection revisions advance. Transcript history is retained. An organization default must be replaced first. On a conflict, cancel, refresh the catalog and review before trying again.":
+    "Các mặc định Persona liên quan sẽ bị xóa và revision lựa chọn tăng lên. Lịch sử hội thoại được giữ nguyên. Phải thay mặc định của tổ chức trước. Nếu xung đột, hãy hủy, làm mới danh mục và kiểm tra lại trước khi thử lại.",
   "Delete configuration": "Xóa cấu hình",
   "Deleting configuration": "Đang xóa cấu hình",
   "Deletion failed. Refresh before retrying.": "Xóa thất bại. Làm mới trước khi thử lại.",
-  "Tenant model default": "Mô hình mặc định của Tenant",
+  "Organization model default": "Mô hình mặc định của tổ chức",
   User: "Người dùng",
   Flow: "Tác vụ",
   "Cache-read price": "Giá cache-read",
@@ -2156,10 +2159,10 @@ Object.assign(englishUi, {
   "{{input}} in · {{output}} out": "{{input}} in · {{output}} out",
   "Default Creativity": "Độ sáng tạo mặc định",
   "Starting creativity for your new chats. A model the administrator pinned keeps its own value.":
-    "Độ sáng tạo khởi điểm cho các cuộc trò chuyện mới. Model đã được quản trị viên đặt sẵn thì giữ giá trị của model.",
+    "Độ sáng tạo khởi điểm cho các hội thoại mới. Model đã được quản trị viên đặt sẵn thì giữ giá trị của model.",
   "Default Reasoning Level": "Mức suy luận mặc định",
   "Starting reasoning level for your new chats. Any single chat can pin its own level.":
-    "Mức suy luận khởi điểm cho các cuộc trò chuyện mới. Mỗi cuộc trò chuyện vẫn ghim được mức riêng.",
+    "Mức suy luận khởi điểm cho các hội thoại mới. Mỗi hội thoại vẫn ghim được mức riêng.",
   "Model default": "Theo model",
   Thấp: "Thấp",
   Vừa: "Vừa",
@@ -2168,9 +2171,9 @@ Object.assign(englishUi, {
   "{{input}} in · {{output}} out · {{cache}} cache":
     "{{input}} in · {{output}} out · {{cache}} cache",
   "Share of spend": "Tỉ lệ chi phí",
-  Chats: "Cuộc trò chuyện",
+  Chats: "Hội thoại",
   "This model will be used by default in your chats.":
-    "Model này được dùng mặc định trong các cuộc trò chuyện của bạn.",
+    "Model này được dùng mặc định trong các hội thoại của bạn.",
   "The model your administrator chose.": "Model do quản trị viên chọn.",
   "Provide your custom preferences in natural language.":
     "Mô tả tùy chọn riêng của bạn bằng ngôn ngữ tự nhiên.",
@@ -2210,6 +2213,7 @@ Object.assign(englishUi, {
   "Estimated daily cost": "Chi phí ước tính theo ngày",
   Monitoring: "Theo dõi",
   "AI costs": "Chi phí AI",
+  "AI Providers": "AI Provider",
   Period: "Khoảng thời gian",
   "Last 7 days": "7 ngày qua",
   "Last 30 days": "30 ngày qua",
@@ -2279,7 +2283,7 @@ Object.assign(englishUi, {
   Providers: "Nhà cung cấp",
   "System work": "Tác vụ hệ thống",
   "Used for new conversations and assistants without their own model.":
-    "Dùng cho cuộc trò chuyện mới và trợ lý chưa chọn mô hình riêng.",
+    "Dùng cho hội thoại mới và trợ lý chưa chọn mô hình riêng.",
   "Mark this provider as Internal?": "Đánh dấu nhà cung cấp này là Nội bộ?",
   "Confirm that it is self-hosted, or that its agreement forbids retaining your data and training on it. Internal documents may later be sent to it without asking users.":
     "Xác nhận đây là máy chủ tự vận hành, hoặc hợp đồng cấm lưu dữ liệu và cấm dùng dữ liệu để huấn luyện. Sau này tài liệu nội bộ có thể được gửi tới nhà cung cấp này mà không hỏi người dùng.",
@@ -2297,10 +2301,10 @@ Object.assign(englishUi, {
   "Loading task models…": "Đang tải mô hình theo tác vụ…",
   "Task models could not be loaded.": "Không tải được mô hình theo tác vụ.",
   "Retry task models": "Tải lại mô hình theo tác vụ",
-  "Conversation naming": "Đặt tên cuộc trò chuyện",
+  "Conversation naming": "Đặt tên hội thoại",
   "Names new conversations. A small, fast model keeps the chat model free.":
-    "Đặt tên cho cuộc trò chuyện mới. Chọn mô hình nhỏ, nhanh để mô hình chat vẫn rảnh trả lời.",
-  "Conversation naming model": "Mô hình đặt tên cuộc trò chuyện",
+    "Đặt tên cho hội thoại mới. Chọn mô hình nhỏ, nhanh để mô hình chat vẫn rảnh trả lời.",
+  "Conversation naming model": "Mô hình đặt tên hội thoại",
   "Question check": "Kiểm tra câu hỏi",
   "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.":
     "Phân loại câu hỏi trước khi trả lời: câu xã giao, câu hỏi hay chủ đề bị chặn. Cần model trả đúng định dạng.",
@@ -2310,6 +2314,7 @@ Object.assign(englishUi, {
   "Writes the summary, decisions and action items of a recorded meeting.":
     "Viết tóm tắt, quyết định và việc cần làm của một cuộc họp đã ghi.",
   "Transcript corrections": "Sửa transcript",
+  "Reading scans": "Đọc bản scan",
   "Proposes what was said where the speech provider was unsure.":
     "Đề xuất lại câu nói ở những chỗ nhận dạng giọng nói chưa chắc.",
   Off: "Tắt",
@@ -2323,24 +2328,25 @@ Object.assign(englishUi, {
   "Unavailable; {{model}} is used instead.": "Không khả dụng; đang dùng {{model}}.",
   "Unavailable; the Chat model is used instead.": "Không khả dụng; đang dùng mô hình Chat.",
   "Task model saved.": "Đã lưu mô hình tác vụ.",
-  "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.":
-    "Mọi mô hình đã cấu hình của nhà cung cấp này sẽ bị xóa. Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của cuộc trò chuyện và lịch sử Chat được giữ nguyên. Hãy thay mặc định Tenant trước.",
-  "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.":
-    "Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của cuộc trò chuyện và lịch sử Chat được giữ nguyên. Hãy thay mặc định Tenant trước.",
+  "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace an organization default first.":
+    "Mọi mô hình đã cấu hình của nhà cung cấp này sẽ bị xóa. Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của hội thoại và lịch sử Chat được giữ nguyên. Hãy thay mặc định của tổ chức trước.",
+  "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace an organization default first.":
+    "Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của hội thoại và lịch sử Chat được giữ nguyên. Hãy thay mặc định của tổ chức trước.",
   "Choose an eligible model": "Chọn một mô hình đủ điều kiện",
   "(saved; hidden or unavailable)": "(đã lưu; đang ẩn hoặc không khả dụng)",
   "(draft no longer eligible)": "(bản nháp không còn đủ điều kiện)",
-  "No eligible models are available.": "Không có mô hình đủ điều kiện nào.",
+  "No eligible models are available. Add a model to a connection below.":
+    "Chưa có mô hình nào đủ điều kiện. Hãy thêm mô hình vào một kết nối bên dưới.",
   "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.":
     "Lựa chọn đã lưu đã thay đổi hoặc xung đột. Làm mới revision của nó và kiểm tra lại trước khi thử lại; revision của mô hình/nhà cung cấp không phải revision lựa chọn.",
   "Reconcile saved selection": "Đồng bộ lựa chọn đã lưu",
   "Default saved. Existing transcript is unchanged.":
     "Đã lưu mặc định. Hội thoại hiện có không đổi.",
-  "Loading Tenant default…": "Đang tải mặc định Tenant…",
-  "Tenant default could not be loaded.": "Không tải được mặc định Tenant.",
-  "Retry Tenant default": "Thử lại mặc định Tenant",
-  "Select a Persona by name and UUID. Assignment respects provider Persona restrictions, even for managers. It grants no access: other users can fall back to their authorized Tenant default. Inherit removes the Persona selection.":
-    "Chọn Persona theo tên và UUID. Việc gán vẫn tuân theo giới hạn Persona của nhà cung cấp, kể cả với quản lý. Không cấp quyền truy cập: người dùng khác vẫn dùng mặc định Tenant được phép. Kế thừa sẽ xóa lựa chọn Persona.",
+  "Loading organization default…": "Đang tải mặc định của tổ chức…",
+  "Organization default could not be loaded.": "Không tải được mặc định của tổ chức.",
+  "Retry organization default": "Thử lại mặc định của tổ chức",
+  "Select a Persona by name and UUID. Assignment respects provider Persona restrictions, even for managers. It grants no access: other users can fall back to their authorized organization default. Inherit removes the Persona selection.":
+    "Chọn Persona theo tên và UUID. Việc gán vẫn tuân theo giới hạn Persona của nhà cung cấp, kể cả với quản lý. Không cấp quyền truy cập: người dùng khác vẫn dùng mặc định của tổ chức được phép. Kế thừa sẽ xóa lựa chọn Persona.",
   "Edit provider: {{name}}": "Sửa nhà cung cấp: {{name}}",
   "Add provider": "Thêm nhà cung cấp",
   "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.":
@@ -2366,8 +2372,8 @@ Object.assign(englishUi, {
   "Replace key": "Nhập khóa mới",
   "Remove key": "Xóa khóa đang lưu",
   "API key": "Khóa API",
-  "For a required key, explicitly disable the provider before removal. Choose a different Tenant default first if this provider serves it.":
-    "Với khóa bắt buộc, hãy tắt nhà cung cấp trước khi xóa. Chọn mặc định Tenant khác trước nếu nhà cung cấp này đang phục vụ nó.",
+  "For a required key, explicitly disable the provider before removal. Choose a different organization default first if this provider serves it.":
+    "Với khóa bắt buộc, hãy tắt nhà cung cấp trước khi xóa. Chọn mặc định khác cho tổ chức trước nếu nhà cung cấp này đang phục vụ nó.",
   "An enabled provider requires a configured key. Replace the key or explicitly disable this provider.":
     "Nhà cung cấp đang bật cần có khóa. Thay khóa hoặc tắt nhà cung cấp này.",
   "Provider {{id}} · revision {{revision}} · {{visibility}}; {{groups}} Group and {{personas}} Persona associations retained.":
@@ -2385,19 +2391,19 @@ Object.assign(englishUi, {
   "No connectors set up for your organization.": "Tổ chức chưa thiết lập kết nối nào.",
   "Disconnect {{name}}": "Ngắt kết nối {{name}}",
   "The assistant will no longer be able to use {{name}} with your account. Existing conversations stay as they are.":
-    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các cuộc trò chuyện cũ vẫn giữ nguyên.",
+    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các hội thoại cũ vẫn giữ nguyên.",
   "Disconnecting…": "Đang ngắt kết nối…",
   "Danger Zone": "Khu vực nguy hiểm",
-  "Delete All Chats": "Xóa mọi cuộc chat",
-  "Permanently delete all your chat sessions.": "Xóa vĩnh viễn toàn bộ cuộc trò chuyện của bạn.",
-  "Delete all chats?": "Xóa mọi cuộc chat?",
+  "Delete All Chats": "Xóa mọi hội thoại",
+  "Permanently delete all your chat sessions.": "Xóa vĩnh viễn toàn bộ hội thoại của bạn.",
+  "Delete all chats?": "Xóa mọi hội thoại?",
   "All your chat sessions and history will be permanently deleted. Deletion cannot be undone.":
-    "Toàn bộ cuộc trò chuyện và lịch sử của bạn sẽ bị xóa vĩnh viễn. Không thể hoàn tác.",
+    "Toàn bộ hội thoại và lịch sử của bạn sẽ bị xóa vĩnh viễn. Không thể hoàn tác.",
   "Deleting…": "Đang xóa…",
-  "New conversations": "Cuộc trò chuyện mới",
+  "New conversations": "Hội thoại mới",
   "Default Model": "Model mặc định",
   "Preselected whenever you start a new chat. An assistant with its own model keeps it.":
-    "Được chọn sẵn khi bạn bắt đầu cuộc trò chuyện mới. Trợ lý có model riêng vẫn dùng model của trợ lý.",
+    "Được chọn sẵn khi bạn bắt đầu hội thoại mới. Trợ lý có model riêng vẫn dùng model của trợ lý.",
   "Organization default": "Theo mặc định của tổ chức",
   "Personal Preferences": "Sở thích cá nhân",
   "Describe how you want the system to behave and the tone it should use.":
@@ -2448,7 +2454,7 @@ Object.assign(englishUi, {
   Auto: "Theo hệ thống",
   Light: "Sáng",
   Dark: "Tối",
-  "Preferences for your conversations.": "Tùy chọn cho các cuộc trò chuyện của bạn.",
+  "Preferences for your conversations.": "Tùy chọn cho các hội thoại của bạn.",
   "Test connection": "Kiểm tra kết nối",
   "Test connection {{name}}": "Kiểm tra kết nối {{name}}",
   "Connection succeeded · {{latency}} ms": "Kết nối thành công · {{latency}} ms",
@@ -2475,6 +2481,7 @@ Object.assign(englishUi, {
   "Maximum output (tokens)": "Max output (token)",
   "Visible in selection lists": "Hiển thị trong danh sách chọn",
   "Streaming (required)": "Streaming (bắt buộc)",
+  "Structured output": "Structured output",
   "Tool calling": "Tool calling",
   "Vision input": "Vision",
   Reasoning: "Reasoning",
@@ -2522,7 +2529,7 @@ Object.assign(englishUi, {
   "{{model}} · {{note}}": "{{model}} · {{note}}",
   "Close editor": "Đóng trình soạn",
   "Who can use this provider": "Ai được dùng nhà cung cấp này",
-  "Every Tenant member": "Mọi thành viên Tenant",
+  "Every organization member": "Mọi thành viên tổ chức",
   "Selected Groups only": "Chỉ các Nhóm được chọn",
   "Members of the selected Groups can use this provider in Chat.":
     "Thành viên của các Nhóm đã chọn có thể dùng nhà cung cấp này trong Chat.",
@@ -2530,8 +2537,8 @@ Object.assign(englishUi, {
   // Models administration problems
   "The request could not be completed. Check your connection and refresh before trying again.":
     "Không thực hiện được yêu cầu. Kiểm tra kết nối và làm mới trước khi thử lại.",
-  "The configuration is not accepted. Check the endpoint, profile, capabilities, limits, options and Persona restrictions. Choose another Tenant default before hiding or deleting its model, disabling its provider or removing its required key.":
-    "Cấu hình không được chấp nhận. Kiểm tra endpoint, profile, khả năng, giới hạn, tùy chọn và ràng buộc Persona. Hãy chọn mặc định Tenant khác trước khi ẩn hoặc xóa mô hình đó, tắt nhà cung cấp hoặc xóa khóa bắt buộc của nó.",
+  "The configuration is not accepted. Check the endpoint, profile, capabilities, limits, options and Persona restrictions. Choose another organization default before hiding or deleting its model, disabling its provider or removing its required key.":
+    "Cấu hình không được chấp nhận. Kiểm tra endpoint, profile, khả năng, giới hạn, tùy chọn và ràng buộc Persona. Hãy chọn mặc định khác cho tổ chức trước khi ẩn hoặc xóa mô hình đó, tắt nhà cung cấp hoặc xóa khóa bắt buộc của nó.",
   "Your session has ended. Sign in again.": "Phiên đã kết thúc. Hãy đăng nhập lại.",
   "Your access has changed. Refreshing your session.":
     "Quyền truy cập đã thay đổi. Đang làm mới phiên.",
@@ -2583,7 +2590,7 @@ Object.assign(englishUi, {
     "Thay đổi phạm vi này đã bị thay thế hoặc hủy. Phạm vi đã lưu không đổi.",
   "Credential works": "Credential hoạt động",
   "Credential updated": "Đã cập nhật credential",
-  "{{v1}} can read this Tenant's sites.": "{{v1}} đọc được các site của Tenant này.",
+  "{{v1}} can read every SharePoint site.": "{{v1}} đọc được mọi site SharePoint.",
   "{{v1}} works, but it cannot list every site. Name each site in the scope.":
     "{{v1}} hoạt động nhưng không liệt kê được mọi site. Hãy ghi rõ từng site trong phạm vi.",
   "{{v1}} and its stored authentication were deleted.":

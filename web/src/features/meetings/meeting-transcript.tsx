@@ -1,8 +1,25 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ChevronDown, ChevronUp, FileDown, Star } from "lucide-react";
+import { ArrowDown, ChevronDown, ChevronUp, FileDown, Star } from "lucide-react";
+import { hoverReveal } from "@/components/composites/hover-reveal";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -12,44 +29,81 @@ import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import type { MeetingTrack } from "./meeting-socket";
 import { slug } from "@/lib/meeting-file-name";
 import { exportMeetingTranscript } from "@/lib/hey-api/sdk.gen";
-import { formatClock, saveDocument, type MeetingDetail } from "./meetings-api";
+import {
+  formatClock,
+  saveDocument,
+  type MeetingCorrection,
+  type MeetingDetail,
+  type TimelineEntry,
+} from "./meetings-api";
 import { useRecorderValue } from "./recorder-state";
-import { SpeakerChip } from "./speaker-chip";
-import { speakerColor, speakerName } from "./speakers";
+import { SpeakerBadge } from "./speaker-chip";
+import { speakerName } from "./speakers";
 import { matches } from "./transcript-search";
-import { Said } from "./transcript-text";
+import { AppliedCorrection } from "./applied-correction";
+import { MarkLegend, Said } from "./transcript-text";
+import { scrollerOf, useFollowEnd } from "./use-follow-end";
 import { WordCorrection } from "./word-correction";
 
 /** A line of one or two sentences; rows are measured once rendered, so this only seeds the scrollbar. */
-const ESTIMATED_LINE = 64;
+const ESTIMATED_LINE = 40;
 /** Lines kept rendered beyond the visible ones, so a flick of the wheel never shows empty space. */
 const OVERSCAN = 8;
-/** How close to the end still counts as reading the end, so new lines keep the view following them. */
-const FOLLOW_SLACK = 48;
+/** How far a line may run past the top of the window and still be the one being read. */
+const READING_EDGE = 8;
 /** Frames a jump waits for its line to render before giving up. */
 const REVEAL_FRAMES = 10;
 
+/** A dialog or a confirmation open over the page. */
+const OPEN_DIALOG = '[role="dialog"], [role="alertdialog"]';
+
 type Utterance = MeetingDetail["utterances"][number];
 
-/** A request to bring one line into view; `seq` repeats a request for the same line. */
-export type TranscriptTarget = { utteranceId: string; seq: number };
+/** Whether a key was pressed in a place that takes text. */
+function typing(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.matches("input, textarea, select"))
+  );
+}
+
+/** A request to bring one line into view, and where in the window; `seq` repeats a request for the same line. */
+export type TranscriptTarget = { utteranceId: string; block: "start" | "center"; seq: number };
 
 /**
- * The meeting as it was said, one line per utterance. Only the lines in view are rendered — an afternoon's
+ * The meeting as it was said, one line per utterance; the lines one voice says in a row read as one turn under
+ * its name (Otter, Fireflies, Lightfield). Only the lines in view are rendered — an afternoon's
  * meeting is thousands of lines — so every way of reaching a line (a topic, a search hit, a minutes quote)
- * scrolls the list to it by index rather than looking for an element that may not exist yet. While the
- * meeting is being recorded the list follows new lines, unless the reader has scrolled up to read.
+ * scrolls the list to it by index rather than looking for an element that may not exist yet. The list has no
+ * scrollbar of its own: it is read by scrolling the page, so a long transcript is never a window inside a
+ * window. While the meeting is being recorded the page follows new lines, unless the reader has scrolled back;
+ * a button that stays on screen then leads back to the newest one.
  */
 export function Transcript({
   meeting,
   recorder,
   target,
+  timeline,
+  corrections,
+  undoAll,
+  toolsSlot,
+  onReading,
   onStar,
 }: {
   meeting: MeetingDetail;
   /** The recorder while this meeting is being recorded here; its unfinished sentences end the list. */
   recorder: MeetingRecorder | undefined;
   target?: TranscriptTarget;
+  /** The subjects and marked moments of the meeting, in time order. */
+  timeline: TimelineEntry[];
+  /** The changes in force, each marked in the line it changed. */
+  corrections: MeetingCorrection[];
+  /** Takes every change of the last pass back; shown beside what the marks mean. */
+  undoAll?: ReactNode;
+  /** Where the search is shown: the part of the page that stays in view while the lines scroll. */
+  toolsSlot: HTMLElement | null;
+  /** Told which of them the line at the top of the window belongs to. */
+  onReading: (entryId: string | undefined) => void;
   onStar: (utteranceId: string, starred: boolean) => void;
 }) {
   const ui = useAppTranslation();
@@ -81,32 +135,67 @@ export function Transcript({
     }
     return { firstMatch: first, total: counted };
   }, [shown, query]);
-  const current = total === 0 ? -1 : ((at % total) + total) % total;
+  const matched = total === 0 ? -1 : ((at % total) + total) % total;
 
-  const scroller = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
+  // A shared reader's lines arrive from the server, the recorder's own from its socket: both lengthen the list.
+  const { grows, stop, resume, away } = useFollowEnd(recording);
+  const list = useRef<HTMLOListElement>(null);
+  // The page the list is scrolled with, and how far down that page the list starts.
+  const [page, setPage] = useState<{ scroller: HTMLElement; offset: number }>();
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- measured after every render; set only when it moved.
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!element) return;
+    const scroller = scrollerOf(element);
+    const offset = Math.round(
+      element.getBoundingClientRect().top -
+        scroller.getBoundingClientRect().top +
+        scroller.scrollTop,
+    );
+    // Whatever sits above the list can change height on any render; the state settles once it stops moving.
+    if (page?.scroller !== scroller || page.offset !== offset) setPage({ scroller, offset });
+  });
   const count = shown.length;
   // The virtualizer hands out functions read during render; no memoized component receives them.
   // oxlint-disable-next-line react/incompatible-library
   const rows = useVirtualizer({
     count,
-    getScrollElement: () => scroller.current,
+    getScrollElement: () => page?.scroller ?? null,
+    scrollMargin: page?.offset ?? 0,
     estimateSize: () => ESTIMATED_LINE,
     overscan: OVERSCAN,
     getItemKey: (index) => shown[index]?.id ?? index,
   });
 
-  /** Keeps the newest server or local line in view while recording, unless the reader scrolled away from the end. */
-  const follow = useCallback(() => {
-    const element = scroller.current;
-    if (!recording || !following.current || !element) return;
-    if (count > 0) rows.scrollToIndex(count - 1, { align: "end" });
-    // The unfinished sentences sit below the list, so the view ends at the very bottom.
-    requestAnimationFrame(() => {
-      element.scrollTop = element.scrollHeight;
-    });
-  }, [recording, count, rows]);
-  useEffect(follow, [follow]);
+  // What is pinned over the top of the lines hides that much of them, so the line being read is the first one
+  // below it: the same distance a line reached from the timeline stops at.
+  const [pinned, setPinned] = useState(0);
+  // The lines render once the page they scroll in is known, so there is one to measure only from then on.
+  const rendered = rows.getVirtualItems().length > 0;
+  // Measured from a line itself, so it follows the window's width and the recording bar, which wraps as it must.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const line = list.current?.firstElementChild;
+      if (line) setPinned(Number.parseFloat(getComputedStyle(line).scrollMarginTop) || 0);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [rendered, count, recorder]);
+  // A transcript that fits the window is all in view: no one place in the timeline is the one being read.
+  const top = (rows.scrollOffset ?? 0) + pinned;
+  const reading =
+    rows.getTotalSize() > (rows.scrollRect?.height ?? 0)
+      ? rows.getVirtualItems().find((item) => item.end > top + READING_EDGE)
+      : undefined;
+  const readingMs = reading && shown[reading.index]?.startMs;
+  const current =
+    readingMs === undefined
+      ? undefined
+      : timeline.findLast((entry) => entry.line.startMs <= readingMs)?.id;
+  useEffect(() => onReading(current), [current, onReading]);
+  // Another tab takes the transcript off the page, and nothing is being read any more.
+  useEffect(() => () => onReading(undefined), [onReading]);
 
   // A search hit is reached in two steps: its line is scrolled into the rendered window, then the hit itself
   // is centred once its line has rendered, because one line can be longer than the view.
@@ -120,14 +209,14 @@ export function Transcript({
   });
 
   /**
-   * Brings one line into view in two steps: the list scrolls it into the rendered window, then the line is
-   * scrolled into the page, since the list may sit below the fold and a short list never scrolls itself.
+   * Brings one line into view in two steps: the page is scrolled until the line is rendered, then the line
+   * itself is placed, since its height is only known once it is on the page.
    */
   const reveal = useCallback(
     (index: number, block: "start" | "center") => {
       const id = shown[index]?.id;
       if (id === undefined) return;
-      following.current = false;
+      stop();
       rows.scrollToIndex(index, { align: block });
       let frames = 0;
       const settle = () => {
@@ -137,7 +226,7 @@ export function Transcript({
       };
       requestAnimationFrame(settle);
     },
-    [shown, rows],
+    [shown, rows, stop],
   );
 
   const handled = useRef<number>(undefined);
@@ -151,7 +240,7 @@ export function Transcript({
     }
     handled.current = target.seq;
     if (index < 0) return;
-    reveal(index, "center");
+    reveal(index, target.block);
   }, [target, shown, starredOnly, reveal]);
 
   function jump(step: number) {
@@ -160,26 +249,21 @@ export function Transcript({
     setAt(next);
     let line = 0;
     while ((firstMatch[line + 1] ?? Infinity) <= next) line += 1;
-    following.current = false;
+    stop();
     pendingHit.current = next;
     rows.scrollToIndex(line, { align: "center" });
   }
 
-  function reach(utterance: Utterance) {
-    const index = shown.indexOf(utterance);
-    if (index >= 0) reveal(index, "start");
-  }
-
   const tools = meeting.utterances.length > 0 && (
     <TranscriptTools
-      meeting={meeting}
+      download={<TranscriptDownload meeting={meeting} />}
       query={query}
       onQuery={(next) => {
         setQuery(next);
         setAt(0);
       }}
       total={total}
-      current={current}
+      current={matched}
       onJump={jump}
       starredCount={starred.size}
       starredOnly={starredOnly}
@@ -203,13 +287,14 @@ export function Transcript({
     );
   const newest = meeting.utterances.at(-1);
   const correctable = meeting.owned && meeting.status === "ENDED";
+  const unsure = meeting.utterances.some((utterance) => utterance.spans.length > 0);
+  const fixes = Map.groupBy(corrections, (correction) => correction.utteranceId);
 
   return (
-    <div className="grid gap-3">
-      {!starredOnly && <TranscriptTimeline meeting={meeting} onReach={reach} />}
-      {tools}
+    <div className="grid grid-cols-1 gap-3">
+      {toolsSlot && createPortal(tools, toolsSlot)}
       {shown.length === 0 && (
-        <p className="text-sm text-content-muted">{ui("Chưa đánh dấu câu nào.")}</p>
+        <p className="text-sm text-content-muted">{ui("Chưa gắn sao câu nào.")}</p>
       )}
       {/* Rendered lines come and go as the list scrolls, so new lines are announced here instead. */}
       <p className="sr-only" aria-live="polite">
@@ -220,58 +305,104 @@ export function Transcript({
           </>
         ) : null}
       </p>
-      <div
-        ref={scroller}
-        role="region"
-        aria-label={ui("Transcript")}
-        // The list scrolls on its own, so it is reachable and scrollable from the keyboard.
-        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling region must take focus.
-        tabIndex={0}
-        className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          following.current =
-            element.scrollHeight - element.scrollTop - element.clientHeight < FOLLOW_SLACK;
-        }}
-      >
-        <ol className="relative" style={{ height: rows.getTotalSize() }}>
-          {rows.getVirtualItems().map((item) => {
-            const utterance = shown[item.index];
-            if (!utterance) return null;
-            return (
-              <li
-                key={item.key}
-                id={utterance.id}
-                ref={rows.measureElement}
-                data-index={item.index}
-                aria-setsize={shown.length}
-                aria-posinset={item.index + 1}
-                className="absolute inset-x-0 top-0 pb-1"
-                style={{ transform: `translateY(${item.start}px)` }}
-              >
-                <TranscriptLine
-                  meeting={meeting}
-                  utterance={utterance}
-                  query={query}
-                  firstMatch={firstMatch[item.index] ?? 0}
-                  currentMatch={current}
-                  correctable={correctable}
-                  starred={starred.has(utterance.id)}
-                  onStar={onStar}
-                />
-              </li>
-            );
-          })}
-        </ol>
-        {recorder && <LivePreviews meeting={meeting} recorder={recorder} onChange={follow} />}
+      <MarkLegend
+        unsure={unsure}
+        correctable={correctable}
+        fixed={corrections.length}
+        action={undoAll}
+      />
+      {/* The lines and what floats over them share one box, so nothing floats over the tools above. */}
+      <div className="min-w-0">
+        <div role="region" aria-label={ui("Transcript")}>
+          {/* Finished lines and the sentences still being said grow together, and the page follows both. */}
+          <div ref={grows} className="scroll-mb-6">
+            <ol ref={list} className="relative" style={{ height: rows.getTotalSize() }}>
+              {rows.getVirtualItems().map((item) => {
+                const utterance = shown[item.index];
+                if (!utterance) return null;
+                // Starred lines stand apart in the meeting, so each one says whose it is.
+                const before = starredOnly ? undefined : shown[item.index - 1];
+                return (
+                  <li
+                    key={item.key}
+                    id={utterance.id}
+                    ref={rows.measureElement}
+                    data-index={item.index}
+                    aria-setsize={shown.length}
+                    aria-posinset={item.index + 1}
+                    // A line reached from the timeline stops clear of what is pinned above it: the shell header on a phone,
+                    // and from md up the recording bar, the tabs and the search as well.
+                    className="absolute inset-x-0 top-0 scroll-mt-16 md:scroll-mt-[calc(var(--meeting-pinned-top)+7rem)]"
+                    style={{
+                      transform: `translateY(${item.start - rows.options.scrollMargin}px)`,
+                    }}
+                  >
+                    <TranscriptLine
+                      meeting={meeting}
+                      utterance={utterance}
+                      continued={
+                        before?.track === utterance.track && before.speaker === utterance.speaker
+                      }
+                      query={query}
+                      firstMatch={firstMatch[item.index] ?? 0}
+                      currentMatch={matched}
+                      correctable={correctable}
+                      fixes={fixes.get(utterance.id)}
+                      starred={starred.has(utterance.id)}
+                      onStar={onStar}
+                    />
+                  </li>
+                );
+              })}
+            </ol>
+            {recorder && <LivePreviews meeting={meeting} recorder={recorder} />}
+          </div>
+        </div>
+        {/* The way back to what is being said stays at the foot of the window, over the lines. */}
+        <div className="pointer-events-none sticky bottom-4 z-10 flex h-0 items-end justify-end gap-2 *:pointer-events-auto">
+          {away && (
+            <Button size="sm" prominence="secondary" onClick={resume}>
+              <ArrowDown data-icon="inline-start" aria-hidden="true" />
+              {ui("Mới nhất")}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
+/** Taking the transcript away as a document, in either format. */
+function TranscriptDownload({ meeting }: { meeting: MeetingDetail }) {
+  const ui = useAppTranslation();
+  /** The file is named after the meeting, so a folder of them reads as a folder of meetings. */
+  const take = useMutation({
+    mutationFn: async (format: "DOCX" | "PDF") =>
+      (await exportMeetingTranscript({ path: { meetingId: meeting.id }, query: { format } })).data,
+    onSuccess: (file, format) =>
+      saveDocument(file, `transcript-${slug(meeting.title)}.${format === "PDF" ? "pdf" : "docx"}`),
+  });
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button prominence="tertiary" size="sm" pending={take.isPending}>
+          <FileDown data-icon="inline-start" aria-hidden="true" />
+          {ui("Tải về")}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={() => take.mutate("DOCX")}>{ui("Tải Word")}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => take.mutate("PDF")}>{ui("Tải PDF")}</DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** Searching the transcript, showing only the starred lines, and taking it away as a document. */
 function TranscriptTools({
-  meeting,
+  download,
   query,
   onQuery,
   total,
@@ -281,7 +412,7 @@ function TranscriptTools({
   starredOnly,
   onStarredOnly,
 }: {
-  meeting: MeetingDetail;
+  download: ReactNode;
   query: string;
   onQuery: (query: string) => void;
   /** Search hits across the whole transcript, and the one in view. */
@@ -293,27 +424,49 @@ function TranscriptTools({
   onStarredOnly: () => void;
 }) {
   const ui = useAppTranslation();
-  /** The file is named after the meeting, so a folder of them reads as a folder of meetings. */
-  const take = useMutation({
-    mutationFn: async (format: "DOCX" | "PDF") =>
-      (await exportMeetingTranscript({ path: { meetingId: meeting.id }, query: { format } })).data,
-    onSuccess: (file, format) =>
-      saveDocument(file, `transcript-${slug(meeting.title)}.${format === "PDF" ? "pdf" : "docx"}`),
-  });
+  const field = useRef<HTMLInputElement>(null);
+  // Only the lines in view are on the page, so the browser's own find misses most of a meeting: its shortcut
+  // opens this search instead, as does "/" outside a field.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const modified = event.ctrlKey || event.metaKey;
+      const find = modified && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f";
+      const slash = event.key === "/" && !modified && !event.altKey && !typing(event.target);
+      // A dialog over the page keeps the keyboard to itself.
+      if ((!find && !slash) || document.querySelector(OPEN_DIALOG)) return;
+      event.preventDefault();
+      field.current?.focus();
+      field.current?.select();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-48 flex-1 items-center gap-1">
         <Input
+          ref={field}
           value={query}
           onChange={(event) => onQuery(event.target.value)}
-          placeholder={ui("Tìm trong transcript")}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onJump(event.shiftKey ? -1 : 1);
+            } else if (event.key === "Escape" && query !== "") {
+              // The first Escape empties the search; the next one is the page's.
+              event.stopPropagation();
+              onQuery("");
+            }
+          }}
+          placeholder={ui("Tìm trong transcript (bấm /)")}
           aria-label={ui("Tìm trong transcript")}
+          aria-keyshortcuts="Control+F Meta+F /"
           size="sm"
-          className="w-56"
+          className="flex-1"
         />
         {query.trim() !== "" && (
           <>
-            <span className="text-xs text-content-muted tabular-nums">
+            <span role="status" className="text-xs text-content-muted tabular-nums">
               {total === 0 ? ui("Không thấy") : ui("{{at}}/{{total}}", { at: current + 1, total })}
             </span>
             <IconButton
@@ -347,87 +500,36 @@ function TranscriptTools({
             aria-hidden="true"
             className={starredOnly ? "fill-current" : undefined}
           />
-          {ui("Câu đã đánh dấu ({{count}})", { count: starredCount })}
+          {ui("Câu đã gắn sao ({{count}})", { count: starredCount })}
         </Button>
       )}
-      <div className="ml-auto flex items-center gap-1">
-        <Button
-          prominence="tertiary"
-          size="sm"
-          pending={take.isPending && take.variables === "DOCX"}
-          disabled={take.isPending}
-          onClick={() => take.mutate("DOCX")}
-        >
-          <FileDown data-icon="inline-start" aria-hidden="true" />
-          {ui("Tải Word")}
-        </Button>
-        <Button
-          prominence="tertiary"
-          size="sm"
-          pending={take.isPending && take.variables === "PDF"}
-          disabled={take.isPending}
-          onClick={() => take.mutate("PDF")}
-        >
-          <FileDown data-icon="inline-start" aria-hidden="true" />
-          {ui("Tải PDF")}
-        </Button>
-      </div>
+      {download}
     </div>
   );
 }
 
-/** The topics of the minutes, each opening the transcript on the line it starts at. */
-function TranscriptTimeline({
-  meeting,
-  onReach,
-}: {
-  meeting: MeetingDetail;
-  onReach: (line: Utterance) => void;
-}) {
-  const ui = useAppTranslation();
-  const topics = meeting.minutes.topics.flatMap((topic) => {
-    const line = meeting.utterances.find((utterance) => utterance.id === topic.sourceUtteranceId);
-    return line ? [{ topic, line }] : [];
-  });
-  if (topics.length === 0) return null;
-  return (
-    <nav aria-label={ui("Dòng thời gian")} className="rounded-xl border border-border-default p-2">
-      <h3 className="px-2 pt-1 pb-1.5 text-xs font-medium text-content-muted">
-        {ui("Dòng thời gian")}
-      </h3>
-      <ol className="grid gap-0.5">
-        {topics.map(({ topic, line }) => (
-          <li key={topic.id}>
-            <button
-              type="button"
-              className="flex w-full gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-surface-base"
-              onClick={() => onReach(line)}
-            >
-              <span className="w-18 shrink-0 font-mono text-xs text-content-muted tabular-nums">
-                {formatClock(line.startMs)}
-              </span>
-              <span className="min-w-0 flex-1 text-content-primary">{topic.text}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
-/** One line: when it was said, who said it, what they said with its search hits, and its star. */
+/**
+ * One line: what was said with its search hits, its star and when it was said. The line that opens a turn names
+ * the voice; the ones that follow show their time only to whoever is on them.
+ */
 function TranscriptLine({
   meeting,
   utterance,
+  continued,
   query,
   firstMatch,
   currentMatch,
   correctable,
+  fixes,
   starred,
   onStar,
 }: {
   meeting: MeetingDetail;
   utterance: Utterance;
+  /** The changes in force on this line. */
+  fixes: MeetingCorrection[] | undefined;
+  /** The line before this one was said by the same voice. */
+  continued: boolean;
   query: string;
   firstMatch: number;
   currentMatch: number;
@@ -438,13 +540,26 @@ function TranscriptLine({
 }) {
   const ui = useAppTranslation();
   return (
-    <div className="flex gap-3 rounded-lg px-2 py-2 hover:bg-surface-base">
-      <span className="w-18 shrink-0 pt-0.5 font-mono text-xs text-content-muted tabular-nums">
-        {formatClock(utterance.startMs)}
+    // A turn opens with its voice's badge in the margin and the name over what was said; the lines that follow sit
+    // under the same name. When each line was said is kept at the right, out of the way of the words.
+    <div
+      className={cn(
+        "group flex items-start gap-3 rounded-lg px-2 hover:bg-surface-base",
+        !continued && "mt-4",
+      )}
+    >
+      <span className="flex w-6 shrink-0 py-0.5">
+        {!continued && (
+          <SpeakerBadge meeting={meeting} track={utterance.track} label={utterance.speaker} />
+        )}
       </span>
-      <div className="min-w-0 flex-1">
-        <SpeakerChip meeting={meeting} track={utterance.track} label={utterance.speaker} />
-        <p className="mt-0.5 text-content-secondary">
+      <div className="min-w-0 flex-1 py-0.5">
+        {!continued && (
+          <p className="mb-0.5 text-xs font-medium text-content-muted">
+            {speakerName(meeting, utterance.track, utterance.speaker, ui)}
+          </p>
+        )}
+        <p className="text-content-primary">
           <Said
             text={utterance.text}
             spans={utterance.spans}
@@ -465,18 +580,43 @@ function TranscriptLine({
                   )
                 : undefined
             }
+            // A change is marked only where the line still reads as it left it.
+            fixes={fixes
+              ?.map(({ id, start, after }) => ({ id, start, end: start + after.length, after }))
+              .filter(({ start, end, after }) => utterance.text.slice(start, end) === after)}
+            fixed={(fix, mark) => {
+              const correction = fixes?.find((entry) => entry.id === fix.id);
+              return correction ? (
+                <AppliedCorrection meetingId={meeting.id} correction={correction}>
+                  {mark}
+                </AppliedCorrection>
+              ) : (
+                mark
+              );
+            }}
           />
         </p>
       </div>
-      <IconButton
-        size="sm"
-        className="shrink-0 self-start"
-        aria-pressed={starred}
-        aria-label={ui("Đánh dấu câu này")}
-        onClick={() => onStar(utterance.id, !starred)}
+      <span
+        className={cn(
+          "py-1 font-mono text-xs text-content-muted tabular-nums",
+          continued && hoverReveal,
+        )}
       >
-        <Star aria-hidden="true" className={starred ? "fill-current" : "opacity-40"} />
-      </IconButton>
+        {formatClock(utterance.startMs)}
+      </span>
+      {/* A starred line keeps its star in view; the others offer one to whoever is on the line. The star is
+          taller than a line of text and must not set the distance between the lines of a turn. */}
+      <span className={cn("-my-0.5 flex", !starred && hoverReveal)}>
+        <IconButton
+          size="sm"
+          aria-pressed={starred}
+          aria-label={ui("Gắn sao câu lúc {{time}}", { time: formatClock(utterance.startMs) })}
+          onClick={() => onStar(utterance.id, !starred)}
+        >
+          <Star aria-hidden="true" className={starred ? "fill-current" : undefined} />
+        </IconButton>
+      </span>
     </div>
   );
 }
@@ -494,36 +634,33 @@ function livePreviews(previews: RecorderSnapshot["previews"]) {
 function LivePreviews({
   meeting,
   recorder,
-  onChange,
 }: {
   meeting: MeetingDetail;
   recorder: MeetingRecorder;
-  onChange: () => void;
 }) {
   const ui = useAppTranslation();
   // The recorder replaces its previews only when a sentence changes, so this reference is stable in between.
   const previews = useRecorderValue(recorder, (snapshot) => snapshot.previews);
   const said = livePreviews(previews);
-  // A sentence growing by a word lengthens the list, so the view is asked to keep following it.
-  useLayoutEffect(onChange, [previews, onChange]);
   if (said.length === 0) return null;
   return (
     <ol>
       {said.map(([track, preview]) => (
-        <li key={track} className="flex gap-3 px-2 py-2">
-          <span className="w-18 shrink-0 pt-0.5 text-xs text-content-muted">{ui("đang nói")}</span>
+        <li key={track} className="mt-4 flex items-start gap-3 px-2 py-0.5">
+          <SpeakerBadge
+            meeting={meeting}
+            track={track}
+            label={preview.speaker || "1"}
+            className="opacity-60"
+          />
           <div className="min-w-0 flex-1">
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-content-muted">
-              <span
-                className={cn(
-                  "size-2.5 rounded-full opacity-60",
-                  speakerColor(meeting, track, preview.speaker || "1"),
-                )}
-                aria-hidden="true"
-              />
-              {speakerName(meeting, track, preview.speaker || "1", ui)}
-            </span>
-            <p className="mt-0.5 text-content-muted italic">{preview.text}…</p>
+            <p className="flex items-center gap-2 text-sm text-content-muted">
+              <span className="font-medium">
+                {speakerName(meeting, track, preview.speaker || "1", ui)}
+              </span>
+              <span className="text-xs">{ui("đang nói")}</span>
+            </p>
+            <p className="text-content-muted italic">{preview.text}…</p>
           </div>
         </li>
       ))}

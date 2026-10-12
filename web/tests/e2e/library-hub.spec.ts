@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { ChatLibraryEntry, ChatLibrarySource } from "../../src/lib/hey-api/types.gen.ts";
+import type {
+  ChatLibraryEntry,
+  ChatLibraryFile,
+  ChatLibrarySource,
+} from "../../src/lib/hey-api/types.gen.ts";
 import { expectNoSeriousA11yViolations } from "./axe";
 
 const me = "e62a621f-41d2-4853-aa76-b600dafd8e34";
@@ -109,7 +113,7 @@ const readable: ChatLibrarySource[] = [
 ];
 
 /** The library's routes, with the requests the page sent to the ones a test asserts on. */
-async function mockLibrary(page: Page, capabilities: string[] = []) {
+async function mockLibrary(page: Page, capabilities: string[] = [], files: ChatLibraryFile[] = []) {
   const sent = { stars: [] as string[], documentCursors: [] as (string | null)[] };
   const entryPage = (items: ChatLibraryEntry[]) => ({
     items,
@@ -133,7 +137,12 @@ async function mockLibrary(page: Page, capabilities: string[] = []) {
       switch (path) {
         case "":
           return route.fulfill({
-            json: { items: [], totalCount: 0, totalBytes: 0, hasMore: false },
+            json: {
+              items: files,
+              totalCount: files.length,
+              totalBytes: files.reduce((sum, file) => sum + file.sizeBytes, 0),
+              hasMore: false,
+            },
           });
         case "/usage":
           return route.fulfill({
@@ -270,4 +279,67 @@ test("pages the organisation's documents with Tải thêm", async ({ page }) => 
   await expectNoSeriousA11yViolations(page);
   await expect(page.getByRole("button", { name: "Tải thêm" })).toHaveCount(0);
   expect(sent.documentCursors).toEqual([null, "next-2"]);
+});
+
+test("a phone row keeps a long name to one line that shows its start and its end", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const filename = "bao-cao-tai-chinh-quy-3-2026.xlsx";
+  await mockLibrary(
+    page,
+    [],
+    [
+      {
+        source: "UPLOAD",
+        id: "70000000-0000-4000-8000-000000000201",
+        filename,
+        mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        sizeBytes: 482_304,
+        createdAt: "2026-10-03T02:00:00Z",
+        category: "SPREADSHEET",
+        sessionId: null,
+        sessionTitle: null,
+        messageId: null,
+        favorite: false,
+        status: "READY",
+        errorCode: null,
+        deletedAt: null,
+        purgeAfter: null,
+        usedBy: [],
+        deletable: true,
+      },
+    ],
+  );
+  await openLibrary(page);
+  await tabs(page).getByRole("tab", { name: "Của tôi" }).click();
+  // The middle is what gives way: the end, which tells one version from another, stays on screen.
+  const end = row(page, filename).getByText("-2026.xlsx", { exact: true });
+  await expect(end).toBeVisible();
+  const start = row(page, filename).getByText("bao-cao-tai-chinh-quy-3", { exact: true });
+  await expect(start).toBeVisible();
+  expect((await start.boundingBox())?.y).toBe((await end.boundingBox())?.y);
+  // A screen reader still reads the whole name; starring and downloading are in the row's menu.
+  await expect(page.getByRole("button", { name: filename, exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Tải về ${filename}` })).toBeHidden();
+  await expect(page.getByRole("button", { name: `Gắn sao ${filename}` })).toBeHidden();
+  await page.getByRole("button", { name: `Thao tác với ${filename}` }).click();
+  await expect(page.getByRole("menuitem", { name: "Thêm sao" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Tải về" })).toBeVisible();
+  await page.screenshot({ path: "../output/playwright/library-row-phone.png" });
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("a tab and a view choice are tall enough for a finger", async ({ page }) => {
+    await mockLibrary(page);
+    await openLibrary(page);
+    const mine = tabs(page).getByRole("tab", { name: "Của tôi" });
+    await mine.click();
+    for (const target of [mine, page.getByRole("radio", { name: "Thùng rác" })]) {
+      await expect(target).toBeVisible();
+      expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
 });

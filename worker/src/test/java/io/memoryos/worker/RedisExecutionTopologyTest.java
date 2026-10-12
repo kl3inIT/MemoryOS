@@ -22,6 +22,7 @@ class RedisExecutionTopologyTest {
                     Duration.ofSeconds(2),
                     Duration.ofSeconds(10),
                     Duration.ofMinutes(2),
+                    Duration.ofSeconds(100),
                     1_000,
                     new RedisExecutionProperties.Workload("ingestion", "ingestion-workers", 8),
                     new RedisExecutionProperties.Workload("cleanup", "cleanup-workers", 8),

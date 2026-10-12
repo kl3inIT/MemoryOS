@@ -55,6 +55,13 @@ function WebAvailabilityNote({ support }: { support: ReturnType<typeof useWebSup
     return (
       <p className="px-2 py-1 text-xs text-content-muted">{ui("Chưa kết nối công cụ tìm kiếm.")}</p>
     );
+  // The organization can search, so the row is off because of the model: it neither hosts search nor calls tools.
+  if (!support.available.isPending && !support.supported("auto"))
+    return (
+      <p className="px-2 py-1 text-xs text-content-muted">
+        {ui("Mô hình đang chọn không dùng được tìm kiếm Web.")}
+      </p>
+    );
   return null;
 }
 
@@ -155,7 +162,12 @@ export function ChatWebModes({
       </ToggleGroup>
       <WebAvailabilityNote support={support} />
       {support.canManage && (
-        <Link to="/admin/web-search" className={menuRow} onClick={onDone}>
+        <Link
+          to="/admin/ai-providers"
+          search={{ tab: "web-search" }}
+          className={menuRow}
+          onClick={onDone}
+        >
           <Settings aria-hidden="true" />
           {ui("Cài đặt Web")}
         </Link>

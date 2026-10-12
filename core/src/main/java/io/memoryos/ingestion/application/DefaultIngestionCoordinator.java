@@ -19,7 +19,9 @@ import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.StoredObjectRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +34,10 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultIngestionCoordinator.class);
     private static final int MAX_PROCESSING_ATTEMPTS = 3;
     private static final Duration RETRY_BACKOFF = Duration.ofSeconds(5);
+    // An extraction service that restarts is back within minutes, not seconds: its container starts and loads
+    // its models again. One wait per retry, about half an hour in all, after which the document fails.
+    private static final List<Duration> UNAVAILABLE_BACKOFF = List.of(Duration.ofSeconds(30),
+            Duration.ofMinutes(2), Duration.ofMinutes(5), Duration.ofMinutes(10), Duration.ofMinutes(15));
     private static final long LEASE_RENEWAL_SECONDS = 30;
 
     private final ConnectorIndexingPort indexingPort;
@@ -133,6 +139,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 failureStage = "SOURCE_EXTRACTION";
                 logIndexStage(failureStage, started);
                 content = extractor.extract(
+                        work.tenantId(),
                         objectContent.inputStream(),
                         expected.sizeBytes(),
                         work.object().filename(),
@@ -166,18 +173,34 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     .log("Rolled back stale index publication");
             return Outcome.SKIPPED;
         } catch (ExtractionException exception) {
+            if (Thread.currentThread().isInterrupted()) throw leftForReclaim(exception);
+            String errorCode = "SOURCE_EXTRACTION_" + exception.failure().name();
+            boolean retryable = exception.failure().retryable();
             LOGGER.atWarn().addKeyValue("event", "ingestion.extraction.failed")
-                    .addKeyValue("error_code", "SOURCE_EXTRACTION_" + exception.failure().name())
+                    .addKeyValue("error_code", errorCode)
                     .addKeyValue("stage", failureStage)
+                    .addKeyValue("retryable", retryable)
                     .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Extraction failed");
-            if (!indexingPort.fail(work, "SOURCE_EXTRACTION_" + exception.failure().name(),
-                    exception.getMessage(), FailureEvidence.detail(exception))) {
+            boolean recorded;
+            if (retryable) {
+                // The attempt that follows the last wait is the one that fails the document.
+                boolean exhausted = work.attempt() > UNAVAILABLE_BACKOFF.size();
+                recorded = indexingPort.retry(work, errorCode, exception.getMessage(),
+                        FailureEvidence.detail(exception), UNAVAILABLE_BACKOFF.size() + 1,
+                        UNAVAILABLE_BACKOFF.get(Math.clamp(work.attempt(), 1, UNAVAILABLE_BACKOFF.size()) - 1));
+                if (recorded) metrics.extractionUnavailable(exhausted);
+            } else {
+                recorded = indexingPort.fail(work, errorCode, exception.getMessage(),
+                        FailureEvidence.detail(exception));
+            }
+            if (!recorded) {
                 LOGGER.atDebug().addKeyValue("event", "ingestion.extraction.failure.stale")
                     .log("Ignored stale typed extraction failure");
             }
             return Outcome.FAILED;
         } catch (RuntimeException exception) {
+            if (Thread.currentThread().isInterrupted()) throw leftForReclaim(exception);
             String errorCode = failureStage + "_" + (exception instanceof ObjectStorageException storageFailure
                     ? SourceStorageFailure.code(storageFailure) : "INTERNAL");
             LOGGER.atWarn().addKeyValue("event", "ingestion.retry.requested")
@@ -200,6 +223,16 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         } finally {
             renewal.cancel(false);
         }
+    }
+
+    /**
+     * Work cut off because the Worker is stopping is not the document's failure: nothing is recorded, the delivery stays
+     * pending, and the work is read again once its lease lapses. An extractor keeps the interrupt when it reports one.
+     */
+    static CancellationException leftForReclaim(Exception cause) {
+        var cancelled = new CancellationException("Work stopped with the Worker; left to its lease");
+        cancelled.initCause(cause);
+        return cancelled;
     }
 
     private static void logIndexStage(String stage, long started) {

@@ -173,6 +173,7 @@ import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ContentDisposition;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -347,7 +348,8 @@ class ChatSessionApiIntegrationTest {
         var settings = Json.mapper().createObjectNode().put("contextWindow", known.contextWindow())
                 .put("maxOutputTokens", known.maxOutputTokens()).put("tokenizerProfile", "openai-o200k-v1");
         settings.putObject("capabilities").put("streaming", true).put("toolCalling", known.capabilities().toolCalling())
-                .put("vision", known.capabilities().vision()).put("reasoning", known.capabilities().reasoning());
+                .put("vision", known.capabilities().vision()).put("reasoning", known.capabilities().reasoning())
+                .put("structuredOutput", known.capabilities().structuredOutput());
         settings.putObject("options").put("maxCompletionTokens", known.capabilities().reasoning());
         var pricing = settings.putObject("pricing").put("inputPerMillion", known.pricing().inputPerMillion())
                 .put("outputPerMillion", known.pricing().outputPerMillion());
@@ -369,7 +371,7 @@ class ChatSessionApiIntegrationTest {
         var known = Objects.requireNonNull(ModelResolver.findKnown(DEFAULT_MODEL, providerAdapter.knownModels()));
         var settings = new ModelSettings(known.contextWindow(), known.maxOutputTokens(),
                 new ModelSettings.Capabilities(true, known.capabilities().toolCalling(), known.capabilities().vision(),
-                        known.capabilities().reasoning()),
+                        known.capabilities().reasoning(), false),
                 Map.of("maxCompletionTokens", known.capabilities().reasoning()), known.pricing(), "openai-o200k-v1");
         return new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters).create(
                 new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, limits.providerReadTimeout());
@@ -723,8 +725,8 @@ class ChatSessionApiIntegrationTest {
         var reader = actor();
         UUID agent = UUID.randomUUID();
         jdbc.sql("""
-                INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model,file_ids)
-                VALUES (:id,:tenant,:owner,'Trợ lý nhân sự','','model',CAST(:files AS jsonb))
+                INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,file_ids)
+                VALUES (:id,:tenant,:owner,'Trợ lý nhân sự','',CAST(:files AS jsonb))
                 """).param("id", agent).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value())
                 .param("files", "[\"" + id + "\"]").update();
         jdbc.sql("INSERT INTO persona_user_share(tenant_id,persona_id,actor_id,permission) VALUES (:tenant,:agent,:actor,'VIEWER')")
@@ -1361,10 +1363,6 @@ class ChatSessionApiIntegrationTest {
             if (text.contains("provide a set of keyword only queries")) return response("{\"queries\":[]}", "stop", 7);
             if (text.contains("You scope an internal search to a time filter")) return response("{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
             assertTrue(text.contains("Annual leave is twelve days."));
-            if (text.contains("# Main Section:")) {
-                assertTrue(text.contains("Employee handbook"));
-                return response("{\"classification\":\"INCLUDE_ADJACENT_SECTIONS\"}", "stop", 7);
-            }
             return response("{\"sections\":[1]}", "stop", 7);
         });
         var calls = new AtomicInteger();
@@ -1377,6 +1375,7 @@ class ChatSessionApiIntegrationTest {
                     ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                     ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
             assertTrue(prompt.toString().contains("[1] HR policy"));
+            assertTrue(prompt.toString().contains("Employee handbook"));
             assertTrue(prompt.getContents().contains("cite relevant statements INLINE"));
             return Flux.just(response("Annual leave is twelve days [1].", "stop", 12));
         });
@@ -1388,8 +1387,8 @@ class ChatSessionApiIntegrationTest {
         assertEquals("Annual leave is twelve days [1].", saved.path("content").asText());
         assertEquals(document.toString(), saved.path("sources").get(0).path("documentId").asText());
         assertEquals(generation.toString(), saved.path("sources").get(0).path("generation").asText());
-        assertEquals(59L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id").param("id", UUID.fromString(id)).query(Long.class).single());
-        verify(model, times(5)).call(any(Prompt.class));
+        assertEquals(52L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id=:id").param("id", UUID.fromString(id)).query(Long.class).single());
+        verify(model, times(4)).call(any(Prompt.class));
         verify(model, times(2)).stream(any(Prompt.class));
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
@@ -1419,7 +1418,6 @@ class ChatSessionApiIntegrationTest {
             if (text.contains("provide a standalone query")) return response("{\"query\":\"leave\"}", "stop", 7);
             if (text.contains("provide a set of keyword only queries")) return response("{\"queries\":[]}", "stop", 7);
             if (text.contains("You scope an internal search to a time filter")) return response("{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
-            if (text.contains("# Main Section:")) return response("{\"classification\":\"MAIN_SECTION_ONLY\"}", "stop", 7);
             return response("{\"sections\":[1]}", "stop", 7);
         });
         var phases = new ConcurrentHashMap<String, AtomicInteger>();
@@ -2332,7 +2330,7 @@ class ChatSessionApiIntegrationTest {
             for (int i = 0; i < 27; i++) {
                 UUID id = i == 0 ? UUID.fromString("abcdef00-0000-4000-8000-000000000001") : UUID.randomUUID();
                 seeded.add(id);
-                jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model) VALUES (:id,:tenant,:owner,'Duplicate name','private instruction','legacy model')")
+                jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions) VALUES (:id,:tenant,:owner,'Duplicate name','private instruction')")
                         .param("id", id).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value()).update();
             }
             var first = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-personas").with(authentication(actor)))
@@ -2388,8 +2386,8 @@ class ChatSessionApiIntegrationTest {
         try {
             for (var entry : owners.entrySet()) {
                 jdbc.sql("""
-                        INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model)
-                        VALUES (:id,:tenant,:owner,'Private assistant','Private instructions','legacy')
+                        INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions)
+                        VALUES (:id,:tenant,:owner,'Private assistant','Private instructions')
                         """).param("id", entry.getKey()).param("tenant", TENANT).param("owner", entry.getValue()).update();
             }
             jdbc.sql("UPDATE persona SET deleted_at=CURRENT_TIMESTAMP WHERE id IN (:ids)")
@@ -2474,7 +2472,8 @@ class ChatSessionApiIntegrationTest {
         var local = modelBody("local-profile", 0.2);
         var settings = (ObjectNode) local.path("settings");
         settings.put("tokenizerProfile", "openai-o200k-v1").put("contextWindow", 1024).put("maxOutputTokens", 128);
-        settings.putObject("capabilities").put("streaming", true).put("toolCalling", false).put("vision", false).put("reasoning", false);
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", false).put("vision", false).put("reasoning", false)
+                .put("structuredOutput", false);
         var saved = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(local.toString())).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
@@ -2653,7 +2652,7 @@ class ChatSessionApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString().contains(modelId));
         // A second Persona excludes the selected session even for the model manager.
         UUID differentPersona = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model) VALUES (:id,:tenant,:owner,'Other','','model')")
+        jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions) VALUES (:id,:tenant,:owner,'Other','')")
                 .param("id", differentPersona).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value()).update();
         update.putArray("personaIds").add(differentPersona.toString());
         mockMvc.perform(put("/api/chat/providers/" + provider.path("id").asText()).param("revision", "2")
@@ -2758,6 +2757,66 @@ class ChatSessionApiIntegrationTest {
                 + " AND actor_id = :actor").param("actor", actor.getPrincipal().actorId().value()).query(Long.class).single());
         assertEquals(0L, jdbc.sql("SELECT count(*) FROM audit_event WHERE details::text LIKE '%fixture-byok%'")
                 .query(Long.class).single(), "a provider key is never recorded");
+    }
+
+    @Test
+    void systemOneConnectionsAreModelManagersAndAClassifyingTaskRunsOnOne() throws Exception {
+        grantModelManagement();
+        mockMvc.perform(get("/api/chat/system-one/connections").with(authentication(other))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/system-one/types").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(5))
+                .andExpect(jsonPath("$[?(@.provider == 'CLOUDFLARE')].endpoint").value("ACCOUNT"))
+                .andExpect(jsonPath("$[?(@.provider == 'LAYA')].requiresKey").value(false));
+        var body = Json.mapper().createObjectNode().put("name", "9Router Jev").put("endpoint", "http://9router.internal:20128/v1")
+                .put("model", "openrouter/typesafe/jev-1.13").put("credentialAction", "REPLACE")
+                .put("credentialValue", "fixture-system-one-key").put("dataBoundary", "EXTERNAL").put("inputPrice", 0.042)
+                .put("revision", 0);
+        var created = Json.mapper().readTree(mockMvc.perform(post("/api/chat/system-one/types/NINEROUTER/connections")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.credentialConfigured").value(true))
+                .andExpect(jsonPath("$.credentialValue").doesNotExist())
+                .andReturn().getResponse().getContentAsString());
+        String id = created.path("id").asText();
+        // A second connection of the same type is allowed; the same name is not.
+        mockMvc.perform(post("/api/chat/system-one/types/NINEROUTER/connections").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/chat/system-one/types/NINEROUTER/connections").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(body.deepCopy().put("name", "9Router Clef").put("model", "cloudflare/clef-flash").toString()))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/chat/system-one/connections").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+
+        JsonNode guardrail = null;
+        for (var flow : Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
+                .andReturn().getResponse().getContentAsString()))
+            if ("CHAT_GUARDRAIL".equals(flow.path("flow").asText())) guardrail = flow;
+        assertNotNull(guardrail);
+        var task = Json.mapper().createObjectNode().put("connectionId", id).put("revision", guardrail.path("revision").asLong());
+        mockMvc.perform(put("/api/chat/system-one/tasks/CHAT_NAMING").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(task.toString()))
+                .andExpect(status().isBadRequest());
+        var assigned = Json.mapper().readTree(mockMvc.perform(put("/api/chat/system-one/tasks/CHAT_GUARDRAIL")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(task.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.systemOneConnectionId").value(id))
+                .andExpect(jsonPath("$.modelConfigurationId").isEmpty())
+                .andReturn().getResponse().getContentAsString());
+        // A connection a task runs on stays; returning the task to a model releases it.
+        mockMvc.perform(delete("/api/chat/system-one/connections/" + id).with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
+        mockMvc.perform(put("/api/chat/model-flows/CHAT_GUARDRAIL").param("revision", assigned.path("revision").asText())
+                        .param("modelConfigurationId", guardrail.path("modelConfigurationId").asText())
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.systemOneConnectionId").isEmpty());
+        mockMvc.perform(delete("/api/chat/system-one/connections/" + id).with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM audit_event WHERE details::text LIKE '%fixture-system-one-key%'")
+                .query(Long.class).single(), "a connection key is never recorded");
+        assertEquals(3L, jdbc.sql("SELECT count(*) FROM audit_event WHERE action = 'system_one_connection.change'")
+                .query(Long.class).single());
     }
 
     @Test
@@ -4214,10 +4273,13 @@ class ChatSessionApiIntegrationTest {
     @Test
     void endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn() throws Exception {
         var prompts = new LinkedBlockingQueue<String>();
+        var schemas = new LinkedBlockingQueue<String>();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
             String text = call.getArgument(0, Prompt.class).getInstructions().stream()
                     .map(Message::getText).collect(Collectors.joining("\n"));
             prompts.add(text);
+            if (call.getArgument(0, Prompt.class).getOptions() instanceof OpenAiChatOptions options
+                    && options.getOutputSchema() != null) schemas.add(options.getOutputSchema());
             return response("""
                     {"summary":"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.","kind":"Giao ban tuần",
                      "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
@@ -4259,6 +4321,11 @@ class ChatSessionApiIntegrationTest {
                         assertEquals("READY", Json.mapper().readTree(body).path("minutes").path("status").asText());
                         ready.set(body);
                     });
+            // MEM-225: the fixture model declares structured output, so the request that reached the provider through
+            // Embabel carried the schema of the minutes, every field required.
+            var schema = Json.mapper().readTree(Objects.requireNonNull(schemas.poll(), "no schema reached the provider"));
+            assertEquals("array", schema.path("properties").path("decisions").path("type").asText());
+            assertEquals(5, schema.path("properties").path("actions").path("items").path("required").size());
             var minutes = Json.mapper().readTree(ready.get()).path("minutes");
             assertEquals("Cuộc họp chốt ngân sách quý 4 trước thứ Năm.", minutes.path("summary").asText());
             assertEquals("Giao ban tuần", minutes.path("kind").asText());
@@ -5953,7 +6020,8 @@ class ChatSessionApiIntegrationTest {
         var body = Json.mapper().createObjectNode().put("modelName", name).put("displayName", name).put("visible", true);
         var settings = body.putObject("settings").put("contextWindow", 8192).put("maxOutputTokens", 512)
                 .put("tokenizerProfile", "openai-o200k-v1");
-        settings.putObject("capabilities").put("streaming", true).put("toolCalling", true).put("vision", false).put("reasoning", false);
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", true).put("vision", false).put("reasoning", false)
+                .put("structuredOutput", false);
         settings.putObject("options").put("maxCompletionTokens", false).put("temperature", temperature);
         return body;
     }
@@ -6236,7 +6304,6 @@ class ChatSessionApiIntegrationTest {
                 new SearchHit(contractor, generation, 2, titles.get(contractor), "text/plain", corpus.get(contractor).get(2), "[]", Instant.EPOCH, .95),
                 new SearchHit(policy, generation, 2, titles.get(policy), "text/plain", corpus.get(policy).get(2), "[]", Instant.EPOCH, .9)));
         var semanticOutputs = new CopyOnWriteArrayList<String>();
-        var contextChoices = new CopyOnWriteArrayList<String>();
         var helperReceipts = new CopyOnWriteArrayList<Map<String, Object>>();
         when(searchIndex.identity()).thenReturn("live-grounding-corpus");
         when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<SearchQuery>>getArgument(1)
@@ -6271,10 +6338,8 @@ class ChatSessionApiIntegrationTest {
                 var response = provider.call(request);
                 assertNotNull(response.getResult());
                 String output = response.getResult().getOutput().getText();
-                helperReceipts.add(Map.of("classification", request.getContents().contains("# Section Above:"),
-                        "hasNeighborFact", request.getContents().contains("17"), "output", output == null ? "" : output,
+                helperReceipts.add(Map.of("hasNeighborFact", request.getContents().contains("17"), "output", output == null ? "" : output,
                         "ms", (System.nanoTime() - started) / 1_000_000));
-                if (request.getContents().contains("# Section Above:")) contextChoices.add(output);
                 if (request.getContents().contains("provide a standalone query")) {
                     var result = response.getResult();
                     assertNotNull(result);
@@ -6287,7 +6352,7 @@ class ChatSessionApiIntegrationTest {
             var first = groundedReply(session, session.path("rootMessageId").asText(),
                     "Theo chính sách AV-42, nhân viên chính thức có bao nhiêu ngày nghỉ phép mỗi năm? Chỉ trả lời số ngày và trích dẫn nguồn.");
             String answer = first.path("content").asText();
-            assertTrue(answer.contains("17"), answer + "; context choices=" + contextChoices);
+            assertTrue(answer.contains("17"), answer);
             assertFalse(answer.contains("26") || answer.contains("99"), answer);
             assertGroundedCitation(first, policy);
             int rewritesBeforeFollowUp = semanticOutputs.size();

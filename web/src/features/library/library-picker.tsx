@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatUiDay } from "@/i18n/format";
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { Check, FileText, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -264,7 +265,7 @@ function PickerBody({
                   {[
                     sourceLabels[file.source],
                     fileSize(file.sizeBytes, i18n.language),
-                    new Date(file.createdAt).toLocaleDateString(i18n.language),
+                    formatUiDay(file.createdAt),
                     file.sessionTitle,
                   ]
                     .filter(Boolean)

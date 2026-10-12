@@ -108,6 +108,15 @@ it("shows only the administration pages the session may open, in their sections"
   expect(screen.getByText("History page")).toBeInTheDocument();
 });
 
+it("lists every administration section open, with no control to fold one", async () => {
+  await renderShell("/admin/chat-history", ["AUDIT_READ", "CHAT_HISTORY_READ"]);
+
+  const navigation = await screen.findByRole("navigation", { name: "Administration navigation" });
+  expect(within(navigation).getByRole("group", { name: "Organization" })).toBeInTheDocument();
+  expect(within(navigation).getByRole("group", { name: "Monitoring" })).toBeInTheDocument();
+  expect(within(navigation).queryByRole("button")).not.toBeInTheDocument();
+});
+
 it("names the person on the account button and keeps the role in its menu", async () => {
   const user = userEvent.setup();
   await renderShell("/admin/audit", ["AUDIT_READ"], "Nhữ Nhật");

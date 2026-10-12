@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 
-/** A new connection prefilled for one vendor, gateway or server; every preset speaks the OpenAI protocol. */
-export type ProviderPreset = { name: string; baseUrl?: string };
+/** A new connection prefilled for one vendor, gateway or server; a preset without an adapter speaks the OpenAI protocol. */
+export type ProviderPreset = { name: string; baseUrl?: string; adapterType?: string };
 
 type PresetCard = ProviderPreset & { subtitle: AppCopy; logo: ReactNode };
 
@@ -22,7 +22,8 @@ const vendors: PresetCard[] = [
   {
     name: "Claude",
     subtitle: "Claude models from Anthropic.",
-    baseUrl: "https://api.anthropic.com/v1",
+    baseUrl: "https://api.anthropic.com",
+    adapterType: "anthropic",
     logo: <ProviderLogo mark="ANTHROPIC" />,
   },
 ];
@@ -67,49 +68,60 @@ const selfHosted: PresetCard[] = [
   },
 ];
 
+type PresetGridProps = {
+  disabled: boolean;
+  /** The names of the saved connections; a preset that already has one offers another instead of the first. */
+  connected: ReadonlySet<string>;
+  onConnect: (preset: ProviderPreset) => void;
+};
+
 function PresetGrid({
   presets,
   disabled,
+  connected,
   onConnect,
-}: {
-  presets: PresetCard[];
-  disabled: boolean;
-  onConnect: (preset: ProviderPreset) => void;
-}) {
+}: PresetGridProps & { presets: PresetCard[] }) {
   const ui = useAppTranslation();
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      {presets.map((preset) => (
-        <ProviderCard
-          key={preset.name}
-          logo={preset.logo}
-          name={preset.name}
-          description={ui(preset.subtitle)}
-          actions={
-            <Button
-              size="sm"
-              prominence="secondary"
-              disabled={disabled}
-              aria-label={ui(appText("Connect {{name}}", { name: preset.name }))}
-              onClick={() => onConnect({ name: preset.name, baseUrl: preset.baseUrl })}
-            >
-              {ui("Connect")}
-            </Button>
-          }
-        />
-      ))}
+      {presets.map((preset) => {
+        const another = connected.has(preset.name.toLowerCase());
+        return (
+          <ProviderCard
+            key={preset.name}
+            logo={preset.logo}
+            name={preset.name}
+            description={ui(preset.subtitle)}
+            actions={
+              <Button
+                size="sm"
+                prominence="secondary"
+                disabled={disabled}
+                aria-label={ui(
+                  another
+                    ? appText("Add another {{name}} connection", { name: preset.name })
+                    : appText("Connect {{name}}", { name: preset.name }),
+                )}
+                onClick={() =>
+                  onConnect({
+                    name: preset.name,
+                    baseUrl: preset.baseUrl,
+                    adapterType: preset.adapterType,
+                  })
+                }
+              >
+                {another ? ui("Add another") : ui("Connect")}
+              </Button>
+            }
+          />
+        );
+      })}
     </div>
   );
 }
 
 /** Onyx's provider grid: popular vendors, then gateways, then self-hosted and custom endpoints. */
-export function AddProviderSection({
-  disabled,
-  onConnect,
-}: {
-  disabled: boolean;
-  onConnect: (preset: ProviderPreset) => void;
-}) {
+export function AddProviderSection(grid: PresetGridProps) {
   const ui = useAppTranslation();
   return (
     <section aria-labelledby="add-connection" className="flex flex-col gap-6">
@@ -118,14 +130,14 @@ export function AddProviderSection({
         title={ui("Add Provider")}
         description={ui("MemoryOS supports both popular providers and self-hosted models.")}
       />
-      <PresetGrid presets={vendors} disabled={disabled} onConnect={onConnect} />
+      <PresetGrid presets={vendors} {...grid} />
       <div className="flex flex-col gap-2">
         <h3 className="font-main-ui-action text-content-secondary">{ui("Gateways & Routers")}</h3>
-        <PresetGrid presets={gateways} disabled={disabled} onConnect={onConnect} />
+        <PresetGrid presets={gateways} {...grid} />
       </div>
       <div className="flex flex-col gap-2">
         <h3 className="font-main-ui-action text-content-secondary">{ui("Self-hosted & Custom")}</h3>
-        <PresetGrid presets={selfHosted} disabled={disabled} onConnect={onConnect} />
+        <PresetGrid presets={selfHosted} {...grid} />
       </div>
     </section>
   );

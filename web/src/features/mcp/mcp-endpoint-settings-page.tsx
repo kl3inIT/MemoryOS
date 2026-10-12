@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatUiDate } from "@/i18n/format";
+import { formatUiDay } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ApiError } from "@/lib/api";
 import {
@@ -186,7 +186,7 @@ function GrantsSection() {
                   </span>
                   <span className="block whitespace-nowrap sm:inline">
                     {ui("Cấp ngày {{date}}", {
-                      date: formatUiDate(grant.grantedAt, { dateStyle: "medium" }),
+                      date: formatUiDay(grant.grantedAt),
                     })}
                   </span>
                 </>

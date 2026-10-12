@@ -1,7 +1,5 @@
-import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@tanstack/react-form";
-import { Pencil } from "lucide-react";
 import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { FieldGroup } from "@/components/ui/field";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -24,21 +21,21 @@ import {
 
 /**
  * The name and the people, filled in once the meeting is running: the start form asks only what the recording needs,
- * and Fireflies names a recording on the recording page for the same reason.
+ * and Fireflies names a recording on the recording page for the same reason. It opens from the header's menu.
  */
-export function MeetingDetailsDialog({ meeting }: { meeting: MeetingDetail }) {
-  const ui = useAppTranslation();
-  const [open, setOpen] = useState(false);
+export function MeetingDetailsDialog({
+  meeting,
+  open,
+  onOpenChange,
+}: {
+  meeting: MeetingDetail;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button prominence="secondary">
-          <Pencil data-icon="inline-start" aria-hidden="true" />
-          {ui("Sửa thông tin")}
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Mounted per opening, so the form starts from the meeting as it is now. */}
-      {open && <DetailsForm meeting={meeting} onClose={() => setOpen(false)} />}
+      {open && <DetailsForm meeting={meeting} onClose={() => onOpenChange(false)} />}
     </Dialog>
   );
 }

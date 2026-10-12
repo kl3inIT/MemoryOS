@@ -174,6 +174,10 @@ export const vi = {
     unavailable: "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
     voiceProviderUnavailable:
       "Không kết nối được nhà cung cấp giọng nói hoặc khóa bị từ chối. Kiểm tra địa chỉ, khóa và mô hình rồi thử lại.",
+    systemOneUnavailable:
+      "Không kết nối được dịch vụ System One, khóa bị từ chối hoặc dịch vụ không trả lời. Kiểm tra địa chỉ, khóa và model rồi thử lại.",
+    systemOneInUse:
+      "Kiểm tra câu hỏi đang chạy bằng kết nối này. Hãy chọn kết nối khác cho nó trước.",
     chatProviderUnavailable:
       "Nhà cung cấp mô hình từ chối yêu cầu hoặc không kết nối được. Kiểm tra nhà cung cấp và mô hình rồi gửi lại.",
     chatModelNotConfigured: "Chưa có model nào. Quản trị viên thêm model ở trang Mô hình.",

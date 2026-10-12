@@ -854,6 +854,28 @@ public class MeetingRepository {
                 .param("actor", actor).query(MeetingRepository::correction).single();
     }
 
+    /**
+     * A line was rewritten between {@code start} and {@code end}, so the other proposals on it are kept pointing at
+     * their words: one still undecided over the rewritten words was offered for words that are gone and is recorded
+     * as declined, and whatever stands after the change moves with it.
+     */
+    public void realign(UUID tenant, UUID utterance, UUID changed, int start, int end, int delta, UUID actor) {
+        jdbc.sql("""
+                UPDATE meeting_correction
+                SET status = 'KEPT', decided_at = CURRENT_TIMESTAMP, decided_by = :actor
+                WHERE tenant_id = :tenant AND utterance_id = :utterance AND id <> :changed AND status = 'PENDING'
+                  AND span_start < :end AND span_end > :start
+                """).param("tenant", tenant).param("utterance", utterance).param("changed", changed)
+                .param("start", start).param("end", end).param("actor", actor).update();
+        if (delta == 0) return;
+        jdbc.sql("""
+                UPDATE meeting_correction SET span_start = span_start + :delta, span_end = span_end + :delta
+                WHERE tenant_id = :tenant AND utterance_id = :utterance AND id <> :changed
+                  AND status IN ('PENDING', 'ACCEPTED') AND span_start >= :end
+                """).param("tenant", tenant).param("utterance", utterance).param("changed", changed)
+                .param("end", end).param("delta", delta).update();
+    }
+
     /** One utterance, locked for the change about to be made to it. */
     public Optional<Meeting.Utterance> lockUtterance(UUID tenant, UUID meeting, UUID id) {
         return jdbc.sql("""

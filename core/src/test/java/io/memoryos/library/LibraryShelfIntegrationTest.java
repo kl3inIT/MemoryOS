@@ -392,8 +392,8 @@ class LibraryShelfIntegrationTest {
     private UUID agent(ActorId creator, String name, List<UUID> knowledge) {
         var id = UUID.randomUUID();
         jdbc.sql("""
-                INSERT INTO persona(id, tenant_id, owner_actor_id, name, instructions, model, file_ids)
-                VALUES (:id, :tenant, :owner, :name, '', 'gpt', CAST(:files AS jsonb))
+                INSERT INTO persona(id, tenant_id, owner_actor_id, name, instructions, file_ids)
+                VALUES (:id, :tenant, :owner, :name, '', CAST(:files AS jsonb))
                 """).param("id", id).param("tenant", tenant.value()).param("owner", creator.value()).param("name", name)
                 .param("files", knowledge.stream().map(file -> "\"" + file + "\"").collect(Collectors.joining(",", "[", "]")))
                 .update();

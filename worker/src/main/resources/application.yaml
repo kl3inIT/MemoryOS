@@ -62,14 +62,15 @@ spring:
 db-scheduler:
   enabled: true
   table-name: scheduled_tasks
-  scheduler-name: ${MEMORYOS_SCHEDULER_NAME:}
+  scheduler-name: ${MEMORYOS_SCHEDULER_NAME:${HOSTNAME:}}
   threads: 2
   polling-interval: 5s
   heartbeat-interval: 30s
   missed-heartbeats-limit: 4
   immediate-execution-enabled: true
   delay-startup-until-context-ready: true
-  polling-strategy: fetch
+  # Replicas pick due tasks with SELECT ... FOR UPDATE SKIP LOCKED instead of all reading the same rows (MEM-244).
+  polling-strategy: lock-and-fetch
   priority-enabled: false
   shutdown-max-wait: 30s
 
@@ -91,6 +92,9 @@ management:
 
 memoryos:
   chat:
+    # MEM-243: an OCR connection's key is sealed with the catalog key, as every provider connection's is.
+    catalog:
+      encryption-key: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY:}
     retention:
       # Onyx HARD_DELETE_CHATS: off keeps a deleted conversation and its generated files, on removes them.
       hard-delete: ${MEMORYOS_CHAT_HARD_DELETE:false}
@@ -99,9 +103,8 @@ memoryos:
       endpoint: ${MEMORYOS_EXTRACTION_DOCLING_ENDPOINT:http://localhost:5001}
       engine-revision: ${MEMORYOS_EXTRACTION_DOCLING_ENGINE_REVISION:sha256:0525640504db7ed8a53e0e443882727888f6a3746948b1b7a8820efe95567bd3}
       api-key: ${MEMORYOS_EXTRACTION_DOCLING_API_KEY:}
-    # MEM-192. Empty endpoint: no PaddleOCR-VL, and Docling keeps its own OCR for scans.
+    # MEM-192. How a PaddleOCR-VL service is called; which one reads scans is the Tenant's OCR connection (MEM-243).
     paddleocr-vl:
-      endpoint: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_ENDPOINT:}
       timeout: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_TIMEOUT:30m}
       revision: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_REVISION:}
       max-concurrent-requests: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS:2}
@@ -143,6 +146,8 @@ memoryos:
     consumer-block: 2s
     reclaim-interval: 10s
     reclaim-idle: 2m
+    # MEM-244: how long a stopping Worker lets started work finish; below the container's stop grace period.
+    shutdown-grace: ${MEMORYOS_WORKER_SHUTDOWN_GRACE:100s}
     max-stream-depth: 1000
     ingestion:
       stream: memoryos:execution:ingestion:operations:v1

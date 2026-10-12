@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { statLabelClass, statValueClass } from "@/components/composites/stat-strip";
 import type { ReactNode } from "react";
 import { HelpPopover } from "@/components/ui/help-popover";
-import { uiLocale } from "@/i18n/format";
+import { formatUiMoment, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listSourceGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
@@ -87,7 +87,7 @@ export function SourceSummaryCard({
             <dd className={cn("mt-1 flex min-h-8 items-center", statValueClass)}>
               {source.lastSucceededAt ? (
                 <time dateTime={source.lastSucceededAt}>
-                  {new Date(source.lastSucceededAt).toLocaleString(uiLocale())}
+                  {formatUiMoment(source.lastSucceededAt)}
                 </time>
               ) : (
                 ui("Not yet")

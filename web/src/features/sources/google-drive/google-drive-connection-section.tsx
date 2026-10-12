@@ -141,7 +141,7 @@ export function GoogleDriveConnectionSection(props: GoogleDriveConnectionProps) 
                                   "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.",
                                 )
                               : ui(
-                                  "This connection has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect this credential.",
+                                  "This connection has no saved OAuth app. Ask an organization administrator with global Source management permission to add the app and reconnect this credential.",
                                 )}
                           </AlertDescription>
                         </Alert>

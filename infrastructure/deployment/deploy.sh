@@ -95,14 +95,51 @@ verify_runtime() {
   if has_keycloak "$tx/$target.env"; then
     components+=(keycloak)
   fi
+  local containers container
   for component in "${components[@]}"; do
     reference=$(image_reference "$component" "$tx/$target.env")
     image=$(docker image inspect --format '{{.Id}}' "$reference")
-    docker inspect "memoryos-$component" | jq --exit-status --arg image "$image" --arg sha "$sha" '
-      .[0] | .State.Running and (.State.Restarting | not) and .State.Health.Status == "healthy"
-      and .Image == $image and .Config.Labels["org.opencontainers.image.revision"] == $sha
-    ' > /dev/null
+    # Every replica of the service, found by Compose rather than by a container name the Worker no longer has.
+    containers=$(compose ps --quiet "$component")
+    [[ -n "$containers" ]] || { echo "No running container for $component" >&2; exit 1; }
+    for container in $containers; do
+      docker inspect "$container" | jq --exit-status --arg image "$image" --arg sha "$sha" '
+        .[0] | .State.Running and (.State.Restarting | not) and .State.Health.Status == "healthy"
+        and .Image == $image and .Config.Labels["org.opencontainers.image.revision"] == $sha
+      ' > /dev/null
+    done
   done
+}
+
+# A setting of the candidate's environment, or the default Compose gives it.
+env_number() {
+  local value
+  value=$(sed -n "s/^$1=//p" "$tx/candidate.base.env" | tail -n 1)
+  value=${value:-$2}
+  [[ "$value" =~ ^[0-9]+$ ]] || { echo "$1 is not a number: $value" >&2; exit 1; }
+  echo "$value"
+}
+
+# MEM-244: every replica holds a fixed pool, so the API's pool, each Worker's and room for a migration, an operator and
+# a rollout must fit under the application role's real limit. A role created with a smaller limit than the file states
+# once left the Worker on five of its ten connections with nothing in any log.
+check_database_budget() {
+  local role api worker replicas limit needed
+  role=$(sed -n 's/^MEMORYOS_DATABASE_USERNAME=//p' "$tx/candidate.base.env" | tail -n 1)
+  role=${role:-memoryos_app}
+  [[ "$role" =~ ^[a-z_][a-z0-9_]*$ ]] || { echo "Unexpected database role name: $role" >&2; exit 1; }
+  api=$(env_number MEMORYOS_API_DATABASE_POOL_SIZE 15)
+  worker=$(env_number MEMORYOS_WORKER_DATABASE_POOL_SIZE 10)
+  replicas=$(env_number MEMORYOS_WORKER_REPLICAS 1)
+  # shellcheck disable=SC2016
+  limit=$(docker exec memoryos-postgres sh -c \
+    "exec psql -U \"\$POSTGRES_USER\" -d memoryos -At -c \"SELECT rolconnlimit FROM pg_roles WHERE rolname = '$role'\"")
+  [[ "$limit" =~ ^-?[0-9]+$ ]] || { echo "No connection limit read for $role" >&2; exit 1; }
+  needed=$(( api + replicas * worker + 10 ))
+  (( limit < 0 || needed <= limit )) || {
+    echo "The pools need $needed connections (API $api, $replicas Worker x $worker, 10 spare); $role allows $limit" >&2
+    exit 1
+  }
 }
 
 if [[ "$mode" == rollback && ! -f "$state/pending" ]]; then
@@ -165,17 +202,30 @@ if [[ "$mode" == deploy ]]; then
     # rollouts forced recreation kept the containers Compose saw no change in, labelled with an
     # earlier transaction's copy of the same files. The transaction directory is left out of the
     # comparison; the api container, inspected first, names the files the record must match.
-    previous=$(docker inspect "${previous_components[@]/#/memoryos-}" | jq --exit-status --argjson count "${#previous_components[@]}" '
-      if length == $count and all(.[]; .State.Running and .State.Health.Status == "healthy")
+    # Containers are found by their Compose service, not by name: the Worker runs as replicas without a fixed name
+    # (MEM-244), and a runtime from before that still has one.
+    previous_containers=()
+    for component in "${previous_components[@]}"; do
+      containers=$(docker ps --quiet --filter label=com.docker.compose.project=memoryos \
+        --filter "label=com.docker.compose.service=$component")
+      [[ -n "$containers" ]] || { echo "No running $component to capture" >&2; exit 1; }
+      # shellcheck disable=SC2206
+      previous_containers+=($containers)
+    done
+    previous=$(docker inspect "${previous_containers[@]}" | jq --exit-status '
+      if all(.[]; .State.Running and .State.Health.Status == "healthy")
         and ([.[].Config.Labels["org.opencontainers.image.revision"]] | unique | length) == 1
         and ([.[].Config.Labels["com.docker.compose.project.config_files"]
               | gsub("/deployments/[^/,]+/"; "/deployments/*/")] | unique | length) == 1
-      then map({name: .Name, image: .Image, labels: .Config.Labels}) else error("Unhealthy or mixed runtime") end
+      then map({service: .Config.Labels["com.docker.compose.service"], image: .Image, labels: .Config.Labels})
+      else error("Unhealthy or mixed runtime") end
     ')
     previous_sha=$(jq --raw-output '.[0].labels["org.opencontainers.image.revision"]' <<< "$previous")
     [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Running revision is not a commit SHA: $previous_sha" >&2; exit 1; }
     for component in "${previous_components[@]}"; do
-      image=$(jq --raw-output --arg name "/memoryos-$component" '.[] | select(.name == $name) | .image' <<< "$previous")
+      image=$(jq --raw-output --arg service "$component" '
+        [.[] | select(.service == $service) | .image] | unique | if length == 1 then .[0] else "mixed" end
+      ' <<< "$previous")
       [[ "$image" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Running $component image is not a digest: $image" >&2; exit 1; }
       printf '%s=%s\n' "$(image_key "$component")" "$image" >> "$tx/previous.env"
     done
@@ -232,11 +282,13 @@ if [[ "$mode" == deploy ]]; then
   [[ "$database_size" =~ ^[0-9]+$ ]] || { echo "Database size is not a number: $database_size" >&2; exit 1; }
   available=$(df --output=avail --block-size=1 "$root" | tail -n 1)
   (( available > 2 * database_size + 2000000000 )) || { echo "Not enough free space under $root for the backup" >&2; exit 1; }
+  check_database_budget
 
   # Keep this reservation until health/revision verification and finalization.
   printf '%s\n' "$release" > "$state/pending"
   touch "$tx/writers-changing"
-  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; compose stop --timeout 45 worker api; fi
+  # A Worker finishes the work it started within its shutdown grace (100 s), so it gets the 120 s its container states.
+  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; compose stop --timeout 120 worker; compose stop --timeout 45 api; fi
   # The database user expands inside the existing PostgreSQL container.
   # shellcheck disable=SC2016
   timeout 300 docker exec memoryos-postgres sh -c \
@@ -272,7 +324,7 @@ elif [[ "$mode" == rollback ]]; then
     echo 'are carried by the next release as well. See the CI/CD runbook.' >&2
     exit 1
   fi
-  target=candidate; compose stop --timeout 45 worker api
+  target=candidate; compose stop --timeout 120 worker; compose stop --timeout 45 api
   if has_schema_history; then schema > "$tx/schema.after-failure"; else : > "$tx/schema.after-failure"; fi
   cmp --silent "$tx/schema.before" "$tx/schema.after-failure" || {
     echo 'Schema changed: writers stopped; operator recovery is required. No database restore was attempted.' >&2; exit 1;

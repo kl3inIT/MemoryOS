@@ -77,6 +77,11 @@ public final class ModelCalls {
             var llm = Objects.requireNonNull(runner.getLlm()).withMaxTokens(output).withTimeout(timeout);
             if (!selected.reasons()) llm = llm.withoutThinking();
             if (temperature != null) llm = llm.withTemperature(temperature);
+            // Spring AI's schema of the type, sent as its provider structured output sends one. Embabel 1.5.2 would
+            // not: its check before the native path refuses a list of objects and a field that is not required,
+            // which is every answer type here. Embabel still writes the format into the prompt and parses the reply.
+            if (selected.structuredOutput() && shape != String.class)
+                llm = llm.withExtension(ModelBinding.OUTPUT_SCHEMA, OutputSchemas.strict(shape));
             return runner.withLlm(llm).createObject(List.of(new SystemMessage(instructions), new UserMessage(input)), shape);
         } finally {
             try { accounting.accept(admitted == null ? ModelAccounting.NONE : ModelAccounting.of(List.of(admitted), process, selected.service())); }

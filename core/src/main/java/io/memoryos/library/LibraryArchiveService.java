@@ -45,7 +45,7 @@ public class LibraryArchiveService {
     private static final Logger LOG = LoggerFactory.getLogger(LibraryArchiveService.class);
 
     public static final int MAX_FILES = 100;
-    /** The storage adapter writes an object of at most 32 MiB, so an archive's input is bounded below it. */
+    /** The archive is packed in memory and written as one object, so its input is kept small. */
     public static final long MAX_TOTAL_BYTES = 30L * 1024 * 1024;
     public static final int MAX_ACTIVE_PER_OWNER = 3;
     public static final int MAX_ATTEMPTS = 3;

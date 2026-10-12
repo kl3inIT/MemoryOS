@@ -52,7 +52,6 @@ public class ChatPersonaService {
     private final JpaPersonaRepository settings;
     private final JdbcAgentRepository agents;
     private final PersonaRevisions revisions;
-    private final PersonaProperties defaults;
     private final ChatModelAccess models;
     private final SourceSearchService sources;
     private final DocumentSetService documentSets;
@@ -61,11 +60,11 @@ public class ChatPersonaService {
     private final UserFileContentService content;
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-            JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions, PersonaProperties defaults,
+            JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions,
             ChatModelAccess models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
             UserFileService files, UserFileContentService content) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings;
-        this.agents = agents; this.revisions = revisions; this.defaults = defaults; this.models = models;
+        this.agents = agents; this.revisions = revisions; this.models = models;
         this.sources = sources; this.documentSets = documentSets; this.documentSetRows = documentSetRows;
         this.files = files; this.content = content;
     }
@@ -140,7 +139,7 @@ public class ChatPersonaService {
     public PersonaView create(ActorId actor, PersonaInput input) {
         var tenant = write(actor);
         if (!authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_CREATE)) throw ChatException.unavailable();
-        var entity = new PersonaEntity(UUID.randomUUID(), tenant.value(), actor.value(), defaults.getModel());
+        var entity = new PersonaEntity(UUID.randomUUID(), tenant.value(), actor.value());
         apply(actor, tenant, entity, input, true);
         entity = settings.saveAndFlush(entity);
         relations(tenant, actor, entity, input, true);

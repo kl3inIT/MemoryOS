@@ -14,7 +14,7 @@ describe("admin page warming", () => {
     const groupManager = clientWith({ capabilities: [], scopedCapabilities: ["GROUPS_READ"] });
     expect(mayWarmAdminPage(groupManager, "groups")).toBe(true);
     expect(mayWarmAdminPage(groupManager, "users")).toBe(false);
-    expect(mayWarmAdminPage(groupManager, "models")).toBe(false);
+    expect(mayWarmAdminPage(groupManager, "aiProviders")).toBe(false);
   });
 
   it("warms nothing before identity is known", () => {

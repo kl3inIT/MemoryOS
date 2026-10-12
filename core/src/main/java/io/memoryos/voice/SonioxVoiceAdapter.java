@@ -1,8 +1,6 @@
 package io.memoryos.voice;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.IOException;
-import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +30,9 @@ final class SonioxVoiceAdapter implements RealtimeTranscriptionAdapter, LiveTran
                 "transcriptions");
     }
 
-    @Override public String transcribe(HttpClient http, VoiceConnectionService.Connection connection, String key,
-                                       @Nullable String language, byte[] wav) throws IOException, InterruptedException {
-        return SonioxAsync.transcribe(http, CAPABILITIES.baseUrl(connection.endpoint()), key, connection.sttModel(), language,
+    @Override public String transcribe(VoiceConnectionService.Connection connection, String key,
+                                       @Nullable String language, byte[] wav) throws InterruptedException {
+        return SonioxAsync.transcribe(CAPABILITIES.baseUrl(connection.endpoint()), key, connection.sttModel(), language,
                 wav, REQUEST_TIMEOUT);
     }
 
@@ -54,10 +52,10 @@ final class SonioxVoiceAdapter implements RealtimeTranscriptionAdapter, LiveTran
     @Override public boolean diarizes() { return true; }
     @Override public long maxBytes() { return 500L * 1024 * 1024; }
 
-    @Override public List<LiveTranscription.Segment> segments(HttpClient http, VoiceConnectionService.Connection connection,
-            String key, LiveTranscription.Options options, boolean diarize, BatchTranscriptionService.Recording recording,
-            Duration timeout) throws IOException, InterruptedException {
-        return SonioxAsync.segments(http, CAPABILITIES.baseUrl(connection.endpoint()), key, connection.sttModel(),
+    @Override public List<LiveTranscription.Segment> segments(VoiceConnectionService.Connection connection, String key,
+            LiveTranscription.Options options, boolean diarize, BatchTranscriptionService.Recording recording,
+            Duration timeout) throws InterruptedException {
+        return SonioxAsync.segments(CAPABILITIES.baseUrl(connection.endpoint()), key, connection.sttModel(),
                 options.language(), options.terms(), diarize, recording, timeout);
     }
 }

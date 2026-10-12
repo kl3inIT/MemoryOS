@@ -7,6 +7,7 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import io.memoryos.document.application.StructuredDocumentChunker;
+import io.memoryos.shared.TenantId;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
@@ -15,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.poi.ss.util.CellRangeAddress;
@@ -26,6 +28,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.ObjectMapper;
 
 class SpreadsheetSourceContentExtractorTest {
+    private static final TenantId TENANT = new TenantId(UUID.randomUUID());
     private final ObjectMapper mapper = new ObjectMapper();
     private final SpreadsheetSourceContentExtractor reader = new SpreadsheetSourceContentExtractor(mapper);
     @TempDir Path temporary;
@@ -51,8 +54,8 @@ class SpreadsheetSourceContentExtractorTest {
             workbook.write(out); bytes = out.toByteArray();
         }
         var source = reader.extract(bytes, "book.xlsx", SpreadsheetSourceContentExtractor.XLSX, SourceInputDescriptor.binary());
-        var chat = new BoundedChatFileExtractor(mock(DoclingSourceContentExtractor.class), mapper)
-                .extract(new ByteArrayInputStream(bytes), bytes.length, "book.xlsx");
+        var chat = new BoundedChatFileExtractor(mock(DoclingSourceContentExtractor.class), tenant -> null, mapper)
+                .extract(TENANT, new ByteArrayInputStream(bytes), bytes.length, "book.xlsx");
         assertEquals(source.structuredJson(), chat.structuredJson());
         assertEquals(source.normalizedText(), chat.normalizedText());
         assertTrue(chat.normalizedText().contains("1904-01-02"));
@@ -66,8 +69,8 @@ class SpreadsheetSourceContentExtractorTest {
     void sourceAndChatShareDelimitedContractAndProduceSearchableValues() throws Exception {
         byte[] bytes = "\uFEFF\"name\",value\r\n\"multi\nline\",\"a,\"\"b\"\"\"\r\nformula,=1+1\r\n".getBytes(StandardCharsets.UTF_8);
         var source = reader.extract(bytes, "data.csv", "text/csv", SourceInputDescriptor.binary());
-        var chat = new BoundedChatFileExtractor(mock(DoclingSourceContentExtractor.class), mapper)
-                .extract(new ByteArrayInputStream(bytes), bytes.length, "data.csv");
+        var chat = new BoundedChatFileExtractor(mock(DoclingSourceContentExtractor.class), tenant -> null, mapper)
+                .extract(TENANT, new ByteArrayInputStream(bytes), bytes.length, "data.csv");
         assertEquals(source.structuredJson(), chat.structuredJson());
         assertEquals(source.normalizedText(), chat.normalizedText());
         assertTrue(new StructuredDocumentChunker(mapper).chunk(chat.title(), chat.structuredJson())
@@ -106,8 +109,8 @@ class SpreadsheetSourceContentExtractorTest {
     @Test
     void csvRouterParsesBomQuotedNewlinesEscapedQuotesAndFormulaLikeTextAsCells() throws Exception {
         byte[] bytes = "\ufeffname,value\r\n\"multi\nline\",\"a,\"\"b\"\"\"\r\nformula,=1+1\r\n".getBytes(StandardCharsets.UTF_8);
-        var router = new SourceContentExtractorRouter(mock(DoclingSourceContentExtractor.class), mapper);
-        var result = router.extract(new ByteArrayInputStream(bytes), bytes.length, "upload.csv", SourceInputDescriptor.binary());
+        var router = new SourceContentExtractorRouter(mock(DoclingSourceContentExtractor.class), tenant -> null, mapper);
+        var result = router.extract(TENANT, new ByteArrayInputStream(bytes), bytes.length, "upload.csv", SourceInputDescriptor.binary());
         var table = mapper.readTree(result.structuredJson()).path("blocks").get(0).path("table");
         assertEquals(3, table.path("rowCount").asInt());
         assertEquals(2, table.path("columnCount").asInt());

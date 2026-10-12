@@ -110,11 +110,12 @@ test("serializes one-time recovery issuance across invitation rows and the creat
 
   await page.goto("/admin/users");
   await page.getByRole("button", { name: "Actions for first@example.com" }).click();
-  await page.getByRole("button", { name: "Rotate recovery link" }).click();
+  await page.getByRole("menuitem", { name: "Rotate recovery link" }).click();
   await firstRotation.promise;
   await expect(page.getByRole("button", { name: "Invite member" })).toBeDisabled();
   await page.getByRole("button", { name: "Actions for second@example.com" }).click();
-  await expect(page.getByRole("button", { name: "Rotate recovery link" })).toBeDisabled();
+  await expect(page.getByRole("menuitem", { name: "Rotate recovery link" })).toBeDisabled();
+  await page.keyboard.press("Escape");
 
   releaseFirstRotation.resolve();
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
@@ -125,7 +126,7 @@ test("serializes one-time recovery issuance across invitation rows and the creat
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Actions for second@example.com" }).click();
-  await page.getByRole("button", { name: "Rotate recovery link" }).click();
+  await page.getByRole("menuitem", { name: "Rotate recovery link" }).click();
   await expect(page.getByRole("textbox", { name: "Secure invitation link" })).toHaveValue(
     new RegExp(`/invite/recovery-${invitations[1].invitationId}$`),
   );

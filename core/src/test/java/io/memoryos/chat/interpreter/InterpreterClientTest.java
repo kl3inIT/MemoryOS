@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,6 +32,7 @@ class InterpreterClientTest {
     private final AtomicInteger healthCalls = new AtomicInteger();
     private volatile int healthStatus = 200;
     private final AtomicLong now = new AtomicLong();
+    private final CountDownLatch abandoned = new CountDownLatch(1);
 
     @BeforeEach void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
@@ -64,6 +66,16 @@ class InterpreterClientTest {
             requests.put("POST /v1/execute/stream", body);
             if (body.contains("boom")) { reply(exchange, 200, "event: error\ndata: {\"message\":\"executor exploded\"}\n\n"); return; }
             if (body.contains("cut")) { reply(exchange, 200, "event: output\ndata: {\"stream\":\"stdout\",\"data\":\"partial\"}\n\n"); return; }
+            if (body.contains("endless")) {
+                // Output for ever, as a run that is still going; only the client leaving ends it.
+                exchange.sendResponseHeaders(200, 0);
+                try (var out = exchange.getResponseBody()) {
+                    byte[] frame = "event: output\ndata: {\"stream\":\"stdout\",\"data\":\"tick\"}\n\n".getBytes(StandardCharsets.UTF_8);
+                    while (true) { out.write(frame); out.flush(); }
+                } catch (IOException gone) { abandoned.countDown(); }
+                exchange.close();
+                return;
+            }
             if (body.contains("flood")) {
                 // One unterminated line larger than the frame limit; readLine must refuse it, not buffer it.
                 exchange.sendResponseHeaders(200, 0);
@@ -188,6 +200,12 @@ class InterpreterClientTest {
                 () -> client.executeStream("cut", 1000, List.of(), (stream, data) -> { })).getMessage());
         assertThrows(IOException.class, () -> client.executeStream("print(1)", 1000, List.of(),
                 (stream, data) -> { throw new IOException("stopped"); }));
+    }
+
+    @Test void aRunTheListenerStopsClosesTheConnectionSoTheServiceCanFreeItsSlot() throws Exception {
+        assertEquals("stopped", assertThrows(IOException.class, () -> client().executeStream("endless", 600_000, List.of(),
+                (stream, data) -> { throw new IOException("stopped"); })).getMessage());
+        assertTrue(abandoned.await(10, TimeUnit.SECONDS), "the connection stays open while the run goes on");
     }
 
     @Test void anUnterminatedFrameIsRefusedInsteadOfBuffered() {

@@ -158,6 +158,32 @@ export type EmbeddingProviderResponse = {
     inUse: boolean;
 };
 
+export type OcrSelectionRequest = {
+    provider?: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
+};
+
+export type OcrConnectionRequest = {
+    endpoint: string;
+    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
+    credentialValue?: string;
+    dataBoundary?: 'INTERNAL' | 'EXTERNAL';
+    modelConfigurationId?: string;
+    revision?: number;
+};
+
+export type OcrConnectionResponse = {
+    provider: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
+    endpoint: string;
+    credentialConfigured?: boolean;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    /**
+     * The catalog model a model connection reads with
+     */
+    modelConfigurationId?: string;
+    active?: boolean;
+    revision?: number;
+};
+
 /**
  * What the owner fills in once the meeting is under way
  */
@@ -450,6 +476,52 @@ export type McpOAuthClientView = {
     revision: number;
 };
 
+export type McpEndpointSettingsRequest = {
+    enabled: boolean;
+    revision: number;
+};
+
+export type McpEndpointSettingsResponse = {
+    /**
+     * Whether this deployment configured an MCP endpoint URL; without one the switch stays off
+     */
+    configured: boolean;
+    enabled: boolean;
+    revision: number;
+    /**
+     * The URL people add to Claude or ChatGPT; present when configured
+     */
+    url: string | null;
+};
+
+export type McpTrustedAppEnabledRequest = {
+    enabled: boolean;
+    revision: number;
+};
+
+/**
+ * An outside assistant the MCP endpoint admits by the URL of its client metadata document
+ */
+export type McpTrustedAppResponse = {
+    id: string;
+    preset: 'CLAUDE' | 'CHATGPT' | 'CUSTOM';
+    name: string;
+    /**
+     * Hosts the document's URL may have
+     */
+    clientIdHosts: Array<string>;
+    /**
+     * Hosts the URIs inside the document may have
+     */
+    documentHosts: Array<string>;
+    enabled: boolean;
+    /**
+     * Claude and ChatGPT can be switched off, not removed
+     */
+    builtIn: boolean;
+    revision: number;
+};
+
 /**
  * The User's own API key; write-only
  */
@@ -648,6 +720,67 @@ export type VoiceConnectionResponse = {
     sttActive?: boolean;
     ttsActive?: boolean;
     revision?: number;
+};
+
+export type SystemOneTaskRequest = {
+    connectionId: string;
+    revision?: number;
+};
+
+/**
+ * What one task runs on: a Tenant model, a System One connection for a classifying task, or with neither the conversation model
+ */
+export type ModelFlow = {
+    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+    modelConfigurationId: string | null;
+    /**
+     * False when the model is set but no longer eligible; the task then uses the conversation model
+     */
+    available: boolean;
+    /**
+     * How hard the task's model thinks: the level chosen for the task, else its own default (medium for meeting minutes, off for the others); a model that does not reason ignores it
+     */
+    reasoningEffort: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
+    /**
+     * The System One connection a classifying task runs on; absent when it runs on a model
+     */
+    systemOneConnectionId?: string;
+    revision: number;
+};
+
+export type SystemOneConnectionRequest = {
+    name: string;
+    /**
+     * The base address of a gateway or self-hosted server, a Cloudflare account ID, or empty for a type with a fixed address
+     */
+    endpoint: string;
+    /**
+     * Empty takes the type's default model
+     */
+    model: string;
+    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
+    credentialValue?: string;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    /**
+     * USD per million input tokens; omitted when unknown
+     */
+    inputPrice?: number;
+    revision?: number;
+};
+
+export type SystemOneConnection = {
+    id: string;
+    provider: 'TYPESAFE' | 'CLOUDFLARE' | 'NINEROUTER' | 'LAYA' | 'SYSTEMONE_COMPATIBLE';
+    name: string;
+    endpoint: string;
+    model: string;
+    credentialConfigured: boolean;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    /**
+     * USD per million input tokens; absent when unknown
+     */
+    inputPrice?: number;
+    revision: number;
 };
 
 export type ChatSettingsRequest = {
@@ -1074,6 +1207,7 @@ export type CapabilitiesInput = {
     toolCalling: boolean;
     vision: boolean;
     reasoning: boolean;
+    structuredOutput: boolean;
 };
 
 export type ModelInput = {
@@ -1111,6 +1245,7 @@ export type Capabilities = {
     toolCalling: boolean;
     vision: boolean;
     reasoning: boolean;
+    structuredOutput: boolean;
 };
 
 export type Model = {
@@ -1141,167 +1276,9 @@ export type Pricing = {
     cachedInputPerMillion: number | null;
 };
 
-/**
- * Tenant model for one task; no model uses the conversation model
- */
-export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
-    modelConfigurationId: string | null;
-    /**
-     * False when the model is set but no longer eligible; the task then uses the conversation model
-     */
-    available: boolean;
-    /**
-     * How hard the task's model thinks: the level chosen for the task, else its own default (medium for meeting minutes, off for the others); a model that does not reason ignores it
-     */
-    reasoningEffort: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
-    revision: number;
-};
-
 export type Default = {
     modelConfigurationId: string | null;
     revision: number;
-};
-
-export type McpEndpointSettingsRequest = {
-    enabled: boolean;
-    revision: number;
-};
-
-export type McpEndpointSettingsResponse = {
-    /**
-     * Whether this deployment configured an MCP endpoint URL; without one the switch stays off
-     */
-    configured: boolean;
-    enabled: boolean;
-    revision: number;
-    /**
-     * The URL people add to Claude or ChatGPT; present when configured
-     */
-    url: string | null;
-};
-
-export type McpTrustedAppEnabledRequest = {
-    enabled: boolean;
-    revision: number;
-};
-
-/**
- * An outside assistant the MCP endpoint admits by the URL of its client metadata document
- */
-export type McpTrustedAppResponse = {
-    id: string;
-    preset: 'CLAUDE' | 'CHATGPT' | 'CUSTOM';
-    name: string;
-    /**
-     * Hosts the document's URL may have
-     */
-    clientIdHosts: Array<string>;
-    /**
-     * Hosts the URIs inside the document may have
-     */
-    documentHosts: Array<string>;
-    enabled: boolean;
-    /**
-     * Claude and ChatGPT can be switched off, not removed
-     */
-    builtIn: boolean;
-    revision: number;
-};
-
-export type McpEndpointConnectionResponse = {
-    /**
-     * Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint now
-     */
-    available: boolean;
-    /**
-     * The URL to add to Claude or ChatGPT; present while available
-     */
-    url: string | null;
-    /**
-     * The apps the administrator trusts; CUSTOM when any app of the organization's own is
-     */
-    apps: Array<'CLAUDE' | 'CHATGPT' | 'CUSTOM'>;
-};
-
-export type McpEndpointCallPageResponse = {
-    calls: Array<McpEndpointCallResponse>;
-    /**
-     * Pass as cursor for older calls; absent on the last page
-     */
-    next: string | null;
-};
-
-/**
- * One tool call through the MemoryOS MCP endpoint; no query and no document
- */
-export type McpEndpointCallResponse = {
-    id: string;
-    occurredAt: string;
-    actorId: string;
-    actorName: string | null;
-    actorEmail: string | null;
-    client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
-    clientName: string;
-    tool: string;
-    outcome: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
-};
-
-export type McpClientGrantResponse = {
-    /**
-     * Keycloak's client ID; Claude's is the URL of its client metadata document
-     */
-    clientId: string;
-    client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
-    name: string;
-    grantedAt: string;
-};
-
-export type McpTrustedAppListResponse = {
-    /**
-     * Whether this deployment can change the list; without its Keycloak account it is read-only
-     */
-    manageable: boolean;
-    apps: Array<McpTrustedAppResponse>;
-};
-
-export type McpEndpointCountResponse = {
-    /**
-     * The app's client ID or the tool's name
-     */
-    key: string;
-    name: string;
-    calls: number;
-    people: number;
-};
-
-export type McpEndpointDayResponse = {
-    /**
-     * A UTC day
-     */
-    day: string;
-    calls: number;
-    people: number;
-};
-
-/**
- * Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
- */
-export type McpEndpointInsightsResponse = {
-    days: number;
-    calls: number;
-    /**
-     * Distinct people who called a tool
-     */
-    people: number;
-    failed: number;
-    rateLimited: number;
-    apps: Array<McpEndpointCountResponse>;
-    tools: Array<McpEndpointCountResponse>;
-    /**
-     * Days with at least one call
-     */
-    daily: Array<McpEndpointDayResponse>;
 };
 
 export type InterpreterSettingsRequest = {
@@ -1701,6 +1678,12 @@ export type EmbeddingProviderTestResponse = {
     dimensions: number | null;
     latencyMs: number;
     error: string | null;
+};
+
+export type OcrConnectionTestRequest = {
+    endpoint: string;
+    credentialValue?: string;
+    modelConfigurationId?: string;
 };
 
 /**
@@ -2269,6 +2252,7 @@ export type ChatReportedModelCapabilities = {
     toolCalling: boolean;
     vision: boolean;
     reasoning: boolean;
+    structuredOutput: boolean;
 };
 
 export type ChatReportedModelPricing = {
@@ -2755,6 +2739,14 @@ export type DocumentSpreadsheetSheet = {
     truncated: boolean;
 };
 
+export type OcrProviderResponse = {
+    provider: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
+    requiresKey?: boolean;
+    usesModel?: boolean;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    defaultEndpoint?: string;
+};
+
 export type MeetingSummary = {
     id: string;
     title: string;
@@ -2805,6 +2797,101 @@ export type ChatGroupPage = {
     size: number;
     totalItems: number;
     totalPages: number;
+};
+
+export type McpClientGrantResponse = {
+    /**
+     * Keycloak's client ID; Claude's is the URL of its client metadata document
+     */
+    clientId: string;
+    client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+    name: string;
+    grantedAt: string;
+};
+
+export type McpTrustedAppListResponse = {
+    /**
+     * Whether this deployment can change the list; without its Keycloak account it is read-only
+     */
+    manageable: boolean;
+    apps: Array<McpTrustedAppResponse>;
+};
+
+export type McpEndpointCountResponse = {
+    /**
+     * The app's client ID or the tool's name
+     */
+    key: string;
+    name: string;
+    calls: number;
+    people: number;
+};
+
+export type McpEndpointDayResponse = {
+    /**
+     * A UTC day
+     */
+    day: string;
+    calls: number;
+    people: number;
+};
+
+/**
+ * Use of the MemoryOS MCP endpoint over the last 7 or 30 UTC days
+ */
+export type McpEndpointInsightsResponse = {
+    days: number;
+    calls: number;
+    /**
+     * Distinct people who called a tool
+     */
+    people: number;
+    failed: number;
+    rateLimited: number;
+    apps: Array<McpEndpointCountResponse>;
+    tools: Array<McpEndpointCountResponse>;
+    /**
+     * Days with at least one call
+     */
+    daily: Array<McpEndpointDayResponse>;
+};
+
+export type McpEndpointConnectionResponse = {
+    /**
+     * Whether Claude and ChatGPT can reach the MemoryOS MCP endpoint now
+     */
+    available: boolean;
+    /**
+     * The URL to add to Claude or ChatGPT; present while available
+     */
+    url: string | null;
+    /**
+     * The apps the administrator trusts; CUSTOM when any app of the organization's own is
+     */
+    apps: Array<'CLAUDE' | 'CHATGPT' | 'CUSTOM'>;
+};
+
+export type McpEndpointCallPageResponse = {
+    calls: Array<McpEndpointCallResponse>;
+    /**
+     * Pass as cursor for older calls; absent on the last page
+     */
+    next: string | null;
+};
+
+/**
+ * One tool call through the MemoryOS MCP endpoint; no query and no document
+ */
+export type McpEndpointCallResponse = {
+    id: string;
+    occurredAt: string;
+    actorId: string;
+    actorName: string | null;
+    actorEmail: string | null;
+    client: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+    clientName: string;
+    tool: string;
+    outcome: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
 };
 
 export type InvitationPage = {
@@ -2952,6 +3039,26 @@ export type VoiceProviderResponse = {
     sttModels: Array<string>;
     ttsModels: Array<string>;
     voices: Array<string>;
+};
+
+/**
+ * A System One connection type and what a connection of it needs
+ */
+export type SystemOneType = {
+    provider: 'TYPESAFE' | 'CLOUDFLARE' | 'NINEROUTER' | 'LAYA' | 'SYSTEMONE_COMPATIBLE';
+    requiresKey: boolean;
+    /**
+     * FIXED: no endpoint; URL: a base address; ACCOUNT: an account ID
+     */
+    endpoint: 'FIXED' | 'URL' | 'ACCOUNT';
+    /**
+     * Empty when the administrator must name one
+     */
+    defaultModel: string;
+    /**
+     * The published USD price per million input tokens of the default model
+     */
+    inputPrice?: number;
 };
 
 export type SharedSession = {
@@ -4062,6 +4169,98 @@ export type UpdateEmbeddingProviderResponses = {
 
 export type UpdateEmbeddingProviderResponse = UpdateEmbeddingProviderResponses[keyof UpdateEmbeddingProviderResponses];
 
+export type SelectOcrProviderData = {
+    body: OcrSelectionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/ocr/selection';
+};
+
+export type SelectOcrProviderErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SelectOcrProviderError = SelectOcrProviderErrors[keyof SelectOcrProviderErrors];
+
+export type SelectOcrProviderResponses = {
+    /**
+     * OCR reader saved
+     */
+    204: void;
+};
+
+export type SelectOcrProviderResponse = SelectOcrProviderResponses[keyof SelectOcrProviderResponses];
+
+export type SaveOcrConnectionData = {
+    body: OcrConnectionRequest;
+    path: {
+        provider: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
+    };
+    query?: never;
+    url: '/api/ocr/connections/{provider}';
+};
+
+export type SaveOcrConnectionErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SaveOcrConnectionError = SaveOcrConnectionErrors[keyof SaveOcrConnectionErrors];
+
+export type SaveOcrConnectionResponses = {
+    /**
+     * Saved OCR connection
+     */
+    200: OcrConnectionResponse;
+};
+
+export type SaveOcrConnectionResponse = SaveOcrConnectionResponses[keyof SaveOcrConnectionResponses];
+
 export type DeleteMeetingData = {
     body?: never;
     path: {
@@ -4961,6 +5160,195 @@ export type UpdateMcpServerOAuthClientResponses = {
 
 export type UpdateMcpServerOAuthClientResponse = UpdateMcpServerOAuthClientResponses[keyof UpdateMcpServerOAuthClientResponses];
 
+export type GetMcpEndpointSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint';
+};
+
+export type GetMcpEndpointSettingsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetMcpEndpointSettingsError = GetMcpEndpointSettingsErrors[keyof GetMcpEndpointSettingsErrors];
+
+export type GetMcpEndpointSettingsResponses = {
+    /**
+     * MCP endpoint setting
+     */
+    200: McpEndpointSettingsResponse;
+};
+
+export type GetMcpEndpointSettingsResponse = GetMcpEndpointSettingsResponses[keyof GetMcpEndpointSettingsResponses];
+
+export type UpdateMcpEndpointSettingsData = {
+    body: McpEndpointSettingsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint';
+};
+
+export type UpdateMcpEndpointSettingsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateMcpEndpointSettingsError = UpdateMcpEndpointSettingsErrors[keyof UpdateMcpEndpointSettingsErrors];
+
+export type UpdateMcpEndpointSettingsResponses = {
+    /**
+     * Saved MCP endpoint setting
+     */
+    200: McpEndpointSettingsResponse;
+};
+
+export type UpdateMcpEndpointSettingsResponse = UpdateMcpEndpointSettingsResponses[keyof UpdateMcpEndpointSettingsResponses];
+
+export type RemoveMcpTrustedAppData = {
+    body?: never;
+    path: {
+        appId: string;
+    };
+    query: {
+        /**
+         * The app's revision as listed
+         */
+        revision: number;
+    };
+    url: '/api/mcp/endpoint/trusted-apps/{appId}';
+};
+
+export type RemoveMcpTrustedAppErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RemoveMcpTrustedAppError = RemoveMcpTrustedAppErrors[keyof RemoveMcpTrustedAppErrors];
+
+export type RemoveMcpTrustedAppResponses = {
+    /**
+     * Trusted app removed
+     */
+    204: void;
+};
+
+export type RemoveMcpTrustedAppResponse = RemoveMcpTrustedAppResponses[keyof RemoveMcpTrustedAppResponses];
+
+export type SetMcpTrustedAppEnabledData = {
+    body: McpTrustedAppEnabledRequest;
+    path: {
+        appId: string;
+    };
+    query?: never;
+    url: '/api/mcp/endpoint/trusted-apps/{appId}';
+};
+
+export type SetMcpTrustedAppEnabledErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpTrustedAppEnabledError = SetMcpTrustedAppEnabledErrors[keyof SetMcpTrustedAppEnabledErrors];
+
+export type SetMcpTrustedAppEnabledResponses = {
+    /**
+     * Trusted app switched
+     */
+    200: McpTrustedAppResponse;
+};
+
+export type SetMcpTrustedAppEnabledResponse = SetMcpTrustedAppEnabledResponses[keyof SetMcpTrustedAppEnabledResponses];
+
 export type SaveMcpConnectionApiKeyData = {
     body: McpConnectionApiKeyInput;
     path: {
@@ -5481,6 +5869,147 @@ export type SaveChatVoiceConnectionResponses = {
 };
 
 export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[keyof SaveChatVoiceConnectionResponses];
+
+export type SetSystemOneTaskData = {
+    body: SystemOneTaskRequest;
+    path: {
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+    };
+    query?: never;
+    url: '/api/chat/system-one/tasks/{flow}';
+};
+
+export type SetSystemOneTaskErrors = {
+    /**
+     * Invalid System One configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * System One connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * System One connection changed or in use
+     */
+    409: ApiProblem;
+    /**
+     * System One service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetSystemOneTaskError = SetSystemOneTaskErrors[keyof SetSystemOneTaskErrors];
+
+export type SetSystemOneTaskResponses = {
+    /**
+     * The task and what it runs on
+     */
+    200: ModelFlow;
+};
+
+export type SetSystemOneTaskResponse = SetSystemOneTaskResponses[keyof SetSystemOneTaskResponses];
+
+export type DeleteSystemOneConnectionData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/system-one/connections/{id}';
+};
+
+export type DeleteSystemOneConnectionErrors = {
+    /**
+     * Invalid System One configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * System One connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * System One connection changed or in use
+     */
+    409: ApiProblem;
+    /**
+     * System One service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteSystemOneConnectionError = DeleteSystemOneConnectionErrors[keyof DeleteSystemOneConnectionErrors];
+
+export type DeleteSystemOneConnectionResponses = {
+    /**
+     * System One connection deleted
+     */
+    204: void;
+};
+
+export type DeleteSystemOneConnectionResponse = DeleteSystemOneConnectionResponses[keyof DeleteSystemOneConnectionResponses];
+
+export type SaveSystemOneConnectionData = {
+    body: SystemOneConnectionRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/system-one/connections/{id}';
+};
+
+export type SaveSystemOneConnectionErrors = {
+    /**
+     * Invalid System One configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * System One connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * System One connection changed or in use
+     */
+    409: ApiProblem;
+    /**
+     * System One service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SaveSystemOneConnectionError = SaveSystemOneConnectionErrors[keyof SaveSystemOneConnectionErrors];
+
+export type SaveSystemOneConnectionResponses = {
+    /**
+     * Saved System One connection
+     */
+    200: SystemOneConnection;
+};
+
+export type SaveSystemOneConnectionResponse = SaveSystemOneConnectionResponses[keyof SaveSystemOneConnectionResponses];
 
 export type GetChatSettingsData = {
     body?: never;
@@ -7742,416 +8271,6 @@ export type StarChatLibraryEntryResponses = {
 
 export type StarChatLibraryEntryResponse = StarChatLibraryEntryResponses[keyof StarChatLibraryEntryResponses];
 
-export type GetMcpEndpointSettingsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/mcp/endpoint';
-};
-
-export type GetMcpEndpointSettingsErrors = {
-    /**
-     * Invalid MCP endpoint setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * MCP endpoint setting changed
-     */
-    409: ApiProblem;
-    /**
-     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
-     */
-    503: ApiProblem;
-};
-
-export type GetMcpEndpointSettingsError = GetMcpEndpointSettingsErrors[keyof GetMcpEndpointSettingsErrors];
-
-export type GetMcpEndpointSettingsResponses = {
-    /**
-     * MCP endpoint setting
-     */
-    200: McpEndpointSettingsResponse;
-};
-
-export type GetMcpEndpointSettingsResponse = GetMcpEndpointSettingsResponses[keyof GetMcpEndpointSettingsResponses];
-
-export type UpdateMcpEndpointSettingsData = {
-    body: McpEndpointSettingsRequest;
-    path?: never;
-    query?: never;
-    url: '/api/mcp/endpoint';
-};
-
-export type UpdateMcpEndpointSettingsErrors = {
-    /**
-     * Invalid MCP endpoint setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * MCP endpoint setting changed
-     */
-    409: ApiProblem;
-    /**
-     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
-     */
-    503: ApiProblem;
-};
-
-export type UpdateMcpEndpointSettingsError = UpdateMcpEndpointSettingsErrors[keyof UpdateMcpEndpointSettingsErrors];
-
-export type UpdateMcpEndpointSettingsResponses = {
-    /**
-     * Saved MCP endpoint setting
-     */
-    200: McpEndpointSettingsResponse;
-};
-
-export type UpdateMcpEndpointSettingsResponse = UpdateMcpEndpointSettingsResponses[keyof UpdateMcpEndpointSettingsResponses];
-
-export type RemoveMcpTrustedAppData = {
-    body?: never;
-    path: {
-        appId: string;
-    };
-    query: {
-        /**
-         * The app's revision as listed
-         */
-        revision: number;
-    };
-    url: '/api/mcp/endpoint/trusted-apps/{appId}';
-};
-
-export type RemoveMcpTrustedAppErrors = {
-    /**
-     * Invalid MCP endpoint setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * MCP endpoint setting changed
-     */
-    409: ApiProblem;
-    /**
-     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
-     */
-    503: ApiProblem;
-};
-
-export type RemoveMcpTrustedAppError = RemoveMcpTrustedAppErrors[keyof RemoveMcpTrustedAppErrors];
-
-export type RemoveMcpTrustedAppResponses = {
-    /**
-     * Trusted app removed
-     */
-    204: void;
-};
-
-export type RemoveMcpTrustedAppResponse = RemoveMcpTrustedAppResponses[keyof RemoveMcpTrustedAppResponses];
-
-export type SetMcpTrustedAppEnabledData = {
-    body: McpTrustedAppEnabledRequest;
-    path: {
-        appId: string;
-    };
-    query?: never;
-    url: '/api/mcp/endpoint/trusted-apps/{appId}';
-};
-
-export type SetMcpTrustedAppEnabledErrors = {
-    /**
-     * Invalid MCP endpoint setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * MCP endpoint setting changed
-     */
-    409: ApiProblem;
-    /**
-     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
-     */
-    503: ApiProblem;
-};
-
-export type SetMcpTrustedAppEnabledError = SetMcpTrustedAppEnabledErrors[keyof SetMcpTrustedAppEnabledErrors];
-
-export type SetMcpTrustedAppEnabledResponses = {
-    /**
-     * Trusted app switched
-     */
-    200: McpTrustedAppResponse;
-};
-
-export type SetMcpTrustedAppEnabledResponse = SetMcpTrustedAppEnabledResponses[keyof SetMcpTrustedAppEnabledResponses];
-
-export type GetMcpEndpointConnectionData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/mcp/endpoint/connection';
-};
-
-export type GetMcpEndpointConnectionErrors = {
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Search use or Tenant membership requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-};
-
-export type GetMcpEndpointConnectionError = GetMcpEndpointConnectionErrors[keyof GetMcpEndpointConnectionErrors];
-
-export type GetMcpEndpointConnectionResponses = {
-    /**
-     * Whether the endpoint answers, and its URL
-     */
-    200: McpEndpointConnectionResponse;
-};
-
-export type GetMcpEndpointConnectionResponse = GetMcpEndpointConnectionResponses[keyof GetMcpEndpointConnectionResponses];
-
-export type ListMcpEndpointActivityData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Calls at or after this instant
-         */
-        from?: string;
-        /**
-         * Calls before this instant
-         */
-        to?: string;
-        client?: 'CLAUDE' | 'CHATGPT' | 'OTHER';
-        tool?: string;
-        outcome?: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
-        /**
-         * Part of the person's name or e-mail address
-         */
-        person?: string;
-        /**
-         * The next value of the previous page
-         */
-        cursor?: string;
-        size?: number;
-    };
-    url: '/api/mcp/endpoint/activity';
-};
-
-export type ListMcpEndpointActivityErrors = {
-    /**
-     * Invalid MCP endpoint setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * MCP endpoint setting changed
-     */
-    409: ApiProblem;
-    /**
-     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
-     */
-    503: ApiProblem;
-};
-
-export type ListMcpEndpointActivityError = ListMcpEndpointActivityErrors[keyof ListMcpEndpointActivityErrors];
-
-export type ListMcpEndpointActivityResponses = {
-    /**
-     * Tool calls, newest first
-     */
-    200: McpEndpointCallPageResponse;
-};
-
-export type ListMcpEndpointActivityResponse = ListMcpEndpointActivityResponses[keyof ListMcpEndpointActivityResponses];
-
-export type RevokeMcpClientGrantData = {
-    body?: never;
-    path?: never;
-    query: {
-        /**
-         * The clientId of a listed grant
-         */
-        clientId: string;
-    };
-    url: '/api/mcp/grants';
-};
-
-export type RevokeMcpClientGrantErrors = {
-    /**
-     * Invalid client ID
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * The User has no grant to this client
-     */
-    404: ApiProblem;
-    /**
-     * Keycloak unavailable
-     */
-    503: ApiProblem;
-};
-
-export type RevokeMcpClientGrantError = RevokeMcpClientGrantErrors[keyof RevokeMcpClientGrantErrors];
-
-export type RevokeMcpClientGrantResponses = {
-    /**
-     * Grant revoked
-     */
-    204: void;
-};
-
-export type RevokeMcpClientGrantResponse = RevokeMcpClientGrantResponses[keyof RevokeMcpClientGrantResponses];
-
-export type ListMcpClientGrantsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/mcp/grants';
-};
-
-export type ListMcpClientGrantsErrors = {
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Keycloak unavailable
-     */
-    503: ApiProblem;
-};
-
-export type ListMcpClientGrantsError = ListMcpClientGrantsErrors[keyof ListMcpClientGrantsErrors];
-
-export type ListMcpClientGrantsResponses = {
-    /**
-     * Clients the User allowed, newest first
-     */
-    200: Array<McpClientGrantResponse>;
-};
-
-export type ListMcpClientGrantsResponse = ListMcpClientGrantsResponses[keyof ListMcpClientGrantsResponses];
-
-export type GetMcpEndpointInsightsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        days?: number;
-    };
-    url: '/api/mcp/endpoint/insights';
-};
-
-export type GetMcpEndpointInsightsErrors = {
-    /**
-     * Invalid MCP endpoint setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * MCP endpoint setting changed
-     */
-    409: ApiProblem;
-    /**
-     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
-     */
-    503: ApiProblem;
-};
-
-export type GetMcpEndpointInsightsError = GetMcpEndpointInsightsErrors[keyof GetMcpEndpointInsightsErrors];
-
-export type GetMcpEndpointInsightsResponses = {
-    /**
-     * Use of the endpoint
-     */
-    200: McpEndpointInsightsResponse;
-};
-
-export type GetMcpEndpointInsightsResponse = GetMcpEndpointInsightsResponses[keyof GetMcpEndpointInsightsResponses];
-
 export type GetChatInterpreterSettingsData = {
     body?: never;
     path?: never;
@@ -9422,6 +9541,53 @@ export type TestEmbeddingProviderResponses = {
 };
 
 export type TestEmbeddingProviderResponse = TestEmbeddingProviderResponses[keyof TestEmbeddingProviderResponses];
+
+export type TestOcrConnectionData = {
+    body?: OcrConnectionTestRequest;
+    path: {
+        provider: 'PADDLEOCR_VL' | 'MODEL' | 'AIHAY';
+    };
+    query?: never;
+    url: '/api/ocr/connections/{provider}/test';
+};
+
+export type TestOcrConnectionErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestOcrConnectionError = TestOcrConnectionErrors[keyof TestOcrConnectionErrors];
+
+export type TestOcrConnectionResponses = {
+    /**
+     * The connection read the test picture
+     */
+    204: void;
+};
+
+export type TestOcrConnectionResponse = TestOcrConnectionResponses[keyof TestOcrConnectionResponses];
 
 export type ListMeetingsData = {
     body?: never;
@@ -11581,6 +11747,100 @@ export type TestChatVoiceConnectionResponses = {
 };
 
 export type TestChatVoiceConnectionResponse = TestChatVoiceConnectionResponses[keyof TestChatVoiceConnectionResponses];
+
+export type CreateSystemOneConnectionData = {
+    body: SystemOneConnectionRequest;
+    path: {
+        provider: 'TYPESAFE' | 'CLOUDFLARE' | 'NINEROUTER' | 'LAYA' | 'SYSTEMONE_COMPATIBLE';
+    };
+    query?: never;
+    url: '/api/chat/system-one/types/{provider}/connections';
+};
+
+export type CreateSystemOneConnectionErrors = {
+    /**
+     * Invalid System One configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * System One connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * System One connection changed or in use
+     */
+    409: ApiProblem;
+    /**
+     * System One service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateSystemOneConnectionError = CreateSystemOneConnectionErrors[keyof CreateSystemOneConnectionErrors];
+
+export type CreateSystemOneConnectionResponses = {
+    /**
+     * Created System One connection
+     */
+    200: SystemOneConnection;
+};
+
+export type CreateSystemOneConnectionResponse = CreateSystemOneConnectionResponses[keyof CreateSystemOneConnectionResponses];
+
+export type TestSystemOneConnectionData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/system-one/connections/{id}/test';
+};
+
+export type TestSystemOneConnectionErrors = {
+    /**
+     * Invalid System One configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * System One connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * System One connection changed or in use
+     */
+    409: ApiProblem;
+    /**
+     * System One service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestSystemOneConnectionError = TestSystemOneConnectionErrors[keyof TestSystemOneConnectionErrors];
+
+export type TestSystemOneConnectionResponses = {
+    /**
+     * The service answered a choice question
+     */
+    204: void;
+};
+
+export type TestSystemOneConnectionResponse = TestSystemOneConnectionResponses[keyof TestSystemOneConnectionResponses];
 
 export type DeleteAllChatSessionsData = {
     body?: never;
@@ -14581,6 +14841,96 @@ export type ReadSearchDocumentOriginalResponses = {
 
 export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
 
+export type ListOcrProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ocr/providers';
+};
+
+export type ListOcrProvidersErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListOcrProvidersError = ListOcrProvidersErrors[keyof ListOcrProvidersErrors];
+
+export type ListOcrProvidersResponses = {
+    /**
+     * Installed OCR providers
+     */
+    200: Array<OcrProviderResponse>;
+};
+
+export type ListOcrProvidersResponse = ListOcrProvidersResponses[keyof ListOcrProvidersResponses];
+
+export type ListOcrConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ocr/connections';
+};
+
+export type ListOcrConnectionsErrors = {
+    /**
+     * Invalid OCR configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * OCR connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * OCR connection changed
+     */
+    409: ApiProblem;
+    /**
+     * OCR service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListOcrConnectionsError = ListOcrConnectionsErrors[keyof ListOcrConnectionsErrors];
+
+export type ListOcrConnectionsResponses = {
+    /**
+     * OCR connections
+     */
+    200: Array<OcrConnectionResponse>;
+};
+
+export type ListOcrConnectionsResponse = ListOcrConnectionsResponses[keyof ListOcrConnectionsResponses];
+
 export type ExportMeetingTranscriptData = {
     body?: never;
     path: {
@@ -14750,6 +15100,227 @@ export type ListMcpGroupOptionsResponses = {
 };
 
 export type ListMcpGroupOptionsResponse = ListMcpGroupOptionsResponses[keyof ListMcpGroupOptionsResponses];
+
+export type RevokeMcpClientGrantData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The clientId of a listed grant
+         */
+        clientId: string;
+    };
+    url: '/api/mcp/grants';
+};
+
+export type RevokeMcpClientGrantErrors = {
+    /**
+     * Invalid client ID
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * The User has no grant to this client
+     */
+    404: ApiProblem;
+    /**
+     * Keycloak unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RevokeMcpClientGrantError = RevokeMcpClientGrantErrors[keyof RevokeMcpClientGrantErrors];
+
+export type RevokeMcpClientGrantResponses = {
+    /**
+     * Grant revoked
+     */
+    204: void;
+};
+
+export type RevokeMcpClientGrantResponse = RevokeMcpClientGrantResponses[keyof RevokeMcpClientGrantResponses];
+
+export type ListMcpClientGrantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/grants';
+};
+
+export type ListMcpClientGrantsErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Keycloak unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpClientGrantsError = ListMcpClientGrantsErrors[keyof ListMcpClientGrantsErrors];
+
+export type ListMcpClientGrantsResponses = {
+    /**
+     * Clients the User allowed, newest first
+     */
+    200: Array<McpClientGrantResponse>;
+};
+
+export type ListMcpClientGrantsResponse = ListMcpClientGrantsResponses[keyof ListMcpClientGrantsResponses];
+
+export type GetMcpEndpointInsightsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        days?: number;
+    };
+    url: '/api/mcp/endpoint/insights';
+};
+
+export type GetMcpEndpointInsightsErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetMcpEndpointInsightsError = GetMcpEndpointInsightsErrors[keyof GetMcpEndpointInsightsErrors];
+
+export type GetMcpEndpointInsightsResponses = {
+    /**
+     * Use of the endpoint
+     */
+    200: McpEndpointInsightsResponse;
+};
+
+export type GetMcpEndpointInsightsResponse = GetMcpEndpointInsightsResponses[keyof GetMcpEndpointInsightsResponses];
+
+export type GetMcpEndpointConnectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/endpoint/connection';
+};
+
+export type GetMcpEndpointConnectionErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Search use or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+};
+
+export type GetMcpEndpointConnectionError = GetMcpEndpointConnectionErrors[keyof GetMcpEndpointConnectionErrors];
+
+export type GetMcpEndpointConnectionResponses = {
+    /**
+     * Whether the endpoint answers, and its URL
+     */
+    200: McpEndpointConnectionResponse;
+};
+
+export type GetMcpEndpointConnectionResponse = GetMcpEndpointConnectionResponses[keyof GetMcpEndpointConnectionResponses];
+
+export type ListMcpEndpointActivityData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Calls at or after this instant
+         */
+        from?: string;
+        /**
+         * Calls before this instant
+         */
+        to?: string;
+        client?: 'CLAUDE' | 'CHATGPT' | 'OTHER';
+        tool?: string;
+        outcome?: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
+        /**
+         * Part of the person's name or e-mail address
+         */
+        person?: string;
+        /**
+         * The next value of the previous page
+         */
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/mcp/endpoint/activity';
+};
+
+export type ListMcpEndpointActivityErrors = {
+    /**
+     * Invalid MCP endpoint setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * MCP endpoint setting changed
+     */
+    409: ApiProblem;
+    /**
+     * This deployment has no MCP endpoint URL, or no account to change trusted apps in Keycloak, or Keycloak is unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpEndpointActivityError = ListMcpEndpointActivityErrors[keyof ListMcpEndpointActivityErrors];
+
+export type ListMcpEndpointActivityResponses = {
+    /**
+     * Tool calls, newest first
+     */
+    200: McpEndpointCallPageResponse;
+};
+
+export type ListMcpEndpointActivityResponse = ListMcpEndpointActivityResponses[keyof ListMcpEndpointActivityResponses];
 
 export type ListMcpConnectionsData = {
     body?: never;
@@ -15196,6 +15767,96 @@ export type ListChatVoiceConnectionsResponses = {
 };
 
 export type ListChatVoiceConnectionsResponse = ListChatVoiceConnectionsResponses[keyof ListChatVoiceConnectionsResponses];
+
+export type ListSystemOneTypesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/system-one/types';
+};
+
+export type ListSystemOneTypesErrors = {
+    /**
+     * Invalid System One configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * System One connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * System One connection changed or in use
+     */
+    409: ApiProblem;
+    /**
+     * System One service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListSystemOneTypesError = ListSystemOneTypesErrors[keyof ListSystemOneTypesErrors];
+
+export type ListSystemOneTypesResponses = {
+    /**
+     * System One connection types
+     */
+    200: Array<SystemOneType>;
+};
+
+export type ListSystemOneTypesResponse = ListSystemOneTypesResponses[keyof ListSystemOneTypesResponses];
+
+export type ListSystemOneConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/system-one/connections';
+};
+
+export type ListSystemOneConnectionsErrors = {
+    /**
+     * Invalid System One configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * System One connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * System One connection changed or in use
+     */
+    409: ApiProblem;
+    /**
+     * System One service unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListSystemOneConnectionsError = ListSystemOneConnectionsErrors[keyof ListSystemOneConnectionsErrors];
+
+export type ListSystemOneConnectionsResponses = {
+    /**
+     * System One connections
+     */
+    200: Array<SystemOneConnection>;
+};
+
+export type ListSystemOneConnectionsResponse = ListSystemOneConnectionsResponses[keyof ListSystemOneConnectionsResponses];
 
 export type GetSharedChatSessionData = {
     body?: never;
@@ -17914,7 +18575,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/summary';
 };
@@ -18099,7 +18760,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/daily';
 };
@@ -18139,7 +18800,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/breakdown';
 };

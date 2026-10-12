@@ -6,8 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.ai.ProviderAdapter.ReportedModel;
+import io.memoryos.shared.OutboundHttp;
+import io.memoryos.shared.OutboundHttp.Limits;
 import java.net.InetSocketAddress;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
@@ -15,9 +16,11 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 class LocalModelMetadataTest {
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final RestClient CLIENT = OutboundHttp.builder(new Limits(Duration.ofSeconds(5), 16 * 1_048_576)).build();
     private HttpServer server;
 
     @AfterEach
@@ -61,12 +64,11 @@ class LocalModelMetadataTest {
         var models = names("qwen3:8b", "llava:7b", "nomic-embed-text:latest");
         assertEquals(LocalModelMetadata.Server.OLLAMA, LocalModelMetadata.recognize(base, data, models));
 
-        var detailed = LocalModelMetadata.enrich(HttpClient.newHttpClient(), LocalModelMetadata.Server.OLLAMA, base, "ollama",
-                Duration.ofSeconds(5), models);
+        var detailed = LocalModelMetadata.enrich(CLIENT, LocalModelMetadata.Server.OLLAMA, base, "ollama", models);
 
         assertEquals(List.of("qwen3:8b", "llava:7b"), detailed.stream().map(ReportedModel::modelName).toList());
-        assertEquals(new ReportedModel("qwen3:8b", 16_384, null, true, false, true, null), detailed.get(0));
-        assertEquals(new ReportedModel("llava:7b", 4096, null, false, true, false, null), detailed.get(1));
+        assertEquals(new ReportedModel("qwen3:8b", 16_384, null, true, false, true, null, null), detailed.get(0));
+        assertEquals(new ReportedModel("llava:7b", 4096, null, false, true, false, null, null), detailed.get(1));
     }
 
     @Test
@@ -82,10 +84,9 @@ class LocalModelMetadataTest {
         var models = names("qwen/qwen3-8b", "text-embedding-nomic-embed-text-v1.5");
         assertEquals(LocalModelMetadata.Server.LM_STUDIO, LocalModelMetadata.recognize(base, data, models));
 
-        var detailed = LocalModelMetadata.enrich(HttpClient.newHttpClient(), LocalModelMetadata.Server.LM_STUDIO, base, "lm-studio",
-                Duration.ofSeconds(5), models);
+        var detailed = LocalModelMetadata.enrich(CLIENT, LocalModelMetadata.Server.LM_STUDIO, base, "lm-studio", models);
 
-        assertEquals(List.of(new ReportedModel("qwen/qwen3-8b", 32_768, null, true, false, true, null)), detailed);
+        assertEquals(List.of(new ReportedModel("qwen/qwen3-8b", 32_768, null, true, false, true, null, null)), detailed);
     }
 
     @Test
@@ -93,11 +94,10 @@ class LocalModelMetadataTest {
         String base = serve(Map.of());
         var owned = JSON.readTree("[{\"id\":\"gpt-5-mini\",\"owned_by\":\"system\"}]");
         assertNull(LocalModelMetadata.recognize("https://api.openai.com/v1", owned, names("gpt-5-mini")));
-        var published = List.of(new ReportedModel("local", 8192, null, null, null, null, null));
+        var published = List.of(new ReportedModel("local", 8192, null, null, null, null, null, null));
         assertNull(LocalModelMetadata.recognize(base, JSON.readTree("[{\"id\":\"local\",\"owned_by\":\"library\"}]"), published));
         // A native API that does not answer keeps the names already listed.
         var models = names("qwen3:8b");
-        assertEquals(models, LocalModelMetadata.enrich(HttpClient.newHttpClient(), LocalModelMetadata.Server.OLLAMA, base, "k",
-                Duration.ofSeconds(5), models));
+        assertEquals(models, LocalModelMetadata.enrich(CLIENT, LocalModelMetadata.Server.OLLAMA, base, "k", models));
     }
 }

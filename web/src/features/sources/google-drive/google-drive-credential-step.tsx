@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiDay } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { ArrowRight, Plus, TriangleAlert } from "lucide-react";
@@ -338,12 +338,12 @@ function CredentialRow({
         </TableCell>
         <TableCell>
           <time dateTime={credential.createdAt} className="text-xs text-content-secondary">
-            {new Date(credential.createdAt).toLocaleDateString(uiLocale())}
+            {formatUiDay(credential.createdAt)}
           </time>
         </TableCell>
         <TableCell>
           <time dateTime={credential.updatedAt} className="text-xs text-content-secondary">
-            {new Date(credential.updatedAt).toLocaleDateString(uiLocale())}
+            {formatUiDay(credential.updatedAt)}
           </time>
         </TableCell>
         <TableCell className="text-right">

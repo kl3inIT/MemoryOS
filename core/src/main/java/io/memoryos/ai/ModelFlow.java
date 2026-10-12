@@ -13,6 +13,11 @@ public enum ModelFlow {
     /** Proposals for the stretches of a transcript the speech provider was unsure of. */
     MEETING_CORRECTION;
 
+    /** Whether the task is a typed decision a System One connection can answer instead of a language model. */
+    public boolean classifies() {
+        return this == CHAT_GUARDRAIL;
+    }
+
     /**
      * How hard the task's model thinks until an administrator picks a level: the minutes reason, because without it
      * their extraction was uneven; the helper tasks stay fast with thinking off.

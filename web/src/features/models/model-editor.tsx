@@ -17,7 +17,14 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { compactTokens, millionTokenPrice, type ModelDraft } from "./model-catalog";
+import {
+  compactTokens,
+  millionTokenPrice,
+  openAiOptions,
+  reasoningEfforts,
+  type InstalledAdapter,
+  type ModelDraft,
+} from "./model-catalog";
 import { useModelEditor, type ChangeDraft, type ModelEditorProps } from "./use-model-editor";
 
 type DraftProps = { draft: ModelDraft; change: ChangeDraft };
@@ -57,7 +64,13 @@ function DraftCheckbox({
   draft,
   change,
 }: DraftProps & {
-  name: "toolCalling" | "vision" | "reasoning" | "visible" | "completionTokens";
+  name:
+    | "toolCalling"
+    | "vision"
+    | "reasoning"
+    | "structuredOutput"
+    | "visible"
+    | "completionTokens";
   label: string;
 }) {
   const id = `model-${name}`;
@@ -103,6 +116,7 @@ function Specs(props: DraftProps) {
         <DraftCheckbox {...props} name="toolCalling" label={ui("Tool calling")} />
         <DraftCheckbox {...props} name="vision" label={ui("Vision input")} />
         <DraftCheckbox {...props} name="reasoning" label={ui("Reasoning")} />
+        <DraftCheckbox {...props} name="structuredOutput" label={ui("Structured output")} />
         <Field orientation="horizontal" data-disabled="true">
           <Checkbox id="model-streaming" checked disabled />
           <FieldLabel htmlFor="model-streaming">{ui("Streaming (required)")}</FieldLabel>
@@ -184,6 +198,7 @@ function DeclaredSpecs({ draft }: { draft: ModelDraft }) {
             draft.toolCalling ? ui("Tool calling") : null,
             draft.vision ? ui("Vision input") : null,
             draft.reasoning ? ui("Reasoning") : null,
+            draft.structuredOutput ? ui("Structured output") : null,
             ui("Streaming (required)"),
           ]
             .filter(Boolean)
@@ -194,18 +209,25 @@ function DeclaredSpecs({ draft }: { draft: ModelDraft }) {
   );
 }
 
-function RequestOptions({ draft, change }: DraftProps) {
+function RequestOptions({
+  draft,
+  change,
+  adapter,
+}: DraftProps & { adapter: InstalledAdapter | undefined }) {
   const ui = useAppTranslation();
+  const openAi = openAiOptions(adapter);
   return (
     <FieldSet>
       <FieldLegend variant="label">{ui("Request options")}</FieldLegend>
-      <DraftCheckbox
-        draft={draft}
-        change={change}
-        name="completionTokens"
-        label={ui("Use maxCompletionTokens option family")}
-      />
-      {!draft.completionTokens && !draft.reasoning && (
+      {openAi && (
+        <DraftCheckbox
+          draft={draft}
+          change={change}
+          name="completionTokens"
+          label={ui("Use maxCompletionTokens option family")}
+        />
+      )}
+      {(!draft.completionTokens || !openAi) && !draft.reasoning && (
         <DraftInput
           draft={draft}
           change={change}
@@ -213,7 +235,7 @@ function RequestOptions({ draft, change }: DraftProps) {
           label={ui("Temperature")}
           type="number"
           min={0}
-          max={2}
+          max={openAi ? 2 : 1}
           step="any"
           className="max-w-xs"
         />
@@ -227,7 +249,7 @@ function RequestOptions({ draft, change }: DraftProps) {
             onChange={(event) => change("reasoningEffort", event.target.value)}
           >
             <option value="">{ui("Provider default (omitted)")}</option>
-            {["minimal", "low", "medium", "high"].map((effort) => (
+            {reasoningEfforts(adapter).map((effort) => (
               <option key={effort} value={effort}>
                 {effort}
               </option>
@@ -321,7 +343,7 @@ export function ModelEditor({ onClose, ...props }: ModelEditorProps & { onClose:
                       <Prices draft={draft} change={change} />
                     </>
                   )}
-                  <RequestOptions draft={draft} change={change} />
+                  <RequestOptions draft={draft} change={change} adapter={props.adapter} />
                 </FieldGroup>
               </CollapsibleContent>
             </Collapsible>

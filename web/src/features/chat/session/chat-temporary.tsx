@@ -40,7 +40,7 @@ export function ChatTemporaryToggle({
           open
           onOpenChange={(open) => !open && setExplaining(false)}
           title={ui("Chat tạm thời")}
-          description={ui("Dùng khi bạn không muốn cuộc trò chuyện này được lưu lại.")}
+          description={ui("Dùng khi bạn không muốn hội thoại này được lưu lại.")}
           submitLabel={ui("Bắt đầu")}
           onSubmit={async () => {
             onChange(true);
@@ -51,12 +51,12 @@ export function ChatTemporaryToggle({
             <TemporaryFact
               icon={<MessageSquareOff />}
               title={ui("Không vào lịch sử")}
-              description={ui("Cuộc trò chuyện không hiện trên thanh bên và không tìm được.")}
+              description={ui("Hội thoại không hiện trên thanh bên và không tìm được.")}
             />
             <TemporaryFact
               icon={<Clock />}
               title={ui("Tự xóa")}
-              description={ui("Cuộc trò chuyện và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.")}
+              description={ui("Hội thoại và tệp bạn gửi vào đó bị xóa sau khi bạn dừng hỏi.")}
             />
             <TemporaryFact
               icon={<FolderX />}
@@ -116,7 +116,7 @@ export function ChatTemporaryNotice({ onLeave }: { onLeave: () => void }) {
       className="mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface-subtle px-3 py-1 font-secondary-body text-content-secondary"
     >
       <EyeOff className="size-3.5 shrink-0" aria-hidden="true" />
-      {ui("Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó.")}
+      {ui("Hội thoại này không được lưu và sẽ tự xóa cùng tệp của nó.")}
       <Button size="sm" prominence="internal" onClick={onLeave}>
         {ui("Hội thoại mới")}
       </Button>

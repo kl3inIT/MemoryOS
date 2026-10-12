@@ -5,7 +5,8 @@ export const capabilityCopy: Record<GroupCapability["id"], { label: string; desc
   {
     MODELS_MANAGE: {
       label: "Manage models",
-      description: "Configure Chat providers, credentials, models and access within the Tenant.",
+      description:
+        "Configure Chat providers, credentials, models and access within the organization.",
     },
     AGENTS_CREATE: {
       label: "Create agents",
@@ -14,22 +15,22 @@ export const capabilityCopy: Record<GroupCapability["id"], { label: string; desc
     AGENTS_MANAGE: {
       label: "Manage agents",
       description:
-        "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.",
+        "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the organization.",
     },
     CHAT_HISTORY_READ: {
       label: "View conversation history",
       description:
-        "Read and export the questions and answers of everyone in the Tenant. Every transcript read is itself recorded in the audit log.",
+        "Read and export the questions and answers of everyone in the organization. Every transcript read is itself recorded in the audit log.",
     },
     AUDIT_READ: {
       label: "View audit log",
       description:
-        "Read and export who changed sign-in, users, Groups, models, connections and Sources within the Tenant.",
+        "Read and export who changed sign-in, users, Groups, models, connections and Sources within the organization.",
     },
     MCP_MANAGE: {
       label: "Manage MCP servers",
       description:
-        "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the Tenant.",
+        "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the organization.",
     },
     SYSTEM_ADMIN: {
       label: "Administrator access",
@@ -68,7 +69,7 @@ export const capabilityCopy: Record<GroupCapability["id"], { label: string; desc
     },
     USERS_MANAGE: {
       label: "Manage users",
-      description: "Issue invitations and activate or deactivate Tenant users.",
+      description: "Issue invitations and activate or deactivate organization users.",
     },
     GROUPS_READ: {
       label: "View groups",

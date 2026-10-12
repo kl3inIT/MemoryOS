@@ -1,0 +1,13 @@
+{
+  "about": "What OCR services that bill by the call charge, kept by hand: known-models.json is regenerated from LiteLLM's list and holds models billed by the token. A price is in US dollars per 1,000 calls. Where a service lists another currency, the entry keeps the listed price, the rate used and the day it was read, so the next edit can redo the sum.",
+  "ocr": [
+    {
+      "provider": "AIHAY",
+      "pricePerThousandCalls": 1.5,
+      "listed": "40,500 VND per 1,000 calls",
+      "rate": "27,000 VND to the US dollar, the rate AI Hay's own prices use",
+      "source": "AI Hay Platform dashboard, Billing, Pricing, as read for BeyondPilot BEY-102",
+      "read": "2026-10-09"
+    }
+  ]
+}

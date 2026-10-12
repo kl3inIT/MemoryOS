@@ -101,7 +101,7 @@ export function ChatSharedPage({ sessionId }: { sessionId: string }) {
             <Alert variant="destructive">
               <AlertDescription>
                 {ui(
-                  "Hội thoại không khả dụng. Liên kết có thể đã bị thu hồi hoặc bạn không thuộc Tenant được chia sẻ.",
+                  "Hội thoại không khả dụng. Liên kết có thể đã bị thu hồi hoặc bạn không thuộc tổ chức được chia sẻ.",
                 )}
               </AlertDescription>
             </Alert>

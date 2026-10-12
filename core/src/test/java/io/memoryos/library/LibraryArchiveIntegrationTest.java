@@ -265,8 +265,8 @@ class LibraryArchiveIntegrationTest {
         }
         var persona = UUID.randomUUID();
         jdbc.sql("""
-                INSERT INTO persona(id,tenant_id,name,instructions,model,builtin_key)
-                VALUES(:id,:tenant,'Default','','gpt','default')
+                INSERT INTO persona(id,tenant_id,name,instructions,builtin_key)
+                VALUES(:id,:tenant,'Default','','default')
                 """).param("id", persona).param("tenant", tenant.value()).update();
         var session = UUID.randomUUID();
         var root = UUID.randomUUID();

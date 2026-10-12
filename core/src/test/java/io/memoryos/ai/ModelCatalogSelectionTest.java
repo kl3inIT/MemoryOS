@@ -73,7 +73,7 @@ class ModelCatalogSelectionTest {
     @Test void aTaskSelectionCarriesTheLevelChosenForTheTaskEvenOnTheConversationModel() {
         var fixture = new Fixture();
         when(fixture.catalog.flowDefault(fixture.tenant, ModelFlow.CHAT_NAMING))
-                .thenReturn(new FlowModelDefault(ModelFlow.CHAT_NAMING, null, ReasoningEffort.HIGH, 2));
+                .thenReturn(new FlowModelDefault(ModelFlow.CHAT_NAMING, null, ReasoningEffort.HIGH, null, 2));
 
         var selected = fixture.access.selectFlow(fixture.actor, fixture.session, ModelFlow.CHAT_NAMING);
 
@@ -100,7 +100,7 @@ class ModelCatalogSelectionTest {
 
     @Test void aSendSelectsWithTheAgentItAlreadyReadWithoutReadingItOrTheCapabilitiesAgain() {
         var fixture = new Fixture();
-        var agent = new JdbcChatRepository.Persona("", "other", ChatTurnOptions.DEFAULT, "9",
+        var agent = new JdbcChatRepository.Persona("", ChatTurnOptions.DEFAULT, "9",
                 fixture.otherId, List.of(), Set.of(), null);
         clearInvocations(fixture.authorization);
 
@@ -145,7 +145,7 @@ class ModelCatalogSelectionTest {
         final ActorId actor = new ActorId(UUID.randomUUID());
         final ModelCatalogRepository catalog = mock(ModelCatalogRepository.class);
         final ModelSettings settings = new ModelSettings(36096, 4096,
-                new ModelSettings.Capabilities(true, true, true, true), Map.of(), null, "openai-o200k-v1");
+                new ModelSettings.Capabilities(true, true, true, true, false), Map.of(), null, "openai-o200k-v1");
         final LlmProvider provider = provider();
         final LlmProvider otherProvider = provider();
         final ModelConfiguration defaultModel = new ModelConfiguration(defaultId, tenant, provider.id(), "luna", "Luna", true, settings, 1);
@@ -180,7 +180,7 @@ class ModelCatalogSelectionTest {
             when(chats.findOwned(new TenantId(tenant), actor, session, false)).thenReturn(Optional.of(new ChatSession(
                     session, persona, UUID.randomUUID(), "Chat", Instant.now(), Instant.now(), null, null, null, null, null,
                     false)));
-            when(chats.persona(session, true, false)).thenReturn(new JdbcChatRepository.Persona("", "luna",
+            when(chats.persona(session, true, false)).thenReturn(new JdbcChatRepository.Persona("",
                     ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null));
             when(agents.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, null, 1));
             service = new ModelCatalogService(catalog, mock(AgentDirectory.class), event -> {}, tenants, authorization, adapters,
@@ -192,7 +192,7 @@ class ModelCatalogSelectionTest {
                     true, true, null, 1, Set.of(), Set.of(), DataBoundary.EXTERNAL);
         }
         void naming(UUID model) {
-            var value = new FlowModelDefault(ModelFlow.CHAT_NAMING, model, null, 1);
+            var value = new FlowModelDefault(ModelFlow.CHAT_NAMING, model, null, null, 1);
             when(catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING)).thenReturn(value);
             when(catalog.flowDefaults(tenant)).thenReturn(List.of(value));
         }

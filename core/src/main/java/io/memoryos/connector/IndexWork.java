@@ -8,6 +8,10 @@ import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
 
+/**
+ * @param attempt how many attempts of the retry budget this claim is, counting itself; a deferred claim is not
+ *                counted
+ */
 public record IndexWork(
         SourceOperationId operationId,
         TenantId tenantId,
@@ -17,6 +21,7 @@ public record IndexWork(
         UUID claimToken,
         StoredObjectReference object,
         SourceInputDescriptor input,
-        @Nullable Duration initialQueueWait
+        @Nullable Duration initialQueueWait,
+        int attempt
 ) {
 }

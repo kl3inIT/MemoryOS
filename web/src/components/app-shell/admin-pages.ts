@@ -1,12 +1,8 @@
 import { useMatchRoute, type LinkProps } from "@tanstack/react-router";
 import {
-  AudioLines,
   Blocks,
   Bot,
   Cable,
-  CloudUpload,
-  Globe,
-  ImageIcon,
   KeyRound,
   Library,
   MessageSquare,
@@ -27,17 +23,13 @@ import type { AdminAuthority } from "@/features/identity/application-session-con
 export type AdminPage =
   | "chatHistory"
   | "sources"
-  | "addSource"
   | "documentSets"
   | "users"
   | "groups"
-  | "web"
-  | "voice"
-  | "images"
   | "interpreter"
   | "chat"
   | "providers"
-  | "models"
+  | "aiProviders"
   | "searchSettings"
   | "mcp"
   | "mcpEndpoint"
@@ -67,7 +59,7 @@ export const adminGroups: readonly { id: AdminGroup; label: AppText }[] = [
   { id: "configuration", label: appText("Configuration") },
   { id: "agents", label: appText("Trợ lý và công cụ") },
   { id: "knowledge", label: appText("Documents & Knowledge") },
-  { id: "tenant", label: appText("Tenant") },
+  { id: "tenant", label: appText("Tổ chức") },
   { id: "monitoring", label: appText("Monitoring") },
 ];
 
@@ -77,38 +69,11 @@ const readSources = (authority: AdminAuthority) => authority.canReadSources;
 /** Every administration page, in sidebar order within its section. */
 export const adminPages: readonly AdminPageEntry[] = [
   {
-    id: "models",
-    to: "/admin/models",
-    label: appText("Mô hình"),
-    title: appText("Models"),
+    id: "aiProviders",
+    to: "/admin/ai-providers",
+    label: appText("AI Providers"),
+    title: appText("AI Providers"),
     icon: Sparkles,
-    group: "configuration",
-    visible: manageModels,
-  },
-  {
-    id: "web",
-    to: "/admin/web-search",
-    label: appText("Tìm kiếm Web"),
-    title: appText("Tìm kiếm Web"),
-    icon: Globe,
-    group: "configuration",
-    visible: manageModels,
-  },
-  {
-    id: "voice",
-    to: "/admin/voice",
-    label: appText("Giọng nói"),
-    title: appText("Giọng nói"),
-    icon: AudioLines,
-    group: "configuration",
-    visible: manageModels,
-  },
-  {
-    id: "images",
-    to: "/admin/image-generation",
-    label: appText("Tạo ảnh"),
-    title: appText("Tạo ảnh"),
-    icon: ImageIcon,
     group: "configuration",
     visible: manageModels,
   },
@@ -165,16 +130,6 @@ export const adminPages: readonly AdminPageEntry[] = [
     icon: Plug,
     group: "knowledge",
     visible: readSources,
-  },
-  {
-    id: "addSource",
-    to: "/admin/sources/new",
-    label: appText("Add a source"),
-    title: appText("Add a source"),
-    icon: CloudUpload,
-    group: "knowledge",
-    visible: readSources,
-    fuzzy: true,
   },
   {
     id: "documentSets",
@@ -263,7 +218,7 @@ const entryOrder: readonly AdminPage[] = [
   "sources",
   "users",
   "providers",
-  "models",
+  "aiProviders",
   "mcp",
   "agents",
   "audit",

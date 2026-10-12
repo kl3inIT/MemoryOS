@@ -10,6 +10,7 @@ import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.UploadConstraints;
 
 import java.net.URI;
@@ -82,6 +83,23 @@ class S3ObjectStorageIntegrationTest {
         HTTP.close();
     }
 
+
+    @Test
+    void writesABinaryObjectUpToTheAdmissionCeilingAndRefusesOneByteMore() {
+        try (var storage = storage(Duration.ofMinutes(5))) {
+        // 40 MiB: a connector file between the old 32 MiB write bound and the 100 MiB the connectors admit.
+        byte[] content = new byte[40 * 1024 * 1024];
+        content[content.length - 1] = 7;
+        var key = new ObjectKey("raw/10000000-0000-0000-0000-000000000052/40000000-0000-0000-0000-000000000052");
+        storage.write(key, content, "application/pdf");
+        assertEquals(content.length, storage.inspect(key).sizeBytes());
+        storage.delete(key);
+
+        var tooLarge = new ObjectKey("raw/10000000-0000-0000-0000-000000000052/40000000-0000-0000-0000-000000000053");
+        assertThrows(IllegalArgumentException.class, () -> storage.write(tooLarge,
+                new byte[Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES) + 1], "application/pdf"));
+        }
+    }
 
     @Test
     void probesAReadinessSentinelWithoutRequiringUploadChecksumMetadata() {

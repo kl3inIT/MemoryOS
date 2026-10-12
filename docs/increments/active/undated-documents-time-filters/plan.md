@@ -27,7 +27,7 @@
   in-flight meeting-notes work added `ModelFlow.MEETING_MINUTES` without updating
   `ModelCatalogConstraintsTest`, which is the only other failure and is unrelated to this change.
 - Staging after release: re-run the reproduction; `exec` reads and cites both documents. Then
-  `rag-benchmark run --only temporal` and `--only cross_department`.
+  the MEM-230 benchmark's temporal and cross-department questions (`build_config.py --only`).
 
 ## Out of scope
 

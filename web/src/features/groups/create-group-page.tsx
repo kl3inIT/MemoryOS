@@ -63,17 +63,18 @@ export function CreateGroupPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[var(--page-width-narrow)] px-5 py-8 sm:px-8 sm:py-10">
+    <section className="mx-auto flex w-full max-w-[var(--page-width-narrow)] flex-col px-5 py-8 sm:px-8 sm:py-10">
       <Link
         to="/admin/groups"
         search={{ page: 0, size: 20 }}
-        className="inline-flex items-center gap-2 rounded-lg font-secondary-action text-content-secondary transition-colors outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+        className="inline-flex items-center gap-2 self-start rounded-lg font-secondary-action text-content-secondary transition-colors outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         {ui("Groups")}
       </Link>
 
-      <div className="mt-6">
+      {/* Below `md` the bar carries the title, so the actions follow the field they submit. */}
+      <div className="mt-6 max-md:order-last">
         <PageHeader
           icon={<Users />}
           title={ui("Create group")}

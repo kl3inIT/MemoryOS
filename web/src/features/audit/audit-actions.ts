@@ -34,6 +34,7 @@ const actionLabels: Record<string, AppCopy> = {
   "web_connection.change": "Changed Web search",
   "voice_connection.change": "Changed voice",
   "image_connection.change": "Changed image generation",
+  "ocr_connection.change": "Changed OCR",
   "interpreter.change": "Changed Code Interpreter",
   "chat_settings.change": "Changed Chat settings",
   "chat_guardrail.block": "Question blocked",

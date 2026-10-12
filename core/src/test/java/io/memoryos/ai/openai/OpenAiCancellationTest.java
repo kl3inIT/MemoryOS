@@ -136,7 +136,7 @@ class OpenAiCancellationTest {
 
     private static ProviderAdapter.Client client(OpenAiProviderAdapter adapter, ServerSocket server, Duration readTimeout) {
         return adapter.create(new ProviderAdapter.Connection("http://127.0.0.1:" + server.getLocalPort() + "/v1", "fixture-key"),
-                "fixture", new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
+                "fixture", new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false, false),
                         Map.of(), null, TokenizerProfiles.HOSTED), readTimeout);
     }
 

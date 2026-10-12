@@ -1,4 +1,4 @@
-import { uiLocale } from "@/i18n/format";
+import { formatUiMoment, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { FolderTree } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -82,7 +82,7 @@ export function GoogleDriveSelectionPanel({
         {specific && configuration.discoveredAt ? (
           <p className="min-w-0 text-xs text-content-muted">
             {ui("Last discovery · {{v1}}", {
-              v1: new Date(configuration.discoveredAt).toLocaleString(uiLocale()),
+              v1: formatUiMoment(configuration.discoveredAt),
             })}
           </p>
         ) : null}

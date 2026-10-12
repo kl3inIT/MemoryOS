@@ -88,7 +88,7 @@ class ChatTurnServiceTest {
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         // The builtin agent allows every tool and every MCP server the actor can use.
         when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
-                "", "gpt-5-mini", ChatTurnOptions.DEFAULT, "0", null, List.of(),
+                "", ChatTurnOptions.DEFAULT, "0", null, List.of(),
                 Set.of("search", "web_search", "image_generation"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
         var question = ChatMessage.builder(pair.userMessageId(), session, ChatMessage.Role.USER, ChatMessage.Status.COMPLETED, Instant.now())
@@ -98,7 +98,7 @@ class ChatTurnServiceTest {
                 .finishedAt(Instant.now())
                 .build();
         when(persistence.loadContext(any(), any(), any())).thenReturn(ChatTurnPersistence.TurnContext.builder(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question)).build());
+                new TenantId(UUID.randomUUID()), "Answer", List.of(question)).build());
     }
 
     @Test

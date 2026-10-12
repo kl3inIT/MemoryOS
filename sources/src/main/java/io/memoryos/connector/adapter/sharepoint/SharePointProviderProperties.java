@@ -11,7 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record SharePointProviderProperties(
         URI authority, URI graphBaseUrl, Duration connectTimeout, Duration requestTimeout,
         Duration acquisitionTimeout, int maxRequests, int maxResponseBytes, int pageSize,
-        int maxContentBytes, String userAgent) {
+        int maxContentBytes, String userAgent, Duration contentTimeout) {
 
     public SharePointProviderProperties {
         authority = authority == null ? URI.create("https://login.microsoftonline.com") : authority;
@@ -19,6 +19,8 @@ public record SharePointProviderProperties(
         connectTimeout = connectTimeout == null ? Duration.ofSeconds(3) : connectTimeout;
         requestTimeout = requestTimeout == null ? Duration.ofSeconds(30) : requestTimeout;
         acquisitionTimeout = acquisitionTimeout == null ? Duration.ofSeconds(15) : acquisitionTimeout;
+        // A file of up to maxContentBytes does not download within the budget of a metadata read (MEM-226).
+        contentTimeout = contentTimeout == null ? Duration.ofSeconds(120) : contentTimeout;
         maxRequests = maxRequests == 0 ? 64 : maxRequests;
         maxResponseBytes = maxResponseBytes == 0 ? 1_048_576 : maxResponseBytes;
         pageSize = pageSize == 0 ? 200 : pageSize;
@@ -31,6 +33,7 @@ public record SharePointProviderProperties(
     void validate() {
         if (!endpoint(authority) || !endpoint(graphBaseUrl) || !duration(connectTimeout, 30)
                 || !duration(requestTimeout, 120) || !duration(acquisitionTimeout, 120)
+                || !duration(contentTimeout, 600)
                 || maxRequests < 1 || maxRequests > 256
                 || maxResponseBytes < 1024 || maxResponseBytes > 16_777_216
                 || pageSize < 1 || pageSize > 999

@@ -92,8 +92,6 @@ class SearchToolTest {
         when(runner.withLlm(any())).thenReturn(runner);
         when(runner.createObject(anyList(), eq(SearchTool.SemanticQuery.class))).thenReturn(new SearchTool.SemanticQuery("policy"));
         when(runner.createObject(anyList(), eq(SearchTool.KeywordQueries.class))).thenReturn(new SearchTool.KeywordQueries(List.of("policy")));
-        when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenReturn(
-                new SearchTool.ContextSelection(SearchTool.Expansion.MAIN_SECTION_ONLY));
     }
 
     private SearchTool tool(int availableTokens) {
@@ -182,7 +180,6 @@ class SearchToolTest {
             var response = tool.searchKnowledge(List.of("Policy.pdf"), null);
             assertTrue(response.contains("[1] Policy\nSection 2\nSection 3"));
             assertEquals(1, events.stream().filter(e -> e.source() != null).count());
-            verify(runner).createObject(anyString(), eq(SearchTool.ContextSelection.class));
         }
     }
 
@@ -215,8 +212,6 @@ class SearchToolTest {
         candidates();
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(
                 new SearchTool.Selection(List.of(1)));
-        when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenReturn(
-                new SearchTool.ContextSelection(SearchTool.Expansion.INCLUDE_ADJACENT_SECTIONS));
         when(search.window(any(), eq(section), eq(2))).thenReturn(IntStream.range(0, 5).mapToObj(i -> new SearchPage.Passage(i,
                         i == 2 ? "MATCHING PASSAGE" : "Distant context ".repeat(400), "[]")).toList());
         try (var tool = tool(90)) {
@@ -257,35 +252,25 @@ class SearchToolTest {
     }
 
     @Test
-    void classificationReadsNeighborsAndKeepsTheMainSectionWhenNotRelevant() {
-        candidates();
-        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
-        when(search.window(any(), eq(section), eq(2))).thenReturn(List.of(new SearchPage.Passage(1, "This contract is for PROJECT Y, not PROJECT X.", "[]"),
-                        new SearchPage.Passage(2, "The quoted fee is 100000.", "[]")));
-        when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenAnswer(call -> {
-            assertTrue(call.<String>getArgument(0).contains("PROJECT Y"));
-            verify(search).window(any(), eq(section), eq(2));
-            return new SearchTool.ContextSelection(SearchTool.Expansion.NOT_RELEVANT);
-        });
-        try (var tool = tool(8000)) {
-            // As in the reference, a NOT_RELEVANT classification keeps the selected main section instead of dropping it.
-            String response = tool.searchKnowledge(List.of("PROJECT X fee"), null);
-            assertTrue(response.contains("[1] Policy\nSection 2\nSection 3"));
-            assertFalse(response.contains("PROJECT Y"));
-        }
-    }
-
-    @Test
-    void fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow() {
-        candidates();
-        when(search.window(any(), eq(section), eq(2))).thenReturn(List.of(new SearchPage.Passage(1, "Neighbor", "[]"), section.passages().getFirst(), section.passages().getLast()));
-        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
-        when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenReturn(
-                new SearchTool.ContextSelection(SearchTool.Expansion.FULL_DOCUMENT));
-        when(search.window(any(), eq(section), eq(5))).thenReturn(IntStream.range(0, 8).mapToObj(i -> new SearchPage.Passage(i, "Context " + i, "[]")).toList());
+    void everySelectedSectionReturnsItsAdjacentChunksWithoutAClassificationHelperCall() {
+        var result = candidates();
+        var otherDocument = UUID.randomUUID();
+        var otherHit = new SearchHit(otherDocument, UUID.randomUUID(), 10, "Handbook", "text/plain", "Section 10", "[]", Instant.EPOCH, .8);
+        var other = new SearchSection(otherHit, List.of(otherHit));
+        when(result.hits()).thenReturn(List.of(first, second, otherHit));
+        when(result.sections()).thenReturn(List.of(section, other));
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1, 2)));
+        when(search.window(any(), eq(section), eq(2))).thenReturn(List.of(new SearchPage.Passage(1, "Policy above", "[]"),
+                section.passages().getFirst(), section.passages().getLast(), new SearchPage.Passage(4, "Policy below", "[]")));
+        when(search.window(any(), eq(other), eq(2))).thenReturn(List.of(new SearchPage.Passage(9, "Handbook above", "[]"),
+                other.passages().getFirst(), new SearchPage.Passage(11, "Handbook below", "[]")));
         try (var tool = tool(8000)) {
             String answer = tool.searchKnowledge(List.of("policy"), null);
-            assertTrue(answer.contains("Context 7"));
+            assertTrue(answer.contains("[1] Policy\nPolicy above\nSection 2\nSection 3\nPolicy below"), answer);
+            assertTrue(answer.contains("[2] Handbook\nHandbook above\nSection 10\nHandbook below"), answer);
+            // The only prompt-based helper is selection: rewrites take the history, filters are off, nothing classifies.
+            verify(runner).createObject(anyString(), any());
+            verify(search, never()).window(any(), any(SearchSection.class), intThat(neighbors -> neighbors != 2));
             // One recheck after selection and one before returning evidence, not one per window read.
             verify(search, times(2)).authorizedSections(any(), anyList());
         }
@@ -482,12 +467,14 @@ class SearchToolTest {
         assertTrue(events.stream().noneMatch(event -> event.source() != null));
     }
     @Test
-    void groupRevocationDuringContextClassificationDoesNotReturnEarlierEvidence() {
-        candidates();
+    void groupRevocationDuringWindowReadsDoesNotReturnEarlierEvidence() {
+        var result = candidates();
+        var revoked = new AtomicBoolean();
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
-        when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenAnswer(_ -> {
-            when(search.authorizedSections(any(), anyList())).thenReturn(List.of());
-            return new SearchTool.ContextSelection(SearchTool.Expansion.MAIN_SECTION_ONLY);
+        when(search.authorizedSections(eq(result), anyList())).thenAnswer(call -> revoked.get() ? List.of() : call.getArgument(1));
+        when(search.window(eq(result), any(SearchSection.class), anyInt())).thenAnswer(call -> {
+            revoked.set(true);
+            return call.<SearchSection>getArgument(1).passages();
         });
         try (var tool = tool(8000)) {
             var answer = tool.searchKnowledge(List.of("policy"), null);
@@ -694,7 +681,7 @@ class SearchToolTest {
     }
 
     @Test
-    void selectedDocumentsPrecedeParallelClassificationAndCompletionOrderDoesNotChangeCitations() {
+    void selectedDocumentsPrecedeParallelWindowReadsAndCompletionOrderDoesNotChangeCitations() {
         var result = candidates();
         var later = new SearchSection(hit(8), List.of(hit(8)));
         when(result.hits()).thenReturn(List.of(first, second, hit(8)));
@@ -702,13 +689,14 @@ class SearchToolTest {
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(2, 1)));
         var entered = new CountDownLatch(2);
         var earlierFinished = new CountDownLatch(1);
-        when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenAnswer(call -> {
+        when(search.window(eq(result), any(SearchSection.class), eq(2))).thenAnswer(call -> {
             var reading = events.stream().filter(e -> e.stage() == ChatToolEvent.Stage.EXPANDING).findFirst().orElseThrow();
             assertEquals(2, reading.documents().size());
+            SearchSection read = call.getArgument(1);
             entered.countDown(); assertTrue(entered.await(3, TimeUnit.SECONDS));
-            if (call.<String>getArgument(0).contains("Section 8")) assertTrue(earlierFinished.await(3, TimeUnit.SECONDS));
+            if (read.equals(later)) assertTrue(earlierFinished.await(3, TimeUnit.SECONDS));
             else earlierFinished.countDown();
-            return new SearchTool.ContextSelection(SearchTool.Expansion.MAIN_SECTION_ONLY);
+            return read.passages();
         });
         try (var tool = tool(8000)) {
             String evidence = tool.searchKnowledge(List.of("policy"), null);

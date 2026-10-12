@@ -77,7 +77,7 @@ export function useSharePointCredentials({
       notify({
         title: "Credential works",
         description: result.allSitesReadable
-          ? appText("{{v1}} can read this Tenant's sites.", { v1: credential.name })
+          ? appText("{{v1}} can read every SharePoint site.", { v1: credential.name })
           : appText("{{v1}} works, but it cannot list every site. Name each site in the scope.", {
               v1: credential.name,
             }),

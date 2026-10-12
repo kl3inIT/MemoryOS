@@ -1,8 +1,7 @@
-import { Sparkles } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { SectionHeader } from "@/components/composites/section-header";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
+import { BrandLoader } from "@/components/brand-loader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +11,7 @@ import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { AddProviderSection } from "./add-provider-section";
-import { TaskModels, TenantDefault } from "./model-defaults";
+import { LoadingRows, TaskModels, TenantDefault } from "./model-defaults";
 import { ModelDiscovery } from "./model-discovery";
 import { ModelEditor } from "./model-editor";
 import { ProviderConnectionCard } from "./provider-connection-card";
@@ -57,24 +56,21 @@ function ModelsAdministration() {
   const { providers, adapters, models, catalogPending, catalogError, unavailable, setEditor } =
     page;
   const hasProviders = Boolean(providers.data?.length);
+  // Sits on the connections it reloads; without them, on the failure that asks for it.
+  const refresh = (
+    <Button
+      size="sm"
+      prominence="secondary"
+      pending={page.reloading.pending}
+      disabled={page.busy}
+      onClick={() => void page.reload()}
+    >
+      {ui("Refresh catalog")}
+    </Button>
+  );
 
   return (
-    <SettingsLayout wide>
-      <PageHeader
-        title={ui("Models")}
-        icon={<Sparkles />}
-        actions={
-          <Button
-            prominence="secondary"
-            pending={page.reloading.pending}
-            disabled={page.busy}
-            onClick={() => void page.reload()}
-          >
-            {ui("Refresh catalog")}
-          </Button>
-        }
-      />
-
+    <>
       {/* Models by task — the Onyx default card plus its per-flow defaults */}
       {hasProviders && !catalogError && (
         <section aria-labelledby="task-models" className="flex flex-col gap-3">
@@ -82,7 +78,7 @@ function ModelsAdministration() {
           <Card>
             <CardContent>
               {catalogPending ? (
-                <p role="status">{ui("Loading model catalog…")}</p>
+                <LoadingRows label={ui("Loading model catalog…")} />
               ) : (
                 <div className="flex flex-col divide-y divide-border-subtle *:py-4 *:first:pt-0 *:last:pb-0">
                   <TenantDefault
@@ -102,7 +98,14 @@ function ModelsAdministration() {
         </section>
       )}
 
-      {catalogPending && <p role="status">{ui("Loading model catalog…")}</p>}
+      {catalogPending && !hasProviders && (
+        <div
+          role="status"
+          className="flex justify-center rounded-xl border border-border-subtle px-6 py-20"
+        >
+          <BrandLoader label={ui("Loading model catalog…")} />
+        </div>
+      )}
       {catalogError && (
         <Alert variant="destructive" role="alert">
           <AlertDescription>
@@ -110,6 +113,7 @@ function ModelsAdministration() {
               "The complete catalog could not be loaded. Displayed records may be stale. Refresh before changing configurations or defaults.",
             )}
           </AlertDescription>
+          {!hasProviders && <div className="mt-2">{refresh}</div>}
         </Alert>
       )}
       {page.reloading.error && !page.deletion && (
@@ -121,7 +125,7 @@ function ModelsAdministration() {
       {/* Available connections — Onyx existing-provider cards */}
       {hasProviders && (
         <section aria-labelledby="available-connections" className="flex flex-col gap-3">
-          <SectionHeader id="available-connections" title={ui("Available connections")} />
+          <SectionHeader id="available-connections" title={ui("Connections")} actions={refresh} />
           <div className="flex flex-col gap-2">
             {page.sortedProviders.map((provider) => (
               <ProviderConnectionCard
@@ -151,6 +155,7 @@ function ModelsAdministration() {
       {adapters.data?.some((adapter) => adapter.type === "openai") && (
         <AddProviderSection
           disabled={unavailable || page.atProviderLimit}
+          connected={new Set(providers.data?.map((provider) => provider.name.toLowerCase()))}
           onConnect={(preset) => setEditor({ kind: "provider", preset })}
         />
       )}
@@ -166,7 +171,7 @@ function ModelsAdministration() {
           onConfirm={page.remove}
         />
       )}
-    </SettingsLayout>
+    </>
   );
 }
 
@@ -181,7 +186,7 @@ function ModelsEditors({ page }: { page: ReturnType<typeof useModelsAdministrati
         models={models.filter((model) => model.providerId === editor.initial?.id)}
         providers={providers.data ?? []}
         adapters={adapters.data}
-        preferredAdapterType={editor.initial ? undefined : "openai"}
+        preferredAdapterType={editor.initial ? undefined : (editor.preset?.adapterType ?? "openai")}
         preferredBaseUrl={editor.preset?.baseUrl}
         preferredName={editor.preset?.name}
         onClose={close}
@@ -238,10 +243,10 @@ function DeletionDialog({
       description={
         deletion.kind === "provider"
           ? ui(
-              "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.",
+              "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace an organization default first.",
             )
           : ui(
-              "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.",
+              "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace an organization default first.",
             )
       }
       confirmLabel={ui("Delete configuration")}

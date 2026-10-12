@@ -12,8 +12,8 @@ import tools.jackson.databind.ObjectMapper;
 public class FileProviderAutoConfiguration {
 
     @Bean(destroyMethod = "close")
-    DoclingSourceContentExtractor fileSourceContentExtractor(DoclingProperties properties,
-            PaddleOcrVlProperties paddle, ObjectMapper mapper, MeterRegistry registry) {
-        return new DoclingSourceContentExtractor(properties, paddle, mapper, registry);
+    DoclingSourceContentExtractor fileSourceContentExtractor(DoclingProperties properties, ObjectMapper mapper,
+            MeterRegistry registry) {
+        return new DoclingSourceContentExtractor(properties, mapper, registry);
     }
 }

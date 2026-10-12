@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AudioLines, WifiOff } from "lucide-react";
+import { WifiOff } from "lucide-react";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SectionHeader } from "@/components/composites/section-header";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,14 +45,7 @@ export function VoiceAdminPage() {
       </p>
     );
   return (
-    <SettingsLayout>
-      <PageHeader
-        title={ui("Giọng nói")}
-        icon={<AudioLines />}
-        description={ui(
-          "Cấu hình nhà cung cấp nhận dạng giọng nói và đọc câu trả lời thành tiếng.",
-        )}
-      />
+    <>
       {providers.isError || connections.isError ? (
         <EmptyState
           role="alert"
@@ -95,7 +87,7 @@ export function VoiceAdminPage() {
           ))}
         </div>
       )}
-    </SettingsLayout>
+    </>
   );
 }
 

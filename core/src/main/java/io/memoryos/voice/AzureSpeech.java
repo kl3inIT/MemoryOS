@@ -1,18 +1,18 @@
 package io.memoryos.voice;
 
-
-import java.io.IOException;
+import io.memoryos.shared.OutboundHttp;
+import io.memoryos.shared.OutboundHttp.Limits;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestClientException;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Azure AI Speech over REST: connection checks, clip transcription and the realtime fallback. Realtime dictation and
@@ -28,7 +28,10 @@ final class AzureSpeech {
     private static final int PART_BYTES = PART_SECONDS * Pcm16.BYTES_PER_SECOND_16K;
     private static final Set<String> SILENT = Set.of("NoMatch", "InitialSilenceTimeout", "BabbleTimeout");
     private static final Pattern VOICE_LOCALE = Pattern.compile("^([a-z]{2,3}-[A-Z]{2})-");
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /** As Azure documents it; the unquoted {@code codecs} value is not a media type Spring accepts. */
+    private static final String CONTENT_TYPE = "audio/wav; codecs=audio/pcm; samplerate=16000";
+    /** The text of at most 55 seconds of speech. */
+    private static final int MAX_RESULT_BYTES = 1_048_576;
 
     private AzureSpeech() {}
 
@@ -38,19 +41,26 @@ final class AzureSpeech {
     }
 
     /** Transcribes 24 kHz PCM16 audio; silence and unmatched speech yield empty text rather than an error. */
-    static String transcribe(HttpClient client, String endpoint, String key, @Nullable String language, byte[] pcm,
-            int offset, int length, Duration timeout) throws IOException, InterruptedException {
+    static String transcribe(String endpoint, String key, @Nullable String language, byte[] pcm, int offset, int length,
+            Duration timeout) {
         byte[] audio = Pcm16.resampleTo16k(pcm, offset, length);
+        var client = OutboundHttp.builder(new Limits(timeout, MAX_RESULT_BYTES)).build();
         var parts = new ArrayList<String>();
         for (int start = 0; start < audio.length; start += PART_BYTES) {
             int size = Math.min(PART_BYTES, audio.length - start);
-            var request = HttpRequest.newBuilder(URI.create(endpoint + STT_PATH + "?language=" + locale(language) + "&format=simple"))
-                    .timeout(timeout).header("Ocp-Apim-Subscription-Key", key).header("Accept", "application/json")
-                    .header("Content-Type", "audio/wav; codecs=audio/pcm; samplerate=16000")
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(Pcm16.wav(audio, start, size, Pcm16.SAMPLE_RATE_16K))).build();
-            var response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) throw VoiceException.providerUnavailable();
-            var result = JSON.readTree(response.body());
+            JsonNode result;
+            try {
+                byte[] wav = Pcm16.wav(audio, start, size, Pcm16.SAMPLE_RATE_16K);
+                // Written as bytes, not through a converter: Spring refuses to parse the content type Azure asks for.
+                result = client.post().uri(URI.create(endpoint + STT_PATH + "?language=" + locale(language) + "&format=simple"))
+                        .header("Ocp-Apim-Subscription-Key", key).accept(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.CONTENT_TYPE, CONTENT_TYPE).contentLength(wav.length)
+                        .body(body -> body.write(wav)).retrieve().body(JsonNode.class);
+            } catch (RestClientException failed) {
+                // A failed answer carries its status only, so account detail cannot reach a response or a log.
+                throw VoiceException.providerUnavailable();
+            }
+            if (result == null) throw VoiceException.providerUnavailable();
             String status = result.path("RecognitionStatus").asString("");
             if ("Success".equals(status)) {
                 String text = result.path("DisplayText").asString("").strip();

@@ -49,14 +49,14 @@ public class JdbcChatRepository {
         this.jdbc = jdbc;
     }
 
-    public UUID provisionPersona(TenantId tenant, String name, String instructions, String model) {
+    public UUID provisionPersona(TenantId tenant, String name, String instructions) {
         UUID id = UUID.randomUUID();
         int inserted = jdbc.sql("""
-                        INSERT INTO persona(id, tenant_id, builtin_key, name, instructions, model)
-                        VALUES (:id, :tenant, 'default', :name, :instructions, :model)
+                        INSERT INTO persona(id, tenant_id, builtin_key, name, instructions)
+                        VALUES (:id, :tenant, 'default', :name, :instructions)
                         ON CONFLICT (tenant_id, builtin_key) DO NOTHING
                         """).param("id", id).param("tenant", tenant.value())
-                .param("name", name).param("instructions", instructions).param("model", model)
+                .param("name", name).param("instructions", instructions)
                 .update();
         // A new default agent starts with every agent tool, matching the migrated default.
         if (inserted > 0) jdbc.sql("""
@@ -353,14 +353,14 @@ public class JdbcChatRepository {
      * @param mcpServerIds   attached MCP servers; null for the builtin agent, which reaches every accessible server
      * @param reasoningEffort the level pinned on this conversation, which outranks the model configuration
      */
-    public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
+    public record Persona(String instructions, ChatTurnOptions options, String revision,
                           @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
                           @Nullable List<UUID> mcpServerIds,
                           @Nullable ReasoningEffort reasoningEffort) {
-        public Persona(String instructions, String model, ChatTurnOptions options, String revision,
+        public Persona(String instructions, ChatTurnOptions options, String revision,
                        @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
                        @Nullable List<UUID> mcpServerIds) {
-            this(instructions, model, options, revision, modelConfigurationId, fileIds, tools, mcpServerIds, null);
+            this(instructions, options, revision, modelConfigurationId, fileIds, tools, mcpServerIds, null);
         }
     }
 
@@ -406,7 +406,7 @@ public class JdbcChatRepository {
      */
     public Persona persona(UUID session, boolean lock, boolean agentsManage) {
         return jdbc.sql("""
-                        SELECT p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
+                        SELECT p.builtin_key, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
                             s.reasoning_effort,
                             p.task_prompt, p.knowledge_cutoff,
                             p.grounded OR COALESCE((SELECT cs.grounded_answers FROM chat_settings cs
@@ -443,7 +443,7 @@ public class JdbcChatRepository {
                     var cutoff = row.getTimestamp("knowledge_cutoff");
                     var tools = Set.copyOf(List.of((String[]) row.getArray("tools").getArray()));
                     String pinned = row.getString("reasoning_effort");
-                    return new Persona(row.getString("instructions"), row.getString("model"),
+                    return new Persona(row.getString("instructions"),
                             ChatTurnOptions.builder()
                                     .searchEnabled(tools.contains("search"))
                                     .sourceIds(List.of((UUID[]) row.getArray("sources").getArray()))

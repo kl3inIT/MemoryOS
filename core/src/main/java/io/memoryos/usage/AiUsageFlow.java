@@ -14,5 +14,7 @@ public enum AiUsageFlow {
     SPEECH_TO_TEXT,
     TEXT_TO_SPEECH,
     MEETING_MINUTES,
-    MEETING_CORRECTION
+    MEETING_CORRECTION,
+    /** MEM-243: a page of a scan or an image read by a language model chosen as the OCR reader. */
+    OCR
 }

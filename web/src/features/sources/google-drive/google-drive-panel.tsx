@@ -55,10 +55,11 @@ export function GoogleDrivePanel({
             </p>
           ) : (
             <Alert variant="destructive">
-              <AlertDescription>
-                {ui(sourceMutationError(drive.configurationQuery.error, "google-drive"))}
-              </AlertDescription>
-              <div className="mt-2">
+              {/* What went wrong and the way to try again read as one row; they stack only when they do not fit. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <AlertDescription>
+                  {ui(sourceMutationError(drive.configurationQuery.error, "google-drive"))}
+                </AlertDescription>
                 <Button
                   size="sm"
                   prominence="secondary"

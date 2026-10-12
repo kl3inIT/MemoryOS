@@ -1,18 +1,26 @@
 import { useEffect, useState } from "react";
 import {
-  ArrowDownUp,
+  ChevronDown,
   Download,
   FolderPlus,
-  LayoutGrid,
-  List,
   ListFilter,
   Search,
+  SlidersHorizontal,
   Trash2,
   Undo2,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import {
   InputGroup,
@@ -21,15 +29,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import {
@@ -70,9 +70,11 @@ export type LibraryToolbarHandlers = {
 };
 
 /**
- * One row of controls: what to search, how to search it, what to keep and how to show it. The source, category
- * and star filters live in a popover instead of a wall of chips, and what is active comes back as removable
- * pills below, so the row stays the same height however many filters are on. The star filter keeps the
+ * One row of three controls: what to search, what to keep and how to show it. The search field says whether it
+ * reads names or contents, since that changes what a query finds. The source, category and star filters live in
+ * a popover instead of a wall of chips, and what is active comes back as removable pills below, so the row stays
+ * the same height however many filters are on. The order and the layout are one menu, because each is set once
+ * and then left alone. The star filter keeps the
  * selection commands for starred files; Có gắn sao on the rail lists every starred row, owned or not.
  */
 export function LibraryToolbar({
@@ -98,26 +100,15 @@ export function LibraryToolbar({
         value={state.search}
         onChange={handlers.onSearch}
         label={searching ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")}
+        mode={state.mode}
+        onMode={handlers.onMode}
       />
-      <ToggleGroup
-        type="single"
-        size="sm"
-        value={state.mode}
-        aria-label={ui("Cách tìm")}
-        onValueChange={(value) => value && handlers.onMode(value as LibrarySearchMode)}
-      >
-        <ToggleGroupItem value="name" size="sm">
-          {ui("Tên")}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="content" size="sm">
-          {ui("Nội dung")}
-        </ToggleGroupItem>
-      </ToggleGroup>
       <Popover>
         <PopoverTrigger asChild>
-          <Button size="sm" prominence="secondary">
+          <Button size="sm" prominence="secondary" aria-label={ui("Bộ lọc")}>
             <ListFilter data-icon="inline-start" />
-            {ui("Bộ lọc")}
+            {/* A phone keeps the icon and the count; the search field needs the width. */}
+            <span className="hidden sm:inline">{ui("Bộ lọc")}</span>
             {activeFilters > 0 && <Badge variant="secondary">{activeFilters}</Badge>}
           </Button>
         </PopoverTrigger>
@@ -125,21 +116,33 @@ export function LibraryToolbar({
           <LibraryFilterPanel state={state} handlers={handlers} starrable={starrable} />
         </PopoverContent>
       </Popover>
-      {sortable && <LibrarySortSelect sort={state.sort} sorts={SORTS} onSort={handlers.onSort} />}
-      <LibraryLayoutToggle layout={state.layout} onLayout={handlers.onLayout} />
+      <LibraryDisplayMenu
+        sort={sortable ? state.sort : undefined}
+        sorts={SORTS}
+        onSort={handlers.onSort}
+        layout={state.layout}
+        onLayout={handlers.onLayout}
+      />
     </div>
   );
 }
 
-/** The search box every library view opens with, with a way to clear what was typed. */
+/**
+ * The search box every library view opens with, with a way to clear what was typed. A view that can search
+ * inside its files says so in the field itself: names or contents.
+ */
 export function LibrarySearchField({
   value,
   onChange,
   label,
+  mode,
+  onMode,
 }: {
   value: string;
   onChange: (next: string) => void;
   label: string;
+  mode?: LibrarySearchMode;
+  onMode?: (next: LibrarySearchMode) => void;
 }) {
   const ui = useAppTranslation();
   return (
@@ -165,55 +168,53 @@ export function LibrarySearchField({
           </InputGroupButton>
         </InputGroupAddon>
       )}
+      {mode && onMode && (
+        <InputGroupAddon align="inline-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <InputGroupButton size="xs" aria-label={ui("Tìm theo")}>
+                {mode === "content" ? ui("Nội dung") : ui("Tên tệp")}
+                <ChevronDown />
+              </InputGroupButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>{ui("Tìm theo")}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={mode}
+                onValueChange={(next) => onMode(next as LibrarySearchMode)}
+              >
+                <DropdownMenuRadioItem value="name">{ui("Tên tệp")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="content">{ui("Nội dung")}</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </InputGroupAddon>
+      )}
     </InputGroup>
   );
 }
 
-/** Rows or cards, the same choice on every view. */
-export function LibraryLayoutToggle({
+/**
+ * How a view is shown, in one menu on every view: the order of the list, and rows or cards. The trash and the
+ * processing view order themselves, so they leave the order out.
+ */
+export function LibraryDisplayMenu<S extends LibrarySort>({
+  sort,
+  sorts,
+  onSort,
   layout,
   onLayout,
 }: {
+  /** Absent on a view that orders itself. */
+  sort?: S;
+  /** The orders the view offers, in the order the menu shows them. */
+  sorts?: readonly S[];
+  onSort?: (next: S) => void;
   layout: LibraryLayout;
   onLayout: (next: LibraryLayout) => void;
 }) {
   const ui = useAppTranslation();
-  return (
-    <ToggleGroup
-      type="single"
-      size="sm"
-      value={layout}
-      aria-label={ui("Cách hiển thị")}
-      onValueChange={(value) => value && onLayout(value as LibraryLayout)}
-    >
-      <ToggleGroupItem value="list" size="sm" aria-label={ui("Dạng danh sách")}>
-        <List />
-      </ToggleGroupItem>
-      <ToggleGroupItem value="grid" size="sm" aria-label={ui("Dạng lưới")}>
-        <LayoutGrid />
-      </ToggleGroupItem>
-    </ToggleGroup>
-  );
-}
-
-/**
- * How the list is ordered. It is the registry's own select rather than a native one: the browser draws a
- * native option list in the system's colours, which on this page reads as a foreign control beside the
- * filter, the search mode and the layout switch. The panel is anchored under the trigger rather than over
- * it, because this trigger carries an icon and the item-aligned default then covers the control it belongs to.
- */
-export function LibrarySortSelect<S extends LibrarySort>({
-  sort,
-  sorts,
-  onSort,
-}: {
-  sort: S;
-  /** The orders the view offers, in the order the list shows them. */
-  sorts: readonly S[];
-  onSort: (next: S) => void;
-}) {
-  const ui = useAppTranslation();
-  const labels: Record<LibrarySort, string> = {
+  const sortLabels: Record<LibrarySort, string> = {
     NEWEST: ui("Mới nhất"),
     OLDEST: ui("Cũ nhất"),
     NAME: ui("Tên A → Z"),
@@ -222,19 +223,37 @@ export function LibrarySortSelect<S extends LibrarySort>({
     DELETED: ui("Xóa gần nhất"),
   };
   return (
-    <Select value={sort} onValueChange={(next) => onSort(next as S)}>
-      <SelectTrigger aria-label={ui("Sắp xếp")} className="w-44">
-        <ArrowDownUp className="size-4 text-content-muted" aria-hidden="true" />
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent position="popper" align="end" sideOffset={4}>
-        {sorts.map((value) => (
-          <SelectItem key={value} value={value}>
-            {labels[value]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" prominence="secondary" aria-label={ui("Cách hiển thị")}>
+          <SlidersHorizontal data-icon="inline-start" />
+          <span className="hidden sm:inline">{ui("Cách hiển thị")}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {sort && sorts && onSort && (
+          <>
+            <DropdownMenuLabel>{ui("Sắp xếp")}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={sort} onValueChange={(next) => onSort(next as S)}>
+              {sorts.map((value) => (
+                <DropdownMenuRadioItem key={value} value={value}>
+                  {sortLabels[value]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuLabel>{ui("Bố cục")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={layout}
+          onValueChange={(next) => onLayout(next as LibraryLayout)}
+        >
+          <DropdownMenuRadioItem value="list">{ui("Dạng danh sách")}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="grid">{ui("Dạng lưới")}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -360,7 +379,7 @@ export function LibraryFilterPills({
             type="button"
             onClick={pill.remove}
             aria-label={ui("Bỏ lọc {{name}}", { name: pill.label })}
-            className="flex h-7 items-center gap-1 rounded-full border border-border-subtle bg-surface-subtle px-2.5 font-secondary-body text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+            className="flex h-7 items-center gap-1 rounded-full border border-border-subtle bg-surface-subtle px-2.5 font-secondary-body text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 pointer-coarse:h-11 pointer-coarse:px-3.5"
           >
             {pill.label}
             <X className="size-3.5" aria-hidden="true" />
@@ -399,7 +418,7 @@ function FilterChip({
       aria-pressed={pressed}
       onClick={onToggle}
       className={cn(
-        "h-7 rounded-full border px-3 font-secondary-body transition-colors outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
+        "h-7 rounded-full border px-3 font-secondary-body transition-colors outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40 pointer-coarse:h-11",
         pressed
           ? "border-transparent bg-primary text-primary-foreground"
           : "border-border-default text-content-secondary hover:text-content-primary",

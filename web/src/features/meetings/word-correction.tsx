@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -9,8 +10,8 @@ import { foldCorrection, type MeetingDetail } from "./meetings-api";
 import { useFailureText } from "./use-failure-text";
 
 /**
- * A word the provider was unsure of, opened by the owner to write what was said. Enter saves, Escape leaves it as it
- * was; the change joins the other corrections and is taken back the same way.
+ * A word the provider was unsure of, opened by the owner to write what was said. The button or Enter saves, Escape
+ * leaves it as it was; the change joins the other corrections and is taken back the same way.
  */
 export function WordCorrection({
   meeting,
@@ -74,7 +75,7 @@ export function WordCorrection({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-64 p-2"
+        className="w-72 p-2"
         // The word opens selected, ready to be typed over.
         onOpenAutoFocus={(event) => {
           event.preventDefault();
@@ -88,14 +89,20 @@ export function WordCorrection({
             save();
           }}
         >
-          <Input
-            ref={input}
-            value={word}
-            disabled={correct.isPending}
-            maxLength={2000}
-            aria-label={ui("Từ đúng")}
-            onChange={(event) => setWord(event.target.value)}
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              ref={input}
+              value={word}
+              disabled={correct.isPending}
+              maxLength={2000}
+              aria-label={ui("Từ đúng")}
+              onChange={(event) => setWord(event.target.value)}
+            />
+            <Button type="submit" size="sm" pending={correct.isPending}>
+              {ui("Lưu")}
+            </Button>
+          </div>
+          <p className="text-xs text-content-muted">{ui("Enter để lưu, Esc để bỏ.")}</p>
           {correct.isError && (
             <p role="alert" className="text-xs text-status-danger-content">
               {failureText(correct.error)}

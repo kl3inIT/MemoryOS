@@ -4,6 +4,7 @@ import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -12,6 +13,7 @@ import {
   editMeetingMinutesSummaryMutation,
   removeMeetingMinutesItemMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { presentProblem } from "@/lib/problem-presentation";
 import { cn } from "@/lib/utils";
 import { InputField, TextareaField } from "./meeting-form-fields";
 import {
@@ -22,7 +24,6 @@ import {
   type MeetingDetail,
   type MeetingMinutesItem,
 } from "./meetings-api";
-import { useFailureText } from "./use-failure-text";
 
 type ItemValues = { text: string; owner: string; due: string };
 
@@ -128,7 +129,6 @@ export function EditableItem({
 }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const failureText = useFailureText();
   const [editing, setEditing] = useState(false);
   const edit = useMutation(editMeetingMinutesItemMutation());
   const remove = useMutation({
@@ -144,15 +144,7 @@ export function EditableItem({
           {children}
           {item.edited && <p className="mt-0.5 text-xs text-content-muted">{ui("Bạn đã sửa")}</p>}
         </div>
-        {meeting.owned && (
-          <EditButton
-            label={ui("Sửa")}
-            onClick={() => {
-              remove.reset();
-              setEditing(true);
-            }}
-          />
-        )}
+        {meeting.owned && <EditButton label={ui("Sửa")} onClick={() => setEditing(true)} />}
       </div>
     );
 
@@ -161,10 +153,7 @@ export function EditableItem({
       kind={kind}
       initial={{ text: item.text, owner: item.owner ?? "", due: item.due ?? "" }}
       submitLabel={ui("Lưu")}
-      busy={remove.isPending}
-      failure={remove.isError ? failureText(remove.error) : undefined}
       onSubmit={async (value) => {
-        remove.reset();
         const saved = await edit.mutateAsync({
           path: { meetingId: meeting.id, itemId: item.id },
           body: { text: value.text, owner: value.owner || null, due: value.due || null },
@@ -174,18 +163,31 @@ export function EditableItem({
       }}
       onCancel={() => setEditing(false)}
       extra={
-        <Button
-          size="sm"
-          prominence="tertiary"
-          tone="danger"
-          className="ml-auto"
-          pending={remove.isPending}
-          disabled={edit.isPending}
-          onClick={() => remove.mutate({ path: { meetingId: meeting.id, itemId: item.id } })}
-        >
-          <Trash2 data-icon="inline-start" aria-hidden="true" />
-          {ui("Xóa")}
-        </Button>
+        // The minutes keep no copy of what is removed, so removing asks first.
+        <ConfirmDialog
+          trigger={
+            <Button
+              size="sm"
+              prominence="tertiary"
+              tone="danger"
+              className="ml-auto"
+              disabled={edit.isPending}
+            >
+              <Trash2 data-icon="inline-start" aria-hidden="true" />
+              {ui("Xóa")}
+            </Button>
+          }
+          title={kind === "ACTION" ? ui("Xóa việc này?") : ui("Xóa quyết định này?")}
+          description={ui("“{{text}}” sẽ bị xóa khỏi biên bản và không lấy lại được.", {
+            text: item.text,
+          })}
+          confirmLabel={ui("Xóa")}
+          pendingLabel={ui("Đang xóa…")}
+          errorMessage={(error) => presentProblem(error, "mutation").message}
+          onConfirm={async () => {
+            await remove.mutateAsync({ path: { meetingId: meeting.id, itemId: item.id } });
+          }}
+        />
       }
     />
   );
@@ -242,8 +244,6 @@ function ItemForm({
   kind,
   initial,
   submitLabel,
-  busy = false,
-  failure,
   onSubmit,
   onCancel,
   extra,
@@ -251,9 +251,6 @@ function ItemForm({
   kind: "ACTION" | "DECISION";
   initial: ItemValues;
   submitLabel: string;
-  /** Another request about the item runs, such as removing it. */
-  busy?: boolean;
-  failure?: string;
   onSubmit: (value: ItemValues) => Promise<void>;
   onCancel: () => void;
   extra?: ReactNode;
@@ -300,15 +297,10 @@ function ItemForm({
       </div>
       <form.AppForm>
         <form.FormError />
-        {failure && (
-          <p role="alert" className="text-sm text-status-danger-content">
-            {failure}
-          </p>
-        )}
         <div className="flex gap-2">
           <form.Subscribe selector={(state) => state.values.text.trim() === ""}>
             {(blank) => (
-              <form.SubmitButton size="sm" disabled={blank || busy}>
+              <form.SubmitButton size="sm" disabled={blank}>
                 <Check data-icon="inline-start" aria-hidden="true" />
                 {submitLabel}
               </form.SubmitButton>
@@ -316,12 +308,7 @@ function ItemForm({
           </form.Subscribe>
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(submitting) => (
-              <Button
-                size="sm"
-                prominence="tertiary"
-                disabled={submitting || busy}
-                onClick={onCancel}
-              >
+              <Button size="sm" prominence="tertiary" disabled={submitting} onClick={onCancel}>
                 <X data-icon="inline-start" aria-hidden="true" />
                 {ui("Hủy")}
               </Button>

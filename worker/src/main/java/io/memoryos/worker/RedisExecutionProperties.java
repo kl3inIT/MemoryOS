@@ -14,6 +14,7 @@ public record RedisExecutionProperties(
         Duration consumerBlock,
         Duration reclaimInterval,
         Duration reclaimIdle,
+        Duration shutdownGrace,
         long maxStreamDepth,
         Workload ingestion,
         Workload cleanup,
@@ -31,6 +32,9 @@ public record RedisExecutionProperties(
         requirePositive(consumerBlock, "consumerBlock");
         requirePositive(reclaimInterval, "reclaimInterval");
         requirePositive(reclaimIdle, "reclaimIdle");
+        // How long a stopping Worker lets work it started finish; below the container's stop grace period.
+        if (shutdownGrace == null) shutdownGrace = Duration.ofSeconds(100);
+        requirePositive(shutdownGrace, "shutdownGrace");
         if (maxStreamDepth < 1) {
             throw new IllegalArgumentException("maxStreamDepth must be positive");
         }

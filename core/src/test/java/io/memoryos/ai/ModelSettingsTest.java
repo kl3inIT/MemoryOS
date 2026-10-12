@@ -25,10 +25,10 @@ class ModelSettingsTest {
     void profileIdentityCannotBeMissingOrBlank() {
         for (String profile : new String[] { null, "", " " })
             assertThrows(AiException.class, () -> new ModelSettings(4096, 1024,
-                    new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, profile));
+                    new ModelSettings.Capabilities(true, false, false, false, false), Map.of(), null, profile));
     }
 
     private ModelSettings settings(Map<String, Object> options) {
-        return new ModelSettings(4096, 1024, new ModelSettings.Capabilities(true, false, false, false), options, null, "openai-o200k-v1");
+        return new ModelSettings(4096, 1024, new ModelSettings.Capabilities(true, false, false, false, false), options, null, "openai-o200k-v1");
     }
 }

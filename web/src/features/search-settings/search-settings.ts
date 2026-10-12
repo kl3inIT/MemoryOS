@@ -178,7 +178,7 @@ export function searchSettingsError(cause: unknown, operation: SearchOperation):
     case 401:
       return "Phiên đăng nhập đã hết. Đăng nhập lại.";
     case 403:
-      return "Chỉ quản trị model của Tenant vận hành được đổi cấu hình tìm kiếm.";
+      return "Chỉ quản trị model của tổ chức được đổi cấu hình tìm kiếm.";
     case 404:
       return "Mục này không còn. Tải lại trang.";
     case 409:

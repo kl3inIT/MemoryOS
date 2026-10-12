@@ -97,7 +97,7 @@ describe("minutes that could not be written", () => {
     expect(alert).toHaveTextContent("Provider từ chối API key");
     expect(within(alert).getByRole("link", { name: "Cập nhật API key" })).toHaveAttribute(
       "href",
-      "/admin/models",
+      "/admin/ai-providers",
     );
     expect(within(alert).getByRole("button", { name: "Viết lại" })).toBeEnabled();
   });
@@ -115,7 +115,7 @@ describe("minutes that could not be written", () => {
     expect(alert).toHaveTextContent("Chưa có model nào");
     expect(within(alert).getByRole("link", { name: "Thêm model" })).toHaveAttribute(
       "href",
-      "/admin/models",
+      "/admin/ai-providers",
     );
   });
 

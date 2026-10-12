@@ -9,6 +9,7 @@ import io.memoryos.objectstorage.ObjectRangeContent;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.UploadConstraints;
 
@@ -101,7 +102,10 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
     @Override
     public void write(ObjectKey key, byte[] content, String mediaType) {
         Objects.requireNonNull(content, "content must not be null");
-        if (content.length == 0 || content.length > 33_554_432) {
+        // The ceiling of a binary object; a caller with a lower bound of its own (a native snapshot, an export)
+        // checks it before it writes. At 32 MiB this refused every connector file between 32 and 100 MiB, which the
+        // connectors admit, and the file was downloaded again on every run.
+        if (content.length == 0 || content.length > ObjectUploadSpecification.MAX_SIZE_BYTES) {
             throw new IllegalArgumentException("object write exceeds bounds");
         }
         try {

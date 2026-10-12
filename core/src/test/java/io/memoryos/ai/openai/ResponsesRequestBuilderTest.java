@@ -44,6 +44,20 @@ class ResponsesRequestBuilderTest {
     }
 
     @Test
+    void aResponseFormatIsSentAsTheTextFormatOfTheResponsesApi() {
+        String schema = """
+                {"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"],"additionalProperties":false}""";
+        var builder = new ResponsesRequestBuilder(false, false);
+        var params = builder.build(new Prompt("Question"), options(false).outputSchema(schema).build(), false, false);
+        assertEquals(JsonValue.from(Map.of("format", Map.of("type", "json_schema", "name", "answer", "strict", true,
+                        "schema", Map.of("type", "object", "properties", Map.of("summary", Map.of("type", "string")),
+                                "required", List.of("summary"), "additionalProperties", false)))),
+                params._additionalBodyProperties().get("text"));
+        assertFalse(builder.build(new Prompt("Question"), options(false).build(), false, false)
+                ._additionalBodyProperties().containsKey("text"));
+    }
+
+    @Test
     void aModelThatDoesNotReasonSendsNoReasoningOptionsEvenWhenSummariesAreConfigured() {
         var builder = new ResponsesRequestBuilder(false, true);
         var params = builder.build(new Prompt("Question"), options(false).build(), false, false);

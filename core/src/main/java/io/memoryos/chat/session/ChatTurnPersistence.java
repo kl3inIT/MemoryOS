@@ -336,7 +336,7 @@ public class ChatTurnPersistence {
         imageArtifacts.byMessages(tenant, history.stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT)
                 .map(ChatMessage::id).toList(), false).forEach((message, images) ->
                 generated.put(message, images.stream().map(GeneratedImage::id).toList()));
-        return new TurnContext(actor, tenant, settings.model(), instructions, history,
+        return new TurnContext(actor, tenant, instructions, history,
                 settings.options().withSampling(sampling(settings, own)), plaintext, workspaceFiles,
                 language, generated);
     }
@@ -346,22 +346,21 @@ public class ChatTurnPersistence {
         return files.stream().map(ChatFileDescriptor::from).toList();
     }
 
-    public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
+    public record TurnContext(ActorId actor, TenantId tenant, String instructions,
                               List<ChatMessage> newestFirst, ChatTurnOptions options,
                               Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles,
                               @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages) {
         public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
 
         /** A context with default options and no files, account language or generated images. */
-        public static Builder builder(ActorId actor, TenantId tenant, String model, String instructions,
+        public static Builder builder(ActorId actor, TenantId tenant, String instructions,
                                       List<ChatMessage> newestFirst) {
-            return new Builder(actor, tenant, model, instructions, newestFirst);
+            return new Builder(actor, tenant, instructions, newestFirst);
         }
 
         public static final class Builder {
             private final ActorId actor;
             private final TenantId tenant;
-            private final String model;
             private final String instructions;
             private final List<ChatMessage> newestFirst;
             private ChatTurnOptions options = ChatTurnOptions.DEFAULT;
@@ -370,11 +369,10 @@ public class ChatTurnPersistence {
             private @Nullable String uiLanguage;
             private Map<UUID, List<UUID>> generatedImages = Map.of();
 
-            private Builder(ActorId actor, TenantId tenant, String model, String instructions,
+            private Builder(ActorId actor, TenantId tenant, String instructions,
                             List<ChatMessage> newestFirst) {
                 this.actor = actor;
                 this.tenant = tenant;
-                this.model = model;
                 this.instructions = instructions;
                 this.newestFirst = newestFirst;
             }
@@ -386,7 +384,7 @@ public class ChatTurnPersistence {
             public Builder generatedImages(Map<UUID, List<UUID>> value) { generatedImages = value; return this; }
 
             public TurnContext build() {
-                return new TurnContext(actor, tenant, model, instructions, newestFirst, options, fileTexts,
+                return new TurnContext(actor, tenant, instructions, newestFirst, options, fileTexts,
                         workspaceFiles, uiLanguage, generatedImages);
             }
         }

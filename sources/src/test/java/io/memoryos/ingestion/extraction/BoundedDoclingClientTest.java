@@ -314,7 +314,7 @@ class BoundedDoclingClientTest {
         try (var pdf = new PDDocument(); var out = new ByteArrayOutputStream()) {
             pdf.addPage(new PDPage());
             pdf.save(out);
-            return extractor.extract(out.toByteArray(), "file.pdf", "application/pdf", SourceInputDescriptor.binary());
+            return extractor.extract(out.toByteArray(), "file.pdf", "application/pdf", SourceInputDescriptor.binary(), null);
         }
     }
 

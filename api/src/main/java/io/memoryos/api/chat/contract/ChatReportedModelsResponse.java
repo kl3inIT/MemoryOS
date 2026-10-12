@@ -15,7 +15,8 @@ public record ChatReportedModelsResponse(
     public static ChatReportedModelsResponse from(List<ModelResolver.ReportedModelSpec> specs) {
         return new ChatReportedModelsResponse(specs.stream().map(spec -> new ReportedModel(spec.modelName(),
                 spec.contextWindow(), spec.maxOutputTokens(),
-                new Capabilities(spec.capabilities().toolCalling(), spec.capabilities().vision(), spec.capabilities().reasoning()),
+                new Capabilities(spec.capabilities().toolCalling(), spec.capabilities().vision(), spec.capabilities().reasoning(),
+                        spec.capabilities().structuredOutput()),
                 spec.pricing() == null ? null : new Pricing(spec.pricing().inputPerMillion(), spec.pricing().outputPerMillion()),
                 spec.source().name().toLowerCase(Locale.ROOT))).toList());
     }
@@ -37,7 +38,8 @@ public record ChatReportedModelsResponse(
     @Schema(name = "ChatReportedModelCapabilities", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
     public record Capabilities(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean toolCalling,
                                @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean vision,
-                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean reasoning) {}
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean reasoning,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean structuredOutput) {}
 
     @Schema(name = "ChatReportedModelPricing", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
     public record Pricing(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) double inputPerMillion,

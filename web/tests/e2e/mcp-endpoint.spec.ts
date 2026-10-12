@@ -205,7 +205,8 @@ for (const theme of ["light", "dark"] as const) {
       await stub(page);
 
       await page.goto("/admin/mcp-endpoint");
-      await expect(page.getByRole("heading", { name: "MemoryOS MCP", level: 1 })).toBeVisible({
+      // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
+      await expect(page.getByRole("heading", { name: "MemoryOS MCP", level: 1 })).toBeAttached({
         timeout: 30_000,
       });
       await expect(page.getByLabel("Địa chỉ MCP", { exact: true })).toHaveValue(settings.url ?? "");

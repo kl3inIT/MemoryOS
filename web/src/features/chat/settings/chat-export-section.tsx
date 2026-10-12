@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatUiMoment } from "@/i18n/format";
 import { Download } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -96,7 +97,7 @@ export function ChatExportSection() {
               {latest.expiresAt && (
                 <span>
                   {ui("Liên kết tải hết hạn {{date}}.", {
-                    date: new Date(latest.expiresAt).toLocaleString(i18n.language),
+                    date: formatUiMoment(latest.expiresAt),
                   })}
                 </span>
               )}

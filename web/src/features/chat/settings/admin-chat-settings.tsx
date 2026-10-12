@@ -449,7 +449,7 @@ function GuardrailsSections() {
             title={ui("Mô hình kiểm tra câu hỏi")}
             control={
               <Button asChild prominence="tertiary" size="sm">
-                <Link to="/admin/models" hash="task-models">
+                <Link to="/admin/ai-providers" search={{ tab: "system-one" }}>
                   {ui("Đổi")}
                 </Link>
               </Button>

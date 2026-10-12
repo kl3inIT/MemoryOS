@@ -21,7 +21,7 @@ const statusMessages = {
     "Object storage did not receive the declared file. Start the upload again.",
   OBJECT_UPLOAD_STORAGE_UNAVAILABLE: "Object storage is temporarily unavailable. Retry the upload.",
   SOURCE_TENANT_INACTIVE:
-    "Processing paused because this Tenant is inactive. Contact an administrator.",
+    "Processing paused because this organization is inactive. Contact an administrator.",
   SOURCE_EXTRACTION_UNSUPPORTED: "This file type could not be extracted.",
   SOURCE_EXTRACTION_ENCRYPTED: "Password-protected files cannot be indexed.",
   SOURCE_EXTRACTION_MALFORMED: "The file could not be read. Check the file and upload it again.",
@@ -89,7 +89,7 @@ const statusMessages = {
   SOURCE_GOOGLE_CREDENTIAL_CHANGED:
     "The Google credential changed during verification. The proposal was not activated. Reload the saved selection before submitting again.",
   SOURCE_NOT_OWNER:
-    "Selection verification stopped because the initiating user no longer has permission or the Tenant is inactive. Ask an authorized administrator to submit a new proposal.",
+    "Selection verification stopped because the initiating user no longer has permission or the organization is inactive. Ask an authorized administrator to submit a new proposal.",
   IAM_ACCESS_DENIED:
     "The operation stopped because your permissions changed. Ask an authorized administrator to review access before trying again.",
   SOURCE_ACQUISITION_INTERNAL:

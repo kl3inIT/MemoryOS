@@ -61,7 +61,7 @@ class ResearchExecutorLiveTest {
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required");
         String model = System.getenv().getOrDefault("MEMORYOS_DR_LIVE_MODEL", "gpt-5-mini");
         var meters = new SimpleMeterRegistry();
-        var settings = new ModelSettings(128000, 16000, new ModelSettings.Capabilities(true, true, false, true),
+        var settings = new ModelSettings(128000, 16000, new ModelSettings.Capabilities(true, true, false, true, false),
                 Map.of("maxCompletionTokens", true, "reasoningEffort", "low", "helperReasoningEffort", "minimal"), null, TokenizerProfiles.HOSTED);
         var process = mock(AgentProcess.class);
         var budget = mock(Budget.class, RETURNS_DEEP_STUBS);

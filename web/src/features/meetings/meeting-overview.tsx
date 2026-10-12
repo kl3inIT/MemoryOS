@@ -1,21 +1,8 @@
 import type { ReactNode } from "react";
-import {
-  Clock,
-  FileAudio,
-  Lock,
-  MessageSquareText,
-  Mic,
-  MonitorSpeaker,
-  Users,
-} from "lucide-react";
-import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import type { MeetingRecorder } from "./meeting-recorder";
-import { formatClock, formatWhen, type MeetingDetail } from "./meetings-api";
-import { RecordingClock } from "./recording-bar";
+import type { MeetingDetail } from "./meetings-api";
 import type { MeetingPageState } from "./use-meeting-page";
 
 type Translate = ReturnType<typeof useAppTranslation>;
@@ -34,113 +21,6 @@ function socketMessage(code: string, ui: Translate) {
     default:
       return ui("Mất kết nối và không nối lại được. Phần đã ghi vẫn được lưu.");
   }
-}
-
-/** When the meeting was, how it was captured, who was in it and who else reads it. */
-export function MeetingFacts({ meeting }: { meeting: MeetingDetail }) {
-  const ui = useAppTranslation();
-  const uploaded = meeting.audio.status !== "NONE";
-  return (
-    <span className="flex flex-wrap gap-x-4 gap-y-1">
-      <span>{formatWhen(meeting.createdAt, i18n.language)}</span>
-      <span className="inline-flex items-center gap-1">
-        {uploaded ? (
-          <FileAudio className="size-3.5" aria-hidden="true" />
-        ) : meeting.kind === "ONLINE" ? (
-          <MonitorSpeaker className="size-3.5" aria-hidden="true" />
-        ) : (
-          <Mic className="size-3.5" aria-hidden="true" />
-        )}
-        {uploaded
-          ? ui("Bản ghi tải lên")
-          : meeting.kind === "ONLINE"
-            ? ui("Họp online")
-            : ui("Họp trực tiếp")}
-      </span>
-      {meeting.participants.length > 0 && (
-        <span className="inline-flex items-center gap-1">
-          <Users className="size-3.5" aria-hidden="true" />
-          {meeting.participants.join(", ")}
-        </span>
-      )}
-      <span className="inline-flex items-center gap-1">
-        {meeting.owned && meeting.readers.length === 0 ? (
-          <>
-            <Lock className="size-3.5" aria-hidden="true" />
-            {ui("Chỉ mình bạn")}
-          </>
-        ) : (
-          <>
-            <Users className="size-3.5" aria-hidden="true" />
-            {meeting.owned
-              ? ui("Chia sẻ với {{count}} người và nhóm", { count: meeting.readers.length })
-              : ui("Được chia sẻ với bạn")}
-          </>
-        )}
-      </span>
-    </span>
-  );
-}
-
-/** How long, how many lines and voices, and who transcribed it. */
-export function MeetingStats({
-  meeting,
-  recorder,
-}: {
-  meeting: MeetingDetail;
-  /** The recorder while this meeting is being recorded here; its clock replaces the stored length. */
-  recorder: MeetingRecorder | undefined;
-}) {
-  const ui = useAppTranslation();
-  const named = meeting.speakers.filter((speaker) => speaker.name).length;
-  return (
-    <StatStrip columns={4}>
-      <StatTile
-        label={ui("Thời lượng")}
-        icon={<Clock />}
-        iconClass="text-chart-1"
-        value={
-          recorder ? (
-            <RecordingClock recorder={recorder} />
-          ) : (
-            formatClock(
-              meeting.utterances.reduce(
-                (longest, utterance) => Math.max(longest, utterance.endMs),
-                0,
-              ),
-            )
-          )
-        }
-        hint={recorder ? ui("Đang ghi") : undefined}
-      />
-      <StatTile
-        label={ui("Số câu")}
-        icon={<MessageSquareText />}
-        iconClass="text-chart-3"
-        value={meeting.utterances.length}
-      />
-      <StatTile
-        label={ui("Người nói")}
-        icon={<Users />}
-        iconClass="text-chart-6"
-        value={meeting.speakers.length}
-        hint={named > 0 ? ui("{{count}} đã đặt tên", { count: named }) : ui("Chưa đặt tên")}
-      />
-      <StatTile
-        label={ui("Nhận dạng")}
-        icon={<Mic />}
-        iconClass={meeting.provider ? "text-chart-2" : "text-content-muted"}
-        value={meeting.provider ?? "—"}
-        hint={
-          meeting.provider
-            ? meeting.diarized
-              ? ui("Có tách người nói")
-              : ui("Không tách người nói")
-            : undefined
-        }
-      />
-    </StatStrip>
-  );
 }
 
 /** What the page says about the recording and the last action: its state, a missing tab, a failure. */

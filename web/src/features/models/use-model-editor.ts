@@ -77,7 +77,7 @@ export function useModelEditor({
 
   const saving = useModelMutation(
     async (signal) => {
-      const body = modelBody(draft);
+      const body = modelBody(draft, adapter);
       const result = baseline
         ? await updateChatModel({
             path: { modelId: baseline.id },

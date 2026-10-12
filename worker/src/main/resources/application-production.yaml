@@ -1,5 +1,6 @@
 db-scheduler:
-  scheduler-name: ${MEMORYOS_SCHEDULER_NAME}
+  # Each replica's container hostname, so db-scheduler's picked_by names the replica that runs a task (MEM-244).
+  scheduler-name: ${MEMORYOS_SCHEDULER_NAME:${HOSTNAME}}
 
 spring:
   data:

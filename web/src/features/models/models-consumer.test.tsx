@@ -50,7 +50,13 @@ const model: ManagedModel = {
     contextWindow: 1024,
     maxOutputTokens: 128,
     tokenizerProfile: "openai-o200k-v1",
-    capabilities: { streaming: true, toolCalling: false, vision: false, reasoning: false },
+    capabilities: {
+      streaming: true,
+      toolCalling: false,
+      vision: false,
+      reasoning: false,
+      structuredOutput: false,
+    },
     options: {},
     pricing: null,
   },
@@ -159,7 +165,12 @@ describe("models listed inside the provider form", () => {
                 modelName: "gpt-5-mini",
                 contextWindow: 272000,
                 maxOutputTokens: 128000,
-                capabilities: { toolCalling: true, vision: true, reasoning: false },
+                capabilities: {
+                  toolCalling: true,
+                  vision: true,
+                  reasoning: false,
+                  structuredOutput: false,
+                },
                 pricing: { inputPerMillion: 0.25, outputPerMillion: 2 },
                 source: "provider",
               },
@@ -167,7 +178,12 @@ describe("models listed inside the provider form", () => {
                 modelName: "local-llama",
                 contextWindow: 32000,
                 maxOutputTokens: null,
-                capabilities: { toolCalling: true, vision: false, reasoning: false },
+                capabilities: {
+                  toolCalling: true,
+                  vision: false,
+                  reasoning: false,
+                  structuredOutput: false,
+                },
                 pricing: null,
                 source: "none",
               },
@@ -939,9 +955,11 @@ describe("provider deletion reconciliation", () => {
         </ApplicationSessionBoundary>
       </QueryClientProvider>,
     );
-    const remove = await screen.findByRole("button", { name: /Delete provider/ });
-    await waitFor(() => expect(remove).toBeEnabled());
-    fireEvent.click(remove);
+    // Deleting is a menu away from the edit beside it.
+    const more = await screen.findByRole("button", { name: /^More actions for/ });
+    await waitFor(() => expect(more).toBeEnabled());
+    fireEvent.keyDown(more, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Delete provider/ }));
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete configuration" }));
     await waitFor(() => expect(deleted).toBe(true));

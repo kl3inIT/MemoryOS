@@ -20,7 +20,7 @@ import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { uiLocale } from "@/i18n/format";
+import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { actionErrorText } from "@/lib/action-errors";
 import {
@@ -198,10 +198,7 @@ function ArchivedSessionRow({
           <ItemDescription>
             {session.archivedAt
               ? ui("Đã lưu trữ {{date}}", {
-                  date: new Date(session.archivedAt).toLocaleString(uiLocale(), {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }),
+                  date: formatUiMoment(session.archivedAt),
                 })
               : ""}
           </ItemDescription>
@@ -224,7 +221,7 @@ function ArchivedSessionRow({
               }
               title={ui("Xóa hội thoại?")}
               description={ui(
-                "“{{v1}}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.",
+                "“{{v1}}” sẽ bị xóa vĩnh viễn khỏi lịch sử và liên kết chia sẻ, không khôi phục được. Câu trả lời đang chạy cũng sẽ dừng.",
                 { v1: session.title },
               )}
               confirmLabel={ui("Xóa hội thoại")}

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Settings2 } from "lucide-react";
+import { Settings } from "lucide-react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { IconButton } from "@/components/ui/icon-button";
 import {
@@ -45,7 +45,7 @@ export function LibrarySettingsButton({
         title={ui("Cài đặt thư viện")}
         onClick={() => setOpen(true)}
       >
-        <Settings2 />
+        <Settings />
       </IconButton>
       <Dialog open={open} onOpenChange={setOpen}>
         {/* A dialog over the middle of the list, not a drawer at the edge: the panel is about what the list

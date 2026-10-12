@@ -77,11 +77,13 @@ Four provisioned dashboards, linked by the `memoryos` tag: *overview* (the landi
 - Spring AI publishes `gen_ai.client.operation` (timer: `gen_ai_operation_name`, `gen_ai_system`, `gen_ai_request_model`, `gen_ai_response_model`, `error`) and `gen_ai.client.token.usage` (counter, plus `gen_ai_token_type`) for every chat and embedding call. The model name is a bounded label: it comes from the Tenant catalog.
 - `memoryos.chat.turn` runs from admission to the terminal outcome, once per turn. Labels: `status` (`completed`, `failed`, `canceled`), `failure` (a typed failure code, or `none`), `refusal` (`none`, `no_evidence`, `uncited`, `blocked_topic`), `grounded` and `research` (as admitted).
 - `memoryos.chat.turn.first.text` runs from admission to the first text the person sees, a refusal included; label `grounded`. A grounded turn holds text until its first valid citation, so its first text is later by design.
-- `memoryos.chat.guardrail.check` times the MEM-195 check before the answer model; label `kind` (`conversational`, `question`, `blocked`, `unavailable`).
+- `memoryos.chat.guardrail.check` times the MEM-195 check before the answer model; labels `kind` (`conversational`, `question`, `blocked`, `unchecked`) `classifier` (`llm`, `system_one`) and `review` (`true` when a topic scored between the guardrail's thresholds and the turn was let through).
 
 ### Extraction metrics
 
 - `memoryos.extraction.docling.fallback` counts each Docling failure that reaches the native fallback, recorded in the worker. Labels: `reason` (`connection_failed`, `timeout`, `internal`, `malformed`) and `outcome` (`read`: published from Tika without tables or boxes; `refused`: the native text was too thin and Docling's failure stands; `failed`: the native reader failed too). All twelve series are registered at zero. The `MemoryOSDoclingFallback` alert fires on any increase within 15 minutes, and the overview dashboard shows it by reason and outcome.
+
+- `memoryos.extraction.unavailable` counts each Source index attempt that ended because its extraction service could not be reached (`CONNECTION_FAILED`), recorded in the worker. Label `outcome`: `retry_scheduled` (the attempt waits and is delivered again) or `exhausted` (the sixth such attempt failed the document). Both series are registered at zero. The `MemoryOSExtractionUnavailable` alert fires on any `exhausted` increase within 15 minutes; a stale claim is not counted. `ingestion.extraction.failed` carries `retryable`.
 
 ### Extraction lifecycle diagnostics
 

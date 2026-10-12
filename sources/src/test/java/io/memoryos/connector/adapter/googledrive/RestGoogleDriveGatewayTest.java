@@ -14,6 +14,7 @@ import io.memoryos.connector.GoogleDriveProviderException.Failure;
 import io.memoryos.connector.SourceInputFormat;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -28,8 +29,10 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -107,8 +110,8 @@ class RestGoogleDriveGatewayTest {
             assertThrows(UnsupportedOperationException.class, permissions::clear);
             assertThrows(UnsupportedOperationException.class, permissions.getFirst().permissionDetails()::clear);
             assertEquals(3, fixture.requests.size());
-            assertEquals(List.of("grant_type=refresh_token&client_id=client.apps.googleusercontent.com"
-                    + "&client_secret=secret&refresh_token=refresh"), fixture.tokenForms);
+            assertEquals(List.of(form("grant_type=refresh_token&client_id=client.apps.googleusercontent.com"
+                    + "&client_secret=secret&refresh_token=refresh")), fixture.tokenForms.stream().map(RestGoogleDriveGatewayTest::form).toList());
             String rendered = permissions.toString() + permissions.get(1).permissionDetails();
             assertFalse(rendered.contains("Example.test"));
             assertFalse(rendered.contains("shared-drive"));
@@ -474,9 +477,11 @@ class RestGoogleDriveGatewayTest {
     void sharedDriveBinaryAcquisitionUsesExplicitFileAndAllDrivesSupport() throws Exception {
         String file = metadata("text/plain", "1").replace("\"version\"", "\"driveId\":\"shared-drive\",\"version\"");
         try (var fixture = new Fixture(exchange -> {
-            if (!exchange.getRequestURI().getPath().equals("/files/file1")
+            // Google's Drive client downloads content at its download path under the root.
+            boolean media = decodedQuery(exchange).contains("alt=media");
+            if (!exchange.getRequestURI().getPath().equals(media ? "/download/files/file1" : "/files/file1")
                     || !decodedQuery(exchange).contains("supportsAllDrives=true")) return new Response(403, new byte[0]);
-            return decodedQuery(exchange).contains("alt=media") ? ok("Shared content") : ok(file);
+            return media ? ok("Shared content") : ok(file);
         }); var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
             assertEquals("Shared content", new String(session.acquire(session.metadata("file1")).bytes(), StandardCharsets.UTF_8));
         }
@@ -490,9 +495,9 @@ class RestGoogleDriveGatewayTest {
             try (var ignored = provider.open(first)) { assertNotNull(ignored.rotatedRefreshToken()); }
             try (var ignored = provider.open(second)) { assertNotNull(ignored.rotatedRefreshToken()); }
             assertEquals(List.of(
-                    "grant_type=refresh_token&client_id=first.apps.googleusercontent.com&client_secret=secret-one&refresh_token=grant-one",
-                    "grant_type=refresh_token&client_id=second.apps.googleusercontent.com&client_secret=secret-two&refresh_token=grant-two"),
-                    fixture.tokenForms);
+                    form("grant_type=refresh_token&client_id=first.apps.googleusercontent.com&client_secret=secret-one&refresh_token=grant-one"),
+                    form("grant_type=refresh_token&client_id=second.apps.googleusercontent.com&client_secret=secret-two&refresh_token=grant-two")),
+                    fixture.tokenForms.stream().map(RestGoogleDriveGatewayTest::form).toList());
         }
     }
 
@@ -541,7 +546,10 @@ class RestGoogleDriveGatewayTest {
     @Test
     void directoryReadsUsersGroupsAndDerivedMembersPageByPage() throws Exception {
         try (var fixture = new Fixture(exchange -> {
-            String path = exchange.getRequestURI().getPath();
+            // Google's Directory client carries the API version in each request path.
+            String prefix = "/admin/directory/v1";
+            assertTrue(exchange.getRequestURI().getPath().startsWith(prefix), exchange.getRequestURI().getPath());
+            String path = exchange.getRequestURI().getPath().substring(prefix.length());
             String query = decodedQuery(exchange);
             if (path.equals("/users/admin@example.com")) return ok("{\"primaryEmail\":\"Admin@Example.com\",\"isAdmin\":true,\"suspended\":false}");
             if (path.equals("/users/member@example.com")) return new Response(403, new byte[0]);
@@ -603,8 +611,111 @@ class RestGoogleDriveGatewayTest {
     }
 
     private RestGoogleDriveGateway provider(Fixture fixture, int binaryLimit, int requests) {
+        return provider(fixture, binaryLimit, requests, null);
+    }
+
+    private RestGoogleDriveGateway provider(Fixture fixture, int binaryLimit, int requests, Duration requestTimeout) {
         return new RestGoogleDriveGateway(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0, null, null, null, null, null), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, requestTimeout, null, 0, requests, 0, 0, binaryLimit, 0, null, null, null, null, null), mapper);
+    }
+
+    /** A form as its set of fields: the order Google's library writes them in is its own. */
+    private static Set<String> form(String body) { return Set.of(body.split("&")); }
+
+    @Test
+    void googlesClientDoesNotRetryOrBackOffAThrottledOrFailedAnswer() throws Exception {
+        for (int status : List.of(429, 500, 503)) {
+            try (var fixture = new Fixture(exchange -> {
+                exchange.getResponseHeaders().set("Retry-After", "1");
+                return new Response(status, new byte[0]);
+            }); var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+                int before = fixture.requests.size();
+                assertThrows(GoogleDriveProviderException.class, () -> session.metadata("file1"));
+                assertEquals(before + 1, fixture.requests.size(), "status " + status + ": the caller decides when to try again");
+            }
+        }
+        // The token request is not retried either.
+        try (var fixture = new Fixture(exchange -> ok("{}"))) {
+            fixture.tokenResponse = new Response(503, new byte[0]);
+            try (var provider = provider(fixture, 0, 0); var credential = credential()) {
+                assertEquals(Failure.UNAVAILABLE, assertThrows(GoogleDriveProviderException.class, () -> provider.open(credential)).failure());
+                assertEquals(1, fixture.requests.size());
+            }
+        }
+    }
+
+    @Test
+    void aTokenEndpointRedirectDoesNotCarryTheGrantToAnotherHost() throws Exception {
+        AtomicInteger contacted = new AtomicInteger();
+        try (var destination = new Fixture(exchange -> { contacted.incrementAndGet(); return ok("{}"); });
+             var fixture = new Fixture(exchange -> ok("{}"))) {
+            fixture.tokenResponse = new Response(307, new byte[0]);
+            fixture.tokenLocation = destination.base + "/stolen";
+            try (var provider = provider(fixture, 0, 0); var credential = credential()) {
+                assertThrows(GoogleDriveProviderException.class, () -> provider.open(credential));
+                assertEquals(0, contacted.get());
+            }
+        }
+    }
+
+    @Test
+    void anAnswerThatStallsIsCutOffAtTheRequestTimeout() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            try {
+                Thread.sleep(1_500);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            return ok(metadata("text/plain", "1"));
+        }); var provider = provider(fixture, 0, 0, Duration.ofMillis(300)); var credential = credential();
+             var session = provider.open(credential)) {
+            long started = System.nanoTime();
+            assertEquals(Failure.UNAVAILABLE,
+                    assertThrows(GoogleDriveProviderException.class, () -> session.metadata("file1")).failure());
+            assertTrue(Duration.ofNanos(System.nanoTime() - started).toMillis() < 1_400, "cut off before the answer");
+        }
+    }
+
+    @Test
+    void anAnswerWithoutADeclaredLengthIsStoppedOnceItPassesTheBound() throws Exception {
+        try (var fixture = new Fixture(exchange -> decodedQuery(exchange).contains("alt=media")
+                ? new Response(200, new byte[4096], 0, true) : ok(metadata("text/plain", "1")));
+             var provider = provider(fixture, 1024, 0); var credential = credential(); var session = provider.open(credential)) {
+            var file = session.metadata("file1");
+            assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class, () -> session.acquire(file)).failure());
+        }
+    }
+
+    @Test
+    void aGoogleClientRequestAsksForNoCompressionAndACompressedAnswerIsNeverInflatedPastTheBound() throws Exception {
+        var asked = Collections.synchronizedList(new ArrayList<String>());
+        var compressed = new ByteArrayOutputStream();
+        try (var gzip = new GZIPOutputStream(compressed)) {
+            gzip.write(("{\"id\":\"file1\",\"name\":\"" + "x".repeat(4_000_000) + "\"}").getBytes(StandardCharsets.UTF_8));
+        }
+        try (var fixture = new Fixture(exchange -> {
+            asked.add(String.valueOf(exchange.getRequestHeaders().getFirst("Accept-Encoding")));
+            // A server that compresses although it was not asked to: a few KiB that inflate to 4 MB.
+            exchange.getResponseHeaders().add("Content-Encoding", "gzip");
+            return new Response(200, compressed.toByteArray());
+        }); var provider = provider(fixture, 1_048_576, 0); var credential = credential(); var session = provider.open(credential)) {
+            // The bytes are within the bound and are handed on as sent, so the strict reader refuses them as JSON
+            // instead of the library inflating 4 MB past a 1 MiB bound.
+            assertEquals(Failure.MALFORMED, assertThrows(GoogleDriveProviderException.class, () -> session.metadata("file1")).failure());
+            assertFalse(asked.getFirst().contains("gzip"), asked.getFirst());
+        }
+    }
+
+    @Test
+    void aFailedAnswerIsClassifiedByItsReasonAndItsTextIsNeverPassedOn() throws Exception {
+        String error = "{\"error\":{\"code\":403,\"message\":\"internal detail\",\"errors\":[{\"reason\":\"userRateLimitExceeded\"}]}}"
+                + " ".repeat(20_000);
+        try (var fixture = new Fixture(exchange -> new Response(403, error.getBytes(StandardCharsets.UTF_8)));
+             var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+            var refused = assertThrows(GoogleDriveProviderException.class, () -> session.metadata("file1"));
+            assertEquals(Failure.QUOTA, refused.failure(), "the reason is in the first 8 KiB of a longer body");
+            assertFalse(String.valueOf(refused.getMessage()).contains("internal detail"));
+        }
     }
 
     private static GoogleDriveGateway.Credential credential() {
@@ -628,8 +739,10 @@ class RestGoogleDriveGatewayTest {
     }
 
     private static Response ok(String body) { return new Response(200, body.getBytes(StandardCharsets.UTF_8)); }
-    private record Response(int status, byte[] body, int sizeBytes) {
-        Response(int status, byte[] body) { this(status, body, body.length); }
+    /** @param chunked sent without a declared length */
+    private record Response(int status, byte[] body, int sizeBytes, boolean chunked) {
+        Response(int status, byte[] body) { this(status, body, body.length, false); }
+        Response(int status, byte[] body, int sizeBytes) { this(status, body, sizeBytes, false); }
     }
 
     private static final class Fixture implements AutoCloseable {
@@ -637,6 +750,7 @@ class RestGoogleDriveGatewayTest {
         final URI base;
         final List<URI> requests = Collections.synchronizedList(new ArrayList<>());
         final List<String> tokenForms = Collections.synchronizedList(new ArrayList<>());
+        volatile String tokenLocation;
         volatile Response tokenResponse = ok("{\"access_token\":\"access\",\"token_type\":\"Bearer\",\"refresh_token\":\"rotated\"}");
 
         Fixture(Function<HttpExchange, Response> responder) throws IOException {
@@ -647,11 +761,14 @@ class RestGoogleDriveGatewayTest {
                 if (exchange.getRequestURI().getPath().equals("/token")) {
                     tokenForms.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
                 }
-                Response response = exchange.getRequestURI().getPath().equals("/token") ? tokenResponse : responder.apply(exchange);
-                exchange.sendResponseHeaders(response.status(), response.sizeBytes());
+                boolean token = exchange.getRequestURI().getPath().equals("/token");
+                Response response = token ? tokenResponse : responder.apply(exchange);
+                if (token && tokenLocation != null) exchange.getResponseHeaders().set("Location", tokenLocation);
+                int size = response.chunked() ? response.body().length : response.sizeBytes();
+                exchange.sendResponseHeaders(response.status(), response.chunked() ? 0 : response.sizeBytes());
                 try (var output = exchange.getResponseBody()) {
-                    for (int written = 0; written < response.sizeBytes();) {
-                        int count = Math.min(response.body().length, response.sizeBytes() - written);
+                    for (int written = 0; written < size;) {
+                        int count = Math.min(response.body().length, size - written);
                         output.write(response.body(), 0, count);
                         written += count;
                     }

@@ -948,6 +948,7 @@ class PostgresSourceLifecycleTest {
             } else {
                 assertNull(work.initialQueueWait());
             }
+            assertEquals(attempt, work.attempt());
             assertTrue(attempts.retry(
                     work,
                     "SOURCE_EXTRACTION_INTERNAL",

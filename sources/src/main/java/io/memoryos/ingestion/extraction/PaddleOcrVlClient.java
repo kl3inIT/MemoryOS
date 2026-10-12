@@ -90,14 +90,14 @@ final class PaddleOcrVlClient implements AutoCloseable {
         }
     }
 
-    PaddleOcrVlClient(PaddleOcrVlProperties properties, ObjectMapper mapper) {
-        this(properties, mapper, MAX_RESPONSE_BYTES);
+    /** @param service the connection's address, without {@code /layout-parsing} */
+    PaddleOcrVlClient(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper) {
+        this(properties, service, mapper, MAX_RESPONSE_BYTES);
     }
 
-    PaddleOcrVlClient(PaddleOcrVlProperties properties, ObjectMapper mapper, int maxResponseBytes) {
+    PaddleOcrVlClient(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper, int maxResponseBytes) {
         this.maxResponseBytes = maxResponseBytes;
-        this.endpoint = URI.create(Objects.requireNonNull(properties.endpoint(), "endpoint").toString()
-                .replaceAll("/+$", "") + "/layout-parsing");
+        this.endpoint = URI.create(service.toString().replaceAll("/+$", "") + "/layout-parsing");
         this.timeout = properties.timeout();
         this.mapper = mapper;
         this.permits = new Semaphore(Objects.requireNonNull(properties.maxConcurrentRequests()), true);
@@ -192,6 +192,8 @@ final class PaddleOcrVlClient implements AutoCloseable {
             throw failed(switch (e.status) {
                 case 413 -> ExtractionFailure.WRITE_LIMIT;
                 case 408, 504 -> ExtractionFailure.TIMEOUT;
+                // The service, or the proxy in front of it, says it cannot take the request: unreachable, not broken.
+                case 429, 502, 503 -> ExtractionFailure.CONNECTION_FAILED;
                 default -> ExtractionFailure.INTERNAL;
             }, e.status, e.getClass().getName(), waited);
         } catch (IOException | RuntimeException e) {
@@ -201,9 +203,14 @@ final class PaddleOcrVlClient implements AutoCloseable {
         }
     }
 
-    /** Connection establishment is checked first: an unreachable service is not a slow document. */
+    /**
+     * Connection establishment is checked first: an unreachable service is not a slow document. A connection
+     * that breaks after that without a deadline passing means the service went away mid-request, as when its
+     * container restarts, so it is the same failure.
+     */
     private static ExtractionFailure transportFailure(Throwable error) {
         Throwable cause = error;
+        boolean broken = false;
         for (int depth = 0; cause != null && depth < 16; depth++, cause = cause.getCause()) {
             if (cause instanceof HttpConnectTimeoutException || cause instanceof ConnectException
                     || cause instanceof UnknownHostException || cause instanceof NoRouteToHostException) {
@@ -213,8 +220,9 @@ final class PaddleOcrVlClient implements AutoCloseable {
                     || cause instanceof InterruptedIOException) {
                 return ExtractionFailure.TIMEOUT;
             }
+            broken |= cause instanceof IOException;
         }
-        return ExtractionFailure.INTERNAL;
+        return broken ? ExtractionFailure.CONNECTION_FAILED : ExtractionFailure.INTERNAL;
     }
 
     private ExtractionException failed(ExtractionFailure failure, int status, String errorType, long waitedNanos) {

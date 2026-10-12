@@ -1,6 +1,6 @@
 /** Human file size for a download chip or a file row: "12,4 KB" in the active locale. */
 export function fileSize(bytes: number, locale: string): string {
-  const units = ["B", "KB", "MB"];
+  const units = ["B", "KB", "MB", "GB"];
   let value = bytes;
   let unit = 0;
   while (value >= 1024 && unit < units.length - 1) {

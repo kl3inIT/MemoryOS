@@ -55,7 +55,7 @@ class ComposeLayeringTest(unittest.TestCase):
             self.assertFalse(defines(PRODUCTION, service), service)
 
     def test_staging_keeps_only_what_staging_runs(self):
-        for inspection in ("mailpit", "pgweb", "redisinsight"):
+        for inspection in ("mailpit", "pgweb", "redisinsight", "promptfoo"):
             self.assertTrue(defines(STAGING, inspection), inspection)
             self.assertNotIn(inspection, BASE, inspection)
             self.assertNotIn(inspection, PRODUCTION, inspection)

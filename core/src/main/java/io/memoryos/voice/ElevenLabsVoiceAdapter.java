@@ -1,6 +1,5 @@
 package io.memoryos.voice;
 
-import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
@@ -26,9 +25,9 @@ final class ElevenLabsVoiceAdapter implements SpeechSynthesisAdapter {
         VoiceChecks.arrayListing(probe.baseUrl() + "/models", "xi-api-key", probe.key());
     }
 
-    @Override public String transcribe(HttpClient http, VoiceConnectionService.Connection connection, String key,
-                                       @Nullable String language, byte[] wav) throws IOException, InterruptedException {
-        return ElevenLabsVoice.transcribe(http, CAPABILITIES.baseUrl(connection.endpoint()), key, connection.sttModel(),
+    @Override public String transcribe(VoiceConnectionService.Connection connection, String key,
+                                       @Nullable String language, byte[] wav) {
+        return ElevenLabsVoice.transcribe(CAPABILITIES.baseUrl(connection.endpoint()), key, connection.sttModel(),
                 language, wav, REQUEST_TIMEOUT);
     }
 

@@ -5,17 +5,13 @@ import com.openai.client.OpenAIClientAsync;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.client.okhttp.OpenAIOkHttpClientAsync;
 import com.openai.models.audio.AudioResponseFormat;
-import java.io.IOException;
+import io.memoryos.shared.OutboundHttp;
+import io.memoryos.shared.OutboundHttp.Limits;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
@@ -25,9 +21,11 @@ import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.web.client.RestClientException;
 import reactor.core.publisher.Flux;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 /** The OpenAI audio protocol, shared by OpenAI and by self-hosted or gateway servers that speak it. */
 final class OpenAiAudio {
@@ -35,7 +33,8 @@ final class OpenAiAudio {
     static final String NO_CREDENTIAL = "memoryos-no-credential";
     private static final Duration PROVIDER_TIMEOUT = Duration.ofSeconds(60);
     private static final int MAX_SEGMENTS = 20_000;
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /** A verbose transcription of a long recording lists every segment with its token ids. */
+    private static final int MAX_TRANSCRIPTION_BYTES = 64 * 1024 * 1024;
 
     private OpenAiAudio() {}
 
@@ -64,33 +63,31 @@ final class OpenAiAudio {
     }
 
     /**
-     * Verbose transcription answers timed segments for one speaker. The request is written by hand rather than through
-     * the SDK because the SDK's transcription result carries only the text.
+     * Verbose transcription answers timed segments for one speaker. It is not sent through the OpenAI SDK: Spring AI's
+     * transcription model returns the text only, and the SDK's own typed answer refuses what compatible servers send
+     * (a segment without {@code avg_logprob}, or segments without a duration). The answer is read as a tree instead.
      */
-    static List<LiveTranscription.Segment> segments(HttpClient http, String base, String model, String key,
-            LiveTranscription.Options options, BatchTranscriptionService.Recording recording, Duration timeout)
-            throws IOException, InterruptedException {
-        String boundary = "memoryos-" + UUID.randomUUID();
-        var fields = new StringBuilder();
-        field(fields, boundary, "model", model);
-        field(fields, boundary, "response_format", "verbose_json");
-        if (options.language() != null) field(fields, boundary, "language", options.language());
-        fields.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"file\"; filename=\"")
-                .append(recording.filename().replaceAll("[\"\\r\\n\\\\]", "")).append("\"\r\nContent-Type: ")
-                .append(recording.mediaType()).append("\r\n\r\n");
-        // Sent as three parts, and the recording is read from its source as it is sent.
-        var body = HttpRequest.BodyPublishers.concat(
-                HttpRequest.BodyPublishers.ofString(fields.toString(), StandardCharsets.UTF_8),
-                AudioSource.body(recording.audio(), recording.sizeBytes()),
-                HttpRequest.BodyPublishers.ofString("\r\n--" + boundary + "--\r\n", StandardCharsets.UTF_8));
-        var request = HttpRequest.newBuilder(URI.create(base + "/audio/transcriptions")).timeout(timeout)
-                .header("Authorization", "Bearer " + (key.isEmpty() ? "not-required" : key))
-                .header("Accept", "application/json")
-                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(body).build();
-        var response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) throw VoiceException.providerUnavailable();
-        return segments(JSON.readTree(response.body()));
+    static List<LiveTranscription.Segment> segments(String base, String model, String key,
+            LiveTranscription.Options options, BatchTranscriptionService.Recording recording, Duration timeout) {
+        var form = new MultipartBodyBuilder();
+        form.part("model", model);
+        form.part("response_format", "verbose_json");
+        if (options.language() != null) form.part("language", options.language());
+        // The recording is read from its source as the part is written.
+        form.part("file", AudioSource.part(recording.audio(), recording.sizeBytes(), recording.filename()),
+                MediaType.parseMediaType(recording.mediaType()));
+        try {
+            JsonNode transcription = OutboundHttp.builder(new Limits(timeout, MAX_TRANSCRIPTION_BYTES)).build().post()
+                    .uri(URI.create(base + "/audio/transcriptions"))
+                    .headers(sent -> sent.setBearerAuth(key.isEmpty() ? "not-required" : key))
+                    .accept(MediaType.APPLICATION_JSON).contentType(MediaType.MULTIPART_FORM_DATA).body(form.build())
+                    .retrieve().body(JsonNode.class);
+            if (transcription == null) throw VoiceException.providerUnavailable();
+            return segments(transcription);
+        } catch (RestClientException failed) {
+            // A failed answer carries its status only, so account detail cannot reach a response or a log.
+            throw VoiceException.providerUnavailable();
+        }
     }
 
     static List<LiveTranscription.Segment> segments(JsonNode transcription) {
@@ -130,11 +127,6 @@ final class OpenAiAudio {
             }
             @Override public void close() { client.close(); }
         };
-    }
-
-    private static void field(StringBuilder body, String boundary, String name, String value) {
-        body.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"").append(name)
-                .append("\"\r\n\r\n").append(value).append("\r\n");
     }
 
     /** Spring AI derives the upload format from the resource file name. */

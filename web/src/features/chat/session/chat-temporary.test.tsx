@@ -57,7 +57,7 @@ it("marks a temporary conversation and offers the way out of it", async () => {
 
   expect(screen.getByText("Tạm thời")).toBeInTheDocument();
   expect(
-    screen.getByText("Cuộc trò chuyện này không được lưu và sẽ tự xóa cùng tệp của nó."),
+    screen.getByText("Hội thoại này không được lưu và sẽ tự xóa cùng tệp của nó."),
   ).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Hội thoại mới" }));

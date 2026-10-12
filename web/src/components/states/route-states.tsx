@@ -28,7 +28,9 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
   return (
     <ApplicationError
       title={ui("This page could not be loaded.")}
-      description={ui("The route or its data failed to load. Your Tenant data is unchanged.")}
+      description={ui(
+        "The route or its data failed to load. Your organization's data is unchanged.",
+      )}
       error={error}
       onRetry={retry}
     />
@@ -58,7 +60,7 @@ export function RouteNotFound() {
           <Brand />
           <p className="mt-6 font-secondary-body text-content-muted">404</p>
           <EmptyTitle role="heading" aria-level={1} size="page">
-            {ui("This path isn’t part of your Tenant.")}
+            {ui("This path isn’t part of your organization.")}
           </EmptyTitle>
           <EmptyDescription>{ui("No data changed. Return to MemoryOS.")}</EmptyDescription>
         </EmptyHeader>

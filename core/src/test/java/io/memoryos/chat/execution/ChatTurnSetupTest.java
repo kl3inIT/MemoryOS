@@ -67,7 +67,7 @@ class ChatTurnSetupTest {
                 .finishedAt(Instant.now())
                 .files(List.of(file))
                 .build();
-        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer", List.of(question))
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", List.of(question))
                 .workspaceFiles(List.of(file))
                 .build();
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, binding(), "");
@@ -141,7 +141,7 @@ class ChatTurnSetupTest {
     }
 
     private TurnContext context(List<ChatMessage> messages) {
-        return TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", messages).build();
+        return TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", messages).build();
     }
 
     @Test
@@ -187,7 +187,7 @@ class ChatTurnSetupTest {
                 .finishedAt(Instant.now())
                 .files(List.of(file))
                 .build();
-        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer", List.of(question))
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", List.of(question))
                 .fileTexts(Map.of(id, new UserFileService.FileText("A😀Việt", 0, 6)))
                 .workspaceFiles(List.of(file))
                 .build();
@@ -207,7 +207,7 @@ class ChatTurnSetupTest {
                 .finishedAt(Instant.now())
                 .files(List.of(file))
                 .build();
-        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer", List.of(question))
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", List.of(question))
                 .fileTexts(Map.of(file.id(), new UserFileService.FileText("text", 0, 4)))
                 .build();
         var base = binding();
@@ -228,7 +228,7 @@ class ChatTurnSetupTest {
     void earlierGeneratedImagesAreNamedOnTheirAnswerEvenWithoutText() {
         var image = UUID.randomUUID();
         var imageOnly = message(ChatMessage.Role.ASSISTANT, "");
-        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer",
+        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
                 List.of(message(ChatMessage.Role.USER, "Make the shirt red"), imageOnly, message(ChatMessage.Role.USER, "Draw a man")),
                 ChatTurnOptions.DEFAULT, Map.of(), List.of(), null,
                 Map.of(imageOnly.id(), List.of(image)));

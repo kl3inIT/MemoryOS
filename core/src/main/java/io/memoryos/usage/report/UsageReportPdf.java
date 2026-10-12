@@ -60,7 +60,8 @@ public final class UsageReportPdf {
             Map.entry("SPEECH_TO_TEXT", "Chuyển giọng nói thành chữ"),
             Map.entry("TEXT_TO_SPEECH", "Đọc văn bản"),
             Map.entry("MEETING_MINUTES", "Biên bản họp"),
-            Map.entry("MEETING_CORRECTION", "Sửa transcript"));
+            Map.entry("MEETING_CORRECTION", "Sửa transcript"),
+            Map.entry("OCR", "Đọc bản scan"));
     private static final Map<String, String> BOUNDARIES = Map.of(
             "INTERNAL", "Nội bộ",
             "EXTERNAL", "Bên ngoài",

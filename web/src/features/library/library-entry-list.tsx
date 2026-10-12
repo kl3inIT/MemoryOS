@@ -1,4 +1,5 @@
 import { Fragment, useRef, type ReactNode } from "react";
+import { formatUiDay } from "@/i18n/format";
 import { Link } from "@tanstack/react-router";
 import {
   Bot,
@@ -42,7 +43,7 @@ import {
 } from "./library-entries";
 import { categoryLabels, entryIcon, entryKindLabels } from "./library-labels";
 import type { LibraryEntryView } from "./library-views";
-import { LibraryPicture, rowActionsReveal } from "./library-rows";
+import { LibraryPicture, rowShortcutReveal } from "./library-rows";
 import type { LibraryLayout } from "./library-toolbar";
 
 /** What a row can do; the page decides which of them it has, and the row offers only what applies to its kind. */
@@ -136,9 +137,7 @@ function EntryRow({
           )}
         </ItemContent>
         <ItemActions>
-          <div className={rowActionsReveal}>
-            <EntryActionButtons entry={entry} actions={actions} />
-          </div>
+          <EntryActionButtons entry={entry} actions={actions} />
         </ItemActions>
       </Item>
     </div>
@@ -208,8 +207,8 @@ function EntryMeta({ entry, view }: { entry: LibraryEntry; view: LibraryEntryVie
   }
   parts.push(
     view === "recent" && entry.openedAt
-      ? ui("Đã mở {{date}}", { date: new Date(entry.openedAt).toLocaleDateString(i18n.language) })
-      : new Date(entry.at).toLocaleDateString(i18n.language),
+      ? ui("Đã mở {{date}}", { date: formatUiDay(entry.openedAt) })
+      : formatUiDay(entry.at),
   );
   return (
     <>
@@ -318,32 +317,36 @@ function EntryActionButtons({
   const download = entryDownloadUrl(entry);
   return (
     <div className="flex shrink-0 items-center gap-0.5">
-      {!compact && download && (
+      <div className={cn("flex items-center gap-0.5", !compact && rowShortcutReveal)}>
+        {!compact && download && (
+          <IconButton
+            size="sm"
+            prominence="internal"
+            aria-label={ui("Tải về {{name}}", { name: entry.name })}
+            title={ui("Tải về")}
+            asChild
+          >
+            <a href={download} download={entry.name} onClick={() => actions.onOpened(entry)}>
+              <Download />
+            </a>
+          </IconButton>
+        )}
         <IconButton
           size="sm"
           prominence="internal"
-          aria-label={ui("Tải về {{name}}", { name: entry.name })}
-          title={ui("Tải về")}
-          asChild
+          aria-pressed={entry.starred}
+          aria-label={
+            entry.starred
+              ? ui("Bỏ gắn sao {{name}}", { name: entry.name })
+              : ui("Gắn sao {{name}}", { name: entry.name })
+          }
+          onClick={() => actions.onStar(entry)}
         >
-          <a href={download} download={entry.name} onClick={() => actions.onOpened(entry)}>
-            <Download />
-          </a>
+          <Star
+            className={entry.starred ? "fill-current text-status-warning-content" : undefined}
+          />
         </IconButton>
-      )}
-      <IconButton
-        size="sm"
-        prominence="internal"
-        aria-pressed={entry.starred}
-        aria-label={
-          entry.starred
-            ? ui("Bỏ gắn sao {{name}}", { name: entry.name })
-            : ui("Gắn sao {{name}}", { name: entry.name })
-        }
-        onClick={() => actions.onStar(entry)}
-      >
-        <Star className={entry.starred ? "fill-current text-status-warning-content" : undefined} />
-      </IconButton>
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <IconButton

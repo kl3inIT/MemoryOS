@@ -1497,7 +1497,7 @@ class PostgresGoogleDriveSyncTest {
     private IngestionCoordinator.Outcome index(boolean revokeDuringExtraction) {
         var delivery = dispatch.claim(OperationWorkload.INGESTION, 1).getFirst().delivery();
         var mapper = new ObjectMapper();
-        SourceContentExtractor extractor = (input, size, name, descriptor) -> {
+        SourceContentExtractor extractor = (tenant, input, size, name, descriptor) -> {
             try {
                 String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
                 duringExtraction.run();

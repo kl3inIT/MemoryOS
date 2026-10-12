@@ -22,11 +22,14 @@ import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.core.io.ClassPathResource;
 import java.util.function.Supplier;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
@@ -47,7 +50,7 @@ class ModelCatalogConstraintsTest {
     private UUID tenant;
     private UUID provider;
     private final ModelSettings settings = new ModelSettings(32000, 4096,
-            new ModelSettings.Capabilities(true, true, false, false), Map.of("temperature", 0.5), null, "openai-o200k-v1");
+            new ModelSettings.Capabilities(true, true, false, false, false), Map.of("temperature", 0.5), null, "openai-o200k-v1");
 
     // Only the tokenizer backfill needs the pre-V54 schema; the other cases exercise the current agent schema.
     @BeforeEach void setup(TestInfo test) throws Exception {
@@ -76,7 +79,7 @@ class ModelCatalogConstraintsTest {
                 UUID.randomUUID(), otherTenant, provider, "model", "Foreign", true, settings, 1))));
         assertThrows(DataIntegrityViolationException.class, () -> tx(() -> catalog.setDefault(otherTenant, model.id(), 1)));
         UUID persona = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id, tenant_id, builtin_key, name, instructions, model) VALUES (:id, :tenant, 'default', 'Persona', '', 'model')")
+        jdbc.sql("INSERT INTO persona(id, tenant_id, builtin_key, name, instructions) VALUES (:id, :tenant, 'default', 'Persona', '')")
                 .param("id", persona).param("tenant", otherTenant).update();
         assertThrows(DataIntegrityViolationException.class, () -> tx(() -> new JdbcAgentModelRepository(jdbc).setPersonaModel(otherTenant, UUID.randomUUID(), true, persona, model.id(), 1)));
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("INSERT INTO llm_provider_persona VALUES (:tenant, :provider, :persona)")
@@ -99,7 +102,7 @@ class ModelCatalogConstraintsTest {
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,'Allowed')").param("tenant", tenant).param("id", group).update();
         UUID persona = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Default','','model')")
+        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions) VALUES (:id,:tenant,'default','Default','')")
                 .param("id", persona).param("tenant", tenant).update();
         var original = read(() -> catalog.provider(tenant, provider).orElseThrow());
         tx(() -> catalog.updateProvider(new LlmProvider(provider, tenant, original.name(), original.adapterType(),
@@ -157,13 +160,53 @@ class ModelCatalogConstraintsTest {
         assertEquals(DataBoundary.EXTERNAL, read(() -> catalog.provider(tenant, provider).orElseThrow().dataBoundary()));
     }
 
+    @Test void aClassifyingTaskRunsOnAModelOrOnASystemOneConnectionAndAConnectionInUseStays() {
+        tx(() -> catalog.initializeFlows(tenant));
+        var model = new ModelConfiguration(UUID.randomUUID(), tenant, provider, "mini", "Mini", true, settings, 1);
+        tx(() -> catalog.insertModel(model));
+        UUID connection = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO system_one_connection(id, tenant_id, provider, name, endpoint, model)
+                VALUES (:id, :tenant, 'LAYA', 'Serving', 'http://serving.internal:8000/v1', 'auto')""")
+                .param("id", connection).param("tenant", tenant).update();
+        // Two connections of one type are allowed; two of one name, whatever the case, are not.
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                INSERT INTO system_one_connection(id, tenant_id, provider, name, endpoint, model)
+                VALUES (:id, :tenant, 'LAYA', 'SERVING', 'http://other.internal:8000/v1', 'auto')""")
+                .param("id", UUID.randomUUID()).param("tenant", tenant).update());
+
+        var guardrail = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_GUARDRAIL));
+        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_GUARDRAIL, model.id(), ReasoningEffort.LOW, guardrail.revision()));
+        tx(() -> catalog.setFlowClassifier(tenant, ModelFlow.CHAT_GUARDRAIL, connection, guardrail.revision() + 1));
+        var onConnection = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_GUARDRAIL));
+        assertEquals(connection, onConnection.systemOneConnectionId());
+        assertNull(onConnection.modelConfigurationId());
+        assertNull(onConnection.reasoningEffort());
+        assertTrue(read(() -> catalog.flowUsesClassifier(tenant, connection)));
+        assertThrows(AiException.class,
+                () -> tx(() -> catalog.setFlowClassifier(tenant, ModelFlow.CHAT_GUARDRAIL, connection, guardrail.revision())));
+
+        // Only the classifying task names a connection, and a connection in use is not deleted.
+        var naming = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING));
+        assertThrows(DataIntegrityViolationException.class,
+                () -> tx(() -> catalog.setFlowClassifier(tenant, ModelFlow.CHAT_NAMING, connection, naming.revision())));
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("DELETE FROM system_one_connection WHERE id=:id")
+                .param("id", connection).update());
+
+        // Choosing a model again takes the task off the connection, which can then go.
+        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_GUARDRAIL, model.id(), null, onConnection.revision()));
+        assertNull(read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_GUARDRAIL)).systemOneConnectionId());
+        assertFalse(read(() -> catalog.flowUsesClassifier(tenant, connection)));
+        assertEquals(1, jdbc.sql("DELETE FROM system_one_connection WHERE id=:id").param("id", connection).update());
+    }
+
     @Test void personaCursorRejectsForeignAndMissingAnchors() {
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         UUID otherTenant = tenant(), foreign = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Foreign','private','legacy')")
+        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions) VALUES (:id,:tenant,'default','Foreign','private')")
                 .param("id", foreign).param("tenant", otherTenant).update();
         var chats = new JdbcChatRepository(jdbc);
-        UUID builtin = chats.provisionPersona(new TenantId(tenant), new PersonaProperties().getName(), "instructions", "hosted");
+        UUID builtin = chats.provisionPersona(new TenantId(tenant), new PersonaProperties().getName(), "instructions");
         var authorization = mock(IamAuthorization.class);
         var actor = new ActorId(UUID.randomUUID());
         when(authorization.require(actor, IamCapability.MODELS_MANAGE, false))
@@ -178,7 +221,7 @@ class ModelCatalogConstraintsTest {
         assertNull(page.nextCursor());
     }
 
-    @Test void tokenizerMigrationBackfillsOnlyLegacyJsonAndPreservesCatalogSelectionsAndHistory() {
+    @Test void tokenizerMigrationBackfillsOnlyLegacyJsonAndPreservesCatalogSelectionsAndHistory() throws IOException {
         UUID legacy = UUID.randomUUID(), installed = UUID.randomUUID();
         var actor = new ActorId(UUID.randomUUID());
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", actor.value()).update();
@@ -191,7 +234,7 @@ class ModelCatalogConstraintsTest {
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,'Models')")
                 .param("tenant", tenant).param("id", group).update();
-        var localSettings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
+        var localSettings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false, false),
                 Map.of(), null, "custom-tokenizer-v1");
         tx(() -> {
             jdbc.sql("INSERT INTO llm_provider_group VALUES (:tenant, :provider, :group)")
@@ -248,8 +291,12 @@ class ModelCatalogConstraintsTest {
         // The baseline stops at V53, the last migration before the tokenizer-profile backfill.
         var preservedMessages = jdbc.sql("SELECT id,content,status FROM chat_message").query().listOfRows();
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("54").load().migrate();
+        // The reader is today's, so the capability a later migration backfills (MEM-225) is applied by itself: the
+        // migrations between the two need tables this baseline does not have.
+        jdbc.sql(new ClassPathResource("db/migration/V147__model_structured_output_capability.sql")
+                .getContentAsString(StandardCharsets.UTF_8)).update();
         var restored = read(() -> catalog.model(tenant, legacy).orElseThrow());
-        assertEquals(new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false),
+        assertEquals(new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false, false),
                 Map.of("temperature", 0.2), null, "openai-o200k-v1"), restored.settings());
         assertEquals(9, restored.revision());
         assertEquals(provider, restored.providerId());

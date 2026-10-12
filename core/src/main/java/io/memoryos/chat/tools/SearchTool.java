@@ -174,10 +174,8 @@ public final class SearchTool implements AutoCloseable {
     public record SemanticQuery(String query) {}
     public record KeywordQueries(List<String> queries) {}
     public record Selection(List<Integer> sections) {}
-    public record ContextSelection(Expansion classification) {}
     public record SourceChoice(List<SourceType> sources) {}
     public record TimeChoice(@Nullable String field, @Nullable String start, @Nullable String end) {}
-    public enum Expansion { NOT_RELEVANT, MAIN_SECTION_ONLY, INCLUDE_ADJACENT_SECTIONS, FULL_DOCUMENT }
     private record QueryExpansion(String semantic, List<String> keywords) {}
     private record SearchCycle(int cycleNumber, List<String> queries, List<SourceType> searchedSources) {}
     private record Preparation(QueryExpansion expansion, SearchFilters filters, boolean reuseExpansion,
@@ -282,9 +280,9 @@ public final class SearchTool implements AutoCloseable {
             var groups = new LinkedHashMap<String, TreeMap<Integer, SearchPage.Passage>>();
             var metadata = new LinkedHashMap<String, SearchHit>();
             var contexts = SearchTasks.run(selectedSections.stream().<Callable<List<SearchPage.Passage>>>map(section ->
-                    () -> selectContext(result, section, selectionQuery)).toList(), checkActive);
+                    () -> selectContext(result, section)).toList(), checkActive);
             checkActive.run();
-            // Classification and window reads performed provider IO: one final recheck before evidence is returned.
+            // Window reads performed provider IO: one final recheck before evidence is returned.
             var withContext = IntStream.range(0, selectedSections.size()).filter(i -> !contexts.get(i).isEmpty())
                     .mapToObj(selectedSections::get).toList();
             var authorized = new HashSet<>(search.authorizedSections(result, withContext));
@@ -551,56 +549,21 @@ public final class SearchTool implements AutoCloseable {
         queries.merge(key, candidate, (old, next) -> new SearchQuery(old.text(), old.keyword(), old.weight() + next.weight()));
     }
 
-    private List<SearchPage.Passage> selectContext(SearchResults result, SearchSection section, String query) {
+    /**
+     * Returns the section with its adjacent chunks. Unlike Onyx, no helper classifies the window: on the MEM-230
+     * benchmark always returning the adjacent window answered as well and turns ran faster.
+     */
+    private List<SearchPage.Passage> selectContext(SearchResults result, SearchSection section) {
         checkActive.run();
-        var hit = section.anchor();
-        var main = section.passages();
-        List<SearchPage.Passage> adjacent;
-        try { adjacent = timings.measure(Stage.EXPANSION, () -> search.window(result, section, 2)); }
+        try { return timings.measure(Stage.EXPANSION, () -> search.window(result, section, 2)); }
         catch (SearchDocumentUnavailableException obsolete) {
             // The indexed generation disappeared (deleted or replaced); it yields no evidence.
             checkActive.run();
             return List.of();
         } catch (SearchUnavailableException unavailable) {
             checkActive.run();
-            return main;
+            return section.passages();
         }
-        boolean neighbors = adjacent.stream().anyMatch(p -> p.ordinal() < section.start() || p.ordinal() > section.end());
-        int allowance = Math.max(32, limits.selectionTokens() - tokens.estimate(SearchPrompts.CLASSIFY + query + hit.title()) - 128);
-        String above = adjacent.stream().filter(p -> p.ordinal() < section.start()).map(SearchPage.Passage::content).collect(Collectors.joining("\n"));
-        String below = adjacent.stream().filter(p -> p.ordinal() > section.end()).map(SearchPage.Passage::content).collect(Collectors.joining("\n"));
-        String prompt = SearchPrompts.CLASSIFY.formatted(hit.title(), limited(above, allowance / 4),
-                limited(main.stream().map(SearchPage.Passage::content).collect(Collectors.joining("\n")), allowance / 2),
-                limited(below, allowance / 4), query);
-        Expansion classification;
-        try {
-            checkActive.run();
-            var selected = helper(Stage.CLASSIFICATION, runner -> runner.createObject(prompt, ContextSelection.class));
-            checkActive.run();
-            if (selected == null || selected.classification() == null) throw new IllegalArgumentException("Invalid classification");
-            classification = selected.classification();
-        } catch (RuntimeException invalid) {
-            rethrowBoundary(invalid);
-            classification = Expansion.MAIN_SECTION_ONLY;
-        }
-        return switch (classification) {
-            // The reference keeps the original section when classification finds it not relevant.
-            case NOT_RELEVANT -> main;
-            case MAIN_SECTION_ONLY -> main;
-            case INCLUDE_ADJACENT_SECTIONS -> adjacent;
-            case FULL_DOCUMENT -> {
-                if (!neighbors) yield main;
-                checkActive.run();
-                try { yield timings.measure(Stage.EXPANSION, () -> search.window(result, section, 5)); }
-                catch (SearchDocumentUnavailableException obsolete) {
-                    checkActive.run();
-                    yield List.of();
-                } catch (SearchUnavailableException unavailable) {
-                    checkActive.run();
-                    yield adjacent;
-                }
-            }
-        };
     }
 
     private void rethrowBoundary(RuntimeException failure) {

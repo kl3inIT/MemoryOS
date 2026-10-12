@@ -231,8 +231,8 @@ class ChatSessionPurgeIntegrationTest {
     private Conversation conversation(String title, boolean deleted, boolean running) {
         var persona = UUID.randomUUID();
         jdbc.sql("""
-                INSERT INTO persona(id,tenant_id,name,instructions,model,builtin_key)
-                VALUES(:id,:tenant,:name,'','gpt',NULL)
+                INSERT INTO persona(id,tenant_id,name,instructions,builtin_key)
+                VALUES(:id,:tenant,:name,'',NULL)
                 """).param("id", persona).param("tenant", tenant.value()).param("name", "P-" + persona).update();
         var session = UUID.randomUUID();
         var root = UUID.randomUUID();

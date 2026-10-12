@@ -1,4 +1,4 @@
-import { formatUiDate, uiLocale } from "@/i18n/format";
+import { formatUiDate, formatUiMoment, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
@@ -186,9 +186,7 @@ const columns = column.columns([
           size="sm"
           data-run-details
           aria-label={ui("View details for run started {{v1}}", {
-            v1: run.startedAt
-              ? new Date(run.startedAt).toLocaleString(uiLocale())
-              : ui("at an unknown time"),
+            v1: run.startedAt ? formatUiMoment(run.startedAt) : ui("at an unknown time"),
           })}
           onClick={(event) => table.options.meta?.viewDetails(run, event.currentTarget)}
         >

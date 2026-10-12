@@ -15,7 +15,13 @@ function model(
 ): AvailableModel {
   return {
     providerId: fields.providerName,
-    capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: false },
+    capabilities: {
+      streaming: true,
+      toolCalling: true,
+      vision: false,
+      reasoning: false,
+      structuredOutput: false,
+    },
     maxOutputTokens: null,
     pricing: null,
     ...fields,

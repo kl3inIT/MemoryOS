@@ -121,7 +121,6 @@ export function UsersPage() {
           actions={
             <Button
               ref={inviteButtonRef}
-              size="sm"
               disabled={actions.invitationPending}
               onClick={openInvitationDialog}
             >

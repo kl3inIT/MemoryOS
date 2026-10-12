@@ -43,7 +43,7 @@ public class UserFileIngestionCoordinator implements IngestionCoordinator {
             DocumentContent parsed;
             try (var content = storage.open(work.object().key())) {
                 if (!content.metadata().equals(work.object().metadata())) throw new IllegalStateException("file metadata changed");
-                parsed = extractor.extract(content.inputStream(), content.metadata().sizeBytes(), work.object().filename());
+                parsed = extractor.extract(work.tenantId(), content.inputStream(), content.metadata().sizeBytes(), work.object().filename());
             }
             if (lost.get()) return Outcome.SKIPPED;
             var canonical = artifacts.stage(work.tenantId(), parsed);
@@ -51,11 +51,13 @@ public class UserFileIngestionCoordinator implements IngestionCoordinator {
             return files.complete(work, canonical) ? Outcome.COMPLETED : Outcome.SKIPPED;
         } catch (ExtractionException exception) {
             if (lost.get()) return Outcome.SKIPPED;
+            if (Thread.currentThread().isInterrupted()) throw DefaultIngestionCoordinator.leftForReclaim(exception);
             files.failed(work, "FILE_EXTRACTION_" + exception.failure().name(),
                     exception.getMessage(), FailureEvidence.detail(exception));
             return Outcome.FAILED;
         } catch (Exception exception) {
             if (lost.get()) return Outcome.SKIPPED;
+            if (Thread.currentThread().isInterrupted()) throw DefaultIngestionCoordinator.leftForReclaim(exception);
             // Provider messages may contain file data; expose only a stable failure code.
             files.failed(work, "FILE_PROCESSING_FAILED", null, FailureEvidence.detail(exception));
             return Outcome.FAILED;
