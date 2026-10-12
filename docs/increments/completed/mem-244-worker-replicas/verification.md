@@ -48,6 +48,18 @@ Release `99420a9a`, one Worker: `limits.memory` 4 GiB, stop timeout 180 s, `JAVA
 
 All 28 documents of the burst `SUCCEEDED` on attempt 1 with their 28 search operations; the 12 Markdown files of the second run `SUCCEEDED` on attempt 1, the slowest 17.1 s after its creation. The container was not killed for memory and did not restart. Collection pauses and the memory of one child were not measured. Production does not run this release yet.
 
+## The AOT cache and the 180 s stop on staging (2026-10-12)
+
+Release `e57cc173`, the first deployment whose `deploy.sh` trains the cache.
+
+- The deployment created the volume `memoryos-worker-aot`, ran `worker-aot` and removed it; the volume holds `worker-<release>.aot`, 205 MB. The Worker mounts `/aot` read-only and runs `java -XX:AOTCache=/aot/worker-<release>.aot -jar worker.jar`; the JVM logged no AOT warning.
+- The Worker started in 5.74 s, and in 5.95 s after a restart, against 12.3 s on the release before; 456 MiB after the start.
+- `docker stop` with the container's own timeout (180 s) while the 45 MB scanned PDF was read: 108 s, exit 143, no tini error; `redis.delivery.shutdown_cut`, `redis.delivery.left_for_reclaim` and `paddleocr_vl.extraction.interrupted` at INFO (no `paddleocr_vl.extraction.failed`). The document recorded nothing, was read again by the restarted Worker and `SUCCEEDED` on attempt 2.
+
+## Production on the final release (2026-10-12)
+
+Release `e57cc173` (promotion run 38232971987), two Workers. The deployment made the cache (`worker-<release>.aot`, 205 MB) before it stopped the running Workers; both mount `/aot` read-only and run with `-XX:AOTCache`, with no AOT warning. They started in 9.1 s and 9.0 s, starting together, against 17.6 s and 17.7 s on the release before; 483 and 476 MiB of the 4 GiB limit after the start. No ERROR logged by the API or a Worker, no recurring task failing, 35 application connections. The API, which has no cache, started in 20.0 s. No load was run on production with this release.
+
 ## Two replicas on production (2026-10-12)
 
 Release `3ed6da57`, `MEMORYOS_WORKER_REPLICAS=2`, the application role's connection limit raised from 40 to 60 (15 + 2 × 10 + 10 = 45), PaddleOCR-VL requests lowered from 8 to 4 a Worker so the serving node still receives 8.

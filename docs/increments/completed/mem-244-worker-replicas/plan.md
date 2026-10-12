@@ -18,7 +18,7 @@
 - [x] Memory limit (4 GiB a replica), SerialGC named, heap of half the limit starting at 5%, compact object headers
 - [x] CI; staging under a burst: memory of the container, child JVMs at once, nothing failed ([verification](verification.md)); collection pauses were not measured
 - [x] AOT cache made by the candidate Worker image before the running Worker stops; a failure costs only the cache
-- [ ] CI; the staging deployment makes the cache and the Worker starts from it
+- [x] CI; the staging deployment makes the cache and the Worker starts from it ([verification](verification.md))
 
 ## Pull request 3 — the Worker's composition
 
