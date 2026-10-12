@@ -67,6 +67,7 @@ import { Route as AuthenticatedAgentsAgentIdEditRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
 import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from './routes/_authenticated.admin.sources.new.file'
 import { Route as AuthenticatedAdminSourcesNewGoogleDriveRouteImport } from './routes/_authenticated.admin.sources.new.google-drive'
+import { Route as AuthenticatedAdminSourcesNewLarkRouteImport } from './routes/_authenticated.admin.sources.new.lark'
 import { Route as AuthenticatedAdminSourcesNewSharepointRouteImport } from './routes/_authenticated.admin.sources.new.sharepoint'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -396,6 +397,12 @@ const AuthenticatedAdminSourcesNewGoogleDriveRoute =
     path: '/google-drive',
     getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
   } as any)
+const AuthenticatedAdminSourcesNewLarkRoute =
+  AuthenticatedAdminSourcesNewLarkRouteImport.update({
+    id: '/lark',
+    path: '/lark',
+    getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
+  } as any)
 const AuthenticatedAdminSourcesNewSharepointRoute =
   AuthenticatedAdminSourcesNewSharepointRouteImport.update({
     id: '/sharepoint',
@@ -459,6 +466,7 @@ export interface FileRoutesByFullPath {
   '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
   '/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
   '/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
@@ -514,6 +522,7 @@ export interface FileRoutesByTo {
   '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
   '/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
@@ -576,6 +585,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/_authenticated/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
   '/_authenticated/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
   '/_authenticated/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
@@ -637,6 +647,7 @@ export interface FileRouteTypes {
     | '/admin/groups/'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
+    | '/admin/sources/new/lark'
     | '/admin/sources/new/sharepoint'
     | '/admin/sources/new/'
   fileRoutesByTo: FileRoutesByTo
@@ -692,6 +703,7 @@ export interface FileRouteTypes {
     | '/admin/groups'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
+    | '/admin/sources/new/lark'
     | '/admin/sources/new/sharepoint'
     | '/admin/sources/new'
   id:
@@ -753,6 +765,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/groups/'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/google-drive'
+    | '/_authenticated/admin/sources/new/lark'
     | '/_authenticated/admin/sources/new/sharepoint'
     | '/_authenticated/admin/sources/new/'
   fileRoutesById: FileRoutesById
@@ -1172,6 +1185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRouteImport
       parentRoute: typeof AuthenticatedAdminSourcesNewRoute
     }
+    '/_authenticated/admin/sources/new/lark': {
+      id: '/_authenticated/admin/sources/new/lark'
+      path: '/lark'
+      fullPath: '/admin/sources/new/lark'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewLarkRouteImport
+      parentRoute: typeof AuthenticatedAdminSourcesNewRoute
+    }
     '/_authenticated/admin/sources/new/sharepoint': {
       id: '/_authenticated/admin/sources/new/sharepoint'
       path: '/sharepoint'
@@ -1219,6 +1239,7 @@ const AuthenticatedAdminGroupsRouteWithChildren =
 interface AuthenticatedAdminSourcesNewRouteChildren {
   AuthenticatedAdminSourcesNewFileRoute: typeof AuthenticatedAdminSourcesNewFileRoute
   AuthenticatedAdminSourcesNewGoogleDriveRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  AuthenticatedAdminSourcesNewLarkRoute: typeof AuthenticatedAdminSourcesNewLarkRoute
   AuthenticatedAdminSourcesNewSharepointRoute: typeof AuthenticatedAdminSourcesNewSharepointRoute
   AuthenticatedAdminSourcesNewIndexRoute: typeof AuthenticatedAdminSourcesNewIndexRoute
 }
@@ -1229,6 +1250,8 @@ const AuthenticatedAdminSourcesNewRouteChildren: AuthenticatedAdminSourcesNewRou
       AuthenticatedAdminSourcesNewFileRoute,
     AuthenticatedAdminSourcesNewGoogleDriveRoute:
       AuthenticatedAdminSourcesNewGoogleDriveRoute,
+    AuthenticatedAdminSourcesNewLarkRoute:
+      AuthenticatedAdminSourcesNewLarkRoute,
     AuthenticatedAdminSourcesNewSharepointRoute:
       AuthenticatedAdminSourcesNewSharepointRoute,
     AuthenticatedAdminSourcesNewIndexRoute:

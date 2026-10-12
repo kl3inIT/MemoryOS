@@ -212,7 +212,7 @@ class McpEndpointIntegrationTest {
         assertEquals(Set.of("query", "source_types", "document_set_names", "updated_after", "updated_before", "file_types"),
                 Set.copyOf(names(schema.path("properties"))), schema.toString());
         assertEquals(List.of("query"), values(schema.path("required")), schema.toString());
-        assertEquals(Set.of("FILE", "GOOGLE_DRIVE", "SHAREPOINT"),
+        assertEquals(Set.of("FILE", "GOOGLE_DRIVE", "SHAREPOINT", "LARK"),
                 Set.copyOf(values(schema.path("properties").path("source_types").path("items").path("enum"))), schema.toString());
         assertEquals(Set.of("PDF", "WORD", "POWERPOINT", "SPREADSHEET", "TEXT", "MARKDOWN"),
                 Set.copyOf(values(schema.path("properties").path("file_types").path("items").path("enum"))), schema.toString());

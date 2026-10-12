@@ -13,7 +13,7 @@ public record ChatLibraryEntryDocumentResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String title,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID sourceId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String sourceName,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"FILE", "GOOGLE_DRIVE", "SHAREPOINT"})
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"FILE", "GOOGLE_DRIVE", "SHAREPOINT", "LARK"})
         String sourceType,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
                 description = "The document in its provider, when it has one") @Nullable String providerUrl

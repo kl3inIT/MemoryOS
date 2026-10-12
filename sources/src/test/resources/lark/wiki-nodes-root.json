@@ -1,0 +1,64 @@
+{
+ "code": 0,
+ "data": {
+  "has_more": false,
+  "items": [
+   {
+    "creator": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "has_child": true,
+    "node_create_time": "1791739146",
+    "node_token": "node-so-tay",
+    "node_type": "origin",
+    "obj_create_time": "1791739146",
+    "obj_edit_time": "1791739198",
+    "obj_token": "docx-so-tay",
+    "obj_type": "docx",
+    "origin_node_token": "node-so-tay",
+    "origin_space_id": "7695460898437074458",
+    "owner": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_node_token": "",
+    "space_id": "7695460898437074458",
+    "title": "Sổ tay nhân viên",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/wiki/node-so-tay"
+   },
+   {
+    "creator": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "has_child": true,
+    "node_create_time": "1791739195",
+    "node_token": "node-kinh-doanh",
+    "node_type": "origin",
+    "obj_create_time": "1791739195",
+    "obj_edit_time": "1791739195",
+    "obj_token": "docx-kinh-doanh",
+    "obj_type": "docx",
+    "origin_node_token": "node-kinh-doanh",
+    "origin_space_id": "7695460898437074458",
+    "owner": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_node_token": "",
+    "space_id": "7695460898437074458",
+    "title": "Phòng Kinh doanh",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/wiki/node-kinh-doanh"
+   },
+   {
+    "creator": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "has_child": true,
+    "node_create_time": "1791739155",
+    "node_token": "node-ky-thuat",
+    "node_type": "origin",
+    "obj_create_time": "1791739155",
+    "obj_edit_time": "1791739198",
+    "obj_token": "docx-ky-thuat",
+    "obj_type": "docx",
+    "origin_node_token": "node-ky-thuat",
+    "origin_space_id": "7695460898437074458",
+    "owner": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_node_token": "",
+    "space_id": "7695460898437074458",
+    "title": "Kỹ thuật",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/wiki/node-ky-thuat"
+   }
+  ],
+  "page_token": ""
+ },
+ "msg": "success"
+}

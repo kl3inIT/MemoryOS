@@ -64,6 +64,8 @@ dependencies {
     implementation(libs.spring.security.crypto)
     implementation(libs.jakarta.persistence.api)
     implementation(libs.spring.data.jpa)
+    // @EntityScan on a module's WorkerComponents: the module names its own entities for a deployable that imports it.
+    implementation(libs.spring.boot.persistence)
     implementation(libs.hibernate.core)
     compileOnly(libs.spring.boot.starter.actuator)
     implementation(libs.micrometer.core)

@@ -1,0 +1,22 @@
+{
+ "code": 0,
+ "data": {
+  "metas": [
+   {
+    "create_time": "1791739205",
+    "doc_token": "folder-drive-test",
+    "doc_type": "folder",
+    "latest_modify_time": "1791739552",
+    "latest_modify_user": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "owner_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "request_doc_info": {
+     "doc_token": "folder-drive-test",
+     "doc_type": "folder"
+    },
+    "title": "MemoryOS Drive Test",
+    "url": ""
+   }
+  ]
+ },
+ "msg": "Success"
+}

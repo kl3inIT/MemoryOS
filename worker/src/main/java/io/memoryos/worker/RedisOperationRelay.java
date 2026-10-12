@@ -8,6 +8,7 @@ import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -15,6 +16,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 final class RedisOperationRelay {
+    /** The most rows one claim takes; the dispatch port clamps a claim to the same number. */
+    private static final int CLAIM_LIMIT = 32;
 
     private final StringRedisTemplate redis;
     private final OperationDispatchPort dispatch;
@@ -36,25 +39,50 @@ final class RedisOperationRelay {
         this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
     }
 
+    /**
+     * Publishes due work until the stream holds the workload's publish-ahead of unread deliveries, or no more is due.
+     * One run used to publish one batch, so a burst left the Workers idle while it waited for the next runs (MEM-244).
+     * The publish-ahead bounds how long a delivery waits unread: past the rediscovery delay it is published again.
+     */
     void relay(OperationWorkload workload) {
         RedisExecutionProperties.Workload settings = properties.workload(workload);
-        Long size = redis.opsForStream().size(settings.stream());
-        if (size != null && size >= properties.maxStreamDepth()) {
-            metrics.dispatch(workload, RedisExecutionMetrics.DispatchOutcome.BACKPRESSURE);
-            return;
-        }
-        int available = size == null
-                ? settings.batchSize()
-                : (int) Math.min(settings.batchSize(), properties.maxStreamDepth() - size);
-        if (available < 1) {
-            return;
-        }
-        for (DispatchClaim claim : dispatch.claim(workload, available)) {
-            publish(settings, claim);
-        }
+        long deadline = System.nanoTime() + properties.relayInterval().toNanos();
+        do {
+            Long size = redis.opsForStream().size(settings.stream());
+            long depth = size == null ? 0 : size;
+            if (depth >= properties.maxStreamDepth()) {
+                metrics.dispatch(workload, RedisExecutionMetrics.DispatchOutcome.BACKPRESSURE);
+                return;
+            }
+            long room = Math.min(settings.publishAhead() - unread(settings, depth), properties.maxStreamDepth() - depth);
+            if (room < 1) {
+                return;
+            }
+            int available = (int) Math.min(room, CLAIM_LIMIT);
+            List<DispatchClaim> claims = dispatch.claim(workload, available);
+            for (DispatchClaim claim : claims) {
+                if (!publish(settings, claim)) {
+                    return;
+                }
+            }
+            if (claims.size() < available) {
+                return;
+            }
+        } while (System.nanoTime() < deadline);
     }
 
-    private void publish(RedisExecutionProperties.Workload settings, DispatchClaim claim) {
+    /**
+     * Deliveries no Worker has read yet. A delivered entry stays in the stream until it is acknowledged and deleted,
+     * so the stream's length also counts work in progress, which must not hold back new work.
+     */
+    private long unread(RedisExecutionProperties.Workload settings, long depth) {
+        var pending = redis.opsForStream().pending(settings.stream(), settings.group());
+        long delivered = pending == null ? 0 : pending.getTotalPendingMessages();
+        return Math.max(0, depth - delivered);
+    }
+
+    /** @return false when Redis or the record of the publication failed, and the claim was deferred */
+    private boolean publish(RedisExecutionProperties.Workload settings, DispatchClaim claim) {
         var span = OperationTracing.start(telemetry, "memoryos.operation.publish", SpanKind.PRODUCER, claim.delivery());
         try (var _ = span.makeCurrent()) {
             Map<String, String> payload = new HashMap<>(Map.of(
@@ -85,11 +113,13 @@ final class RedisOperationRelay {
                             ? RedisExecutionMetrics.DispatchOutcome.PUBLISHED
                             : RedisExecutionMetrics.DispatchOutcome.STALE
             );
+            return true;
         } catch (DataAccessException exception) {
             span.setStatus(StatusCode.ERROR);
             span.setAttribute("error.type", exception.getClass().getName());
             dispatch.defer(claim, "REDIS_TRANSPORT_UNAVAILABLE", properties.transportBackoff());
             metrics.dispatch(claim.delivery().workload(), RedisExecutionMetrics.DispatchOutcome.DEFERRED);
+            return false;
         } finally {
             span.end();
         }

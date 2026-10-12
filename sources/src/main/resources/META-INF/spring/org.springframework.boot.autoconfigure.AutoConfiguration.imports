@@ -3,3 +3,4 @@ io.memoryos.ingestion.extraction.SourceContentExtractorAutoConfiguration
 io.memoryos.ingestion.extraction.OcrProbeAutoConfiguration
 io.memoryos.connector.adapter.googledrive.GoogleDriveProviderAutoConfiguration
 io.memoryos.connector.adapter.sharepoint.SharePointProviderAutoConfiguration
+io.memoryos.connector.adapter.lark.LarkProviderAutoConfiguration

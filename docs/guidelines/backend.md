@@ -16,6 +16,7 @@ The capability map and allowed dependency edges are in [ARCHITECTURE.md](../../A
 ## Rules to check before you edit
 
 - **Module boundary.** A module is `CLOSED`; its `package-info.java` lists `allowedDependencies`. The root package is the published API and feature subpackages are internal. Use `@NamedInterface` only for a deliberate extra surface. A new dependency edge needs an architecture decision ([conventions](../conventions.md#change-design)).
+- **Worker composition.** The Worker scans only `io.memoryos.worker`. A module the Worker runs publishes one `<Module>WorkerComponents` class in its root package (a named interface for `ai`): a plain class, not a component, with `@ComponentScan` for a module run whole or `@Import` for chosen beans, and the module's own `@EntityScan` and `@EnableJpaRepositories`. A new bean the Worker needs goes there, never into the Worker ([MEM-244](../increments/active/mem-244-worker-replicas/design.md#the-workers-composition)).
 - **No speculative structure.** No empty packages, single-implementation interfaces, temporary runtime modes or one-shot endpoints ([conventions](../conventions.md#change-design), [ADR 0002](../decisions/0002-no-speculative-operational-surfaces.md)).
 - **Provider families.** A choice among external protocols is one adapter per provider behind an adapter registry keyed by the provider enum, from the first provider, named by role ([change design](../conventions.md#change-design), [naming](../conventions.md#java-and-gradle)).
 - **Outbound HTTP.** A library's own client first, then an `@HttpExchange` interface for an API with several endpoints, then `RestClient`; the client comes from `shared.OutboundHttp`, never from a hand-built transport or with an interceptor; a vendor SDK with its own HTTP stack keeps the four transport rules by configuring that stack ([change design](../conventions.md#change-design)).
@@ -32,7 +33,7 @@ The capability map and allowed dependency edges are in [ARCHITECTURE.md](../../A
 ## Tests
 
 - Pick the narrowest boundary that catches the regression ([testing policy](../conventions.md#testing)); commands, fixtures and gates are in the [testing guideline](testing.md).
-- Boundary tests that must stay green: `ModulithArchitectureTest` and `CoreDependencyRulesTest` (`core`), `SourcesDependencyRulesTest` (`sources`), `OpenApiContractTest` (`api`).
+- Boundary tests that must stay green: `ModulithArchitectureTest` and `CoreDependencyRulesTest` (`core`), `SourcesDependencyRulesTest` (`sources`), `WorkerDependencyRulesTest` (`worker`), `OpenApiContractTest` (`api`).
 - Update the capability matrix under `docs/tests/` when a contract changes.
 
 ## Common mistakes
@@ -40,6 +41,7 @@ The capability map and allowed dependency edges are in [ARCHITECTURE.md](../../A
 - Importing `io.memoryos.<capability>.persistence` from `api`, `worker`, `sources` or another capability.
 - Returning a core record as an HTTP body instead of mapping it to a `contract/` record.
 - Encoding a failure code in an exception message and matching the string.
+- Listing a `core` package, entity package or implementation class in the Worker instead of the module's `WorkerComponents`.
 - Adding a `Default*` implementation behind a single-implementation interface, or a constructor only a test calls.
 - Editing an applied migration instead of adding the next version.
 - Changing a controller without refreshing `openapi.yml` and the web client.

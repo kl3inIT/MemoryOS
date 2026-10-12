@@ -324,6 +324,7 @@ services:
       - /redis-tools/start-redisinsight.sh
     cap_add:
       - DAC_OVERRIDE
+      - KILL
       - SETGID
       - SETUID
     environment:

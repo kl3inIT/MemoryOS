@@ -28,10 +28,58 @@ Idle Worker, 1 GiB container limit, consumers off: about 9.8 s to start and 463�
 
 1. This one: the stop, replicas, scheduler name and polling, the database budget.
 2. Memory and startup: a memory limit per replica and an explicit GC once Tika no longer starts a 512 MB JVM a document inside the container; the AOT cache trained by a one-off container at deployment.
-3. The Worker's composition: each module publishes one `<Module>WorkerConfiguration` declaring its beans, entities and repositories; the Worker imports those and scans no package of `core`, and an architecture test holds it to them. Today it combines a list of scanned packages, imported `...WorkerComponents` classes and a persistence configuration naming other modules' packages.
+3. The Worker's composition, below.
+4. The relay's throughput, below.
+
+## The Worker's composition
+
+The Worker composed `core` three ways at once: fifteen hand-picked packages in `scanBasePackages` (five of them IAM's internal `persistence` packages), five imported `...WorkerComponents` classes, and a persistence configuration of its own that listed the entity and repository packages of `iam` and `ai`. It also built the delivery coordinator from `ingestion.application` classes. A module that gained a bean the Worker needed had to be edited in two or three places in the Worker, and a miss showed only when the context failed to start (CI of #576).
+
+Now each module the Worker runs publishes one `<Module>WorkerComponents` class and the Worker imports the list, as Apache DolphinScheduler's servers import one configuration a module:
+
+| Module | `WorkerComponents` |
+| --- | --- |
+| `audit`, `connector`, `document`, `objectstorage`, `usage` | `@ComponentScan` of the module: the Worker runs it whole, so a new bean needs no change |
+| `ingestion` | The module whole, plus the lease scheduler and the one `IngestionCoordinator` a delivery is handed to, which the Worker used to assemble |
+| `retrieval` | `embedding`, `opensearch` and `settings`; search for a person stays with the API |
+| `iam` | Its persistence packages, entities and repositories, the authorization decision, Group scopes and audit readers |
+| `ai` (`ai.ocr`, a named interface) | The reader each Tenant chose, the provider adapters a model reader needs, the catalog's entities and repositories |
+| `chat`, `library`, `mcp` | Chosen beans, unchanged |
+
+Decisions:
+
+- **The name stays `WorkerComponents`**, not `WorkerConfiguration` as first planned: five such classes existed and [ADR 0015](../../../decisions/0015-capability-module-map.md) records the convention. The class is deliberately not a component, so the API, which scans all of `io.memoryos`, registers each bean once.
+- **A module run whole is scanned whole.** Choosing beans inside a module is what broke; `ai`, `chat`, `library`, `mcp`, `iam` and `retrieval` stay narrow, as they were: the Worker runs a part of each, and the rest of `ai` needs Embabel's agent platform (`ModelCalls`), which only the API starts.
+- **A module names its own entities and repositories** with `@EntityScan` and `@EnableJpaRepositories`, so `core` takes `spring-boot-persistence`. The API still lists every module's JPA packages in its own configuration; moving that to the modules is a separate change.
+- **`SearchProjectionMaintenance` moved to `ingestion`'s root**: the Worker schedules its reconcile and rebuild, so it is part of what the module publishes.
+- **`WorkerDependencyRulesTest`** holds the Worker to it: no dependency on a module's `application` or `persistence` package, no scan beyond its own package, no entity or repository package list, and no import from `core` but a `WorkerComponents` class. A role switch on each bean, as ThingsBoard does with `@TbCoreComponent`, was not chosen: the API and the Worker are already two applications, and a forgotten annotation would fail silently.
+
+## The relay's throughput
+
+Checking pull request 3 on staging showed search work published slowly: a document read in 5 s was searchable only after 73 s on average and 150 s at worst, with the Workers idle, every stream empty and no long transaction. The publication times were 2 rows every 5 s exactly.
+
+| Cause | Evidence |
+| --- | --- |
+| One relay run published one batch (`batch-size`: 2 for search, 1 for uploaded files, 8 for ingestion) | `RedisOperationRelay.relay` had no loop |
+| The relays are due every second but ran once in 5 s | Seven tasks share the 1 s interval; a db-scheduler poll picks `3 × threads` = 6 and polls again only after `polling-interval` (5 s) |
+| A recurring task runs on one node at a time | A second Worker added no relay |
+| Re-enqueued rows went first | Candidates were ordered by `created_at`; the search upserts for access, ACL and metadata changes reset a row and keep its creation time, so 56 rows from weeks before queued ahead of new work after a restart (56 ÷ 0.4 a second ≈ 140 s) |
+| A reader waited for its whole batch | One slow delivery left the batch's other slots idle |
+
+So the cluster-wide ceiling was 24 search operations and 12 uploaded files a minute, whatever the Workers could do.
+
+Decisions (the convention is in [conventions](../../../conventions.md#change-design), the numbers in the [ingestion spec](../../../specs/ingestion.md#dispatch-and-throughput)):
+
+- **Keep PostgreSQL as the authority and Redis Streams as the delivery channel.** Onyx works the same way (a periodic pass over PostgreSQL sends Celery tasks to Redis, up to 8,192 a pass). Workers that take work straight from PostgreSQL with `SKIP LOCKED` (Solid Queue, Oban, River) would remove the relay, and the lease is already in PostgreSQL; it is a rewrite of a path that delivers correctly and reverses a recorded choice, so it stays an open question, to reopen only if the Redis side keeps costing operations work.
+- **The relay publishes to a depth, not a batch.** A run publishes until the stream holds the workload's `publish-ahead` of unread deliveries. Unread is the stream's length less its pending entries, because a delivered entry stays in the stream until it is acknowledged and deleted, and work in progress must not hold back new work. The depth is bounded by the rediscovery delay: a delivery unread for 2 minutes is published again.
+- **The poll is every second**, so a relay runs when it is due. Lowering the poll alone would only have raised the ceiling to one batch a second.
+- **Due order.** Candidates are ordered by `next_dispatch_at`, then creation; the dispatch indexes already hold `next_dispatch_at`.
+- **A Worker reads into free slots.** `batch-size` is the deliveries a Worker runs at once for a workload; the reader asks Redis for as many as are free.
+- **Gone consumers are deleted** by the topology task when they hold nothing pending and have not read for an hour. Staging held more than 230.
+- **Not done: publishing right after commit**, as Onyx does for a file uploaded in Chat. With a relay that runs every second it would save under a second, and the API would need write access to the execution streams and the relay's code moved out of the Worker. To be measured on staging; done only if the numbers ask for it.
 
 ## Left out
 
 - A limit shared by all replicas for PaddleOCR-VL, the embedding provider and Docling, which each Worker bounds on its own.
-- Reclaiming a dead replica's Redis entries beyond the first page of `XPENDING`, removing dead consumers, comparing leases on the database clock, and the reconcile cursor of OpenSearch kept per process. Postgres rediscovery keeps work correct meanwhile.
+- Reclaiming a dead replica's Redis entries beyond the first page of `XPENDING`, comparing leases on the database clock, and the reconcile cursor of OpenSearch kept per process. Postgres rediscovery keeps work correct meanwhile.
 - `service.instance.id` in telemetry, and autoscaling on queue depth.

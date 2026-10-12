@@ -3,7 +3,7 @@ package io.memoryos.ingestion;
 import io.memoryos.connector.SourceAclChanged;
 import io.memoryos.connector.SourceMetadataChanged;
 import io.memoryos.document.DocumentIndexState;
-import io.memoryos.ingestion.application.SearchProjectionMaintenance;
+import io.memoryos.ingestion.SearchProjectionMaintenance;
 import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

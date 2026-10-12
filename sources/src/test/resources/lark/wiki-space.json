@@ -1,0 +1,14 @@
+{
+ "code": 0,
+ "data": {
+  "space": {
+   "description": "Dữ liệu thử cho connector MemoryOS",
+   "name": "MemoryOS Test",
+   "open_sharing": "closed",
+   "space_id": "7695460898437074458",
+   "space_type": "team",
+   "visibility": "private"
+  }
+ },
+ "msg": "success"
+}

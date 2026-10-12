@@ -1,0 +1,35 @@
+{
+ "code": 0,
+ "data": {
+  "items": [
+   {
+    "external_label": false,
+    "member_id": "7695460898437074458",
+    "member_type": "wikispaceid",
+    "name": "当前知识库可编辑的成员",
+    "perm": "edit",
+    "perm_type": "container",
+    "type": "wiki_space_editor"
+   },
+   {
+    "external_label": false,
+    "member_id": "7695460898437074458",
+    "member_type": "wikispaceid",
+    "name": "当前知识库可阅读的成员",
+    "perm": "view",
+    "perm_type": "container",
+    "type": "wiki_space_viewer"
+   },
+   {
+    "external_label": false,
+    "member_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "member_type": "openid",
+    "name": "Test Owner",
+    "perm": "full_access",
+    "perm_type": "container",
+    "type": "user"
+   }
+  ]
+ },
+ "msg": "Success"
+}

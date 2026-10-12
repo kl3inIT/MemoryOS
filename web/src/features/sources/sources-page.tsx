@@ -85,6 +85,7 @@ const emptyProviderActions: Record<SourceProvider["type"], string> = {
   GOOGLE_DRIVE: "Connect Google Drive",
   FILE: "Upload files",
   SHAREPOINT: "Connect SharePoint",
+  LARK: "Connect Lark",
 };
 
 /**

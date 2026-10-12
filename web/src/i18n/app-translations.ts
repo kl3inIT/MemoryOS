@@ -41,6 +41,13 @@ const unchanged = [
   "{{width}} × {{height}} px",
   "*/Archive/*",
   "https://contoso.sharepoint.com/sites/Archive*",
+  "Lark",
+  "Feishu",
+  "larksuite.com",
+  "feishu.cn",
+  "cli_a1b2c3d4e5f6a7b8",
+  "App ID",
+  "App Secret",
 ];
 export const appEn: Record<string, string> = Object.fromEntries([
   ...Object.keys(englishUi).map((key) => [key, key]),

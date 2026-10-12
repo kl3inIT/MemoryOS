@@ -283,5 +283,5 @@ function SourceDetailBody({
 
 /** Provider Sources render their own summary, stale and error banners inside their panel. */
 function providerPanel(type: string) {
-  return type === "GOOGLE_DRIVE" || type === "SHAREPOINT";
+  return type === "GOOGLE_DRIVE" || type === "SHAREPOINT" || type === "LARK";
 }

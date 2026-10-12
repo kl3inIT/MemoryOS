@@ -1,0 +1,22 @@
+{
+ "code": 0,
+ "data": {
+  "has_more": false,
+  "members": [
+   {
+    "member_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "member_perm": "admin",
+    "member_role": "admin",
+    "member_type": "openid"
+   },
+   {
+    "member_id": "ou_365b28d4ddf03d6ab0f8000a0f68443f",
+    "member_perm": "view",
+    "member_role": "member",
+    "member_type": "openid"
+   }
+  ],
+  "page_token": ""
+ },
+ "msg": "success"
+}

@@ -5,6 +5,7 @@ import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { GoogleDrivePanel } from "@/features/sources/google-drive/google-drive-panel";
 import { SourceItemHistory } from "@/features/sources/history/source-item-history";
 import { SourceRunHistory } from "@/features/sources/history/source-run-history";
+import { LarkPanel } from "@/features/sources/lark/lark-panel";
 import { SharePointPanel } from "@/features/sources/sharepoint/sharepoint-panel";
 import { SourceFilesPanel } from "./source-files-panel";
 import { SourceGroupsSection } from "./source-groups-section";
@@ -96,6 +97,16 @@ export function SourceDetailSections({
             />
             {filesPanel}
           </div>
+        ) : source.type === "LARK" ? (
+          <div className="flex flex-col gap-6">
+            <LarkPanel
+              source={source}
+              sourceStale={detail.sourceQuery.isError}
+              disabled={panelDisabled}
+              onBusyChange={detail.setProviderBusy}
+            />
+            {filesPanel}
+          </div>
         ) : (
           <>
             {permissions.upload ? (
@@ -113,6 +124,8 @@ export function SourceDetailSections({
         <HistoryCard>
           {source.type === "SHAREPOINT" ? (
             <SourceRunHistory key={`${source.id}-runs`} sourceId={source.id} kinds />
+          ) : source.type === "LARK" ? (
+            <SourceRunHistory key={`${source.id}-runs`} sourceId={source.id} />
           ) : null}
           <SourceItemHistory key={source.id} sourceId={source.id} />
         </HistoryCard>

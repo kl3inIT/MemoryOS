@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 public record ChatLibrarySourceResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"FILE", "GOOGLE_DRIVE", "SHAREPOINT"})
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"FILE", "GOOGLE_DRIVE", "SHAREPOINT", "LARK"})
         String type,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"PUBLIC", "PRIVATE", "SYNC"},
                 description = "What admits the viewer: every member, a Group of theirs, or the provider's own grants")

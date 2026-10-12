@@ -48,7 +48,7 @@ export const librarySearchSchema = z.object({
     .enum(["NOT_STARTED", "INDEXING", "ACTIVE", "PAUSED", "FAILED"])
     .optional()
     .catch(undefined),
-  provider: z.enum(["FILE", "GOOGLE_DRIVE", "SHAREPOINT"]).optional().catch(undefined),
+  provider: z.enum(["FILE", "GOOGLE_DRIVE", "SHAREPOINT", "LARK"]).optional().catch(undefined),
   access: z.enum(["PUBLIC", "PRIVATE", "SYNC"]).optional().catch(undefined),
   page: z.coerce.number().int().min(0).default(0).catch(0),
   size: z.coerce

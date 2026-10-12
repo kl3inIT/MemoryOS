@@ -111,6 +111,7 @@ export function entryReason(entry: LibraryEntry): AppText | undefined {
 const PROVIDERS: Partial<Record<ChatLibrarySourceOption["type"], string>> = {
   GOOGLE_DRIVE: "Google Drive",
   SHAREPOINT: "SharePoint",
+  LARK: "Lark",
 };
 
 /**

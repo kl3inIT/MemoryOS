@@ -1,0 +1,15 @@
+{
+ "code": 0,
+ "data": {
+  "permission_public": {
+   "comment_entity": "anyone_can_view",
+   "external_access": true,
+   "invite_external": true,
+   "link_share_entity": "tenant_readable",
+   "lock_switch": false,
+   "security_entity": "anyone_can_view",
+   "share_entity": "anyone"
+  }
+ },
+ "msg": "Success"
+}
