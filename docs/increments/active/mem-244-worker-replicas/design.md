@@ -27,9 +27,24 @@ Idle Worker, 1 GiB container limit, consumers off: about 9.8 s to start and 463â
 ## Pull requests
 
 1. This one: the stop, replicas, scheduler name and polling, the database budget.
-2. Memory and startup: a memory limit per replica and an explicit GC once Tika no longer starts a 512 MB JVM a document inside the container; the AOT cache trained by a one-off container at deployment.
+2. Memory: below. Startup (the AOT cache trained by a one-off container at deployment) follows as its own change.
 3. The Worker's composition, below.
 4. The relay's throughput, below.
+
+## Memory
+
+The Worker ran with no memory limit and the runtime image's options for every JVM (`InitialRAMPercentage=20`, `MaxRAMPercentage=70`), so its heap could grow to 70% of the host. Text and Markdown, and images attached in Chat, are read by Tika in a child JVM, by design ([parsers out of process](../../../../ARCHITECTURE.md)); nothing bounded how many ran, and each took 512 MB at once: the child inherits `JAVA_TOOL_OPTIONS`, and an initial heap of 20% of an unlimited container is cut down to its `-Xmx512m`.
+
+| Part | Change |
+| --- | --- |
+| Tika child | `-Xms32m` and SerialGC named; at most `MEMORYOS_EXTRACTION_TIKA_MAX_PROCESSES` (2) alive in a Worker, whichever extractor starts them. A read beyond it waits its turn holding nothing (its bytes are spooled once it has a slot, and the extraction timeout starts with its child); after five minutes without a slot it fails as unavailable, which is retried |
+| Worker JVM | `InitialRAMPercentage=5`, `MaxRAMPercentage=50`, `UseSerialGC`, `UseCompactObjectHeaders` in the Worker image |
+| Container | `limits.memory: ${MEMORYOS_WORKER_MEMORY_LIMIT:-4g}` a replica: 2 GiB of heap, two children of up to 512 MB of heap each, the 256 MB tmpfs, and the JVM's own memory |
+| Stop | `stop_grace_period` and the `deploy.sh` timeout 180 s |
+
+The collector is named because the JVM chooses by the memory it sees: SerialGC below about 1.75 GB and G1 above, so a changed limit would change the collector unnoticed. Measured idle at 1 GiB, SerialGC with these options held about 430 MiB and G1 about 480 MiB. A Worker is not latency-bound: a collection pause delays a document, not a person, and leases are renewed every 30 s against a 120 s lease.
+
+The JDK 25 AOT cache (10 s to 4.4 s to start when measured) is not in this change: it has to be trained by a container at deployment with exactly the options the Worker runs with, which is a change to `deploy.sh` of its own.
 
 ## The Worker's composition
 

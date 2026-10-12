@@ -287,8 +287,8 @@ if [[ "$mode" == deploy ]]; then
   # Keep this reservation until health/revision verification and finalization.
   printf '%s\n' "$release" > "$state/pending"
   touch "$tx/writers-changing"
-  # A Worker finishes the work it started within its shutdown grace (100 s), so it gets the 120 s its container states.
-  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; compose stop --timeout 120 worker; compose stop --timeout 45 api; fi
+  # A Worker finishes the work it started within its shutdown grace (100 s), so it gets the 180 s its container states.
+  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; compose stop --timeout 180 worker; compose stop --timeout 45 api; fi
   # The database user expands inside the existing PostgreSQL container.
   # shellcheck disable=SC2016
   timeout 300 docker exec memoryos-postgres sh -c \
@@ -324,7 +324,7 @@ elif [[ "$mode" == rollback ]]; then
     echo 'are carried by the next release as well. See the CI/CD runbook.' >&2
     exit 1
   fi
-  target=candidate; compose stop --timeout 120 worker; compose stop --timeout 45 api
+  target=candidate; compose stop --timeout 180 worker; compose stop --timeout 45 api
   if has_schema_history; then schema > "$tx/schema.after-failure"; else : > "$tx/schema.after-failure"; fi
   cmp --silent "$tx/schema.before" "$tx/schema.after-failure" || {
     echo 'Schema changed: writers stopped; operator recovery is required. No database restore was attempted.' >&2; exit 1;

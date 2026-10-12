@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -20,6 +21,15 @@ public final class TikaSourceContentExtractor implements AutoCloseable {
 
     private static final Duration DEFAULT_EXTRACTION_TIMEOUT = Duration.ofSeconds(90);
     private static final Duration PROCESS_EXIT_GRACE = Duration.ofSeconds(5);
+    /**
+     * Child JVMs alive at once in this process, whichever extractor starts them. Each may grow to 512 MB of heap
+     * inside the Worker's container, so the count is what makes a memory limit on that container safe (MEM-244).
+     * Reads wait in the order they came. A waiting read holds nothing: its bytes are spooled only once it has a
+     * slot, and the extraction timeout starts with its child.
+     */
+    private static final Semaphore CHILDREN = new Semaphore(maxChildren(), true);
+    /** A read that found no slot in this time fails as unavailable, which is retried, instead of queueing without end. */
+    private static final Duration QUEUE_LIMIT = Duration.ofMinutes(5);
 
     private final Duration extractionTimeout;
     private final Set<Process> processes = ConcurrentHashMap.newKeySet();
@@ -69,25 +79,37 @@ public final class TikaSourceContentExtractor implements AutoCloseable {
             Path arguments = directory.resolve("java.args");
             Path request = directory.resolve("request.bin");
             Path response = directory.resolve("response.bin");
-            writer.write(request);
-            writeArgumentFile(arguments, request, response);
-            process = startProcess(arguments);
-            processes.add(process);
-            if (closed.get()) {
-                terminate(process);
-                throw new IllegalStateException("extractor is closed");
+            if (!CHILDREN.tryAcquire(QUEUE_LIMIT.toMillis(), TimeUnit.MILLISECONDS)) {
+                throw new ExtractionException(ExtractionFailure.CONNECTION_FAILED, "document extraction is busy");
             }
-            long timeoutMillis = Math.max(1, extractionTimeout.toMillis());
-            if (!process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
-                terminate(process);
-                throw new ExtractionException(ExtractionFailure.TIMEOUT, "document extraction timed out");
+            try {
+                writer.write(request);
+                writeArgumentFile(arguments, request, response);
+                process = startProcess(arguments);
+                processes.add(process);
+                if (closed.get()) {
+                    terminate(process);
+                    throw new IllegalStateException("extractor is closed");
+                }
+                long timeoutMillis = Math.max(1, extractionTimeout.toMillis());
+                if (!process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
+                    terminate(process);
+                    throw new ExtractionException(ExtractionFailure.TIMEOUT, "document extraction timed out");
+                }
+                if (process.exitValue() != 0 || !Files.isRegularFile(response)) {
+                    throw new ExtractionException(ExtractionFailure.INTERNAL, "document extraction process failed");
+                }
+                return TikaExtractionProcess.readResponse(response);
+            } finally {
+                // The slot is free once the child is gone; an interrupted or failed read kills it first.
+                if (process != null && process.isAlive()) terminate(process);
+                CHILDREN.release();
             }
-            if (process.exitValue() != 0 || !Files.isRegularFile(response)) {
-                throw new ExtractionException(ExtractionFailure.INTERNAL, "document extraction process failed");
-            }
-            return TikaExtractionProcess.readResponse(response);
         } catch (InterruptedException exception) {
-            terminate(process);
+            // Interrupted while waiting for a slot there is no child yet.
+            if (process != null) {
+                terminate(process);
+            }
             Thread.currentThread().interrupt();
             throw new ExtractionException(ExtractionFailure.TIMEOUT, "document extraction was interrupted", exception);
         } catch (IOException exception) {
@@ -138,7 +160,11 @@ public final class TikaSourceContentExtractor implements AutoCloseable {
     private static void writeArgumentFile(Path path, Path request, Path response) throws IOException {
         String arguments = String.join(
                 System.lineSeparator(),
+                // The image's JAVA_TOOL_OPTIONS reach the child too. Without an initial size its percentage of the
+                // machine's memory is cut down to -Xmx, so every child committed all 512 MB at start (MEM-244).
+                "-Xms32m",
                 "-Xmx512m",
+                "-XX:+UseSerialGC",
                 "-XX:+ExitOnOutOfMemoryError",
                 "-Djava.awt.headless=true",
                 "-cp",
@@ -161,6 +187,15 @@ public final class TikaSourceContentExtractor implements AutoCloseable {
         }
         String executable = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
         return Path.of(System.getProperty("java.home"), "bin", executable).toString();
+    }
+
+    private static int maxChildren() {
+        String configured = System.getenv("MEMORYOS_EXTRACTION_TIKA_MAX_PROCESSES");
+        int children = configured == null || configured.isBlank() ? 2 : Integer.parseInt(configured.trim());
+        if (children < 1) {
+            throw new IllegalArgumentException("MEMORYOS_EXTRACTION_TIKA_MAX_PROCESSES must be positive");
+        }
+        return children;
     }
 
     private static String extractionClasspath() {
