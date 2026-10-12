@@ -34,6 +34,20 @@ All sixteen documents `SUCCEEDED` on attempt 1 and their seventeen search operat
 
 What bounds search now is the Worker: two search operations at once (`MEMORYOS_WORKER_SEARCH_BATCH_SIZE`). Publishing right after commit would save under a second of the 10 s, so it is not added.
 
+## Pull request 2 on staging (2026-10-12)
+
+Release `99420a9a`, one Worker: `limits.memory` 4 GiB, stop timeout 180 s, `JAVA_TOOL_OPTIONS` with `InitialRAMPercentage=5`, `MaxRAMPercentage=50`, `UseSerialGC`, `UseCompactObjectHeaders`.
+
+| Measure | Before (`68c10df7`, no limit) | After |
+| --- | --- | --- |
+| Start | 14.1 s | 12.3 s |
+| Container memory, idle after start | not taken | 479 to 483 MiB |
+| Container memory after the day's bursts | 1.06 GiB | 719 to 744 MiB |
+| Peak while 12 Markdown files and 16 scanned PDFs were read (sampled each second for the first 150 s of 510 s) | not taken | 827 MiB of 4 GiB |
+| Tika child JVMs alive at once, 12 Markdown files uploaded together (sampled four times a second) | up to the workload's slots | 2 |
+
+All 28 documents of the burst `SUCCEEDED` on attempt 1 with their 28 search operations; the 12 Markdown files of the second run `SUCCEEDED` on attempt 1, the slowest 17.1 s after its creation. The container was not killed for memory and did not restart. Collection pauses and the memory of one child were not measured. Production does not run this release yet.
+
 ## Two replicas on production (2026-10-12)
 
 Release `3ed6da57`, `MEMORYOS_WORKER_REPLICAS=2`, the application role's connection limit raised from 40 to 60 (15 + 2 × 10 + 10 = 45), PaddleOCR-VL requests lowered from 8 to 4 a Worker so the serving node still receives 8.
