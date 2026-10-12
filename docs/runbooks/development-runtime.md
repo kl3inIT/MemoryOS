@@ -25,7 +25,7 @@ docker compose -f infrastructure/deployment/compose.development.yaml up -d --wai
 
 $env:ARCONIA_BOOTSTRAP_MODE = "dev"
 $env:SERVER_PORT = "18080"
-infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :api:bootRun --no-daemon
+infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :memoryos-api:bootRun --no-daemon
 ```
 
 Servers (staging and production) do not use Infisical. Their non-secret application keys, including `MEMORYOS_SESSION_COOKIE_SECURE=true`, are in the server's mode-`0600` `/apps/memoryos/.env.<environment>` file, and every secret is a file under `/apps/memoryos/secrets` that Compose mounts into the service that consumes it ([CI/CD runbook](ci-cd.md#provisioning-a-server)). Keep `SPRING_PROFILES_ACTIVE` out of that file: Compose selects API `staging` and worker `production,staging` on staging, and `production` for both on production. The staging Spring profile keeps root and Spring Security logging at INFO, enables DEBUG for MemoryOS, Spring Web, JDBC statements, and transactions, and leaves parameter-value TRACE logging disabled. Keycloak keeps root INFO while enabling DEBUG for event and service categories.
@@ -130,7 +130,7 @@ For Spring Boot attach debugging, load the normal managed runtime environment fi
 
 ```powershell
 $env:ARCONIA_BOOTSTRAP_MODE = "dev"
-.\gradlew.bat :api:bootRun --debug-jvm --no-daemon
+.\gradlew.bat :memoryos-api:bootRun --debug-jvm --no-daemon
 ```
 
 The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5` currently deadlocks with `kotlin-debug-adapter 0.4.4` during the DAP `initialized`/`configurationDone` handshake even though a direct DAP client attaches successfully. Until OMP fixes that protocol ordering, use the IntelliJ debugger for JVM breakpoints and do not claim OMP Java DAP verification. JavaScript DAP is verified against `web/scripts/assert-playwright-image.ts`.
@@ -260,7 +260,7 @@ For a terminal-only managed API launch, do not open a staging tunnel. Set `ARCON
 ```powershell
 $env:ARCONIA_BOOTSTRAP_MODE = "dev"
 $env:SERVER_PORT = "18080"
-infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :api:bootRun --no-daemon
+infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :memoryos-api:bootRun --no-daemon
 ```
 
 Do not pipe that launch into another process, such as `| Out-File` or `| tee`. The `development` profile logs every JDBC statement at DEBUG, so a consumer that stops reading fills the console pipe, blocks the appender thread that holds the Logback output lock, and stalls every request thread behind it: the log stops mid-line, database connections stay `idle in transaction`, and authenticated endpoints hang while unauthenticated ones still answer. Redirect the process output straight to a file instead (`Start-Process -RedirectStandardOutput`), and lower `logging.level.org.springframework.jdbc.core.JdbcTemplate` to `INFO` for long browser sessions.
@@ -303,7 +303,7 @@ $env:MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE = "<approved development/change re
 $env:MEMORYOS_SESSION_COOKIE_SECURE = "false" # localhost HTTP verification only
 
 $env:ARCONIA_BOOTSTRAP_MODE = "dev"
-.\gradlew.bat :api:bootRun --no-daemon
+.\gradlew.bat :memoryos-api:bootRun --no-daemon
 ```
 
 Start the persistent Compose dependencies before the API, then start the worker after the API is healthy. Both direct processes connect to `jdbc:postgresql://localhost:55432/arconia` and Redis on `localhost:56379`; neither creates or tears down those services. The Compose file binds ports only to loopback. Preserve local state across ordinary restarts; reset it only with the explicit destructive `docker compose -f infrastructure/deployment/compose.development.yaml down -v`.
@@ -539,12 +539,12 @@ Start the API first and wait for its health endpoint so Flyway completes. Then r
 
 ```powershell
 $env:ARCONIA_BOOTSTRAP_MODE = "dev"
-infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :worker:bootRun --no-daemon
+infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :memoryos-worker:bootRun --no-daemon
 ```
 
 Do not supply a staging database or Redis endpoint to this command. In development, the worker connects to the named persistent PostgreSQL service on `55432` and Redis service on `56379`; its classpath deliberately contains no Arconia Dev Service provider, so it cannot create a competing container. The worker serves readiness on port `8081` by default and remains resident: db-scheduler persistently owns topology, bounded inactive-Tenant index cancellation, and separate ingestion and cleanup relay tasks, while fixed consumer-group loops process both workloads. Relays publish identifier-only deliveries from PostgreSQL authority into workload-specific Redis Streams; consumers claim the authoritative operation by identifier, renew long indexing leases, finalize durably, then acknowledge and delete the transport record. Redis pending reclaim also requires an expired or absent PostgreSQL processing lease, and bounded rediscovery repairs nonterminal work after stream loss.
 
-The same development object-storage service, bucket, credentials, and sentinel used by the API must be reachable for worker readiness and FILE processing. PDF, DOCX, and PPTX processing additionally requires the configured Docling Serve endpoint; TXT and Markdown use the bounded Tika child JVM on the worker runtime classpath. The direct IntelliJ configuration uses Java `@argFiles` so `java.class.path` contains the actual `:worker` and runtime `:sources` entries inherited by that child; packaged images instead set `MEMORYOS_EXTRACTION_CLASSPATH` explicitly. Production requires explicit Redis endpoint, ACL, TLS, timeout/pool, and scheduler-name values.
+The same development object-storage service, bucket, credentials, and sentinel used by the API must be reachable for worker readiness and FILE processing. PDF, DOCX, and PPTX processing additionally requires the configured Docling Serve endpoint; TXT and Markdown use the bounded Tika child JVM on the worker runtime classpath. The direct IntelliJ configuration uses Java `@argFiles` so `java.class.path` contains the actual `:memoryos-worker` and runtime `:sources` entries inherited by that child; packaged images instead set `MEMORYOS_EXTRACTION_CLASSPATH` explicitly. Production requires explicit Redis endpoint, ACL, TLS, timeout/pool, and scheduler-name values.
 
 Stop the worker before the API so its consumers and db-scheduler can shut down while the shared database remains available. API and worker enable Spring Boot virtual threads and JVM keep-alive by default. The db-scheduler execution executor creates one named virtual thread per control task; the scheduler's two execution slots, datasource pool, and Redis pool remain the resource bounds. Do not add a virtual-thread pool, duplicate semaphore around the datasource pool, or global carrier-pool tuning. Netty event loops and scheduler/datasource housekeeping remain platform threads by design. Diagnose production contention with JFR `jdk.VirtualThreadPinned` and `jdk.VirtualThreadSubmitFailed` events or a `jcmd <pid> Thread.dump_to_file -format=json <file>` dump before changing concurrency.
 

@@ -145,7 +145,7 @@ User/invitation/group-edit failures consume the shared typed problem presenter a
 
 V13 adds one optional latest-observation row per Actor in `actor_profiles`. `display_name` and `email` are nullable; `email_verified`, `observed_at` and exact `issuer`/`subject` provenance are required. A composite foreign key requires provenance to name an existing binding for the same Actor. Profile recording creates no Actor, membership or provider credential state. V14 adds Account Type and authorization revision and invalidates existing serialized Spring Sessions for the `ActorId` namespace cutover. V128 deletes them again because [ADR 0015](../decisions/0015-capability-module-map.md) moved `ActorId` to `io.memoryos.shared` and the session principal `IdentityContext` to the `io.memoryos.iam` root. V15 adds the protected Group/grant model and seeds existing memberships.
 
-Flyway owns the schema under `core/src/main/resources/db/migration/`. Applied migrations are immutable.
+Flyway owns the schema under `memoryos-core/src/main/resources/db/migration/`. Applied migrations are immutable.
 
 There are 48 migrations in the merged layout. Historical local Basic/scoped-source V37–V42 map to current V43–V48; they must not be confused with main's published V37–V42. A database already carrying the old feature history cannot start this layout until deliberate data-preserving history/schema reconciliation; no automatic reset or checksum repair is authorized. See the [migration mapping and cutover warning](../../ARCHITECTURE.md#data-ownership-and-consistency). Prior verification is historical, not proof of the current merge.
 

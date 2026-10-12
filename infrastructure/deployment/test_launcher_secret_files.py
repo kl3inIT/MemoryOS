@@ -10,7 +10,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-LAUNCHER = ROOT / "api/src/main/docker/application-launcher.sh"
+LAUNCHER = ROOT / "memoryos-api/src/main/docker/application-launcher.sh"
 
 
 @unittest.skipUnless(os.name == "posix" and shutil.which("sh"), "The launcher is a POSIX shell script")

@@ -1,9 +1,10 @@
 plugins {
     `java-library`
+    id("memoryos.java-conventions")
 }
 
 dependencies {
-    api(project(":core"))
+    api(project(":memoryos-core"))
     implementation(platform(libs.spring.boot.dependencies))
     implementation(libs.spring.boot.starter)
     implementation(libs.docling.client)

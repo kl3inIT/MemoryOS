@@ -1,8 +1,8 @@
 ---
 paths:
-  - "core/**"
-  - "api/**"
-  - "worker/**"
+  - "memoryos-core/**"
+  - "memoryos-api/**"
+  - "memoryos-worker/**"
   - "sources/**"
 ---
 

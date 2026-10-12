@@ -38,10 +38,10 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Capability implementations: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, `library`, `ai`, `voice`, `mcp`, `usage`, `meeting` and `audit`, over the `shared` kernel. IAM owns identity, Tenant membership, invitations, Users, Groups and authorization |
+| `memoryos-core` | Capability implementations: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, `library`, `ai`, `voice`, `mcp`, `usage`, `meeting` and `audit`, over the `shared` kernel. IAM owns identity, Tenant membership, invitations, Users, Groups and authorization |
 | `sources` | Shared integration bundle: Google Drive and SharePoint acquisition and offline Sheets/Docs snapshots (`io.memoryos.connector.adapter`); XLSX/CSV readers, PaddleOCR-VL for scans and images, Docling PDF/DOCX/PPTX with a bounded Tika fallback, and bounded Tika TXT/Markdown (`io.memoryos.ingestion.extraction`) |
-| `api` | Spring Boot HTTP, validation, migration and security composition root; Chat runs here on virtual threads |
-| `worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |
+| `memoryos-api` | Spring Boot HTTP, validation, migration and security composition root; Chat runs here on virtual threads |
+| `memoryos-worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |
 | `interpreter` | The `run_python` service and its disposable executors ([how it works](interpreter/HOW_IT_WORKS.md)) |
 | `web`, `landing` | The browser application and the public landing page |
 
@@ -89,7 +89,7 @@ full API test context, and the web client is generated from that snapshot.
 
 ```powershell
 $env:MEMORYOS_OPENAPI_WRITE = "true"
-.\gradlew.bat :api:test --tests "*OpenApiContractTest*"
+.\gradlew.bat :memoryos-api:test --tests "*OpenApiContractTest*"
 Remove-Item Env:MEMORYOS_OPENAPI_WRITE
 cd web
 pnpm generate:api

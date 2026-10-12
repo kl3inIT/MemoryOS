@@ -8,22 +8,23 @@ WORKDIR /workspace
 ENV GRADLE_USER_HOME=/workspace/.gradle-home
 COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
-COPY core/build.gradle.kts ./core/
+COPY build-logic ./build-logic
+COPY memoryos-core/build.gradle.kts ./memoryos-core/
 COPY sources/build.gradle.kts ./sources/
-COPY api/build.gradle.kts ./api/
-COPY worker/build.gradle.kts ./worker/
+COPY memoryos-api/build.gradle.kts ./memoryos-api/
+COPY memoryos-worker/build.gradle.kts ./memoryos-worker/
 RUN sed -i 's/\r$//' gradlew \
     && chmod 0755 gradlew \
     && ./gradlew --no-daemon --no-configuration-cache --stacktrace resolveDependencies
 
-COPY core ./core
+COPY memoryos-core ./memoryos-core
 COPY sources ./sources
-COPY api ./api
-COPY worker ./worker
+COPY memoryos-api ./memoryos-api
+COPY memoryos-worker ./memoryos-worker
 
-RUN ./gradlew --no-daemon --stacktrace :api:bootJar :worker:bootJar \
-    && api_jar="$(find api/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
-    && worker_jar="$(find worker/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
+RUN ./gradlew --no-daemon --stacktrace :memoryos-api:bootJar :memoryos-worker:bootJar \
+    && api_jar="$(find memoryos-api/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
+    && worker_jar="$(find memoryos-worker/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && test -n "${api_jar}" \
     && test -n "${worker_jar}" \
     && cp "${api_jar}" /workspace/api.jar \
@@ -37,8 +38,8 @@ RUN addgroup -S -g 1654 memoryos \
     && adduser -S -D -H -u 1654 -G memoryos memoryos
 
 WORKDIR /application
-COPY --chmod=0755 api/src/main/docker/api-entrypoint.sh /usr/local/bin/memoryos-entrypoint
-COPY --chmod=0755 api/src/main/docker/application-launcher.sh /usr/local/bin/memoryos-launcher
+COPY --chmod=0755 memoryos-api/src/main/docker/api-entrypoint.sh /usr/local/bin/memoryos-entrypoint
+COPY --chmod=0755 memoryos-api/src/main/docker/application-launcher.sh /usr/local/bin/memoryos-launcher
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
