@@ -17,22 +17,25 @@ of step 5 is merged, so an administrator can always turn the bot off.
 - [ ] On staging: a turn cut by a restart of the API ends within the lease and its session accepts the next
   question, and 30 simultaneous turns from the benchmark accounts all answer.
 
-## 2. Audience, shared scope and account lookup
+## 2. Service accounts, the session's surface and account lookup
 
-- [ ] `chat_session.audience` and `.surface`, set at creation and immutable; sidebar and session search list
-  `WEB`; the administrator's history shows the surface.
-- [ ] A `SHARED` session refuses MCP servers and files at admission.
-- [ ] Search by a set of access tokens: Source selection, index filter and recheck; a `PERSONAL` turn through
-  today's code, a `SHARED` turn with the empty set; the search tool chooses by the session's audience.
-- [ ] List every tool of a turn that reads a document and prove each goes through the scope.
-- [ ] Measure on staging what the recheck adds to a search and record it.
+- [ ] `iam`: account type `SERVICE`; a service that creates and removes a service account (actor, self-issued
+  identity and profile, active membership, Basic Group) for an owner such as a channel connection; the authority
+  query admits it.
+- [ ] A service account is left out of the Users list and count, the people pickers, Group candidates and the
+  groupless invariant, and is refused by deactivation and Group edits; the web types and pages for the new
+  account type.
+- [ ] `usage`: a service account is outside the per-person budget, the seats and the "active users" of reports,
+  and keeps its own line in costs by actor.
+- [ ] `chat_session.surface`, set at creation and immutable; sidebar and session search list `WEB`; the
+  administrator's history shows the surface.
 - [ ] `iam`: the active member whose verified email equals a given one, none when several match; an index on the
   lower-cased email.
-- [ ] Tests at the PostgreSQL boundary: a `SHARED` turn of a member of a private group finds only `PUBLIC` and
-  everyone-granted documents; a chunk without the public flag is refused by the recheck; a `CHANNEL` session is
-  absent from the sidebar.
+- [ ] Tests at the PostgreSQL boundary: a turn of a service account finds only `PUBLIC` and everyone-granted
+  documents, not a private Group's, and a chunk without the public flag is refused by the recheck; nobody signs
+  in as it; it is absent from the lists above; a `CHANNEL` session is absent from the sidebar.
 - [ ] Whether a session opens on the web by its address when it is not in the sidebar; fix it if not.
-- [ ] Chat and connector specs and matrices.
+- [ ] Identity, chat and usage specs and matrices; the OpenAPI contract and the web client.
 
 ## 3. The `channel` capability and its deployable
 

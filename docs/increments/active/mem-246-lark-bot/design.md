@@ -27,31 +27,33 @@ The one condition is that their Lark `email` equals the verified email of their 
 
 ## Behaviour rules
 
-1. **A group gets what belongs to the whole organisation; what belongs to the asker stays in a direct message.**
-   A turn has an *audience*: `PERSONAL` in a direct message, `SHARED` in a group.
-   - `PERSONAL` reads what the asker may read, exactly as the web chat does.
-   - `SHARED` reads only what every active Tenant member may read: documents of a `PUBLIC` Source, and documents
-     of a `SYNC` Source whose provider grants everyone. Group grants and the asker's provider identities are not
-     used. A `SHARED` answer ends with one line inviting a direct message for an answer under the asker's own
-     access.
+1. **In a direct message the bot is the asker; in a group it is itself.** Two identities, as Claude and ChatGPT
+   in Slack, Rovo, Glean, Notion, Aily and Onyx have them:
+   - A direct message from a person with a MemoryOS account runs as that person and reads what they may read,
+     exactly as the web chat does.
+   - A group question runs as the **bot's own account**, a member of the Tenant that is in no ordinary Group. By
+     the access rules that already exist it reads what every active member may read: documents of a `PUBLIC`
+     Source, and documents of a `SYNC` Source whose provider grants everyone. A group answer ends with one line
+     inviting a direct message for an answer under the asker's own access.
    - This is the scope an administrator already controls: making a Source `PUBLIC` is the decision that the bot
      may answer from it in a group, as Rovo's shared account and Glean's Public Mode are set by an administrator.
    - A department's group is therefore not served from its private documents, although every member may read
      them; its members ask in a direct message. Reading what every member of a group may read (Microsoft's rule)
      is the known extension and is left to its own issue, decided once real use shows which groups ask.
-   - The audience is the one value later capabilities read. A tool that uses the asker's own connection or acts
-     for them is `PERSONAL` only; a `SHARED` turn refuses MCP servers and uploaded files from the start.
-2. **Only members of this Lark organisation, mapped to an account.**
+   - What the bot may use in a group is what its account is given, and nothing of the asker's. A question that
+     needs something of the asker's own (their mailbox, a connection they signed in to) is answered with an
+     invitation to a direct message, as Lindy, Copilot Studio and Aily do.
+2. **Only members of this Lark organisation.**
    - A sender whose `tenant_key` differs from the connection's is told the bot serves the organisation only.
    - A group Lark marks external is refused whole, also for a member asking in it: outsiders read the answer.
-   - A sender with no matching MemoryOS account is told to sign in to MemoryOS with that email first. They get no
-     answer, not a public-only one: a turn needs an owner for its capability check, its spend limit and its usage,
-     and MemoryOS has no anonymous actor.
+   - A member with no matching MemoryOS account is still answered, as the bot: in a group like anyone, and in a
+     direct message with a line saying that signing in to MemoryOS with that email opens their own documents.
+     Onyx answers such a person as its anonymous user.
 3. **The bot answers when called.** A direct message, or a group message that names the bot. `@all` does not call
    it. It needs only the scopes `im:message.p2p_msg:readonly` and `im:message.group_at_msg:readonly`, so Lark does
    not deliver other group messages at all.
 4. **An answer names its sources.** The sources whose citation the answer uses, with title and link, as the web
-   chat shows them. In a `SHARED` turn every source is one all members may open.
+   chat shows them. In a group every source is one all members may open.
 5. **Text only in the first release.** An image, file or other message type gets a short notice. No re-share
    button, no feedback buttons, no proactive message.
 
@@ -63,17 +65,23 @@ Rovo, Moveworks, Guru, Agentforce, Dust, Notion and Lark Aily (2026-10-12):
 | Direct message under the asker's access | All of them | — |
 | Group answer from organisation-wide content | Onyx, Glean Public Mode, Guru's "All Members" switch | Private reply to the asker (Glean default, Rovo); answer by direct message (Moveworks); post only if every member may open the sources, else the asker previews and approves (Microsoft) |
 | External group refused | Glean, Microsoft, Agentforce, Aily | — |
-| Unmapped sender gets no answer | Glean | Public-only answer (Onyx); a visible "not a member" reply (Dust) |
+| Unmapped member answered as the bot | Onyx | No answer (Glean); a visible "not a member" reply (Dust) |
 | Answer only when named | Microsoft, Agentforce, Aily default | Confidence-gated automatic answers (Glean, Guru, Moveworks) |
-| Personal tools out of shared surfaces | Lindy, Copilot Studio, Aily default | Service identity plus a per-request consent overlay (Claude and ChatGPT in Slack) |
+| The bot's own identity in a group | Claude and ChatGPT in Slack, Rovo's shared account, Notion, Aily, Onyx's anonymous user | The asker's identity (Microsoft, Dust, Glean's private reply) |
+| The asker's own things out of a group | Lindy, Copilot Studio, Aily default, OpenAI workspace agents | A consent asked of the asker for each use (Claude, ChatGPT, Grok Team Bots); the asker previews before it is posted (Microsoft); used without asking (Dust) |
 
 Lark's "visible only to you" card is not used for a private reply in a group: it reaches only clients that are
 online, sends no notification and does not work in topic groups.
 
-Recorded for the time the bot gains actions, and not built now: the approver of an action is the requester,
-checked by the `open_id` of the person who pressed the button (Dust accepts any clicker); a message from another
-person in the same thread is information, not an instruction; nothing said in a direct message is recalled in a
-group.
+The decided next step, not built now, is the consent Grok Team Bots ask: when a group question needs a personal
+connection, the bot asks that person, in a direct message since Lark has no private reply in a group, with "allow
+once", "always allow" and "skip", names the account it will use, and the choice is cleared in the person's
+settings. The turn then runs as the bot with that one grant from the asker. The identity a turn runs as and the
+grants lent to it are kept apart from the start so that this is an addition.
+
+Also recorded for the time the bot gains actions: the approver of an action is the requester, checked by the
+`open_id` of the person who pressed the button (Dust accepts any clicker); a message from another person in the
+same thread is information, not an instruction; nothing said in a direct message is recalled in a group.
 
 ## Evidence from the test tenant (2026-10-12)
 
@@ -100,7 +108,7 @@ seconds to acknowledge, persistent connections for custom apps only (a store app
 | Module | Holds |
 | --- | --- |
 | `core` `io.memoryos.channel` (new capability, `CLOSED`; depends on `shared`, `iam`, `chat`, `chat::streaming`, `audit`) | The provider enum, the adapter port and its registry, the connection settings service, the inbound service (rules, identity, conversation, turn, reply), the supervisor, `persistence/`; `ChannelRuntimeComponents` for the process that runs it |
-| `core` `io.memoryos.chat`, `io.memoryos.connector`, `io.memoryos.iam` | The audience of a session and the shared read scope; the lookup of an account by verified email |
+| `core` `io.memoryos.iam`, `io.memoryos.chat`, `io.memoryos.usage` | Service accounts and the lookup of an account by verified email; the surface of a session; a service account outside the per-person budget and counts |
 | `memoryos-integration-lark` `io.memoryos.integration.lark` | The Lark adapter of the port, on the SDK's `LarkChannel`, with its own package apart from the connector's gateway |
 | `memoryos-channels` (new deployable, `io.memoryos.channels`) | The process that opens the connections, receives messages and runs their turns: `channel`, `chat` with its turn execution, and the integrations |
 | `api` `io.memoryos.api.channel` | The administrator's settings controller and its `contract/` records |
@@ -202,7 +210,8 @@ then, in order:
 3. resolves the sender: `channel_identities (connection_id, external_user_id)` holds the actor and the email it
    came from for an hour; otherwise the adapter reads the email and `iam` answers the one active member whose
    verified email equals it. No match, or more than one, is no account;
-4. finds the conversation and its chat session (below);
+4. chooses who the turn runs as: the sender's account in a direct message when there is one, the bot's account
+   in a group and for a sender without an account; then finds the conversation and its chat session (below);
 5. starts the turn with `ChatTurnService.command` (`SEND`, the session's current leaf, a request id derived from
    the row) and streams it: a reader on the turn's stream appends text to the reply, and at the outcome the final
    message is read from history for its sources.
@@ -215,42 +224,51 @@ WeKnora use the same number, and Dust drops the excess silently.
 
 Every refusal and failure is a notice in the configured language and a recorded reason; none carries a provider
 message, a backend failure text or the question's text. A chat failure maps by its typed code: capacity becomes
-"busy, ask again in a moment", a spend limit names the limit, anything else a general failure. A reply ends with
-a link to the same session in MemoryOS.
+"busy, ask again in a moment", a spend limit names the limit, anything else a general failure. A reply in a
+direct message that ran as the sender ends with a link to the same session in MemoryOS.
 
 On start, rows left in progress by a stopped process are marked failed. Rows older than thirty days are deleted by
 a daily pass in the channels process.
 
+### The bot's account
+
+`iam` gains service accounts: an actor of account type `SERVICE`, an active member of the Tenant in the protected
+Basic Group and in no other, created and removed with the channel connection that owns it.
+
+- **Identity.** It is bound to an identity MemoryOS issues itself (issuer `urn:memoryos:service`, subject the
+  connection's id) with a profile carrying the bot's name and no email. No identity provider signs a token for
+  that issuer, so nobody signs in as it, and every place that already shows an actor's name (the administrator's
+  chat history, AI costs, audit, usage reports) shows the bot's without a change.
+- **Authority.** Basic access gives it what a turn checks (`CHAT_WRITE`, `SEARCH_READ`, the spend check). The
+  authority query admits `SERVICE` beside `STANDARD`. It holds no ordinary Group, no share and no personal
+  connection, so it reads `PUBLIC` Sources and everyone-granted documents, uses the Tenant's default agent and
+  public model providers, and could use only MCP servers the administrator connected for everyone.
+- **Not a person.** It is left out of the Users list and its count, the people pickers and Group candidates, the
+  seats and "active users" of usage reports, and the budget applied to each person; it cannot be deactivated or
+  put in a Group from the Users and Groups pages. Its spend counts in the Tenant's budget and shows as its own
+  line in costs by actor. A budget for the bot alone is not added; the sender's rate bounds a single person.
+- **Language.** Its interface language is the connection's, so a refusal the turn writes is in the language of
+  the bot's notices.
+
+Putting the bot's account in an ordinary Group would widen what it answers from in every group, as widening
+Rovo's shared account does. It is not offered now.
+
 ### Conversation and session
 
-`channel_conversations (connection_id, external_chat_id, actor_id)` points at a chat session. A direct message has
-one conversation; in a group each asker has their own, so one person's follow-up never continues another's turn. A
-message continues the session while the last one is less than an hour old (`memoryos.channel.conversation-idle`);
-after that a new session starts, since a question asked the next day is rarely a follow-up.
+`channel_conversations (connection_id, external_chat_id, external_user_id)` points at a chat session. A direct
+message has one conversation; in a group each asker has their own, so one person's follow-up never continues
+another's turn. A message continues the session while the last one is less than an hour old
+(`memoryos.channel.conversation-idle`); after that a new session starts, since a question asked the next day is
+rarely a follow-up.
 
-The session is an ordinary chat session owned by the asker, on the Tenant's default agent, with two new immutable
-columns on `chat_session`:
+The session is an ordinary chat session on the Tenant's default agent, owned by whoever the turn runs as: the
+sender, or the bot. `chat_session` gains one immutable column, `surface` (`WEB`, `CHANNEL`): the web sidebar and
+session search list `WEB` only, and the administrator's chat history lists both, as Onyx keeps its bot's
+sessions out of a person's list (`onyxbot_flow`) and in the query history. Retention and deletion apply
+unchanged. `channel_messages` keeps who asked, since a group turn's session names the bot.
 
-- `audience` (`PERSONAL`, `SHARED`), read by the search tool when it builds the scope and by turn admission;
-- `surface` (`WEB`, `CHANNEL`). The web sidebar and session search list `WEB` only; the administrator's chat
-  history lists both. Retention and deletion apply unchanged.
-
-Usage is recorded under the asker and the existing `CHAT` flow. A usage dimension for the surface is not added.
-
-### Shared read scope
-
-Search takes a set of access tokens, as Onyx's does (`get_acl_for_user` answers a set and an anonymous user's is
-`PUBLIC` alone), instead of deriving it from one actor inside each step. A `PERSONAL` turn passes the asker's
-tokens through the code that runs today, so the web does not change. A `SHARED` turn passes the empty set: the
-Sources are the Tenant's `PUBLIC` and `SYNC` ones, the index filter admits only chunks marked public, and the
-recheck of each hit is decided by the same set (`PUBLIC` Source, or a `SYNC` grant of `everyone`), so a chunk
-indexed before the public flag existed is still decided by PostgreSQL. The extension above would pass the tokens
-common to a group's members and change nothing else.
-
-Every tool of a turn that reads a document goes through this scope; the tools are listed and checked one by one
-before the first `SHARED` turn runs. The asker must be an active member, as for every read. An agent's Source
-allowlist still narrows the scope. What the recheck costs in a search is measured on staging; it is not removed
-on a guess, since it is what makes a revoked grant take effect at once.
+Usage is recorded under the account the turn ran as. In `memoryos-channels` a person's bound on turns equals the
+process's, because every group turn is the bot's.
 
 ### Lark adapter
 
@@ -285,7 +303,8 @@ text, sender email or provider payload is logged.
 - Actions, personal connectors, files and images in a conversation.
 - Choosing the agent a connection answers with; automatic answers in a group without a mention.
 - Reading in a group what every member of it may read (Microsoft's rule); see rule 1.
-- A usage dimension for the surface.
+- A budget for the bot alone; the bot's account in an ordinary Group.
+- The consent that lends the bot a personal connection in a group (above).
 - An account binding for a platform that gives no email (Telegram, Zalo): a person links their account once from
   MemoryOS. `channel_identities` is the table it will write.
 - The earlier messages of a group thread as context for a question asked in it.
@@ -294,5 +313,5 @@ text, sender email or provider payload is logged.
 ## Documents
 
 Delivered with the code: `docs/specs/channel.md`, `docs/tests/channel.md`, `docs/runbooks/lark-bot.md` (console
-steps, scopes, the secret file), the chat and connector specs for the audience and the shared scope,
+steps, scopes, the secret file), the identity, chat and usage specs for service accounts and the session's surface,
 `ARCHITECTURE.md` for the capability, and an ADR for the `channel` capability once implementation has started.
