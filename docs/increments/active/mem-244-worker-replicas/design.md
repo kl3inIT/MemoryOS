@@ -93,6 +93,11 @@ Decisions (the convention is in [conventions](../../../conventions.md#change-des
 - **Gone consumers are deleted** by the topology task when they hold nothing pending and have not read for an hour. Staging held more than 230.
 - **Not done: publishing right after commit**, as Onyx does for a file uploaded in Chat. With a relay that runs every second it would save under a second, and the API would need write access to the execution streams and the relay's code moved out of the Worker. To be measured on staging; done only if the numbers ask for it.
 
+## Left as it is
+
+- **A read cut off by a stop still counts in `processing_attempts`**, so it spends one retry of a later `CONNECTION_FAILED`. Not counting it would let a document that kills the Worker be read without end; the count is the only bound on that.
+- **A failed OCR connection test answers `CHAT_PROVIDER_UNAVAILABLE`.** It is the code every provider connection of the `ai` module shares (voice, web search, System One); each feature words it for itself.
+
 ## Left out
 
 - A limit shared by all replicas for PaddleOCR-VL, the embedding provider and Docling, which each Worker bounds on its own.

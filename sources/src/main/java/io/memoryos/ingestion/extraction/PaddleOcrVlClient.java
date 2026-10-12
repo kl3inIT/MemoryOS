@@ -187,7 +187,11 @@ final class PaddleOcrVlClient implements AutoCloseable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             if (!permitted) waited = System.nanoTime() - queued;
-            throw failed(ExtractionFailure.TIMEOUT, status, e.getClass().getName(), waited);
+            // The Worker is stopping, not the service failing: the coordinator leaves the document for its lease.
+            LOG.atInfo().addKeyValue("event", "paddleocr_vl.extraction.interrupted")
+                    .addKeyValue("queued_ms", TimeUnit.NANOSECONDS.toMillis(waited))
+                    .log("PaddleOCR-VL extraction interrupted");
+            throw DocumentAssembly.failure(ExtractionFailure.TIMEOUT);
         } catch (StatusFailure e) {
             throw failed(switch (e.status) {
                 case 413 -> ExtractionFailure.WRITE_LIMIT;
