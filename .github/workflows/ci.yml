@@ -89,7 +89,7 @@ jobs:
                     backend=true
                     landing=true
                     ;;
-                  core/*|sources/*|api/*|worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
+                  build-logic/*|memoryos-core/*|sources/*|memoryos-api/*|memoryos-worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
                     backend=true
                     ;;
                   interpreter/*)
@@ -182,7 +182,7 @@ jobs:
           bash -n infrastructure/deployment/deploy.sh
           bash -n infrastructure/deployment/deploy-serving.sh
           sh -n infrastructure/deployment/serving-firewall.sh
-          shellcheck -x infrastructure/deployment/deploy.sh api/src/main/docker/application-launcher.sh api/src/main/docker/api-entrypoint.sh             infrastructure/keycloak/smoke-test-image.sh \
+          shellcheck -x infrastructure/deployment/deploy.sh memoryos-api/src/main/docker/application-launcher.sh memoryos-api/src/main/docker/api-entrypoint.sh             infrastructure/keycloak/smoke-test-image.sh \
             infrastructure/deployment/deploy-serving.sh infrastructure/deployment/serving-firewall.sh
 
       - name: Verify deployment and monitoring configuration
@@ -252,11 +252,11 @@ jobs:
         include:
           # Core has the runner to itself: three JVMs, each with its PostgreSQL container and up to 1.5 GiB heap.
           - leg: core
-            tasks: ':core:check'
+            tasks: ':memoryos-core:check'
           - leg: api
-            tasks: ':api:check'
+            tasks: ':memoryos-api:check'
           - leg: sources-worker
-            tasks: ':sources:check :worker:check'
+            tasks: ':sources:check :memoryos-worker:check'
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -287,10 +287,10 @@ jobs:
         with:
           name: backend-tests-${{ matrix.leg }}
           path: |
-            core/build/test-results/test/*.xml
+            memoryos-core/build/test-results/test/*.xml
             sources/build/test-results/test/*.xml
-            api/build/test-results/test/*.xml
-            worker/build/test-results/test/*.xml
+            memoryos-api/build/test-results/test/*.xml
+            memoryos-worker/build/test-results/test/*.xml
           if-no-files-found: warn
           retention-days: 3
 
@@ -300,7 +300,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: core-test-diagnostics
-          path: core/build/test-diagnostics/
+          path: memoryos-core/build/test-diagnostics/
           if-no-files-found: ignore
           retention-days: 3
 
@@ -888,7 +888,7 @@ jobs:
             printf '%s\n' "$line" >> release/images.env
           done
           printf 'MEMORYOS_RELEASE=%s\n' "$GITHUB_SHA" >> release/images.env
-          git archive --format=tar --output=release/configuration.tar HEAD infrastructure core/src/main/resources/db/migration
+          git archive --format=tar --output=release/configuration.tar HEAD infrastructure memoryos-core/src/main/resources/db/migration
           (cd release && sha256sum configuration.tar images.env > SHA256SUMS)
           jq --null-input --arg sha "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" \
             '{repository: "kl3inIT/MemoryOS", sha: $sha, run: $run, attempt: $attempt}' > release/manifest.json

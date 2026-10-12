@@ -27,7 +27,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         ignored = re.compile(re.search(r"grep -Ev '([^']+)'", resolve).group(1))
         for path in ("docs/runbooks/ci-cd.md", "AGENTS.md", "tools/visual-paradigm-mcp/mcp-server/build.gradle.kts"):
             self.assertTrue(ignored.search(path), path)
-        for path in ("landing/src/content/page.md", "core/src/main/java/io/memoryos/A.java", ".github/workflows/ci.yml", "openapi.yml"):
+        for path in ("landing/src/content/page.md", "memoryos-core/src/main/java/io/memoryos/A.java", ".github/workflows/ci.yml", "openapi.yml"):
             self.assertFalse(ignored.search(path), path)
         # The filter mirrors CI's paths-ignore; a new ignored path must be added to both.
         for entry in ("'docs/**'", "'*.md'", "'tools/visual-paradigm-mcp/**'"):
@@ -368,7 +368,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("- interpreter_api_key", api)
         # The launcher reads any MEMORYOS_<NAME>_FILE rather than naming this key; that behaviour is
         # exercised in test_launcher_secret_files.py.
-        launcher = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
+        launcher = (ROOT / "memoryos-api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
         self.assertIn('export "${secret_variable%_FILE}=$secret_value"', launcher)
 
 

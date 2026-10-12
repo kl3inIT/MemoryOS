@@ -18,8 +18,8 @@ Issue: [MEM-234](https://linear.app/memory-os/issue/MEM-234). See the [design](d
 
 ## Verification
 
-- `:core:test --tests '*DefaultIngestionCoordinatorTest'` and `:sources:test --tests '*PaddleOcrVlClientTest'`.
-- `:core:test --tests '*PostgresSourceLifecycleTest'` for the attempt number on a real PostgreSQL.
+- `:memoryos-core:test --tests '*DefaultIngestionCoordinatorTest'` and `:sources:test --tests '*PaddleOcrVlClientTest'`.
+- `:memoryos-core:test --tests '*PostgresSourceLifecycleTest'` for the attempt number on a real PostgreSQL.
 - `clean check` in CI.
 
 ## Status

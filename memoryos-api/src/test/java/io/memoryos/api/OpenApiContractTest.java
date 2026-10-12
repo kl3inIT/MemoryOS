@@ -556,7 +556,7 @@ class OpenApiContractTest {
                 actual,
                 "openapi.yml is stale; refresh it with "
                         + "$env:MEMORYOS_OPENAPI_WRITE='true'; "
-                        + ".\\gradlew.bat :api:test --tests '*OpenApiContractTest*'"
+                        + ".\\gradlew.bat :memoryos-api:test --tests '*OpenApiContractTest*'"
         );
     }
 

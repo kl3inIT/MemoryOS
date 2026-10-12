@@ -7,7 +7,7 @@
 
 ## Verification
 
-- `./gradlew.bat :core:test --tests "*PostgresIamAuthorizationTest" --tests "*PostgresGroupMembershipReplacementTest" --tests "*PostgresSourceLifecycleTest" --no-daemon` passed.
+- `./gradlew.bat :memoryos-core:test --tests "*PostgresIamAuthorizationTest" --tests "*PostgresGroupMembershipReplacementTest" --tests "*PostgresSourceLifecycleTest" --no-daemon` passed.
 - `./gradlew.bat :sources:test --tests "*LargeChatSpreadsheetExtractionTest" --no-daemon` passed.
 - `corepack pnpm --config.verify-deps-before-run=false --dir web exec tsc -b` passed.
 - Targeted Vitest group/session coverage and changed-file oxlint passed.

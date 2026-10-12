@@ -16,7 +16,7 @@ The repository is the system of record. Chat, Linear, pull-request comments and 
 ## Area guides
 
 - Frontend work in `web/`: follow [web/AGENTS.md](web/AGENTS.md).
-- Backend work in `core/`, `api/`, `worker/` or `sources/`: follow [docs/guidelines/backend.md](docs/guidelines/backend.md).
+- Backend work in `memoryos-core/`, `memoryos-api/`, `memoryos-worker/` or `sources/` (called `core`, `api` and `worker` in prose): follow [docs/guidelines/backend.md](docs/guidelines/backend.md).
 
 ## Operating rules
 

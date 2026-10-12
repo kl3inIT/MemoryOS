@@ -300,7 +300,7 @@ from another company's or another period's document (MEM-232).
 | Chat Completions reasoning streamed as `delta.reasoning` or `delta.reasoning_content` becomes turn reasoning in arrival order, a paragraph per inference; without a turn only the answer streams | `ChatCompletionsReasoningTest` |
 | Native observation start/error/stop handlers cannot see payload/result/error text but retain tool identity | `ChatObservationSanitizerTest` |
 
-Opt-in `MEMORYOS_CHAT_GROUNDING_LIVE_TEST=true` runs `ChatSessionApiIntegrationTest.realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection` with an actual provider and a controlled synthetic retrieval corpus through the native runtime and real transcript database. It checks a fact found in neighbors rather than the matching chunk, the wrong subject, follow-up reference resolution, missing evidence, citation IDs and document prompt injection. Synthetic answer receipts are written only by this opt-in test under ignored `api/build/reports/chat-grounding/` for manual inspection; global stdout/stderr capture stays disabled. Its pass/fail receipt belongs in the increment verification; it is not a retrieval relevance benchmark or browser acceptance. Real OpenSearch is verified separately in Retrieval. Browser citations/reload now have fixture coverage in Phase 3.2. Broader real-corpus quality and integrated provider/index/browser acceptance remain outstanding.
+Opt-in `MEMORYOS_CHAT_GROUNDING_LIVE_TEST=true` runs `ChatSessionApiIntegrationTest.realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection` with an actual provider and a controlled synthetic retrieval corpus through the native runtime and real transcript database. It checks a fact found in neighbors rather than the matching chunk, the wrong subject, follow-up reference resolution, missing evidence, citation IDs and document prompt injection. Synthetic answer receipts are written only by this opt-in test under ignored `memoryos-api/build/reports/chat-grounding/` for manual inspection; global stdout/stderr capture stays disabled. Its pass/fail receipt belongs in the increment verification; it is not a retrieval relevance benchmark or browser acceptance. Real OpenSearch is verified separately in Retrieval. Browser citations/reload now have fixture coverage in Phase 3.2. Broader real-corpus quality and integrated provider/index/browser acceptance remain outstanding.
 
 ## MEM-77 native profile, Models and managed runtime
 
@@ -459,9 +459,9 @@ Receipts: [MEM-112 verification](../increments/completed/mem-112-chat-mcp-client
 | Contract | Test and boundary |
 | --- | --- |
 | Personal default model is chosen for a new turn, rejected when unavailable on save and skipped once hidden or deleted | `ChatSessionApiIntegrationTest.personalPreferencesChooseTheDefaultModelUntilItIsNoLongerUsable`: Spring API, PostgreSQL, synthetic provider |
-| Prompt user information follows Onyx `user_info.py` and omits unknown values | `core/src/test/java/io/memoryos/chat/prompts/ChatUserInformationTest.java` |
+| Prompt user information follows Onyx `user_info.py` and omits unknown values | `memoryos-core/src/test/java/io/memoryos/chat/prompts/ChatUserInformationTest.java` |
 | Delete all chats removes only the caller's sessions | `ChatSessionApiIntegrationTest.deleteAllChatsRemovesOnlyTheCallersConversations` |
-| MCP OAuth can return to Settings → Connections and never leaves MemoryOS | `api/src/test/java/io/memoryos/api/mcp/McpReturnPathTest.java` |
+| MCP OAuth can return to Settings → Connections and never leaves MemoryOS | `memoryos-api/src/test/java/io/memoryos/api/mcp/McpReturnPathTest.java` |
 | Preferences save through one PUT, drafts save on blur, theme and profile render | `chat-preferences.test.tsx`, `general-settings-page.test.tsx` under `web/src/features/identity/` |
 | Delete all confirmation and Connections connect/disconnect | `danger-zone-section.test.tsx`, `connections-settings-page.test.tsx` |
 
@@ -469,12 +469,12 @@ Receipts: [MEM-112 verification](../increments/completed/mem-112-chat-mcp-client
 
 | Contract | Test and boundary |
 | --- | --- |
-| A pinned level outranks the model configuration, a member default only reaches a model without one, a non-reasoning model takes no level, a reasoning model takes no creativity, and a helper call keeps its own low effort | `api/src/test/java/io/memoryos/api/chat/ModelSamplingTest.java` |
+| A pinned level outranks the model configuration, a member default only reaches a model without one, a non-reasoning model takes no level, a reasoning model takes no creativity, and a helper call keeps its own low effort | `memoryos-api/src/test/java/io/memoryos/api/chat/ModelSamplingTest.java` |
 | Pinning and clearing a conversation's level, rejection of an unknown level, another member's conversation, and the member's own starting values with their range | `ChatSessionApiIntegrationTest.reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember` |
 
 ## File library (MEM-142)
 
-The file library is the `library` module ([ADR 0015 step 3](../decisions/0015-capability-module-map.md#step-3-what-library-holds)); its core tests live under `core/src/test/java/io/memoryos/library/` with their class names unchanged, while the tests that drive the library from a conversation (`ChatPersistenceIntegrationTest`, `ChatLifecycleIntegrationTest`, `ChatExportIntegrationTest`, `ChatSessionPurgeIntegrationTest`) stay in Chat's.
+The file library is the `library` module ([ADR 0015 step 3](../decisions/0015-capability-module-map.md#step-3-what-library-holds)); its core tests live under `memoryos-core/src/test/java/io/memoryos/library/` with their class names unchanged, while the tests that drive the library from a conversation (`ChatPersistenceIntegrationTest`, `ChatLifecycleIntegrationTest`, `ChatExportIntegrationTest`, `ChatSessionPurgeIntegrationTest`) stay in Chat's.
 
 | Contract | Test and boundary |
 | --- | --- |
@@ -576,7 +576,7 @@ The file library is the `library` module ([ADR 0015 step 3](../decisions/0015-ca
 | The archived page lists what was put away, puts one back, searches through the server showing only archived matches, deletes one after confirmation, and says what an empty view means | `web/src/features/chat/settings/chat-archived-sessions.test.tsx` |
 | An answer says an image was deleted instead of showing it, keeps the images that are still there beside it, and renders nothing when there are none | `web/src/features/chat/image/chat-images.test.tsx` |
 | The export section asks for an export, says what it is doing while it packs, offers the download with what was left out, and names a failure | `web/src/features/chat/settings/chat-export-section.test.tsx` |
-| A conversation is listed with who asked, what they asked and how it was rated; a temporary one is absent and a deleted one is marked; hiding the asker drops their name and refuses a per-person read; turning history off refuses every read; the cursor walks each conversation once and the search is literal | `core/src/test/java/io/memoryos/chat/ChatHistoryServiceTest.java` |
+| A conversation is listed with who asked, what they asked and how it was rated; a temporary one is absent and a deleted one is marked; hiding the asker drops their name and refuses a per-person read; turning history off refuses every read; the cursor walks each conversation once and the search is literal | `memoryos-core/src/test/java/io/memoryos/chat/ChatHistoryServiceTest.java` |
 | MEM-195: a grounded answer is released only from its first citation naming registered evidence; unknown citations are dropped; an answer without one is never shown and is stored as the refusal with `no_evidence` or `uncited`; a blocked phrase split across chunks stops the answer | `CitationGateTest`, `ChatGroundedTurnTest` |
 | MEM-208: the Chat settings page offers Web search only under answers from documents, chooses history visibility with one radio, saves a topic switch at once with the whole document, adds a topic on, refuses a duplicate name, edits a topic keeping its switch, deletes one after confirmation, saves phrases with the topics as they stand, and keeps every guardrail control waiting while a guardrail save is in flight | `admin-chat-settings.test.tsx` (9) |
 | MEM-208: a model manager adds, switches and deletes a topic in the browser; the page in dark and at 390 px | `chat-guardrail-topics.spec.ts` (3, Chromium, 2026-10-02) |

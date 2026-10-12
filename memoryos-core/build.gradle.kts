@@ -2,6 +2,7 @@ import java.time.Duration
 
 plugins {
     `java-library`
+    id("memoryos.java-conventions")
 }
 
 tasks.withType<JavaCompile>().configureEach {

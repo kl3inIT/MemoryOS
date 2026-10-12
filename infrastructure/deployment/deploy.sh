@@ -258,7 +258,7 @@ if [[ "$mode" == deploy ]]; then
   if has_schema_history; then schema > "$tx/schema.before"; else : > "$tx/schema.before"; fi
   while IFS='|' read -r version _checksum success; do
     [[ "$success" == t && "$version" =~ ^[0-9]+$ ]] || { echo "Applied migration is failed or malformed: $version" >&2; exit 1; }
-    compgen -G "$tx/source/core/src/main/resources/db/migration/V${version}__*.sql" > /dev/null || {
+    compgen -G "$tx/source/memoryos-core/src/main/resources/db/migration/V${version}__*.sql" > /dev/null || {
       echo 'Candidate predates an applied migration; operator compatibility review is required' >&2; exit 1;
     }
   done < "$tx/schema.before"

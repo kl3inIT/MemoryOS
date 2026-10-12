@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regenerates core/src/main/resources/chat/known-models.json from the pinned LiteLLM
+// Regenerates memoryos-core/src/main/resources/chat/known-models.json from the pinned LiteLLM
 // model metadata file. Run with: node scripts/sync-chat-known-models.mjs [commit-sha]
 // Bump SOURCE_COMMIT to refresh prices; review the diff before committing it.
 import { writeFileSync } from "node:fs";

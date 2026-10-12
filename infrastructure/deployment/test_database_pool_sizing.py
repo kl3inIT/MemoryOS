@@ -16,8 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 DEPLOYMENT = ROOT / "infrastructure/deployment"
 
 POOLS = {
-    "api": ROOT / "api/src/main/resources/application.yaml",
-    "worker": ROOT / "worker/src/main/resources/application.yaml",
+    "api": ROOT / "memoryos-api/src/main/resources/application.yaml",
+    "worker": ROOT / "memoryos-worker/src/main/resources/application.yaml",
 }
 
 

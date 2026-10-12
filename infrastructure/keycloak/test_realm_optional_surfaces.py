@@ -62,7 +62,7 @@ class RealmSessionLifetimeTest(unittest.TestCase):
         update = "jq -cn '{ssoSessionIdleTimeout: 604800, ssoSessionMaxLifespan: 604800}'"
         self.assertEqual(1, SCRIPT.count(update))
         self.assertLess(SCRIPT.index(update), SCRIPT.index('configured_theme=$("$KCADM" get "realms/$TARGET_REALM"'))
-        application = (ROOT / "api/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        application = (ROOT / "memoryos-api/src/main/resources/application.yaml").read_text(encoding="utf-8")
         self.assertIn("session-max-lifetime: 7d", application)
 
 

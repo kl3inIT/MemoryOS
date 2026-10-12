@@ -14,7 +14,7 @@
 
 ## Verification — 2026-09-16
 
-- `./gradlew :core:test :api:test`: build successful, no failing class. This covers the rewritten authority tests:
+- `./gradlew :memoryos-core:test :memoryos-api:test`: build successful, no failing class. This covers the rewritten authority tests:
   - `PostgresSourceLifecycleTest` (25 tests): a Source created globally stays read-only for a Group manager who manages every associated Group; `SYSTEM_ADMIN` appointment is required and rejects a candidate managing no ordinary Group (`SOURCE_MANAGER_NOT_ELIGIBLE`); the appointed manager renames and re-attaches but may not drop another manager's Group; a PUBLIC Source stays read-only for its manager; scoped creation is RESTRICTED, records its creator and may start with no Group; any Group's manager detaches shared, single-Group and PUBLIC Sources from their own Group while other Groups keep theirs; clearing the manager withdraws upload finalization mid-flight.
   - `GoogleDriveCredentialAuthorityTest` (44 tests): another manager's Group joining the Source leaves the recorded manager's credential actions intact, and clearing the manager withdraws them.
   - `SourceApiIntegrationTest` (26 tests): `removableSourceIds`, `204` detachment for both Sources, `403` for a non-administrator appointment, `SOURCE_MANAGER_NOT_ELIGIBLE`, appointment restoring `permissions.edit`, and scoped creation with no group returning `201` with `managerActorId`.
@@ -25,7 +25,7 @@ Not verified: staging, and any browser run of the administrator appointment sect
 
 ## Verification — 2026-09-21 (ADR 0013)
 
-- `./gradlew :core:test --tests "io.memoryos.connector.*" :api:test --tests "io.memoryos.api.source.*" --tests "*OpenApiContractTest*"`: build successful; 265 core connector tests and 53 API source/contract tests, no failure or skip.
+- `./gradlew :memoryos-core:test --tests "io.memoryos.connector.*" :memoryos-api:test --tests "io.memoryos.api.source.*" --tests "*OpenApiContractTest*"`: build successful; 265 core connector tests and 53 API source/contract tests, no failure or skip.
   - `PostgresSourceLifecycleTest.onlyTheResponsibleManagerDetachesASourceFromTheirGroup`: two managers of one Group; the one who did not create the Source gets no `removableSourceIds` and `SOURCE_NOT_FOUND` for managed, unmanaged and PUBLIC Sources, and the associations stay; the responsible manager detaches only their Source, only from a Group they manage, and attaches it again; global management detaches any Source.
   - `SourceApiIntegrationTest.onlyTheResponsibleManagerDetachesSourcesAndAdministratorsAppointThem`: `404 SOURCE_NOT_FOUND` for a Group manager who is not responsible, then `204` once `SYSTEM_ADMIN` appoints them.
   - `OpenApiContractTest`: `openapi.yml` regenerated with the new `removeGroupSource` description.

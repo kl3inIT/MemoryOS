@@ -10,12 +10,12 @@
 
 ## Verification — 2026-09-28
 
-- `./gradlew.bat :core:compileTestJava --no-daemon`: passed.
-- `./gradlew.bat :core:test --tests "*DefaultIdentityProviderAdministrationTest" --no-daemon`: passed — 9 tests.
+- `./gradlew.bat :memoryos-core:compileTestJava --no-daemon`: passed.
+- `./gradlew.bat :memoryos-core:test --tests "*DefaultIdentityProviderAdministrationTest" --no-daemon`: passed — 9 tests.
 
 ## Verification — 2026-10-01
 
-- `./gradlew.bat :api:test --tests "*ActorSessionLoginSuccessHandlerTest" --rerun-tasks --no-daemon`: passed — 5 tests, including the Keycloak first/last-name fallback.
+- `./gradlew.bat :memoryos-api:test --tests "*ActorSessionLoginSuccessHandlerTest" --rerun-tasks --no-daemon`: passed — 5 tests, including the Keycloak first/last-name fallback.
 - `corepack pnpm --config.verify-deps-before-run=false --dir web exec vitest run src/components/app-shell/app-shell.test.tsx`: passed — 4 tests.
 - Web `tsc -b`, changed-file oxlint, and changed-file oxfmt checks passed.
 - The local `OpenApiContractTest` remains unavailable because Testcontainers cannot discover Docker Desktop, although `docker version` succeeds. The current-identity contract and Hey API client are aligned; CI validates the committed contract.
