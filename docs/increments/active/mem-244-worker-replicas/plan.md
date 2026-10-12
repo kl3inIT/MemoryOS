@@ -16,7 +16,7 @@
 - [x] Tika child JVMs bounded: two at once a Worker, an initial heap of 32 MB instead of the whole 512 MB
 - [x] Worker `stop_grace_period` and the `deploy.sh` stop timeout to 180 s: 100 s grace and about 9 s of shutdown leave 11 s, and db-scheduler may wait 60 s more
 - [x] Memory limit (4 GiB a replica), SerialGC named, heap of half the limit starting at 5%, compact object headers
-- [ ] CI; staging under a burst: memory of the container, the longest collection, nothing failed
+- [x] CI; staging under a burst: memory of the container, child JVMs at once, nothing failed ([verification](verification.md)); collection pauses were not measured
 - [ ] AOT cache trained at deployment
 
 ## Pull request 3 — the Worker's composition
