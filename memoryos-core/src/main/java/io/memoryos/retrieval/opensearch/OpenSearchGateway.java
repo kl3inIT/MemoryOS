@@ -53,10 +53,15 @@ public final class OpenSearchGateway {
     /**
      * Bulk writes through an alias with {@code require_alias}: when the alias is gone with its index, every item fails
      * with {@link #indexMissing} instead of OpenSearch creating an unmapped index under the alias name.
+     *
+     * @param awaitRefresh whether the request returns only once a refresh has made its writes, and every write before
+     *        them, visible to search. The wait lasts until the index's next refresh, a second by default, so a caller
+     *        that writes several batches asks for it on the last one only (MEM-248)
      */
-    public JsonNode bulkThroughAlias(String alias, String body) {
-        return request("POST", "/" + alias + "/_bulk", Map.of("refresh", "wait_for", "require_alias", "true"), body,
-                "application/x-ndjson", Missing.INDEX);
+    public JsonNode bulkThroughAlias(String alias, String body, boolean awaitRefresh) {
+        return request("POST", "/" + alias + "/_bulk",
+                awaitRefresh ? Map.of("refresh", "wait_for", "require_alias", "true") : Map.of("require_alias", "true"),
+                body, "application/x-ndjson", Missing.INDEX);
     }
 
     /** The answer said the index or alias does not exist, for the request or for any item of a bulk request. */

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,9 +26,11 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.generic.Body;
 import org.opensearch.client.opensearch.generic.OpenSearchGenericClient;
+import org.opensearch.client.opensearch.generic.Request;
 import org.opensearch.client.opensearch.generic.Response;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;
@@ -74,6 +77,23 @@ class OpenSearchGatewayTest {
         assertThrows(SearchUnavailableException.class, () -> gateway.json("POST", "/memoryos-read/_search", Map.of(), Map.of()),
                 "Writes and admin requests that expect the index still fail when it is missing");
         assertEquals(2, events.list.size(), "An expected missing index is not a failure and is not logged");
+    }
+
+    @Test
+    void aBulkWaitsForARefreshOnlyWhenItsCallerAsks() throws Exception {
+        // MEM-248: the wait lasts until the index's next refresh, so a document written in batches asks once.
+        when(client.generic()).thenReturn(generic);
+        var written = response(200, "{\"errors\":false,\"items\":[]}");
+        when(generic.execute(any())).thenReturn(written);
+        var requests = ArgumentCaptor.forClass(Request.class);
+
+        gateway.bulkThroughAlias("memoryos-write", "{}\n", false);
+        gateway.bulkThroughAlias("memoryos-write", "{}\n", true);
+
+        verify(generic, times(2)).execute(requests.capture());
+        assertEquals(Map.of("require_alias", "true"), requests.getAllValues().get(0).getParameters());
+        assertEquals(Map.of("require_alias", "true", "refresh", "wait_for"), requests.getAllValues().get(1).getParameters());
+        assertEquals("/memoryos-write/_bulk", requests.getAllValues().get(1).getEndpoint());
     }
 
     @Test

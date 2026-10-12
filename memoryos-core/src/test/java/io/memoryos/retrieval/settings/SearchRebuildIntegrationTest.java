@@ -393,7 +393,7 @@ class SearchRebuildIntegrationTest {
                     process.settings.cancelFuture(admin);
                 }
                 return call.callRealMethod();
-            }).when(racing).bulkThroughAlias(anyString(), anyString());
+            }).when(racing).bulkThroughAlias(anyString(), anyString(), anyBoolean());
             return racing;
         });
         // The worker has not yet seen the cancellation, as another process within its refresh interval.
