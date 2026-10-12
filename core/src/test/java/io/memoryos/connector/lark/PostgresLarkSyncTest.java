@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -34,7 +35,9 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceType;
+import io.memoryos.connector.lark.persistence.JdbcLarkAclRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkCredentialRepository;
+import io.memoryos.connector.lark.persistence.JdbcLarkDirectoryRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSourceRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSyncRepository;
 import io.memoryos.connector.lark.persistence.LarkCredentialConfiguration;
@@ -147,7 +150,10 @@ class PostgresLarkSyncTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), manager);
         service = new SourceSyncEngine(attempts, sources, items, indexing, documents, writes,
-                SourceSyncAdapters.registry(new LarkSyncAdapter(runs, lark, connections)), manager);
+                SourceSyncAdapters.registry(new LarkSyncAdapter(runs, lark, connections,
+                        new JdbcLarkAclRepository(jdbc, _ -> { }),
+                        new LarkDirectorySynchronizer(new JdbcLarkDirectoryRepository(jdbc), credentialRows, manager,
+                                Duration.ofHours(1)))), manager);
         seedSource(List.of(new RootView(RootKind.WIKI_SPACE, SPACE, "Wiki"),
                 new RootView(RootKind.DRIVE_FOLDER, FOLDER, "Drive")));
         // Unless a test says otherwise, every root is empty.
@@ -330,6 +336,54 @@ class PostgresLarkSyncTest {
         assertEquals(List.of("FAILED"), runStatuses());
         var summary = new JdbcSourceQueryRepository(jdbc).summary(tenant, owner, source, true, true, true);
         assertEquals("SOURCE_LARK_AUTHENTICATION", summary.errorCode());
+    }
+
+    @Test
+    void aSourceThatAdmitsReadersByLarkSharingReadsItOnEveryRunAndBringsTheDirectoryUpToDate() {
+        when(session.nodes(SPACE, null, null)).thenReturn(new LarkGateway.NodePage(List.of(
+                node("node-page", "docx-page", ObjectType.DOCX, "Sổ tay", false)), null));
+        when(session.docx(any())).thenReturn(new LarkGateway.Snapshot("memoryos-lark-docx-v1", SNAPSHOT));
+        when(session.permissions("docx-page", ObjectType.DOCX)).thenReturn(new LarkGateway.Permissions(List.of(
+                new LarkGateway.Collaborator("openid", "ou_lan", "view"),
+                new LarkGateway.Collaborator("openchat", "oc_team", "view")), "tenant_readable"));
+        when(session.chatMembers("oc_team", null)).thenReturn(new LarkGateway.MemberPage(List.of("ou_minh"), null));
+        when(session.users(anyList())).thenAnswer(call -> call.<List<String>>getArgument(0).stream()
+                .map(id -> new LarkGateway.User(id, id + "@example.test", true)).toList());
+
+        // A Source read by everyone or by Groups never asks Lark who an object is shared with.
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        verify(session, never()).permissions(any(), any());
+
+        jdbc.sql("UPDATE connector_credential_pairs SET access_type = 'SYNC' WHERE tenant_id = :tenant AND id = :source")
+                .param("tenant", tenant.value()).param("source", source.value()).update();
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        // The object did not change, so it is not read again; its sharing is.
+        verify(session, times(1)).docx(any());
+        assertEquals("tenant_readable", jdbc.sql("""
+                SELECT link_share FROM lark_acl_snapshots WHERE tenant_id = :tenant AND file_id = 'docx-page'
+                    AND status = 'SUCCEEDED' AND observation_revision = 1
+                """).param("tenant", tenant.value()).query(String.class).single());
+        assertEquals(List.of("ou_lan@example.test", "ou_minh@example.test"), jdbc.sql("""
+                SELECT u.email FROM lark_directory_users u
+                JOIN lark_credentials l ON l.tenant_id = u.tenant_id AND l.credential_id = u.credential_id
+                    AND l.active_directory_generation = u.generation
+                WHERE u.tenant_id = :tenant ORDER BY u.email
+                """).param("tenant", tenant.value()).query(String.class).list());
+
+        // A read Lark refuses for one object keeps its last answer and does not fail the run.
+        doThrow(new LarkProviderException(LarkProviderException.Failure.AUTHORIZATION))
+                .when(session).permissions("docx-page", ObjectType.DOCX);
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        assertEquals("FAILED:SOURCE_LARK_AUTHORIZATION:1", jdbc.sql("""
+                SELECT status || ':' || error_code || ':' || observation_revision FROM lark_acl_snapshots
+                WHERE tenant_id = :tenant AND file_id = 'docx-page'
+                """).param("tenant", tenant.value()).query(String.class).single());
+
+        // What a complete listing no longer finds loses its snapshot with its item.
+        when(session.nodes(SPACE, null, null)).thenReturn(new LarkGateway.NodePage(List.of(), null));
+        assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(enqueue())));
+        assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM lark_acl_snapshots WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).query(Integer.class).single());
     }
 
     @Test

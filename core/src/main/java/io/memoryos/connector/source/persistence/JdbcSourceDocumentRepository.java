@@ -52,8 +52,10 @@ public class JdbcSourceDocumentRepository {
     private static final String PUBLIC_GRANT = "everyone";
     /**
      * Grant tokens of the SYNC mapping {@code m} of pair {@code p}: the last successful Google Drive permission
-     * snapshot of the mapped file, interpreted as in the MEM-105 design. Index-time access and the post-query
-     * recheck both use this rule, so they cannot drift.
+     * snapshot of the mapped file, interpreted as in the MEM-105 design, or the last complete Lark snapshot: its
+     * people, chats, departments and spaces, and a link open to anyone. A Lark link open to the organization grants
+     * nothing, as a Google link-only domain permission grants nothing. Index-time access and the post-query recheck
+     * both use this rule, so they cannot drift.
      */
     private static final String SYNC_GRANTS = """
             SELECT CASE entry.permission->>'type'
@@ -74,11 +76,33 @@ public class JdbcSourceDocumentRepository {
                     OR (entry.permission->>'type'='domain' AND BTRIM(COALESCE(entry.permission->>'domain',''))<>''
                         AND COALESCE(entry.permission->>'allowFileDiscovery','true')<>'false')
                     OR entry.permission->>'type'='anyone')
+            UNION ALL
+            SELECT CASE entry.member->>'type' WHEN 'openid' THEN 'lark_user:' WHEN 'openchat' THEN 'lark_chat:'
+                     WHEN 'opendepartmentid' THEN 'lark_department:' ELSE 'lark_space:' END
+                   || p.credential_id || ':' || (entry.member->>'id') AS token
+            FROM connector_items sync_item
+            JOIN lark_acl_snapshots snapshot ON snapshot.tenant_id=sync_item.tenant_id
+                AND snapshot.source_id=p.id AND snapshot.file_id=sync_item.provider_file_id
+                AND snapshot.observation_revision>0
+            CROSS JOIN LATERAL jsonb_array_elements(snapshot.members_json) AS entry(member)
+            WHERE sync_item.tenant_id=m.tenant_id AND sync_item.id=m.connector_item_id
+                AND entry.member->>'type' IN ('openid','openchat','opendepartmentid','wikispaceid')
+                AND BTRIM(COALESCE(entry.member->>'id',''))<>''
+            UNION ALL
+            SELECT 'everyone' FROM connector_items sync_item
+            JOIN lark_acl_snapshots snapshot ON snapshot.tenant_id=sync_item.tenant_id
+                AND snapshot.source_id=p.id AND snapshot.file_id=sync_item.provider_file_id
+                AND snapshot.observation_revision>0
+            WHERE sync_item.tenant_id=m.tenant_id AND sync_item.id=m.connector_item_id
+                AND snapshot.link_share IN ('anyone_readable','anyone_editable')
             """;
     /**
      * The reader's provider identities in {@code :tenant}: the verified login email, its domain, and the Google
      * Groups that list it in the active generation of an active service-account credential. A group whose members
-     * include the whole customer admits every reader of the primary admin's domain. An unverified email grants nothing.
+     * include the whole customer admits every reader of the primary admin's domain. For Lark, the person each active
+     * credential's directory lists under that email, and the chats, departments and spaces that contain them; a Lark
+     * identity is qualified by its credential, because Lark names people and departments per app. An unverified
+     * email grants nothing.
      */
     private static final String READER_TOKENS = """
             SELECT 'google_user:' || LOWER(profile.email) AS token FROM actor_profiles profile
@@ -101,6 +125,22 @@ public class JdbcSourceDocumentRepository {
                         WHERE member.tenant_id=grp.tenant_id AND member.credential_id=grp.credential_id
                             AND member.generation=grp.generation AND member.group_email=grp.group_email
                             AND member.member_email=LOWER(profile.email)))
+            UNION ALL
+            SELECT lark_token.token FROM actor_profiles profile
+            JOIN lark_credentials l ON l.tenant_id=:tenant AND l.active_directory_generation IS NOT NULL
+            JOIN credentials credential ON credential.tenant_id=l.tenant_id AND credential.id=l.credential_id
+                AND credential.status='ACTIVE'
+            JOIN lark_directory_users person ON person.tenant_id=l.tenant_id AND person.credential_id=l.credential_id
+                AND person.generation=l.active_directory_generation AND person.email=LOWER(profile.email)
+            CROSS JOIN LATERAL (
+                SELECT 'lark_user:' || l.credential_id || ':' || person.open_id AS token
+                UNION ALL
+                SELECT 'lark_' || LOWER(member.root_kind) || ':' || l.credential_id || ':' || member.root_id
+                FROM lark_directory_members member
+                WHERE member.tenant_id=person.tenant_id AND member.credential_id=person.credential_id
+                    AND member.generation=person.generation AND member.open_id=person.open_id
+            ) lark_token
+            WHERE profile.actor_id=:actor AND profile.email_verified AND profile.email ~ '^[^@[:space:]]+@[^@[:space:]]+$'
             """;
     private static final String READ_SCOPE = """
             EXISTS (

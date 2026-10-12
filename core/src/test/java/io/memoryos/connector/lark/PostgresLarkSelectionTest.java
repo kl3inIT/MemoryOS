@@ -192,7 +192,7 @@ class PostgresLarkSelectionTest {
         }
         assertThrows(SourceException.class, () -> sources.create(owner, UUID.randomUUID(), " ", credential, scope(),
                 SourceAccess.PUBLIC, List.of()));
-        // Lark's permissions are not read yet, so a Source cannot admit readers by them.
+        // Without an adapter that reads Lark's sharing (none is registered here), a Source cannot admit readers by it.
         assertThrows(SourceException.class, () -> sources.create(owner, UUID.randomUUID(), "Lark", credential, scope(),
                 SourceAccess.SYNC, List.of()));
         assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM source_selection_operations WHERE tenant_id = :tenant")

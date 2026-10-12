@@ -3,6 +3,7 @@ package io.memoryos.connector.lark;
 import io.memoryos.BusinessException;
 import io.memoryos.FailureEvidence;
 import io.memoryos.connector.ConnectorSyncPort.Work;
+import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.LarkGateway;
 import io.memoryos.connector.LarkGateway.ObjectType;
 import io.memoryos.connector.LarkProviderException;
@@ -14,6 +15,7 @@ import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.connector.SourceStorageFailure;
 import io.memoryos.connector.SourceType;
+import io.memoryos.connector.lark.persistence.JdbcLarkAclRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSourceRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSyncRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSyncRepository.Run;
@@ -41,6 +43,9 @@ import org.springframework.stereotype.Component;
  * kind of object is recorded as skipped. Lark has no change log an app can follow, so what a run did not list is what
  * has gone, and it is removed only when the listing reached the end of every root: a space that fails to answer
  * never causes its documents to be deleted.
+ *
+ * <p>For a Source that admits readers by Lark's own sharing, every run also reads what each object is shared with,
+ * and advances the credential's directory, which says who the chats, departments and spaces named there contain.
  */
 @Component
 public class LarkSyncAdapter implements SourceSyncAdapter {
@@ -56,12 +61,16 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
     private final JdbcLarkSyncRepository runs;
     private final JdbcLarkSourceRepository lark;
     private final LarkConnectionService connections;
+    private final JdbcLarkAclRepository acls;
+    private final LarkDirectorySynchronizer directory;
 
     public LarkSyncAdapter(JdbcLarkSyncRepository runs, JdbcLarkSourceRepository lark,
-            LarkConnectionService connections) {
+            LarkConnectionService connections, JdbcLarkAclRepository acls, LarkDirectorySynchronizer directory) {
         this.runs = runs;
         this.lark = lark;
         this.connections = connections;
+        this.acls = acls;
+        this.directory = directory;
     }
 
     @Override
@@ -71,7 +80,7 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
 
     @Override
     public SourceProviderCapabilities capabilities() {
-        return new SourceProviderCapabilities(false);
+        return new SourceProviderCapabilities(true);
     }
 
     @Override
@@ -138,7 +147,10 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
                 return started;
             }));
             if (opened.isEmpty()) return Slice.STOPPED;
-            return new Walk(run, opened.get(), roots.get(), connection.session()).walk();
+            // Lark's sharing is read only for a Source that admits readers by it: each object costs two more calls.
+            var sharing = run.fenced(_ -> acls.syncsPermissions(work)
+                    ? lark.credentialId(work.tenantId(), work.sourceId()) : null);
+            return new Walk(run, opened.get(), roots.get(), connection.session(), sharing.orElse(null)).walk();
         }
     }
 
@@ -155,15 +167,19 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
         private final Run current;
         private final List<RootView> roots;
         private final LarkGateway.Session session;
+        /** The credential whose directory rides along, when the Source reads Lark's sharing; null otherwise. */
+        private final @Nullable CredentialId sharing;
         private final long deadline = System.nanoTime() + EXECUTION_NANOS;
         private int steps;
 
-        Walk(SyncRun run, Run current, List<RootView> roots, LarkGateway.Session session) {
+        Walk(SyncRun run, Run current, List<RootView> roots, LarkGateway.Session session,
+                @Nullable CredentialId sharing) {
             this.run = run;
             this.work = run.work();
             this.current = current;
             this.roots = roots;
             this.session = session;
+            this.sharing = sharing;
         }
 
         private boolean sliceSpent() {
@@ -259,7 +275,29 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
                 runs.observe(current, entry.token(), entry.type().name(), entry.name(), version);
                 return run.unchanged(entry.token(), version, entry.createdAt(), entry.modifiedAt());
             }).orElse(true);
+            // Sharing changes without the object changing, so it is read whether or not the content is.
+            if (readable && sharing != null && !interrupted()) sharing(entry);
             if (!done) acquire(entry, version);
+        }
+
+        /**
+         * What the object is shared with, read whole or not at all. A read that fails keeps the last complete
+         * answer in force, and before the first one nobody reads the object.
+         */
+        private void sharing(Entry entry) {
+            try {
+                var permissions = session.permissions(entry.token(), entry.type());
+                run.fenced(_ -> {
+                    acls.recordSuccess(work, entry.token(), permissions);
+                    return true;
+                });
+            } catch (LarkProviderException exception) {
+                if (runLevel(exception)) throw exception;
+                run.fenced(_ -> {
+                    acls.recordFailure(work, entry.token(), "SOURCE_LARK_" + exception.failure().name());
+                    return true;
+                });
+            }
         }
 
         private void acquire(Entry entry, String version) {
@@ -311,6 +349,13 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
 
         /** Ends the run: what its complete listing did not see is removed, in batches, then it completes. */
         private Slice finish() {
+            // The directory is brought up to date before the run completes, so what it just read can be searched.
+            if (sharing != null) {
+                while (directory.advance(work.tenantId(), sharing, work.credentialRevision(), session)) {
+                    if (interrupted()) return run.aborted() ? Slice.ABORTED : Slice.STOPPED;
+                    if (sliceSpent()) return Slice.CONTINUE;
+                }
+            }
             return run.fenced(pair -> {
                 runs.listingComplete(current);
                 var missing = runs.missing(current);
@@ -318,6 +363,7 @@ public class LarkSyncAdapter implements SourceSyncAdapter {
                     for (var entry : missing) {
                         run.remove(pair, entry.itemId());
                         runs.forget(work.tenantId(), work.sourceId(), entry.providerFileId());
+                        acls.forget(work, entry.providerFileId());
                     }
                     run.removed(missing.size());
                     return Slice.CONTINUE;
