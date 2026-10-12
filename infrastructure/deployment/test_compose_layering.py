@@ -47,6 +47,22 @@ class WorkerRedisTimeoutTest(unittest.TestCase):
         self.assertGreater(seconds(timeout.group(1)), seconds(block))
 
 
+class SignalForwardingTest(unittest.TestCase):
+    def test_a_service_that_switches_user_can_still_be_stopped_gracefully(self):
+        # MEM-244: docker-init runs as root with every capability dropped. A process that switched to another
+        # user (SETUID) cannot be signalled without KILL: tini logged "Unexpected error when forwarding
+        # signal: 'Operation not permitted'" and the Worker died mid-extraction on every stop.
+        found = 0
+        for name in ("compose.base.yaml", "compose.staging.yaml", "compose.production.yaml"):
+            text = (DEPLOYMENT / name).read_text(encoding="utf-8")
+            for block in re.findall(r"cap_add:\n((?:\s+- [A-Z_]+\n)+)", text):
+                capabilities = re.findall(r"- ([A-Z_]+)", block)
+                if "SETUID" in capabilities:
+                    found += 1
+                    self.assertIn("KILL", capabilities, name)
+        self.assertGreaterEqual(found, 4)
+
+
 class ComposeLayeringTest(unittest.TestCase):
     def test_the_runtime_both_environments_share_is_defined_once(self):
         for service in ("redis", "interpreter", "api", "worker", "web", "postgres", "minio"):

@@ -275,8 +275,11 @@ services:
     <<: *service-defaults
     image: ${MEMORYOS_API_IMAGE:?Set MEMORYOS_API_IMAGE}
     container_name: memoryos-api
+    # docker-init (tini) runs as capability-dropped root and the process drops to its own user; without KILL
+    # it cannot forward SIGTERM, so every stop was an immediate kill with no graceful shutdown (MEM-244).
     cap_add:
       - DAC_OVERRIDE
+      - KILL
       - SETGID
       - SETUID
     environment:
@@ -397,8 +400,11 @@ services:
     image: ${MEMORYOS_WORKER_IMAGE:?Set MEMORYOS_WORKER_IMAGE}
     # MEM-244: no fixed container name, so the Worker runs as several replicas (memoryos-worker-1, -2, ...); the
     # network alias still names them all.
+    # docker-init (tini) runs as capability-dropped root and the process drops to its own user; without KILL
+    # it cannot forward SIGTERM, so every stop was an immediate kill with no graceful shutdown (MEM-244).
     cap_add:
       - DAC_OVERRIDE
+      - KILL
       - SETGID
       - SETUID
     environment:
@@ -571,9 +577,11 @@ services:
     entrypoint:
       - /bin/sh
       - /redis-tools/start-redis.sh
+    # KILL lets docker-init forward SIGTERM to redis-server, which runs as redis (MEM-244).
     cap_add:
       - DAC_OVERRIDE
       - CHOWN
+      - KILL
       - SETGID
       - SETUID
     secrets:
