@@ -89,5 +89,36 @@ class LauncherSecretFileTest(unittest.TestCase):
         self.assertNotIn("MEMORYOS_DATABASE_PASSWORD", exported)
 
 
+    def test_a_cache_made_for_this_release_is_handed_to_the_jvm(self):
+        # MEM-244: the option goes on the command line through MEMORYOS_JAVA_AOT, never into JAVA_TOOL_OPTIONS,
+        # which the Tika child JVMs inherit.
+        caches = self.root / "aot"
+        caches.mkdir()
+        (caches / "api-abc123.aot").write_text("cache")
+        result, exported = self.launch(MEMORYOS_AOT_CACHE_DIR=str(caches), MEMORYOS_RELEASE="abc123",
+                                       JAVA_TOOL_OPTIONS="-XX:+UseSerialGC")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(exported.get("MEMORYOS_JAVA_AOT"), "-XX:AOTCache=" + str(caches / "api-abc123.aot"))
+        self.assertEqual(exported.get("JAVA_TOOL_OPTIONS"), "-XX:+UseSerialGC")
+
+    def test_without_a_cache_for_this_release_the_jvm_starts_as_before(self):
+        caches = self.root / "aot"
+        caches.mkdir()
+        (caches / "api-another.aot").write_text("cache")
+        for variables in ({}, {"MEMORYOS_AOT_CACHE_DIR": str(caches), "MEMORYOS_RELEASE": "abc123"},
+                          {"MEMORYOS_AOT_CACHE_DIR": str(caches)}):
+            result, exported = self.launch(**variables)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(exported.get("MEMORYOS_JAVA_AOT"), "", variables)
+
+    def test_a_training_start_that_writes_no_cache_fails_and_leaves_none(self):
+        # The stand-in for su writes nothing, as a JVM that failed to start would not.
+        caches = self.root / "aot"
+        caches.mkdir()
+        result, _ = self.launch(MEMORYOS_AOT_CACHE_DIR=str(caches), MEMORYOS_RELEASE="abc123",
+                                MEMORYOS_AOT_TRAIN="true")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual([], list(caches.glob("*.aot")))
+
 if __name__ == "__main__":
     sys.exit(unittest.main())
