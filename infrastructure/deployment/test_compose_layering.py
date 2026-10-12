@@ -99,16 +99,24 @@ class WorkerAotCacheTest(unittest.TestCase):
         self.assertLess(train, deploy.index("printf '%s\\n' \"$release\" > \"$state/pending\""))
         self.assertLess(train, deploy.index("compose stop --timeout 180 worker"))
         function = deploy.split("train_worker_aot() {", 1)[1].split("\n}\n", 1)[0]
-        # It reads no stream, does not validate a schema that is not migrated yet, and holds two connections.
-        for setting in ("MEMORYOS_AOT_TRAIN=true", "MEMORYOS_WORKER_ENABLED=false",
-                        "SPRING_JPA_HIBERNATE_DDL_AUTO=none", "MEMORYOS_DATABASE_POOL_SIZE=2"):
-            self.assertIn(setting, function)
-        self.assertIn("--no-deps", function)
+        self.assertIn("compose --profile aot run --rm --no-deps -T worker-aot", function)
+        trainer = BASE.split("\n  worker-aot:\n", 1)[1].split("\n  docling:\n", 1)[0]
+        # Compose starts it only when asked; it is the Worker with no stream readers, no validation of a schema
+        # that is not migrated yet, and two connections.
+        self.assertRegex(trainer, r"profiles:\n\s+- aot")
+        self.assertRegex(trainer, r"extends:\n\s+service: worker")
+        for setting in ('MEMORYOS_AOT_TRAIN: "true"', 'MEMORYOS_WORKER_ENABLED: "false"',
+                        "SPRING_JPA_HIBERNATE_DDL_AUTO: none", 'MEMORYOS_DATABASE_POOL_SIZE: "2"'):
+            self.assertIn(setting, trainer)
 
-    def test_only_the_worker_mounts_the_cache_directory(self):
+    def test_a_worker_that_reads_documents_cannot_write_the_cache_it_starts_from(self):
+        # A cache is code the next start runs; only the training start, which reads no document, mounts it writable.
         worker = BASE.split("\n  worker:\n", 1)[1].split("\n  web:\n", 1)[0]
         self.assertIn("MEMORYOS_AOT_CACHE_DIR: /aot", worker)
-        self.assertIn("- memoryos_worker_aot:/aot", worker)
+        self.assertIn("- memoryos_worker_aot:/aot:ro", worker)
+        self.assertNotRegex(worker, r"- memoryos_worker_aot:/aot\n")
+        trainer = BASE.split("\n  worker-aot:\n", 1)[1].split("\n  docling:\n", 1)[0]
+        self.assertRegex(trainer, r"- memoryos_worker_aot:/aot\n")
         self.assertEqual(1, BASE.count("MEMORYOS_AOT_CACHE_DIR"))
 
 

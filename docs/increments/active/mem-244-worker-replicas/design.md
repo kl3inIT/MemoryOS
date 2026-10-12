@@ -50,9 +50,10 @@ A Worker took 12 to 17 s to start. A JDK 25 AOT cache records the classes a star
 
 | Part | Change |
 | --- | --- |
-| `deploy.sh` | Before it reserves the deployment or stops anything, `train_worker_aot` runs the candidate Worker image once (`compose run`) with `MEMORYOS_AOT_TRAIN=true`. That start reads no stream (`MEMORYOS_WORKER_ENABLED=false`), does not validate a schema the deployment has not migrated yet (`ddl-auto: none`), holds two database connections and exits once its context is built. A failure is reported and the deployment goes on |
+| `deploy.sh` | Before it reserves the deployment or stops anything, `train_worker_aot` runs the service `worker-aot` of the candidate release once. A failure is reported and the deployment goes on |
+| `worker-aot` | The Worker's service extended under the profile `aot`, so Compose starts it only when asked: `MEMORYOS_AOT_TRAIN=true`, no stream readers (`MEMORYOS_WORKER_ENABLED=false`), no validation of a schema the deployment has not migrated yet (`ddl-auto: none`), two database connections; it exits once its context is built |
 | Launcher | With `MEMORYOS_AOT_CACHE_DIR` set: a training start writes `<jar>-<release>.aot` (to a temporary name, renamed when complete) and keeps the two newest caches; a normal start passes `-XX:AOTCache` on the command line when this release's cache exists. The option is not put into `JAVA_TOOL_OPTIONS`, which the Tika child JVMs inherit |
-| Compose | The Worker mounts the volume `memoryos-worker-aot` at `/aot`. The API mounts none |
+| Volume | `memoryos-worker-aot` at `/aot`: read-only in the Worker, writable only in `worker-aot`. A cache is code the next start runs, and a Worker reads documents nobody vouches for, so the process that reads them must not be able to write it. The API mounts none |
 
 A cache that is missing or does not match is ignored by the JVM, so the Worker then starts as before. Measured by hand on staging with the Worker's image, environment and limit: the training start took 56 to 81 s and wrote 209 to 224 MB; a start took 14.3 s without the cache and 4.6 to 5.6 s with it, holding 442 MiB and about 395 MiB.
 

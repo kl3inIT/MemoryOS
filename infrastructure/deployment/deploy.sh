@@ -68,14 +68,12 @@ compose() {
 }
 
 # MEM-244: the candidate Worker image makes its JDK AOT cache while the running Worker still works, so the new
-# Worker starts from it. The training start takes no work (no stream readers), does not validate a schema the
-# deployment has not migrated yet, and holds two database connections. A failure only costs the cache: the JVM
-# ignores a cache that is missing or does not match, and the Worker starts as it did before.
+# Worker starts from it. worker-aot is the only container that can write the cache, and it reads no document. A
+# failure only costs the cache: the JVM ignores a cache that is missing or does not match, and the Worker starts
+# as it did before.
 train_worker_aot() {
   target=candidate
-  compose run --rm --no-deps -T \
-    -e MEMORYOS_AOT_TRAIN=true -e MEMORYOS_WORKER_ENABLED=false \
-    -e SPRING_JPA_HIBERNATE_DDL_AUTO=none -e MEMORYOS_DATABASE_POOL_SIZE=2 worker > /dev/null
+  compose --profile aot run --rm --no-deps -T worker-aot > /dev/null
 }
 
 rollout() {
