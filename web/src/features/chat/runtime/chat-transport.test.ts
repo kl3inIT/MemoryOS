@@ -559,9 +559,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     const chunks = await collect(await send(new MemoryOsChatTransport(session)));
     const waiting = chunks
       .filter((chunk) => chunk.type === "message-metadata")
-      .map(
-        (chunk) => (chunk as { messageMetadata: { waiting?: boolean } }).messageMetadata.waiting,
-      )
+      .map((chunk) => (chunk as { messageMetadata: { waiting?: boolean } }).messageMetadata.waiting)
       .filter((value) => value !== undefined);
     expect(waiting).toEqual([true, false, false]);
   });
