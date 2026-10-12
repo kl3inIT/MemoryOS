@@ -67,7 +67,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                   attempt.status = 'NOT_STARTED'
                   OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now)
               )
-            ORDER BY attempt.created_at, attempt.id
+            ORDER BY attempt.next_dispatch_at, attempt.created_at, attempt.id
             LIMIT :limit
             FOR UPDATE OF attempt SKIP LOCKED
             """;
@@ -81,7 +81,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
                   status = 'NOT_STARTED'
                   OR (status = 'IN_PROGRESS' AND lease_expires_at < :now)
               )
-            ORDER BY created_at, id
+            ORDER BY next_dispatch_at, created_at, id
             LIMIT :limit
             FOR UPDATE SKIP LOCKED
             """;
@@ -95,7 +95,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
               AND attempt.next_dispatch_at <= :now
               AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
               AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))
-            ORDER BY attempt.created_at, attempt.id LIMIT :limit
+            ORDER BY attempt.next_dispatch_at, attempt.created_at, attempt.id LIMIT :limit
             FOR UPDATE OF attempt SKIP LOCKED
             """;
 
@@ -107,7 +107,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
               AND attempt.next_dispatch_at <= :now
               AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
               AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))
-            ORDER BY attempt.created_at, attempt.id LIMIT :limit
+            ORDER BY attempt.next_dispatch_at, attempt.created_at, attempt.id LIMIT :limit
             FOR UPDATE OF attempt SKIP LOCKED
             """;
 
@@ -120,7 +120,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
               AND work.next_dispatch_at <= :now
               AND (work.dispatch_token IS NULL OR work.dispatch_lease_expires_at < :now)
               AND (work.status='NOT_STARTED' OR (work.status='IN_PROGRESS' AND work.lease_expires_at < :now))
-            ORDER BY work.created_at,work.id LIMIT :limit FOR UPDATE OF work SKIP LOCKED
+            ORDER BY work.next_dispatch_at,work.created_at,work.id LIMIT :limit FOR UPDATE OF work SKIP LOCKED
             """;
 
     private static final String FILE_CANDIDATES = """
@@ -129,7 +129,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             WHERE work.next_dispatch_at<=:now
               AND (work.dispatch_token IS NULL OR work.dispatch_lease_expires_at<:now)
               AND (work.status='NOT_STARTED' OR (work.status='IN_PROGRESS' AND work.lease_expires_at<:now))
-            ORDER BY work.created_at,work.id LIMIT :limit FOR UPDATE OF work SKIP LOCKED
+            ORDER BY work.next_dispatch_at,work.created_at,work.id LIMIT :limit FOR UPDATE OF work SKIP LOCKED
             """;
 
     public JdbcOperationDispatchRepository(JdbcClient jdbcClient) {
