@@ -12,16 +12,20 @@ import io.memoryos.ai.persistence.ModelCatalogRepository;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
  * What the Worker needs to read a Tenant's scans with the reader it chose: the connection service, the credential
  * handling it shares with every provider connection, and, for a reader that is a catalog model, the provider adapters
- * and their clients. The Worker imports this class; it is deliberately not a component or a configuration, so the API,
+ * and their clients, with the catalog's entities and repositories. The Worker imports this class; it is deliberately not a component or a configuration, so the API,
  * which scans all
  * of {@code io.memoryos} and wires the same beans for Chat, does not register them twice.
  */
+@EntityScan("io.memoryos.ai.persistence")
+@EnableJpaRepositories("io.memoryos.ai.persistence")
 @Import({OcrConnectionService.class, OcrPageReader.class, OcrServiceUsage.class, ProviderConnections.class,
         ProviderCredentials.class,
         ModelCatalogRepository.class, OpenAiProviderConfiguration.class, AnthropicProviderConfiguration.class})

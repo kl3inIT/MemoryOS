@@ -15,7 +15,7 @@ import io.memoryos.mcp.McpEndpointCallRetention;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
-import io.memoryos.ingestion.application.SearchProjectionMaintenance;
+import io.memoryos.ingestion.SearchProjectionMaintenance;
 import io.memoryos.objectstorage.ObjectUploadCleanupPort;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.retrieval.settings.SearchSettingsService;

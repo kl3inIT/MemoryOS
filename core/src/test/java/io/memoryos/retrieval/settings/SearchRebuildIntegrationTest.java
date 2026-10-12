@@ -39,7 +39,7 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.application.SearchIngestionCoordinator;
-import io.memoryos.ingestion.application.SearchProjectionMaintenance;
+import io.memoryos.ingestion.SearchProjectionMaintenance;
 import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.objectstorage.ObjectContent;

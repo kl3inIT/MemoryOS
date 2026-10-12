@@ -28,7 +28,30 @@ Idle Worker, 1 GiB container limit, consumers off: about 9.8 s to start and 463â
 
 1. This one: the stop, replicas, scheduler name and polling, the database budget.
 2. Memory and startup: a memory limit per replica and an explicit GC once Tika no longer starts a 512 MB JVM a document inside the container; the AOT cache trained by a one-off container at deployment.
-3. The Worker's composition: each module publishes one `<Module>WorkerConfiguration` declaring its beans, entities and repositories; the Worker imports those and scans no package of `core`, and an architecture test holds it to them. Today it combines a list of scanned packages, imported `...WorkerComponents` classes and a persistence configuration naming other modules' packages.
+3. The Worker's composition, below.
+
+## The Worker's composition
+
+The Worker composed `core` three ways at once: fifteen hand-picked packages in `scanBasePackages` (five of them IAM's internal `persistence` packages), five imported `...WorkerComponents` classes, and a persistence configuration of its own that listed the entity and repository packages of `iam` and `ai`. It also built the delivery coordinator from `ingestion.application` classes. A module that gained a bean the Worker needed had to be edited in two or three places in the Worker, and a miss showed only when the context failed to start (CI of #576).
+
+Now each module the Worker runs publishes one `<Module>WorkerComponents` class and the Worker imports the list, as Apache DolphinScheduler's servers import one configuration a module:
+
+| Module | `WorkerComponents` |
+| --- | --- |
+| `audit`, `connector`, `document`, `objectstorage`, `usage` | `@ComponentScan` of the module: the Worker runs it whole, so a new bean needs no change |
+| `ingestion` | The module whole, plus the lease scheduler and the one `IngestionCoordinator` a delivery is handed to, which the Worker used to assemble |
+| `retrieval` | `embedding`, `opensearch` and `settings`; search for a person stays with the API |
+| `iam` | Its persistence packages, entities and repositories, the authorization decision, Group scopes and audit readers |
+| `ai` (`ai.ocr`, a named interface) | The reader each Tenant chose, the provider adapters a model reader needs, the catalog's entities and repositories |
+| `chat`, `library`, `mcp` | Chosen beans, unchanged |
+
+Decisions:
+
+- **The name stays `WorkerComponents`**, not `WorkerConfiguration` as first planned: five such classes existed and [ADR 0015](../../../decisions/0015-capability-module-map.md) records the convention. The class is deliberately not a component, so the API, which scans all of `io.memoryos`, registers each bean once.
+- **A module run whole is scanned whole.** Choosing beans inside a module is what broke; `ai`, `chat`, `library`, `mcp`, `iam` and `retrieval` stay narrow, as they were: the Worker runs a part of each, and the rest of `ai` needs Embabel's agent platform (`ModelCalls`), which only the API starts.
+- **A module names its own entities and repositories** with `@EntityScan` and `@EnableJpaRepositories`, so `core` takes `spring-boot-persistence`. The API still lists every module's JPA packages in its own configuration; moving that to the modules is a separate change.
+- **`SearchProjectionMaintenance` moved to `ingestion`'s root**: the Worker schedules its reconcile and rebuild, so it is part of what the module publishes.
+- **`WorkerDependencyRulesTest`** holds the Worker to it: no dependency on a module's `application` or `persistence` package, no scan beyond its own package, no entity or repository package list, and no import from `core` but a `WorkerComponents` class. A role switch on each bean, as ThingsBoard does with `@TbCoreComponent`, was not chosen: the API and the Worker are already two applications, and a forgotten annotation would fail silently.
 
 ## Left out
 
