@@ -31,6 +31,7 @@ dependencies {
     testImplementation(libs.aws.sdk.auth)
     testImplementation(libs.aws.sdk.url.connection.client)
     testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.archunit.junit5)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.boot.restclient)
     testImplementation(libs.testcontainers.junit.jupiter)

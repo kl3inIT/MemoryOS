@@ -1,4 +1,4 @@
-package io.memoryos.ingestion.application;
+package io.memoryos.ingestion;
 
 import io.memoryos.connector.SourceAclChanged;
 import io.memoryos.connector.SourceAccessChanged;
@@ -7,6 +7,7 @@ import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
+import io.memoryos.ingestion.application.SearchIngestionCoordinator;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.retrieval.SearchIndex;
 import io.micrometer.core.instrument.MeterRegistry;
