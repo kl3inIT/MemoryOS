@@ -6,10 +6,11 @@ import { useFieldValidity } from "@/components/form/form-context";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FieldDescription, FieldError } from "@/components/ui/field";
+import { FieldError } from "@/components/ui/field";
 import type { LarkCredentialResponse } from "@/lib/hey-api/types.gen";
 import { SetupSection } from "@/features/sources/shared/setup-section";
 import { SourceAccessField, SourceGroupsField } from "@/features/sources/shared/source-form-fields";
+import { sourceAccessPresentation } from "@/features/sources/shared/source-status-presentation";
 import { formatSyncInterval } from "@/features/sources/shared/sync-interval";
 import { LarkMissingScopes } from "./lark-app-guide";
 import { LarkScopeFields } from "./lark-scope-fields";
@@ -134,7 +135,7 @@ export function LarkAccessStep({
           {() => (
             <SourceAccessField
               label={ui("Visibility")}
-              modes={scoped ? ["PRIVATE"] : ["PRIVATE", "PUBLIC"]}
+              modes={scoped ? ["SYNC", "PRIVATE"] : ["SYNC", "PRIVATE", "PUBLIC"]}
               disabled={controlsDisabled}
             />
           )}
@@ -142,24 +143,17 @@ export function LarkAccessStep({
         <form.Subscribe selector={(state) => state.values.access === "PRIVATE"}>
           {(groupAccess) =>
             groupAccess ? (
-              <div className="flex flex-col gap-2">
-                <form.AppField name="groupIds">
-                  {() => (
-                    <SourceGroupsField
-                      label={ui("Access groups")}
-                      placeholder={
-                        scoped ? ui("Select at least one group you manage.") : ui("Select groups")
-                      }
-                      disabled={controlsDisabled}
-                    />
-                  )}
-                </form.AppField>
-                <FieldDescription>
-                  {ui(
-                    "Group members can search and read what this Source imports. Lark's own sharing is not synchronized.",
-                  )}
-                </FieldDescription>
-              </div>
+              <form.AppField name="groupIds">
+                {() => (
+                  <SourceGroupsField
+                    label={ui("Access groups")}
+                    placeholder={
+                      scoped ? ui("Select at least one group you manage.") : ui("Select groups")
+                    }
+                    disabled={controlsDisabled}
+                  />
+                )}
+              </form.AppField>
             ) : null
           }
         </form.Subscribe>
@@ -242,7 +236,9 @@ export function LarkReviewStep({
             <ReviewFact label={ui("Visibility")}>
               {values.access === "PUBLIC"
                 ? ui("Public · everyone in this organization")
-                : ui("Private · selected group members")}
+                : values.access === "SYNC"
+                  ? ui(sourceAccessPresentation.SYNC.label)
+                  : ui("Private · selected group members")}
             </ReviewFact>
             {values.access === "PRIVATE" ? (
               <ReviewFact label={ui("Access groups")}>

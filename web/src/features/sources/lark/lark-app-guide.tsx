@@ -21,6 +21,11 @@ const SCOPES = [
   { name: "sheets:spreadsheet:readonly", why: "Read spreadsheets" },
   { name: "docs:permission.member:retrieve", why: "Read who a document is shared with" },
   { name: "im:chat:readonly", why: "Read the members of a group a document is shared with" },
+  {
+    name: "contact:user.base:readonly",
+    why: "Read the members of a department a document is shared with",
+  },
+  { name: "contact:user.email:readonly", why: "Match Lark people to MemoryOS accounts by email" },
 ] as const;
 
 /** What an administrator does in the Lark Developer Console before a credential can be verified. */
@@ -45,6 +50,11 @@ export function LarkAppGuide() {
             <li>
               {ui(
                 "Under Permissions & Scopes, add the scopes below as app identity scopes, then publish a version of the app.",
+              )}
+            </li>
+            <li>
+              {ui(
+                "When publishing, set the app's availability to all members, so it can read every department.",
               )}
             </li>
             <li>{ui("Copy the App ID and App Secret from Credentials & Basic Info.")}</li>

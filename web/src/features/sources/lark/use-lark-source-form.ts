@@ -6,7 +6,7 @@ import { emptyLarkScopeDraft, type LarkScopeDraft } from "./lark-scope";
 
 type LarkSourceValues = {
   sourceName: string;
-  access: "PUBLIC" | "PRIVATE";
+  access: "PUBLIC" | "PRIVATE" | "SYNC";
   groupIds: ReadonlySet<string>;
   scope: LarkScopeDraft;
 };
@@ -38,7 +38,7 @@ export function useLarkSourceForm({
     validators: {
       onDynamic: z.object({
         sourceName: zCreateLarkSourceRequest.shape.name,
-        access: z.enum(["PUBLIC", "PRIVATE"]),
+        access: z.enum(["PUBLIC", "PRIVATE", "SYNC"]),
         groupIds: z.custom<ReadonlySet<string>>(),
         scope: z.custom<LarkScopeDraft>(),
       }),

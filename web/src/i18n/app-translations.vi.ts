@@ -2762,8 +2762,6 @@ Object.assign(englishUi, {
   "e.g. Acme Lark": "ví dụ: Lark Acme",
   "e.g. Sales Wiki": "ví dụ: Wiki Kinh doanh",
   Granted: "Đã cấp",
-  "Group members can search and read what this Source imports. Lark's own sharing is not synchronized.":
-    "Thành viên nhóm được tìm kiếm và đọc nội dung Nguồn này nhập về. Quyền chia sẻ của Lark không được đồng bộ.",
   "In the Lark Developer Console, create a custom app for your organization and enable its bot.":
     "Trong Lark Developer Console, tạo một custom app cho tổ chức và bật bot của nó.",
   "Index Wiki spaces, Docs, Sheets and Drive files from Lark.":
@@ -2858,4 +2856,10 @@ Object.assign(englishUi, {
     "{{v1}} đã được Lark xác minh và App Secret đã được thay.",
   "{{v1}} was verified with Lark and is ready to use with a Source.":
     "{{v1}} đã được Lark xác minh và sẵn sàng dùng cho một Nguồn.",
+  "Read the members of a department a document is shared with":
+    "Đọc thành viên của phòng ban được chia sẻ tài liệu",
+  "Match Lark people to MemoryOS accounts by email":
+    "Ghép người dùng Lark với tài khoản MemoryOS theo email",
+  "When publishing, set the app's availability to all members, so it can read every department.":
+    "Khi phát hành, đặt phạm vi sử dụng app là mọi thành viên để app đọc được mọi phòng ban.",
 });
