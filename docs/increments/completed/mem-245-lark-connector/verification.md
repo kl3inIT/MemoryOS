@@ -49,4 +49,8 @@ read. Three faults were found and fixed after:
 - the scope table of the credential guide cut each scope name short, so it could not be read before copying;
 - the sentence under the Drive folder field repeated what its placeholder shows.
 
-The fixed screens have not been looked at on staging again; that needs the release that carries them.
+Release `1c2f2244` (pull request #585) carried the fixes and was looked at again the same day: the summary names
+Lark and explains its rule, every scope name of the guide is shown whole, and the sheet, indexed again, is found as
+`Bảng giá dịch vụ 2026`.
+
+Not verified: chat grounding on Lark documents, Feishu, and a tenant larger than the test tenant.
