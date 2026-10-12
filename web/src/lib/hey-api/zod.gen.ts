@@ -3540,6 +3540,12 @@ export const zIntermediateReportCitationsEvent = z.object({
     citations: z.array(zResearchCitation)
 });
 
+export const zWaitingEvent = z.object({
+    assistantMessageId: z.uuid(),
+    sequence: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    waiting: z.boolean()
+});
+
 export const zChatBranch = z.object({
     id: z.uuid().optional(),
     parentMessageId: z.uuid().nullish(),
@@ -7282,7 +7288,8 @@ export const zStreamChatMessageResponse = z.union([
     zTopLevelBranchingEvent,
     zResearchAgentStartEvent,
     zIntermediateReportEvent,
-    zIntermediateReportCitationsEvent
+    zIntermediateReportCitationsEvent,
+    zWaitingEvent
 ]);
 
 export const zGetChatFeedbackPath = z.object({

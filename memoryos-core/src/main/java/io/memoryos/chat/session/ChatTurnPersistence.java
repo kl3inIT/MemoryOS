@@ -504,11 +504,6 @@ public class ChatTurnPersistence {
     }
 
     @Transactional
-    public int failOrphanedRuns() {
-        return chats.failOrphanedRuns();
-    }
-
-    @Transactional
     public int expireRuns() {
         return chats.expireRuns();
     }

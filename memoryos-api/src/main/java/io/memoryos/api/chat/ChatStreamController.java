@@ -13,6 +13,7 @@ import io.memoryos.api.chat.contract.ResetEvent;
 import io.memoryos.api.chat.contract.TextEvent;
 import io.memoryos.api.chat.contract.ToolEvent;
 import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
+import io.memoryos.api.chat.contract.WaitingEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.streaming.ChatStreamProperties;
@@ -63,7 +64,7 @@ class ChatStreamController {
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(operationId = "streamChatMessage", summary = "Read or resume reply events; reset requires persisted history",
             description = "Events: text, reasoning, tool, image, code, research_plan, top_level_branching, research_agent_start, "
-                    + "intermediate_report, intermediate_report_citations, outcome, reset. Content event id is assistantMessageId:sequence. "
+                    + "intermediate_report, intermediate_report_citations, waiting, outcome, reset. Content event id is assistantMessageId:sequence. "
                     + "Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.")
     @ApiResponse(responseCode = "200", description = "SSE frames; the schema describes each data payload",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
@@ -72,7 +73,8 @@ class ChatStreamController {
                             ImageEvent.class, CodeEvent.class,
                             ResearchPlanEvent.class,
                             TopLevelBranchingEvent.class, ResearchAgentStartEvent.class,
-                            IntermediateReportEvent.class, IntermediateReportCitationsEvent.class})))
+                            IntermediateReportEvent.class, IntermediateReportCitationsEvent.class,
+                            WaitingEvent.class})))
     ResponseEntity<Flux<ServerSentEvent<Object>>> events(@CurrentActor IdentityContext identity,
             @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
             @RequestHeader(value = "Last-Event-ID", required = false) @Nullable String lastEvent,

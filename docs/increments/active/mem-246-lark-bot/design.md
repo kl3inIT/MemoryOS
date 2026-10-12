@@ -136,9 +136,11 @@ reconciliation of a lapsed lease. Two things assume one process and change:
 
 - `ChatTurnService.failOrphanedRuns` fails every running turn at start. With a second process it would fail the
   other's turns, so it is removed; a turn left by a dead process ends when its lease lapses. The lease becomes
-  three minutes, renewed every thirty seconds, so a session is not held for half an hour.
+  three minutes, renewed every thirty seconds, so a session is not held for half an hour. Delivered in plan
+  step 1.
 - The scheduling of `maintain()` and of the stream flush lives in the API module. It moves into `chat` as the
-  components a process that executes turns imports, as the Worker's components are published.
+  components a process that executes turns imports, as the Worker's components are published, with the
+  deployable that needs it (plan step 3).
 
 Stop, delete and subscribe stay local to the process that owns the turn. A channel session is not listed on the
 web, so the API never stops a turn the channels process runs. This is also the step that lets the API itself run
@@ -149,10 +151,15 @@ as several replicas later; that is not part of this increment.
 Today a turn beyond the process's bound is refused at once (`CHAT_CAPACITY_EXCEEDED`), on the web as well. It
 changes for both: the command is accepted, the reply is reserved, and the run waits its turn in arrival order; the
 stream says it is waiting, and the web shows that instead of an error. A run that waits longer than a minute fails
-with the capacity code. The bounds become 24 turns in the API and 12 in `memoryos-channels`
-(`memoryos.chat.execution.concurrency` of each). A turn is mostly waiting on the model on a virtual thread; the
-numbers are a starting point checked by a load run on staging before production, and the provider's own rate limit
-is the real ceiling.
+with the capacity code.
+
+What a person meets is their own bound: three turns at once (LibreChat ships two), the fourth waiting. The
+process's bound stays as a backstop, not a throttle: 48 turns in the API and 16 in `memoryos-channels`
+(`memoryos.chat.execution.concurrency` of each), where it was 8. Without one, a burst reaches the provider's rate
+limit, the database pool, the stream readers and the spend limit (which counts settled turns only) with worse
+failures than waiting. LibreChat and Onyx set no such bound and are held by their own resources. The numbers are a
+starting point: a load run on staging raises them to what the host and the provider take, and the database pool
+(15) and the stream readers (256) with them.
 
 ### The port
 

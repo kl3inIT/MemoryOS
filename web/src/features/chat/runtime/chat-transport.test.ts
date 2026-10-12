@@ -547,6 +547,25 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     });
   });
 
+  it("reports that the reply waits for a turn and when it has been given one", async () => {
+    fixture(() =>
+      sse(
+        packet(1, "waiting", { waiting: true }) +
+          packet(2, "waiting", { waiting: false }) +
+          packet(3, "text", { text: "Answer" }) +
+          packet(4, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    const waiting = chunks
+      .filter((chunk) => chunk.type === "message-metadata")
+      .map(
+        (chunk) => (chunk as { messageMetadata: { waiting?: boolean } }).messageMetadata.waiting,
+      )
+      .filter((value) => value !== undefined);
+    expect(waiting).toEqual([true, false, false]);
+  });
+
   it("routes deep research progress into one data part and keeps agent steps off the timeline", async () => {
     const tool = {
       source: null,

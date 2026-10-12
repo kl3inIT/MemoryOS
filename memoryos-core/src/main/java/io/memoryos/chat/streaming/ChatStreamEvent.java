@@ -22,12 +22,13 @@ import java.util.UUID;
         @JsonSubTypes.Type(value = ToolProgress.class, name = ToolProgress.TYPE),
         @JsonSubTypes.Type(value = ImageProgress.class, name = ImageProgress.TYPE),
         @JsonSubTypes.Type(value = CodeRun.class, name = CodeRun.TYPE),
+        @JsonSubTypes.Type(value = TurnWaiting.class, name = TurnWaiting.TYPE),
         @JsonSubTypes.Type(value = Outcome.class, name = Outcome.TYPE),
         @JsonSubTypes.Type(value = UnknownEvent.class, name = UnknownEvent.TYPE) })
 @JsonIgnoreProperties(ignoreUnknown = true)
 public sealed interface ChatStreamEvent
         permits TextDelta, Reasoning, ResearchPlan, TopLevelBranching, ResearchAgentStart, IntermediateReport,
-        IntermediateReportCitations, ToolProgress, ImageProgress, CodeRun, Outcome, UnknownEvent {
+        IntermediateReportCitations, ToolProgress, ImageProgress, CodeRun, TurnWaiting, Outcome, UnknownEvent {
     UUID assistantMessageId();
 
     /** Position in the reply, from 1; the Redis entry ID and the browser's resume cursor. */
