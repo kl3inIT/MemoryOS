@@ -24,8 +24,21 @@ public final class Meeting {
     public record Audio(AudioStatus status, @Nullable String failure, @Nullable String filename,
                         long sizeBytes, @Nullable String provider) {}
 
-    /** The audio source of an utterance. */
-    public enum Track { MIC, TAB }
+    /**
+     * How the transcript arrived: recorded here, read from an uploaded recording, or written by the platform the
+     * meeting was held on.
+     */
+    public enum Origin {
+        RECORDED, UPLOADED, GOOGLE_MEET;
+
+        /** A platform wrote the transcript; MemoryOS heard nothing, and the people who attended read it. */
+        public boolean imported() {
+            return this == GOOGLE_MEET;
+        }
+    }
+
+    /** Where an utterance was heard: the owner's microphone, the shared tab, or the platform that transcribed it. */
+    public enum Track { MIC, TAB, IMPORTED }
 
     /** Where a meeting's generated minutes are: never asked for, queued, running, written or given up on. */
     public enum MinutesStatus { NONE, PENDING, RUNNING, READY, FAILED }
@@ -57,7 +70,7 @@ public final class Meeting {
     public enum MinutesField { SUMMARY, TEXT, OWNER, DUE }
 
     public record Summary(UUID id, String title, Kind kind, Status status, int participants, long durationMs,
-                          Instant createdAt, @Nullable Instant endedAt, boolean owned) {}
+                          Instant createdAt, @Nullable Instant endedAt, boolean owned, Origin origin) {}
 
     /** Somebody the meeting is shared with: one member, or every member of one Group. */
     public enum ReaderKind { MEMBER, GROUP }
@@ -69,7 +82,7 @@ public final class Meeting {
                          Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
                          List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned,
                          List<Reader> readers, List<UUID> starred, List<Bookmark> bookmarks,
-                         boolean correcting) {
+                         boolean correcting, Origin origin) {
 
         public Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
                 List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
@@ -77,7 +90,8 @@ public final class Meeting {
                 List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned, List<Reader> readers,
                 List<UUID> starred, List<Bookmark> bookmarks) {
             this(id, title, kind, language, participants, terms, notes, status, provider, diarized, createdAt,
-                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, starred, bookmarks, false);
+                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, starred, bookmarks, false,
+                    Origin.RECORDED);
         }
 
         /** A meeting read for a document rather than for a person carries nobody's marks. */
@@ -87,7 +101,7 @@ public final class Meeting {
                 List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned, List<Reader> readers) {
             this(id, title, kind, language, participants, terms, notes, status, provider, diarized, createdAt,
                     endedAt, revision, speakers, utterances, minutes, audio, owned, readers, List.of(), List.of(),
-                    false);
+                    false, Origin.RECORDED);
         }
     }
 

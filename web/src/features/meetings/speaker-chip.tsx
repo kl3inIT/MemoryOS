@@ -6,9 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import type { MeetingTrack } from "./meeting-socket";
 import { nameMeetingSpeakerMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { patchMeeting, withSpeaker, type MeetingDetail } from "./meetings-api";
+import { patchMeeting, withSpeaker, type MeetingDetail, type SpeakerTrack } from "./meetings-api";
 import { speakerColor, speakerInitial, speakerName } from "./speakers";
 
 /**
@@ -22,7 +21,7 @@ export function SpeakerBadge({
   className,
 }: {
   meeting: MeetingDetail;
-  track: MeetingTrack;
+  track: SpeakerTrack;
   label: string;
   className?: string;
 }) {
@@ -48,7 +47,7 @@ function SpeakerName({
   label,
 }: {
   meeting: MeetingDetail;
-  track: MeetingTrack;
+  track: SpeakerTrack;
   label: string;
 }) {
   const ui = useAppTranslation();
@@ -67,7 +66,7 @@ export function SpeakerChip({
   label,
 }: {
   meeting: MeetingDetail;
-  track: MeetingTrack;
+  track: SpeakerTrack;
   label: string;
 }) {
   const ui = useAppTranslation();

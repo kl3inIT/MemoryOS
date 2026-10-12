@@ -5,8 +5,10 @@ package io.memoryos.meeting.persistence;
  * caller has already checked that the actor is an active member of the Tenant.
  *
  * <p>There are two authorities and no more. The owner recorded the meeting and may do anything with it. Everyone the
- * owner named — a person, or a Group they belong to — may read it. Nothing here grants an edit, so a reader can
- * never rename a speaker, change the notes or delete the recording, and no permission column is needed.
+ * owner named — a person, or a Group they belong to — may read it, and so may everyone the platform says attended
+ * a meeting whose transcript it wrote, matched by their verified login email on every read. Nothing here grants an
+ * edit, so a reader can never rename a speaker, change the notes or delete the recording, and no permission column
+ * is needed.
  */
 public final class MeetingAccessSql {
     private MeetingAccessSql() {}
@@ -21,5 +23,10 @@ public final class MeetingAccessSql {
                         JOIN iam_group_memberships share_member
                           ON share_member.tenant_id = group_share.tenant_id AND share_member.group_id = group_share.group_id
                          AND share_member.actor_id = :actor
-                        WHERE group_share.tenant_id = m.tenant_id AND group_share.meeting_id = m.id))""";
+                        WHERE group_share.tenant_id = m.tenant_id AND group_share.meeting_id = m.id)
+             OR EXISTS (SELECT 1 FROM meeting_attendee attendee
+                        JOIN actor_profiles attendee_profile
+                          ON attendee_profile.email_verified AND lower(attendee_profile.email) = attendee.email
+                        WHERE attendee.tenant_id = m.tenant_id AND attendee.meeting_id = m.id
+                          AND attendee_profile.actor_id = :actor))""";
 }

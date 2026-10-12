@@ -215,7 +215,7 @@ export type MeetingSpeakerRequest = {
 };
 
 export type MeetingSpeaker = {
-    track: 'MIC' | 'TAB';
+    track: 'MIC' | 'TAB' | 'IMPORTED';
     label: string;
     name: string | null;
     /**
@@ -1889,6 +1889,10 @@ export type MeetingDetail = {
      * Whether a correction pass is running on this meeting right now
      */
     correcting: boolean;
+    /**
+     * How the transcript arrived: recorded, uploaded, or written by a meeting platform
+     */
+    origin: 'RECORDED' | 'UPLOADED' | 'GOOGLE_MEET';
 };
 
 /**
@@ -1917,7 +1921,7 @@ export type MeetingMinutes = {
 
 export type MeetingUtterance = {
     id: string;
-    track: 'MIC' | 'TAB';
+    track: 'MIC' | 'TAB' | 'IMPORTED';
     speaker: string;
     startMs: number;
     endMs: number;
@@ -1976,7 +1980,7 @@ export type MeetingCorrectionApplied = {
 };
 
 export type MeetingTicketRequest = {
-    track: 'MIC' | 'TAB';
+    track: 'MIC' | 'TAB' | 'IMPORTED';
 };
 
 /**
@@ -2888,6 +2892,10 @@ export type MeetingSummary = {
      * Whether the member recorded it, as opposed to being shared it
      */
     owned: boolean;
+    /**
+     * How the transcript arrived: recorded, uploaded, or written by a meeting platform
+     */
+    origin: 'RECORDED' | 'UPLOADED' | 'GOOGLE_MEET';
 };
 
 /**
@@ -4587,7 +4595,7 @@ export type NameMeetingSpeakerData = {
     body: MeetingSpeakerRequest;
     path: {
         meetingId: string;
-        track: 'MIC' | 'TAB';
+        track: 'MIC' | 'TAB' | 'IMPORTED';
         label: string;
     };
     query?: never;
@@ -18960,7 +18968,7 @@ export type DismissMeetingSpeakerSuggestionData = {
     body?: never;
     path: {
         meetingId: string;
-        track: 'MIC' | 'TAB';
+        track: 'MIC' | 'TAB' | 'IMPORTED';
         label: string;
     };
     query?: never;

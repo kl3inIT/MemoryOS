@@ -50,6 +50,7 @@ function failed(failure: string | null): MeetingDetail {
     starred: [],
     bookmarks: [],
     correcting: false,
+    origin: "RECORDED",
   };
 }
 

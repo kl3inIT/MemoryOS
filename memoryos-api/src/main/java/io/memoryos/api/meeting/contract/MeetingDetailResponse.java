@@ -40,7 +40,10 @@ public record MeetingDetailResponse(@Schema(requiredMode = Schema.RequiredMode.R
                                     List<MeetingBookmarkResponse> bookmarks,
                                     @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                                             description = "Whether a correction pass is running on this meeting right now")
-                                    boolean correcting) {
+                                    boolean correcting,
+                                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                            description = "How the transcript arrived: recorded, uploaded, or written by a meeting platform")
+                                    Meeting.Origin origin) {
     public static MeetingDetailResponse from(Meeting.Detail detail) {
         return new MeetingDetailResponse(detail.id(), detail.title(), detail.kind(), detail.language(), detail.participants(),
                 detail.terms(), detail.notes(), detail.status(), detail.provider(), detail.diarized(), detail.createdAt(),
@@ -49,6 +52,7 @@ public record MeetingDetailResponse(@Schema(requiredMode = Schema.RequiredMode.R
                 detail.utterances().stream().map(MeetingUtteranceResponse::from).toList(),
                 MeetingMinutesResponse.from(detail.minutes()), MeetingAudioResponse.from(detail.audio()), detail.owned(),
                 detail.readers().stream().map(MeetingReaderResponse::from).toList(), detail.starred(),
-                detail.bookmarks().stream().map(MeetingBookmarkResponse::from).toList(), detail.correcting());
+                detail.bookmarks().stream().map(MeetingBookmarkResponse::from).toList(), detail.correcting(),
+                detail.origin());
     }
 }

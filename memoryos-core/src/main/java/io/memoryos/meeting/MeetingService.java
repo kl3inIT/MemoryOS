@@ -95,9 +95,18 @@ public class MeetingService {
         return meetings.list(tenant(actor), actor.value(), MAX_LIST);
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * The meeting as the caller reads it. A transcript a platform wrote has no minutes until its owner opens it: most
+     * imported meetings are never read, and each run of the minutes is a model call.
+     */
+    @Transactional
     public Meeting.Detail get(ActorId actor, UUID id) {
-        return readable(tenant(actor), actor, id);
+        UUID tenant = tenant(actor);
+        var meeting = readable(tenant, actor, id);
+        boolean firstOpen = meeting.owned() && meeting.origin().imported()
+                && meeting.minutes().status() == Meeting.MinutesStatus.NONE && !meeting.utterances().isEmpty();
+        if (!firstOpen || !meetings.queueFirstMinutes(tenant, id)) return meeting;
+        return readable(tenant, actor, id);
     }
 
     /**
@@ -503,6 +512,8 @@ public class MeetingService {
 
     private static void requireRecordable(MeetingRepository.Row meeting, Meeting.Track track) {
         if (meeting.status() != Meeting.Status.RECORDING) throw MeetingException.ended();
+        if (track == Meeting.Track.IMPORTED)
+            throw MeetingException.invalid("A meeting records its microphone or its tab.");
         if (meeting.kind() == Meeting.Kind.IN_PERSON && track == Meeting.Track.TAB)
             throw MeetingException.invalid("An in-person meeting records the microphone only.");
     }
@@ -599,7 +610,8 @@ public class MeetingService {
                 new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
                         row.audioProvider()),
                 row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of(),
-                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor), row.correcting());
+                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor), row.correcting(),
+                row.origin());
     }
 
     /** The Tenant the actor is writing in; correction runs need it to bill the model call. */

@@ -12,6 +12,29 @@ Only the owner records, renames a speaker, writes notes, ends the meeting, rerun
 
 A reader opens the meeting while it records and after it ends: the transcript as it arrives, the speaker names, the minutes and the biên bản. They do not get the owner's private notes, which read as empty, nor the list of readers. `owned` on the meeting and on every list row says which of the two the caller is.
 
+## A transcript a platform wrote
+
+A meeting carries its `origin`: `RECORDED`, `UPLOADED` once a recording is reserved for it, or `GOOGLE_MEET` when the
+platform it was held on wrote the transcript ([MEM-169](../increments/active/mem-169-meeting-transcript-connectors/design.md)).
+No platform is connected yet: `MeetingImportService.importTranscript` is what a platform adapter will call, and
+nothing calls it today.
+
+An imported meeting is stored already `ENDED`, at the start and end time the platform gives, owned by an active
+member, with every voice on the `IMPORTED` track named as the platform names it and those names as its participants.
+Its lines carry confidence 1 and no uncertain stretches, so no correction pass is offered. A title loses its control
+characters and is cut at 200, a line at 20,000; a language other than `vi` or `en` is left unset. A platform
+conference is imported once (`meeting_external_record`, Flyway V155): asked again, or after its owner deleted the
+meeting, it is not imported again. A transcript nobody spoke in, and an owner who is not an active member, import
+nothing.
+
+The people the platform says attended read it. Their addresses are kept lower-case in `meeting_attendee`, at most
+1,000 a meeting, and a reader matches by verified login email on every read
+([ADR 0011](../decisions/0011-verified-email-source-permission-matching.md)): an unverified address matches nobody,
+and no administrative capability reads a meeting. An attendee is a reader like anyone the owner shared it with.
+
+Importing runs no model. The minutes are queued when the owner first opens the meeting; an attendee who opens it
+first reads the transcript without minutes.
+
 ## Meeting
 
 | Field | Rule |

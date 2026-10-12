@@ -1,13 +1,12 @@
 import type { useAppTranslation } from "@/i18n/use-app-translation";
-import type { MeetingTrack } from "./meeting-socket";
-import type { MeetingDetail } from "./meetings-api";
+import type { MeetingDetail, SpeakerTrack } from "./meetings-api";
 
 type Translate = ReturnType<typeof useAppTranslation>;
 
 /** Online, the microphone is the owner; every other voice is a numbered speaker until someone names it. */
 export function speakerName(
   meeting: MeetingDetail,
-  track: MeetingTrack,
+  track: SpeakerTrack,
   label: string,
   ui: Translate,
 ) {
@@ -25,7 +24,7 @@ export function speakerName(
  */
 export function speakerInitial(
   meeting: MeetingDetail,
-  track: MeetingTrack,
+  track: SpeakerTrack,
   label: string,
   ui: Translate,
 ) {
@@ -48,7 +47,7 @@ const SPEAKER_COLORS = [
   "bg-speaker-6",
 ];
 
-export function speakerColor(meeting: MeetingDetail, track: MeetingTrack, label: string) {
+export function speakerColor(meeting: MeetingDetail, track: SpeakerTrack, label: string) {
   const index = meeting.speakers.findIndex(
     (speaker) => speaker.track === track && speaker.label === label,
   );

@@ -208,7 +208,11 @@ export const zMeetingSpeakerSuggestion = z.object({
 });
 
 export const zMeetingSpeaker = z.object({
-    track: z.enum(['MIC', 'TAB']),
+    track: z.enum([
+        'MIC',
+        'TAB',
+        'IMPORTED'
+    ]),
     label: z.string(),
     name: z.string().nullable(),
     suggestion: zMeetingSpeakerSuggestion.optional()
@@ -1804,7 +1808,11 @@ export const zMeetingUtteranceSpan = z.object({
 
 export const zMeetingUtterance = z.object({
     id: z.uuid(),
-    track: z.enum(['MIC', 'TAB']),
+    track: z.enum([
+        'MIC',
+        'TAB',
+        'IMPORTED'
+    ]),
     speaker: z.string(),
     startMs: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     endMs: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
@@ -1840,7 +1848,12 @@ export const zMeetingDetail = z.object({
     readers: z.array(zMeetingReader),
     starred: z.array(z.uuid()),
     bookmarks: z.array(zMeetingBookmark),
-    correcting: z.boolean()
+    correcting: z.boolean(),
+    origin: z.enum([
+        'RECORDED',
+        'UPLOADED',
+        'GOOGLE_MEET'
+    ])
 });
 
 /**
@@ -1885,7 +1898,11 @@ export const zMeetingCorrectionApplied = z.object({
 });
 
 export const zMeetingTicketRequest = z.object({
-    track: z.enum(['MIC', 'TAB'])
+    track: z.enum([
+        'MIC',
+        'TAB',
+        'IMPORTED'
+    ])
 });
 
 /**
@@ -2857,7 +2874,12 @@ export const zMeetingSummary = z.object({
     durationMs: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     createdAt: z.iso.datetime(),
     endedAt: z.iso.datetime().nullable(),
-    owned: z.boolean()
+    owned: z.boolean(),
+    origin: z.enum([
+        'RECORDED',
+        'UPLOADED',
+        'GOOGLE_MEET'
+    ])
 });
 
 /**
@@ -4228,7 +4250,11 @@ export const zNameMeetingSpeakerBody = zMeetingSpeakerRequest;
 
 export const zNameMeetingSpeakerPath = z.object({
     meetingId: z.uuid(),
-    track: z.enum(['MIC', 'TAB']),
+    track: z.enum([
+        'MIC',
+        'TAB',
+        'IMPORTED'
+    ]),
     label: z.string()
 });
 
@@ -7992,7 +8018,11 @@ export const zListAiCostBreakdownResponse = z.array(zAiCostRow);
 
 export const zDismissMeetingSpeakerSuggestionPath = z.object({
     meetingId: z.uuid(),
-    track: z.enum(['MIC', 'TAB']),
+    track: z.enum([
+        'MIC',
+        'TAB',
+        'IMPORTED'
+    ]),
     label: z.string()
 });
 

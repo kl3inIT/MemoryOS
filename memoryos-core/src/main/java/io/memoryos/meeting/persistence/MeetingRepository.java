@@ -38,7 +38,7 @@ public class MeetingRepository {
                    m.diarized, m.created_at, m.ended_at, m.revision, m.minutes_status, m.minutes_failure,
                    m.minutes_summary, m.minutes_kind, m.minutes_generated_at, m.audio_status, m.audio_failure,
                    m.audio_filename, m.audio_size_bytes, m.audio_provider, %s AS owned, m.minutes_edited,
-                   (m.correction_running_until > now()) IS TRUE AS correcting
+                   (m.correction_running_until > now()) IS TRUE AS correcting, m.origin
             FROM meeting m
             """;
     private static final String UTTERANCE = "id, track, speaker, start_ms, end_ms, text, confidence, spans, edit_source";
@@ -58,7 +58,8 @@ public class MeetingRepository {
                       @Nullable String minutesFailure, String minutesSummary, String minutesKind,
                       @Nullable Instant minutesGeneratedAt, Meeting.AudioStatus audioStatus,
                       @Nullable String audioFailure, @Nullable String audioFilename, long audioSizeBytes,
-                      @Nullable String audioProvider, boolean owned, boolean minutesEdited, boolean correcting) {}
+                      @Nullable String audioProvider, boolean owned, boolean minutesEdited, boolean correcting,
+                      Meeting.Origin origin) {}
 
     /** One meeting this replica leased to write minutes for. */
     public record MinutesClaim(UUID tenant, UUID id, UUID owner, int attempts) implements LeasedJob.Claim {}
@@ -79,6 +80,56 @@ public class MeetingRepository {
                 .param("kind", draft.kind().name()).param("language", draft.language())
                 .param("participants", JSON.writeValueAsString(draft.participants()))
                 .param("terms", JSON.writeValueAsString(draft.terms())).update();
+    }
+
+    /**
+     * Claims one platform conference for import. False means it was looked at before, whether or not the meeting it
+     * became still exists.
+     */
+    public boolean claimExternal(UUID tenant, Meeting.Origin origin, String externalId) {
+        return jdbc.sql("""
+                INSERT INTO meeting_external_record(tenant_id, origin, external_id)
+                VALUES (:tenant, :origin, :external) ON CONFLICT DO NOTHING
+                """).param("tenant", tenant).param("origin", origin.name()).param("external", externalId).update() == 1;
+    }
+
+    /**
+     * Stores a meeting a platform transcribed: already ended, at the times the platform gives, with its voices named
+     * as the platform names them and the people who attended. Its minutes wait for the owner to open it.
+     */
+    public void insertImported(UUID tenant, UUID id, UUID owner, Meeting.Origin origin, String externalId,
+                               Meeting.Draft draft, Instant startedAt, Instant endedAt, List<Meeting.Speaker> speakers,
+                               List<Meeting.Utterance> utterances, List<String> attendees) {
+        jdbc.sql("""
+                INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, origin, status,
+                                    created_at, ended_at, updated_at)
+                VALUES (:tenant, :id, :owner, :title, :kind, :language, CAST(:participants AS jsonb), :origin, 'ENDED',
+                        :started, :ended, :ended)
+                """).param("tenant", tenant).param("id", id).param("owner", owner).param("title", draft.title())
+                .param("kind", draft.kind().name()).param("language", draft.language())
+                .param("participants", JSON.writeValueAsString(draft.participants())).param("origin", origin.name())
+                .param("started", Timestamp.from(startedAt)).param("ended", Timestamp.from(endedAt)).update();
+        jdbc.sql("""
+                INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name)
+                SELECT :tenant, :meeting, voice.track, voice.label, voice.name
+                FROM unnest(CAST(:tracks AS text[]), CAST(:labels AS text[]), CAST(:names AS text[]))
+                         AS voice(track, label, name)
+                """).param("tenant", tenant).param("meeting", id)
+                .param("tracks", texts(speakers, speaker -> speaker.track().name()))
+                .param("labels", texts(speakers, Meeting.Speaker::label))
+                .param("names", texts(speakers, Meeting.Speaker::name)).update();
+        insertUtterances(tenant, id, utterances);
+        if (!attendees.isEmpty())
+            jdbc.sql("""
+                    INSERT INTO meeting_attendee(tenant_id, meeting_id, email)
+                    SELECT :tenant, :meeting, email FROM unnest(CAST(:emails AS text[])) AS email
+                    """).param("tenant", tenant).param("meeting", id)
+                    .param("emails", attendees.toArray(String[]::new)).update();
+        jdbc.sql("""
+                UPDATE meeting_external_record SET meeting_id = :meeting
+                WHERE tenant_id = :tenant AND origin = :origin AND external_id = :external
+                """).param("tenant", tenant).param("meeting", id).param("origin", origin.name())
+                .param("external", externalId).update();
     }
 
     public Optional<Row> find(UUID tenant, UUID owner, UUID id) {
@@ -107,14 +158,14 @@ public class MeetingRepository {
                 SELECT m.id, m.title, m.kind, m.status, jsonb_array_length(m.participants) AS participants,
                        COALESCE((SELECT max(u.end_ms) FROM meeting_utterance u
                                  WHERE u.tenant_id = m.tenant_id AND u.meeting_id = m.id), 0) AS duration_ms,
-                       m.created_at, m.ended_at, (m.owner_actor_id = :actor) AS owned
+                       m.created_at, m.ended_at, (m.owner_actor_id = :actor) AS owned, m.origin
                 FROM meeting m WHERE m.tenant_id = :tenant AND %s
                 ORDER BY m.created_at DESC, m.id LIMIT :limit
                 """.formatted(MeetingAccessSql.READS)).param("tenant", tenant).param("actor", actor).param("limit", limit)
                 .query((r, ignored) -> new Meeting.Summary(r.getObject("id", UUID.class), r.getString("title"),
                         Meeting.Kind.valueOf(r.getString("kind")), Meeting.Status.valueOf(r.getString("status")),
                         r.getInt("participants"), r.getLong("duration_ms"), instant(r, "created_at"),
-                        instant(r, "ended_at"), r.getBoolean("owned")))
+                        instant(r, "ended_at"), r.getBoolean("owned"), Meeting.Origin.valueOf(r.getString("origin"))))
                 .list();
     }
 
@@ -372,6 +423,17 @@ public class MeetingRepository {
     }
 
     /**
+     * Queues the minutes of a meeting a platform transcribed, the first time its owner opens it. False when they
+     * were asked for before, so opening it again never throws away what the owner corrected.
+     */
+    public boolean queueFirstMinutes(UUID tenant, UUID meeting) {
+        return jdbc.sql("""
+                UPDATE meeting SET minutes_status = 'PENDING', minutes_attempts = 0, minutes_lease_until = NULL
+                WHERE tenant_id = :tenant AND id = :meeting AND minutes_status = 'NONE' AND status = 'ENDED'
+                """).param("tenant", tenant).param("meeting", meeting).update() == 1;
+    }
+
+    /**
      * Takes the oldest meeting waiting for minutes, or one whose lease lapsed, and leases it to this replica. The
      * attempt count rises on every claim, so a meeting that keeps failing stops being retried.
      */
@@ -558,7 +620,7 @@ public class MeetingRepository {
                 UPDATE meeting SET audio_upload_id = :upload, audio_filename = :filename,
                        audio_media_type = :mediaType, audio_size_bytes = :size, audio_provider = :provider,
                        audio_status = 'WAITING', audio_attempts = 0, audio_lease_until = NULL, audio_failure = NULL,
-                       status = 'TRANSCRIBING', updated_at = CURRENT_TIMESTAMP, revision = revision + 1
+                       origin = 'UPLOADED', status = 'TRANSCRIBING', updated_at = CURRENT_TIMESTAMP, revision = revision + 1
                 WHERE tenant_id = :tenant AND id = :meeting
                 """).param("tenant", tenant).param("meeting", meeting).param("upload", uploadId)
                 .param("filename", filename).param("mediaType", mediaType).param("size", sizeBytes)
@@ -960,7 +1022,8 @@ public class MeetingRepository {
                 r.getString("minutes_summary"), r.getString("minutes_kind"), instant(r, "minutes_generated_at"),
                 Meeting.AudioStatus.valueOf(r.getString("audio_status")), r.getString("audio_failure"),
                 r.getString("audio_filename"), r.getLong("audio_size_bytes"), r.getString("audio_provider"),
-                r.getBoolean("owned"), r.getBoolean("minutes_edited"), r.getBoolean("correcting"));
+                r.getBoolean("owned"), r.getBoolean("minutes_edited"), r.getBoolean("correcting"),
+                Meeting.Origin.valueOf(r.getString("origin")));
     }
 
     private static Meeting.@Nullable EditSource editSource(ResultSet r) throws SQLException {

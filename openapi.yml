@@ -783,6 +783,7 @@ paths:
           enum:
           - MIC
           - TAB
+          - IMPORTED
       - name: label
         in: path
         required: true
@@ -20686,6 +20687,7 @@ paths:
           enum:
           - MIC
           - TAB
+          - IMPORTED
       - name: label
         in: path
         required: true
@@ -22596,6 +22598,7 @@ components:
           enum:
           - MIC
           - TAB
+          - IMPORTED
         label:
           type: string
         name:
@@ -26761,6 +26764,14 @@ components:
           type: boolean
           description: Whether a correction pass is running on this meeting right
             now
+        origin:
+          type: string
+          description: "How the transcript arrived: recorded, uploaded, or written\
+            \ by a meeting platform"
+          enum:
+          - RECORDED
+          - UPLOADED
+          - GOOGLE_MEET
       required:
       - audio
       - bookmarks
@@ -26773,6 +26784,7 @@ components:
       - language
       - minutes
       - notes
+      - origin
       - owned
       - participants
       - provider
@@ -26849,6 +26861,7 @@ components:
           enum:
           - MIC
           - TAB
+          - IMPORTED
         speaker:
           type: string
         startMs:
@@ -26994,6 +27007,7 @@ components:
           enum:
           - MIC
           - TAB
+          - IMPORTED
       required:
       - track
     MeetingTicket:
@@ -29490,12 +29504,21 @@ components:
           type: boolean
           description: "Whether the member recorded it, as opposed to being shared\
             \ it"
+        origin:
+          type: string
+          description: "How the transcript arrived: recorded, uploaded, or written\
+            \ by a meeting platform"
+          enum:
+          - RECORDED
+          - UPLOADED
+          - GOOGLE_MEET
       required:
       - createdAt
       - durationMs
       - endedAt
       - id
       - kind
+      - origin
       - owned
       - participants
       - status

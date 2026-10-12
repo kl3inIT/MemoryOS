@@ -18,9 +18,12 @@ public record MeetingSummaryResponse(@Schema(requiredMode = Schema.RequiredMode.
                                      @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Instant endedAt,
                                      @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                                              description = "Whether the member recorded it, as opposed to being shared it")
-                                     boolean owned) {
+                                     boolean owned,
+                                     @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                             description = "How the transcript arrived: recorded, uploaded, or written by a meeting platform")
+                                     Meeting.Origin origin) {
     public static MeetingSummaryResponse from(Meeting.Summary summary) {
         return new MeetingSummaryResponse(summary.id(), summary.title(), summary.kind(), summary.status(), summary.participants(),
-                summary.durationMs(), summary.createdAt(), summary.endedAt(), summary.owned());
+                summary.durationMs(), summary.createdAt(), summary.endedAt(), summary.owned(), summary.origin());
     }
 }

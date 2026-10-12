@@ -36,6 +36,8 @@ export type {
   MeetingTranscriber,
 };
 export type MeetingKind = MeetingDetail["kind"];
+/** Where a line was heard: a track this browser recorded, or the platform that wrote the transcript. */
+export type SpeakerTrack = MeetingSpeaker["track"];
 
 /** The cached meeting with its transcript, as the meeting page reads it. */
 export const meetingQueryKey = (meetingId: string) => getMeetingQueryKey({ path: { meetingId } });
@@ -277,8 +279,11 @@ export function saveDocument(document: Blob, name: string) {
 /** Where each track's recording left off, so a meeting reopened after a closed tab continues its clock. */
 export function trackOffsets(meeting: MeetingDetail): Record<MeetingTrack, number> {
   const offsets: Record<MeetingTrack, number> = { MIC: 0, TAB: 0 };
-  for (const utterance of meeting.utterances)
+  for (const utterance of meeting.utterances) {
+    // A line a platform wrote was never recorded here, so it moves no track's clock.
+    if (utterance.track === "IMPORTED") continue;
     offsets[utterance.track] = Math.max(offsets[utterance.track], utterance.endMs);
+  }
   return offsets;
 }
 

@@ -69,6 +69,7 @@ function meeting(): MeetingDetail {
     starred: [],
     bookmarks: [],
     correcting: false,
+    origin: "RECORDED",
   };
 }
 
