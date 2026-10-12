@@ -30,28 +30,30 @@
   Lark refused at the last verification are kept on the credential, so the list names them without a new test.
 - [x] API controller and contract; `openapi.yml` extended by hand from the SharePoint entries and the web client
   generated from it (`OpenApiContractTest` runs in CI).
-- [ ] Web credential section with the scope guide (with the setup page of step 4).
+- [x] Web credential section with the scope guide (`web/src/features/sources/lark/`).
 
 ## 4. Selection and Source
 
-- [ ] Migration: `SourceType.LARK` in every CHECK and SQL switch, `lark_sources`, `lark_roots`,
+- [x] Migration `V153`: `SourceType.LARK` in every CHECK and SQL switch, `lark_sources`, `lark_roots`,
   `lark_selection_details`, `lark_selection_entries`, `VALIDATE_LARK_SELECTION`.
-- [ ] `LarkSourceService`, `LarkSelectionAdapter`; API and web setup page and panel.
+- [x] `LarkSourceService`, `LarkSelectionAdapter`; API and web setup page and panel.
 
 ## 5. Synchronization
 
-- [ ] Migration: `lark_items`, `lark_sync_runs`, input formats `LARK_DOCX` and `LARK_SHEET`.
-- [ ] `LarkSyncAdapter` (walk, checkpoint, acquire, prune, classify), registered for `SourceType.LARK`.
-- [ ] Docx and Sheet extractors in the extractor router.
-- [ ] Merge point: Sources sync with PUBLIC and PRIVATE access (`permissionSync=false`).
+- [x] Migration `V153`: `lark_items`, `lark_sync_runs`, input formats `LARK_DOCX` and `LARK_SHEET`.
+- [x] `LarkSyncAdapter` (walk, checkpoint, acquire, prune, classify), registered for `SourceType.LARK`.
+- [x] Docx and Sheet extractors in the extractor router.
+- [x] Sources sync with PUBLIC and PRIVATE access; the pull request stayed open through step 6.
 
 ## 6. Permissions
 
-- [ ] Migration: `lark_acl_snapshots`, directory generations and members.
-- [ ] Snapshots on every run, `SourceAclChanged`; directory synchronizer.
-- [ ] Lark parts of `SYNC_GRANTS` and `READER_TOKENS`; `permissionSync=true`; SYNC offered in the web.
-- [ ] Tests with two readers: named collaborator, chat, department, space member, `tenant_readable` refused,
-  `anyone_readable`, revoked share, unverified email.
+- [x] Migration `V154`: `lark_acl_snapshots`, `lark_directory_runs`, `_work`, `_members`, `_users`,
+  `lark_credentials.active_directory_generation`.
+- [x] Snapshots on every run of a SYNC Source, `SourceAclChanged`; `LarkDirectorySynchronizer` riding the run.
+- [x] Lark parts of `SYNC_GRANTS` and `READER_TOKENS`; `permissionSync=true`; SYNC offered in the web.
+- [x] `PostgresLarkPermissionTest` with five readers: named collaborator, chat, department with a
+  sub-department, space member through a chat, `tenant_readable` refused, `anyone_readable`, revoked share,
+  a person who left, unverified email; the index decision and the recheck agree for every pair.
 
 ## 7. Verification and consolidation
 

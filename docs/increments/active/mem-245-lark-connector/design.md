@@ -51,6 +51,10 @@ created through the API. Recorded responses are kept for adapter tests (plan ste
 | How is Docx read? | `docx/v1/documents/{id}/blocks` keeps structure (table blocks 31/32); `raw_content` is flat text |
 | What failures look like | HTTP 400 with a JSON `code` (`99991672` missing scope names the scopes; `99991663` invalid token; `99991679` user scope missing) |
 | Scope pitfall | A scope added only for the *user* token type looks granted in the console and is still refused to the tenant token |
+| Does a list carry inherited collaborators? | Yes. Sharing the Drive folder with a person added `openid:<her>:view` to the list of each document inside; the owner is listed too (`full_access`) |
+| How does a department appear, and who is in it? | `opendepartmentid:<od-…>` once a person shares the document with it (an app is refused, `1063001`). `find_by_department` answers direct members only; `departments/{id}/children?fetch_child=true` lists every department below. Names and parents need more scopes and are not needed |
+| What limits the directory? | The app's availability: `contact/v3/scopes` named only its creator, and departments answered `40004 no dept authority`, until a version was published with availability set to all members |
+| Which email does Lark return? | `email` (unique in the tenant; a member changing it confirms a code); `enterprise_email` exists only with Lark Mail and needs a further scope. The test tenant's owner has a personal `email` and no `enterprise_email` |
 
 Starter tenants have 10,000 OpenAPI calls a month ([Lark plans](https://www.larksuite.com/plans)); quota and
 rate-limit refusals must stop a run with a clear code, not retry in a loop.
@@ -131,19 +135,30 @@ rewrites the chunks' access in place.
 
 | Lark | Index grant token |
 | --- | --- |
-| `openid` collaborator (a person) | `lark_user:<open_id>` |
-| `openchat` collaborator | `lark_chat:<chat_id>` |
-| `opendepartmentid` collaborator | `lark_department:<department_id>` |
-| `wikispaceid` entry | `lark_space:<space_id>` |
+| `openid` collaborator (a person) | `lark_user:<credential>:<open_id>` |
+| `openchat` collaborator | `lark_chat:<credential>:<chat_id>` |
+| `opendepartmentid` collaborator | `lark_department:<credential>:<department_id>` |
+| `wikispaceid` entry | `lark_space:<credential>:<space_id>` |
 | `appid`, unknown member types | nothing |
 | link `anyone_readable` / `anyone_editable` | every active Tenant member |
 | link `tenant_readable` / `tenant_editable`, `closed` | nothing |
 | a list that could not be read completely | the last successful snapshot, as Google; none before the first success |
 
-**Per credential**, a directory synchronized in generations like Google Groups (ADR 0013): the tenant's users
-(`open_id` → email), and the members of every chat, department and space that some snapshot references. A reader's
-tokens are derived from their verified login email (ADR 0011): their `open_id` under each active `LARK_APP`
-credential of the Tenant, and the chats, departments and spaces whose active-generation members include it.
+A token carries its credential because Lark names people and departments per app: an `open_id` means nothing to
+another app. The list is read only for a Source whose access is SYNC, since each object costs two more calls
+against the tenant's monthly quota; a Source switched to SYNC admits nobody until its next run has read them.
+
+**Per credential**, a directory synchronized in generations like Google Groups (ADR 0013), advanced one Lark
+page at a time by the runs of the credential's SYNC Sources: the members of every chat, department and space
+that some snapshot names, and the email of every person named. A department counts the people of every
+department below it; a space counts its people and those of the chats and departments that are its members. A
+chat the bot is not in, or a department outside the app's availability, cannot be listed and admits nobody. A
+name the active generation has not asked about starts a run a minute after the previous one instead of an
+interval later (`memoryos.lark.directory-sync-interval`, one hour). A reader's tokens are derived from their
+verified login email (ADR 0011): the person each active `LARK_APP` credential's directory lists under that
+email, and the chats, departments and spaces whose active-generation members include them. Matching by Lark's
+`email` gives a reader the access of the Lark account that carries their verified address; taking a colleague's
+access would mean changing that colleague's Lark email, which only they or a Lark administrator can do.
 
 `SYNC_GRANTS` and `READER_TOKENS` in `JdbcSourceDocumentRepository` become a union of a Google part and a Lark part;
 index-time access, the query filter and the post-query recheck keep sharing the one rule, so they cannot drift.
