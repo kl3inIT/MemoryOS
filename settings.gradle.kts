@@ -16,6 +16,9 @@ dependencyResolutionManagement {
 rootProject.name = "memoryos"
 
 include(":memoryos-core")
-include(":sources")
+include(":memoryos-integration-lark")
+include(":memoryos-integration-google")
+include(":memoryos-integration-microsoft")
+include(":memoryos-extraction")
 include(":memoryos-api")
 include(":memoryos-worker")

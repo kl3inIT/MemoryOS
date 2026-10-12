@@ -8,9 +8,9 @@ group = "io.memoryos"
 version = "0.1.0-SNAPSHOT"
 
 tasks.named("clean") {
-    dependsOn(":memoryos-core:clean", ":sources:clean", ":memoryos-api:clean", ":memoryos-worker:clean")
+    dependsOn(subprojects.map { "${it.path}:clean" })
 }
 
 tasks.named("check") {
-    dependsOn(":memoryos-core:check", ":sources:check", ":memoryos-api:check", ":memoryos-worker:check")
+    dependsOn(subprojects.map { "${it.path}:check" })
 }

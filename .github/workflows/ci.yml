@@ -89,7 +89,7 @@ jobs:
                     backend=true
                     landing=true
                     ;;
-                  build-logic/*|memoryos-core/*|sources/*|memoryos-api/*|memoryos-worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
+                  build-logic/*|memoryos-core/*|memoryos-integration-*/*|memoryos-extraction/*|memoryos-api/*|memoryos-worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
                     backend=true
                     ;;
                   interpreter/*)
@@ -239,8 +239,8 @@ jobs:
       - name: Verify the run_python evaluation's scoring
         run: python3 -m unittest discover -s tools/interpreter-eval/tests -t tools/interpreter-eval
 
-  # One runner held all four modules' tests, and core alone took eight of its ten minutes while api, sources and
-  # worker competed for the same four CPUs. Each leg now owns a runner; together they are the repository's `check`.
+  # One runner held every module's tests, and core alone took eight of its ten minutes while api, the integrations
+  # and worker competed for the same four CPUs. Each leg now owns a runner; together they are the repository's `check`.
   backend:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' && needs.changes.outputs.backend_verified != 'true' }}
@@ -255,8 +255,9 @@ jobs:
             tasks: ':memoryos-core:check'
           - leg: api
             tasks: ':memoryos-api:check'
-          - leg: sources-worker
-            tasks: ':sources:check :memoryos-worker:check'
+          - leg: integrations-worker
+            tasks: >-
+              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-extraction:check :memoryos-worker:check
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -288,7 +289,8 @@ jobs:
           name: backend-tests-${{ matrix.leg }}
           path: |
             memoryos-core/build/test-results/test/*.xml
-            sources/build/test-results/test/*.xml
+            memoryos-integration-*/build/test-results/test/*.xml
+            memoryos-extraction/build/test-results/test/*.xml
             memoryos-api/build/test-results/test/*.xml
             memoryos-worker/build/test-results/test/*.xml
           if-no-files-found: warn

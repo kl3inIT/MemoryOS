@@ -3,7 +3,8 @@ paths:
   - "memoryos-core/**"
   - "memoryos-api/**"
   - "memoryos-worker/**"
-  - "sources/**"
+  - "memoryos-integration-*/**"
+  - "memoryos-extraction/**"
 ---
 
 Follow the backend guide in `docs/guidelines/backend.md`.

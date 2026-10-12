@@ -3,6 +3,7 @@ import java.time.Duration
 plugins {
     `java-library`
     id("memoryos.java-conventions")
+    id("memoryos.classpath-isolation")
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -27,6 +28,11 @@ tasks.withType<Test>().configureEach {
     jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=$diagnostics",
             "-Xlog:gc*:file=$diagnostics/gc-%p.log:time,uptime,level,tags:filecount=0")
     doFirst { diagnostics.mkdirs() }
+}
+
+// Core holds the ports; no platform SDK and no parser reaches it (ADR 0027).
+classpathIsolation {
+    forbiddenGroups.addAll("com.larksuite.oapi", "com.google.apis", "com.google.api-client", "com.microsoft.graph", "org.apache.tika", "ai.docling")
 }
 
 dependencies {

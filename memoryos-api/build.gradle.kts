@@ -16,7 +16,10 @@ configurations.configureEach {
 dependencies {
     implementation(project(":memoryos-core"))
     implementation(libs.commons.csv)
-    implementation(project(":sources"))
+    implementation(project(":memoryos-integration-lark"))
+    implementation(project(":memoryos-integration-google"))
+    implementation(project(":memoryos-integration-microsoft"))
+    implementation(project(":memoryos-extraction"))
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.embabel.platform)
     implementation(libs.embabel.openai)
