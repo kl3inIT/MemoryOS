@@ -1,14 +1,18 @@
 package io.memoryos.worker;
 
 import io.memoryos.ingestion.OperationWorkload;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.ReadOffset;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 final class RedisExecutionTopology {
     private static final Map<String, String> TOPOLOGY_MARKER = Map.of("_memoryos_topology", "1");
+    /** A reader asks Redis every few seconds while it has a free slot, and holds pending entries while it has none. */
+    private static final Duration CONSUMER_GONE_AFTER = Duration.ofHours(1);
 
     private final StringRedisTemplate redis;
     private final RedisExecutionProperties properties;
@@ -29,6 +33,25 @@ final class RedisExecutionTopology {
     void ensureTopology() {
         for (var workload : OperationWorkload.values()) {
             ensureGroup(properties.workload(workload));
+            removeGoneConsumers(properties.workload(workload));
+        }
+    }
+
+    /**
+     * Every Worker process reads under a new consumer name, so each restart left one behind for good (MEM-244). A
+     * consumer with nothing pending that has not asked for an hour belongs to a process that is gone; one with
+     * pending entries is left for the reclaim, which Redis could no longer do once the consumer is deleted.
+     */
+    private void removeGoneConsumers(RedisExecutionProperties.Workload workload) {
+        var operations = redis.opsForStream();
+        var consumers = operations.consumers(workload.stream(), workload.group());
+        if (consumers == null) {
+            return;
+        }
+        for (var consumer : consumers) {
+            if (consumer.pendingCount() == 0 && consumer.idleTime().compareTo(CONSUMER_GONE_AFTER) > 0) {
+                operations.deleteConsumer(workload.stream(), Consumer.from(workload.group(), consumer.consumerName()));
+            }
         }
     }
 

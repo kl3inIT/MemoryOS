@@ -86,8 +86,8 @@ class RedisStreamWorkerShutdownTest {
     /** One ingestion delivery the first time the ingestion stream is read; nothing on any other read. */
     @SuppressWarnings("unchecked")
     private RedisStreamWorker worker(IngestionCoordinator coordinator, Duration grace) {
-        var ingestion = new RedisExecutionProperties.Workload("ingestion", "workers", 8);
-        var other = new RedisExecutionProperties.Workload("other", "others", 1);
+        var ingestion = new RedisExecutionProperties.Workload("ingestion", "workers", 8, 0);
+        var other = new RedisExecutionProperties.Workload("other", "others", 1, 0);
         var properties = new RedisExecutionProperties(Duration.ofSeconds(30), Duration.ofSeconds(1), Duration.ofMinutes(2),
                 Duration.ofMillis(50), Duration.ofMillis(100), Duration.ofHours(1), Duration.ofMinutes(2), grace, 1_000,
                 ingestion, other, other, other, other, other);

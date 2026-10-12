@@ -63,8 +63,8 @@ The image entrypoint fetches nothing over the network: its launcher turns every 
 | `MEMORYOS_OBJECT_UPLOAD_AUTHORIZATION_LIFETIME` | No | Presigned PUT lifetime; default `10m`, maximum one hour. |
 | `MEMORYOS_OBJECT_UPLOAD_LIFETIME` | No | Maximum unadopted upload lifetime before generic cleanup; default `15m`. |
 | `MEMORYOS_WORKER_PORT` | No | Internal worker actuator port; default `8081`. It is not published publicly. |
-| `MEMORYOS_WORKER_INGESTION_BATCH_SIZE` | No | Bounded ingestion relay read and consumer-group delivery batch; default `8`, validated as `1..32`. |
-| `MEMORYOS_WORKER_CLEANUP_BATCH_SIZE` | No | Independently bounded cleanup relay read and consumer-group delivery batch; default `8`, validated as `1..32`. |
+| `MEMORYOS_WORKER_INGESTION_BATCH_SIZE` | No | Ingestion deliveries one Worker runs at once; default `8`, validated as `1..32`. The relay publishes ahead by `memoryos.redis.<workload>.publish-ahead` ([dispatch and throughput](../specs/ingestion.md#dispatch-and-throughput)). |
+| `MEMORYOS_WORKER_CLEANUP_BATCH_SIZE` | No | Cleanup deliveries one Worker runs at once, bounded apart from ingestion; default `8`, validated as `1..32`. |
 | `MEMORYOS_EXTRACTION_DOCLING_ENDPOINT` | No | Worker runtime endpoint for PDF/DOCX/PPTX; direct default `http://localhost:5001`, configurable Compose default `http://docling:5001`. An authorized remote VPN endpoint needs no local Docling startup; keep private addresses out of Git. Restart Worker after changes. |
 | `MEMORYOS_EXTRACTION_DOCLING_API_KEY` | Yes | Optional Worker secret; current remote cutover authorizes Infisical **dev**, not staging. Empty/unset means unauthenticated local access. SDK sends `X-Api-Key`; property rendering redacts it, parser metadata omits it and request/response logs stay disabled. No Compose interpolation/blank override. Refresh managed configuration and restart Worker after rotation. |
 | `MEMORYOS_REDIS_HOST` | No | Staging uses Compose alias `redis`; development uses the loopback Redis service from `compose.development.yaml`. |

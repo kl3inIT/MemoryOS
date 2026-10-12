@@ -14,17 +14,15 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.TraceFlags;
 import io.opentelemetry.api.trace.TraceState;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +56,7 @@ final class RedisStreamWorker implements SmartLifecycle {
     private final String consumerId = "memoryos-worker-" + UUID.randomUUID();
 
     private volatile boolean running;
-    /** One reader a workload: it reads a batch from Redis and waits for the batch's work. */
+    /** One reader a workload: it reads as many deliveries as the workload has free slots. */
     private ExecutorService consumers;
     /** The deliveries the readers started. */
     private ExecutorService deliveries;
@@ -150,23 +148,41 @@ final class RedisStreamWorker implements SmartLifecycle {
     @SuppressWarnings("unchecked")
     private void consume(OperationWorkload workload, ExecutorService executor) {
         RedisExecutionProperties.Workload settings = properties.workload(workload);
+        // A slot a delivery this Worker runs for the workload. The reader used to wait for a whole batch, so one slow
+        // delivery kept the batch's free slots idle (MEM-244).
+        var slots = new Semaphore(settings.batchSize());
         long nextReclaim = System.nanoTime();
         while (running && !Thread.currentThread().isInterrupted()) {
             try {
                 if (System.nanoTime() >= nextReclaim) {
-                    reclaim(settings, workload, executor);
+                    reclaim(settings, workload, executor, slots);
                     nextReclaim = System.nanoTime() + properties.reclaimInterval().toNanos();
                 }
-                List<MapRecord<String, Object, Object>> records = redis.opsForStream().read(
-                        Consumer.from(settings.group(), consumerId),
-                        StreamReadOptions.empty()
-                                .count(settings.batchSize())
-                                .block(properties.consumerBlock()),
-                        StreamOffset.create(settings.stream(), ReadOffset.lastConsumed())
-                );
-                if (records != null && !records.isEmpty()) {
-                    processBatch(settings, workload, records, executor);
+                if (!slots.tryAcquire(properties.consumerBlock().toMillis(), TimeUnit.MILLISECONDS)) {
+                    continue;
                 }
+                int free = 1 + slots.drainPermits();
+                int started = 0;
+                try {
+                    List<MapRecord<String, Object, Object>> records = redis.opsForStream().read(
+                            Consumer.from(settings.group(), consumerId),
+                            StreamReadOptions.empty()
+                                    .count(free)
+                                    .block(properties.consumerBlock()),
+                            StreamOffset.create(settings.stream(), ReadOffset.lastConsumed())
+                    );
+                    if (records != null) {
+                        for (var record : records) {
+                            // Stopped between reading and starting: the record stays pending for the next reader.
+                            if (!start(settings, workload, record, executor, slots)) break;
+                            started++;
+                        }
+                    }
+                } finally {
+                    slots.release(free - started);
+                }
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
             } catch (DataAccessException exception) {
                 Throwable cause = exception.getMostSpecificCause();
                 LOGGER.atWarn().addKeyValue("event", "redis.transport.failed")
@@ -185,10 +201,38 @@ final class RedisStreamWorker implements SmartLifecycle {
         }
     }
 
+    /** Starts one delivery in a slot the caller holds; the delivery gives the slot back when it ends. */
+    private boolean start(
+            RedisExecutionProperties.Workload settings,
+            OperationWorkload workload,
+            MapRecord<String, Object, Object> record,
+            ExecutorService executor,
+            Semaphore slots
+    ) {
+        try {
+            executor.submit(() -> {
+                try {
+                    process(settings, workload, record);
+                } catch (RuntimeException exception) {
+                    LOGGER.atError().addKeyValue("event", "redis.delivery.pending")
+                            .addKeyValue("workload", workload.name())
+                            .addKeyValue("error_type", exception.getClass().getName())
+                            .log("Delivery remains pending after a failure outside its processing");
+                } finally {
+                    slots.release();
+                }
+            });
+            return true;
+        } catch (RejectedExecutionException stopping) {
+            return false;
+        }
+    }
+
     private void reclaim(
             RedisExecutionProperties.Workload settings,
             OperationWorkload workload,
-            ExecutorService executor
+            ExecutorService executor,
+            Semaphore slots
     ) {
         var operations = redis.opsForStream();
         var pending = operations.pending(
@@ -219,43 +263,25 @@ final class RedisStreamWorker implements SmartLifecycle {
             if (!dispatch.reclaimable(delivery)) {
                 continue;
             }
-            List<MapRecord<String, Object, Object>> claimed = operations.claim(
-                    settings.stream(),
-                    settings.group(),
-                    consumerId,
-                    properties.reclaimIdle(),
-                    message.getId()
-            );
-            processBatch(settings, workload, claimed, executor);
-            if (!claimed.isEmpty()) {
-                metrics.delivery(workload, RedisExecutionMetrics.DeliveryOutcome.RECLAIMED);
-            }
-        }
-    }
-
-    private void processBatch(
-            RedisExecutionProperties.Workload settings,
-            OperationWorkload workload,
-            List<MapRecord<String, Object, Object>> records,
-            ExecutorService executor
-    ) {
-        var tasks = new ArrayList<Future<?>>(records.size());
-        for (var record : records) {
-            try {
-                tasks.add(executor.submit(() -> process(settings, workload, record)));
-            } catch (RejectedExecutionException stopping) {
-                // The Worker stopped between reading and starting: the record stays pending for the next reader.
-                break;
-            }
-        }
-        for (Future<?> task : tasks) {
-            try {
-                task.get();
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
+            if (!slots.tryAcquire()) {
+                // Every slot is busy: what is left is reclaimed on a later pass.
                 return;
-            } catch (ExecutionException exception) {
-                throw new IllegalStateException("Redis delivery task failed", exception.getCause());
+            }
+            boolean started = false;
+            try {
+                List<MapRecord<String, Object, Object>> claimed = operations.claim(
+                        settings.stream(),
+                        settings.group(),
+                        consumerId,
+                        properties.reclaimIdle(),
+                        message.getId()
+                );
+                if (!claimed.isEmpty()) {
+                    started = start(settings, workload, claimed.getFirst(), executor, slots);
+                    metrics.delivery(workload, RedisExecutionMetrics.DeliveryOutcome.RECLAIMED);
+                }
+            } finally {
+                if (!started) slots.release();
             }
         }
     }

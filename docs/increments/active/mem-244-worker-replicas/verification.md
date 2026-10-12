@@ -13,6 +13,12 @@ Release `d8b2a3cf`: the Worker container is `memoryos-worker-1`. A 45 MB scanned
 
 Open after these probes: the stop budget is tight (100 s grace and about 9 s of shutdown against 120 s, and db-scheduler may wait up to 60 s for a running task); a read cut off by a stop still counts in `processing_attempts`, so it spends one retry of a later `CONNECTION_FAILED`; an interrupted read logs `paddleocr_vl.extraction.failed` at WARN.
 
+## Pull request 3 on staging (2026-10-12)
+
+Release `4877daeb` (with the Lark connector): the Worker started in 13.2 s on the new composition with no new ERROR or WARN, 15 and 10 application connections, every recurring task running. A short scanned PDF was read through PaddleOCR-VL and `SUCCEEDED` in 5 s on attempt 1; the 18 search operations of the hour all ended `SUCCESS`.
+
+That check found the relay's ceiling: after a Worker restart the search operation of a document just read stayed `NOT_STARTED` with `dispatch_attempts = 0` for more than two minutes while the search relay published 2 rows every 5 s (06:13:24, :29, :34 …), every stream was empty and no transaction ran longer than 3 s. Without a restart the same operation was published 2 s after its creation and done in 7 s. Pull request 4 follows from it.
+
 ## Two replicas on production (2026-10-12)
 
 Release `3ed6da57`, `MEMORYOS_WORKER_REPLICAS=2`, the application role's connection limit raised from 40 to 60 (15 + 2 × 10 + 10 = 45), PaddleOCR-VL requests lowered from 8 to 4 a Worker so the serving node still receives 8.

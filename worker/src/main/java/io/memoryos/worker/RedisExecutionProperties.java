@@ -43,7 +43,7 @@ public record RedisExecutionProperties(
         Objects.requireNonNull(sourceSync, "sourceSync must not be null");
         Objects.requireNonNull(selectionValidation, "selectionValidation must not be null");
         Objects.requireNonNull(search, "search must not be null");
-        if (userFile == null) userFile = new Workload("memoryos:execution:user-file:operations:v1", "memoryos:execution:user-file:workers:v1", 1);
+        if (userFile == null) userFile = new Workload("memoryos:execution:user-file:operations:v1", "memoryos:execution:user-file:workers:v1", 1, 0);
     }
 
     Workload workload(OperationWorkload workload) {
@@ -57,7 +57,13 @@ public record RedisExecutionProperties(
         };
     }
 
-    public record Workload(String stream, String group, int batchSize) {
+    /**
+     * @param batchSize the deliveries one Worker runs at once for the workload
+     * @param publishAhead the unread deliveries the relay keeps in the stream, at least one batch. Keep it below
+     *        (deliveries running at once across Workers) x (rediscovery delay) / (time one delivery takes), or a
+     *        delivery waits unread past the rediscovery delay and is published again
+     */
+    public record Workload(String stream, String group, int batchSize, int publishAhead) {
 
         public Workload {
             requireText(stream, "stream");
@@ -65,6 +71,11 @@ public record RedisExecutionProperties(
             if (batchSize < 1 || batchSize > 32) {
                 throw new IllegalArgumentException("batchSize must be between 1 and 32");
             }
+            if (publishAhead < 0) {
+                throw new IllegalArgumentException("publishAhead must not be negative");
+            }
+            // Never below one batch, or a Worker's free slots could not all be filled.
+            publishAhead = Math.max(publishAhead, batchSize);
         }
     }
 

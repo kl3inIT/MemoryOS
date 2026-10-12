@@ -29,6 +29,7 @@ Idle Worker, 1 GiB container limit, consumers off: about 9.8 s to start and 463�
 1. This one: the stop, replicas, scheduler name and polling, the database budget.
 2. Memory and startup: a memory limit per replica and an explicit GC once Tika no longer starts a 512 MB JVM a document inside the container; the AOT cache trained by a one-off container at deployment.
 3. The Worker's composition, below.
+4. The relay's throughput, below.
 
 ## The Worker's composition
 
@@ -53,8 +54,32 @@ Decisions:
 - **`SearchProjectionMaintenance` moved to `ingestion`'s root**: the Worker schedules its reconcile and rebuild, so it is part of what the module publishes.
 - **`WorkerDependencyRulesTest`** holds the Worker to it: no dependency on a module's `application` or `persistence` package, no scan beyond its own package, no entity or repository package list, and no import from `core` but a `WorkerComponents` class. A role switch on each bean, as ThingsBoard does with `@TbCoreComponent`, was not chosen: the API and the Worker are already two applications, and a forgotten annotation would fail silently.
 
+## The relay's throughput
+
+Checking pull request 3 on staging showed search work published slowly: a document read in 5 s was searchable only after 73 s on average and 150 s at worst, with the Workers idle, every stream empty and no long transaction. The publication times were 2 rows every 5 s exactly.
+
+| Cause | Evidence |
+| --- | --- |
+| One relay run published one batch (`batch-size`: 2 for search, 1 for uploaded files, 8 for ingestion) | `RedisOperationRelay.relay` had no loop |
+| The relays are due every second but ran once in 5 s | Seven tasks share the 1 s interval; a db-scheduler poll picks `3 × threads` = 6 and polls again only after `polling-interval` (5 s) |
+| A recurring task runs on one node at a time | A second Worker added no relay |
+| Re-enqueued rows went first | Candidates were ordered by `created_at`; the search upserts for access, ACL and metadata changes reset a row and keep its creation time, so 56 rows from weeks before queued ahead of new work after a restart (56 ÷ 0.4 a second ≈ 140 s) |
+| A reader waited for its whole batch | One slow delivery left the batch's other slots idle |
+
+So the cluster-wide ceiling was 24 search operations and 12 uploaded files a minute, whatever the Workers could do.
+
+Decisions (the convention is in [conventions](../../../conventions.md#change-design), the numbers in the [ingestion spec](../../../specs/ingestion.md#dispatch-and-throughput)):
+
+- **Keep PostgreSQL as the authority and Redis Streams as the delivery channel.** Onyx works the same way (a periodic pass over PostgreSQL sends Celery tasks to Redis, up to 8,192 a pass). Workers that take work straight from PostgreSQL with `SKIP LOCKED` (Solid Queue, Oban, River) would remove the relay, and the lease is already in PostgreSQL; it is a rewrite of a path that delivers correctly and reverses a recorded choice, so it stays an open question, to reopen only if the Redis side keeps costing operations work.
+- **The relay publishes to a depth, not a batch.** A run publishes until the stream holds the workload's `publish-ahead` of unread deliveries. Unread is the stream's length less its pending entries, because a delivered entry stays in the stream until it is acknowledged and deleted, and work in progress must not hold back new work. The depth is bounded by the rediscovery delay: a delivery unread for 2 minutes is published again.
+- **The poll is every second**, so a relay runs when it is due. Lowering the poll alone would only have raised the ceiling to one batch a second.
+- **Due order.** Candidates are ordered by `next_dispatch_at`, then creation; the dispatch indexes already hold `next_dispatch_at`.
+- **A Worker reads into free slots.** `batch-size` is the deliveries a Worker runs at once for a workload; the reader asks Redis for as many as are free.
+- **Gone consumers are deleted** by the topology task when they hold nothing pending and have not read for an hour. Staging held more than 230.
+- **Not done: publishing right after commit**, as Onyx does for a file uploaded in Chat. With a relay that runs every second it would save under a second, and the API would need write access to the execution streams and the relay's code moved out of the Worker. To be measured on staging; done only if the numbers ask for it.
+
 ## Left out
 
 - A limit shared by all replicas for PaddleOCR-VL, the embedding provider and Docling, which each Worker bounds on its own.
-- Reclaiming a dead replica's Redis entries beyond the first page of `XPENDING`, removing dead consumers, comparing leases on the database clock, and the reconcile cursor of OpenSearch kept per process. Postgres rediscovery keeps work correct meanwhile.
+- Reclaiming a dead replica's Redis entries beyond the first page of `XPENDING`, comparing leases on the database clock, and the reconcile cursor of OpenSearch kept per process. Postgres rediscovery keeps work correct meanwhile.
 - `service.instance.id` in telemetry, and autoscaling on queue depth.

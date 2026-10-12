@@ -53,7 +53,7 @@ class RedisStreamWorkerTracingTest {
         mock(ScheduledExecutorService.class),
         mock(ExtractionArtifactPort.class), registry, Mockito.mock(SourceSyncProcessor.class), Mockito.mock(SelectionValidationProcessor.class));
         var redis = mock(StringRedisTemplate.class, RETURNS_DEEP_STUBS);
-        var settings = new RedisExecutionProperties.Workload("ingestion", "workers", 8);
+        var settings = new RedisExecutionProperties.Workload("ingestion", "workers", 8, 0);
         var id = RecordId.of("1-0");
         MapRecord<String, Object, Object> record = MapRecord.create("ingestion", Map.<Object, Object>of(
                 "tenant_id", UUID.randomUUID().toString(), "operation_kind", "INGESTION",
@@ -82,7 +82,7 @@ class RedisStreamWorkerTracingTest {
         try (var provider = SdkTracerProvider.builder().build()) {
             var telemetry = OpenTelemetrySdk.builder().setTracerProvider(provider).build();
             var redis = mock(StringRedisTemplate.class, RETURNS_DEEP_STUBS);
-            var settings = new RedisExecutionProperties.Workload("ingestion", "workers", 8);
+            var settings = new RedisExecutionProperties.Workload("ingestion", "workers", 8, 0);
             var id = RecordId.of("1-0");
             MapRecord<String, Object, Object> record = MapRecord.create("ingestion", Map.<Object, Object>of(
                     "tenant_id", UUID.randomUUID().toString(), "operation_kind", "INGESTION",

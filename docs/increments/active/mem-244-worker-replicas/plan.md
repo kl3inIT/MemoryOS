@@ -22,4 +22,15 @@
 
 - [x] One `<Module>WorkerComponents` a module, with its entities and repositories; the Worker imports those only
 - [x] `WorkerDependencyRulesTest` for the Worker's dependencies on `core`
-- [ ] CI (the Worker's context tests need Docker); staging deploy, a document read
+- [x] CI (the Worker's context tests need Docker); staging deploy, a document read ([verification](verification.md))
+
+## Pull request 4 — the relay's throughput
+
+- [x] The relay publishes until the stream holds `publish-ahead` unread deliveries; unread is length less pending
+- [x] `db-scheduler.polling-interval` 1 s, so a relay due every second runs every second
+- [x] Dispatch candidates in the order they fall due
+- [x] A Worker reads into free slots instead of waiting for a batch
+- [x] The topology task deletes consumers of Workers that are gone
+- [x] Convention in `docs/conventions.md`; numbers and the corrected statements in the ingestion spec
+- [ ] CI; staging: time from a row's creation to its start for a burst of documents, before and after
+- [ ] Decide on publishing after commit from those numbers
