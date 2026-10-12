@@ -10,7 +10,10 @@ COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
 COPY build-logic ./build-logic
 COPY memoryos-core/build.gradle.kts ./memoryos-core/
-COPY sources/build.gradle.kts ./sources/
+COPY memoryos-integration-lark/build.gradle.kts ./memoryos-integration-lark/
+COPY memoryos-integration-google/build.gradle.kts ./memoryos-integration-google/
+COPY memoryos-integration-microsoft/build.gradle.kts ./memoryos-integration-microsoft/
+COPY memoryos-extraction/build.gradle.kts ./memoryos-extraction/
 COPY memoryos-api/build.gradle.kts ./memoryos-api/
 COPY memoryos-worker/build.gradle.kts ./memoryos-worker/
 RUN sed -i 's/\r$//' gradlew \
@@ -18,7 +21,10 @@ RUN sed -i 's/\r$//' gradlew \
     && ./gradlew --no-daemon --no-configuration-cache --stacktrace resolveDependencies
 
 COPY memoryos-core ./memoryos-core
-COPY sources ./sources
+COPY memoryos-integration-lark ./memoryos-integration-lark
+COPY memoryos-integration-google ./memoryos-integration-google
+COPY memoryos-integration-microsoft ./memoryos-integration-microsoft
+COPY memoryos-extraction ./memoryos-extraction
 COPY memoryos-api ./memoryos-api
 COPY memoryos-worker ./memoryos-worker
 

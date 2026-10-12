@@ -75,12 +75,12 @@ Do not substitute broad text search for semantic symbol analysis.
 Static verification must preserve these repository invariants:
 
 - Current Gradle modules remain `core`, `api`, and `worker` until MEM-35 adds the approved shared `connector` integration bundle with its implementation ADR.
-- The `sources` integration bundle depends on public core APIs; `core` never depends on `sources`, `api`, or `worker`.
+- The integration modules (`memoryos-integration-<platform>`) and `memoryos-extraction` depend on public core APIs; `core` never depends on them, on `api`, or on `worker`.
 - Current core capabilities are exactly `identity`, `organization`, and `invitation`; MEM-35 adds real `connector`, `document`, and `ingestion` implementations. Speculative empty capability packages are forbidden.
 - `invitation` depends only on public `identity` and `organization` APIs. It owns invitation persistence and never imports Organization persistence or writes membership tables directly.
 - Capability-owned persistence stays under that capability's `persistence` package and is not imported by another capability.
 - Capability application services contain no SQL, row mapping, `JdbcClient`, lock/claim mechanics, or bulk persistence logic. Concrete single-implementation repositories live under the owning `persistence` package; internal repository interfaces require a demonstrated second implementation or cross-module port.
-- The `sources` bundle groups implemented provider adapters under independent `io.memoryos.connector.adapter.<provider>` folders and content extraction under `io.memoryos.ingestion.extraction` (ADR 0016); no provider folder exists before its implementing increment, and a later split requires measured dependency/runtime pressure.
+- Each platform has its own module under `io.memoryos.integration.<platform>` and content extraction is `memoryos-extraction` under `io.memoryos.ingestion.extraction` (ADR 0027); no platform module exists before its implementing increment, and a platform module never imports another.
 - API and worker remain thin composition roots.
 
 Run `ModulithArchitectureTest` and `CoreDependencyRulesTest` whenever module declarations, package placement, or dependency rules change.

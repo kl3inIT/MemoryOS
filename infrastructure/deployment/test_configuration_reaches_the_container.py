@@ -16,9 +16,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DEPLOYMENT = ROOT / "infrastructure/deployment"
 
 # Each service and the resource directories whose configuration it loads.
+INTEGRATIONS = ("memoryos-integration-lark/src/main/resources", "memoryos-integration-google/src/main/resources", "memoryos-integration-microsoft/src/main/resources", "memoryos-extraction/src/main/resources")
 SERVICES = {
-    "api": ("memoryos-api/src/main/resources", "memoryos-core/src/main/resources", "sources/src/main/resources"),
-    "worker": ("memoryos-worker/src/main/resources", "memoryos-core/src/main/resources", "sources/src/main/resources"),
+    "api": ("memoryos-api/src/main/resources", "memoryos-core/src/main/resources", *INTEGRATIONS),
+    "worker": ("memoryos-worker/src/main/resources", "memoryos-core/src/main/resources", *INTEGRATIONS),
 }
 
 ENVIRONMENTS = ("staging", "production")

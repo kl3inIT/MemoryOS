@@ -150,8 +150,9 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `memoryos-core` | Fourteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on `sources` or a deployable |
-| `sources` | Shared integration bundle: the Google Drive, SharePoint and Lark adapters (`io.memoryos.connector.adapter`; SharePoint through the Microsoft Graph SDK on a guarded OkHttp client, Google Drive through Google's API clients on a guarded `google-http-client`, Lark through the official `oapi-sdk` on a transport of the JDK client), including the Google account consent protocol the API's callback uses and bounded content extraction (`io.memoryos.ingestion.extraction`); depends only on public `core` APIs ([ADR 0016](docs/decisions/0016-integration-bundle-named-sources.md)) |
+| `memoryos-core` | Fourteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on an integration, on extraction or on a deployable |
+| `memoryos-integration-lark`, `-google`, `-microsoft` | One module a platform, holding everything that calls it (`io.memoryos.integration.<platform>`): Lark through the official `oapi-sdk` on a transport of the JDK client, Google Drive through Google's API clients on a guarded `google-http-client` with the account consent protocol the API's callback uses, SharePoint through the Microsoft Graph SDK on a guarded OkHttp client. Each depends only on public `core` APIs and on no other platform ([ADR 0027](docs/decisions/0027-integrations-by-platform-and-memoryos-module-names.md)) |
+| `memoryos-extraction` | Bounded content extraction (`io.memoryos.ingestion.extraction`): Tika, Docling, the OCR adapters and the spreadsheet readers; a provider's snapshot is read by the reader its integration registers for that input format, so extraction names no platform |
 | `memoryos-api` | HTTP, security, migrations and interactive Chat composition |
 | `memoryos-worker` | Redis/db-scheduler composition and durable background work |
 

@@ -74,7 +74,7 @@ class WorkerMemoryTest(unittest.TestCase):
         # The collector is named so that a changed limit cannot change it; the heap leaves half the limit to the children.
         self.assertIn("-XX:+UseSerialGC", options)
         self.assertIn("-XX:MaxRAMPercentage=50", options)
-        extractor = (ROOT / "sources/src/main/java/io/memoryos/ingestion/extraction/TikaSourceContentExtractor.java"
+        extractor = (ROOT / "memoryos-extraction/src/main/java/io/memoryos/ingestion/extraction/TikaSourceContentExtractor.java"
                      ).read_text(encoding="utf-8")
         # The child inherits JAVA_TOOL_OPTIONS; its own initial size keeps it from committing its whole heap.
         self.assertIn('"-Xms32m"', extractor)

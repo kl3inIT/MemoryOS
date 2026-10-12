@@ -17,24 +17,25 @@ the owner. Production is not deployed while either is open.
 - [x] Current documents (`README.md`, `ARCHITECTURE.md`, `AGENTS.md`, guidelines, specs, test matrices,
   runbooks), the skills, `.claude/rules/backend.md`. `.gitleaksignore` keeps its entries: they name the path a
   finding had in its own commit, and a rename adds no line to scan. CodeRabbit filters name no module.
-- [ ] Acceptance: CI gate green with both image jobs; `Deploy staging` succeeds; API and Worker healthy; Flyway
-  history unchanged.
+- [x] CI gate green with both image jobs (pull request #605, merged as `f1836a36`).
+- [x] `Deploy staging` succeeded for `f1836a36`: API, Worker and web healthy on that revision, Flyway history still
+  154 applied migrations.
 
 ## 2. Platforms
 
-- [ ] Port in `core` for a snapshot reader keyed by input format; `SourceContentExtractorRouter` chooses from the
+- [x] Port in `core` for a snapshot reader keyed by input format; `SourceContentExtractorRouter` chooses from the
   registered readers; a test for each format and for a format nobody registered.
-- [ ] `RetryAfter` and its test to `core`'s shared kernel.
-- [ ] `memoryos-integration-lark`, `-google`, `-microsoft`, `memoryos-extraction`: sources, tests, fixtures,
+- [x] `RetryAfter` and its test to `core`'s shared kernel.
+- [x] `memoryos-integration-lark`, `-google`, `-microsoft`, `memoryos-extraction`: sources, tests, fixtures,
   `AutoConfiguration.imports`, each declaring only its own SDK, with a `description` and a reason beside each
   dependency.
-- [ ] `memoryos-api` and `memoryos-worker` depend on the four; the API's excluded auto-configurations keep their
+- [x] `memoryos-api` and `memoryos-worker` depend on the four; the API's excluded auto-configurations keep their
   names.
-- [ ] Classpath isolation check on `check`: no platform SDK on `memoryos-core`'s runtime classpath, none of
+- [x] Classpath isolation check on `check`: no platform SDK on `memoryos-core`'s runtime classpath, none of
   another platform's on an integration's.
-- [ ] `SourcesDependencyRulesTest` becomes a rule test a module; in a platform module, packages serving different
+- [x] `SourcesDependencyRulesTest` becomes a rule test a module; in a platform module, packages serving different
   capabilities do not import each other.
-- [ ] `Dockerfile`, CI filter and legs, deployment tests naming `sources/`.
+- [x] `Dockerfile`, CI filter and legs, deployment tests naming `sources/`.
 - [ ] Acceptance on staging: the Lark Source of MEM-245 synchronizes and the two readers still find what Lark
   shares with them; the Google Drive and SharePoint credential lists load; an uploaded PDF and an uploaded
   spreadsheet are extracted and searchable.
