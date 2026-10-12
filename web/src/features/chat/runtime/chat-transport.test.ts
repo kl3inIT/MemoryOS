@@ -438,6 +438,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
           codeRuns: {},
           generatedFiles: [],
           imageGenerating: false,
+          waiting: false,
           serverStatus: "CANCELED",
         },
       },
