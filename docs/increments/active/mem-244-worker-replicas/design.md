@@ -27,7 +27,7 @@ Idle Worker, 1 GiB container limit, consumers off: about 9.8 s to start and 463â
 ## Pull requests
 
 1. This one: the stop, replicas, scheduler name and polling, the database budget.
-2. Memory: below. Startup (the AOT cache trained by a one-off container at deployment) follows as its own change.
+2. Memory and startup: below.
 3. The Worker's composition, below.
 4. The relay's throughput, below.
 
@@ -44,7 +44,19 @@ The Worker ran with no memory limit and the runtime image's options for every JV
 
 The collector is named because the JVM chooses by the memory it sees: SerialGC below about 1.75 GB and G1 above, so a changed limit would change the collector unnoticed. Measured idle at 1 GiB, SerialGC with these options held about 430 MiB and G1 about 480 MiB. A Worker is not latency-bound: a collection pause delays a document, not a person, and leases are renewed every 30 s against a 120 s lease.
 
-The JDK 25 AOT cache (10 s to 4.4 s to start when measured) is not in this change: it has to be trained by a container at deployment with exactly the options the Worker runs with, which is a change to `deploy.sh` of its own.
+## Startup
+
+A Worker took 12 to 17 s to start. A JDK 25 AOT cache records the classes a start loads and links; a JVM reads it only when it runs with the options the cache was made with, so it is made by the release's own image on the host, under the container's memory limit.
+
+| Part | Change |
+| --- | --- |
+| `deploy.sh` | Before it reserves the deployment or stops anything, `train_worker_aot` runs the candidate Worker image once (`compose run`) with `MEMORYOS_AOT_TRAIN=true`. That start reads no stream (`MEMORYOS_WORKER_ENABLED=false`), does not validate a schema the deployment has not migrated yet (`ddl-auto: none`), holds two database connections and exits once its context is built. A failure is reported and the deployment goes on |
+| Launcher | With `MEMORYOS_AOT_CACHE_DIR` set: a training start writes `<jar>-<release>.aot` (to a temporary name, renamed when complete) and keeps the two newest caches; a normal start passes `-XX:AOTCache` on the command line when this release's cache exists. The option is not put into `JAVA_TOOL_OPTIONS`, which the Tika child JVMs inherit |
+| Compose | The Worker mounts the volume `memoryos-worker-aot` at `/aot`. The API mounts none |
+
+A cache that is missing or does not match is ignored by the JVM, so the Worker then starts as before. Measured by hand on staging with the Worker's image, environment and limit: the training start took 56 to 81 s and wrote 209 to 224 MB; a start took 14.3 s without the cache and 4.6 to 5.6 s with it, holding 442 MiB and about 395 MiB.
+
+The API is left out: its start runs the migrations, so a training start before the backup would migrate ahead of it, and one after the stop would be downtime. Making its cache when the image is built, against a throwaway database, is a change of its own.
 
 ## The Worker's composition
 

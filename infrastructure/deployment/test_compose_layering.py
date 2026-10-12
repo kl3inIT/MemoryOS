@@ -91,6 +91,27 @@ class WorkerMemoryTest(unittest.TestCase):
         self.assertGreaterEqual(grace - shutdown, 70)
 
 
+class WorkerAotCacheTest(unittest.TestCase):
+    def test_the_cache_is_made_before_the_running_worker_stops_and_never_fails_a_deployment(self):
+        # MEM-244: the training start takes about a minute; made after the stop it would be downtime.
+        deploy = (DEPLOYMENT / "deploy.sh").read_text(encoding="utf-8")
+        train = deploy.index("    train_worker_aot || echo")
+        self.assertLess(train, deploy.index("printf '%s\\n' \"$release\" > \"$state/pending\""))
+        self.assertLess(train, deploy.index("compose stop --timeout 180 worker"))
+        function = deploy.split("train_worker_aot() {", 1)[1].split("\n}\n", 1)[0]
+        # It reads no stream, does not validate a schema that is not migrated yet, and holds two connections.
+        for setting in ("MEMORYOS_AOT_TRAIN=true", "MEMORYOS_WORKER_ENABLED=false",
+                        "SPRING_JPA_HIBERNATE_DDL_AUTO=none", "MEMORYOS_DATABASE_POOL_SIZE=2"):
+            self.assertIn(setting, function)
+        self.assertIn("--no-deps", function)
+
+    def test_only_the_worker_mounts_the_cache_directory(self):
+        worker = BASE.split("\n  worker:\n", 1)[1].split("\n  web:\n", 1)[0]
+        self.assertIn("MEMORYOS_AOT_CACHE_DIR: /aot", worker)
+        self.assertIn("- memoryos_worker_aot:/aot", worker)
+        self.assertEqual(1, BASE.count("MEMORYOS_AOT_CACHE_DIR"))
+
+
 class ComposeLayeringTest(unittest.TestCase):
     def test_the_runtime_both_environments_share_is_defined_once(self):
         for service in ("redis", "interpreter", "api", "worker", "web", "postgres", "minio"):

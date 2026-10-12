@@ -451,6 +451,8 @@ services:
       MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
       MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
       MEMORYOS_DATABASE_POOL_SIZE: ${MEMORYOS_WORKER_DATABASE_POOL_SIZE:-10}
+      # MEM-244: deploy.sh has this release's image make a JDK AOT cache here before it stops the running Worker.
+      MEMORYOS_AOT_CACHE_DIR: /aot
       MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
       MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
@@ -497,6 +499,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=256m,mode=1777
+    volumes:
+      - memoryos_worker_aot:/aot
     # The Worker lets started work finish within MEMORYOS_WORKER_SHUTDOWN_GRACE (100 s) before it stops; the rest of
     # its shutdown took 9 s when measured, and db-scheduler may wait up to 60 s more for a running task.
     stop_grace_period: 180s
@@ -739,3 +743,6 @@ volumes:
     name: ${MEMORYOS_MINIO_VOLUME:-memoryos-minio-data}
   memoryos_redis:
     name: ${MEMORYOS_REDIS_VOLUME:-memoryos-redis-data}
+  # Two JDK AOT caches of the Worker, about 200 MB each; nothing in it is data, and it may be deleted at any time.
+  memoryos_worker_aot:
+    name: ${MEMORYOS_WORKER_AOT_VOLUME:-memoryos-worker-aot}
