@@ -12,7 +12,9 @@ import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveAclRepositor
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
 import io.memoryos.connector.lark.LarkConnectionService;
+import io.memoryos.connector.lark.LarkDirectorySynchronizer;
 import io.memoryos.connector.lark.LarkSyncAdapter;
+import io.memoryos.connector.lark.persistence.JdbcLarkAclRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSourceRepository;
 import io.memoryos.connector.lark.persistence.JdbcLarkSyncRepository;
 import io.memoryos.connector.sharepoint.SharePointConnectionService;
@@ -31,7 +33,8 @@ class SourceDocumentUrlTest {
             new SharePointSyncAdapter(mock(JdbcSharePointSyncRepository.class), mock(JdbcSharePointSourceRepository.class),
                     mock(JdbcSourceSyncRepository.class), mock(SharePointConnectionService.class)),
             new LarkSyncAdapter(mock(JdbcLarkSyncRepository.class), mock(JdbcLarkSourceRepository.class),
-                    mock(LarkConnectionService.class))));
+                    mock(LarkConnectionService.class), mock(JdbcLarkAclRepository.class),
+                    mock(LarkDirectorySynchronizer.class))));
 
     @Test
     void googleDriveOpensItsFileIdWhateverAddressWasRecorded() {
