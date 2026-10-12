@@ -52,7 +52,7 @@ class FirstDeploymentTest(unittest.TestCase):
         # This one runs after the reservation is written, so failing here leaves the host needing
         # an operator rather than simply refusing.
         self.assertIn('if [[ ! -f "$tx/first-deployment" ]]; then target=previous; '
-                      'compose stop --timeout 120 worker; compose stop --timeout 45 api; fi', SCRIPT)
+                      'compose stop --timeout 180 worker; compose stop --timeout 45 api; fi', SCRIPT)
 
     def test_rollback_refuses_rather_than_restoring_nothing(self):
         rollback = SCRIPT.split("elif [[ \"$mode\" == rollback ]]; then", 1)[1]

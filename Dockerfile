@@ -54,8 +54,13 @@ LABEL org.opencontainers.image.title="MemoryOS Worker" \
       org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
+# MEM-244: the Worker shares its container's memory limit with the Tika child JVMs it starts, so its heap is half the
+# limit, not the runtime's 70%, and starts small. The collector is named: below about 1.75 GB the JVM picks SerialGC on
+# its own and above it G1, so a changed limit would change the collector unnoticed; measured at 1 GiB, SerialGC started
+# faster and held less memory than G1. The child JVMs inherit these options.
 ENV MEMORYOS_APPLICATION_JAR=worker.jar \
-    MEMORYOS_EXTRACTION_CLASSPATH="/application/worker.jar:/application/lib/*"
+    MEMORYOS_EXTRACTION_CLASSPATH="/application/worker.jar:/application/lib/*" \
+    JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=5 -XX:MaxRAMPercentage=50 -XX:+UseSerialGC -XX:+UseCompactObjectHeaders -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
 COPY --from=build --chown=1654:1654 /workspace/worker-extracted/dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/worker-extracted/spring-boot-loader/ ./
 COPY --from=build --chown=1654:1654 /workspace/worker-extracted/snapshot-dependencies/ ./

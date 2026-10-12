@@ -63,6 +63,34 @@ class SignalForwardingTest(unittest.TestCase):
         self.assertGreaterEqual(found, 4)
 
 
+class WorkerMemoryTest(unittest.TestCase):
+    def test_the_worker_has_a_memory_limit_its_jvm_and_its_child_jvms_fit(self):
+        # MEM-244: without a limit the heap could grow to 70% of the host, and each Tika child took 512 MB at start.
+        worker = BASE.split("\n  worker:\n", 1)[1].split("\n  web:\n", 1)[0]
+        self.assertRegex(worker, r"limits:\n\s+memory: \$\{MEMORYOS_WORKER_MEMORY_LIMIT:-4g\}")
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        stage = dockerfile.split("FROM runtime AS worker", 1)[1].split("FROM runtime AS api", 1)[0]
+        options = re.search(r'JAVA_TOOL_OPTIONS="([^"]+)"', stage).group(1).split()
+        # The collector is named so that a changed limit cannot change it; the heap leaves half the limit to the children.
+        self.assertIn("-XX:+UseSerialGC", options)
+        self.assertIn("-XX:MaxRAMPercentage=50", options)
+        extractor = (ROOT / "sources/src/main/java/io/memoryos/ingestion/extraction/TikaSourceContentExtractor.java"
+                     ).read_text(encoding="utf-8")
+        # The child inherits JAVA_TOOL_OPTIONS; its own initial size keeps it from committing its whole heap.
+        self.assertIn('"-Xms32m"', extractor)
+
+    def test_a_stopping_worker_gets_the_time_its_container_states(self):
+        worker = BASE.split("\n  worker:\n", 1)[1].split("\n  web:\n", 1)[0]
+        grace = int(re.search(r"stop_grace_period: (\d+)s", worker).group(1))
+        deploy = (DEPLOYMENT / "deploy.sh").read_text(encoding="utf-8")
+        timeouts = [int(value) for value in re.findall(r"compose stop --timeout (\d+) worker", deploy)]
+        self.assertEqual([grace, grace], timeouts)
+        application = (ROOT / "worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        shutdown = seconds(re.search(r"MEMORYOS_WORKER_SHUTDOWN_GRACE:(\w+)\}", application).group(1))
+        # The grace, then the rest of the shutdown: about 9 s measured, and up to 60 s for a running scheduled task.
+        self.assertGreaterEqual(grace - shutdown, 70)
+
+
 class ComposeLayeringTest(unittest.TestCase):
     def test_the_runtime_both_environments_share_is_defined_once(self):
         for service in ("redis", "interpreter", "api", "worker", "web", "postgres", "minio"):
