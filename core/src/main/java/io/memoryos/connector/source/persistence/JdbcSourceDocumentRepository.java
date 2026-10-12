@@ -79,11 +79,13 @@ public class JdbcSourceDocumentRepository {
             UNION ALL
             SELECT CASE entry.member->>'type' WHEN 'openid' THEN 'lark_user:' WHEN 'openchat' THEN 'lark_chat:'
                      WHEN 'opendepartmentid' THEN 'lark_department:' ELSE 'lark_space:' END
-                   || p.credential_id || ':' || (entry.member->>'id') AS token
+                   || lark_pair.credential_id || ':' || (entry.member->>'id') AS token
             FROM connector_items sync_item
             JOIN lark_acl_snapshots snapshot ON snapshot.tenant_id=sync_item.tenant_id
                 AND snapshot.source_id=p.id AND snapshot.file_id=sync_item.provider_file_id
                 AND snapshot.observation_revision>0
+            JOIN connector_credential_pairs lark_pair ON lark_pair.tenant_id=snapshot.tenant_id
+                AND lark_pair.id=snapshot.source_id
             CROSS JOIN LATERAL jsonb_array_elements(snapshot.members_json) AS entry(member)
             WHERE sync_item.tenant_id=m.tenant_id AND sync_item.id=m.connector_item_id
                 AND entry.member->>'type' IN ('openid','openchat','opendepartmentid','wikispaceid')
