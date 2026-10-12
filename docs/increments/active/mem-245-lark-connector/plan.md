@@ -24,7 +24,7 @@
 
 ## 3. Credential
 
-- [x] Migration `V151`: `LARK_APP` kind and statuses, `lark_credentials` (V149 and V150 are taken by work in flight
+- [x] Migration `V152`: `LARK_APP` kind and statuses, `lark_credentials` (V149 to V151 are OCR work merged first
   on another branch; whichever merges second renumbers).
 - [x] `LarkCredentialService` (create, replace secret, rename, delete, list, test) with audit; the read scopes
   Lark refused at the last verification are kept on the credential, so the list names them without a new test.
