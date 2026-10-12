@@ -427,7 +427,7 @@ services:
   # answers. It listens only on its access network, reached through the OAuth2 Proxy below.
   promptfoo:
     <<: *staging-service-defaults
-    image: ${MEMORYOS_PROMPTFOO_IMAGE:-ghcr.io/promptfoo/promptfoo:0.123.1@sha256:2dfddde000886e9a0bcce799478095a2e7d1e4438a6c6669ac04001e8ae29b85}
+    image: ${MEMORYOS_PROMPTFOO_IMAGE:-ghcr.io/promptfoo/promptfoo:0.124.1@sha256:a9213a6d35ecc60ac29f0dbb1183f2f8457f0a9e3f3f29d16f09277c87834c08}
     container_name: memoryos-promptfoo
     # The viewer creates and runs evals too: the OpenAI-compatible provider is 9Router under the benchmark's
     # own key, read from its secret file so it never sits in the environment file.
