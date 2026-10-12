@@ -2,7 +2,7 @@
 
 The Tenant's audit stream records who changed sign-in, users, Groups, models, connections and Sources, when, and
 from where. It is decided in [ADR 0013](../decisions/0013-server-authored-audit-evidence.md) and delivered by
-[MEM-25](../increments/completed/mem-25-audit/design.md). The code is the `audit` application module, `core/src/main/java/io/memoryos/audit`.
+[MEM-25](../increments/completed/mem-25-audit/design.md). The code is the `audit` application module, `memoryos-core/src/main/java/io/memoryos/audit`.
 
 ## Module
 

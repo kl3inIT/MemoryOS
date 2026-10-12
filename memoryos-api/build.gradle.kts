@@ -1,5 +1,6 @@
 plugins {
     java
+    id("memoryos.java-conventions")
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
 }
@@ -13,7 +14,7 @@ configurations.configureEach {
 }
 
 dependencies {
-    implementation(project(":core"))
+    implementation(project(":memoryos-core"))
     implementation(libs.commons.csv)
     implementation(project(":sources"))
     implementation(platform(libs.spring.ai.bom))

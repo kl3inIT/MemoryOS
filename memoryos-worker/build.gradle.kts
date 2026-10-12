@@ -1,5 +1,6 @@
 plugins {
     java
+    id("memoryos.java-conventions")
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
 }
@@ -8,7 +9,7 @@ plugins {
 extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
 
 dependencies {
-    implementation(project(":core"))
+    implementation(project(":memoryos-core"))
     implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))
     implementation(libs.spring.boot.starter)

@@ -56,14 +56,14 @@ Java methods now use camelCase while annotations retain `web_search`, `open_url`
 JetBrains inspections included warnings for all follow-up Java files. Prompt/tool/test files have no new findings; the existing synthetic JSON-construction and intentional HTTP/custom-header fixture warnings remain. After import cleanup, the IDE still reports unresolved Jsoup references in `WebProviderClient`, despite its declared Gradle dependency, a successful targeted IDE build and the successful Gradle compilation/provider tests. The IDE dependency/index state remains to reconcile; this is not a fully IDE-clean claim. `git diff --check` passed. No selector recheck, OCR change, commit or deployment was performed.
 
 ```powershell
-.\gradlew.bat :core:test --tests '*ChatWebPromptsTest' --tests '*ChatLanguagePromptTest' --tests '*WebToolsTest' --tests '*ChatModelGuardTest' --tests '*ChatTurnSetupTest' --tests '*ChatArtifactTest' --tests '*FileReaderToolTest' --tests '*WebProviderClientTest' :api:test --tests '*ChatSessionApiIntegrationTest.webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent' :worker:compileJava --no-daemon
+.\gradlew.bat :memoryos-core:test --tests '*ChatWebPromptsTest' --tests '*ChatLanguagePromptTest' --tests '*WebToolsTest' --tests '*ChatModelGuardTest' --tests '*ChatTurnSetupTest' --tests '*ChatArtifactTest' --tests '*FileReaderToolTest' --tests '*WebProviderClientTest' :memoryos-api:test --tests '*ChatSessionApiIntegrationTest.webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent' :memoryos-worker:compileJava --no-daemon
 ```
 
 ### Original external Web slice
 
 ```powershell
-.\gradlew.bat :core:test --tests '*WebHttpTest' --tests '*WebProviderClientTest' --tests '*WebToolsTest' --tests '*ChatModelGuardTest' --tests '*CoreDependencyRulesTest' --tests '*ModulithArchitectureTest' :worker:compileJava --no-daemon
-.\gradlew.bat :api:test --tests '*OpenApiContractTest' --tests '*OpenAiChatProviderAdapterTest' --tests '*ChatSessionApiIntegrationTest.webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent' --no-daemon
+.\gradlew.bat :memoryos-core:test --tests '*WebHttpTest' --tests '*WebProviderClientTest' --tests '*WebToolsTest' --tests '*ChatModelGuardTest' --tests '*CoreDependencyRulesTest' --tests '*ModulithArchitectureTest' :memoryos-worker:compileJava --no-daemon
+.\gradlew.bat :memoryos-api:test --tests '*OpenApiContractTest' --tests '*OpenAiChatProviderAdapterTest' --tests '*ChatSessionApiIntegrationTest.webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent' --no-daemon
 pnpm --dir web exec vitest run src/features/chat/web-search/chat-web.test.tsx src/features/chat/runtime/chat-transport.test.ts
 pnpm --dir web lint
 pnpm --dir web check:i18n

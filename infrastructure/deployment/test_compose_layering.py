@@ -42,7 +42,7 @@ class WorkerRedisTimeoutTest(unittest.TestCase):
         timeout = re.search(r"MEMORYOS_REDIS_COMMAND_TIMEOUT: \$\{MEMORYOS_WORKER_REDIS_COMMAND_TIMEOUT:-(\w+)\}",
                             worker)
         self.assertIsNotNone(timeout, "the worker must not inherit the api's command timeout")
-        application = (ROOT / "worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        application = (ROOT / "memoryos-worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
         block = re.search(r"(?m)^\s+consumer-block: (\w+)$", application).group(1)
         self.assertGreater(seconds(timeout.group(1)), seconds(block))
 
@@ -85,7 +85,7 @@ class WorkerMemoryTest(unittest.TestCase):
         deploy = (DEPLOYMENT / "deploy.sh").read_text(encoding="utf-8")
         timeouts = [int(value) for value in re.findall(r"compose stop --timeout (\d+) worker", deploy)]
         self.assertEqual([grace, grace], timeouts)
-        application = (ROOT / "worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        application = (ROOT / "memoryos-worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
         shutdown = seconds(re.search(r"MEMORYOS_WORKER_SHUTDOWN_GRACE:(\w+)\}", application).group(1))
         # The grace, then the rest of the shutdown: about 9 s measured, and up to 60 s for a running scheduled task.
         self.assertGreaterEqual(grace - shutdown, 70)
@@ -163,7 +163,7 @@ class ComposeLayeringTest(unittest.TestCase):
     def test_both_deployables_trust_the_redis_authority_under_the_production_profile(self):
         # Compose enables Redis TLS for every environment, but the trust material lived only in the
         # staging profile: production alone would enable TLS and trust nothing but the system store.
-        for module in ("api", "worker"):
+        for module in ("memoryos-api", "memoryos-worker"):
             profile = (ROOT / module / "src/main/resources/application-production.yaml").read_text(encoding="utf-8")
             self.assertIn("bundle: memoryos-redis", profile, module)
             self.assertIn("${MEMORYOS_REDIS_TLS_CA_CERTIFICATE}", profile, module)

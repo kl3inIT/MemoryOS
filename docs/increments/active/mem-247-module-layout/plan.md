@@ -6,16 +6,17 @@ the owner. Production is not deployed while either is open.
 
 ## 1. Names
 
-- [ ] ADR superseding [0016](../../../decisions/0016-integration-bundle-named-sources.md): integrations by
+- [x] ADR superseding [0016](../../../decisions/0016-integration-bundle-named-sources.md): integrations by
   platform, modules named `memoryos-*`, convention plugin, classpath isolation.
-- [ ] `build-logic` convention plugin: Java 25 toolchain, JUnit platform, the ten-minute test timeout, the report
+- [x] `build-logic` convention plugin: Java 25 toolchain, JUnit platform, the ten-minute test timeout, the report
   settings and the object-storage test properties now in the root `subprojects` block.
-- [ ] Rename the directories and Gradle projects `core`, `api`, `worker`; root `clean` and `check`.
-- [ ] `Dockerfile`; `ci.yml` (changed-area filter, matrix legs, result and diagnostics paths, `shellcheck`, the
+- [x] Rename the directories and Gradle projects `core`, `api`, `worker`; root `clean` and `check`.
+- [x] `Dockerfile`; `ci.yml` (changed-area filter, matrix legs, result and diagnostics paths, `shellcheck`, the
   migration path of the release bundle) with `deploy.sh`'s migration check in the same commit.
-- [ ] The deployment tests that read files by module path; `scripts/sync-chat-known-models.mjs`.
-- [ ] Current documents (`README.md`, `ARCHITECTURE.md`, `AGENTS.md`, guidelines, specs, test matrices,
-  runbooks), the skills, `.claude/rules/backend.md`, `.gitleaksignore`, CodeRabbit filters.
+- [x] The deployment tests that read files by module path; `scripts/sync-chat-known-models.mjs`.
+- [x] Current documents (`README.md`, `ARCHITECTURE.md`, `AGENTS.md`, guidelines, specs, test matrices,
+  runbooks), the skills, `.claude/rules/backend.md`. `.gitleaksignore` keeps its entries: they name the path a
+  finding had in its own commit, and a rename adds no line to scan. CodeRabbit filters name no module.
 - [ ] Acceptance: CI gate green with both image jobs; `Deploy staging` succeeds; API and Worker healthy; Flyway
   history unchanged.
 

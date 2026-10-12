@@ -1,7 +1,7 @@
 # MemoryOS MCP endpoint verification matrix
 
 Contract: [MemoryOS MCP endpoint](../specs/mcp-endpoint.md). `McpEndpointIntegrationTest` is
-`api/src/test/java/io/memoryos/api/mcp/endpoint/McpEndpointIntegrationTest.java`; it runs the API against PostgreSQL
+`memoryos-api/src/test/java/io/memoryos/api/mcp/endpoint/McpEndpointIntegrationTest.java`; it runs the API against PostgreSQL
 with signed tokens from a stand-in issuer and Search and Keycloak's admin API mocked.
 
 | Requirement | Durable verification |
@@ -17,13 +17,13 @@ with signed tokens from a stand-in issuer and Search and Keycloak's admin API mo
 | A client that accepts only JSON is served; an oversized body gets 413; a 2026-07-28 probe gets the 400 that makes it fall back to `initialize` | `McpEndpointIntegrationTest.aClientThatAcceptsOnlyJsonIsServedRatherThanRefused`, `.anOversizedBodyIsRefused`, `.chatGptsModernProbeIsAnsweredSoItFallsBackToInitialize` |
 | Tool calls are limited per member and app, listing is free; a refusal reaches the activity log and the counter by scope and app | `McpEndpointIntegrationTest.toolCallsAreLimitedPerCallerAndListingIsFree` |
 | An administrator turns the endpoint on and off at a revision, each change audited; a member is given the URL and the apps that are on | `McpEndpointIntegrationTest.anAdministratorTurnsTheEndpointOnAndOffAndEachChangeIsAudited`, `.aMemberIsGivenTheUrlAndTheTrustedAppsWhileTheEndpointAnswers` |
-| Trusted apps: adding, switching and removing an app write Keycloak each time and are audited; without the account the list is read-only; without an endpoint Keycloak is left alone | `McpEndpointIntegrationTest.anAdministratorTrustsAnAppOfTheirOwnAndKeycloakFollowsEachChange`; `core/src/test/java/io/memoryos/mcp/McpTrustedAppServiceTest.java` |
-| The Keycloak adapter writes only its own hosts and keeps every other setting, writes nothing unchanged, removes only the clients of hosts no longer trusted | `core/src/test/java/io/memoryos/iam/keycloak/KeycloakMcpClientPolicyTest.java` |
-| Every tool call reaches the activity log without its query, the insights count it, and the Worker removes calls older than 90 days | `McpEndpointIntegrationTest.everyToolCallReachesTheActivityLogWithoutItsQueryAndTheInsightsCountIt`; `worker/src/test/java/io/memoryos/worker/ControlPlaneIntegrationTest.java` registers the task |
-| A member lists their grants and revokes one by its URL client ID; the Keycloak adapter reads and deletes consents of metadata-document clients | `McpEndpointIntegrationTest.aMemberListsTheirGrantsAndRevokesOneByItsUrlClientId`; `core/src/test/java/io/memoryos/iam/keycloak/KeycloakMcpClientGrantsTest.java` |
+| Trusted apps: adding, switching and removing an app write Keycloak each time and are audited; without the account the list is read-only; without an endpoint Keycloak is left alone | `McpEndpointIntegrationTest.anAdministratorTrustsAnAppOfTheirOwnAndKeycloakFollowsEachChange`; `memoryos-core/src/test/java/io/memoryos/mcp/McpTrustedAppServiceTest.java` |
+| The Keycloak adapter writes only its own hosts and keeps every other setting, writes nothing unchanged, removes only the clients of hosts no longer trusted | `memoryos-core/src/test/java/io/memoryos/iam/keycloak/KeycloakMcpClientPolicyTest.java` |
+| Every tool call reaches the activity log without its query, the insights count it, and the Worker removes calls older than 90 days | `McpEndpointIntegrationTest.everyToolCallReachesTheActivityLogWithoutItsQueryAndTheInsightsCountIt`; `memoryos-worker/src/test/java/io/memoryos/worker/ControlPlaneIntegrationTest.java` registers the task |
+| A member lists their grants and revokes one by its URL client ID; the Keycloak adapter reads and deletes consents of metadata-document clients | `McpEndpointIntegrationTest.aMemberListsTheirGrantsAndRevokesOneByItsUrlClientId`; `memoryos-core/src/test/java/io/memoryos/iam/keycloak/KeycloakMcpClientGrantsTest.java` |
 | The realm script: the endpoint is optional and the browser origin followed by `/mcp`; its scope carries the audience; Claude and ChatGPT are admitted by their documents with PKCE; a rerun keeps the trusted hosts; the admin account holds exactly its two roles; grants lapse after 30 days unused and end after 180; the old ChatGPT client is removed once; the image is built with `cimd` | `infrastructure/keycloak/test_realm_mcp_endpoint.py` |
 | nginx forwards the two endpoint paths and the client metadata document to the API | `web/scripts/nginx-config.test.mjs` |
 | The administration page: switch at its revision, trusted apps (confirming before distrust, domain validation, read-only without the account), activity filters in the address, insights; the member page guides only through the apps that are on and revokes a grant | `web/src/features/mcp/mcp-endpoint-admin-page.test.tsx`, `mcp-endpoint-settings-page.test.tsx`; `web/tests/e2e/mcp-endpoint.spec.ts` (captures in both themes at 1280 and 390 px, reviewed) |
-| HTTP paths and schemas are in the checked-in contract | `api/src/test/java/io/memoryos/api/OpenApiContractTest.java` |
+| HTTP paths and schemas are in the checked-in contract | `memoryos-api/src/test/java/io/memoryos/api/OpenApiContractTest.java` |
 
 Live evidence: [MEM-114 verification](../increments/completed/mem-114-public-mcp-server/verification.md).

@@ -22,7 +22,7 @@ Example:
 
 ```json
 {
-  "filePath": "core/src/main/java/io/memoryos/invitation/InvitationService.java",
+  "filePath": "memoryos-core/src/main/java/io/memoryos/invitation/InvitationService.java",
   "errorsOnly": false,
   "timeout": 10000,
   "projectPath": "D:/path/to/MemoryOS"
@@ -49,7 +49,7 @@ For Java and Spring, run `get_file_problems` first and treat its framework-aware
 After inspections, compile or run the focused checks through the checked-in wrapper:
 
 ```powershell
-.\gradlew.bat :core:compileJava :api:compileJava :worker:compileJava
+.\gradlew.bat :memoryos-core:compileJava :memoryos-api:compileJava :memoryos-worker:compileJava
 ```
 
 For a complete foundation check:
