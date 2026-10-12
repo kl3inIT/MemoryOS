@@ -37,7 +37,7 @@ The Worker ran with no memory limit and the runtime image's options for every JV
 
 | Part | Change |
 | --- | --- |
-| Tika child | `-Xms32m` and SerialGC named; at most `MEMORYOS_EXTRACTION_TIKA_MAX_PROCESSES` (2) alive in a Worker, whichever extractor starts them. A read beyond it waits, and the extraction timeout starts with its child |
+| Tika child | `-Xms32m` and SerialGC named; at most `MEMORYOS_EXTRACTION_TIKA_MAX_PROCESSES` (2) alive in a Worker, whichever extractor starts them. A read beyond it waits its turn holding nothing (its bytes are spooled once it has a slot, and the extraction timeout starts with its child); after five minutes without a slot it fails as unavailable, which is retried |
 | Worker JVM | `InitialRAMPercentage=5`, `MaxRAMPercentage=50`, `UseSerialGC`, `UseCompactObjectHeaders` in the Worker image |
 | Container | `limits.memory: ${MEMORYOS_WORKER_MEMORY_LIMIT:-4g}` a replica: 2 GiB of heap, two children of up to 512 MB of heap each, the 256 MB tmpfs, and the JVM's own memory |
 | Stop | `stop_grace_period` and the `deploy.sh` timeout 180 s |

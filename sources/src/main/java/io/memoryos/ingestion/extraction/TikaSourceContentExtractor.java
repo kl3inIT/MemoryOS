@@ -24,9 +24,12 @@ public final class TikaSourceContentExtractor implements AutoCloseable {
     /**
      * Child JVMs alive at once in this process, whichever extractor starts them. Each may grow to 512 MB of heap
      * inside the Worker's container, so the count is what makes a memory limit on that container safe (MEM-244).
-     * A read that waits here is queued, not timed: the extraction timeout starts with its child.
+     * Reads wait in the order they came. A waiting read holds nothing: its bytes are spooled only once it has a
+     * slot, and the extraction timeout starts with its child.
      */
-    private static final Semaphore CHILDREN = new Semaphore(maxChildren());
+    private static final Semaphore CHILDREN = new Semaphore(maxChildren(), true);
+    /** A read that found no slot in this time fails as unavailable, which is retried, instead of queueing without end. */
+    private static final Duration QUEUE_LIMIT = Duration.ofMinutes(5);
 
     private final Duration extractionTimeout;
     private final Set<Process> processes = ConcurrentHashMap.newKeySet();
@@ -76,10 +79,12 @@ public final class TikaSourceContentExtractor implements AutoCloseable {
             Path arguments = directory.resolve("java.args");
             Path request = directory.resolve("request.bin");
             Path response = directory.resolve("response.bin");
-            writer.write(request);
-            writeArgumentFile(arguments, request, response);
-            CHILDREN.acquire();
+            if (!CHILDREN.tryAcquire(QUEUE_LIMIT.toMillis(), TimeUnit.MILLISECONDS)) {
+                throw new ExtractionException(ExtractionFailure.CONNECTION_FAILED, "document extraction is busy");
+            }
             try {
+                writer.write(request);
+                writeArgumentFile(arguments, request, response);
                 process = startProcess(arguments);
                 processes.add(process);
                 if (closed.get()) {
@@ -101,7 +106,10 @@ public final class TikaSourceContentExtractor implements AutoCloseable {
                 CHILDREN.release();
             }
         } catch (InterruptedException exception) {
-            terminate(process);
+            // Interrupted while waiting for a slot there is no child yet.
+            if (process != null) {
+                terminate(process);
+            }
             Thread.currentThread().interrupt();
             throw new ExtractionException(ExtractionFailure.TIMEOUT, "document extraction was interrupted", exception);
         } catch (IOException exception) {
