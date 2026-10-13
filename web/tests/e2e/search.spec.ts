@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "./deployment-policy";
 import {
   fulfillPdfRange,
@@ -756,4 +757,108 @@ test("opens a scanned report at its cited page without reading the rest of it", 
   await expect(pageNumber).toHaveValue("24");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   expect(later.filter((range) => !range)).toHaveLength(1);
+});
+
+test("marks the cited region on an image original, through zoom and a turn, and only on the picture it was measured in", async ({
+  page,
+}) => {
+  // The fixture is 854 x 534 pixels; the OCR answered [171, 107, 598, 267] in those pixels.
+  const picture = readFileSync(
+    new URL("../fixtures/generated-files/bieu-do-doanh-thu.png", import.meta.url),
+  );
+  const box = (width: number) =>
+    `{"page_no":1,"bbox":{"l":171,"t":107,"r":598,"b":267,"coord_origin":"TOPLEFT","frame_width":${width},"frame_height":534}}`;
+  let frameWidth = 854;
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Biểu đồ doanh thu.png",
+            mediaType: "image/png",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [
+              { ...sections[0], provenance: [{ ordinal: 2, provenanceJson: box(frameWidth) }] },
+            ],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Biểu đồ doanh thu.png",
+        mediaType: "image/png",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    route.fulfill({ contentType: "image/png", body: picture }),
+  );
+  const search = async () => {
+    await page.goto("/search");
+    await page.getByRole("textbox", { name: "Search documents" }).fill("doanh thu");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Biểu đồ doanh thu.png", exact: true }).click();
+  };
+
+  await search();
+  const dialog = page.getByRole("dialog");
+  const shown = dialog.getByRole("img", { name: "Biểu đồ doanh thu.png" });
+  const region = dialog.locator('[data-slot="image-citation-box"]');
+  await expect(region).toBeInViewport();
+  await expect(dialog.getByText("Highlighted")).toBeVisible();
+  /** The region's box as shares of the picture's box on screen. */
+  const share = async () => {
+    const [outer, inner] = [await shown.boundingBox(), await region.boundingBox()];
+    if (!outer || !inner) throw new Error("the picture or its region is not laid out");
+    return [
+      (inner.x - outer.x) / outer.width,
+      (inner.y - outer.y) / outer.height,
+      inner.width / outer.width,
+      inner.height / outer.height,
+    ];
+  };
+  const close = (actual: number[], expected: number[]) =>
+    actual.forEach((value, index) => expect(value).toBeCloseTo(expected[index] ?? NaN, 2));
+  const [left, top, width, height] = [171 / 854, 107 / 534, 427 / 854, 160 / 534];
+  close(await share(), [left, top, width, height]);
+
+  // Zoomed, the region keeps its place on the picture.
+  await dialog.getByRole("button", { name: "Zoom in" }).click();
+  await expect.poll(async () => (await shown.boundingBox())?.width).toBeGreaterThan(0);
+  await page.waitForTimeout(400);
+  close(await share(), [left, top, width, height]);
+
+  // Turned a quarter clockwise, what was the picture's top edge is its right edge.
+  await dialog.getByRole("button", { name: "Rotate right" }).click();
+  await page.waitForTimeout(400);
+  close(await share(), [1 - top - height, left, height, width]);
+
+  // A region measured in a picture of another size is not this picture's: nothing is drawn, and the rail says so.
+  frameWidth = 534;
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await search();
+  await expect(shown).toBeVisible();
+  await expect(dialog.getByText("Not found")).toBeVisible();
+  await expect(region).toHaveCount(0);
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatPages,
+  frameBoxRect,
   mostVisiblePage,
   nearestPage,
   pageHeight,
@@ -113,5 +114,70 @@ describe("pdfBoxRect", () => {
         612,
       ),
     ).toBeUndefined();
+  });
+
+  // A portrait A4 page stored with /Rotate: 842.04 x 595.44 as displayed for a quarter turn.
+  const a4 = [0, 0, 595.44, 842.04];
+  const framed = (width: number, height: number) =>
+    ({
+      page: 1,
+      left: 79,
+      top: 143,
+      right: 760,
+      bottom: 438,
+      origin: "TOPLEFT",
+      frame: { width, height },
+    }) as const;
+
+  it("draws a box measured in the page as displayed on a page turned 90, 180 or 270 degrees", () => {
+    for (const rotate of [90, 270]) {
+      const rect = pdfBoxRect(framed(842.04, 595.44), { view: a4, rotate }, 421.02);
+      expect(rect?.left).toBeCloseTo(79 / 2 - 2);
+      expect(rect?.top).toBeCloseTo(143 / 2 - 2);
+      expect(rect?.width).toBeCloseTo(681 / 2 + 4);
+      expect(rect?.height).toBeCloseTo(295 / 2 + 4);
+    }
+    const half = pdfBoxRect(
+      { ...framed(595.44, 842.04), right: 500 },
+      { view: a4, rotate: 180 },
+      595.44,
+    );
+    expect(half?.left).toBeCloseTo(77);
+    expect(half?.top).toBeCloseTo(141);
+    // The CropBox's own corner is not part of the displayed frame.
+    const offset = { view: [36, 48, 36 + 595.44, 48 + 842.04], rotate: 90 };
+    expect(pdfBoxRect(framed(842.04, 595.44), offset, 842.04)?.left).toBeCloseTo(77);
+  });
+
+  it("draws no framed box whose frame is not the displayed page, and no unframed box on a turned page", () => {
+    // Measured in the stored page, not the displayed one.
+    expect(
+      pdfBoxRect({ ...framed(595.44, 842.04), right: 500 }, { view: a4, rotate: 90 }, 842.04),
+    ).toBeUndefined();
+    expect(pdfBoxRect(framed(842.04, 595.44), { view: a4, rotate: 0 }, 595.44)).toBeUndefined();
+    const { frame: _frame, ...unframed } = framed(842.04, 595.44);
+    expect(pdfBoxRect(unframed, { view: a4, rotate: 180 }, 595.44)).toBeUndefined();
+  });
+});
+
+describe("frameBoxRect", () => {
+  const box = { page: 1, left: 100, top: 300, right: 500, bottom: 900, origin: "TOPLEFT" } as const;
+
+  it("places a box as fractions of its frame", () => {
+    expect(frameBoxRect({ ...box, frame: { width: 1000, height: 2000 } })).toEqual({
+      left: 0.1,
+      top: 0.15,
+      width: 0.4,
+      height: 0.3,
+    });
+  });
+
+  it("places nothing without a frame, without area or outside the frame", () => {
+    expect(frameBoxRect(box)).toBeUndefined();
+    expect(frameBoxRect({ ...box, frame: { width: 0, height: 2000 } })).toBeUndefined();
+    expect(
+      frameBoxRect({ ...box, right: 100, frame: { width: 1000, height: 2000 } }),
+    ).toBeUndefined();
+    expect(frameBoxRect({ ...box, frame: { width: 400, height: 2000 } })).toBeUndefined();
   });
 });

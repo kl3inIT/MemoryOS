@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import tools.jackson.databind.JsonNode;
@@ -123,7 +124,7 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
-    void aPageTurnedByRotateIsMeasuredAsItIsDisplayedAndCarriesNoBox() throws Exception {
+    void aPageTurnedByRotateIsMeasuredAndBoxedAsItIsDisplayed() throws Exception {
         try (var pdf = new PDDocument(); var out = new ByteArrayOutputStream()) {
             var portrait = new PDRectangle((float) A4_SHORT, (float) A4_LONG);
             var turned = new PDPage(portrait);
@@ -147,17 +148,55 @@ class PaddleOcrVlDocumentTest {
             assertEquals(new PdfLayout.Frame(0, 0, (float) A4_SHORT, (float) A4_LONG, 90), layout.frames().get(0));
             assertEquals(270, layout.frames().get(3).rotation());
 
-            // The sideways fixture's first page, stored portrait with /Rotate 90, renders landscape. The
-            // viewer outlines no rotated page, so its blocks keep the page and drop the box.
+            // The sideways fixture's first page, stored portrait with /Rotate 90, renders landscape: its
+            // boxes are the pixel boxes of the 1685 x 1191 rendering in points of the displayed page.
             var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"), layout.frames().subList(0, 2));
-            var onTurnedPage = blocks.stream().filter(block -> block.locations().getFirst().pageNo() == 1).toList();
-            assertFalse(onTurnedPage.isEmpty());
-            assertTrue(onTurnedPage.stream().allMatch(block -> block.locations().getFirst().bbox() == null));
+            var turnedTable = blocks.stream().filter(block -> block.kind() == Kind.TABLE).toList().get(0);
+            assertEquals(1, turnedTable.locations().getFirst().pageNo());
+            assertFramed(259 * A4_LONG / 1685, 91 * A4_SHORT / 1191, 1005 * A4_LONG / 1685, 1032 * A4_SHORT / 1191,
+                    A4_LONG, A4_SHORT, Objects.requireNonNull(turnedTable.locations().getFirst().bbox()));
             var upright = blocks.stream().filter(block -> block.kind() == Kind.TABLE).toList().get(1);
             assertEquals(2, upright.locations().getFirst().pageNo());
             assertBox(158 * A4_SHORT / 1191, A4_LONG - 270 * A4_LONG / 1685, 1100 * A4_SHORT / 1191,
                     A4_LONG - 1000 * A4_LONG / 1685, Objects.requireNonNull(upright.locations().getFirst().bbox()));
         }
+    }
+
+    @Test
+    void aTurnedPageKeepsItsBoxAtEveryRightAngleAndIgnoresTheCropBoxCorner() throws Exception {
+        String answer = """
+                [{"prunedResult":{"width":%d,"height":%d,"model_settings":{"use_doc_preprocessor":false},
+                  "parsing_res_list":[{"block_label":"text","block_content":"Tổng cộng","block_bbox":[100,200,300,400]}]}}]
+                """;
+        // A 500 x 1000 pt CropBox at (36, 48): displayed 1000 x 500 for a quarter turn, rendered at twice its points.
+        for (int rotation : List.of(90, 270)) {
+            var blocks = PaddleOcrVlDocument.blocks(mapper.readTree(answer.formatted(2000, 1000)),
+                    List.of(new PdfLayout.Frame(36, 48, 500, 1000, rotation)));
+            assertFramed(50, 100, 150, 200, 1000, 500, Objects.requireNonNull(blocks.getFirst().locations().getFirst().bbox()));
+        }
+        var half = PaddleOcrVlDocument.blocks(mapper.readTree(answer.formatted(1000, 2000)),
+                List.of(new PdfLayout.Frame(36, 48, 500, 1000, 180)));
+        assertFramed(50, 100, 150, 200, 500, 1000, Objects.requireNonNull(half.getFirst().locations().getFirst().bbox()));
+    }
+
+    @Test
+    void aTurnedPageAnsweredInAnotherFrameKeepsItsPageAlone() throws Exception {
+        String answer = """
+                [{"prunedResult":{"width":%d,"height":%d,%s
+                  "parsing_res_list":[{"block_label":"text","block_content":"Tổng cộng","block_bbox":[100,200,300,400]}]}}]
+                """;
+        String asSent = "\"model_settings\":{\"use_doc_preprocessor\":false},";
+        String corrected = "\"model_settings\":{\"use_doc_preprocessor\":true},";
+        var quarter = List.of(new PdfLayout.Frame(0, 0, 500, 1000, 90));
+        var half = List.of(new PdfLayout.Frame(0, 0, 500, 1000, 180));
+        // The stored page's proportions, not the displayed page's: the rendering did not apply /Rotate.
+        assertNull(onlyBox(answer.formatted(1000, 2000, asSent), quarter));
+        // The preprocessor ran: the answer is in a page it turned or unwarped.
+        assertNull(onlyBox(answer.formatted(2000, 1000, corrected), quarter));
+        assertNull(onlyBox(answer.formatted(1000, 2000, corrected), half));
+        // An answer that does not say: a quarter turn is told by its proportions, a half turn by nothing.
+        assertNotNull(onlyBox(answer.formatted(2000, 1000, ""), quarter));
+        assertNull(onlyBox(answer.formatted(1000, 2000, ""), half));
     }
 
     @Test
@@ -190,21 +229,58 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
-    void anImageHasOnePageAndNoBox() throws Exception {
+    void anImageKeepsEachBoxInThePixelsOfThePictureItWasReadIn() throws Exception {
         var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), List.of());
 
         assertFalse(blocks.isEmpty());
         assertTrue(blocks.stream().allMatch(block -> block.locations().size() == 1
-                && block.locations().getFirst().pageNo() == 1 && block.locations().getFirst().bbox() == null));
+                && block.locations().getFirst().pageNo() == 1));
+        // block_bbox [158, 286, 1520, 876] of a picture the service read as 1685 x 1191.
+        assertFramed(158, 286, 1520, 876, 1685, 1191, Objects.requireNonNull(table(blocks).locations().getFirst().bbox()));
+        assertTrue(blocks.stream().allMatch(block -> block.locations().getFirst().bbox() != null));
     }
 
     @Test
-    void eachFrameOfAMultiPageImageIsAPageWithoutABox() throws Exception {
+    void eachFrameOfAMultiPageImageIsAPageWithItsOwnFrame() throws Exception {
         var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"), List.of());
 
         assertEquals(Set.of(1, 2), blocks.stream().map(block -> block.locations().getFirst().pageNo())
                 .collect(Collectors.toSet()));
-        assertTrue(blocks.stream().allMatch(block -> block.locations().getFirst().bbox() == null));
+        var tables = blocks.stream().filter(block -> block.kind() == Kind.TABLE).toList();
+        assertFramed(259, 91, 1005, 1032, 1685, 1191, Objects.requireNonNull(tables.get(0).locations().getFirst().bbox()));
+        assertFramed(158, 270, 1100, 1000, 1191, 1685, Objects.requireNonNull(tables.get(1).locations().getFirst().bbox()));
+    }
+
+    @Test
+    void anImageBoxIsKeptOnlyWhenTheAnswerSaysThePictureWasReadAsSent() throws Exception {
+        // The preprocessor turns or unwarps the picture and answers in the result; an answer that does
+        // not say whether it ran is not known to be in the picture a reader sees.
+        for (String settings : List.of("\"model_settings\":{\"use_doc_preprocessor\":true},", "")) {
+            var blocks = PaddleOcrVlDocument.blocks(mapper.readTree("""
+                    [{"prunedResult":{"width":1000,"height":2000,%s"parsing_res_list":[
+                      {"block_label":"text","block_content":"Tổng cộng","block_bbox":[100,200,300,400]}]}}]
+                    """.formatted(settings)), List.of());
+
+            assertEquals(1, blocks.getFirst().locations().getFirst().pageNo());
+            assertNull(blocks.getFirst().locations().getFirst().bbox(), settings);
+        }
+    }
+
+    @Test
+    void anImageBoxOutsideThePictureOrWithoutAreaIsDroppedAndOneOnItsEdgeIsHeldToIt() throws Exception {
+        var blocks = PaddleOcrVlDocument.blocks(mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":2000,"model_settings":{"use_doc_preprocessor":false},
+                  "parsing_res_list":[
+                  {"block_label":"text","block_content":"ngoài ảnh","block_bbox":[900,200,1300,400]},
+                  {"block_label":"text","block_content":"không có diện tích","block_bbox":[100,200,100,400]},
+                  {"block_label":"text","block_content":"sát mép","block_bbox":[-0.5,1990,300,2000.6]},
+                  {"block_label":"text","block_content":"góc đảo","block_bbox":[300,400,100,200]}]}}]
+                """), List.of());
+
+        assertNull(blocks.get(0).locations().getFirst().bbox());
+        assertNull(blocks.get(1).locations().getFirst().bbox());
+        assertFramed(0, 1990, 300, 2000, 1000, 2000, Objects.requireNonNull(blocks.get(2).locations().getFirst().bbox()));
+        assertFramed(100, 200, 300, 400, 1000, 2000, Objects.requireNonNull(blocks.get(3).locations().getFirst().bbox()));
     }
 
     @Test
@@ -304,6 +380,18 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
+    void anImageAnswerWithoutThePicturesSizeKeepsItsTextAndNoBox() throws Exception {
+        var blocks = PaddleOcrVlDocument.blocks(mapper.readTree("""
+                [{"prunedResult":{"model_settings":{"use_doc_preprocessor":false},"parsing_res_list":[
+                  {"block_label":"text","block_content":"Tổng cộng","block_bbox":[100,200,300,400]}]}}]
+                """), List.of());
+
+        assertEquals("Tổng cộng", blocks.getFirst().text());
+        assertEquals(1, blocks.getFirst().locations().getFirst().pageNo());
+        assertNull(blocks.getFirst().locations().getFirst().bbox());
+    }
+
+    @Test
     void aTableBeyondTheCellBoundIsAWriteLimit() {
         String row = "<tr>" + "<td>1</td>".repeat(100) + "</tr>";
         assertFailure(ExtractionFailure.WRITE_LIMIT, () -> PaddleOcrVlDocument.table("<table>" + row.repeat(2_001) + "</table>", new int[1]));
@@ -334,6 +422,23 @@ class PaddleOcrVlDocumentTest {
         assertEquals(r, box.r(), 0.01);
         assertEquals(b, box.b(), 0.01);
         assertEquals(CoordOrigin.BOTTOMLEFT, box.coordOrigin());
+    }
+
+    private @Nullable BoundingBox onlyBox(String answer, List<PdfLayout.Frame> pages) throws Exception {
+        var block = PaddleOcrVlDocument.blocks(mapper.readTree(answer), pages).getFirst();
+        assertEquals(1, block.locations().getFirst().pageNo());
+        return block.locations().getFirst().bbox();
+    }
+
+    private static void assertFramed(double l, double t, double r, double b, double width, double height,
+            BoundingBox box) {
+        assertEquals(l, box.l(), 0.01);
+        assertEquals(t, box.t(), 0.01);
+        assertEquals(r, box.r(), 0.01);
+        assertEquals(b, box.b(), 0.01);
+        assertEquals(CoordOrigin.TOPLEFT, box.coordOrigin());
+        assertEquals(width, Objects.requireNonNull(box.frameWidth()), 0.01);
+        assertEquals(height, Objects.requireNonNull(box.frameHeight()), 0.01);
     }
 
     /** A page at the origin with no {@code /Rotate}, as most scans are. */

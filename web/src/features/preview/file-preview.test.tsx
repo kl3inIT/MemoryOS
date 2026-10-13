@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
 import { FilePreview } from "./file-preview";
@@ -45,4 +45,48 @@ it("offers the download for a file it cannot show", () => {
     "href",
     "/api/files/2/content",
   );
+});
+
+it("marks a picture's cited region and reports the citations as located, or not when the picture differs", async () => {
+  // jsdom has no object URLs.
+  URL.createObjectURL = () => "blob:picture";
+  URL.revokeObjectURL = vi.fn();
+  const onPlaced = vi.fn();
+  const boxes = [
+    {
+      page: 1,
+      left: 100,
+      top: 300,
+      right: 500,
+      bottom: 900,
+      origin: "TOPLEFT",
+      frame: { width: 1000, height: 2000 },
+    } as const,
+  ];
+  const show = (width: number) => {
+    const { unmount } = render(
+      <FilePreview
+        content={{ kind: "image", blob: new Blob(["picture"], { type: "image/png" }) }}
+        filename="hoa-don.png"
+        download="/api/files/3/content"
+        citations={{ texts: ["Tổng cộng 1.200.000"], boxes, onPlaced }}
+      />,
+    );
+    const picture = screen.getByRole("img", { name: "hoa-don.png" });
+    Object.defineProperty(picture, "naturalWidth", { value: width });
+    Object.defineProperty(picture, "naturalHeight", { value: 2000 });
+    fireEvent.load(picture);
+    return unmount;
+  };
+
+  const unmount = show(1000);
+  await waitFor(() => expect(onPlaced).toHaveBeenLastCalledWith(["exact"]));
+  expect(screen.getByRole("img", { name: "Vùng được trích dẫn trên ảnh" })).toBeInTheDocument();
+  unmount();
+
+  show(1001);
+  await waitFor(() => expect(onPlaced).toHaveBeenLastCalledWith(["none"]));
+  expect(screen.queryByRole("img", { name: "Vùng được trích dẫn trên ảnh" })).toBeNull();
+  Reflect.deleteProperty(URL, "createObjectURL");
+  Reflect.deleteProperty(URL, "revokeObjectURL");
 });
