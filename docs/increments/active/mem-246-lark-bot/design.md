@@ -203,20 +203,28 @@ last failure code, last message time, a heartbeat) to `channel_connection_state`
 reads. A failed open is recorded with its typed code and retried on the next pass; an authentication failure
 disables nothing but is shown. Stopping the application closes the connections first.
 
-Lark gives each event to one connection, so a second replica of `memoryos-channels` would not answer twice, and
-deduplication below covers a redelivery. One replica is deployed.
+Lark allows an application fifty long connections and gives each event to one of them at random, never to all
+(its documentation of the persistent connection, read 2026-10-13), so a second replica of `memoryos-channels`
+would not answer twice. Nothing therefore records which process holds a connection; what must be shared between
+replicas, deduplication and the order within a conversation, is in PostgreSQL. One replica is deployed.
 
 ### Receiving a message
 
-The adapter acknowledges the event to Lark at once and hands the message to a virtual thread. The inbound service
-then, in order:
+The adapter acknowledges the event to Lark at once and hands the message to a virtual thread: Lark pushes an
+event again when its handler has not returned within three seconds, up to four more times over about seven hours
+(15 seconds, 5 minutes, 1 hour, 6 hours). The inbound service then, in order:
 
-1. inserts `channel_messages (connection_id, external_message_id)`; a duplicate ends here;
+1. inserts `channel_messages (connection_id, external_message_id)`; a duplicate ends here. The key is the
+   message's id and not the event's, as Lark's page for `im.message.receive_v1` requires;
 2. applies rule 2 and rule 5 from the message alone (organisation key, message type), then asks the adapter whether
    a group is external (remembered on the conversation for an hour);
 3. resolves the sender: `channel_identities (connection_id, external_user_id)` holds the actor and the email it
    came from for an hour; otherwise the adapter reads the email and `iam` answers the one active member whose
-   verified email equals it. No match, or more than one, is no account;
+   verified email equals it. No match, or more than one, is no account. Matching by e-mail is what Onyx and Dust
+   do, and it trusts the address the provider reports: Dust's own code marks it as open to spoofing. Lark keeps
+   `email` unique within an organisation, but nothing read so far says whether a member can change their own;
+   plan step 4 settles that on the test tenant before the adapter reads it, and uses only an address the
+   organisation's administrator controls if a member's own is not safe;
 4. chooses who the turn runs as: the sender's account in a direct message when there is one, the bot's account
    in a group and for a sender without an account; then finds the conversation and its chat session (below);
 5. starts the turn with `ChatTurnService.command` (`SEND`, the session's current leaf, a request id derived from
@@ -226,8 +234,19 @@ then, in order:
 The bot puts a reaction on the message as soon as step 1 accepts it and removes it when the reply appears, as
 Onyx and Hermes Agent do, so a person sees the question was taken while it waits. Messages of one conversation are
 handled one at a time: the second waits for the first turn to end, up to the waiting bound, instead of being
-refused (Dust shows "queued" for the same case). A sender is held to ten messages a minute and told so; Dust and
-WeKnora use the same number, and Dust drops the excess silently.
+refused. Nobody answers two messages of one conversation at once: Dust, WeKnora and RAGFlow queue the second as
+this does, and OpenClaw, Hermes Agent and spring-agent feed it into the running turn, which is left for later. A
+sender is held to ten messages a minute and told so, as WeKnora does for its Lark bot; Dust's own bound is a
+hundred a minute, and Onyx, RAGFlow, Hermes Agent and OpenClaw set none for a sender. What binds first is Lark's
+own limit of five messages a second to one chat and five updates a second to one card.
+
+The reply quotes the question (Lark's reply call without `reply_in_thread`), as spring-agent, WeKnora, RAGFlow and
+OpenClaw's default do on Lark; a thread is Slack's habit. A reply to a message inside a Lark topic lands in that
+topic by Lark's own rule.
+
+A turn that runs as the bot is told the asker's display name, so the answer addresses the right person, and never
+their e-mail; the name is given as a label of the message and not as an instruction, as OpenClaw fences a sender's
+name. Onyx, Dust and OpenClaw pass the name, Dust the e-mail too.
 
 Every refusal and failure is a notice in the configured language and a recorded reason; none carries a provider
 message, a backend failure text or the question's text. A chat failure maps by its typed code: capacity becomes
@@ -289,6 +308,13 @@ session search list `WEB` only, and the administrator's chat history lists both,
 sessions out of a person's list (`onyxbot_flow`) and in the query history. Retention and deletion apply
 unchanged. `channel_messages` keeps who asked, since a group turn's session names the bot.
 
+A row of `channel_messages` holds ids only (the provider's message, chat and sender, the session and the turn's
+messages) and a refusal's reason; the text of a question and of its answer is in the chat session and nowhere
+else. Rows older than ninety days (`memoryos.channel.message-retention`) are deleted by the daily cleanup; an old
+reply then starts a new conversation. Onyx keeps only the thread's id on its chat session; spring-agent, WeKnora
+and RAGFlow keep message ids for deduplication alone; Dust keeps the message's text and the sender's Slack
+profile, which this does not.
+
 Usage is recorded under the account the turn ran as. In `memoryos-channels` a person's bound on turns equals the
 process's, because every group turn is the bot's.
 
@@ -296,7 +322,9 @@ process's, because every group turn is the bot's.
 
 `LarkChannel` is used for the transport, the normalization, the mention rule and the streaming reply, because the
 maintained SDK already has them; it is given `LarkTransport` as its HTTP transport, the connection's domain, and
-`requireMention`. Its in-memory deduplication stays on and is not relied on. If building the adapter finds it
+`requireMention`. Its in-memory deduplication stays on and is not relied on. Its chat queue is switched off: it
+orders by chat and merges messages sent close together, so one member's question would hold back and blend with
+another's in the same group, where this design orders by conversation. If building the adapter finds it
 unfit (an event redelivered while the handler is slow, a reply that cannot carry the sources, threads left after
 `disconnect`), the adapter uses `com.lark.oapi.ws.Client` with `EventDispatcher` and the CardKit calls already
 proven, behind the same port.
@@ -308,8 +336,10 @@ importing each other.
 
 `/api/channels/lark`: read the connection and the state the channels process last wrote (open, last failure code,
 last message time; stale when the heartbeat is old), create or replace the credential, test it, enable or disable,
-delete. A change takes effect at the supervisor's next pass. Tenant administration only
-(`lockAndRequireAdministration`); changes are audited. The page lists the scopes and the console steps beside the
+delete. A change takes effect at the supervisor's next pass. It requires `CHANNELS_MANAGE`, a new assignable
+administrative capability beside `SOURCES_MANAGE`, `MODELS_MANAGE` and `MCP_MANAGE`, which the Tenant's
+administrators hold and an ordinary Group can be granted; changes are audited. The page lists the scopes and the
+console steps beside the
 form and saves a switch on change.
 
 ### Observability
@@ -326,6 +356,9 @@ text, sender email or provider payload is logged.
 - Choosing the agent a connection answers with; automatic answers in a group without a mention.
 - Reading in a group what every member of it may read (Microsoft's rule); see rule 1.
 - A budget for the bot alone; the bot's account in an ordinary Group.
+- An agent the administrator chooses for the bot, as Onyx sets one a channel; the bot answers with the Tenant's
+  default agent.
+- Feeding a second message into the turn that is still running.
 - The consent that lends the bot a personal connection in a group (above).
 - An account binding for a platform that gives no email (Telegram, Zalo): a person links their account once from
   MemoryOS. `channel_identities` is the table it will write.
