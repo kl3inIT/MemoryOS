@@ -481,6 +481,16 @@ jobs:
               fi
             done
           done
+          # Scripts are most of what a page loads. The largest one under the /assets/ prefix and the worker in
+          # its own location must both leave the real nginx compressed.
+          largest=$(docker exec "$container" sh -c 'ls -S /usr/share/nginx/html/assets/*.js | head -n 1')
+          for path in "${largest#/usr/share/nginx/html}" "${worker#/usr/share/nginx/html}"; do
+            headers=$(curl --silent --fail --output /dev/null --dump-header - --header 'Accept-Encoding: gzip' "http://127.0.0.1:18080$path")
+            if ! grep -qi '^content-encoding: gzip' <<< "$headers"; then
+              echo "$path is served uncompressed." >&2
+              exit 1
+            fi
+          done
 
       - name: Push verified frontend image to GHCR
         id: push
