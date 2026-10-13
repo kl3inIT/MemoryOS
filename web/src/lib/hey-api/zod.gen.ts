@@ -3862,7 +3862,8 @@ export const zChatHistoryEntry = z.object({
         'NONE'
     ]),
     deleted: z.boolean(),
-    updatedAt: z.iso.datetime()
+    updatedAt: z.iso.datetime(),
+    surface: z.enum(['WEB', 'CHANNEL'])
 });
 
 export const zChatHistoryPage = z.object({

@@ -31883,11 +31883,18 @@ components:
         updatedAt:
           type: string
           format: date-time
+        surface:
+          type: string
+          description: Where the conversation is held
+          enum:
+          - WEB
+          - CHANNEL
       required:
       - deleted
       - feedback
       - id
       - messages
+      - surface
       - title
       - updatedAt
     ChatHistoryPage:

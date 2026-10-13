@@ -26,7 +26,7 @@ of step 5 is merged, so an administrator can always turn the bot off.
   account type.
 - [x] `usage`: a service account is outside the per-person budget, the seats and the "active users" of reports,
   and keeps its own line in costs by actor.
-- [ ] `chat_session.surface`, set at creation and immutable; sidebar and session search list `WEB`; the
+- [x] `chat_session.surface`, set at creation and immutable; sidebar and session search list `WEB`; the
   administrator's history shows the surface.
 - [x] `iam`: the active member whose verified email equals a given one, none when several match; an index on the
   lower-cased email.
