@@ -745,26 +745,6 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
-    void startupReconciliationFailsRunningRowsWithLiveLeasesAndLeavesFinishedRows() {
-        var session = sessions.create(owner, "Orphaned");
-        var orphaned = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
-        var other = sessions.create(owner, "Finished");
-        var finished = reserve(other, other.rootMessageId(), UUID.randomUUID(), "Question");
-        assertTrue(turns.finish(other.id(), finished.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer"));
-        // The lease is still live: only startup knows no process owns the row.
-        assertEquals(0, turns.expireRuns());
-        assertTrue(turns.failOrphanedRuns() >= 1);
-        assertEquals(0, turns.failOrphanedRuns());
-        assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, session.id(), orphaned.assistantMessageId()));
-        assertEquals("CHAT_INTERRUPTED", jdbc.sql("SELECT failure_code FROM chat_message WHERE id = :id")
-                .param("id", orphaned.assistantMessageId()).query(String.class).single());
-        assertEquals(ChatMessage.Status.COMPLETED, turns.authorizeReply(owner, other.id(), finished.assistantMessageId()));
-        assertFalse(turns.finish(session.id(), orphaned.assistantMessageId(), ChatMessage.Status.COMPLETED, "late"));
-        // The session accepts the next question at once.
-        reserve(session, orphaned.assistantMessageId(), UUID.randomUUID(), "Next question");
-    }
-
-    @Test
     void answerStoresMoreThanTwentyFourSourcesAndTheColumnKeepsAByteBound() {
         var session = sessions.create(owner, "Many sources");
         var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");

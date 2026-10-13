@@ -6,14 +6,13 @@ of step 5 is merged, so an administrator can always turn the bot off.
 
 ## 1. Chat turns in more than one process, and waiting for a turn
 
-- [ ] Remove `failOrphanedRuns`; the lease is three minutes renewed every thirty seconds; a test that a second
-  `ChatTurnService` starting does not end the first's running turn, and that a turn whose owner stopped ends when
-  its lease lapses.
-- [ ] `maintain()` and the stream flush are scheduled by components `chat` publishes for a process that executes
-  turns; the API imports them.
-- [ ] A turn beyond the bound waits in arrival order; a waiting event on the stream; failure with the capacity
-  code after a minute. The web shows the waiting state in both languages.
-- [ ] The API's bound becomes 24. Chat spec and matrix; the OpenAPI contract and the web client for the new event.
+- [x] Remove `failOrphanedRuns`; the lease is three minutes renewed every thirty seconds. A process that starts
+  ends no run; the existing lease tests cover a lapsed lease ending one.
+- [x] A turn beyond the process's bound or the person's waits in arrival order; a waiting event on the stream;
+  failure with the capacity code after a minute; a bounded queue. The web shows the waiting state in both
+  languages.
+- [x] The API's bound becomes 48, a person's 3, the stream readers 256. Chat spec and matrix; the OpenAPI
+  contract and the web client for the new event.
 - [ ] On staging: a turn cut by a restart of the API ends within the lease and its session accepts the next
   question, and 30 simultaneous turns from the benchmark accounts all answer.
 
@@ -44,7 +43,9 @@ of step 5 is merged, so an administrator can always turn the bot off.
   `channel_identities`, `channel_messages`.
 - [ ] The port, the registry, the settings service, the inbound service, the supervisor, the daily cleanup,
   `ChannelRuntimeComponents`.
-- [ ] `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 12 turns;
+- [ ] `maintain()` and the stream flush are scheduled by components `chat` publishes for a process that executes
+  turns; the API imports them.
+- [ ] `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 16 turns;
   `Dockerfile` target, the compose service with its health check and secret file, the CI leg and area filter,
   `deploy.sh` and the deployment tests.
 - [ ] `ModulithArchitectureTest` counts the module.

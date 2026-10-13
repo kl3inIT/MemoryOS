@@ -23,6 +23,8 @@ import io.memoryos.mcp.McpTurnService;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageLimitException;
 import io.memoryos.usage.AiUsageLimitService;
+import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -34,7 +36,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Semaphore;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.Arrays;
@@ -52,7 +53,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskExecutor;
 import reactor.core.publisher.Sinks;
 
-/** Background turn lifetime is independent of HTTP request/reader lifetime. Created only by the API. */
+/**
+ * Background turn lifetime is independent of HTTP request/reader lifetime. Each process that executes turns has one,
+ * with its own bounds; a run left by a process that died ends when its lease lapses, in whichever process reconciles.
+ */
 public final class ChatTurnService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTurnService.class);
     private final ChatTurnPersistence persistence;
@@ -70,7 +74,13 @@ public final class ChatTurnService implements AutoCloseable {
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
     private final ReentrantLock[] commands = new ReentrantLock[128];
-    private final Semaphore permits;
+    /** Guards the slots and the queue: who runs, how many of each actor, and who waits, in arrival order. */
+    private final ReentrantLock turns = new ReentrantLock();
+    private final ArrayDeque<Active> waiting = new ArrayDeque<>();
+    private final HashMap<ActorId, Integer> runningOf = new HashMap<>();
+    private int running;
+    /** Places taken in the queue, counting an admitted run that has not reached it yet. */
+    private int queued;
     private final ConcurrentHashMap<UUID, Active> active = new ConcurrentHashMap<>();
     private final AtomicBoolean accepting = new AtomicBoolean(true);
 
@@ -146,7 +156,6 @@ public final class ChatTurnService implements AutoCloseable {
         this.executor = executor;
         this.streams = streams;
         Arrays.setAll(commands, ignored -> new ReentrantLock());
-        this.permits = new Semaphore(limits.concurrency());
     }
 
     public record Accepted(UUID userMessageId, UUID assistantMessageId, @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {}
@@ -154,7 +163,7 @@ public final class ChatTurnService implements AutoCloseable {
 
     /** The browser invokes this after the first completed exchange, never in the answer stream. */
     public void generateTitle(ActorId actor, UUID session) {
-        if (!accepting.get() || !permits.tryAcquire()) return;
+        if (!accepting.get() || !occupyForNaming()) return;
         try {
             var input = persistence.claimTitle(actor, session);
             if (input.isEmpty()) return;
@@ -172,7 +181,7 @@ public final class ChatTurnService implements AutoCloseable {
                 LOG.atWarn().addKeyValue("event", "chat.naming.failed").addKeyValue("session_id", session)
                         .addKeyValue("error_type", failure.getClass().getName()).log("Chat naming unavailable");
             }
-        } finally { permits.release(); }
+        } finally { vacate(null); }
     }
 
     private void recordNaming(ActorId actor, ModelResolver.Resolved selected, ModelAccounting accounting) {
@@ -209,7 +218,8 @@ public final class ChatTurnService implements AutoCloseable {
 
     /**
      * Network work runs here, after the session lock: opening MCP tools may refresh OAuth tokens. The registered run
-     * owns the permit, so every failure settles it through the same terminal path as a failed execution.
+     * owns its slot or its place in the queue, so every failure settles it through the same terminal path as a failed
+     * execution.
      */
     private Accepted start(ActorId actor, ChatCommand command, Admission admission, Active run) {
         String failure = "CHAT_SETUP_FAILED";
@@ -220,7 +230,8 @@ public final class ChatTurnService implements AutoCloseable {
             if (admission.opensMcp()) run.setup = run.setup.withMcp(Objects.requireNonNull(mcp).open(actor, command.mcpServerIds()));
             failure = "CHAT_SUBMIT_FAILED";
             if (!accepting.get()) throw ChatException.busy();
-            executor.execute(() -> execute(run));
+            if (run.slot) executor.execute(() -> execute(run));
+            else enqueue(run);
             dispatched = true;
             return admission.accepted();
         } finally {
@@ -252,7 +263,8 @@ public final class ChatTurnService implements AutoCloseable {
             throw ChatException.providerUnavailable();
         // MEM-123: what the Tenant, the Group and the person may spend, weighed before a provider is chosen.
         if (spending != null) spending.enforce(actor);
-        if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
+        if (!accepting.get()) throw ChatException.busy();
+        boolean slot = claim(actor);
         ChatTurnPersistence.Reservation reserved = null;
         ModelResolver.Resolved resolved = null;
         boolean transferred = false;
@@ -315,7 +327,7 @@ public final class ChatTurnService implements AutoCloseable {
             if (command.deepResearch()) setup = setup.withResearch(researchState(context, setup));
             // Check 1 fails closed: a turn that needs it is not started without it.
             if (ChatGuardrailCheck.applies(setup, policy) && guardrails == null) throw ChatException.providerUnavailable();
-            var run = new Active(setup, resolved, policy, question(context), earlier(context), context.uiLanguage());
+            var run = new Active(setup, resolved, policy, question(context), earlier(context), context.uiLanguage(), actor, slot);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
             transferred = true;
@@ -330,9 +342,137 @@ public final class ChatTurnService implements AutoCloseable {
         } finally {
             if (!transferred) {
                 if (resolved != null) resolved.close();
-                permits.release();
+                unclaim(actor, slot);
             }
         }
+    }
+
+    /**
+     * Takes a slot for the actor's turn, or a place in the queue when the process or the actor is at its bound;
+     * returns whether it was a slot. A free slot never passes a run that could take it: every release promotes first.
+     */
+    private boolean claim(ActorId actor) {
+        turns.lock();
+        try {
+            if (running < limits.concurrency() && runningOf.getOrDefault(actor, 0) < limits.perActorConcurrency()) {
+                running++;
+                runningOf.merge(actor, 1, Integer::sum);
+                return true;
+            }
+            if (queued >= limits.maxWaiting()) throw ChatException.busy();
+            queued++;
+            return false;
+        } finally { turns.unlock(); }
+    }
+
+    /** Gives back what an admission took for a run that was never registered. */
+    private void unclaim(ActorId actor, boolean slot) {
+        if (slot) vacate(actor);
+        else {
+            turns.lock();
+            try { queued--; }
+            finally { turns.unlock(); }
+        }
+    }
+
+    /** Naming takes a free slot or is skipped; it never waits and never counts against a person. */
+    private boolean occupyForNaming() {
+        turns.lock();
+        try {
+            if (running >= limits.concurrency()) return false;
+            running++;
+            return true;
+        } finally { turns.unlock(); }
+    }
+
+    /** Frees a slot, of an actor's turn or of naming, and starts the runs that were waiting for it. */
+    private void vacate(@Nullable ActorId actor) {
+        List<Active> starting;
+        turns.lock();
+        try {
+            running--;
+            if (actor != null) runningOf.computeIfPresent(actor, (_, count) -> count == 1 ? null : count - 1);
+            starting = promote();
+        } finally { turns.unlock(); }
+        dispatch(starting);
+    }
+
+    /** The run joins the queue and its stream says so; a slot freed since admission is taken at once. */
+    private void enqueue(Active run) {
+        List<Active> starting;
+        boolean ended;
+        turns.lock();
+        try {
+            run.waitingSince = System.nanoTime();
+            // Stop or deletion may have arrived while tools opened, before anything could settle a run that was not
+            // queued yet; a deleted conversation's stream is gone. Such a run gives its place back and never queues.
+            ended = run.deleted || run.stopReason.get() != null;
+            if (ended) {
+                queued--;
+                run.place = false;
+            } else {
+                waiting.addLast(run);
+                streams.waiting(run.setup.assistantMessageId(), true);
+            }
+            starting = promote();
+        } finally { turns.unlock(); }
+        dispatch(starting);
+        if (ended) endUnstarted(run, ChatMessage.Status.CANCELED, null);
+        // A Stop between the check and here found the run queued or not; settle it if it is still there.
+        else if (run.stopReason.get() != null) settleWaiting(run, ChatMessage.Status.CANCELED, null);
+    }
+
+    /**
+     * Under {@code turns}: gives slots, in arrival order, to the waiting runs the bounds now admit, passing a run of
+     * an actor at their bound. It runs in the same hold that freed the slot, so a new arrival cannot take it first.
+     */
+    private List<Active> promote() {
+        var starting = new ArrayList<Active>();
+        for (var runs = waiting.iterator(); runs.hasNext() && running < limits.concurrency(); ) {
+            var run = runs.next();
+            var actor = run.claimant;
+            if (runningOf.getOrDefault(actor, 0) >= limits.perActorConcurrency()) continue;
+            runs.remove();
+            queued--;
+            run.place = false;
+            running++;
+            runningOf.merge(actor, 1, Integer::sum);
+            run.slot = true;
+            streams.waiting(run.setup.assistantMessageId(), false);
+            starting.add(run);
+        }
+        return starting;
+    }
+
+    private void dispatch(List<Active> starting) {
+        for (var run : starting) {
+            if (metrics != null) metrics.waited(System.nanoTime() - run.waitingSince);
+            try { executor.execute(() -> execute(run)); }
+            catch (RuntimeException rejected) { endUnstarted(run, ChatMessage.Status.FAILED, "CHAT_SUBMIT_FAILED"); }
+        }
+    }
+
+    /**
+     * Ends a run that is still in the queue, without the model: stopped, deleted, interrupted or past its wait.
+     * Returns false for a run that has a slot, which ends through its own execution.
+     */
+    private boolean settleWaiting(Active run, ChatMessage.Status status, @Nullable String failure) {
+        turns.lock();
+        try {
+            if (!waiting.remove(run)) return false;
+            queued--;
+            run.place = false;
+        } finally { turns.unlock(); }
+        endUnstarted(run, status, failure);
+        return true;
+    }
+
+    /** The terminal path of a run the model never ran for. */
+    private void endUnstarted(Active run, ChatMessage.Status status, @Nullable String failure) {
+        run.finish(status, failure);
+        measure(run);
+        finalizeRun(run);
+        retireWhenDrained(run);
     }
 
     public Cancellation cancel(ActorId actor, UUID session, UUID assistant) {
@@ -342,7 +482,10 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             var status = persistence.authorizeReply(actor, session, assistant);
             var run = active.get(assistant);
-            if (run != null && status == ChatMessage.Status.RUNNING) run.cancel(StopReason.USER);
+            if (run != null && status == ChatMessage.Status.RUNNING) {
+                run.cancel(StopReason.USER);
+                settleWaiting(run, ChatMessage.Status.CANCELED, null);
+            }
             return new Cancellation(assistant, status);
         } finally { lock.unlock(); }
     }
@@ -379,7 +522,11 @@ public final class ChatTurnService implements AutoCloseable {
             var messages = persistence.delete(actor, session);
             for (UUID message : messages) {
                 var run = active.get(message);
-                if (run != null) { run.deleted = true; run.cancel(StopReason.USER); }
+                if (run != null) {
+                    run.deleted = true;
+                    run.cancel(StopReason.USER);
+                    settleWaiting(run, ChatMessage.Status.CANCELED, null);
+                }
             }
             streams.discard(messages);
         } finally { lock.unlock(); }
@@ -630,15 +777,29 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     private void releaseIfFinished(Active run) {
-        if (run.persisted && run.drained && active.remove(run.setup.assistantMessageId(), run)) permits.release();
+        if (!run.persisted || !run.drained || !active.remove(run.setup.assistantMessageId(), run)) return;
+        if (run.slot) vacate(run.claimant);
+        else {
+            // It ended before it was given a slot: out of the queue, or before it reached it.
+            turns.lock();
+            try {
+                if (run.place) {
+                    waiting.remove(run);
+                    queued--;
+                    run.place = false;
+                }
+            } finally { turns.unlock(); }
+        }
     }
 
     /**
      * Only pending outcomes and due lease renewals touch the database; Stop is local. A turn has no total deadline:
      * the lease is renewed while this process runs it, so only a dead process lets it lapse into reconciliation.
+     * A waiting run is renewed like a running one and ends here once it has waited {@code waitLimit}.
      */
     public void maintain() {
         long now = System.nanoTime();
+        expireWaiting(now);
         var due = new ArrayList<Active>();
         for (var run : active.values()) {
             if (run.outcome != null) { finalizeRun(run); continue; }
@@ -650,7 +811,10 @@ public final class ChatTurnService implements AutoCloseable {
                 for (var run : due) {
                     run.renewedAt = now;
                     // The row already ended elsewhere (reconciled after a lapse, or deleted); this process no longer owns it.
-                    if (!renewed.contains(run.setup.assistantMessageId())) run.cancel(StopReason.INTERRUPTED);
+                    if (!renewed.contains(run.setup.assistantMessageId())) {
+                        run.cancel(StopReason.INTERRUPTED);
+                        settleWaiting(run, ChatMessage.Status.FAILED, "CHAT_INTERRUPTED");
+                    }
                 }
             } catch (RuntimeException failure) {
                 // Never stop a live run over a failed renewal; the next tick retries well inside the lease.
@@ -665,22 +829,17 @@ public final class ChatTurnService implements AutoCloseable {
         }
     }
 
-    /**
-     * Before the first send: a new process owns no run, so on the single-replica deployment every RUNNING row belongs to
-     * a process that died without shutdown. Failing them now avoids waiting for the lease. A departure from Onyx, which
-     * waits for its fence TTL; running several API replicas requires removing this. Lease reconciliation stays the fallback.
-     */
-    public void failOrphanedRuns() {
-        if (!active.isEmpty()) throw new IllegalStateException("Orphan reconciliation must run before any send");
-        try {
-            int failed = 0;
-            for (int batch; (batch = persistence.failOrphanedRuns()) > 0; ) failed += batch;
-            if (failed > 0) LOG.atWarn().addKeyValue("event", "chat.startup.orphaned_runs_failed").addKeyValue("count", failed)
-                    .log("Chat startup failed runs left RUNNING by a previous process");
-        } catch (RuntimeException failure) {
-            LOG.atWarn().addKeyValue("event", "chat.startup.orphan_reconciliation_failed")
-                    .addKeyValue("error_type", failure.getClass().getName())
-                    .log("Chat startup orphan reconciliation unavailable; lease reconciliation remains responsible");
+    private void expireWaiting(long now) {
+        Active[] queue;
+        turns.lock();
+        try { queue = waiting.toArray(Active[]::new); }
+        finally { turns.unlock(); }
+        for (var run : queue) {
+            if (run.stopReason.get() != null) settleWaiting(run, ChatMessage.Status.CANCELED, null);
+            else if (now - run.waitingSince >= limits.waitLimit().toNanos()
+                    && settleWaiting(run, ChatMessage.Status.FAILED, ChatException.busy().code()))
+                LOG.atWarn().addKeyValue("event", "chat.run.wait_expired").addKeyValue("message_id", run.setup.assistantMessageId())
+                        .addKeyValue("error_code", ChatException.busy().code()).log("Chat run waited past its limit");
         }
     }
 
@@ -714,7 +873,10 @@ public final class ChatTurnService implements AutoCloseable {
     public void close() {
         accepting.set(false);
         var draining = active.values().toArray(Active[]::new);
-        for (var run : draining) run.cancel(StopReason.INTERRUPTED);
+        for (var run : draining) {
+            run.cancel(StopReason.INTERRUPTED);
+            settleWaiting(run, ChatMessage.Status.FAILED, "CHAT_INTERRUPTED");
+        }
         try {
             CompletableFuture.allOf(Arrays.stream(draining).map(run -> run.finished).toArray(CompletableFuture[]::new))
                     .get(5, TimeUnit.SECONDS);
@@ -763,6 +925,13 @@ public final class ChatTurnService implements AutoCloseable {
         volatile boolean persisted;
         volatile boolean deleted;
         volatile long renewedAt = System.nanoTime();
+        /** Whose bound the run counts against: the person who sent the command. */
+        final ActorId claimant;
+        /** Whether the run holds a slot; written under {@code turns}, when admitted or when promoted from the queue. */
+        volatile boolean slot;
+        /** Whether the run holds a place in the queue, from admission until it is promoted or ends; under {@code turns}. */
+        volatile boolean place;
+        volatile long waitingSince;
         // Serializes persistence retries without holding the state monitor used by Stop/text callbacks.
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
@@ -772,9 +941,9 @@ public final class ChatTurnService implements AutoCloseable {
         final boolean grounded;
         final AtomicBoolean firstTextShown = new AtomicBoolean();
         Active(ChatTurnSetup setup, ModelResolver.Resolved resolved, ChatSettingsService.TurnPolicy policy, String question,
-               List<ChatMessage> earlier, @Nullable String uiLanguage) {
+               List<ChatMessage> earlier, @Nullable String uiLanguage, ActorId claimant, boolean slot) {
             this.setup = setup; this.resolved = resolved; this.policy = policy; this.question = question;
-            this.earlier = List.copyOf(earlier); this.uiLanguage = uiLanguage;
+            this.earlier = List.copyOf(earlier); this.uiLanguage = uiLanguage; this.claimant = claimant; this.slot = slot; this.place = !slot;
             this.grounded = setup.options().grounded();
         }
         synchronized int sourceCount() { return sources.size(); }
