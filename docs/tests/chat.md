@@ -472,7 +472,6 @@ Receipts: [MEM-112 verification](../increments/completed/mem-112-chat-mcp-client
 | `## User Memories` is the last part of the user information and is absent when empty | `ChatUserInformationTest.theMemoryIsTheLastPartOfTheUserInformation` |
 | A member reads, rewrites, switches and clears only their own memory; a stale revision is 409, over 4,000 characters is 400, writes are CSRF-guarded | `ChatSessionApiIntegrationTest.aMemberReadsRewritesAndClearsOnlyTheirOwnMemory`: Spring API, PostgreSQL |
 | The tool appends, replaces and deletes one passage, refuses a missing passage and an over-long memory, and is usable only in the owner's own non-temporary conversation with memory on | `ChatSessionApiIntegrationTest.theMemoryToolEditsOnePassageAndOnlyInTheOwnersOwnConversations` |
-| The tool refuses to write once the turn read a Web page or an MCP server | `memoryos-core/src/test/java/io/memoryos/chat/tools/UpdateMemoryToolTest.java` |
 | Settings › Chat edits the memory, its switch and the clear confirmation | `web/src/features/chat/settings/chat-memory-section.test.tsx` |
 
 ## Reasoning level and sampling defaults (MEM-147)
