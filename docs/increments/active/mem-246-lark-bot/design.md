@@ -146,9 +146,11 @@ reconciliation of a lapsed lease. Two things assume one process and change:
   other's turns, so it is removed; a turn left by a dead process ends when its lease lapses. The lease becomes
   three minutes, renewed every thirty seconds, so a session is not held for half an hour. Delivered in plan
   step 1.
-- The scheduling of `maintain()` and of the stream flush lives in the API module. It moves into `chat` as the
-  components a process that executes turns imports, as the Worker's components are published, with the
-  deployable that needs it (plan step 3).
+- The scheduling of `maintain()` and of the stream flush lives in the API module. A tick that needs what a process
+  holds in memory (its replies' buffers, its runs' leases, its queue) moves into `chat` beside the turn runtime, so
+  every process that executes turns runs it. Ending the runs of a process that died reads only PostgreSQL, so it
+  becomes a Worker task, run once for all processes, as the Worker already purges and retains conversations.
+  Delivered in plan step 3a.
 
 Stop, delete and subscribe stay local to the process that owns the turn. A channel session is not listed on the
 web, so the API never stops a turn the channels process runs. This is also the step that lets the API itself run
@@ -310,7 +312,7 @@ unchanged. `channel_messages` keeps who asked, since a group turn's session name
 
 A row of `channel_messages` holds ids only (the provider's message, chat and sender, the session and the turn's
 messages) and a refusal's reason; the text of a question and of its answer is in the chat session and nowhere
-else. Rows older than ninety days (`memoryos.channel.message-retention`) are deleted by the daily cleanup; an old
+else. Rows older than ninety days (`memoryos.channel.message-retention`) are deleted by a daily Worker task; an old
 reply then starts a new conversation. Onyx keeps only the thread's id on its chat session; spring-agent, WeKnora
 and RAGFlow keep message ids for deduplication alone; Dust keeps the message's text and the sender's Slack
 profile, which this does not.

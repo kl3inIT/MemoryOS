@@ -6,8 +6,6 @@ import com.embabel.agent.core.AgentProcessRepository;
 import com.embabel.agent.spi.support.ExecutorAsyncer;
 import io.memoryos.ai.ModelCalls;
 import io.memoryos.chat.ChatExecutionProperties;
-import io.memoryos.chat.ChatTurnService;
-import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.meeting.MeetingMinutesService;
 import io.memoryos.meeting.MeetingRecordingService;
 import io.memoryos.retrieval.SearchTasks;
@@ -23,8 +21,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
- * The API's scheduled Chat and meeting jobs and the model-call beans it composes across modules. Chat assembles its
- * own turn runtime ({@code io.memoryos.chat.execution.ChatExecutionConfiguration}); this class qualifies its
+ * The API's scheduled meeting jobs and the model-call beans it composes across modules. Chat assembles its own turn
+ * runtime and the ticks it owes ({@code io.memoryos.chat.execution}); this class qualifies its
  * {@code chatTaskExecutor}.
  */
 @Configuration(proxyBeanMethods = false)
@@ -48,11 +46,6 @@ class ChatRuntimeConfiguration {
         return new ModelCalls(contexts, repository, limits.costCap(), limits.tokenCap(), attempts);
     }
 
-    @Bean
-    ChatMaintenance chatMaintenance(ChatTurnService turns, StreamBufferWriter streams) {
-        return new ChatMaintenance(turns, streams);
-    }
-
     /**
      * Meeting minutes run here, not in the Worker, because the model catalog (`ai`) and its provider clients are wired
      * in this application. The claim leases one meeting per replica, so running several API replicas is safe.
@@ -60,15 +53,6 @@ class ChatRuntimeConfiguration {
     @Bean
     MeetingMinutes meetingMinutes(MeetingMinutesService minutes) {
         return new MeetingMinutes(minutes);
-    }
-
-    @Bean(defaultCandidate = false)
-    ThreadPoolTaskScheduler chatMaintenanceScheduler() {
-        var scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(2);
-        scheduler.setVirtualThreads(true);
-        scheduler.setThreadNamePrefix("chat-maintenance-");
-        return scheduler;
     }
 
     /**
@@ -103,18 +87,6 @@ class ChatRuntimeConfiguration {
         public void write() {
             // A few per pass, so one replica draining a backlog still leaves room for the chat maintenance ticks.
             for (int written = 0; written < 2 && minutes.writeNext(); written++) { /* drain */ }
-        }
-    }
-
-    record ChatMaintenance(ChatTurnService turns, StreamBufferWriter streams) {
-        @Scheduled(fixedDelayString = "${memoryos.chat.execution.maintenance-interval:1s}", scheduler = "chatMaintenanceScheduler")
-        public void maintain() {
-            turns.maintain();
-        }
-
-        @Scheduled(fixedDelayString = "${memoryos.chat.stream.flush-interval:25ms}", scheduler = "chatMaintenanceScheduler")
-        public void flush() {
-            streams.flush();
         }
     }
 }
