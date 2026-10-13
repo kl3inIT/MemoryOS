@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -13,6 +13,8 @@ import {
   type PdfHighlight,
   type PdfPageView,
 } from "./pdf-pages";
+import { BLOCK } from "./pdf-range-plan";
+import { openPdfOriginal, PdfReading } from "./pdf-range-source";
 
 // Self-hosted worker: the bundler emits it under the app origin, so `script-src 'self'` covers it.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -20,21 +22,71 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-// pdf.js reads the original by HTTP range: after the first response headers it cancels the full download and
-// requests only the 1 MiB chunks the rendered pages need. Originals up to 2 MiB are still read whole.
+// A same-origin original is read by HTTP range through `PdfReading`, which answers the blocks pdf.js asks for.
 // Image decoders (JBIG2, JPEG 2000) for scanned originals, copied from pdfjs-dist by vite.config.ts. The CSP does not
 // allow WebAssembly, so pdf.js uses their JavaScript fallbacks.
 const wasmUrl = `/assets/pdfjs-${pdfjs.version}/`;
 const RANGE_OPTIONS = {
   disableStream: true,
   disableAutoFetch: true,
-  rangeChunkSize: 1024 * 1024,
+  rangeChunkSize: BLOCK,
   wasmUrl,
 };
 // When range loading fails, one whole read, as before range support; the failure is reported.
 const WHOLE_OPTIONS = { disableRange: true, wasmUrl };
 // Multiples of the fit-to-width size: a Letter page in a 400px panel needs 2–3× for body text.
 const ZOOM_STEPS = [1, 1.5, 2, 3] as const;
+
+/** Hands pdf.js the bytes a `PdfReading` fetched, in the blocks pdf.js asked for. */
+class OriginalTransport extends pdfjs.PDFDataRangeTransport {
+  readonly #reading: PdfReading;
+
+  constructor(reading: PdfReading) {
+    super(reading.length, reading.head());
+    this.#reading = reading;
+  }
+
+  override requestDataRange(begin: number, end: number) {
+    this.#reading.request(begin, end, (bytes) => this.onDataRange(begin, bytes));
+  }
+
+  override abort() {
+    this.#reading.close();
+  }
+}
+
+/**
+ * What `Document` loads: the file itself, a URL read whole, or a range transport once its original is opened.
+ * A URL is opened by range first; a read that fails is told through `onFailure` and the caller reads it whole.
+ */
+function useOriginal(url: string | Blob, whole: boolean, onFailure: () => void) {
+  const [ranged, setRanged] = useState<{ url: string; range: OriginalTransport }>();
+  useEffect(() => {
+    if (typeof url !== "string" || whole) return undefined;
+    let reading: PdfReading | undefined;
+    let left = false;
+    openPdfOriginal(url).then(
+      (held) => {
+        if (left) return;
+        reading = new PdfReading(url, held, onFailure);
+        setRanged({ url, range: new OriginalTransport(reading) });
+      },
+      () => {
+        if (!left) onFailure();
+      },
+    );
+    return () => {
+      left = true;
+      reading?.close();
+    };
+  }, [url, whole, onFailure]);
+  // A new object per opening: react-pdf releases the document on unmount and never shares it across readers.
+  return useMemo(() => {
+    if (typeof url !== "string") return url;
+    if (whole) return { url };
+    return ranged?.url === url ? { range: ranged.range } : undefined;
+  }, [url, whole, ranged]);
+}
 
 /**
  * Shows the whole authorized original PDF, opened at the first cited page with the cited regions highlighted
@@ -68,8 +120,8 @@ export function PdfView({
   const [pageViews, setPageViews] = useState<Record<number, PdfPageView>>({});
   const [nearPages, setNearPages] = useState<ReadonlySet<number>>(() => new Set());
   const [visiblePage, setVisiblePage] = useState<number>();
-  // A new object per opening: react-pdf releases the document on unmount and never shares it across readers.
-  const file = useMemo(() => (typeof url === "string" ? { url } : url), [url]);
+  const readWhole = useCallback(() => setWholeFile(true), []);
+  const file = useOriginal(url, wholeFile, readWhole);
   const cited = pages.length ? pages : [1];
   const [firstCited = 1] = cited;
   const anchor = Math.min(firstCited, pageCount ?? firstCited);
@@ -170,8 +222,9 @@ export function PdfView({
         options={wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS}
         suspense={false}
         loading={loadingPages}
+        noData={loadingPages}
         error={wholeFile ? failed : loadingPages}
-        onLoadError={() => setWholeFile(true)}
+        onLoadError={readWhole}
         onLoadSuccess={(document) => setPageCount(document.numPages)}
         className="flex min-h-0 flex-1"
       >

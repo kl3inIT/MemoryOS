@@ -600,7 +600,8 @@ test("shows source type, provider and authors, links to Google Drive and outline
   expect(new Set(originals.map(({ url }) => url.searchParams.get("generation")))).toEqual(
     new Set([generation]),
   );
-  expect(originals.filter(({ range }) => !range)).toHaveLength(1);
+  // The reader opens the file by range itself; nothing probes it whole.
+  expect(originals.filter(({ range }) => !range)).toHaveLength(0);
   expect(
     rangedBytes(
       originals.map(({ range }) => range),
@@ -623,7 +624,7 @@ test("shows source type, provider and authors, links to Google Drive and outline
   );
   await expect(dialog.getByRole("spinbutton", { name: "Page number" })).toHaveValue("7");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
-  expect(fallbackReads.filter((range) => !range)).toHaveLength(2);
+  expect(fallbackReads.filter((range) => !range)).toHaveLength(1);
   await dialog.getByRole("button", { name: "All passages" }).click();
   await expect(dialog.getByRole("article", { name: "Selected passage" })).toContainText(
     nextPassage.content,
