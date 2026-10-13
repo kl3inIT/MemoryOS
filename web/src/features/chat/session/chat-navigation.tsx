@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { SortableList } from "@/components/composites/sortable-list";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
@@ -26,14 +26,11 @@ import { newChatSession } from "@/features/chat/chat-api";
 import {
   listChatPersonaPinsOptions,
   listChatPersonaPinsQueryKey,
-  moveChatProjectMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
-import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
-import { ProjectEditor } from "@/features/chat/projects/project-editor";
-import { ProjectIcon } from "@/features/chat/projects/project-icon";
-import { projectsOptions, type Project } from "@/features/chat/projects/chat-projects-api";
+import { ChatProjectsSection } from "./chat-projects-section";
+import { ChatSessionRow } from "./chat-session-row";
 import { personaOf, type Persona } from "@/features/chat/chat-personas-api";
 import { actionErrorText } from "@/lib/action-errors";
 import {
@@ -58,8 +55,6 @@ export function ChatNavigation({
 
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const threads = useOptionalChatThreads();
-  const [creating, setCreating] = useState(false);
-  const projects = useQuery(projectsOptions());
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
       <SidebarMenu>
@@ -107,49 +102,12 @@ export function ChatNavigation({
       {collapsed ? null : (
         <div className="min-h-0 flex-1 overflow-y-auto pt-4">
           <PinnedAgents onNavigate={onNavigate} />
-          <div className="mb-2 flex items-center justify-between px-2">
-            <Link
-              to="/projects"
-              onClick={onNavigate}
-              className="rounded text-sm font-medium text-content-secondary hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {ui("Dự án")}
-            </Link>
-            <IconButton
-              size="sm"
-              prominence="internal"
-              aria-label={ui("Tạo dự án")}
-              onClick={() => setCreating(true)}
-            >
-              <Plus />
-            </IconButton>
-          </div>
-          {projects.data?.map((project) => (
-            <ProjectFolder key={project.id} project={project} onNavigate={onNavigate} />
-          ))}
-          {projects.isPending && (
-            <p role="status" className="px-3 text-sm text-content-muted">
-              {ui("Đang tải dự án…")}
-            </p>
-          )}
-          {projects.isError && (
-            <Button size="sm" prominence="internal" onClick={() => void projects.refetch()}>
-              {ui("Tải lại dự án")}
-            </Button>
-          )}
+          <ChatProjectsSection onNavigate={onNavigate} />
           <h2 className="px-2 pt-6 pb-2 text-sm font-medium text-content-secondary">
             {ui("Hội thoại gần đây")}
           </h2>
           {threads && <ThreadListConversations onNavigate={onNavigate} />}
         </div>
-      )}
-      {creating && (
-        <ProjectEditor
-          onClose={() => {
-            setCreating(false);
-            onNavigate?.();
-          }}
-        />
       )}
     </div>
   );
@@ -348,74 +306,5 @@ function ChatThreadRow({
       deleteSession={() => item().delete()}
       archiveSession={(archived) => (archived ? item().archive() : item().unarchive())}
     />
-  );
-}
-
-function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?: () => void }) {
-  const ui = useAppTranslation();
-
-  const [over, setOver] = useState(false);
-  const refreshSessions = useRefreshChatSessions();
-  const move = useMutation({
-    ...moveChatProjectMutation(),
-    onSuccess: (_moved, { path }) => refreshSessions(path.sessionId),
-  });
-  const selected = useRouterState({
-    select: (state) => state.location.pathname === `/projects/${project.id}`,
-  });
-  return (
-    <div
-      data-project-id={project.id}
-      onDragOver={(event) => {
-        if (!move.isPending && event.dataTransfer.types.includes(CHAT_DRAG_TYPE)) {
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
-          setOver(true);
-        }
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false);
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        setOver(false);
-        const sessionId = event.dataTransfer.getData(CHAT_DRAG_TYPE);
-        if (!sessionId || move.isPending) return;
-        move.mutate({
-          path: { sessionId },
-          body: { projectId: project.id },
-          signal: AbortSignal.timeout(30000),
-        });
-      }}
-    >
-      <div
-        className={cn(
-          "flex items-center rounded-lg hover:bg-surface-sunken",
-          (selected || over) && "bg-surface-sunken",
-          over && "ring-2 ring-ring",
-        )}
-      >
-        <Link
-          to="/projects/$projectId"
-          params={{ projectId: project.id }}
-          onClick={onNavigate}
-          aria-current={selected ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
-        >
-          <ProjectIcon iconName={project.iconName} className="size-4 shrink-0 text-content-muted" />
-          <span className="truncate">{project.name}</span>
-        </Link>
-      </div>
-      {move.isPending && (
-        <p role="status" className="px-3 text-xs">
-          {ui("Đang chuyển hội thoại…")}
-        </p>
-      )}
-      {move.isError && (
-        <p role="alert" className="px-3 text-xs">
-          {ui(actionErrorText(move.error))}
-        </p>
-      )}
-    </div>
   );
 }

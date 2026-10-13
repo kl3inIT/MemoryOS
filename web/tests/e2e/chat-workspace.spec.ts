@@ -496,33 +496,33 @@ test("moves and removes a conversation with keyboard menus and desktop drag and 
     .getByRole("button", { name: "Thao tác hội thoại Movable conversation" });
   await headerMenu.focus();
   await headerMenu.press("Enter");
-  const move = page.getByRole("menuitem", { name: "Chuyển vào dự án" });
+  const move = page.getByRole("menuitem", { name: "Chuyển đến dự án", exact: true });
   await move.focus();
-  await move.press("Enter");
-  const destination = page.getByRole("radio", { name: "Move destination" });
-  await destination.focus();
-  await destination.press("Space");
-  await expect(destination).toBeChecked();
-  await page.getByRole("dialog").getByRole("button", { name: "Chuyển", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await move.press("ArrowRight");
+  await page.getByRole("menuitem", { name: "Move destination", exact: true }).press("Enter");
+  await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(headerMenu).toBeFocused();
-  expect(
-    (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
-  ).toBe(project.id);
+  await expect
+    .poll(
+      async () =>
+        (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
+    )
+    .toBe(project.id);
   await page.goto(`/projects/${project.id}`);
   await expect(
     page.getByRole("main").getByRole("link", { name: /Movable conversation/ }),
   ).toBeVisible();
   await page.goto(`/chat/${session.id}`);
   await headerMenu.click();
-  await page.getByRole("menuitem", { name: "Chuyển vào dự án" }).click();
-  await page.getByRole("radio", { name: "Ngoài dự án" }).check();
-  await page.getByRole("dialog").getByRole("button", { name: "Chuyển", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(
-    (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
-  ).toBeNull();
-  // The sidebar project row is a drop target and a link only; conversations live on the project page.
+  await page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect
+    .poll(
+      async () =>
+        (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
+    )
+    .toBeNull();
+  // The sidebar project row stays a drop target for a dragged conversation next to its drag handle.
   const folder = page.locator(`[data-project-id="${project.id}"]`);
   const row = page
     .getByRole("complementary")
