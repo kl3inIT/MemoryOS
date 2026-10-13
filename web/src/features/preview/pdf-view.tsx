@@ -121,7 +121,13 @@ export function PdfView({
   const [drawn, setDrawn] = useState<ReadonlySet<number>>(() => new Set());
   // The reader scrolled, typed or picked a page, so the cited page no longer goes first.
   const [moved, setMoved] = useState(false);
-  const readWhole = useCallback(() => setWholeFile(true), []);
+  // The whole read mounts the document again, pages and canvas with it: what was counted and drawn starts over,
+  // so the observers and the opening scroll are set up on the new canvas.
+  const readWhole = useCallback(() => {
+    setWholeFile(true);
+    setPageCount(undefined);
+    setDrawn((known) => (known.size ? new Set() : known));
+  }, []);
   const file = useOriginal(url, wholeFile, readWhole);
   const worker = useReaderWorker();
   const options = useMemo(

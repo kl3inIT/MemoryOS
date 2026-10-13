@@ -1,7 +1,7 @@
 package io.memoryos.connector.lark.persistence;
 
 import io.memoryos.connector.LarkException;
-import io.memoryos.connector.source.persistence.CredentialCipher;
+import io.memoryos.shared.CredentialCipher;
 import java.util.Arrays;
 import java.util.Base64;
 import org.springframework.beans.factory.annotation.Value;

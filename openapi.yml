@@ -27514,6 +27514,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -27582,12 +27583,13 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
             - CHAT_HISTORY_READ
-          maxItems: 7
-          maxLength: 7
+          maxItems: 8
+          maxLength: 8
           minItems: 0
       required:
       - capabilities
@@ -29919,6 +29921,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -29945,6 +29948,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -30133,6 +30137,7 @@ components:
           - SOURCES_DELETE
           - MODELS_MANAGE
           - MCP_MANAGE
+          - CHANNELS_MANAGE
           - AGENTS_CREATE
           - AGENTS_MANAGE
           - AUDIT_READ
@@ -30163,6 +30168,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ

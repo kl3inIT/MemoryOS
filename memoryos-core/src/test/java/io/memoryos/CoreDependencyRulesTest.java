@@ -26,7 +26,8 @@ class CoreDependencyRulesTest {
             "audit",
             "shared",
             "voice",
-            "library"
+            "library",
+            "channel"
     );
 
     private final JavaClasses coreClasses = new ClassFileImporter()

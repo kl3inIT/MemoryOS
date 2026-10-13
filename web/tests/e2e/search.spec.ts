@@ -735,6 +735,28 @@ test("opens a scanned report at its cited page without reading the rest of it", 
   const again = reads.slice(kept);
   expect(again[0]).toBe("bytes=0-0");
   expect(rangedBytes(again, originalPdf.length)).toBeLessThan(originalPdf.length / 10);
+
+  // A range that fails once the document is open reads it whole, and the new canvas follows the reader. The
+  // first page's picture was never fetched, so drawing it is such a read.
+  await page.unroute("**/api/search/documents/*/original?*");
+  const later: (string | undefined)[] = [];
+  await page.route("**/api/search/documents/*/original?*", (route) => {
+    const range = route.request().headers()["range"];
+    later.push(range);
+    return range ? route.fulfill({ status: 500 }) : fulfillPdfRange(route, originalPdf);
+  });
+  const pageNumber = dialog.getByRole("spinbutton", { name: "Page number" });
+  await pageNumber.fill("1");
+  await pageNumber.press("Enter");
+  await expect.poll(() => later.filter((range) => !range).length).toBe(1);
+  // The whole read opens at the cited page again.
+  await expect(pageNumber).toHaveValue("13");
+  await pageNumber.fill("24");
+  await pageNumber.press("Enter");
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="24"] canvas')).toBeVisible();
+  await expect(pageNumber).toHaveValue("24");
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  expect(later.filter((range) => !range)).toHaveLength(1);
 });
 
 test("marks the cited region on an image original, through zoom and a turn, and only on the picture it was measured in", async ({

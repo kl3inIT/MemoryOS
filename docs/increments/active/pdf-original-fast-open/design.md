@@ -65,8 +65,9 @@ still its own authorized read, and originals are still served `no-store`.
 ### What a session read is kept, and authorized again before it is used
 
 The source keeps the blocks it fetched, per original URL (which names the document and its generation), up to
-32 MiB in all, least recently used first out, and forgets an original nobody read for ten minutes. It is memory
-in the page, never the HTTP cache: a reload or a sign-out empties it.
+32 MiB in all, least recently used first out, and forgets an original nobody read for ten minutes at a sweep
+every ten, so between ten and twenty minutes after its last use. It is memory in the page, never the HTTP
+cache (every read asks for `no-store`): a reload or a sign-out, which leaves the page, empties it.
 
 Authority is not kept. Every opening makes one authorized request before a single held byte reaches pdf.js: the
 head when nothing is held, one byte otherwise. A refusal, or a size that differs from the held one, drops what

@@ -192,9 +192,12 @@ added with the provider that needs them.
 
 ### Connection
 
-`channel_connections`: `tenant_id`, `id`, `provider`, the app id and region, the encrypted secret envelope, the
-bot's name and external id, the provider organisation key, `enabled`, the language of the bot's notices (`vi` or
-`en`), a revision; one connection a Tenant and provider. `CredentialCipher` moves unchanged from the connector's
+`channel_connections`: `tenant_id`, `id`, `provider`, a name the administrator gives the bot, the app id and
+region, the encrypted secret envelope, `enabled`, the language of the bot's notices (`vi` or `en`), the bot's
+service account and a revision; the bot's external id and the provider organisation key are added with the
+adapter that reads them. A Tenant may have several bots, as Onyx keeps several Slack bots and WeKnora several IM
+channels, each bound to an agent; one provider app serves one bot. A new bot is switched off; switching it off
+again keeps its account, and removing it retires the account. `CredentialCipher` moves unchanged from the connector's
 persistence package to the shared kernel; the envelope's kind is `CHANNEL_LARK` and its key is
 `memoryos.channel.credential-encryption-key`, a secret file like the connector's.
 
@@ -361,6 +364,9 @@ text, sender email or provider payload is logged.
 - An agent the administrator chooses for the bot, as Onyx sets one a channel; the bot answers with the Tenant's
   default agent.
 - Feeding a second message into the turn that is still running.
+- Continuing a group conversation on the web: Onyx copies the bot's session into a new one owned by the person
+  who clicks, which then runs under their access; a direct message's session already opens and continues on
+  the web, as Dust's "Continue on Dust" does.
 - The consent that lends the bot a personal connection in a group (above).
 - An account binding for a platform that gives no email (Telegram, Zalo): a person links their account once from
   MemoryOS. `channel_identities` is the table it will write.
