@@ -1900,6 +1900,7 @@ Object.assign(vietnameseUi, {
   "Đang chọn đoạn liên quan…": "Selecting relevant passages…",
   "Đang đọc ngữ cảnh tài liệu…": "Reading document context…",
   "Đang tìm trong tài liệu…": "Searching documents…",
+  "Đang chờ lượt…": "Waiting for a turn…",
   "Đang suy nghĩ…": "Thinking…",
   "Tệp tải lên": "Uploaded files",
   "Không giới hạn": "Unlimited",

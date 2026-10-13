@@ -644,18 +644,6 @@ public class JdbcChatRepository {
         return written;
     }
 
-    /** One bounded batch of every RUNNING row, regardless of lease; only valid when no process can own one. */
-    public int failOrphanedRuns() {
-        return jdbc.sql("""
-                WITH orphaned AS (
-                    SELECT id FROM chat_message WHERE status = 'RUNNING' ORDER BY deadline_at LIMIT 100 FOR UPDATE SKIP LOCKED
-                ) UPDATE chat_message m SET status = 'FAILED',
-                    failure_code = 'CHAT_INTERRUPTED',
-                    finished_at = clock_timestamp()
-                FROM orphaned o WHERE m.id = o.id AND m.status = 'RUNNING'
-                """).update();
-    }
-
     public int expireRuns() {
         return jdbc.sql("""
                 WITH expired AS (
