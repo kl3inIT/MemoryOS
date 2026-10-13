@@ -141,7 +141,12 @@ type Part = { begin: number; total: number; data: Uint8Array };
 
 /** Sends one range request and resolves at its headers, so a second request can start beside its body. */
 async function startRange(url: string, begin: number, end: number, signal?: AbortSignal) {
-  const response = await fetch(url, { headers: { Range: `bytes=${begin}-${end - 1}` }, signal });
+  const response = await fetch(url, {
+    headers: { Range: `bytes=${begin}-${end - 1}` },
+    // The server says so too; an original is kept in this module's memory or nowhere.
+    cache: "no-store",
+    signal,
+  });
   const body = () => response.arrayBuffer().then((buffer) => new Uint8Array(buffer));
   // RFC 9110 lets a server ignore the header and send the whole file.
   if (response.status === 200) {
