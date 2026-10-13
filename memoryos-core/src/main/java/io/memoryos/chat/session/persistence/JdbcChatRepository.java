@@ -264,6 +264,21 @@ public class JdbcChatRepository {
                 .query(JdbcChatRepository::message).list();
     }
 
+    /** The end of the selected branch: the root when nothing was written, never further than a history can be. */
+    public UUID leaf(ChatSession session) {
+        return jdbc.sql("""
+                        WITH RECURSIVE branch AS (
+                            SELECT m.id, m.latest_child_message_id, 0 AS depth FROM chat_message m
+                            WHERE session_id = :session AND id = :root
+                            UNION ALL
+                            SELECT m.id, m.latest_child_message_id, b.depth + 1 FROM branch b
+                            JOIN chat_message m ON m.id = b.latest_child_message_id AND m.session_id = :session
+                            WHERE b.depth < 10000
+                        ) SELECT id FROM branch ORDER BY depth DESC LIMIT 1
+                        """).param("session", session.id()).param("root", session.rootMessageId())
+                .query(UUID.class).single();
+    }
+
     public Optional<ReservedRequest> previousRequest(UUID session, UUID requestId) {
         return jdbc.sql("""
                         SELECT * FROM chat_command WHERE session_id = :session AND request_id = :request
