@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import {
+  ArrowUpDown,
   ChevronDown,
   Download,
   FolderPlus,
+  LayoutGrid,
+  List,
   ListFilter,
-  Search,
-  SlidersHorizontal,
   Trash2,
   Undo2,
   X,
 } from "lucide-react";
+import { SearchField } from "@/components/composites/search-field";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,18 +21,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { IconButton } from "@/components/ui/icon-button";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
+import { InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { usePointerOpenedTrigger } from "@/hooks/use-pointer-opened-trigger";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import {
@@ -103,20 +100,13 @@ export function LibraryToolbar({
         mode={state.mode}
         onMode={handlers.onMode}
       />
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button size="sm" prominence="secondary" aria-label={ui("Bộ lọc")}>
-            <ListFilter data-icon="inline-start" />
-            {/* A phone keeps the icon and the count; the search field needs the width. */}
-            <span className="hidden sm:inline">{ui("Bộ lọc")}</span>
-            {activeFilters > 0 && <Badge variant="secondary">{activeFilters}</Badge>}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-72">
-          <LibraryFilterPanel state={state} handlers={handlers} starrable={starrable} />
-        </PopoverContent>
-      </Popover>
-      <LibraryDisplayMenu
+      <LibraryFilterMenu
+        state={state}
+        handlers={handlers}
+        starrable={starrable}
+        active={activeFilters}
+      />
+      <LibraryDisplayControls
         sort={sortable ? state.sort : undefined}
         sorts={SORTS}
         onSort={handlers.onSort}
@@ -128,8 +118,8 @@ export function LibraryToolbar({
 }
 
 /**
- * The search box every library view opens with, with a way to clear what was typed. A view that can search
- * inside its files says so in the field itself: names or contents.
+ * The search box every library view opens with. A view that can search inside its files says so in the field
+ * itself: names or contents.
  */
 export function LibrarySearchField({
   value,
@@ -146,28 +136,7 @@ export function LibrarySearchField({
 }) {
   const ui = useAppTranslation();
   return (
-    <InputGroup className="min-w-56 flex-1">
-      <InputGroupAddon>
-        <Search />
-      </InputGroupAddon>
-      <InputGroupInput
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={label}
-        aria-label={label}
-        maxLength={200}
-      />
-      {value.length > 0 && (
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton
-            size="icon-xs"
-            aria-label={ui("Xóa từ khóa tìm kiếm")}
-            onClick={() => onChange("")}
-          >
-            <X />
-          </InputGroupButton>
-        </InputGroupAddon>
-      )}
+    <SearchField value={value} onChange={onChange} label={label} className="min-w-56 flex-1">
       {mode && onMode && (
         <InputGroupAddon align="inline-end">
           <DropdownMenu>
@@ -190,15 +159,56 @@ export function LibrarySearchField({
           </DropdownMenu>
         </InputGroupAddon>
       )}
-    </InputGroup>
+    </SearchField>
   );
 }
 
 /**
- * How a view is shown, in one menu on every view: the order of the list, and rows or cards. The trash and the
- * processing view order themselves, so they leave the order out.
+ * The filter button and its panel. The button is the icon alone, with how many filters are on beside it; a phone
+ * and a desktop see the same control, so the search field gets the width on both.
  */
-export function LibraryDisplayMenu<S extends LibrarySort>({
+function LibraryFilterMenu({
+  state,
+  handlers,
+  starrable,
+  active,
+}: {
+  state: LibraryToolbarState;
+  handlers: LibraryToolbarHandlers;
+  starrable: boolean;
+  active: number;
+}) {
+  const ui = useAppTranslation();
+  const pointer = usePointerOpenedTrigger();
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <TooltipIconButton
+          prominence="secondary"
+          aria-label={ui("Bộ lọc")}
+          className={active > 0 ? "w-auto px-2" : undefined}
+          {...pointer.trigger}
+        >
+          <ListFilter />
+          {active > 0 && (
+            <Badge variant="secondary" className="ml-1.5">
+              {active}
+            </Badge>
+          )}
+        </TooltipIconButton>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72" {...pointer.content}>
+        <LibraryFilterPanel state={state} handlers={handlers} starrable={starrable} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * How a view is shown, as icons beside the search: the order of the list in one menu, and rows or cards as two
+ * buttons that act at once. The trash and the processing view order themselves, so they leave the order out.
+ */
+export function LibraryDisplayControls<S extends LibrarySort>({
   sort,
   sorts,
   onSort,
@@ -214,6 +224,7 @@ export function LibraryDisplayMenu<S extends LibrarySort>({
   onLayout: (next: LibraryLayout) => void;
 }) {
   const ui = useAppTranslation();
+  const pointer = usePointerOpenedTrigger();
   const sortLabels: Record<LibrarySort, string> = {
     NEWEST: ui("Mới nhất"),
     OLDEST: ui("Cũ nhất"),
@@ -222,17 +233,24 @@ export function LibraryDisplayMenu<S extends LibrarySort>({
     SMALLEST: ui("Dung lượng tăng dần"),
     DELETED: ui("Xóa gần nhất"),
   };
+  const layouts = [
+    { value: "list", label: ui("Dạng danh sách"), icon: <List /> },
+    { value: "grid", label: ui("Dạng lưới"), icon: <LayoutGrid /> },
+  ] as const;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" prominence="secondary" aria-label={ui("Cách hiển thị")}>
-          <SlidersHorizontal data-icon="inline-start" />
-          <span className="hidden sm:inline">{ui("Cách hiển thị")}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        {sort && sorts && onSort && (
-          <>
+    <>
+      {sort && sorts && onSort && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <TooltipIconButton
+              prominence="secondary"
+              aria-label={ui("Sắp xếp")}
+              {...pointer.trigger}
+            >
+              <ArrowUpDown />
+            </TooltipIconButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56" {...pointer.content}>
             <DropdownMenuLabel>{ui("Sắp xếp")}</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={sort} onValueChange={(next) => onSort(next as S)}>
               {sorts.map((value) => (
@@ -241,19 +259,21 @@ export function LibraryDisplayMenu<S extends LibrarySort>({
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        <DropdownMenuLabel>{ui("Bố cục")}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={layout}
-          onValueChange={(next) => onLayout(next as LibraryLayout)}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {layouts.map((entry) => (
+        <TooltipIconButton
+          key={entry.value}
+          prominence={layout === entry.value ? "secondary" : "tertiary"}
+          aria-label={entry.label}
+          aria-pressed={layout === entry.value}
+          onClick={() => onLayout(entry.value)}
         >
-          <DropdownMenuRadioItem value="list">{ui("Dạng danh sách")}</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="grid">{ui("Dạng lưới")}</DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {entry.icon}
+        </TooltipIconButton>
+      ))}
+    </>
   );
 }
 
@@ -521,7 +541,7 @@ export function LibrarySelectionBar({
             </Button>
           </>
         )}
-        <IconButton
+        <TooltipIconButton
           size="sm"
           prominence="internal"
           className="ml-auto"
@@ -529,7 +549,7 @@ export function LibrarySelectionBar({
           onClick={onClear}
         >
           <X />
-        </IconButton>
+        </TooltipIconButton>
       </div>
     </div>
   );

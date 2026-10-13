@@ -1,7 +1,42 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type * as CodeRenderers from "@/components/assistant-ui/elements/code-renderers.aui";
 import { i18n } from "@/i18n/index";
 import { FilePreview } from "./file-preview";
+
+// jsdom runs neither pdf.js nor its worker. The PDF reader's own frame and toolbar are what is rendered here;
+// the end-to-end cases draw the pages.
+vi.mock("react-pdf", () => ({
+  Document: () => null,
+  Page: () => null,
+  pdfjs: { version: "0", PDFDataRangeTransport: class {} },
+}));
+vi.mock("./pdf-reader-worker", () => ({ useReaderWorker: () => undefined }));
+// Source is drawn plain and then again as other markup of the same text, as the syntax highlighter does once
+// it has loaded; here the second rendering arrives on a timer instead of with a grammar.
+vi.mock("@/components/assistant-ui/elements/code-renderers.aui", async (importOriginal) => {
+  const { useEffect, useState } = await import("react");
+  return {
+    ...(await importOriginal<typeof CodeRenderers>()),
+    HighlightedCode: ({ code }: { code: string }) => {
+      const [highlighted, setHighlighted] = useState(false);
+      useEffect(() => {
+        const loaded = setTimeout(() => setHighlighted(true), 20);
+        return () => clearTimeout(loaded);
+      }, []);
+      return (
+        <pre data-highlighted={highlighted || undefined}>
+          {highlighted ? (
+            code.split("\n").map((line) => <span key={line}>{`${line}\n`}</span>)
+          ) : (
+            <code>{code}</code>
+          )}
+        </pre>
+      );
+    },
+  };
+});
 
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
@@ -31,6 +66,105 @@ it("reports each citation where the locator placed it, and a passage not in the 
   // The same citations on the next render are neither placed nor scrolled to again.
   rerender(preview());
   expect(onPlaced).toHaveBeenCalledTimes(1);
+});
+
+it("paints the reader's words over the located passage, above both passage highlights", async () => {
+  // jsdom has no Custom Highlight API; this registry records what the preview registers.
+  const registry = new Map<string, { ranges: Range[]; priority: number }>();
+  vi.stubGlobal(
+    "Highlight",
+    class {
+      priority = 0;
+      ranges: Range[];
+      constructor(...ranges: Range[]) {
+        this.ranges = ranges;
+      }
+    },
+  );
+  vi.stubGlobal("CSS", { highlights: registry });
+  const text = "Doanh thu quý 3 đạt 412 tỷ đồng.\nChi phí quản lý tăng 12%.";
+  render(
+    <FilePreview
+      content={{ kind: "text", text, truncated: false, bytes: text.length }}
+      filename="bao-cao.txt"
+      download="/api/files/1/content"
+      citations={{ texts: ["Chi phí quản lý tăng 12%."], terms: ["quản lý", "doanh thu"] }}
+    />,
+  );
+
+  await waitFor(() => expect(registry.has("memoryos-citation-term")).toBe(true));
+  const terms = registry.get("memoryos-citation-term");
+  // "Doanh thu" is in the file but outside the cited passage, so it is left alone.
+  expect(terms?.ranges.map((range) => range.toString())).toEqual(["quản lý"]);
+  expect(terms?.priority).toBeGreaterThan(registry.get("memoryos-citation-active")?.priority ?? 0);
+  vi.unstubAllGlobals();
+});
+
+it("keeps a passage marked in source once the highlighter has replaced the plain rendering", async () => {
+  const registry = new Map<string, { ranges: Range[] }>();
+  vi.stubGlobal(
+    "Highlight",
+    class {
+      priority = 0;
+      ranges: Range[];
+      constructor(...ranges: Range[]) {
+        this.ranges = ranges;
+      }
+    },
+  );
+  vi.stubGlobal("CSS", { highlights: registry });
+  const text = "Doanh thu quý 3 đạt 412 tỷ đồng.\nChi phí quản lý tăng 12%.";
+  const { container } = render(
+    <FilePreview
+      content={{ kind: "text", text, truncated: false, bytes: text.length }}
+      filename="bao-cao.txt"
+      download="/api/files/1/content"
+      citations={{ texts: ["Chi phí quản lý tăng 12%."] }}
+    />,
+  );
+  const marked = () => registry.get("memoryos-citation-active")?.ranges[0];
+  await waitFor(() => expect(marked()?.toString()).toBe("Chi phí quản lý tăng 12%."));
+
+  // The highlighter's own markup takes the place of the plain text the passage was first found in.
+  await waitFor(() => expect(container.querySelector("pre[data-highlighted]")).not.toBeNull());
+  await waitFor(() => expect(marked()?.toString()).toBe("Chi phí quản lý tăng 12%."));
+  expect(marked()?.collapsed).toBe(false);
+  vi.unstubAllGlobals();
+});
+
+it("steps between the cited passages of a PDF from the reader's own toolbar", async () => {
+  const onActive = vi.fn();
+  render(
+    <FilePreview
+      content={{ kind: "pdf", file: new Blob(["%PDF-"], { type: "application/pdf" }) }}
+      filename="bao-cao.pdf"
+      download="/api/files/3/content"
+      citations={{ texts: ["Đoạn một.", "Đoạn hai.", "Đoạn ba."], active: 1, onActive }}
+    />,
+  );
+
+  const toolbar = await screen.findByRole("toolbar", { name: "Điều khiển tài liệu" });
+  // One toolbar: the steps sit beside the page and zoom controls, not in a second bar over them.
+  expect(screen.getAllByRole("toolbar")).toHaveLength(1);
+  expect(within(toolbar).getByText("2 / 3")).toBeVisible();
+  expect(within(toolbar).getByRole("button", { name: "Thu nhỏ" })).toBeInTheDocument();
+  await userEvent.click(within(toolbar).getByRole("button", { name: "Đoạn sau" }));
+  await userEvent.click(within(toolbar).getByRole("button", { name: "Đoạn trước" }));
+  expect(onActive.mock.calls).toEqual([[2], [0]]);
+});
+
+it("offers no steps for a PDF with one cited passage", async () => {
+  render(
+    <FilePreview
+      content={{ kind: "pdf", file: new Blob(["%PDF-"], { type: "application/pdf" }) }}
+      filename="bao-cao.pdf"
+      download="/api/files/3/content"
+      citations={{ texts: ["Đoạn một."], onActive: vi.fn() }}
+    />,
+  );
+
+  const toolbar = await screen.findByRole("toolbar", { name: "Điều khiển tài liệu" });
+  expect(within(toolbar).queryByRole("button", { name: "Đoạn sau" })).not.toBeInTheDocument();
 });
 
 it("offers the download for a file it cannot show", () => {

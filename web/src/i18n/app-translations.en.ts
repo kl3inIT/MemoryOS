@@ -444,8 +444,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chỉ tệp gắn sao": "Starred files only",
   "Gắn sao {{name}}": "Star {{name}}",
   "Bỏ gắn sao {{name}}": "Unstar {{name}}",
-  "Mọi tệp, cuộc họp và tài liệu bạn xem và dùng được, ở cùng một chỗ.":
-    "Every file, meeting and document you can see and use, in one place.",
   "Chia sẻ bởi {{name}}": "Shared by {{name}}",
   "Qua nhóm {{names}}": "Through the group {{names}}",
   "Qua trợ lý {{names}}": "Through the assistant {{names}}",
@@ -670,7 +668,6 @@ export const vietnameseUi: Record<string, string> = {
   // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
   "Khớp nội dung tệp.": "Matches the file's contents.",
   "Tìm trong nội dung tệp": "Search inside files",
-  "Cách hiển thị": "Display",
   "Nội dung": "Contents",
   "Tên A → Z": "Name A → Z",
   "Trạng thái tệp": "File state",
@@ -743,7 +740,6 @@ export const vietnameseUi: Record<string, string> = {
   "Trình chiếu": "Presentations",
   Khác: "Other",
   "{{count}} tệp · {{size}}": "{{count}} files · {{size}}",
-  "Bố cục": "Layout",
   "Tìm theo": "Search by",
   "Dạng bảng": "Table view",
   "Dạng lưới": "Grid view",

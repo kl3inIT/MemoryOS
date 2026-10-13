@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -94,6 +94,7 @@ export function PdfView({
   pages,
   boxes,
   thumbnails = false,
+  steps,
   onReady,
 }: {
   /** A same-origin URL, or the file itself: the CSP (connect-src 'self') does not let pdf.js fetch blob: URLs. */
@@ -102,6 +103,8 @@ export function PdfView({
   boxes: readonly PdfHighlight[];
   /** A page rail beside the document, for a reader wide enough to hold one. */
   thumbnails?: boolean;
+  /** A group for the toolbar that steps between cited passages; the caller moves `pages` and `boxes`. */
+  steps?: ReactNode;
   /** Called once the page it opens at is drawn, so a caller can swap it in without a blank frame. */
   onReady?: () => void;
 }) {
@@ -191,6 +194,10 @@ export function PdfView({
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
+  // The first cited region of the anchor page, as a value: it changes only when another passage is cited, so
+  // a passage on the page already open is scrolled to as well and a repaint moves no one.
+  const region = boxes.find((box) => box.page === anchor);
+  const citedRegion = region && `${region.left}:${region.top}:${region.right}:${region.bottom}`;
   // Open at the cited region once its page is measured; a zoom keeps the reader on the page they were reading.
   useEffect(() => {
     if (!pageCount) return;
@@ -202,7 +209,7 @@ export function PdfView({
     } else {
       figures.current.get(page)?.scrollIntoView({ block: "start", inline: "nearest" });
     }
-  }, [pageCount, anchor, anchorView, renderedWidth]);
+  }, [pageCount, anchor, anchorView, renderedWidth, citedRegion]);
 
   const goToPage = (page: number) => {
     setMoved(true);
@@ -361,6 +368,7 @@ export function PdfView({
               </Button>
             </ToolbarGroup>
           ) : null}
+          {steps}
           <ZoomControl
             label={zoom === 0 ? ui("Vừa khung") : ui("{{percent}}%", { percent: scale * 100 })}
             onOut={() => setZoom((value) => Math.max(0, value - 1))}

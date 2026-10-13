@@ -2,7 +2,8 @@
 
 The Tenant's chat bots on messaging platforms, the Lark bot first. Design and status:
 [MEM-246](../increments/active/mem-246-lark-bot/design.md). What a bot receives and how a question becomes a Chat
-turn are not built yet; this page describes what exists.
+turn is built up to the adapter; no platform adapter and no process that receives exist yet, so no bot answers.
+This page describes what exists.
 
 ## Connections
 
@@ -29,3 +30,54 @@ the Tenant's exclusive authority lock and checks the revision it was given (`CHA
   `channel.delete`.
 
 No HTTP surface exposes this yet; the administrator's API comes with the Lark adapter.
+
+## The adapter
+
+A platform is a `ChannelAdapter`, one a `ChannelProvider`, found through `ChannelAdapters`. It owns the transport,
+the provider's ids and the shape of a reply: `reply(connection, message)` opens a `ChannelReply` that quotes the
+message (`append` text as it is written, then `finish(text, sources, footer)`, which returns the provider's id of
+the answer, or `fail(notice)`); `notice` sends one short message; `senderEmail` answers the e-mail the provider
+holds for a sender; `externalChat` says whether people outside the organisation read a chat. It hands over a
+`ChannelMessage`: the provider's message id, the chat and whether it is `DIRECT` or `GROUP`, the sender and their
+organisation, whether the bot was named, `TEXT` or `OTHER`, the text without the bot's mention, and the message it
+replies to. Opening a transport and verifying an app are added with the Lark adapter.
+
+## Receiving a message
+
+`ChannelInboundService.receive` handles one message to its end, on the adapter's thread, after the adapter has
+acknowledged it to the provider:
+
+1. The bot must be switched on. A group message that does not name the bot is dropped unrecorded.
+2. The message is claimed by inserting `channel_messages (connection_id, external_message_id)`; a message handed
+   over again, by this or another process, ends here. The row holds ids only (the chat, the sender, then the
+   session, the answer and the provider's id of the answer) and how it ended (`ANSWERED`, `REFUSED`, `FAILED`
+   with a reason); the text is in the chat session.
+3. It is refused with a notice when the sender's organisation is not the bot's (`OUTSIDER`; a bot whose
+   organisation is not recorded yet admits nobody), when it is not text (`NOT_TEXT`) or when the group has people
+   outside the organisation (`EXTERNAL_GROUP`).
+4. The sender's account is the one active person whose verified e-mail equals the e-mail the provider holds
+   ([identity](identity.md#account-classification-and-group-authority)), remembered in `channel_identities` for
+   `memoryos.channel.identity-ttl` (1 hour); a sender without one is remembered as such.
+5. A direct message from a sender with an account runs as that person. A group message, and a direct message from
+   a sender without an account, runs as the bot's service account, which reads what every member may read.
+6. The conversation: a reply to a message, the question or the bot's answer, continues that message's session
+   however old and whoever replies; a new message in a group starts a session; a new direct message continues
+   the one in `channel_conversations` while its last message is younger than `memoryos.channel.conversation-idle`
+   (1 hour); `/new` in a direct message forgets it and says so. A session is continued only by the account that
+   owns it, so a sender who gained or lost an account starts over.
+7. The question becomes a Chat turn through the API the web uses: a session created with
+   `ChatSessionService.createInChannel`, a `SEND` at `ChatSessionService.leaf` with a request id derived from
+   the provider's message id, the reply's stream read for text, and the saved answer read for its text and
+   sources. The answer is finished with a closing line in a group ("reply to continue, send a direct message for
+   your own documents") and for a sender without an account ("sign in").
+
+A failure is a notice and a recorded reason, never a provider message or the question: a refused or busy turn
+says "busy", a spend limit names the limit, anything else says the bot could not answer. Notices are in the
+connection's language.
+
+The Worker task `memoryos-channel-message-retention-v1` runs daily and deletes `channel_messages` rows older than
+`memoryos.channel.message-retention` (90 days); a reply to a message that old starts a new conversation.
+
+Not built yet: a sender's rate, the order of two messages of one conversation (the second is told "busy" while the
+first is answered), the reaction that acknowledges a message, the asker's name given to a turn, and the link to a
+direct conversation on the web.

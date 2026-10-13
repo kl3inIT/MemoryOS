@@ -35,4 +35,10 @@ public interface ChatSessionService {
     List<ChatBranch> branches(ActorId actor, UUID sessionId);
     void selectBranch(ActorId actor, UUID sessionId, UUID messageId, @Nullable UUID expectedChildId);
     List<ChatMessage> history(ActorId actor, UUID sessionId, @Nullable UUID after, int limit);
+
+    /**
+     * The last message of the selected branch, which the next question continues; the root of a conversation
+     * nobody has written in. A caller that holds no transcript, such as a channel, asks for it before it sends.
+     */
+    UUID leaf(ActorId actor, UUID sessionId);
 }

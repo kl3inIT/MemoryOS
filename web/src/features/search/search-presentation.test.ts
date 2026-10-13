@@ -30,6 +30,23 @@ describe("search presentation", () => {
     expect(snippet.text).toContain("😀");
     expect(snippet.text).toContain("<script>alert(1)</script>");
   });
+  it("marks a word the passage stores with combining marks and a phrase broken over two lines", () => {
+    const stored = "nghỉ phép".normalize("NFD");
+    const snippet = createSearchSnippet(
+      `Quy định ${stored} năm.\nMỗi năm\n12 ngày.`,
+      "p.md",
+      "nghỉ phép",
+    );
+    expect(snippet.parts.filter((part) => part.highlighted).map((part) => part.text)).toEqual([
+      stored,
+    ]);
+
+    const broken = createSearchSnippet("Mỗi năm\n12 ngày.", "p.md", "năm 12 ngày");
+    expect(broken.parts.filter((part) => part.highlighted).map((part) => part.text)).toEqual([
+      "năm\n12 ngày",
+    ]);
+  });
+
   it("does not invent highlights for a semantic-only result", () => {
     const snippet = createSearchSnippet(
       "Quy trình hoàn ứng phải hoàn thành trong vòng năm ngày làm việc.",
