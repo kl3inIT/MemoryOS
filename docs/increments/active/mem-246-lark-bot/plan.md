@@ -64,9 +64,10 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
   on 8082), composed from what modules publish as the Worker is, no Flyway (schema validated, started after the
   API); 16 turns, no per-person bound; a context test with an in-test adapter; its dependency rule test;
   `io.memoryos.channels` added to core's rule against deployables.
-- [ ] 3d-3. The `Dockerfile` target; the compose service (health check, egress, memory limit 1.5 GiB, one
-  replica) in the base, staging and production files; a Redis user and a MinIO identity of its own; the channel
-  key and the turn's secrets; the database role limit raised from 40 to 50; the CI leg, image build and every
+- [x] 3d-3. The `Dockerfile` target; the compose service (health check, egress, memory limit 1.5 GiB, one
+  replica) in the staging overlay (staging only until acceptance); the API's Redis user and object-storage
+  identity, whose rights are a turn's; the channel key, mounted in the API too; the database budget counts the
+  pool (15 + 10 + 5 + 10 fits the limit of 40, so it stays); the CI leg, image build and every
   component list; `deploy.sh` with rollback to a release without it; the deployment tests; an alert and the
   dashboard's service filter. Staging only until acceptance.
 - [x] `ModulithArchitectureTest` counts the module.

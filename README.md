@@ -43,7 +43,7 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 | `memoryos-extraction` | XLSX/CSV readers, OCR for scans and images, Docling PDF/DOCX/PPTX with a bounded Tika fallback, and bounded Tika TXT/Markdown (`io.memoryos.ingestion.extraction`) |
 | `memoryos-api` | Spring Boot HTTP, validation, migration and security composition root; Chat runs here on virtual threads |
 | `memoryos-worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |
-| `memoryos-channels` | The Tenant's chat bots: holds each bot's connection and answers with a Chat turn in process (MEM-246; not deployed yet) |
+| `memoryos-channels` | The Tenant's chat bots: holds each bot's connection and answers with a Chat turn in process (MEM-246; staging only) |
 | `interpreter` | The `run_python` service and its disposable executors ([how it works](interpreter/HOW_IT_WORKS.md)) |
 | `web`, `landing` | The browser application and the public landing page |
 
