@@ -255,11 +255,26 @@ Rovo's shared account does. It is not offered now.
 
 ### Conversation and session
 
-`channel_conversations (connection_id, external_chat_id, external_user_id)` points at a chat session. A direct
-message has one conversation; in a group each asker has their own, so one person's follow-up never continues
-another's turn. A message continues the session while the last one is less than an hour old
-(`memoryos.channel.conversation-idle`); after that a new session starts, since a question asked the next day is
-rarely a follow-up.
+A message continues a conversation by what it replies to before by when it was sent:
+
+| Message | Session |
+| --- | --- |
+| A reply to a message of a conversation (Lark's reply or thread) | That conversation's, however old |
+| A new message in a group | A new one |
+| A new message in a direct message | The last one's while it is less than an hour old (`memoryos.channel.conversation-idle`), else a new one |
+| `/new` | A new one, and the next message starts in it |
+
+`channel_messages` maps every message of a conversation, the bot's replies included, to its session, which is how
+a reply is resolved; `channel_conversations (connection_id, external_chat_id, external_user_id)` holds the current
+session of a direct message. In a group a reply by another member continues the same session: it runs as the bot,
+so nothing of the first asker's is lent, and a thread is shared in Dust and Hermes Agent too.
+
+Onyx and Dust key on the thread and start anew outside it; a session that never ends until `/new` is Hermes
+Agent's and OpenClaw's default, which suits one operator's long work and not questions whose earlier turns shape
+the search. The hour is Claude's fallback in Slack for messages outside a thread. A question that follows another
+in a group without replying to it loses the context; the notice a group answer ends with says to reply to
+continue. If Lark's events do not carry the replied message reliably, the rule falls back to the idle window
+alone, per asker, and this section is corrected.
 
 The session is an ordinary chat session on the Tenant's default agent, owned by whoever the turn runs as: the
 sender, or the bot. `chat_session` gains one immutable column, `surface` (`WEB`, `CHANNEL`): the web sidebar and
