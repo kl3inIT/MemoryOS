@@ -126,9 +126,15 @@ image" step in CI, not on the development machine.
   `readWhole`: the page number stays where the reader was sent, because the observers are still on the canvas
   the whole read replaced.
 
+## Staging, 2026-10-13
+
+After deployment, scanned PDFs of 200 to 650 KB opened from Search on `staging.vadan.app` were read by two
+requests, `bytes=0-131071` and the rest of the file, and never whole. The 15 MB report was not measured: the
+account used could not read it.
+
 ## Not verified
 
-- The staging file after deployment.
+- The 15 MB staging file after deployment.
 - The nginx change on a real nginx outside CI.
 - The reverse proxy passing `Accept-Encoding` through and the compressed response back, which only the
   deployment shows.
