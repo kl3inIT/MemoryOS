@@ -1,5 +1,13 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -30,6 +38,8 @@ export type PreviewCitations = {
   texts: readonly string[];
   /** The heading each citation was read under, which tells two identical passages apart. */
   sections?: readonly (string | undefined)[];
+  /** The words the reader searched for, marked inside a located passage of a text original. */
+  terms?: readonly string[];
   /** Pages and regions the extraction recorded; a PDF or a picture, empty when none were recorded. */
   pages?: readonly number[];
   boxes?: readonly PdfHighlight[];
@@ -88,15 +98,29 @@ export function FilePreview({
   onDocx?: Rendered;
 }) {
   const ui = useAppTranslation();
-  const { texts, sections = NONE, pages = NONE, boxes = NONE, rows = NONE, active = 0 } = citations;
-  const highlighted = (children: (onRendered: Rendered) => ReactNode, rendered?: boolean) => (
+  const {
+    texts,
+    sections = NONE,
+    terms = NONE,
+    pages = NONE,
+    boxes = NONE,
+    rows = NONE,
+    active = 0,
+  } = citations;
+  const highlighted = (
+    children: (onRendered: Rendered) => ReactNode,
+    rendered?: boolean,
+    replaced?: boolean,
+  ) => (
     <HighlightedText
       citations={texts}
       sections={sections}
+      terms={terms}
       active={active}
       onPlaced={citations.onPlaced}
       onActive={citations.onActive}
       rendered={rendered}
+      replaced={replaced}
     >
       {children}
     </HighlightedText>
@@ -105,7 +129,21 @@ export function FilePreview({
   switch (content.kind) {
     case "pdf":
       // PDF citations are drawn from the regions provenance recorded, never searched for.
-      return <LazyPdfView url={content.file} pages={pages} boxes={boxes} thumbnails={thumbnails} />;
+      return (
+        <LazyPdfView
+          url={content.file}
+          pages={pages}
+          boxes={boxes}
+          thumbnails={thumbnails}
+          steps={
+            <CitationStepControls
+              active={active}
+              total={texts.length}
+              onActive={citations.onActive}
+            />
+          }
+        />
+      );
     case "image": {
       // A picture's citations are drawn from the regions provenance recorded, as a PDF's are. Every region
       // of one picture is measured in the same frame, so what the view says of one holds for them all.
@@ -183,6 +221,7 @@ export function FilePreview({
           />
         ),
         true,
+        true,
       );
     case "doc":
       return (
@@ -249,17 +288,25 @@ function ControlledImage({
 function HighlightedText({
   citations,
   sections,
+  terms,
   active,
   rendered = false,
+  replaced = false,
   onPlaced,
   onActive,
   children,
 }: {
   citations: readonly string[];
   sections: readonly (string | undefined)[];
+  terms: readonly string[];
   active: number;
   /** A view that renders synchronously is ready as soon as it is in the tree. */
   rendered?: boolean;
+  /**
+   * The view swaps its text for another rendering of it after mounting, as source does once its highlighter
+   * has loaded. The passages are then placed again, in the text that took its place.
+   */
+  replaced?: boolean;
   onPlaced?: (confidence: readonly CitationConfidence[]) => void;
   onActive?: (index: number) => void;
   children: (onRendered: Rendered) => ReactNode;
@@ -268,13 +315,21 @@ function HighlightedText({
   const [ready, setReady] = useState(rendered);
   const onRendered = useCallback(() => setReady(true), []);
   const report = useRef(onPlaced);
+  const [placed, placeAgain] = useReducer((times: number) => times + 1, 0);
   useEffect(() => {
     report.current = onPlaced;
   }, [onPlaced]);
   useEffect(() => {
     const root = container.current;
     if (!root || !ready || !citations.length) return undefined;
-    const placements = placeCitations(root, citations, sections);
+    const placements = placeCitations(root, citations, sections, terms);
+    // A range whose text left the document collapses onto where it was, and paints nothing.
+    const swapped = replaced
+      ? new MutationObserver(() => {
+          if (placements.some((placement) => placement.range?.collapsed)) placeAgain();
+        })
+      : undefined;
+    swapped?.observe(root, { childList: true, subtree: true });
     paintCitations(placements, active);
     report.current?.(placements.map((placement) => placement.confidence));
     const opened = placements[active]?.range ?? placements.find((found) => found.range)?.range;
@@ -283,8 +338,11 @@ function HighlightedText({
         ? (opened.startContainer as Element)
         : opened?.startContainer.parentElement;
     anchor?.scrollIntoView({ block: "center" });
-    return () => clearCitations();
-  }, [citations, sections, active, ready]);
+    return () => {
+      swapped?.disconnect();
+      clearCitations();
+    };
+  }, [citations, sections, terms, active, ready, replaced, placed]);
   return (
     <CitationSteps active={active} total={citations.length} onActive={onActive}>
       <div ref={container} className="flex min-h-0 flex-1 flex-col">
@@ -339,39 +397,58 @@ function CitationSteps({
   onActive?: (index: number) => void;
   children: ReactNode;
 }) {
-  const ui = useAppTranslation();
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       {children}
       {onActive && total > 1 ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4">
           <PreviewToolbar>
-            <ToolbarGroup>
-              <IconButton
-                prominence="internal"
-                size="sm"
-                aria-label={ui("Đoạn trước")}
-                disabled={active <= 0}
-                onClick={() => onActive(active - 1)}
-              >
-                <ChevronLeft />
-              </IconButton>
-              <span className="min-w-14 text-center font-secondary-action text-content-secondary tabular-nums">
-                {active + 1} / {total}
-              </span>
-              <IconButton
-                prominence="internal"
-                size="sm"
-                aria-label={ui("Đoạn sau")}
-                disabled={active >= total - 1}
-                onClick={() => onActive(active + 1)}
-              >
-                <ChevronRight />
-              </IconButton>
-            </ToolbarGroup>
+            <CitationStepControls active={active} total={total} onActive={onActive} />
           </PreviewToolbar>
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Previous, the position and next, as one toolbar group; nothing when there is one citation or no one to
+ * tell. A PDF takes the group into the toolbar it already has.
+ */
+function CitationStepControls({
+  active,
+  total,
+  onActive,
+}: {
+  active: number;
+  total: number;
+  onActive?: (index: number) => void;
+}) {
+  const ui = useAppTranslation();
+  if (!onActive || total <= 1) return null;
+  return (
+    <ToolbarGroup>
+      <IconButton
+        prominence="internal"
+        size="sm"
+        aria-label={ui("Đoạn trước")}
+        disabled={active <= 0}
+        onClick={() => onActive(active - 1)}
+      >
+        <ChevronLeft />
+      </IconButton>
+      <span className="min-w-14 text-center font-secondary-action text-content-secondary tabular-nums">
+        {active + 1} / {total}
+      </span>
+      <IconButton
+        prominence="internal"
+        size="sm"
+        aria-label={ui("Đoạn sau")}
+        disabled={active >= total - 1}
+        onClick={() => onActive(active + 1)}
+      >
+        <ChevronRight />
+      </IconButton>
+    </ToolbarGroup>
   );
 }

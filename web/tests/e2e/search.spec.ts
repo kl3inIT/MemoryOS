@@ -862,3 +862,203 @@ test("marks the cited region on an image original, through zoom and a turn, and 
   await expect(dialog.getByText("Not found")).toBeVisible();
   await expect(region).toHaveCount(0);
 });
+
+/** One result with a match on every tenth passage, best first. */
+function matchedPassages(
+  title: string,
+  mediaType: string,
+  matches: { content: string; provenanceJson: string }[],
+) {
+  return {
+    page: 0,
+    hasMore: false,
+    totalResults: 1,
+    candidateLimit: 500,
+    sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+    results: [
+      {
+        documentId,
+        generation,
+        title,
+        mediaType,
+        updatedAt: "2026-09-08T00:00:00Z",
+        score: 0.9,
+        sections: matches.map((match, index) => ({
+          startOrdinal: index * 10,
+          endOrdinal: index * 10,
+          matchingOrdinal: index * 10,
+          score: 0.9 - index * 0.05,
+          content: match.content,
+          provenance: [{ ordinal: index * 10, provenanceJson: match.provenanceJson }],
+        })),
+        sourceTypes: ["FILE"],
+        authors: [],
+        providerUrl: null,
+      },
+    ],
+  };
+}
+
+test("steps between the cited passages of a PDF original from the reader's own toolbar", async ({
+  page,
+}) => {
+  const region = (pageNumber: number, top: number) =>
+    `[{"page_no":${pageNumber},"bbox":{"l":72,"t":${top},"r":341,"b":${top - 20},"coord_origin":"BOTTOMLEFT"}}]`;
+  // Ranked best first: page 3, then two regions of page 7 a screen apart.
+  const matches = [region(3, 694), region(7, 694), region(7, 120)].map((provenanceJson, index) => ({
+    content: `Leave rule number ${index + 1}.`,
+    provenanceJson,
+  }));
+  await page.route("**/api/search", (route) =>
+    route.fulfill({ json: matchedPassages("Leave handbook.pdf", "application/pdf", matches) }),
+  );
+  // The third passage's text is held back, to arrive while the reader is somewhere else.
+  let releaseThird: () => void = () => undefined;
+  const thirdHeld = new Promise<void>((resolve) => {
+    releaseThird = resolve;
+  });
+  await page.route("**/api/search/documents/*?*", async (route) => {
+    const from = Number(new URL(route.request().url()).searchParams.get("from"));
+    const ordinal = from === 0 ? 0 : from + 1;
+    if (ordinal === 20) await thirdHeld;
+    await route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Leave handbook.pdf",
+        mediaType: "application/pdf",
+        passages: [
+          { ordinal, content: `Leave rule number ${ordinal / 10 + 1}.`, provenanceJson: "[]" },
+        ],
+        firstOrdinal: from,
+        totalChunks: 60,
+        hasMore: true,
+      },
+    });
+  });
+  const originalPdf = rangedHandbookPdf();
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    fulfillPdfRange(route, originalPdf),
+  );
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("policy");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Open best match in Leave handbook.pdf" }).click();
+
+  const dialog = page.getByRole("dialog");
+  const pageField = dialog.getByRole("spinbutton", { name: "Page number" });
+  const box = dialog.locator('[data-slot="pdf-citation-box"]');
+  const toolbar = dialog.getByRole("toolbar", { name: "Document controls" });
+  // One toolbar: the steps sit beside the page field and the zoom, not in a second bar over them.
+  await expect(dialog.getByRole("toolbar")).toHaveCount(1);
+  await expect(pageField).toHaveValue("3");
+  await expect(box).toBeInViewport();
+  await expect(toolbar.getByText("1 / 3")).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "Previous passage" })).toBeDisabled();
+
+  // A step moves the cited page and its region, as a rail card does.
+  await toolbar.getByRole("button", { name: "Next passage" }).click();
+  await expect(pageField).toHaveValue("7");
+  await expect(box).toBeInViewport();
+  await expect(toolbar.getByText("2 / 3")).toBeVisible();
+  // The next passage is on the page already open; the reader is taken to its region all the same.
+  await toolbar.getByRole("button", { name: "Next passage" }).click();
+  await expect(toolbar.getByText("3 / 3")).toBeVisible();
+  await expect(box).toBeInViewport();
+  await expect(pageField).toHaveValue("7");
+  await expect(toolbar.getByRole("button", { name: "Next passage" })).toBeDisabled();
+  const canvas = dialog.locator('[data-slot="pdf-page"][data-page="7"]');
+  const scrolled = () =>
+    canvas.evaluate((figure) => {
+      let node = figure.parentElement;
+      while (node && node.scrollHeight <= node.clientHeight) node = node.parentElement;
+      return node?.scrollTop ?? -1;
+    });
+  const atSecondRegion = await scrolled();
+
+  // A reader who scrolled away stays there when the dialog repaints around the same passage.
+  await canvas.hover();
+  await page.mouse.wheel(0, -900);
+  await expect.poll(scrolled).toBeLessThan(atSecondRegion - 300);
+  const away = await scrolled();
+  const rail = dialog.getByRole("complementary", { name: "3 best-matching passages" });
+  await expect(rail.getByText("Leave rule number 3.")).toHaveCount(0);
+  releaseThird();
+  await expect(rail.getByText("Leave rule number 3.")).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(await scrolled()).toBe(away);
+
+  // Stepping back returns to the other region of the same page.
+  await toolbar.getByRole("button", { name: "Previous passage" }).click();
+  await expect(toolbar.getByText("2 / 3")).toBeVisible();
+  await expect(box).toBeInViewport();
+  expect(await scrolled()).toBeLessThan(atSecondRegion - 300);
+});
+
+test("marks the words of the question inside the located passages of a text original", async ({
+  page,
+}) => {
+  const lines = [
+    "QUY ĐỊNH NGHỈ PHÉP",
+    "Nhân viên chính thức có 12 ngày nghỉ phép mỗi năm.",
+    "Đơn xin nghỉ gửi quản lý trước ba ngày.",
+    "Ngày phép còn lại được đối soát cuối năm.",
+  ];
+  const title = "Quy định nghỉ phép.txt";
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: matchedPassages(title, "text/plain", [
+        { content: `Title: ${title}\n${lines[1]}`, provenanceJson: "[]" },
+        { content: `Title: ${title}\n${lines[2]}`, provenanceJson: "[]" },
+      ]),
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) => {
+    const from = Number(new URL(route.request().url()).searchParams.get("from"));
+    const ordinal = from === 0 ? 0 : from + 1;
+    return route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title,
+        mediaType: "text/plain",
+        passages: [
+          {
+            ordinal,
+            content: `Title: ${title}\n${lines[ordinal / 10 + 1]}`,
+            provenanceJson: "[]",
+          },
+        ],
+        firstOrdinal: from,
+        totalChunks: 20,
+        hasMore: true,
+      },
+    });
+  });
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    route.fulfill({ contentType: "text/plain; charset=utf-8", body: lines.join("\n\n") }),
+  );
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: `Open best match in ${title}` }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Highlighted")).toHaveCount(2);
+  // Plain text is drawn at once and again when the syntax highlighter has loaded; the marks follow it.
+  await expect(dialog.locator("pre.shiki")).toBeVisible();
+
+  const painted = (name: string) =>
+    page.evaluate(
+      (highlight) => [...(CSS.highlights.get(highlight) ?? [])].map((range) => range.toString()),
+      name,
+    );
+  // The heading holds both words and is no cited passage, so it carries no mark.
+  await expect.poll(() => painted("memoryos-citation-term")).toEqual(["nghỉ phép", "nghỉ"]);
+  expect(await painted("memoryos-citation-active")).toEqual([lines[1]]);
+  expect(await painted("memoryos-citation")).toEqual([lines[2]]);
+
+  // The words stay marked when the other passage becomes the one being read.
+  await dialog.getByRole("button", { name: "Next passage" }).click();
+  await expect.poll(() => painted("memoryos-citation-active")).toEqual([lines[2]]);
+  expect(await painted("memoryos-citation-term")).toEqual(["nghỉ phép", "nghỉ"]);
+});

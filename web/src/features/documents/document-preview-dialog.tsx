@@ -39,6 +39,8 @@ export type DocumentSelection = {
     provenance?: readonly string[];
   }>;
   activeMatchIndex: number;
+  /** The words a search was asked with, marked inside the located passage of a text original. */
+  terms?: readonly string[];
 };
 
 /** Kinds whose rendered text a citation can be searched in; elsewhere provenance is the only anchor. */
@@ -163,6 +165,7 @@ export function DocumentPreviewDialog({
                 )}
                 texts={reading.citations}
                 sections={reading.sections}
+                terms={selection.terms}
                 active={reading.activeMatchIndex}
                 onPlaced={onPlaced}
                 onActive={reading.select}
