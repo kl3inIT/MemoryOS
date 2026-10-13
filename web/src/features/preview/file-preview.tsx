@@ -30,6 +30,8 @@ export type PreviewCitations = {
   texts: readonly string[];
   /** The heading each citation was read under, which tells two identical passages apart. */
   sections?: readonly (string | undefined)[];
+  /** The words the reader searched for, marked inside a located passage of a text original. */
+  terms?: readonly string[];
   /** Pages and regions the extraction recorded; a PDF or a picture, empty when none were recorded. */
   pages?: readonly number[];
   boxes?: readonly PdfHighlight[];
@@ -88,11 +90,20 @@ export function FilePreview({
   onDocx?: Rendered;
 }) {
   const ui = useAppTranslation();
-  const { texts, sections = NONE, pages = NONE, boxes = NONE, rows = NONE, active = 0 } = citations;
+  const {
+    texts,
+    sections = NONE,
+    terms = NONE,
+    pages = NONE,
+    boxes = NONE,
+    rows = NONE,
+    active = 0,
+  } = citations;
   const highlighted = (children: (onRendered: Rendered) => ReactNode, rendered?: boolean) => (
     <HighlightedText
       citations={texts}
       sections={sections}
+      terms={terms}
       active={active}
       onPlaced={citations.onPlaced}
       onActive={citations.onActive}
@@ -249,6 +260,7 @@ function ControlledImage({
 function HighlightedText({
   citations,
   sections,
+  terms,
   active,
   rendered = false,
   onPlaced,
@@ -257,6 +269,7 @@ function HighlightedText({
 }: {
   citations: readonly string[];
   sections: readonly (string | undefined)[];
+  terms: readonly string[];
   active: number;
   /** A view that renders synchronously is ready as soon as it is in the tree. */
   rendered?: boolean;
@@ -274,7 +287,7 @@ function HighlightedText({
   useEffect(() => {
     const root = container.current;
     if (!root || !ready || !citations.length) return undefined;
-    const placements = placeCitations(root, citations, sections);
+    const placements = placeCitations(root, citations, sections, terms);
     paintCitations(placements, active);
     report.current?.(placements.map((placement) => placement.confidence));
     const opened = placements[active]?.range ?? placements.find((found) => found.range)?.range;
@@ -284,7 +297,7 @@ function HighlightedText({
         : opened?.startContainer.parentElement;
     anchor?.scrollIntoView({ block: "center" });
     return () => clearCitations();
-  }, [citations, sections, active, ready]);
+  }, [citations, sections, terms, active, ready]);
   return (
     <CitationSteps active={active} total={citations.length} onActive={onActive}>
       <div ref={container} className="flex min-h-0 flex-1 flex-col">

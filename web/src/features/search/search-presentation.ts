@@ -1,4 +1,9 @@
 import { stripGeneratedTitlePrefix } from "@/features/documents/passage";
+import {
+  matchTerms,
+  normalizeForMatch,
+  type NormalizedText,
+} from "@/features/preview/preview-highlight";
 
 type HighlightPart = {
   text: string;
@@ -22,7 +27,7 @@ export function createSearchSnippet(
   if (!cleaned) return { text: "No preview text available.", parts: [] };
 
   const terms = highlightTerms(query);
-  const anchor = firstLiteralMatch(cleaned, terms);
+  const anchor = firstLiteralMatch(normalizeForMatch(cleaned), cleaned, terms);
   const codePoints = Array.from(cleaned);
   const safeMaxLength = Math.max(80, maxLength);
 
@@ -46,7 +51,11 @@ export function createSearchSnippet(
   return { text, parts: highlightLiteralTerms(text, terms) };
 }
 
-function highlightTerms(query: string): string[] {
+/**
+ * What a query marks in a passage: the whole question and each of its words of two characters or more,
+ * longest first. The card's excerpt and the opened original mark the same terms by the same comparison.
+ */
+export function highlightTerms(query: string): string[] {
   const fullQuery = query.trim();
   if (!fullQuery) return [];
 
@@ -59,28 +68,28 @@ function highlightTerms(query: string): string[] {
   return [...unique.values()].sort((left, right) => right.length - left.length);
 }
 
+/** The first place the longest term that occurs at all is found: the whole question before any one word. */
 function firstLiteralMatch(
+  normalized: NormalizedText,
   content: string,
   terms: string[],
 ): { index: number; text: string } | null {
   for (const term of terms) {
-    const match = new RegExp(escapeRegExp(term), "iu").exec(content);
-    if (match?.index !== undefined) return { index: match.index, text: match[0] };
+    const [match] = matchTerms(normalized, [term]);
+    if (match) return { index: match.start, text: content.slice(match.start, match.end) };
   }
   return null;
 }
 
 function highlightLiteralTerms(text: string, terms: string[]): HighlightPart[] {
-  if (!terms.length) return [{ text, highlighted: false }];
-
-  const pattern = new RegExp(terms.map(escapeRegExp).join("|"), "giu");
   const parts: HighlightPart[] = [];
   let cursor = 0;
-  for (const match of text.matchAll(pattern)) {
-    const index = match.index;
-    if (index > cursor) parts.push({ text: text.slice(cursor, index), highlighted: false });
-    parts.push({ text: match[0], highlighted: true });
-    cursor = index + match[0].length;
+  for (const match of matchTerms(normalizeForMatch(text), terms)) {
+    if (match.start > cursor) {
+      parts.push({ text: text.slice(cursor, match.start), highlighted: false });
+    }
+    parts.push({ text: text.slice(match.start, match.end), highlighted: true });
+    cursor = match.end;
   }
   if (cursor < text.length) parts.push({ text: text.slice(cursor), highlighted: false });
   return parts.length ? parts : [{ text, highlighted: false }];
@@ -102,8 +111,4 @@ function moveEndToWordBoundary(codePoints: string[], end: number, start: number)
     if (/\s/u.test(codePoints[index - 1] ?? "")) return index - 1;
   }
   return end;
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
