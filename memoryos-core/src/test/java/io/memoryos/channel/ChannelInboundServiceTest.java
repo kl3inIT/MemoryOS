@@ -38,6 +38,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
@@ -85,7 +87,7 @@ class ChannelInboundServiceTest {
         when(turns.ask(any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
             ActorId actor = call.getArgument(0);
             UUID session = call.getArgument(1);
-            if (session == null) session = chats.create(tenant, actor, persona, call.getArgument(2), false, ChatSurface.CHANNEL).id();
+            if (session == null) session = newSession(actor, call.getArgument(2));
             call.<Consumer<String>>getArgument(5).accept("An");
             return new ChannelTurns.Answer(session, UUID.randomUUID(), ChatMessage.Status.COMPLETED, "Answer", List.of(), null);
         });
@@ -218,12 +220,13 @@ class ChannelInboundServiceTest {
 
     @Test
     void aTurnThatIsRefusedOrFailsBecomesANoticeAndARecordedReason() throws Exception {
+        reset(turns);
         when(turns.ask(any(), any(), any(), any(), any(), any())).thenThrow(ChatException.busy());
         service.receive(direct("m1", "ou_ha", "Question", null));
         assertEquals("fail:The assistant is busy. Ask again in a moment.", adapter.replies.getLast());
         assertEquals("FAILED:CHAT_CAPACITY_EXCEEDED", outcome("m1") + ":" + reason("m1"));
 
-        UUID failed = chats.create(tenant, bot, persona, "Failed", false, ChatSurface.CHANNEL).id();
+        UUID failed = newSession(bot, "Failed");
         reset(turns);
         when(turns.ask(any(), any(), any(), any(), any(), any())).thenReturn(new ChannelTurns.Answer(failed, UUID.randomUUID(),
                 ChatMessage.Status.FAILED, "", List.of(), "CHAT_PROVIDER_UNAVAILABLE"));
@@ -252,6 +255,12 @@ class ChannelInboundServiceTest {
     private ChannelMessage group(String id, String sender, String text, boolean addressed, @Nullable String repliesTo) {
         return new ChannelMessage(connection, id, GROUP_CHAT, ChannelMessage.Kind.GROUP, sender, null, ORGANISATION, addressed,
                 ChannelMessage.Type.TEXT, text, repliesTo);
+    }
+
+    /** A session and its root message are written together: the one refers to the other until the transaction ends. */
+    private UUID newSession(ActorId actor, String title) {
+        return new TransactionTemplate(new DataSourceTransactionManager(dataSource))
+                .execute(_ -> chats.create(tenant, actor, persona, title, false, ChatSurface.CHANNEL).id());
     }
 
     private ActorId member() {
