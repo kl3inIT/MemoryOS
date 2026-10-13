@@ -15,6 +15,9 @@ public interface ChatSessionService {
      * itself with its uploads a while after its last message.
      */
     ChatSession create(ActorId actor, String title, boolean temporary);
+
+    /** A conversation held in a channel: kept like any other, and listed in the web's sidebar and search by none. */
+    ChatSession createInChannel(ActorId actor, String title);
     /** {@code archived} lists the conversations the owner archived instead of the ones on the sidebar. */
     List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit);
 

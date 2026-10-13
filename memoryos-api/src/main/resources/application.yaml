@@ -177,11 +177,20 @@ memoryos:
   chat:
     catalog:
       encryption-key: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY:}
+    stream:
+      # A reply that waits holds a reader like one that runs: the turns that run and the turns that wait.
+      max-readers: 256
     execution:
-      concurrency: 8
+      # A backstop sized to what the host and the provider take, not a throttle: a person is held by their own
+      # bound, and a turn beyond either waits in arrival order instead of being refused.
+      concurrency: 48
+      per-actor-concurrency: 3
+      max-waiting: 200
+      wait-limit: 60s
       # No total turn deadline, as Onyx: a renewed lease detects a dead process; providers get a read-gap timeout.
-      lease-ttl: 30m
-      lease-renewal: 60s
+      # Each process that runs turns reconciles lapsed leases, so the lease is how long a dead process holds a session.
+      lease-ttl: 3m
+      lease-renewal: 30s
       provider-read-timeout: 60s
       max-cycles: 6
       # Room reserved for the answer when the input budget is computed (Onyx GEN_AI_NUM_RESERVED_OUTPUT_TOKENS).

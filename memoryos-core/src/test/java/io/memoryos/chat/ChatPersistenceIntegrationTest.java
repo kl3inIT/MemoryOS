@@ -107,6 +107,11 @@ class ChatPersistenceIntegrationTest {
     private TestDatabase.JpaHarness jpa;
     private ChatSessionService sessions;
     private ChatTurnPersistence turns;
+
+    /** What the Worker runs to end the turns of a process that died. */
+    private ChatRunReconciliation reconciliation() {
+        return new ChatRunReconciliation(new JdbcChatRepository(jdbc));
+    }
     private TransactionTemplate tx;
     private ActorId owner;
     private ActorId other;
@@ -710,7 +715,7 @@ class ChatPersistenceIntegrationTest {
         var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Earlier question");
         jdbc.sql("UPDATE chat_message SET deadline_at = CURRENT_TIMESTAMP - INTERVAL '10 seconds' WHERE id = :id")
                 .param("id", first.assistantMessageId()).update();
-        turns.expireRuns();
+        reconciliation().endLapsed();
         assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, session.id(), first.assistantMessageId()));
         var next = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Newest question");
         var context = turns.loadContext(owner, session.id(), next);
@@ -738,30 +743,10 @@ class ChatPersistenceIntegrationTest {
         var reserved = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
         jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '10 seconds' WHERE id = :id")
                 .param("id", reserved.assistantMessageId()).update();
-        assertEquals(1, turns.expireRuns());
+        assertEquals(1, reconciliation().endLapsed());
         assertEquals(ChatMessage.Status.FAILED, sessions.history(owner, session.id(), null, 20).getLast().status());
         assertFalse(turns.finish(session.id(), reserved.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "late", null, null, null, null, null));
-    }
-
-    @Test
-    void startupReconciliationFailsRunningRowsWithLiveLeasesAndLeavesFinishedRows() {
-        var session = sessions.create(owner, "Orphaned");
-        var orphaned = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
-        var other = sessions.create(owner, "Finished");
-        var finished = reserve(other, other.rootMessageId(), UUID.randomUUID(), "Question");
-        assertTrue(turns.finish(other.id(), finished.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer"));
-        // The lease is still live: only startup knows no process owns the row.
-        assertEquals(0, turns.expireRuns());
-        assertTrue(turns.failOrphanedRuns() >= 1);
-        assertEquals(0, turns.failOrphanedRuns());
-        assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, session.id(), orphaned.assistantMessageId()));
-        assertEquals("CHAT_INTERRUPTED", jdbc.sql("SELECT failure_code FROM chat_message WHERE id = :id")
-                .param("id", orphaned.assistantMessageId()).query(String.class).single());
-        assertEquals(ChatMessage.Status.COMPLETED, turns.authorizeReply(owner, other.id(), finished.assistantMessageId()));
-        assertFalse(turns.finish(session.id(), orphaned.assistantMessageId(), ChatMessage.Status.COMPLETED, "late"));
-        // The session accepts the next question at once.
-        reserve(session, orphaned.assistantMessageId(), UUID.randomUUID(), "Next question");
     }
 
     @Test
@@ -996,10 +981,10 @@ class ChatPersistenceIntegrationTest {
                 .param("id", lapsed.assistantMessageId()).update();
         assertEquals(Set.of(live.assistantMessageId(), lapsed.assistantMessageId()),
                 turns.renewLeases(List.of(live.assistantMessageId(), lapsed.assistantMessageId()), Duration.ofMinutes(30)));
-        assertEquals(0, turns.expireRuns(), "Renewed leases are not reconciled");
+        assertEquals(0, reconciliation().endLapsed(), "Renewed leases are not reconciled");
         jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '10 seconds' WHERE id = :id")
                 .param("id", lapsed.assistantMessageId()).update();
-        assertEquals(1, turns.expireRuns());
+        assertEquals(1, reconciliation().endLapsed());
         assertEquals(ChatMessage.Status.RUNNING, turns.authorizeReply(owner, session.id(), live.assistantMessageId()));
         assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, other.id(), lapsed.assistantMessageId()));
         // A reconciled row is not renewed, so its process learns it no longer owns the run.

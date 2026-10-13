@@ -2594,7 +2594,7 @@ export type ChatLibraryFileUsage = {
     name: string;
 };
 
-export type AccountType = 'STANDARD';
+export type AccountType = 'STANDARD' | 'SERVICE';
 
 export type TenantMembershipRole = 'OWNER' | 'MEMBER';
 
@@ -3111,7 +3111,7 @@ export type GroupMember = {
     actorId: string;
     displayName: string | null;
     email: string | null;
-    accountType: 'STANDARD';
+    accountType: 'STANDARD' | 'SERVICE';
     status: 'ACTIVE' | 'INACTIVE';
     isManager: boolean;
     protectedOwner: boolean;
@@ -3476,6 +3476,12 @@ export type ResearchCitation = {
     citationId: number;
 };
 
+export type WaitingEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    waiting: boolean;
+};
+
 export type ChatBranch = {
     id?: string;
     parentMessageId?: string | null;
@@ -3831,6 +3837,10 @@ export type ChatHistoryEntry = {
      */
     deleted: boolean;
     updatedAt: string;
+    /**
+     * Where the conversation is held
+     */
+    surface: 'WEB' | 'CHANNEL';
 };
 
 export type ChatHistoryPage = {
@@ -16198,7 +16208,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
+    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

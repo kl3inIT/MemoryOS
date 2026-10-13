@@ -66,7 +66,7 @@ class ChatGroundedTurnTest {
     private final ChatGuardrailCheck guardrails = mock(ChatGuardrailCheck.class);
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final ModelClients.Lease lease = mock(ModelClients.Lease.class);
-    private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60),
+    private final ChatExecutionProperties limits = new ChatExecutionProperties(1, 1, 0, Duration.ofSeconds(60), Duration.ofMinutes(30), Duration.ofSeconds(60),
             Duration.ofSeconds(60), 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final StreamBufferWriter streams = new StreamBufferWriter(TestRedis.template(),

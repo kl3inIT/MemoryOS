@@ -2,6 +2,7 @@ package io.memoryos.api.chat.contract;
 
 import io.memoryos.chat.ChatHistoryFeedback;
 import io.memoryos.chat.ChatHistoryService;
+import io.memoryos.chat.ChatSurface;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
@@ -17,11 +18,13 @@ public record ChatHistoryEntryResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatHistoryFeedback feedback,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The owner deleted this conversation; it is kept until retention removes it")
         boolean deleted,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Where the conversation is held")
+        ChatSurface surface
 ) {
     public static ChatHistoryEntryResponse from(ChatHistoryService.Conversation value) {
         return new ChatHistoryEntryResponse(value.id(), value.actorId(), value.person(), value.email(), value.title(),
                 value.question(), value.answer(), value.modelName(), value.messages(), value.feedback(),
-                value.deleted(), value.updatedAt());
+                value.deleted(), value.updatedAt(), value.surface());
     }
 }

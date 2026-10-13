@@ -99,11 +99,8 @@ class ChatExecutionConfiguration {
         var modelCalls = calls.getIfAvailable();
         var guardrails = modelCalls == null ? null : new ChatGuardrailCheck(
                 new GroundingClassifier(modelCalls, systemOne), audit, systemOneConnections);
-        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings,
+        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings,
                 research, mcp, spending, guardrails, new ChatTurnMetrics(meters));
-        // Context refresh completes before the web server accepts requests, so no send can race this.
-        service.failOrphanedRuns();
-        return service;
     }
 
     @Bean

@@ -1,6 +1,7 @@
 package io.memoryos.iam.identity.persistence;
 
 import io.memoryos.shared.ActorId;
+import io.memoryos.iam.AccountType;
 import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.identity.ExternalIdentityRegistrar;
 import io.memoryos.iam.ExternalIdentityResolver;
@@ -70,6 +71,20 @@ public class JpaExternalIdentityRegistry implements ExternalIdentityResolver, Ex
         return new ActorId(actor.getId());
     }
 
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ActorId createService(ExternalIdentity identity, String uiLanguage) {
+        Objects.requireNonNull(identity, "identity must not be null");
+        if (findBinding(identity).isPresent()) {
+            throw new IllegalStateException("service identity is already bound");
+        }
+        ActorEntity actor = new ActorEntity(UUID.randomUUID(), AccountType.SERVICE);
+        actor.setUiLanguage(uiLanguage);
+        bind(identity, actor);
+        entityManager.flush();
+        return new ActorId(actor.getId());
+    }
+
     private Optional<ExternalIdentityBindingEntity> findBinding(ExternalIdentity identity) {
         return Optional.ofNullable(entityManager.find(
                 ExternalIdentityBindingEntity.class,
@@ -79,11 +94,15 @@ public class JpaExternalIdentityRegistry implements ExternalIdentityResolver, Ex
 
     private ActorEntity create(ExternalIdentity identity) {
         ActorEntity actor = new ActorEntity(UUID.randomUUID());
+        bind(identity, actor);
+        return actor;
+    }
+
+    private void bind(ExternalIdentity identity, ActorEntity actor) {
         entityManager.persist(actor);
         entityManager.persist(new ExternalIdentityBindingEntity(
                 new ExternalIdentityBindingId(identity.issuer(), identity.subject()),
                 actor
         ));
-        return actor;
     }
 }

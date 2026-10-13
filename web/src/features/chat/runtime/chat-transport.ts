@@ -46,6 +46,7 @@ import {
   online,
   outcomeSchema,
   pause,
+  waitingSchema,
   textSchema,
 } from "./chat-stream-events";
 import {
@@ -538,6 +539,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                 codeSchema.parse(data),
               ));
               yield { type: "message-metadata", messageMetadata: { codeRuns, generatedFiles } };
+            } else if (envelope.event === "waiting") {
+              yield {
+                type: "message-metadata",
+                messageMetadata: { waiting: waitingSchema.parse(data).waiting },
+              };
             }
             // Other event types from a newer server are skipped; the committed history stays authoritative.
           }
@@ -608,6 +614,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           artifacts,
           images,
           imageGenerating: false,
+          waiting: false,
           codeRuns,
           generatedFiles,
         },

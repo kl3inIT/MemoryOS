@@ -55,7 +55,8 @@ public class ChatHistoryService {
     public record Conversation(UUID id, @Nullable UUID actorId, @Nullable String person, @Nullable String email,
                                String title, @Nullable String question, @Nullable String answer,
                                @Nullable String modelName, long messages,
-                               ChatHistoryFeedback feedback, boolean deleted, Instant updatedAt) {}
+                               ChatHistoryFeedback feedback, boolean deleted, Instant updatedAt,
+                               ChatSurface surface) {}
 
     public record Page(List<Conversation> items, @Nullable String nextCursor,
                        ChatHistoryTotals totals) {}
@@ -129,7 +130,8 @@ public class ChatHistoryService {
         boolean named = visibility == ChatHistoryVisibility.NORMAL;
         return new Conversation(entry.id(), named ? entry.actorId() : null, named ? entry.actorLabel() : null,
                 named ? entry.actorEmail() : null, entry.title(), entry.firstQuestion(), entry.firstAnswer(),
-                entry.modelName(), entry.messages(), entry.feedback(), entry.deleted(), entry.updatedAt());
+                entry.modelName(), entry.messages(), entry.feedback(), entry.deleted(), entry.updatedAt(),
+                entry.surface());
     }
 
     private void recordRead(Access access, ActorId reader, Entry entry, int messages) {

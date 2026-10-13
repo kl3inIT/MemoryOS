@@ -16912,7 +16912,7 @@ paths:
       summary: Read or resume reply events; reset requires persisted history
       description: "Events: text, reasoning, tool, image, code, research_plan, top_level_branching,\
         \ research_agent_start, intermediate_report, intermediate_report_citations,\
-        \ outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
+        \ waiting, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
         \ confirms a committed terminal state. Heartbeats are comments. A reset has\
         \ no event id."
       operationId: streamChatMessage
@@ -16984,6 +16984,7 @@ paths:
                 - $ref: "#/components/schemas/ResearchAgentStartEvent"
                 - $ref: "#/components/schemas/IntermediateReportEvent"
                 - $ref: "#/components/schemas/IntermediateReportCitationsEvent"
+                - $ref: "#/components/schemas/WaitingEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -28492,6 +28493,7 @@ components:
       type: string
       enum:
       - STANDARD
+      - SERVICE
     TenantMembershipRole:
       type: string
       enum:
@@ -30050,6 +30052,7 @@ components:
           type: string
           enum:
           - STANDARD
+          - SERVICE
         status:
           type: string
           enum:
@@ -31111,6 +31114,21 @@ components:
       required:
       - citationId
       - marker
+    WaitingEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        waiting:
+          type: boolean
+      required:
+      - assistantMessageId
+      - sequence
+      - waiting
     ChatBranch:
       type: object
       properties:
@@ -31865,11 +31883,18 @@ components:
         updatedAt:
           type: string
           format: date-time
+        surface:
+          type: string
+          description: Where the conversation is held
+          enum:
+          - WEB
+          - CHANNEL
       required:
       - deleted
       - feedback
       - id
       - messages
+      - surface
       - title
       - updatedAt
     ChatHistoryPage:

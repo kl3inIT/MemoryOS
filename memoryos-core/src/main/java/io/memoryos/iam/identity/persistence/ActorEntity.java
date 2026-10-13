@@ -57,6 +57,10 @@ public class ActorEntity {
         return id;
     }
 
+    public AccountType getAccountType() {
+        return accountType;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

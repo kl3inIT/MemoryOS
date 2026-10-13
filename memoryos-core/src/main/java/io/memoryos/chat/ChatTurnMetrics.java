@@ -34,6 +34,12 @@ public final class ChatTurnMetrics {
                 .register(meters).record(nanos, TimeUnit.NANOSECONDS);
     }
 
+    /** How long a turn beyond the process's or the person's bound waited before it was given a slot. */
+    void waited(long nanos) {
+        Timer.builder("memoryos.chat.turn.wait").description("A Chat turn from joining the queue to its slot")
+                .register(meters).record(nanos, TimeUnit.NANOSECONDS);
+    }
+
     /**
      * The MEM-195 check before the answer model; {@code unchecked} when it could not decide. {@code classifier} is
      * {@code llm} or {@code system_one}, and {@code review} marks a turn let through with a topic scored between the

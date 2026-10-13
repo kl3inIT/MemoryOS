@@ -40,6 +40,8 @@ export type ChatUiMessage = UIMessage<
     toolCitations?: Record<string, number[]>;
     images?: GeneratedImage[];
     imageGenerating?: boolean;
+    /** The live reply waits for a turn: the server runs a bounded number at once. */
+    waiting?: boolean;
     /** Files run_python generated, saved on the assistant message. */
     generatedFiles?: GeneratedFile[];
   },

@@ -2504,7 +2504,7 @@ export const zChatLibraryFile = z.object({
     deletable: z.boolean()
 });
 
-export const zAccountType = z.enum(['STANDARD']);
+export const zAccountType = z.enum(['STANDARD', 'SERVICE']);
 
 export const zTenantMembershipRole = z.enum(['OWNER', 'MEMBER']);
 
@@ -3075,7 +3075,7 @@ export const zGroupMember = z.object({
     actorId: z.uuid(),
     displayName: z.string().nullable(),
     email: z.string().nullable(),
-    accountType: z.enum(['STANDARD']),
+    accountType: z.enum(['STANDARD', 'SERVICE']),
     status: z.enum(['ACTIVE', 'INACTIVE']),
     isManager: z.boolean(),
     protectedOwner: z.boolean()
@@ -3540,6 +3540,12 @@ export const zIntermediateReportCitationsEvent = z.object({
     citations: z.array(zResearchCitation)
 });
 
+export const zWaitingEvent = z.object({
+    assistantMessageId: z.uuid(),
+    sequence: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    waiting: z.boolean()
+});
+
 export const zChatBranch = z.object({
     id: z.uuid().optional(),
     parentMessageId: z.uuid().nullish(),
@@ -3856,7 +3862,8 @@ export const zChatHistoryEntry = z.object({
         'NONE'
     ]),
     deleted: z.boolean(),
-    updatedAt: z.iso.datetime()
+    updatedAt: z.iso.datetime(),
+    surface: z.enum(['WEB', 'CHANNEL'])
 });
 
 export const zChatHistoryPage = z.object({
@@ -7282,7 +7289,8 @@ export const zStreamChatMessageResponse = z.union([
     zTopLevelBranchingEvent,
     zResearchAgentStartEvent,
     zIntermediateReportEvent,
-    zIntermediateReportCitationsEvent
+    zIntermediateReportCitationsEvent,
+    zWaitingEvent
 ]);
 
 export const zGetChatFeedbackPath = z.object({
