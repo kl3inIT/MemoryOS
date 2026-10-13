@@ -1219,7 +1219,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   });
   const supportSource = sourceTable.getByRole("link", { name: otherSource.name, exact: true });
   await expect(fileGroup).toHaveAttribute("aria-expanded", "true");
-  const sourceSearch = page.getByRole("searchbox", { name: "Search sources" });
+  const sourceSearch = page.getByRole("textbox", { name: "Search sources" });
   await sourceSearch.fill("missing source");
   await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
   await sourceSearch.fill("");
