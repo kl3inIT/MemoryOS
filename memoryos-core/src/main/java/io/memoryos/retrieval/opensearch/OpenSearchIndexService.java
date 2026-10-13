@@ -58,6 +58,12 @@ public class OpenSearchIndexService implements SearchIndex {
     private final SourceSearchService sourceSearch;
     private final SearchTimings timings;
     private static final int ACCESS_UPDATE_BATCH = 128;
+    /**
+     * The most chunks written before a batch waits for a refresh. One refresh builds the vector graph of everything
+     * written since the last, and the request that waits for it waits for all of that: without a bound the last
+     * batch of 1,100 chunks at 3,072 dimensions waited 25 seconds of the 30 a request may take (MEM-249).
+     */
+    private static final int REFRESH_CHUNKS = 256;
     private final Map<String, String> sweepCursors = new ConcurrentHashMap<>();
     /**
      * Indexes this process has verified against their generation (identity to generation ID). Writes skip the
@@ -280,6 +286,7 @@ public class OpenSearchIndexService implements SearchIndex {
         var sourceMetadata = metadata(origins);
         var access = sourceSearch.indexAccess(document.tenantId(), document.documentId());
         String metadataHash = metadataHash(origins, access);
+        int unrefreshed = 0;
         for (int offset = 0; offset < document.chunks().size(); offset += embeddings.batchSize()) {
             var batch = document.chunks().subList(offset, Math.min(offset + embeddings.batchSize(), document.chunks().size()));
             var found = existing(active, document, batch);
@@ -315,10 +322,14 @@ public class OpenSearchIndexService implements SearchIndex {
                 body.append(mapper.writeValueAsString(source)).append('\n');
             }
             // A cancelled FUTURE's index can be deleted while its chunks are embedded; the alias went with it.
-            // Only the last batch waits for a refresh, which makes every batch visible to the count below: waiting
-            // on each cost a second a batch, thirty seconds for a document of nine hundred chunks (MEM-248).
+            // The last batch waits for a refresh, which makes every batch visible to the count below: waiting on
+            // each cost a second a batch, thirty seconds for a document of nine hundred chunks (MEM-248). A batch
+            // in between waits too once REFRESH_CHUNKS are written, so no refresh carries the whole document.
             boolean last = offset + embeddings.batchSize() >= document.chunks().size();
-            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString(), last);
+            unrefreshed += batch.size();
+            boolean awaitRefresh = last || unrefreshed >= REFRESH_CHUNKS;
+            if (awaitRefresh) unrefreshed = 0;
+            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString(), awaitRefresh);
             if (OpenSearchGateway.indexMissing(response)) return false;
             if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
             int acknowledged = 0;
@@ -552,14 +563,19 @@ public class OpenSearchIndexService implements SearchIndex {
         if (ids == null) { invalidate(identity); return; }
         String update = mapper.writeValueAsString(Map.of("doc", fields));
         // Each partial update re-indexes the whole chunk including its vector, so batches stay bounded like writes.
+        int unrefreshed = 0;
         for (int offset = 0; offset < ids.size(); offset += ACCESS_UPDATE_BATCH) {
             var batch = ids.subList(offset, Math.min(offset + ACCESS_UPDATE_BATCH, ids.size()));
             var body = new StringBuilder();
             for (String id : batch) {
                 body.append(mapper.writeValueAsString(Map.of("update", Map.of("_id", id)))).append('\n').append(update).append('\n');
             }
-            // As for a content write, only the last batch waits for the refresh that shows them all.
-            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString(), offset + ACCESS_UPDATE_BATCH >= ids.size());
+            // As for a content write, the last batch waits for the refresh that shows them all, and one in between
+            // once REFRESH_CHUNKS are written.
+            unrefreshed += batch.size();
+            boolean awaitRefresh = offset + ACCESS_UPDATE_BATCH >= ids.size() || unrefreshed >= REFRESH_CHUNKS;
+            if (awaitRefresh) unrefreshed = 0;
+            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString(), awaitRefresh);
             if (OpenSearchGateway.indexMissing(response)) { invalidate(identity); return; }
             // Every chunk must accept the same fields; a missing chunk means a concurrent rewrite, so the work retries.
             if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
