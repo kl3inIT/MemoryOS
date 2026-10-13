@@ -794,7 +794,7 @@ public final class ChatTurnService implements AutoCloseable {
 
     /**
      * Only pending outcomes and due lease renewals touch the database; Stop is local. A turn has no total deadline:
-     * the lease is renewed while this process runs it, so only a dead process lets it lapse into reconciliation.
+     * the lease is renewed while this process runs it, so only a dead process lets it lapse, and the Worker ends it.
      * A waiting run is renewed like a running one and ends here once it has waited {@code waitLimit}.
      */
     public void maintain() {
@@ -822,11 +822,7 @@ public final class ChatTurnService implements AutoCloseable {
                         .addKeyValue("error_type", failure.getClass().getName()).log("Chat lease renewal unavailable");
             }
         }
-        try { persistence.expireRuns(); }
-        catch (RuntimeException failure) {
-            LOG.atWarn().addKeyValue("event", "chat.lease.reconciliation_failed")
-                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat lease reconciliation unavailable");
-        }
+        // A turn whose process died is ended by the Worker (ChatRunReconciliation), not here.
     }
 
     private void expireWaiting(long now) {

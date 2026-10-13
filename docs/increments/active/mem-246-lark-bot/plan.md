@@ -40,13 +40,15 @@ of step 5 is merged, so an administrator can always turn the bot off.
 
 Four pull requests, each green on its own.
 
-- [ ] 3a. `maintain()` and the stream flush are scheduled by components `chat` publishes for a process that
-  executes turns; the API imports them. A turn can be told the name of the person it answers.
+- [x] 3a. `maintain()` and the stream flush are scheduled by `chat`'s own configuration beside the turn
+  runtime, so any process that runs turns runs them; the API no longer schedules them. Ending the runs of a
+  process that died is a Worker task, which reads nothing a process holds.
 - [ ] 3b. `CredentialCipher` to the shared kernel. Migrations: `channel_connections`,
   `channel_connection_state`, `channel_conversations`, `channel_identities`, `channel_messages`. The port, the
-  registry and the settings service, which creates and retires the bot's service account.
-- [ ] 3c. The inbound service: the rules, the sender, who the turn runs as, the conversation, the turn and its
-  reply; the order within a conversation and the sender's rate; the daily cleanup.
+  registry and the settings service, which creates and retires the bot's service account. The Worker's daily
+  task that deletes `channel_messages` older than ninety days, through `ChannelWorkerComponents`.
+- [ ] 3c. The inbound service: the rules, the sender, who the turn runs as and the asker's name it is told, the
+  conversation, the turn and its reply; the order within a conversation and the sender's rate.
 - [ ] 3d. The supervisor and `ChannelRuntimeComponents`. `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 16 turns;
   `Dockerfile` target, the compose service with its health check and secret file, the CI leg and area filter,
   `deploy.sh` and the deployment tests.
