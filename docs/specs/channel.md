@@ -40,7 +40,20 @@ the answer, or `fail(notice)`); `notice` sends one short message; `senderEmail` 
 holds for a sender; `externalChat` says whether people outside the organisation read a chat. It hands over a
 `ChannelMessage`: the provider's message id, the chat and whether it is `DIRECT` or `GROUP`, the sender and their
 organisation, whether the bot was named, `TEXT` or `OTHER`, the text without the bot's mention, and the message it
-replies to. Opening a transport and verifying an app are added with the Lark adapter.
+replies to. `open(connection, secret, receiver)` starts receiving for one bot and returns a `ChannelTransport`
+(`connected()`, `close()`); the adapter acknowledges each message to the provider and hands it to the receiver,
+which returns at once. Verifying an app is added with the Lark adapter.
+
+## Holding connections
+
+`ChannelSupervisor` holds open the transport of every bot that is switched on, in the process that receives
+(`memoryos-channels`); it is not a component, so no other process opens a connection. Every 30 seconds it opens a
+bot switched on since, reopens one whose revision changed or whose transport reports it is no longer connected,
+closes one switched off or removed, and writes `channel_connection_state` (since when it is open, the typed code
+and time of the last failure, the last message, a heartbeat). A failed open, an unreadable secret among them, is
+recorded and tried again at the next pass. The secret is decrypted for the open only and the buffer cleared. Each
+message is answered on a virtual thread of its own. Stopping closes every connection, then waits up to 30 seconds
+for the answers in progress.
 
 ## Receiving a message
 

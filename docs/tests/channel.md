@@ -19,6 +19,11 @@
 | A bot whose organisation is not known, or that is switched off, answers nobody | `ChannelInboundServiceTest.aBotWhoseOrganisationIsNotKnownOrThatIsSwitchedOffAnswersNobody` |
 | A refused or failed turn becomes a notice and a recorded reason | `ChannelInboundServiceTest.aTurnThatIsRefusedOrFailsBecomesANoticeAndARecordedReason` |
 | Old message ids are swept and a recent one is kept | `ChannelInboundServiceTest.oldMessageIdsAreSweptAndARecentOneIsKept` |
+| A bot switched on is opened with its decrypted secret and its state is written; a second pass keeps it | `ChannelSupervisorTest.aBotSwitchedOnIsOpenedWithItsSecretAndItsStateIsWritten` |
+| A message is answered off the adapter's thread | `ChannelSupervisorTest.aMessageIsAnsweredOffTheAdaptersThreadAndMarksTheConnection` |
+| A bot whose revision changed is reopened after its old transport closed; one switched off is closed | `ChannelSupervisorTest.aBotSwitchedOffOrChangedIsClosedOrReopened` |
+| A dropped transport is reopened; a failed open is recorded and retried | `ChannelSupervisorTest.aDroppedTransportIsReopenedAndAFailedOpenIsRecordedAndRetried` |
+| Stopping closes every connection | `ChannelSupervisorTest.stoppingClosesEveryConnection` |
 
 The bridge to Chat (`ChannelTurns`: session, leaf, turn, stream, saved answer) has no test of its own; it is
 exercised end to end on staging with the Lark adapter (plan step 4).
