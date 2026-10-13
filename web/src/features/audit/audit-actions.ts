@@ -61,6 +61,9 @@ const actionLabels: Record<string, AppCopy> = {
   "credential.create": "Added a credential",
   "credential.update": "Updated a credential",
   "credential.delete": "Deleted a credential",
+  "channel.create": "Added a chat bot",
+  "channel.update": "Updated a chat bot",
+  "channel.delete": "Removed a chat bot",
   "audit.export": "Exported the audit log",
   "permission.denied": "Access refused",
 };
@@ -102,6 +105,7 @@ const fieldLabels: Record<string, AppCopy> = {
   admission: "Admission",
   agent: "Agent",
   alias: "Alias",
+  app: "App",
   authentication: "Authentication",
   baseUrl: "Endpoint",
   capability: "Permission",

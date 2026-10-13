@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.connector.source.persistence.CredentialCipher;
+import io.memoryos.shared.CredentialCipher;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;

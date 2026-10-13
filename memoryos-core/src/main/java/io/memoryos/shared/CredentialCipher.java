@@ -1,4 +1,4 @@
-package io.memoryos.connector.source.persistence;
+package io.memoryos.shared;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -10,11 +10,10 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import io.memoryos.shared.TenantId;
 import org.jspecify.annotations.NonNull;
 
 /**
- * AES-GCM envelope shared by connector credential kinds. The credential kind belongs to the additional
+ * AES-GCM envelope shared by every stored secret kind: connector credentials and channel bots. The credential kind belongs to the additional
  * authenticated data, so an envelope of one kind never decrypts under another kind's key.
  */
 public final class CredentialCipher {

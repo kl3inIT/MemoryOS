@@ -56,6 +56,8 @@ public class DefaultGroupService implements GroupService {
             metadata(IamCapability.MCP_MANAGE, "Manage MCP servers",
                     "Register remote MCP servers, their authentication and OAuth clients, enable their tools "
                             + "and control Group access within the Tenant.", true),
+            metadata(IamCapability.CHANNELS_MANAGE, "Manage chat bots",
+                    "Connect, configure, switch on or off and remove the Tenant's chat bots, such as the Lark bot.", true),
             metadata(IamCapability.AGENTS_CREATE, "Create agents",
                     "Create custom Chat agents and share the agents they own or edit.", true),
             metadata(IamCapability.CHAT_HISTORY_READ, "View conversation history",

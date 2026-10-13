@@ -13,7 +13,7 @@ import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepository;
-import io.memoryos.connector.source.persistence.CredentialCipher;
+import io.memoryos.shared.CredentialCipher;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sharepoint.persistence.SharePointCredentialConfiguration;
 import io.memoryos.iam.IamException;
