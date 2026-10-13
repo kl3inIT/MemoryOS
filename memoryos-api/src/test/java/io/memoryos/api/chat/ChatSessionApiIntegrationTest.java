@@ -11,6 +11,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.awaitility.Awaitility.await;
@@ -39,6 +40,7 @@ import io.memoryos.api.mcp.McpAuthorizationSessionState;
 import io.memoryos.api.mcp.McpFixtureServer;
 import io.memoryos.api.mcp.contract.McpOAuthClientRequest;
 import io.memoryos.api.mcp.contract.McpServerRequest;
+import io.memoryos.chat.ChatMemoryService;
 import io.memoryos.chat.streaming.ChatStreamEvent;
 import io.memoryos.chat.streaming.ToolProgress;
 import io.memoryos.connector.DocumentSourceMetadata;
@@ -283,6 +285,7 @@ class ChatSessionApiIntegrationTest {
     private OpenAiProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
     @Autowired private LibraryArchiveService libraryArchives;
+    @Autowired private ChatMemoryService memories;
     @MockitoBean private DocumentChunkPort chunks;
     @MockitoBean private SourceDocumentAccessResolver sourceAccess;
     @MockitoBean private SourceSearchService sourceSearch;
@@ -1228,6 +1231,73 @@ class ChatSessionApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"days\":30}"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/retention")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void aMemberReadsRewritesAndClearsOnlyTheirOwnMemory() throws Exception {
+        // Nothing is remembered at first, and memory is on for everyone.
+        mockMvc.perform(get("/api/chat/memory").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").value(""))
+                .andExpect(jsonPath("$.enabled").value(true)).andExpect(jsonPath("$.revision").value(0))
+                .andExpect(jsonPath("$.maxLength").value(4000));
+
+        mockMvc.perform(put("/api/chat/memory").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"content\":\" Kế toán trưởng, thích bảng. \",\"revision\":0}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").value("Kế toán trưởng, thích bảng."))
+                .andExpect(jsonPath("$.revision").value(1));
+        // A page that read the memory before that write cannot overwrite it.
+        mockMvc.perform(put("/api/chat/memory").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"content\":\"Cũ\",\"revision\":0}"))
+                .andExpect(status().isConflict());
+        mockMvc.perform(put("/api/chat/memory").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"" + "x".repeat(4001) + "\",\"revision\":1}"))
+                .andExpect(status().isBadRequest());
+        // It is mine: another member still has none, and the write stays CSRF-guarded.
+        mockMvc.perform(get("/api/chat/memory").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").value(""));
+        mockMvc.perform(put("/api/chat/memory").with(authentication(actor))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"content\":\"x\",\"revision\":1}"))
+                .andExpect(status().isForbidden());
+
+        // The switch keeps the text; clearing empties it and advances the revision.
+        mockMvc.perform(put("/api/chat/memory/enabled").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.content").value("Kế toán trưởng, thích bảng."));
+        mockMvc.perform(delete("/api/chat/memory").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").value(""))
+                .andExpect(jsonPath("$.revision").value(2));
+        mockMvc.perform(get("/api/chat/memory")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void theMemoryToolEditsOnePassageAndOnlyInTheOwnersOwnConversations() throws Exception {
+        var tenant = new TenantId(TENANT);
+        var owner = actor.getPrincipal().actorId();
+        assertInstanceOf(ChatMemoryService.Edit.Applied.class, memories.edit(tenant, owner, "", "Làm ở phòng kế toán."));
+        assertInstanceOf(ChatMemoryService.Edit.Applied.class, memories.edit(tenant, owner, "", "Thích bảng."));
+        assertInstanceOf(ChatMemoryService.Edit.Applied.class,
+                memories.edit(tenant, owner, "phòng kế toán", "phòng tài chính"));
+        assertEquals("Làm ở phòng tài chính.\nThích bảng.", memories.get(owner).content());
+        assertInstanceOf(ChatMemoryService.Edit.PassageNotFound.class, memories.edit(tenant, owner, "phòng nhân sự", "x"));
+        assertInstanceOf(ChatMemoryService.Edit.Applied.class, memories.edit(tenant, owner, "Thích bảng.", ""));
+        assertEquals("Làm ở phòng tài chính.", memories.get(owner).content());
+        assertInstanceOf(ChatMemoryService.Edit.TooLong.class, memories.edit(tenant, owner, "", "x".repeat(4000)));
+
+        String session = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions").with(authentication(actor))
+                        .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Bộ nhớ\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("id").asText();
+        var id = UUID.fromString(session);
+        assertTrue(memories.usableIn(tenant, owner, id));
+        // Another member's turn never reaches this memory, nor does a temporary conversation or a switched-off one.
+        assertFalse(memories.usableIn(tenant, other.getPrincipal().actorId(), id));
+        jdbc.sql("UPDATE chat_session SET temporary = TRUE WHERE id = :id").param("id", id).update();
+        assertFalse(memories.usableIn(tenant, owner, id));
+        jdbc.sql("UPDATE chat_session SET temporary = FALSE WHERE id = :id").param("id", id).update();
+        memories.enabled(owner, false);
+        assertFalse(memories.usableIn(tenant, owner, id));
     }
 
     @Test

@@ -17199,6 +17199,193 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/memory:
+    get:
+      tags:
+      - Chat Memory
+      summary: Read what Chat remembers about you
+      operationId: getChatMemory
+      responses:
+        "400":
+          description: Invalid memory
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Your memory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMemory"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Memory
+      summary: Replace what Chat remembers about you
+      operationId: saveChatMemory
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMemoryInput"
+        required: true
+      responses:
+        "200":
+          description: The saved memory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMemory"
+        "409":
+          description: The memory changed since it was read
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid memory
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat Memory
+      summary: Forget everything Chat remembers about you
+      operationId: clearChatMemory
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid memory
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The emptied memory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMemory"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/memory/enabled:
+    put:
+      tags:
+      - Chat Memory
+      summary: Turn Chat's memory of you on or off
+      operationId: setChatMemoryEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMemoryEnabledInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid memory
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The memory with its switch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMemory"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/provider-adapters:
     get:
       tags:
@@ -24875,6 +25062,52 @@ components:
       - autoScroll
       - personalPreferences
       - workRole
+    ChatMemory:
+      type: object
+      properties:
+        content:
+          type: string
+          description: The memory document; empty when nothing is remembered
+        enabled:
+          type: boolean
+          description: Whether Chat reads and writes the memory
+        revision:
+          type: integer
+          format: int64
+          description: "Send it back when saving the text, so a newer change is not\
+            \ overwritten"
+        maxLength:
+          type: integer
+          format: int32
+          description: "The longest memory accepted, in characters"
+      required:
+      - content
+      - enabled
+      - maxLength
+      - revision
+    ChatMemoryEnabledInput:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+      - enabled
+    ChatMemoryInput:
+      type: object
+      properties:
+        content:
+          type: string
+          description: "The whole memory, at most 4000 characters"
+          maxLength: 4000
+          minLength: 0
+        revision:
+          type: integer
+          format: int64
+          description: The revision this text was edited from
+          minimum: 0
+      required:
+      - content
+      - revision
     ChatPreferences:
       type: object
       properties:

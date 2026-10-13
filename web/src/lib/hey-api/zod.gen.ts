@@ -1099,6 +1099,22 @@ export const zChatPreferencesInput = z.object({
     autoScroll: z.boolean()
 });
 
+export const zChatMemory = z.object({
+    content: z.string(),
+    enabled: z.boolean(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    maxLength: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+export const zChatMemoryEnabledInput = z.object({
+    enabled: z.boolean()
+});
+
+export const zChatMemoryInput = z.object({
+    content: z.string().min(0).max(4000),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
 export const zChatPreferences = z.object({
     workRole: z.string(),
     personalPreferences: z.string(),
@@ -7326,6 +7342,30 @@ export const zPreviewChatRetentionQuery = z.object({
  * What the policy would delete
  */
 export const zPreviewChatRetentionResponse = zChatRetentionPreview;
+
+/**
+ * The emptied memory
+ */
+export const zClearChatMemoryResponse = zChatMemory;
+
+/**
+ * Your memory
+ */
+export const zGetChatMemoryResponse = zChatMemory;
+
+export const zSaveChatMemoryBody = zChatMemoryInput;
+
+/**
+ * The saved memory
+ */
+export const zSaveChatMemoryResponse = zChatMemory;
+
+export const zSetChatMemoryEnabledBody = zChatMemoryEnabledInput;
+
+/**
+ * The memory with its switch
+ */
+export const zSetChatMemoryEnabledResponse = zChatMemory;
 
 /**
  * Successful result

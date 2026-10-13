@@ -225,6 +225,8 @@ class OpenApiContractTest {
             "/api/chat/sessions/{sessionId}/messages/{messageId}/branch",
             "/api/chat/retention",
             "/api/chat/retention/preview",
+            "/api/chat/memory",
+            "/api/chat/memory/enabled",
             "/api/chat/history",
             "/api/chat/settings/history-visibility",
             "/api/chat/settings/grounded",

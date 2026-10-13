@@ -8,9 +8,11 @@ import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatFileDescriptor;
+import io.memoryos.chat.ChatMemory;
 import io.memoryos.chat.ChatPreferences;
 import io.memoryos.chat.ChatResearch;
 import io.memoryos.chat.ChatSession;
+import io.memoryos.chat.preferences.persistence.JdbcChatMemoryRepository;
 import io.memoryos.chat.preferences.persistence.JdbcChatPreferencesRepository;
 import io.memoryos.chat.prompts.ChatPrompts;
 import io.memoryos.iam.ActorProfileReader;
@@ -63,11 +65,12 @@ public class ChatTurnPersistence {
     private final @Nullable AiUsageRecorder usage;
     private final @Nullable JdbcChatPreferencesRepository preferences;
     private final @Nullable ActorProfileReader profiles;
+    private final @Nullable JdbcChatMemoryRepository memories;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                UserFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts) {
-        this(tenants, authorization, chats, files, languages, imageArtifacts, null, null, null);
+        this(tenants, authorization, chats, files, languages, imageArtifacts, null, null, null, null);
     }
 
     @Autowired
@@ -75,9 +78,10 @@ public class ChatTurnPersistence {
                                UserFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts, @Nullable AiUsageRecorder usage,
                                @Nullable JdbcChatPreferencesRepository preferences,
-                               @Nullable ActorProfileReader profiles) {
+                               @Nullable ActorProfileReader profiles, @Nullable JdbcChatMemoryRepository memories) {
         this.usage = usage;
         this.preferences = preferences;
+        this.memories = memories;
         this.profiles = profiles;
         this.tenants = tenants;
         this.authorization = authorization;
@@ -93,12 +97,17 @@ public class ChatTurnPersistence {
                 : preferences.find(tenant.value(), actor.value()).orElse(ChatPreferences.DEFAULT);
     }
 
-    /** Onyx's user information section: login name and email, the member's role and preferences (MEM-145). */
-    private String userInformation(ActorId actor, String instructions, ChatPreferences own) {
+    /**
+     * Onyx's user information section: login name and email, the member's role and preferences (MEM-145), and what
+     * Chat remembers about them (MEM-250) unless the memory is switched off or the conversation is temporary.
+     */
+    private String userInformation(TenantId tenant, ActorId actor, String instructions, ChatPreferences own,
+                                   boolean temporary) {
         if (preferences == null || profiles == null) return instructions;
         var profile = profiles.read(actor);
+        var memory = memories == null || temporary ? ChatMemory.EMPTY : memories.find(tenant.value(), actor.value());
         return ChatPrompts.withUserInformation(instructions, profile.displayName(),
-                profile.email(), own.workRole(), own.personalPreferences());
+                profile.email(), own.workRole(), own.personalPreferences(), memory.enabled() ? memory.content() : "");
     }
 
     /**
@@ -241,7 +250,7 @@ public class ChatTurnPersistence {
             var binding = selection.binding().forOptions(settings.options().sampling(), settings.options().outputTokenLimit());
             instructions = ChatPrompts.resolve(instructions,
                     binding.toolCalling() && settings.options().searches(), Instant.now(), language);
-            instructions = userInformation(actor, instructions, own);
+            instructions = userInformation(tenant, actor, instructions, own, session.temporary());
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
         }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();

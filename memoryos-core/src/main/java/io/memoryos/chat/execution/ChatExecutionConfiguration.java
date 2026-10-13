@@ -16,6 +16,7 @@ import io.memoryos.chat.grounding.GroundingClassifier;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProviderClient;
+import io.memoryos.chat.ChatMemoryService;
 import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.research.ResearchProperties;
@@ -73,10 +74,10 @@ class ChatExecutionConfiguration {
                                         UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
                                         WebProviderClient web, ImageProviderClient image, ImageArtifactService imageArtifacts,
                                         InterpreterClient interpreter, InterpreterService interpreterSettings,
-                                        DocumentOriginalService originals, ResearchProperties research,
+                                        DocumentOriginalService originals, ChatMemoryService memories, ResearchProperties research,
                                         MeterRegistry meters, ObservationRegistry observations) {
         return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent,
-                web, image, imageArtifacts, interpreter, interpreterSettings, originals,
+                web, image, imageArtifacts, interpreter, interpreterSettings, originals, memories,
                 research, new ResearchTelemetry(meters, observations), meters);
     }
 

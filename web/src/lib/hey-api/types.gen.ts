@@ -1172,6 +1172,40 @@ export type ChatPreferencesInput = {
     autoScroll: boolean;
 };
 
+export type ChatMemory = {
+    /**
+     * The memory document; empty when nothing is remembered
+     */
+    content: string;
+    /**
+     * Whether Chat reads and writes the memory
+     */
+    enabled: boolean;
+    /**
+     * Send it back when saving the text, so a newer change is not overwritten
+     */
+    revision: number;
+    /**
+     * The longest memory accepted, in characters
+     */
+    maxLength: number;
+};
+
+export type ChatMemoryEnabledInput = {
+    enabled: boolean;
+};
+
+export type ChatMemoryInput = {
+    /**
+     * The whole memory, at most 4000 characters
+     */
+    content: string;
+    /**
+     * The revision this text was edited from
+     */
+    revision: number;
+};
+
 export type ChatPreferences = {
     workRole: string;
     personalPreferences: string;
@@ -16370,6 +16404,158 @@ export type PreviewChatRetentionResponses = {
 };
 
 export type PreviewChatRetentionResponse = PreviewChatRetentionResponses[keyof PreviewChatRetentionResponses];
+
+export type ClearChatMemoryData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/memory';
+};
+
+export type ClearChatMemoryErrors = {
+    /**
+     * Invalid memory
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type ClearChatMemoryError = ClearChatMemoryErrors[keyof ClearChatMemoryErrors];
+
+export type ClearChatMemoryResponses = {
+    /**
+     * The emptied memory
+     */
+    200: ChatMemory;
+};
+
+export type ClearChatMemoryResponse = ClearChatMemoryResponses[keyof ClearChatMemoryResponses];
+
+export type GetChatMemoryData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/memory';
+};
+
+export type GetChatMemoryErrors = {
+    /**
+     * Invalid memory
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type GetChatMemoryError = GetChatMemoryErrors[keyof GetChatMemoryErrors];
+
+export type GetChatMemoryResponses = {
+    /**
+     * Your memory
+     */
+    200: ChatMemory;
+};
+
+export type GetChatMemoryResponse = GetChatMemoryResponses[keyof GetChatMemoryResponses];
+
+export type SaveChatMemoryData = {
+    body: ChatMemoryInput;
+    path?: never;
+    query?: never;
+    url: '/api/chat/memory';
+};
+
+export type SaveChatMemoryErrors = {
+    /**
+     * Invalid memory
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * The memory changed since it was read
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatMemoryError = SaveChatMemoryErrors[keyof SaveChatMemoryErrors];
+
+export type SaveChatMemoryResponses = {
+    /**
+     * The saved memory
+     */
+    200: ChatMemory;
+};
+
+export type SaveChatMemoryResponse = SaveChatMemoryResponses[keyof SaveChatMemoryResponses];
+
+export type SetChatMemoryEnabledData = {
+    body: ChatMemoryEnabledInput;
+    path?: never;
+    query?: never;
+    url: '/api/chat/memory/enabled';
+};
+
+export type SetChatMemoryEnabledErrors = {
+    /**
+     * Invalid memory
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type SetChatMemoryEnabledError = SetChatMemoryEnabledErrors[keyof SetChatMemoryEnabledErrors];
+
+export type SetChatMemoryEnabledResponses = {
+    /**
+     * The memory with its switch
+     */
+    200: ChatMemory;
+};
+
+export type SetChatMemoryEnabledResponse = SetChatMemoryEnabledResponses[keyof SetChatMemoryEnabledResponses];
 
 export type ListChatProviderAdaptersData = {
     body?: never;

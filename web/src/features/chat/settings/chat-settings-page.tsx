@@ -5,6 +5,7 @@ import { PageHeader, SettingsLayout } from "@/components/composites/settings-lay
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatArchiveSection } from "./chat-archive-section";
 import { ChatExportSection } from "./chat-export-section";
+import { ChatMemorySection } from "./chat-memory-section";
 import { ChatRetentionSection } from "./chat-retention-section";
 import { ChatPreferencesSections } from "./chat-preferences-sections";
 
@@ -19,6 +20,7 @@ export function ChatSettingsPage() {
         description={ui("Preferences for your conversations.")}
       />
       <ChatPreferencesSections />
+      <ChatMemorySection />
       <ChatArchiveSection />
       <ChatRetentionSection />
       <ChatExportSection />
