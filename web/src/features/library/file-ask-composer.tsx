@@ -2,7 +2,7 @@ import { useRef, useState, type ComponentType } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowUp, FileText, Mic, Paperclip, Plus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDictationInput } from "@/features/voice/use-dictation-input";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
@@ -121,15 +121,14 @@ export function ChatFileAskComposer({
         <div className="flex flex-nowrap items-center justify-between gap-2">
           <Popover open={menu} onOpenChange={setMenu}>
             <PopoverTrigger asChild>
-              <IconButton
+              <TooltipIconButton
                 size="sm"
                 prominence="internal"
                 aria-label={ui("Thêm vào câu hỏi")}
-                title={ui("Thêm vào câu hỏi")}
                 disabled={pending}
               >
                 <Plus />
-              </IconButton>
+              </TooltipIconButton>
             </PopoverTrigger>
             <PopoverContent
               side="top"
@@ -179,13 +178,12 @@ export function ChatFileAskComposer({
           <div className="flex min-w-0 items-center gap-1">
             <ModelPicker disabled={pending} />
             {canDictate && (
-              <IconButton
+              <TooltipIconButton
                 type="button"
                 size="sm"
                 prominence="internal"
                 aria-pressed={dictation.listening}
                 aria-label={dictation.listening ? ui("Dừng nghe") : ui("Đọc câu hỏi")}
-                title={dictation.listening ? ui("Dừng nghe") : ui("Đọc câu hỏi")}
                 pending={dictation.status === "starting" || dictation.status === "finishing"}
                 onClick={() => void dictation.toggle()}
               >
@@ -193,18 +191,17 @@ export function ChatFileAskComposer({
                   aria-hidden="true"
                   className={cn(dictation.listening && "animate-pulse motion-reduce:animate-none")}
                 />
-              </IconButton>
+              </TooltipIconButton>
             )}
-            <IconButton
+            <TooltipIconButton
               type="submit"
               prominence="primary"
               aria-label={ui("Hỏi trong Chat")}
-              title={ui("Hỏi trong Chat")}
               pending={pending}
               disabled={dictation.listening}
             >
               <ArrowUp />
-            </IconButton>
+            </TooltipIconButton>
           </div>
         </div>
       </form>

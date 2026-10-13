@@ -9,7 +9,12 @@ import {
 import { FilterChips } from "@/components/composites/filter-chips";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ListFilter } from "lucide-react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { usePointerOpenedTrigger } from "@/hooks/use-pointer-opened-trigger";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
 import {
   Select,
@@ -63,7 +68,7 @@ import type { LibraryEntryView } from "./library-views";
 import { LibraryListSkeleton } from "./library-results";
 import { LibraryNoMatch } from "./library-rows";
 import type { EntryKindChip } from "./library-search";
-import { LibraryDisplayMenu, LibrarySearchField, type LibraryLayout } from "./library-toolbar";
+import { LibraryDisplayControls, LibrarySearchField, type LibraryLayout } from "./library-toolbar";
 import type { LibraryViewState } from "./use-library-view";
 
 /** The kinds a chip narrows to; the person's own files are one choice, whatever made them. */
@@ -121,14 +126,40 @@ export function LibraryEntryViews({
     [query, kind, category, sort, sourceId],
   );
   const categories = categoryLabels(ui);
-  const categoryChips = (
-    <FilterChips
-      label={ui("Loại tệp")}
-      chips={LIBRARY_CATEGORIES.map((value) => ({ value, label: categories[value] }))}
-      value={category}
-      onChange={(next) => filterBy({ category: next ? [next as LibraryCategory] : [] })}
-    />
-  );
+  const categoryGroup = {
+    label: ui("Loại tệp"),
+    chips: LIBRARY_CATEGORIES.map((value) => ({ value, label: categories[value] })),
+    value: category,
+    onChange: (next: string | undefined) =>
+      filterBy({ category: next ? [next as LibraryCategory] : [] }),
+  };
+  const kindGroup = (chips: { value: string; label: string }[]) => ({
+    label: ui("Loại"),
+    chips,
+    value: kind,
+    onChange: (next: string | undefined) => filterBy({ kind: next as EntryKindChip | undefined }),
+  });
+  const groups =
+    view === "shared"
+      ? [
+          kindGroup([
+            { value: "MEETING", label: ui("Cuộc họp") },
+            { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
+          ]),
+          categoryGroup,
+        ]
+      : view === "documents"
+        ? [categoryGroup]
+        : view === "starred"
+          ? [
+              kindGroup([
+                { value: "OWNED", label: ui("Tệp của tôi") },
+                { value: "MEETING", label: ui("Cuộc họp") },
+                { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
+                ...(canReadDocuments ? [{ value: "DOCUMENT", label: ui("Tài liệu tổ chức") }] : []),
+              ]),
+            ]
+          : [];
   const results = {
     view,
     filter,
@@ -146,13 +177,15 @@ export function LibraryEntryViews({
           onChange={library.setSearch}
           label={ui("Tìm theo tên")}
         />
-        {view === "documents" && (
-          <DocumentSourceSelect
-            value={sourceId}
-            onChange={(next) => filterBy({ sourceId: next })}
+        {groups.length > 0 && (
+          <EntryFilterMenu
+            groups={groups}
+            sourceId={view === "documents" ? { value: sourceId } : undefined}
+            onSourceId={(next) => filterBy({ sourceId: next })}
+            onClear={() => filterBy({ kind: undefined, category: [], sourceId: undefined })}
           />
         )}
-        <LibraryDisplayMenu
+        <LibraryDisplayControls
           sort={view === "shared" || view === "documents" ? sort : undefined}
           sorts={sorts}
           onSort={(next: LibrarySort) => filterBy({ sort: next })}
@@ -160,35 +193,6 @@ export function LibraryEntryViews({
           onLayout={onLayout}
         />
       </div>
-      {view === "shared" && (
-        <div className="flex flex-col gap-2">
-          <FilterChips
-            label={ui("Loại")}
-            chips={[
-              { value: "MEETING", label: ui("Cuộc họp") },
-              { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
-            ]}
-            value={kind}
-            onChange={(next) => filterBy({ kind: next as EntryKindChip | undefined })}
-          />
-          {categoryChips}
-        </div>
-      )}
-      {view === "documents" && categoryChips}
-      {view === "starred" && (
-        <FilterChips
-          label={ui("Loại")}
-          chips={[
-            { value: "OWNED", label: ui("Tệp của tôi") },
-            { value: "MEETING", label: ui("Cuộc họp") },
-            { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
-            ...(canReadDocuments ? [{ value: "DOCUMENT", label: ui("Tài liệu tổ chức") }] : []),
-          ]}
-          value={kind}
-          onChange={(next) => filterBy({ kind: next as EntryKindChip | undefined })}
-        />
-      )}
-
       {view === "recent" ? (
         <RecentEntries {...results} />
       ) : view === "documents" ? (
@@ -361,6 +365,79 @@ function EntryResults({
   );
 }
 
+type EntryFilterGroup = {
+  label: string;
+  chips: { value: string; label: string }[];
+  value: string | undefined;
+  onChange: (next: string | undefined) => void;
+};
+
+/**
+ * The filters of a reference view behind one icon, as the owned files' filter is, with how many are on beside it:
+ * what kind of entry it is, what kind of file, and for the documents which Source they come from.
+ */
+function EntryFilterMenu({
+  groups,
+  sourceId,
+  onSourceId,
+  onClear,
+}: {
+  groups: EntryFilterGroup[];
+  /** Present on the documents view, which can also narrow to one Source. */
+  sourceId?: { value: string | undefined };
+  onSourceId: (next: string | undefined) => void;
+  onClear: () => void;
+}) {
+  const ui = useAppTranslation();
+  const pointer = usePointerOpenedTrigger();
+  const active = groups.filter((group) => group.value).length + (sourceId?.value ? 1 : 0);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <TooltipIconButton
+          prominence="secondary"
+          aria-label={ui("Bộ lọc")}
+          className={active > 0 ? "w-auto px-2" : undefined}
+          {...pointer.trigger}
+        >
+          <ListFilter />
+          {active > 0 && (
+            <Badge variant="secondary" className="ml-1.5">
+              {active}
+            </Badge>
+          )}
+        </TooltipIconButton>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80" {...pointer.content}>
+        <div className="flex flex-col gap-3">
+          {sourceId && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="font-secondary-body text-content-muted">{ui("Nguồn")}</legend>
+              <DocumentSourceSelect value={sourceId.value} onChange={onSourceId} />
+            </fieldset>
+          )}
+          {groups.map((group) => (
+            <fieldset key={group.label} className="flex flex-col gap-2">
+              <legend className="font-secondary-body text-content-muted">{group.label}</legend>
+              <FilterChips
+                label={group.label}
+                chips={group.chips}
+                value={group.value}
+                onChange={group.onChange}
+              />
+            </fieldset>
+          ))}
+          {active > 0 && (
+            <Button size="sm" prominence="internal" className="self-start" onClick={onClear}>
+              {ui("Xóa bộ lọc")}
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** Narrows the documents to one Source, from those Search offers the person. */
 function DocumentSourceSelect({
   value,
@@ -379,7 +456,7 @@ function DocumentSourceSelect({
       value={value ?? EVERY_SOURCE}
       onValueChange={(next) => onChange(next === EVERY_SOURCE ? undefined : next)}
     >
-      <SelectTrigger aria-label={ui("Nguồn")} className="w-48">
+      <SelectTrigger aria-label={ui("Nguồn")} className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent position="popper" align="end" sideOffset={4}>

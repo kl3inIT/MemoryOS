@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Settings } from "lucide-react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
-import { IconButton } from "@/components/ui/icon-button";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import {
   Dialog,
   DialogContent,
@@ -39,14 +39,13 @@ export function LibrarySettingsButton({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <IconButton
+      <TooltipIconButton
         prominence="secondary"
         aria-label={ui("Cài đặt thư viện")}
-        title={ui("Cài đặt thư viện")}
         onClick={() => setOpen(true)}
       >
         <Settings />
-      </IconButton>
+      </TooltipIconButton>
       <Dialog open={open} onOpenChange={setOpen}>
         {/* A dialog over the middle of the list, not a drawer at the edge: the panel is about what the list
             already shows, so it reads better in front of it than beside it. */}

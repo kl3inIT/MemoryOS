@@ -3,7 +3,7 @@ import { Check, ChevronLeft, ChevronRight, Copy, Download, Undo2, X } from "luci
 import { useEffect, useState, type ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { IconButton } from "@/components/ui/icon-button";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Spinner } from "@/components/ui/spinner";
 import { DownloadView } from "@/features/preview/download-view";
 import { FilePreview } from "@/features/preview/file-preview";
@@ -225,9 +225,9 @@ function FilePreviewHeader({
   return (
     <header className="flex shrink-0 items-center gap-2 px-3 py-2">
       <DialogClose asChild>
-        <IconButton prominence="internal" size="sm" aria-label={ui("Đóng xem trước")}>
+        <TooltipIconButton prominence="internal" size="sm" aria-label={ui("Đóng xem trước")}>
           <X />
-        </IconButton>
+        </TooltipIconButton>
       </DialogClose>
       <nav
         aria-label={ui("Đường dẫn tệp")}
@@ -253,7 +253,7 @@ function FilePreviewHeader({
       </nav>
       {position && (
         <div className="flex shrink-0 items-center gap-1">
-          <IconButton
+          <TooltipIconButton
             prominence="internal"
             size="sm"
             aria-label={ui("Tệp trước")}
@@ -261,11 +261,11 @@ function FilePreviewHeader({
             onClick={() => onStep(-1)}
           >
             <ChevronLeft />
-          </IconButton>
+          </TooltipIconButton>
           <span className="font-secondary-body text-content-muted tabular-nums">
             {ui("{{position}}/{{total}}", { position: position.at + 1, total: position.total })}
           </span>
-          <IconButton
+          <TooltipIconButton
             prominence="internal"
             size="sm"
             aria-label={ui("Tệp sau")}
@@ -273,18 +273,18 @@ function FilePreviewHeader({
             onClick={() => onStep(1)}
           >
             <ChevronRight />
-          </IconButton>
+          </TooltipIconButton>
         </div>
       )}
       {download !== undefined && (
         <div className="flex shrink-0 items-center gap-1">
           {copy !== undefined && <CopyButton text={copy} />}
-          <IconButton prominence="internal" size="sm" asChild aria-label={ui("Tải xuống")}>
+          <TooltipIconButton prominence="internal" size="sm" asChild aria-label={ui("Tải xuống")}>
             {/* A download takes what the viewer shows, so an applied crop is what lands on disk. */}
             <a href={download} download={filename}>
               <Download />
             </a>
-          </IconButton>
+          </TooltipIconButton>
         </div>
       )}
     </header>
@@ -344,14 +344,14 @@ function ImageToolbar({
                   {image.saving ? ui("Đang lưu…") : ui("Lưu thành tệp mới")}
                 </Button>
               )}
-              <IconButton
+              <TooltipIconButton
                 prominence="internal"
                 size="sm"
                 aria-label={ui("Về ảnh gốc")}
                 onClick={image.revert}
               >
                 <Undo2 />
-              </IconButton>
+              </TooltipIconButton>
             </>
           )
         )}
@@ -418,7 +418,7 @@ function CopyButton({ text }: { text: string }) {
   const ui = useAppTranslation();
   const [copied, setCopied] = useState(false);
   return (
-    <IconButton
+    <TooltipIconButton
       prominence="internal"
       size="sm"
       aria-label={copied ? ui("Đã sao chép") : ui("Sao chép")}
@@ -430,7 +430,7 @@ function CopyButton({ text }: { text: string }) {
       }}
     >
       {copied ? <Check /> : <Copy />}
-    </IconButton>
+    </TooltipIconButton>
   );
 }
 
