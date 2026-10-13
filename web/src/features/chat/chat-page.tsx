@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
+import { BrandLoader } from "@/components/brand-loader";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -105,7 +106,9 @@ export function ChatPage() {
             <Button onClick={() => void project.refetch()}>{ui("Tải lại")}</Button>
           </p>
         ) : (
-          <p>{ui("Đang tải dự án…")}</p>
+          <div className="flex justify-center py-16">
+            <BrandLoader label={ui("Đang tải dự án…")} />
+          </div>
         )}
       </ChatPageState>
     );

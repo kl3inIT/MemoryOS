@@ -1,12 +1,10 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,16 +15,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { actionErrorText } from "@/lib/action-errors";
-import { deleteChatProjectMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { ChatFilePicker } from "@/features/library/file-picker";
 import { fileReference } from "@/features/library/files";
-import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 import { ChatFilePart } from "@/features/chat/thread/chat-attachments";
-import { invalidateProjects, type Project } from "./chat-projects-api";
+import type { Project } from "./chat-projects-api";
+import { ProjectDeleteDialog } from "./project-delete-dialog";
 import { ProjectEditor } from "./project-editor";
 import { ProjectIcon } from "./project-icon";
 import { useProjectFiles } from "./use-project-files";
-import { withRequestTimeout } from "@/lib/api";
 
 /** The Project page above its composer: name, actions, description and shared files. */
 export function ProjectContextPanel({ project }: { project: Project }) {
@@ -34,10 +30,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
-  const cache = useQueryClient();
-  const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
-  const remove = useMutation(withRequestTimeout(deleteChatProjectMutation()));
   return (
     <div className="flex flex-col gap-5 pt-4 text-left">
       <div className="flex items-center gap-3">
@@ -76,24 +69,12 @@ export function ProjectContextPanel({ project }: { project: Project }) {
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
-        <ConfirmDialog
+        <ProjectDeleteDialog
+          project={project}
           open={deleting}
           onOpenChange={setDeleting}
           restoreFocusRef={menuTrigger}
-          title={ui("Xóa dự án?")}
-          description={ui("Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử.")}
-          confirmLabel={ui("Xóa dự án")}
-          pendingLabel={ui("Đang xóa…")}
-          errorMessage={actionErrorText}
-          onConfirm={async () => {
-            await remove.mutateAsync({
-              path: { projectId: project.id },
-              query: { revision: project.revision },
-            });
-            // Its conversations move out of the Project, so the conversation lists change too.
-            await Promise.all([invalidateProjects(cache, project.id), refreshSessions()]);
-            await navigate({ to: "/" });
-          }}
+          onDeleted={() => navigate({ to: "/" })}
         />
       </div>
       {project.description && (

@@ -11,7 +11,9 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -44,16 +46,33 @@ public class ChatProjectService {
     @Transactional(readOnly = true)
     public List<ProjectView> list(ActorId actor, int offset, int limit) {
         ChatPersonaService.page(offset, limit);
-        return settings.findByTenantIdAndOwnerIdOrderByUpdatedAtDescIdAsc(tenant(actor).value(), actor.value(), new ChatPage(offset, limit))
+        return settings.findByTenantIdAndOwnerIdOrderByPositionAscUpdatedAtDescIdAsc(tenant(actor).value(), actor.value(), new ChatPage(offset, limit))
                 .stream().map(ChatProjectService::view).toList();
     }
     @Transactional
     public ProjectView create(ActorId actor, ProjectInput input) {
         var tenant = write(actor); validate(input);
         var entity = new ProjectEntity(UUID.randomUUID(), tenant.value(), actor.value(), input.name().strip(), input.description(),
-                input.instructions(), icon(input.iconName()));
+                input.instructions(), icon(input.iconName()), settings.firstPosition(tenant.value(), actor.value()));
         if (input.fileIds() != null) { files.admit(tenant, actor, input.fileIds()); entity.files(input.fileIds()); }
         return view(settings.saveAndFlush(entity));
+    }
+
+    /**
+     * Writes positions {@code 0..n-1} in the given order under the owner lock create and delete take. The list must be
+     * exactly the actor's projects, so a client holding a stale list is told to reload rather than losing a place;
+     * a foreign or unknown id is the same conflict and reveals nothing.
+     */
+    @Transactional
+    public void reorder(ActorId actor, List<UUID> ordered) {
+        var tenant = write(actor);
+        if (ordered == null || ordered.size() > 1000 || ordered.stream().anyMatch(Objects::isNull))
+            throw ChatException.invalid("Order at most 1000 projects.");
+        var distinct = new HashSet<>(ordered);
+        if (distinct.size() != ordered.size() || !distinct.equals(new HashSet<>(settings.ids(tenant.value(), actor.value()))))
+            throw ChatException.conflict();
+        for (int position = 0; position < ordered.size(); position++)
+            settings.place(tenant.value(), actor.value(), ordered.get(position), position);
     }
 
     @Transactional(readOnly = true)

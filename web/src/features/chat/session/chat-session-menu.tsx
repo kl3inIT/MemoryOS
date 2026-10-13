@@ -1,43 +1,50 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import {
   Archive,
   ArchiveRestore,
+  Check,
   FolderInput,
   FolderOutput,
+  FolderPlus,
   MoreHorizontal,
   Paperclip,
   Pencil,
+  RotateCw,
   Settings2,
   Share2,
   Trash2,
 } from "lucide-react";
-import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Field, FieldLabel } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   archiveChatSessionMutation,
   deleteChatSessionMutation,
+  getChatSessionQueryKey,
   moveChatProjectMutation,
   unarchiveChatSessionMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
-import { FormDialog } from "@/components/composites/form-dialog";
 import { actionErrorText } from "@/lib/action-errors";
 import { projectsOptions } from "@/features/chat/projects/chat-projects-api";
+import { ProjectEditor } from "@/features/chat/projects/project-editor";
+import { ProjectIcon } from "@/features/chat/projects/project-icon";
 import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 import { SharingDialog } from "./chat-sharing-dialog";
 
@@ -70,7 +77,7 @@ export function ChatSessionMenu({
   busy?: boolean;
 }) {
   const ui = useAppTranslation();
-  const [dialog, setDialog] = useState<"move" | "delete" | "share">();
+  const [dialog, setDialog] = useState<"project" | "delete" | "share">();
   const trigger = useRef<HTMLButtonElement>(null);
   const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
@@ -78,6 +85,9 @@ export function ChatSessionMenu({
   const archive = useMutation(archiveChatSessionMutation());
   const unarchive = useMutation(unarchiveChatSessionMutation());
   const remove = useMutation(deleteChatSessionMutation());
+  const move = useMutation(moveChatProjectMutation());
+  const cache = useQueryClient();
+  const notify = useActionNotifications();
   const path = { sessionId: session.id };
   async function refresh(notify = true) {
     await refreshSessions(session.id);
@@ -97,6 +107,24 @@ export function ChatSessionMenu({
       });
     onArchive?.(next);
     await refresh();
+  }
+  /**
+   * Moves the conversation into a Project, or out of every Project with `null`; its history is kept. The menu
+   * has closed by the time this fails, so the failure is raised as a notification instead.
+   */
+  async function moveTo(projectId: string | null) {
+    try {
+      const moved = await move.mutateAsync({
+        path,
+        body: { projectId },
+        signal: AbortSignal.timeout(30000),
+      });
+      // The sidebar reads the open conversation's Project from this entry, so the move is stored at once.
+      cache.setQueryData(getChatSessionQueryKey({ path }), moved);
+      await refresh();
+    } catch (failure) {
+      notify({ title: actionErrorText(failure), tone: "error" });
+    }
   }
   function closeDialog() {
     setDialog(undefined);
@@ -140,10 +168,28 @@ export function ChatSessionMenu({
                 {ui("Đổi tên")}
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem disabled={busy} onSelect={() => setDialog("move")}>
-              <FolderInput />
-              {ui("Chuyển vào dự án")}
-            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={busy || move.isPending}>
+                <FolderInput />
+                {ui("Chuyển đến dự án")}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-72 w-64 overflow-y-auto">
+                <DropdownMenuItem onSelect={() => setDialog("project")}>
+                  <FolderPlus />
+                  {ui("Dự án mới")}
+                </DropdownMenuItem>
+                <ProjectChoices currentProjectId={session.projectId} onChoose={moveTo} />
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            {session.projectId && (
+              <DropdownMenuItem
+                disabled={busy || move.isPending}
+                onSelect={() => void moveTo(null)}
+              >
+                <FolderOutput />
+                {ui("Gỡ khỏi dự án")}
+              </DropdownMenuItem>
+            )}
             {onConfigure && (
               <DropdownMenuItem disabled={busy} onSelect={onConfigure}>
                 <Settings2 />
@@ -172,8 +218,8 @@ export function ChatSessionMenu({
           if (!next) closeDialog();
         }}
       />
-      {dialog === "move" && (
-        <ChatMoveDialog session={session} onMoved={() => refresh()} onClose={closeDialog} />
+      {dialog === "project" && (
+        <ProjectEditor onClose={closeDialog} onCreated={(project) => moveTo(project.id)} />
       )}
       <ConfirmDialog
         open={dialog === "delete"}
@@ -201,81 +247,59 @@ export function ChatSessionMenu({
   );
 }
 
-/** Moves a conversation into a Project, or out of every Project; its history is kept. */
-function ChatMoveDialog({
-  session,
-  onMoved,
-  onClose,
+/** The person's Projects as menu items, read when the submenu opens; the current one is marked and disabled. */
+function ProjectChoices({
+  currentProjectId,
+  onChoose,
 }: {
-  session: MenuSession;
-  onMoved: () => Promise<void>;
-  onClose: () => void;
+  currentProjectId?: string | null;
+  onChoose: (projectId: string) => Promise<void>;
 }) {
   const ui = useAppTranslation();
-  const [target, setTarget] = useState<string | null>();
   const projects = useQuery(projectsOptions());
-  const move = useMutation(moveChatProjectMutation());
+  if (projects.isPending || (projects.isError && projects.isFetching))
+    return (
+      <>
+        <DropdownMenuSeparator />
+        <div role="status" aria-label={ui("Đang tải dự án…")} className="flex flex-col gap-1 p-1.5">
+          <Skeleton className="h-5" />
+          <Skeleton className="h-5" />
+          <Skeleton className="h-5" />
+        </div>
+      </>
+    );
+  if (projects.isError)
+    return (
+      <>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel role="alert">{ui("Không tải được dự án.")}</DropdownMenuLabel>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            // Stay open so the list can appear where the failure was.
+            event.preventDefault();
+            void projects.refetch();
+          }}
+        >
+          <RotateCw />
+          {ui("Tải lại")}
+        </DropdownMenuItem>
+      </>
+    );
+  if (projects.data.length === 0) return null;
   return (
-    <FormDialog
-      open
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-      title={ui("Chuyển hội thoại")}
-      description={ui(
-        "Lịch sử hội thoại được giữ nguyên. Hướng dẫn dự án áp dụng cho lượt tiếp theo.",
-      )}
-      submitLabel={ui("Chuyển")}
-      submitDisabled={target === undefined || projects.isFetching || projects.isError}
-      onSubmit={async () => {
-        if (target === undefined) return;
-        await move.mutateAsync({
-          path: { sessionId: session.id },
-          body: { projectId: target },
-          signal: AbortSignal.timeout(30000),
-        });
-        await onMoved();
-      }}
-    >
-      {projects.isPending && <p role="status">{ui("Đang tải dự án…")}</p>}
-      {projects.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{ui("Không tải được dự án.")}</AlertDescription>
-          <AlertAction>
-            <Button type="button" size="sm" onClick={() => void projects.refetch()}>
-              {ui("Tải lại")}
-            </Button>
-          </AlertAction>
-        </Alert>
-      )}
-      <RadioGroup
-        aria-label={ui("Dự án đích")}
-        className="max-h-64 overflow-y-auto"
-        value={target === undefined ? "" : (target ?? "none")}
-        onValueChange={(next) => setTarget(next === "none" ? null : next)}
-      >
-        {[{ id: null, name: ui("Ngoài dự án") }, ...(projects.data ?? [])].map((project) => {
-          const value = project.id ?? "none";
-          return (
-            <FieldLabel key={value} htmlFor={`chat-move-${value}`}>
-              <Field orientation="horizontal">
-                <RadioGroupItem
-                  id={`chat-move-${value}`}
-                  value={value}
-                  aria-label={project.name}
-                  disabled={project.id === (session.projectId ?? null)}
-                />
-                {project.id ? (
-                  <FolderInput aria-hidden="true" />
-                ) : (
-                  <FolderOutput aria-hidden="true" />
-                )}
-                {project.name}
-              </Field>
-            </FieldLabel>
-          );
-        })}
-      </RadioGroup>
-    </FormDialog>
+    <>
+      <DropdownMenuSeparator />
+      {projects.data.map((project) => (
+        <DropdownMenuItem
+          key={project.id}
+          disabled={project.id === currentProjectId}
+          onSelect={() => void onChoose(project.id)}
+        >
+          <ProjectIcon iconName={project.iconName} />
+          <span className="min-w-0 flex-1 truncate">{project.name}</span>
+          {project.id === currentProjectId && <Check aria-hidden="true" />}
+        </DropdownMenuItem>
+      ))}
+    </>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { invalidateChatSessions } from "@/features/chat/chat-api";
+import { getChatSessionQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatThreadController, ChatThreadRegistry } from "./chat-thread-controller";
 
 const PAGE = 30;
@@ -94,12 +95,16 @@ export function createChatThreadListAdapter(
         path: { sessionId: remoteId },
         signal: AbortSignal.timeout(30_000),
       });
+      queries.setQueryData(getChatSessionQueryKey({ path: { sessionId: remoteId } }), data);
       return threadMetadata(data);
     },
     async initialize(localId) {
       const controller = registry.get(localId);
       if (!controller) throw new Error("Conversation is not mounted");
       const session = await controller.sessionCreated();
+      // A conversation started in a Project belongs on that Project's list at once, not after its title. The
+      // conversation itself is not invalidated: the controller stored it, and the open page must not read it again.
+      void invalidateChatSessions(queries);
       return { remoteId: session.id, externalId: undefined };
     },
     async rename(remoteId, title) {

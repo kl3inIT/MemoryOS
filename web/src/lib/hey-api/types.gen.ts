@@ -1163,6 +1163,13 @@ export type ProjectView = {
     iconName?: string;
 };
 
+/**
+ * Every project of the actor exactly once, in the chosen order
+ */
+export type ProjectOrderRequest = {
+    projectIds?: Array<string>;
+};
+
 export type ChatPreferencesInput = {
     workRole: string;
     personalPreferences: string;
@@ -7472,6 +7479,47 @@ export type UpdateChatProjectResponses = {
 };
 
 export type UpdateChatProjectResponse = UpdateChatProjectResponses[keyof UpdateChatProjectResponses];
+
+export type ReorderChatProjectsData = {
+    body: ProjectOrderRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/projects/order';
+};
+
+export type ReorderChatProjectsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ReorderChatProjectsError = ReorderChatProjectsErrors[keyof ReorderChatProjectsErrors];
+
+export type ReorderChatProjectsResponses = {
+    /**
+     * Order saved
+     */
+    204: void;
+};
+
+export type ReorderChatProjectsResponse = ReorderChatProjectsResponses[keyof ReorderChatProjectsResponses];
 
 export type GetChatPreferencesData = {
     body?: never;

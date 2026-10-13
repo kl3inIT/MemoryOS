@@ -1447,6 +1447,14 @@ export const vietnameseUi: Record<string, string> = {
   "Tạo dự án": "Create project",
   "Đang tải dự án…": "Loading projects…",
   "Tải lại dự án": "Reload projects",
+  "Danh sách dự án đã thay đổi ở nơi khác. Đã tải lại, hãy sắp xếp lại.":
+    "The project list changed elsewhere. It has been reloaded; reorder it again.",
+  "Danh sách dự án": "Project list",
+  "Xem tất cả dự án": "See all projects",
+  "Hội thoại trong {{v1}}": "Conversations in {{v1}}",
+  "Mỗi dự án gom hội thoại, tệp và hướng dẫn dùng chung cho một mảng công việc.":
+    "Each project gathers conversations, files and shared instructions for one area of work.",
+  "{{count}} tệp · Cập nhật {{date}}": "Files: {{count}} · Updated {{date}}",
   "Tạo dự án mới": "Create new project",
   "Tạo và thêm tệp": "Create and add the files",
   "Chọn dự án có sẵn": "Choose an existing project",
@@ -1505,7 +1513,7 @@ export const vietnameseUi: Record<string, string> = {
   "Thao tác dự án": "Project actions",
   "Chỉnh sửa dự án": "Edit project",
   "Xóa dự án": "Delete project",
-  "Xóa dự án?": "Delete project?",
+  "Xóa dự án “{{name}}”?": "Delete project “{{name}}”?",
   "Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử.":
     "Conversations are moved out of the project and their history is preserved.",
   "Hướng dẫn dự án": "Project instructions",
@@ -1532,13 +1540,10 @@ export const vietnameseUi: Record<string, string> = {
   "Thao tác hội thoại {{v1}}": "Conversation actions for {{v1}}",
   "Chia sẻ": "Share",
   "Đổi tên": "Rename",
-  "Chuyển vào dự án": "Move to project",
+  "Chuyển đến dự án": "Move to project",
+  "Dự án mới": "New project",
+  "Gỡ khỏi dự án": "Remove from project",
   "Cấu hình hội thoại": "Conversation settings",
-  "Chuyển hội thoại": "Move conversation",
-  "Lịch sử hội thoại được giữ nguyên. Hướng dẫn dự án áp dụng cho lượt tiếp theo.":
-    "Conversation history is preserved. Project instructions apply to the next turn.",
-  Chuyển: "Move",
-  "Dự án đích": "Destination project",
   "Xóa hội thoại?": "Delete conversation?",
   "“{{v1}}” sẽ bị xóa vĩnh viễn khỏi lịch sử và liên kết chia sẻ, không khôi phục được. Câu trả lời đang chạy cũng sẽ dừng.":
     "“{{v1}}” will be permanently removed from history and sharing, and cannot be restored. Any running answer will also stop.",
