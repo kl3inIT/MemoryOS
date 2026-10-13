@@ -2109,6 +2109,7 @@ export const zGroupSummary = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -2142,11 +2143,12 @@ export const zReplaceGroupCapabilitiesRequest = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
         'CHAT_HISTORY_READ'
-    ])).min(0).max(7)
+    ])).min(0).max(8)
 });
 
 export const zSharePointCredentialTestResponse = z.object({
@@ -3028,6 +3030,7 @@ export const zCurrentIdentity = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -3049,6 +3052,7 @@ export const zCurrentIdentity = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -3106,6 +3110,7 @@ export const zGroupCapability = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -3130,6 +3135,7 @@ export const zGroupCapability = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
