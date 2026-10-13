@@ -527,6 +527,41 @@ class ChatTurnServiceTest {
     }
 
     @Test
+    void aConversationDeletedWhileItsWaitingTurnOpensToolsNeverJoinsTheQueue() throws Exception {
+        prepare();
+        var other = UUID.randomUUID();
+        var otherPair = otherTurn(other);
+        when(persistence.delete(actor, other)).thenReturn(List.of(otherPair.assistantMessageId()));
+        var opening = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        slowMcpOpen(opening, release);
+        var oneWaiting = new ChatExecutionProperties(1, 1, 1, Duration.ofSeconds(60), Duration.ofMinutes(30), Duration.ofSeconds(60),
+                Duration.ofSeconds(60), 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(oneWaiting, queued::add)) {
+            try {
+                service.send(actor, session, parent, request, "Question", null);
+                var sending = tasks.submit(() -> service.command(actor, other, mcpCommand(UUID.randomUUID())));
+                assertTrue(opening.await(5, TimeUnit.SECONDS));
+                // Its stream goes with the conversation while the turn has not reached the queue yet.
+                tasks.submit(() -> service.delete(actor, other)).get(1, TimeUnit.SECONDS);
+                release.countDown();
+                assertEquals(otherPair.assistantMessageId(), sending.get(5, TimeUnit.SECONDS).assistantMessageId());
+            } finally { release.countDown(); }
+            verify(tools).close();
+            // The only place in the queue is free again, and the freed slot starts nothing that was deleted.
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
+                    .thenReturn(new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true));
+            service.send(actor, UUID.randomUUID(), parent, UUID.randomUUID(), "Question", null);
+            assertEquals(1, queued.size());
+            queued.remove().run();
+            assertEquals(1, queued.size());
+            queued.remove().run();
+            verify(model, times(2)).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Test
     void stopWhileMcpOpensCancelsTheTurnWithoutCallingTheModel() throws Exception {
         prepare();
         when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);

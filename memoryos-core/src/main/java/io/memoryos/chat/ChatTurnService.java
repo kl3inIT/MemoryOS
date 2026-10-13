@@ -400,16 +400,26 @@ public final class ChatTurnService implements AutoCloseable {
     /** The run joins the queue and its stream says so; a slot freed since admission is taken at once. */
     private void enqueue(Active run) {
         List<Active> starting;
+        boolean ended;
         turns.lock();
         try {
             run.waitingSince = System.nanoTime();
-            waiting.addLast(run);
-            streams.waiting(run.setup.assistantMessageId(), true);
+            // Stop or deletion may have arrived while tools opened, before anything could settle a run that was not
+            // queued yet; a deleted conversation's stream is gone. Such a run gives its place back and never queues.
+            ended = run.deleted || run.stopReason.get() != null;
+            if (ended) {
+                queued--;
+                run.place = false;
+            } else {
+                waiting.addLast(run);
+                streams.waiting(run.setup.assistantMessageId(), true);
+            }
             starting = promote();
         } finally { turns.unlock(); }
         dispatch(starting);
-        // Stop may have arrived while tools opened, before anything could settle a run that was not queued yet.
-        if (run.stopReason.get() != null) settleWaiting(run, ChatMessage.Status.CANCELED, null);
+        if (ended) endUnstarted(run, ChatMessage.Status.CANCELED, null);
+        // A Stop between the check and here found the run queued or not; settle it if it is still there.
+        else if (run.stopReason.get() != null) settleWaiting(run, ChatMessage.Status.CANCELED, null);
     }
 
     /**

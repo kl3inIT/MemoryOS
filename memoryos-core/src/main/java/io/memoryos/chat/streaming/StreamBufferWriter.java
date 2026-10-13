@@ -196,7 +196,8 @@ public final class StreamBufferWriter {
 
     /** A reply that must wait for a turn says so, and says when it has been given one. */
     public void waiting(UUID id, boolean waiting) {
-        publishNow(id, sequence -> new TurnWaiting(id, sequence, waiting));
+        // The caller holds the lock that hands out turns; a reply discarded meanwhile has nobody to tell.
+        if (streams.containsKey(id)) publishNow(id, sequence -> new TurnWaiting(id, sequence, waiting));
     }
 
     /** The flush tick: publishes due pending chunks and writes queued entries; a reply leaves this process once written. */
