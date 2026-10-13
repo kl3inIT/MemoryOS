@@ -6,8 +6,9 @@ Status 2026-10-13: steps 1–7 implemented on `dathip04/mem-250-user-memory`. Ve
 container against Testcontainers PostgreSQL: `ChatUserInformationTest` (2), `ModulithArchitectureTest`,
 `CoreDependencyRulesTest` (2), the two memory cases of `ChatSessionApiIntegrationTest` and `OpenApiContractTest`
 (which regenerated `openapi.yml`, applied as additions only). Web: `typecheck`, `lint`, `check:i18n` and the
-settings and activity Vitest files (28 tests) pass locally. The full `clean check` is left to CI; the staging
-acceptance below and the UI screenshot review are open.
+settings and activity Vitest files (28 tests) pass locally. The full `clean check` is left to CI. The Settings
+section was reviewed in screenshots at 1440 and 390 px against the fixture backend with a realistic memory;
+the staging acceptance below is open.
 
 | Step | Change | Verification |
 | --- | --- | --- |
