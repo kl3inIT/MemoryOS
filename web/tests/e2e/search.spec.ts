@@ -1,5 +1,11 @@
 import { expect, test } from "./deployment-policy";
-import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
+import {
+  fulfillPdfRange,
+  rangedBytes,
+  rangedHandbookPdf,
+  readsBytes,
+  scannedReportPdf,
+} from "../fixtures/ranged-pdf";
 
 const documentId = "73835d74-d386-4b4e-b392-ad7f81e3b55a";
 const generation = "6b780b3a-de22-4307-ace9-6c2f44e22fc1";
@@ -629,4 +635,103 @@ test("shows source type, provider and authors, links to Google Drive and outline
   await expect(dialog.getByRole("article", { name: "Selected passage" })).toContainText(
     nextPassage.content,
   );
+});
+
+test("opens a scanned report at its cited page without reading the rest of it", async ({
+  page,
+}) => {
+  // A scan lists its pages flat, each a picture apart; pdf.js needs every page dictionary before it draws one.
+  const box =
+    '[{"page_no":13,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}]';
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Báo cáo tài chính 2023.pdf",
+            mediaType: "application/pdf",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [{ ...sections[0], provenance: [{ ordinal: 2, provenanceJson: box }] }],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Báo cáo tài chính 2023.pdf",
+        mediaType: "application/pdf",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  const originalPdf = scannedReportPdf();
+  const reads: (string | undefined)[] = [];
+  await page.route("**/api/search/documents/*/original?*", (route) => {
+    reads.push(route.request().headers()["range"]);
+    return fulfillPdfRange(route, originalPdf);
+  });
+  /** No read for a while: the neighbours of the cited page and the thumbnails in view are in. */
+  const settled = () =>
+    expect
+      .poll(
+        async () => {
+          const before = reads.length;
+          await page.waitForTimeout(800);
+          return reads.length === before;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("báo cáo");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  const title = page.getByRole("button", { name: "Báo cáo tài chính 2023.pdf", exact: true });
+  await title.click();
+  const dialog = page.getByRole("dialog");
+  const cited = dialog.locator('[data-slot="pdf-page"][data-page="13"]');
+  await expect(cited.locator("canvas")).toBeVisible();
+  await expect(dialog.locator('[data-slot="pdf-citation-box"]')).toBeInViewport();
+  await expect(dialog.getByText("/ 24")).toBeVisible();
+  const rail = dialog.getByRole("navigation", { name: "Pages" });
+  await expect(rail.locator("canvas").first()).toBeVisible();
+  await settled();
+
+  // Every read is a range: the file is opened by its head and its tail, never probed whole.
+  expect(reads.every(Boolean)).toBe(true);
+  expect(reads[0]).toBe("bytes=0-131071");
+  // The first page is twelve pages from the cited one. Its picture is neither drawn nor fetched.
+  expect(readsBytes(reads, 150 * 1024, 280 * 1024)).toBe(false);
+  expect(rangedBytes(reads, originalPdf.length)).toBeLessThan(originalPdf.length / 2);
+  // The rail draws the thumbnails in view, not one for every page.
+  expect(await rail.locator("canvas").count()).toBeLessThan(12);
+
+  // Opening the document again authorizes it with one byte and reads what it kept from memory.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  const kept = reads.length;
+  await title.click();
+  await expect(cited.locator("canvas")).toBeVisible();
+  await settled();
+  const again = reads.slice(kept);
+  expect(again[0]).toBe("bytes=0-0");
+  expect(rangedBytes(again, originalPdf.length)).toBeLessThan(originalPdf.length / 10);
 });

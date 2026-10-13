@@ -95,6 +95,16 @@ export function pageHeight(
   return Math.round(width * ratio);
 }
 
+/** The page of `pages` closest to `to`, the earlier one on a tie; the order the page rail draws in. */
+export function nearestPage(pages: readonly number[], to: number) {
+  let best: number | undefined;
+  for (const page of pages) {
+    const closer = best === undefined || Math.abs(page - to) < Math.abs(best - to);
+    if (closer || (Math.abs(page - to) === Math.abs(best! - to) && page < best!)) best = page;
+  }
+  return best;
+}
+
 /** The page showing the largest share of itself, for the page counter; ties keep the earlier page. */
 export function mostVisiblePage(ratios: ReadonlyMap<number, number>) {
   let best: number | undefined;

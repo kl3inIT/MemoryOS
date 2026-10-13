@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatPages, mostVisiblePage, pageHeight, pagesToRender, pdfBoxRect } from "./pdf-pages";
+import {
+  formatPages,
+  mostVisiblePage,
+  nearestPage,
+  pageHeight,
+  pagesToRender,
+  pdfBoxRect,
+} from "./pdf-pages";
 
 describe("pagesToRender", () => {
   it("keeps the cited page and neighbours of the pages near the viewport inside the document", () => {
@@ -46,6 +53,14 @@ describe("mostVisiblePage", () => {
         ]),
       ),
     ).toBe(8);
+  });
+});
+
+describe("nearestPage", () => {
+  it("chooses the page closest to the one being read and the earlier page on a tie", () => {
+    expect(nearestPage([], 5)).toBeUndefined();
+    expect(nearestPage([1, 9, 4], 5)).toBe(4);
+    expect(nearestPage([7, 3], 5)).toBe(3);
   });
 });
 
