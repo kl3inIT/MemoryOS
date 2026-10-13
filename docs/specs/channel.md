@@ -2,7 +2,7 @@
 
 The Tenant's chat bots on messaging platforms, the Lark bot first. Design and status:
 [MEM-246](../increments/active/mem-246-lark-bot/design.md). What a bot receives and how a question becomes a Chat
-turn is built up to the adapter; no platform adapter and no process that receives exist yet, so no bot answers.
+turn is built, with the Lark adapter; no administrator's API exists yet to add and switch on a bot.
 This page describes what exists.
 
 ## Connections
@@ -44,6 +44,25 @@ replies to. `open(connection, secret, receiver)` starts receiving for one bot an
 (`connected()`, `close()`); the adapter acknowledges each message to the provider and hands it to the receiver,
 which returns at once. Verifying an app is added with the Lark adapter.
 
+## The Lark adapter
+
+`LarkChannelAdapter`, in `memoryos-integration-lark`, runs the bot on the SDK's `LarkChannel` (oapi-sdk 2.8.5): the
+long connection to the app's region (`open.larksuite.com` or `open.feishu.cn`), mention required in a group and
+`@all` ignored, the SDK's chat queue off (it orders and merges by chat; the capability orders by conversation), its
+in-memory deduplication on and not relied on, and the raw event kept so that the organisations are read from it: a
+custom app belongs to one organisation, which every event's header names, and the sender's is in its body. Requests
+go through a `LarkTransport` of its own with a 30-second, 1 MiB budget for the calls the SDK makes itself.
+
+- A message's text is the `text` or `post` content without the bot's own mention; another person's mention stays.
+  Any other message type is `OTHER`. A reply names the message it answers, or the topic's root.
+- An answer streams into one Markdown message that quotes the question (`replyInThread` false): the text as it is
+  written, then the whole answer, its sources as a numbered list of links, and the closing line. A notice is a text
+  message quoting the question.
+- The sender's e-mail is the contact `email` of their `open_id` (scope `contact:user.email:readonly`); none when
+  Lark will not say. Whether a member can change it themself is settled on the test tenant before acceptance.
+- A group is external unless Lark answers that it is not; the answer is remembered for an hour, and a chat whose
+  answer cannot be read counts as external.
+
 ## Holding connections
 
 `ChannelSupervisor` holds open the transport of every bot that is switched on, in the process that receives
@@ -77,9 +96,10 @@ acknowledged it to the provider:
    over again, by this or another process, ends here. The row holds ids only (the chat, the sender, then the
    session, the answer and the provider's id of the answer) and how it ended (`ANSWERED`, `REFUSED`, `FAILED`
    with a reason); the text is in the chat session.
-3. It is refused with a notice when the sender's organisation is not the bot's (`OUTSIDER`; a bot whose
-   organisation is not recorded yet admits nobody), when it is not text (`NOT_TEXT`) or when the group has people
-   outside the organisation (`EXTERNAL_GROUP`).
+3. It is refused with a notice when the sender's organisation is not the organisation the event names for the
+   bot's app, or not the one recorded for the bot when one is (`OUTSIDER`; an event that names neither admits
+   nobody), when it is not text (`NOT_TEXT`) or when the group has people outside the organisation
+   (`EXTERNAL_GROUP`).
 4. The sender's account is the one active person whose verified e-mail equals the e-mail the provider holds
    ([identity](identity.md#account-classification-and-group-authority)), remembered in `channel_identities` for
    `memoryos.channel.identity-ttl` (1 hour); a sender without one is remembered as such.

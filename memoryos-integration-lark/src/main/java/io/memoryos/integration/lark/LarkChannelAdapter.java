@@ -223,8 +223,8 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
                 out.append('\n');
             }
         }
-        if (footer != null && !footer.isBlank()) out.append("\n\n").append(footer);
-        return out.toString().strip();
+        if (footer == null || footer.isBlank()) return out.toString().strip();
+        return out.toString().strip() + "\n\n" + footer.strip();
     }
 
     private record Known(boolean external, Instant until) {}
