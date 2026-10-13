@@ -1296,6 +1296,11 @@ class ChatSessionApiIntegrationTest {
         jdbc.sql("UPDATE chat_session SET temporary = TRUE WHERE id = :id").param("id", id).update();
         assertFalse(memories.usableIn(tenant, owner, id));
         jdbc.sql("UPDATE chat_session SET temporary = FALSE WHERE id = :id").param("id", id).update();
+        // A conversation held in a channel can be a group chat: the owner's memory stays out of it.
+        jdbc.sql("UPDATE chat_session SET surface = 'CHANNEL' WHERE id = :id").param("id", id).update();
+        assertFalse(memories.usableIn(tenant, owner, id));
+        jdbc.sql("UPDATE chat_session SET surface = 'WEB' WHERE id = :id").param("id", id).update();
+        assertTrue(memories.usableIn(tenant, owner, id));
         memories.enabled(owner, false);
         assertFalse(memories.usableIn(tenant, owner, id));
     }

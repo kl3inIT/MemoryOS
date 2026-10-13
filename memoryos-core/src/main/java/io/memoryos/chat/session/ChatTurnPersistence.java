@@ -8,7 +8,6 @@ import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatFileDescriptor;
-import io.memoryos.chat.ChatMemory;
 import io.memoryos.chat.ChatPreferences;
 import io.memoryos.chat.ChatResearch;
 import io.memoryos.chat.ChatSession;
@@ -99,15 +98,16 @@ public class ChatTurnPersistence {
 
     /**
      * Onyx's user information section: login name and email, the member's role and preferences (MEM-145), and what
-     * Chat remembers about them (MEM-250) unless the memory is switched off or the conversation is temporary.
+     * Chat remembers about them (MEM-250) when the memory may be used in this conversation (on, not temporary, web).
      */
     private String userInformation(TenantId tenant, ActorId actor, String instructions, ChatPreferences own,
-                                   boolean temporary) {
+                                   UUID session) {
         if (preferences == null || profiles == null) return instructions;
         var profile = profiles.read(actor);
-        var memory = memories == null || temporary ? ChatMemory.EMPTY : memories.find(tenant.value(), actor.value());
+        var memory = memories != null && memories.usableIn(tenant.value(), actor.value(), session)
+                ? memories.find(tenant.value(), actor.value()).content() : "";
         return ChatPrompts.withUserInformation(instructions, profile.displayName(),
-                profile.email(), own.workRole(), own.personalPreferences(), memory.enabled() ? memory.content() : "");
+                profile.email(), own.workRole(), own.personalPreferences(), memory);
     }
 
     /**
@@ -250,7 +250,7 @@ public class ChatTurnPersistence {
             var binding = selection.binding().forOptions(settings.options().sampling(), settings.options().outputTokenLimit());
             instructions = ChatPrompts.resolve(instructions,
                     binding.toolCalling() && settings.options().searches(), Instant.now(), language);
-            instructions = userInformation(tenant, actor, instructions, own, session.temporary());
+            instructions = userInformation(tenant, actor, instructions, own, sessionId);
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
         }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();

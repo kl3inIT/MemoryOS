@@ -59,10 +59,14 @@ public class JdbcChatMemoryRepository {
                 .query((row, _) -> map(row)).single();
     }
 
-    /** Whether a turn in this conversation may read and write the owner's memory: switched on and not temporary. */
+    /**
+     * Whether a turn in this conversation may read and write the owner's memory: switched on, not temporary, and held
+     * in the web app. A conversation held in a channel (MEM-246) can be a group chat, where the owner's memory must
+     * neither show nor be written from what others say.
+     */
     public boolean usableIn(UUID tenant, UUID actor, UUID session) {
         return jdbc.sql("""
-                        SELECT NOT s.temporary AND COALESCE(m.enabled, TRUE)
+                        SELECT NOT s.temporary AND s.surface = 'WEB' AND COALESCE(m.enabled, TRUE)
                         FROM chat_session s
                         LEFT JOIN chat_memory m ON m.tenant_id = s.tenant_id AND m.actor_id = s.owner_actor_id
                         WHERE s.id = :session AND s.tenant_id = :tenant AND s.owner_actor_id = :actor
