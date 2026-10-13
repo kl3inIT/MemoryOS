@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { CircleAlert, CircleCheck, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Progress } from "@/components/ui/progress";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
@@ -111,14 +111,14 @@ export function LibraryUploadTray({
             ? ui("Đang tải lên {{count}} tệp", { count: running })
             : ui("Đã tải lên xong")}
         </span>
-        <IconButton
+        <TooltipIconButton
           size="sm"
           prominence="internal"
           aria-label={ui("Đóng danh sách tải lên")}
           onClick={onDismiss}
         >
           <X />
-        </IconButton>
+        </TooltipIconButton>
       </header>
       <ul className="max-h-64 overflow-y-auto p-2">
         {uploads.map((upload) => (
@@ -151,14 +151,14 @@ export function LibraryUploadTray({
             {upload.state === "running" && (
               <>
                 <span className="text-xs text-content-muted">{upload.progress}%</span>
-                <IconButton
+                <TooltipIconButton
                   size="sm"
                   prominence="internal"
                   aria-label={ui("Hủy tải {{name}}", { name: upload.name })}
                   onClick={() => onCancel(upload.id)}
                 >
                   <X />
-                </IconButton>
+                </TooltipIconButton>
               </>
             )}
             {upload.state === "done" && (

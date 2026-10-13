@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatUiDay } from "@/i18n/format";
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
-import { Check, FileText, Search, X } from "lucide-react";
+import { Check, FileText, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,7 +14,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DocumentKindIcon } from "@/features/documents/document-source-icon";
@@ -24,6 +23,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
 import { FormDialog } from "@/components/composites/form-dialog";
+import { SearchField } from "@/components/composites/search-field";
 import { fileSize } from "@/lib/file-size";
 import { LibraryCategoryFilter } from "./library-toolbar";
 import {
@@ -134,19 +134,13 @@ function PickerBody({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="min-w-0 flex-1">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={ui("Tìm theo tên tệp")}
-            aria-label={ui("Tìm theo tên tệp")}
-            maxLength={200}
-          />
-        </InputGroup>
-        <LibraryCategoryFilter categories={categories} onCategories={setCategories} />
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          label={ui("Tìm theo tên tệp")}
+          className="min-w-0 flex-1"
+        />
+        <LibraryCategoryFilter categories={categories} onCategories={setCategories} size="md" />
         <Tabs value={source} onValueChange={(value) => setSource(value as typeof source)}>
           <TabsList aria-label={ui("Nguồn tệp")}>
             <TabsTrigger value="ALL">{ui("Tất cả")}</TabsTrigger>
