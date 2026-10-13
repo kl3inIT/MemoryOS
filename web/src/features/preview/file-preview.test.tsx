@@ -1,9 +1,18 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type * as CodeRenderers from "@/components/assistant-ui/elements/code-renderers.aui";
 import { i18n } from "@/i18n/index";
 import { FilePreview } from "./file-preview";
 
+// jsdom runs neither pdf.js nor its worker. The PDF reader's own frame and toolbar are what is rendered here;
+// the end-to-end cases draw the pages.
+vi.mock("react-pdf", () => ({
+  Document: () => null,
+  Page: () => null,
+  pdfjs: { version: "0", PDFDataRangeTransport: class {} },
+}));
+vi.mock("./pdf-reader-worker", () => ({ useReaderWorker: () => undefined }));
 // Source is drawn plain and then again as other markup of the same text, as the syntax highlighter does once
 // it has loaded; here the second rendering arrives on a timer instead of with a grammar.
 vi.mock("@/components/assistant-ui/elements/code-renderers.aui", async (importOriginal) => {
@@ -121,6 +130,41 @@ it("keeps a passage marked in source once the highlighter has replaced the plain
   await waitFor(() => expect(marked()?.toString()).toBe("Chi phí quản lý tăng 12%."));
   expect(marked()?.collapsed).toBe(false);
   vi.unstubAllGlobals();
+});
+
+it("steps between the cited passages of a PDF from the reader's own toolbar", async () => {
+  const onActive = vi.fn();
+  render(
+    <FilePreview
+      content={{ kind: "pdf", file: new Blob(["%PDF-"], { type: "application/pdf" }) }}
+      filename="bao-cao.pdf"
+      download="/api/files/3/content"
+      citations={{ texts: ["Đoạn một.", "Đoạn hai.", "Đoạn ba."], active: 1, onActive }}
+    />,
+  );
+
+  const toolbar = await screen.findByRole("toolbar", { name: "Điều khiển tài liệu" });
+  // One toolbar: the steps sit beside the page and zoom controls, not in a second bar over them.
+  expect(screen.getAllByRole("toolbar")).toHaveLength(1);
+  expect(within(toolbar).getByText("2 / 3")).toBeVisible();
+  expect(within(toolbar).getByRole("button", { name: "Thu nhỏ" })).toBeInTheDocument();
+  await userEvent.click(within(toolbar).getByRole("button", { name: "Đoạn sau" }));
+  await userEvent.click(within(toolbar).getByRole("button", { name: "Đoạn trước" }));
+  expect(onActive.mock.calls).toEqual([[2], [0]]);
+});
+
+it("offers no steps for a PDF with one cited passage", async () => {
+  render(
+    <FilePreview
+      content={{ kind: "pdf", file: new Blob(["%PDF-"], { type: "application/pdf" }) }}
+      filename="bao-cao.pdf"
+      download="/api/files/3/content"
+      citations={{ texts: ["Đoạn một."], onActive: vi.fn() }}
+    />,
+  );
+
+  const toolbar = await screen.findByRole("toolbar", { name: "Điều khiển tài liệu" });
+  expect(within(toolbar).queryByRole("button", { name: "Đoạn sau" })).not.toBeInTheDocument();
 });
 
 it("offers the download for a file it cannot show", () => {

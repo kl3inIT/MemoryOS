@@ -129,7 +129,21 @@ export function FilePreview({
   switch (content.kind) {
     case "pdf":
       // PDF citations are drawn from the regions provenance recorded, never searched for.
-      return <LazyPdfView url={content.file} pages={pages} boxes={boxes} thumbnails={thumbnails} />;
+      return (
+        <LazyPdfView
+          url={content.file}
+          pages={pages}
+          boxes={boxes}
+          thumbnails={thumbnails}
+          steps={
+            <CitationStepControls
+              active={active}
+              total={texts.length}
+              onActive={citations.onActive}
+            />
+          }
+        />
+      );
     case "image": {
       // A picture's citations are drawn from the regions provenance recorded, as a PDF's are. Every region
       // of one picture is measured in the same frame, so what the view says of one holds for them all.
@@ -383,39 +397,58 @@ function CitationSteps({
   onActive?: (index: number) => void;
   children: ReactNode;
 }) {
-  const ui = useAppTranslation();
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       {children}
       {onActive && total > 1 ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4">
           <PreviewToolbar>
-            <ToolbarGroup>
-              <IconButton
-                prominence="internal"
-                size="sm"
-                aria-label={ui("Đoạn trước")}
-                disabled={active <= 0}
-                onClick={() => onActive(active - 1)}
-              >
-                <ChevronLeft />
-              </IconButton>
-              <span className="min-w-14 text-center font-secondary-action text-content-secondary tabular-nums">
-                {active + 1} / {total}
-              </span>
-              <IconButton
-                prominence="internal"
-                size="sm"
-                aria-label={ui("Đoạn sau")}
-                disabled={active >= total - 1}
-                onClick={() => onActive(active + 1)}
-              >
-                <ChevronRight />
-              </IconButton>
-            </ToolbarGroup>
+            <CitationStepControls active={active} total={total} onActive={onActive} />
           </PreviewToolbar>
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Previous, the position and next, as one toolbar group; nothing when there is one citation or no one to
+ * tell. A PDF takes the group into the toolbar it already has.
+ */
+function CitationStepControls({
+  active,
+  total,
+  onActive,
+}: {
+  active: number;
+  total: number;
+  onActive?: (index: number) => void;
+}) {
+  const ui = useAppTranslation();
+  if (!onActive || total <= 1) return null;
+  return (
+    <ToolbarGroup>
+      <IconButton
+        prominence="internal"
+        size="sm"
+        aria-label={ui("Đoạn trước")}
+        disabled={active <= 0}
+        onClick={() => onActive(active - 1)}
+      >
+        <ChevronLeft />
+      </IconButton>
+      <span className="min-w-14 text-center font-secondary-action text-content-secondary tabular-nums">
+        {active + 1} / {total}
+      </span>
+      <IconButton
+        prominence="internal"
+        size="sm"
+        aria-label={ui("Đoạn sau")}
+        disabled={active >= total - 1}
+        onClick={() => onActive(active + 1)}
+      >
+        <ChevronRight />
+      </IconButton>
+    </ToolbarGroup>
   );
 }
