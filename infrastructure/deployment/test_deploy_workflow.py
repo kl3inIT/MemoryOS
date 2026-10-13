@@ -145,11 +145,11 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         interpreter = CI_WORKFLOW.split("  interpreter:\n", 1)[1].split("\n  backend-images:\n", 1)[0]
         self.assertIn("components: interpreter interpreter-executor", interpreter)
         self.assertIn("${{ needs.interpreter.outputs.images }}", publish)
-        self.assertIn("for component in api worker web interpreter interpreter-executor keycloak; do", publish)
+        self.assertIn("for component in api worker web interpreter interpreter-executor keycloak channels; do", publish)
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
         self.assertIn("key=${component//-/_}", PUSH_ACTION)
-        self.assertIn("images=(api worker web interpreter interpreter-executor keycloak)", SCRIPT)
+        self.assertIn("images=(api worker web interpreter interpreter-executor keycloak channels)", SCRIPT)
         # images.env holds one line per image plus the release; the count follows the list.
         self.assertIn('[[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]]', SCRIPT)
         self.assertNotIn('== 7 ]]', SCRIPT)

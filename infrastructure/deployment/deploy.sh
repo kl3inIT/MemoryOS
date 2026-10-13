@@ -23,7 +23,7 @@ flock --nonblock 9 || { echo "Another $environment operation owns the lock" >&2;
 # Release images in images.env order. The interpreter starts executor containers from
 # interpreter-executor on the host daemon, so it is pulled and verified here but is not a Compose
 # service.
-images=(api worker web interpreter interpreter-executor keycloak)
+images=(api worker web interpreter interpreter-executor keycloak channels)
 
 image_key() {
   local key=${1//-/_}
@@ -42,6 +42,12 @@ has_interpreter() {
 # A runtime accepted before Keycloak joined the release has none of its own to capture or restore.
 has_keycloak() {
   grep -q "^$(image_key keycloak)=" "$1"
+}
+
+# MEM-246: the chat bots' process runs where the target's Compose files define it, from a release that carries its
+# image; production defines none until the bot is accepted, and a release accepted before it has no image.
+has_channels() {
+  grep -q "^$(image_key channels)=" "$tx/$target.env" && compose config --services | grep -qx channels
 }
 
 # Empty before the first deployment: Flyway creates its history table when it first runs, and
@@ -85,6 +91,10 @@ rollout() {
   fi
   compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 api
   compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 worker web
+  # After the API, which migrates the schema this process only validates.
+  if has_channels; then
+    compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 channels
+  fi
   if has_interpreter "$tx/$target.env"; then
     compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 interpreter
   fi
@@ -103,6 +113,9 @@ verify_runtime() {
   fi
   if has_keycloak "$tx/$target.env"; then
     components+=(keycloak)
+  fi
+  if has_channels; then
+    components+=(channels)
   fi
   local containers container
   for component in "${components[@]}"; do
@@ -133,20 +146,22 @@ env_number() {
 # a rollout must fit under the application role's real limit. A role created with a smaller limit than the file states
 # once left the Worker on five of its ten connections with nothing in any log.
 check_database_budget() {
-  local role api worker replicas limit needed
+  local role api worker replicas channels limit needed
   role=$(sed -n 's/^MEMORYOS_DATABASE_USERNAME=//p' "$tx/candidate.base.env" | tail -n 1)
   role=${role:-memoryos_app}
   [[ "$role" =~ ^[a-z_][a-z0-9_]*$ ]] || { echo "Unexpected database role name: $role" >&2; exit 1; }
   api=$(env_number MEMORYOS_API_DATABASE_POOL_SIZE 15)
   worker=$(env_number MEMORYOS_WORKER_DATABASE_POOL_SIZE 10)
   replicas=$(env_number MEMORYOS_WORKER_REPLICAS 1)
+  channels=0
+  if has_channels; then channels=$(env_number MEMORYOS_CHANNELS_DATABASE_POOL_SIZE 5); fi
   # shellcheck disable=SC2016
   limit=$(docker exec memoryos-postgres sh -c \
     "exec psql -U \"\$POSTGRES_USER\" -d memoryos -At -c \"SELECT rolconnlimit FROM pg_roles WHERE rolname = '$role'\"")
   [[ "$limit" =~ ^-?[0-9]+$ ]] || { echo "No connection limit read for $role" >&2; exit 1; }
-  needed=$(( api + replicas * worker + 10 ))
+  needed=$(( api + replicas * worker + channels + 10 ))
   (( limit < 0 || needed <= limit )) || {
-    echo "The pools need $needed connections (API $api, $replicas Worker x $worker, 10 spare); $role allows $limit" >&2
+    echo "The pools need $needed connections (API $api, $replicas Worker x $worker, channels $channels, 10 spare); $role allows $limit" >&2
     exit 1
   }
 }
@@ -206,6 +221,12 @@ if [[ "$mode" == deploy ]]; then
     # label and another Compose project's files, and would read as a mixed runtime.
     if [[ -f "$state/current.env" ]] && has_keycloak "$state/current.env"; then
       previous_components+=(keycloak)
+    fi
+    # MEM-246: only where the chat bots' process ran; production defines none until the bot is accepted.
+    if [[ -f "$state/current.env" ]] && grep -q "^$(image_key channels)=" "$state/current.env" \
+        && [[ -n "$(docker ps --quiet --filter label=com.docker.compose.project=memoryos \
+          --filter label=com.docker.compose.service=channels)" ]]; then
+      previous_components+=(channels)
     fi
     # One release's Compose files may carry two transactions' paths: a runtime last deployed before
     # rollouts forced recreation kept the containers Compose saw no change in, labelled with an
@@ -277,6 +298,7 @@ if [[ "$mode" == deploy ]]; then
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
   docker login ghcr.io --username "${4:?registry user}" --password-stdin
   compose pull api worker web interpreter
+  if has_channels; then compose pull channels; fi
   if has_keycloak "$tx/candidate.env"; then compose pull keycloak; fi
   docker pull --quiet "$(image_reference interpreter-executor "$tx/candidate.env")" > /dev/null
   for component in "${images[@]}"; do
@@ -300,6 +322,8 @@ if [[ "$mode" == deploy ]]; then
   printf '%s\n' "$release" > "$state/pending"
   touch "$tx/writers-changing"
   # A Worker finishes the work it started within its shutdown grace (100 s), so it gets the 180 s its container states.
+  # The chat bots' process runs turns against the schema the API is about to migrate, so it stops with the writers.
+  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; if has_channels; then compose stop --timeout 45 channels; fi; fi
   if [[ ! -f "$tx/first-deployment" ]]; then target=previous; compose stop --timeout 180 worker; compose stop --timeout 45 api; fi
   # The database user expands inside the existing PostgreSQL container.
   # shellcheck disable=SC2016
@@ -336,6 +360,7 @@ elif [[ "$mode" == rollback ]]; then
     echo 'are carried by the next release as well. See the CI/CD runbook.' >&2
     exit 1
   fi
+  target=candidate; if has_channels; then compose stop --timeout 45 channels; fi
   target=candidate; compose stop --timeout 180 worker; compose stop --timeout 45 api
   if has_schema_history; then schema > "$tx/schema.after-failure"; else : > "$tx/schema.after-failure"; fi
   cmp --silent "$tx/schema.before" "$tx/schema.after-failure" || {

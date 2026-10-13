@@ -21,6 +21,13 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: Worker telemetry is missing; inspect worker and collector health
+      # MEM-246: the chat bots' process, which runs on this staging host.
+      - alert: MemoryOSChannelsTelemetryMissing
+        expr: absent_over_time(jvm_memory_used_bytes{service_name="memoryos-channels"}[5m])
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Channels telemetry is missing; inspect the chat bots' process and collector health
       - alert: MemoryOSDoclingFallback
         expr: sum by (reason, outcome) (increase(memoryos_extraction_docling_fallback_total[15m])) > 0
         labels: {severity: warning}
