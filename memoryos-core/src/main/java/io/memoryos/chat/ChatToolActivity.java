@@ -4,7 +4,9 @@ import com.embabel.agent.api.tool.Tool;
 import com.embabel.agent.api.tool.callback.AfterToolCallContext;
 import com.embabel.agent.api.tool.callback.BeforeToolCallContext;
 import com.embabel.agent.api.tool.callback.ToolCallInspector;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
@@ -18,6 +20,8 @@ public final class ChatToolActivity implements ToolCallInspector {
     private volatile ChatToolEvent.@Nullable Call current;
     private volatile boolean failed;
     private volatile ChatToolEvent.@Nullable Failure failure;
+    /** Every tool this turn has called, so a tool can refuse to act on what an earlier one brought in. */
+    private final Set<String> called = ConcurrentHashMap.newKeySet();
 
     public ChatToolActivity(Consumer<? super ChatToolEvent> events) {
         this.events = events;
@@ -30,6 +34,7 @@ public final class ChatToolActivity implements ToolCallInspector {
     /** A caller that runs tools itself (deep research) opens the step, so tool evidence and progress share its identity. */
     public ChatToolEvent.Call begin(@Nullable String id, @Nullable String name) {
         var call = call(id, name);
+        called.add(call.name());
         current = call;
         failed = false;
         failure = null;
@@ -65,6 +70,11 @@ public final class ChatToolActivity implements ToolCallInspector {
     public void fail(ChatToolEvent.Failure reason) {
         failed = true;
         failure = reason;
+    }
+
+    /** Whether this turn has called a tool outside {@code trusted}, such as Web reading or an MCP server. */
+    public boolean calledOtherThan(Set<String> trusted) {
+        return called.stream().anyMatch(name -> !trusted.contains(name));
     }
 
     /** Provider call identity normalized to the event bounds. */
