@@ -1085,6 +1085,13 @@ export const zProjectView = z.object({
     iconName: z.string().optional()
 });
 
+/**
+ * Every project of the actor exactly once, in the chosen order
+ */
+export const zProjectOrderRequest = z.object({
+    projectIds: z.array(z.uuid()).optional()
+});
+
 export const zChatPreferencesInput = z.object({
     workRole: z.string().max(200),
     personalPreferences: z.string().max(2000),
@@ -4971,6 +4978,13 @@ export const zUpdateChatProjectQuery = z.object({
  * Successful chat operation
  */
 export const zUpdateChatProjectResponse = zProjectView;
+
+export const zReorderChatProjectsBody = zProjectOrderRequest;
+
+/**
+ * Order saved
+ */
+export const zReorderChatProjectsResponse = z.void();
 
 /**
  * The current member's Chat preferences

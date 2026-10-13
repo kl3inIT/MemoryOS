@@ -205,6 +205,7 @@ class OpenApiContractTest {
             "/api/chat/prompt-shortcuts/public",
             "/api/chat/prompt-shortcuts/public/{shortcutId}",
             "/api/chat/projects",
+            "/api/chat/projects/order",
             "/api/chat/projects/{projectId}",
             "/api/chat/projects/{projectId}/sessions",
             "/api/chat/provider-adapters",

@@ -297,6 +297,68 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void projectsListInTheChosenOrderANewOneComesFirstAndAnEditOrReorderMovesNothing() {
+        var work = projects.create(owner, new ChatProjectService.ProjectInput("Work", "", ""));
+        var home = projects.create(owner, new ChatProjectService.ProjectInput("Home", "", ""));
+        var travel = projects.create(owner, new ChatProjectService.ProjectInput("Travel", "", ""));
+        var foreign = projects.create(other, new ChatProjectService.ProjectInput("Foreign", "", ""));
+        assertEquals(List.of(travel.id(), home.id(), work.id()), projectIds(owner));
+        assertEquals(List.of(foreign.id()), projectIds(other));
+
+        // An edit changes updatedAt but never the place; the list no longer sorts by recency.
+        projects.update(owner, work.id(), work.revision(), new ChatProjectService.ProjectInput("Work 2", "", ""));
+        assertEquals(List.of(travel.id(), home.id(), work.id()), projectIds(owner));
+
+        var before = projects.list(owner, 0, 100);
+        projects.reorder(owner, List.of(work.id(), travel.id(), home.id()));
+        var after = projects.list(owner, 0, 100);
+        assertEquals(List.of(work.id(), travel.id(), home.id()), after.stream().map(ChatProjectService.ProjectView::id).toList());
+        for (var project : after) {
+            var was = before.stream().filter(p -> p.id().equals(project.id())).findFirst().orElseThrow();
+            assertEquals(was.revision(), project.revision());
+            assertEquals(was.updatedAt(), project.updatedAt());
+        }
+        assertEquals(List.of(0, 1, 2), jdbc.sql("SELECT position FROM chat_project WHERE owner_actor_id=:owner ORDER BY position")
+                .param("owner", owner.value()).query(Integer.class).list());
+
+        // A new project takes one less than the lowest place, without rewriting the others.
+        var newest = projects.create(owner, new ChatProjectService.ProjectInput("Newest", "", ""));
+        assertEquals(List.of(newest.id(), work.id(), travel.id(), home.id()), projectIds(owner));
+        assertEquals(-1, (int) jdbc.sql("SELECT position FROM chat_project WHERE id=:id").param("id", newest.id()).query(Integer.class).single());
+        // The revision a client holds still works after a reorder.
+        projects.update(owner, work.id(), after.getFirst().revision(), new ChatProjectService.ProjectInput("Work 3", "", ""));
+    }
+
+    @Test
+    void reorderingRequiresExactlyTheActorsProjectsAndChangesNothingOtherwise() {
+        var first = projects.create(owner, new ChatProjectService.ProjectInput("First", "", ""));
+        var second = projects.create(owner, new ChatProjectService.ProjectInput("Second", "", ""));
+        var foreign = projects.create(other, new ChatProjectService.ProjectInput("Foreign", "", ""));
+        var expected = List.of(second.id(), first.id());
+
+        for (var bad : List.of(List.of(first.id()), List.of(first.id(), first.id()), List.of(first.id(), second.id(), foreign.id()),
+                List.of(first.id(), foreign.id()), List.of(first.id(), second.id(), UUID.randomUUID()), List.<UUID>of())) {
+            assertEquals("CHAT_CONFLICT", assertThrows(ChatException.class, () -> projects.reorder(owner, bad)).code());
+            assertEquals(expected, projectIds(owner));
+        }
+        assertEquals(List.of(foreign.id()), projectIds(other));
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class, () -> projects.reorder(owner, null)).code());
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class,
+                () -> projects.reorder(owner, Collections.nCopies(1001, first.id()))).code());
+        var withNull = new ArrayList<UUID>(); withNull.add(first.id()); withNull.add(null);
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class, () -> projects.reorder(owner, withNull)).code());
+
+        // A person without a project reorders the empty list; an empty list never hides a project.
+        projects.reorder(member(tenant), List.of());
+        projects.reorder(owner, List.of(first.id(), second.id()));
+        assertEquals(List.of(first.id(), second.id()), projectIds(owner));
+    }
+
+    private List<UUID> projectIds(ActorId actor) {
+        return projects.list(actor, 0, 100).stream().map(ChatProjectService.ProjectView::id).toList();
+    }
+
+    @Test
     void generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession() {
         var images = new JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);

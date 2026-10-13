@@ -2029,6 +2029,37 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void projectOrderIsChosenThroughHttpAndAStaleOrForeignListIsAConflict() throws Exception {
+        try (var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
+            String ownerToken = token(actor), readerToken = token(other);
+            String body = "{\"name\":\"%s\",\"description\":\"\",\"instructions\":\"\"}";
+            String a = workspaceRequest(http, ownerToken, "POST", "/api/chat/projects", body.formatted("A"), 201).path("id").asText();
+            String b = workspaceRequest(http, ownerToken, "POST", "/api/chat/projects", body.formatted("B"), 201).path("id").asText();
+            String foreign = workspaceRequest(http, readerToken, "POST", "/api/chat/projects", body.formatted("Foreign"), 201).path("id").asText();
+            assertEquals(List.of(b, a), projectOrder(http, ownerToken));
+            assertFalse(workspaceRequest(http, ownerToken, "GET", "/api/chat/projects", null, 200).get(0).has("position"));
+
+            // /order is its own route, not a project id.
+            workspaceRequest(http, ownerToken, "PUT", "/api/chat/projects/order", "{\"projectIds\":[\"" + a + "\",\"" + b + "\"]}", 204);
+            assertEquals(List.of(a, b), projectOrder(http, ownerToken));
+            for (String stale : List.of("[\"" + a + "\"]", "[\"" + a + "\",\"" + a + "\"]",
+                    "[\"" + a + "\",\"" + b + "\",\"" + foreign + "\"]", "[]")) {
+                var problem = workspaceRequest(http, ownerToken, "PUT", "/api/chat/projects/order", "{\"projectIds\":" + stale + "}", 409);
+                assertEquals("CHAT_CONFLICT", problem.path("code").asText());
+            }
+            workspaceRequest(http, ownerToken, "PUT", "/api/chat/projects/order", "{}", 400);
+            assertEquals(List.of(a, b), projectOrder(http, ownerToken));
+            assertEquals(List.of(foreign), projectOrder(http, readerToken));
+        }
+    }
+
+    private List<String> projectOrder(HttpClient http, String bearer) throws Exception {
+        var ids = new ArrayList<String>();
+        workspaceRequest(http, bearer, "GET", "/api/chat/projects", null, 200).forEach(project -> ids.add(project.path("id").asText()));
+        return ids;
+    }
+
+    @Test
     void eofPersistsPartialAsFailedAndAllowsNextTurn() throws Exception {
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Partial", "", 0)));
         var session = create();
