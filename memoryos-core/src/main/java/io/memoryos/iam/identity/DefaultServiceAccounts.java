@@ -15,7 +15,6 @@ import io.memoryos.shared.TenantId;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,9 +29,8 @@ public class DefaultServiceAccounts implements ServiceAccounts {
     private final ActorProfileRecorder profiles;
     private final TenantMembershipProvisioner memberships;
     private final GroupProvisioner groups;
-    private final Clock clock;
+    private final Clock clock = Clock.systemUTC();
 
-    @Autowired
     public DefaultServiceAccounts(
             JpaTenantRepository tenants,
             IamLockRepository locks,
@@ -41,25 +39,12 @@ public class DefaultServiceAccounts implements ServiceAccounts {
             TenantMembershipProvisioner memberships,
             GroupProvisioner groups
     ) {
-        this(tenants, locks, identities, profiles, memberships, groups, Clock.systemUTC());
-    }
-
-    DefaultServiceAccounts(
-            JpaTenantRepository tenants,
-            IamLockRepository locks,
-            ExternalIdentityRegistrar identities,
-            ActorProfileRecorder profiles,
-            TenantMembershipProvisioner memberships,
-            GroupProvisioner groups,
-            Clock clock
-    ) {
         this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
         this.locks = Objects.requireNonNull(locks, "locks must not be null");
         this.identities = Objects.requireNonNull(identities, "identities must not be null");
         this.profiles = Objects.requireNonNull(profiles, "profiles must not be null");
         this.memberships = Objects.requireNonNull(memberships, "memberships must not be null");
         this.groups = Objects.requireNonNull(groups, "groups must not be null");
-        this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
     @Override

@@ -29,7 +29,6 @@ import io.memoryos.iam.user.persistence.UserQueryRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.sql.SQLException;
-import java.time.Clock;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -81,7 +80,7 @@ class DefaultServiceAccountsTest {
                 TENANT, new ExternalIdentity(ISSUER, "owner"), "tasco", "Tasco", "TEST-MEM-246"
         )).ownerActorId();
         memberships = new JpaTenantMembershipProvisioner(tenants);
-        accounts = new DefaultServiceAccounts(tenants, locks, identities, profiles, memberships, groups, Clock.systemUTC());
+        accounts = new DefaultServiceAccounts(tenants, locks, identities, profiles, memberships, groups);
     }
 
     @AfterEach
