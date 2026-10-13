@@ -2033,4 +2033,18 @@ Object.assign(vietnameseUi, {
   "Đã có kết nối mang tên này.": "A connection with this name exists.",
   "Nhập một số không âm.": "Enter a number that is not negative.",
   "Giá input (USD / 1M token)": "Input price (USD / 1M tokens)",
+  // MEM-250 user memory
+  "Bộ nhớ": "Memory",
+  "Không tải được bộ nhớ.": "Could not load your memory.",
+  "Ghi nhớ về bạn": "Remember things about you",
+  "Chưa ghi nhớ điều gì.": "Nothing remembered yet.",
+  "Xóa bộ nhớ": "Clear memory",
+  "Xóa toàn bộ bộ nhớ?": "Clear your whole memory?",
+  "Chat sẽ quên mọi điều đã ghi nhớ về bạn. Không thể hoàn tác.":
+    "Chat forgets everything it remembers about you. This cannot be undone.",
+  "Bộ nhớ vừa được Chat cập nhật. Đã tải lại nội dung mới nhất.":
+    "Chat changed your memory meanwhile. The latest version is shown.",
+  "Đang cập nhật bộ nhớ…": "Updating memory…",
+  "Đã cập nhật bộ nhớ": "Updated memory",
+  "Chưa cập nhật bộ nhớ": "Memory not updated",
 });

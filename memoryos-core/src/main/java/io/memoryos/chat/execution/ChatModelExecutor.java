@@ -19,6 +19,7 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.WebSearchMode;
+import io.memoryos.chat.ChatMemoryService;
 import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.research.ResearchProperties;
@@ -26,6 +27,7 @@ import io.memoryos.chat.research.ResearchTelemetry;
 import io.memoryos.chat.tools.FileReaderTool;
 import io.memoryos.chat.tools.McpTools;
 import io.memoryos.chat.tools.RunPythonTool;
+import io.memoryos.chat.tools.UpdateMemoryTool;
 import io.memoryos.chat.tools.SandboxDocuments;
 import io.memoryos.chat.tools.WebTools;
 import io.memoryos.chat.web.WebProviderClient;
@@ -84,6 +86,7 @@ public final class ChatModelExecutor {
     private final @Nullable InterpreterClient interpreter;
     private final @Nullable InterpreterService interpreterSettings;
     private final @Nullable DocumentOriginalService originals;
+    private final @Nullable ChatMemoryService memories;
     private final MeterRegistry meters;
     private final @Nullable ResearchExecutor research;
 
@@ -94,11 +97,13 @@ public final class ChatModelExecutor {
             @Nullable InterpreterClient interpreter,
             @Nullable InterpreterService interpreterSettings,
             @Nullable DocumentOriginalService originals,
+            @Nullable ChatMemoryService memories,
             @Nullable ResearchProperties researchLimits, @Nullable ResearchTelemetry researchTelemetry,
             MeterRegistry meters) {
         this.interpreter = interpreter;
         this.interpreterSettings = interpreterSettings;
         this.originals = originals;
+        this.memories = memories;
         this.research = researchLimits == null ? null : new ResearchExecutor(researchLimits, researchTelemetry == null ? ResearchTelemetry.NOOP : researchTelemetry);
         this.contexts = contexts;
         this.processes = processes;
@@ -317,6 +322,11 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new RunPythonTool(interpreter, interpreterSettings,
                         fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
                         activity, codeEvents).withSandbox(sandbox)));
+            }
+            // MEM-250: only the owner's own, non-temporary conversation edits their memory, and only while it is on.
+            if (selected.toolCalling() && memories != null && memories.usableIn(setup.tenant(), setup.actor(), setup.sessionId())) {
+                runner = runner.withTools(Tool.fromInstance(new UpdateMemoryTool(memories, setup.tenant(), setup.actor(),
+                        guard::checkActive, activity)));
             }
             // The turn owns the MCP sessions; ChatTurnService closes them once the run has drained.
             var mcp = setup.mcp();

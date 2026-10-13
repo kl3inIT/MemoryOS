@@ -107,6 +107,9 @@ export function stepTitle(
     case "run_python":
       if (state === "failed") return ui("Chạy Python không thành công");
       return running ? ui("Đang chạy Python…") : ui("Đã chạy Python");
+    case "update_memory":
+      if (state === "failed") return ui("Chưa cập nhật bộ nhớ");
+      return running ? ui("Đang cập nhật bộ nhớ…") : ui("Đã cập nhật bộ nhớ");
     default:
       return running ? ui("Đang dùng công cụ…") : ui("Đã dùng công cụ");
   }
@@ -135,6 +138,8 @@ export function liveTitle(ui: Translate, tool: { toolName: string; args: unknown
       return ui("Đang sửa ảnh…");
     case "run_python":
       return ui("Đang chạy Python…");
+    case "update_memory":
+      return ui("Đang cập nhật bộ nhớ…");
     default: {
       const mcp = parseMcpToolName(tool.toolName);
       return mcp ? ui("Đang dùng {{tool}}…", { tool: mcp.tool }) : ui("Đang dùng công cụ…");
