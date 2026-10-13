@@ -19,7 +19,7 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcChannelConnectionRepository {
     private static final String COLUMNS = "id, provider, name, region, app_id, notice_language, enabled, service_account_id, "
-            + "revision, created_at, updated_at";
+            + "revision, created_at, updated_at, organisation_key";
     private final JdbcClient jdbc;
 
     public JdbcChannelConnectionRepository(JdbcClient jdbc) {
@@ -35,6 +35,16 @@ public class JdbcChannelConnectionRepository {
         return jdbc.sql("SELECT " + COLUMNS + " FROM channel_connections WHERE tenant_id = :tenant AND id = :id")
                 .param("tenant", tenant.value()).param("id", id).query(JdbcChannelConnectionRepository::connection).optional();
     }
+
+    /** A bot that is switched on, with the Tenant it belongs to: what a received message is answered for. */
+    public Optional<Enabled> findEnabled(UUID id) {
+        return jdbc.sql("SELECT tenant_id, " + COLUMNS + " FROM channel_connections WHERE id = :id AND enabled")
+                .param("id", id)
+                .query((row, index) -> new Enabled(new TenantId(row.getObject("tenant_id", UUID.class)), connection(row, index)))
+                .optional();
+    }
+
+    public record Enabled(TenantId tenant, ChannelConnection connection) {}
 
     /** Whether any bot, of any Tenant, already holds the app. */
     public boolean appInUse(ChannelProvider provider, ChannelRegion region, String appId) {
@@ -98,6 +108,7 @@ public class JdbcChannelConnectionRepository {
                 row.getString("name"), ChannelRegion.valueOf(row.getString("region")), row.getString("app_id"),
                 row.getString("notice_language"), row.getBoolean("enabled"),
                 new ActorId(row.getObject("service_account_id", UUID.class)), row.getLong("revision"),
-                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant());
+                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
+                row.getString("organisation_key"));
     }
 }

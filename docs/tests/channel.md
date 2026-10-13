@@ -9,3 +9,16 @@
 | The name, app id and language are checked; a member without `CHANNELS_MANAGE` neither reads nor adds a bot | `PostgresChannelConnectionTest.inputIsCheckedAndOnlyAHolderOfTheCapabilityManagesBots` |
 | A missing key fails the bots alone | `PostgresChannelConnectionTest.aMissingKeyFailsTheBotsAlone` |
 | The secret envelope moved to the shared kernel unchanged | `CredentialCipherTest` |
+| A direct message runs as its sender and a message handed over twice is answered once | `ChannelInboundServiceTest.aDirectMessageRunsAsItsSenderAndIsAnsweredOnce` |
+| A sender without an account is answered as the bot, told to sign in, and the provider is asked once while that is remembered | `ChannelInboundServiceTest.aSenderWithoutAnAccountIsAnsweredAsTheBotAndRememberedForAWhile` |
+| A group is answered only when the bot is named, as the bot, with the closing line; a new group message starts a conversation | `ChannelInboundServiceTest.aGroupIsAnsweredOnlyWhenTheBotIsNamedAndAsTheBot` |
+| A reply to the bot's answer or to the question continues its conversation, however old and whoever replies | `ChannelInboundServiceTest.aReplyContinuesItsConversationHoweverOldAndWhoeverReplies` |
+| A direct conversation ends after the idle window and on `/new` | `ChannelInboundServiceTest.aDirectConversationEndsAfterTheIdleWindowOrOnTheNewCommand` |
+| A conversation is continued only by the account it belongs to | `ChannelInboundServiceTest.aConversationIsContinuedOnlyByWhoeverItBelongsTo` |
+| An outsider, a message that is not text and an external group are refused with a notice and a reason, and no turn runs | `ChannelInboundServiceTest.outsidersOtherMessageTypesAndExternalGroupsAreRefusedWithANotice` |
+| A bot whose organisation is not known, or that is switched off, answers nobody | `ChannelInboundServiceTest.aBotWhoseOrganisationIsNotKnownOrThatIsSwitchedOffAnswersNobody` |
+| A refused or failed turn becomes a notice and a recorded reason | `ChannelInboundServiceTest.aTurnThatIsRefusedOrFailsBecomesANoticeAndARecordedReason` |
+| Old message ids are swept and a recent one is kept | `ChannelInboundServiceTest.oldMessageIdsAreSweptAndARecentOneIsKept` |
+
+The bridge to Chat (`ChannelTurns`: session, leaf, turn, stream, saved answer) has no test of its own; it is
+exercised end to end on staging with the Lark adapter (plan step 4).
