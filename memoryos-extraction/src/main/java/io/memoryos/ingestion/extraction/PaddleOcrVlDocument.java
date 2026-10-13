@@ -31,7 +31,14 @@ import tools.jackson.databind.JsonNode;
  * by the CropBox size and moved to its corner, it becomes a box in PDF user space with a
  * bottom-left origin, the space the viewer's page {@code view} is in. A page turned by
  * {@code /Rotate} carries its page number alone: the viewer outlines no rotated page, and an
- * unlocated passage is never drawn. Nor does an image input, which has no page in points.
+ * unlocated passage is never drawn.
+ *
+ * <p>An image input has no page in points. Its boxes stay in the pixels they were answered in, from
+ * the top left of the picture as the service decoded it (OpenCV, EXIF orientation applied), with the
+ * picture's size as their frame. That holds only for the picture as sent: the service's document
+ * preprocessor turns or unwarps a picture before the layout is read and answers in the result, so a
+ * box is kept only when the answer says the preprocessor did not run
+ * ({@code model_settings.use_doc_preprocessor} false, which the request's two flags ask for).
  *
  * <p>A {@code doc_title} is a level-1 heading: in the reports it names a part (the disclosure cover,
  * the notes). A {@code paragraph_title} is level 2: a note's title above its table. A
@@ -63,7 +70,7 @@ final class PaddleOcrVlDocument {
 
     /**
      * @param pages the PDF's page frames, one per result; empty for an image input, where each
-     *        result is one frame (a multi-page TIFF has several) and carries a page number but no box
+     *        result is one frame (a multi-page TIFF has several) with its own page number
      */
     static List<Block> blocks(JsonNode results, List<PdfLayout.Frame> pages) throws ExtractionException {
         if (!pages.isEmpty() && results.size() != pages.size()) throw failure(ExtractionFailure.MALFORMED);
@@ -77,21 +84,22 @@ final class PaddleOcrVlDocument {
             JsonNode page = results.get(index).path("prunedResult");
             JsonNode items = page.path("parsing_res_list");
             if (!items.isArray()) throw failure(ExtractionFailure.MALFORMED);
+            JsonNode width = page.path("width");
+            JsonNode height = page.path("height");
+            if (!width.isNumber() || !height.isNumber() || width.asDouble() <= 0 || height.asDouble() <= 0) {
+                throw failure(ExtractionFailure.MALFORMED);
+            }
+            JsonNode preprocessor = page.path("model_settings").path("use_doc_preprocessor");
+            boolean asSent = preprocessor.isBoolean() && !preprocessor.asBoolean();
             PdfLayout.Frame frame = null;
             double scaleX = 0;
             double scaleY = 0;
-            if (!pages.isEmpty()) {
-                JsonNode width = page.path("width");
-                JsonNode height = page.path("height");
-                if (!width.isNumber() || !height.isNumber() || width.asDouble() <= 0 || height.asDouble() <= 0) {
-                    throw failure(ExtractionFailure.MALFORMED);
-                }
-                if (pages.get(index).rotation() == 0) {
-                    frame = pages.get(index);
-                    scaleX = frame.width() / width.asDouble();
-                    scaleY = frame.height() / height.asDouble();
-                }
+            if (!pages.isEmpty() && pages.get(index).rotation() == 0) {
+                frame = pages.get(index);
+                scaleX = frame.width() / width.asDouble();
+                scaleY = frame.height() / height.asDouble();
             }
+            boolean picture = pages.isEmpty() && asSent;
             for (int at = 0; at < items.size(); at++) {
                 JsonNode item = items.get(at);
                 String label = item.path("block_label").asString("");
@@ -100,8 +108,12 @@ final class PaddleOcrVlDocument {
                 if (FURNITURE.contains(label)) continue;
                 if (blocks.size() >= StructuredContent.MAX_BLOCKS) throw failure(ExtractionFailure.WRITE_LIMIT);
                 String content = item.path("block_content").asString("").strip();
-                var locations = List.of(Location.page(index + 1,
-                        frame == null ? null : box(item.path("block_bbox"), frame, scaleX, scaleY)));
+                double[] pixels = pixels(item.path("block_bbox"));
+                BoundingBox box = pixels == null ? null
+                        : frame != null ? box(pixels, frame, scaleX, scaleY)
+                        : picture ? framed(pixels, 1, 1, width.asDouble(), height.asDouble())
+                        : null;
+                var locations = List.of(Location.page(index + 1, box));
                 int position = blocks.size();
                 if (PICTURES.contains(label)) {
                     blocks.add(new Block(position, Kind.IMAGE, "", null, locations, null, null, null));
@@ -130,11 +142,10 @@ final class PaddleOcrVlDocument {
     }
 
     /**
-     * {@code [x1, y1, x2, y2]} in pixels from the rendering's top left, as an array or as its string
-     * form; anything else has no box. The result is in user space: x from the CropBox's left edge,
-     * y up from its bottom edge.
+     * {@code [x1, y1, x2, y2]} in pixels from the top left of what the service read, as an array or as
+     * its string form; anything else is no box.
      */
-    private static @Nullable BoundingBox box(JsonNode bbox, PdfLayout.Frame frame, double scaleX, double scaleY) {
+    private static double @Nullable [] pixels(JsonNode bbox) {
         double[] values = new double[4];
         if (bbox.isArray() && bbox.size() == 4) {
             for (int i = 0; i < 4; i++) {
@@ -153,9 +164,34 @@ final class PaddleOcrVlDocument {
             return null;
         }
         for (double value : values) if (!Double.isFinite(value)) return null;
+        return values;
+    }
+
+    /** A pixel box in user space: x from the CropBox's left edge, y up from its bottom edge. */
+    private static BoundingBox box(double[] pixels, PdfLayout.Frame frame, double scaleX, double scaleY) {
         double top = frame.y0() + frame.height();
-        return new BoundingBox(frame.x0() + values[0] * scaleX, top - values[1] * scaleY,
-                frame.x0() + values[2] * scaleX, top - values[3] * scaleY, CoordOrigin.BOTTOMLEFT);
+        return new BoundingBox(frame.x0() + pixels[0] * scaleX, top - pixels[1] * scaleY,
+                frame.x0() + pixels[2] * scaleX, top - pixels[3] * scaleY, CoordOrigin.BOTTOMLEFT);
+    }
+
+    /**
+     * A pixel box in the frame it was read in, scaled to the frame's unit and held to its edges. A box
+     * with no area, or more than a pixel outside what the service read, is no box: nothing says where
+     * on the frame it is.
+     */
+    private static @Nullable BoundingBox framed(double[] pixels, double scaleX, double scaleY, double width,
+            double height) {
+        double left = Math.min(pixels[0], pixels[2]) * scaleX;
+        double right = Math.max(pixels[0], pixels[2]) * scaleX;
+        double top = Math.min(pixels[1], pixels[3]) * scaleY;
+        double bottom = Math.max(pixels[1], pixels[3]) * scaleY;
+        if (left < -scaleX || top < -scaleY || right > width + scaleX || bottom > height + scaleY) return null;
+        left = Math.max(0, left);
+        top = Math.max(0, top);
+        right = Math.min(width, right);
+        bottom = Math.min(height, bottom);
+        if (right <= left || bottom <= top) return null;
+        return new BoundingBox(left, top, right, bottom, CoordOrigin.TOPLEFT, width, height);
     }
 
     /**

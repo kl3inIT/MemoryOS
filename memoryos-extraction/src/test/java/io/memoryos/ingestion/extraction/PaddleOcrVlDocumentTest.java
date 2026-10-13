@@ -190,21 +190,58 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
-    void anImageHasOnePageAndNoBox() throws Exception {
+    void anImageKeepsEachBoxInThePixelsOfThePictureItWasReadIn() throws Exception {
         var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), List.of());
 
         assertFalse(blocks.isEmpty());
         assertTrue(blocks.stream().allMatch(block -> block.locations().size() == 1
-                && block.locations().getFirst().pageNo() == 1 && block.locations().getFirst().bbox() == null));
+                && block.locations().getFirst().pageNo() == 1));
+        // block_bbox [158, 286, 1520, 876] of a picture the service read as 1685 x 1191.
+        assertFramed(158, 286, 1520, 876, 1685, 1191, Objects.requireNonNull(table(blocks).locations().getFirst().bbox()));
+        assertTrue(blocks.stream().allMatch(block -> block.locations().getFirst().bbox() != null));
     }
 
     @Test
-    void eachFrameOfAMultiPageImageIsAPageWithoutABox() throws Exception {
+    void eachFrameOfAMultiPageImageIsAPageWithItsOwnFrame() throws Exception {
         var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"), List.of());
 
         assertEquals(Set.of(1, 2), blocks.stream().map(block -> block.locations().getFirst().pageNo())
                 .collect(Collectors.toSet()));
-        assertTrue(blocks.stream().allMatch(block -> block.locations().getFirst().bbox() == null));
+        var tables = blocks.stream().filter(block -> block.kind() == Kind.TABLE).toList();
+        assertFramed(259, 91, 1005, 1032, 1685, 1191, Objects.requireNonNull(tables.get(0).locations().getFirst().bbox()));
+        assertFramed(158, 270, 1100, 1000, 1191, 1685, Objects.requireNonNull(tables.get(1).locations().getFirst().bbox()));
+    }
+
+    @Test
+    void anImageBoxIsKeptOnlyWhenTheAnswerSaysThePictureWasReadAsSent() throws Exception {
+        // The preprocessor turns or unwarps the picture and answers in the result; an answer that does
+        // not say whether it ran is not known to be in the picture a reader sees.
+        for (String settings : List.of("\"model_settings\":{\"use_doc_preprocessor\":true},", "")) {
+            var blocks = PaddleOcrVlDocument.blocks(mapper.readTree("""
+                    [{"prunedResult":{"width":1000,"height":2000,%s"parsing_res_list":[
+                      {"block_label":"text","block_content":"Tổng cộng","block_bbox":[100,200,300,400]}]}}]
+                    """.formatted(settings)), List.of());
+
+            assertEquals(1, blocks.getFirst().locations().getFirst().pageNo());
+            assertNull(blocks.getFirst().locations().getFirst().bbox(), settings);
+        }
+    }
+
+    @Test
+    void anImageBoxOutsideThePictureOrWithoutAreaIsDroppedAndOneOnItsEdgeIsHeldToIt() throws Exception {
+        var blocks = PaddleOcrVlDocument.blocks(mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":2000,"model_settings":{"use_doc_preprocessor":false},
+                  "parsing_res_list":[
+                  {"block_label":"text","block_content":"ngoài ảnh","block_bbox":[900,200,1300,400]},
+                  {"block_label":"text","block_content":"không có diện tích","block_bbox":[100,200,100,400]},
+                  {"block_label":"text","block_content":"sát mép","block_bbox":[-0.5,1990,300,2000.6]},
+                  {"block_label":"text","block_content":"góc đảo","block_bbox":[300,400,100,200]}]}}]
+                """), List.of());
+
+        assertNull(blocks.get(0).locations().getFirst().bbox());
+        assertNull(blocks.get(1).locations().getFirst().bbox());
+        assertFramed(0, 1990, 300, 2000, 1000, 2000, Objects.requireNonNull(blocks.get(2).locations().getFirst().bbox()));
+        assertFramed(100, 200, 300, 400, 1000, 2000, Objects.requireNonNull(blocks.get(3).locations().getFirst().bbox()));
     }
 
     @Test
@@ -301,6 +338,9 @@ class PaddleOcrVlDocumentTest {
                 "[{\"prunedResult\":{\"width\":0,\"height\":10,\"parsing_res_list\":[]}}]"), List.of(upright(1, 1))));
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree(
                 "[{\"prunedResult\":{\"width\":10,\"height\":10}}]"), List.of(upright(1, 1))));
+        // An image answer without the picture's size cannot place a box either.
+        assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree(
+                "[{\"prunedResult\":{\"parsing_res_list\":[]}}]"), List.of()));
     }
 
     @Test
@@ -334,6 +374,17 @@ class PaddleOcrVlDocumentTest {
         assertEquals(r, box.r(), 0.01);
         assertEquals(b, box.b(), 0.01);
         assertEquals(CoordOrigin.BOTTOMLEFT, box.coordOrigin());
+    }
+
+    private static void assertFramed(double l, double t, double r, double b, double width, double height,
+            BoundingBox box) {
+        assertEquals(l, box.l(), 0.01);
+        assertEquals(t, box.t(), 0.01);
+        assertEquals(r, box.r(), 0.01);
+        assertEquals(b, box.b(), 0.01);
+        assertEquals(CoordOrigin.TOPLEFT, box.coordOrigin());
+        assertEquals(width, Objects.requireNonNull(box.frameWidth()), 0.01);
+        assertEquals(height, Objects.requireNonNull(box.frameHeight()), 0.01);
     }
 
     /** A page at the origin with no {@code /Rotate}, as most scans are. */
