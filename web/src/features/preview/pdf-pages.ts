@@ -3,7 +3,11 @@
  * unrendered page is, and which pages are worth mounting. Nothing here knows how a highlight was recorded.
  */
 
-/** A rectangle to highlight on a page, in PDF user-space points as the extraction recorded it. */
+/**
+ * A rectangle to highlight on a page, as the extraction recorded it. Without a `frame` it is in PDF
+ * user-space points. With one it is measured from the top left of a frame of that size as a reader sees it
+ * (a picture's pixels, or the points of a PDF page as displayed), and `origin` is `TOPLEFT`.
+ */
 export type PdfHighlight = {
   page: number;
   left: number;
@@ -11,21 +15,71 @@ export type PdfHighlight = {
   right: number;
   bottom: number;
   origin: "TOPLEFT" | "BOTTOMLEFT";
+  frame?: { width: number; height: number };
 };
 
 export type PdfPageView = { view: readonly number[]; rotate: number };
 
+/** Two sizes with the same proportions, to within the rounding of a rendering (1%). */
+function sameProportions(width: number, height: number, otherWidth: number, otherHeight: number) {
+  return Math.abs((width * otherHeight) / (height * otherWidth) - 1) <= 0.01;
+}
+
 /**
- * Maps a Docling box (PDF points in the page's user space) onto a page rendered at `renderedWidth` CSS
- * pixels. Rotated pages are not outlined because the extraction frame may already be
- * orientation-corrected; the page itself still renders.
+ * Where a framed box sits on the surface showing its frame, as fractions of that surface's width and
+ * height. A box without a frame, without area or outside its frame has no place.
+ */
+export function frameBoxRect(box: PdfHighlight) {
+  const frame = box.frame;
+  if (!frame || !(frame.width > 0) || !(frame.height > 0)) return undefined;
+  const left = Math.min(box.left, box.right);
+  const top = Math.min(box.top, box.bottom);
+  const width = Math.abs(box.right - box.left);
+  const height = Math.abs(box.bottom - box.top);
+  if (
+    !(width > 0) ||
+    !(height > 0) ||
+    left < 0 ||
+    top < 0 ||
+    left + width > frame.width ||
+    top + height > frame.height
+  )
+    return undefined;
+  return {
+    left: left / frame.width,
+    top: top / frame.height,
+    width: width / frame.width,
+    height: height / frame.height,
+  };
+}
+
+/**
+ * Maps a recorded box onto a page rendered at `renderedWidth` CSS pixels. A box in user space is drawn on
+ * an upright page only: on a rotated one the extraction frame may already be orientation-corrected. A box
+ * that carries its frame is measured in the page as displayed, so it is drawn at any rotation, and only
+ * when that frame has the displayed page's proportions.
  */
 export function pdfBoxRect(box: PdfHighlight, page: PdfPageView, renderedWidth: number) {
-  if (page.rotate % 360 !== 0) return undefined;
   const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = page.view;
   const pageWidth = x1 - x0;
   const pageHeight = y1 - y0;
   if (pageWidth <= 0 || pageHeight <= 0) return undefined;
+  if (box.frame) {
+    const turned = Math.abs(page.rotate % 180) === 90;
+    const shownWidth = turned ? pageHeight : pageWidth;
+    const shownHeight = turned ? pageWidth : pageHeight;
+    const placed = frameBoxRect(box);
+    if (!placed || !sameProportions(box.frame.width, box.frame.height, shownWidth, shownHeight))
+      return undefined;
+    const renderedHeight = (renderedWidth * shownHeight) / shownWidth;
+    return {
+      top: placed.top * renderedHeight - 2,
+      left: placed.left * renderedWidth - 2,
+      width: placed.width * renderedWidth + 4,
+      height: placed.height * renderedHeight + 4,
+    };
+  }
+  if (page.rotate % 360 !== 0) return undefined;
   const scale = renderedWidth / pageWidth;
   const top =
     box.origin === "BOTTOMLEFT"
