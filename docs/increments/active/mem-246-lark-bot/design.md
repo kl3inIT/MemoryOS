@@ -223,8 +223,8 @@ event again when its handler has not returned within three seconds, up to four m
    message's id and not the event's, as Lark's page for `im.message.receive_v1` requires;
 2. applies rule 2 and rule 5 from the message alone (organisation key, message type), then asks the adapter whether
    a group is external (remembered on the conversation for an hour);
-3. resolves the sender: `channel_identities (connection_id, external_user_id)` holds the actor and the email it
-   came from for an hour; otherwise the adapter reads the email and `iam` answers the one active member whose
+3. resolves the sender: `channel_identities (connection_id, external_user_id)` holds the actor, or that there is
+   none, for an hour; otherwise the adapter reads the email and `iam` answers the one active member whose
    verified email equals it. No match, or more than one, is no account. Matching by e-mail is what Onyx and Dust
    do, and it trusts the address the provider reports: Dust's own code marks it as open to spoofing. Lark keeps
    `email` unique within an organisation, but nothing read so far says whether a member can change their own;
@@ -258,8 +258,8 @@ message, a backend failure text or the question's text. A chat failure maps by i
 "busy, ask again in a moment", a spend limit names the limit, anything else a general failure. A reply in a
 direct message that ran as the sender ends with a link to the same session in MemoryOS.
 
-On start, rows left in progress by a stopped process are marked failed. Rows older than thirty days are deleted by
-a daily pass in the channels process.
+A row left `RECEIVED` by a process that stopped stays so: the message was claimed and is not answered again, and
+Lark's later pushes of it are dropped at the claim.
 
 ### The bot's account
 

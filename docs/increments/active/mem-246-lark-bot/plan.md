@@ -50,9 +50,12 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
   `CHANNELS_MANAGE` (backend, contract, the Groups page's copy in both languages). The connection service, which
   creates and retires the bot's service account. Each table comes with the code that writes it: the others move to
   3c and 3d.
-- [ ] 3c. The port and the registry; `channel_conversations`, `channel_identities`, `channel_messages`, and
+- [x] 3c-1. The port and the registry; `channel_conversations`, `channel_identities`, `channel_messages`, and
   the Worker's daily task that deletes `channel_messages` older than ninety days, through
-  `ChannelWorkerComponents`. The inbound service: the rules, the sender, who the turn runs as and the asker's name it is told, the
+  `ChannelWorkerComponents`. The inbound service: the claim, the rules, the sender, who the turn runs as, the
+  conversation, the turn and its reply, notices. `ChatSessionService.leaf`.
+- [ ] 3c-2. What 3c-1 left: the sender's rate, the order within a conversation, the reaction that acknowledges
+  a message, the asker's name a bot turn is told, the link to a direct conversation on the web. Originally: the rules, the sender, who the turn runs as and the asker's name it is told, the
   conversation, the turn and its reply; the order within a conversation and the sender's rate.
 - [ ] 3d. `channel_connection_state`, the supervisor and `ChannelRuntimeComponents`. `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 16 turns;
   `Dockerfile` target, the compose service with its health check and secret file, the CI leg and area filter,

@@ -114,6 +114,13 @@ public class DefaultChatSessionService implements ChatSessionService {
         return chats.history(session, after, limit);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public UUID leaf(ActorId actor, UUID sessionId) {
+        var session = chats.findOwned(tenant(actor), actor, sessionId, false).orElseThrow(ChatException::unavailable);
+        return chats.leaf(session);
+    }
+
     /** Every read of the actor's own conversations requires CHAT_READ; rename, branch selection and deletion need ownership only. */
     private TenantId tenant(ActorId actor) {
         authorization.require(actor, IamCapability.CHAT_READ, false);

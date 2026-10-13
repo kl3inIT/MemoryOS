@@ -33,7 +33,10 @@ Results and what was not run are in [verification.md](verification.md).
 
 ## Open
 
-The increment stays under `active/` until the first item is done.
+The increment stays under `active/` until the first item is done. Its item 4 was seen on staging on
+2026-10-13 for all three angles, and items 1 and 2 for a scanned PDF; a picture as an image input was not
+reached, because the upload form of a FILE Source refuses pictures: one has to come from a connector Source or
+a Chat attachment ([verification](verification.md#staging-2026-10-13)).
 
 - **Real samples through the staging OCR**, each indexed into a FILE Source and its citation opened from Search
   and from a Chat answer. What each must show:
