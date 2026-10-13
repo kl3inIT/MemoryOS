@@ -62,7 +62,7 @@ class ChatMemoryController {
     @PutMapping(value = "/enabled", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ApiResponse(responseCode = "200", description = "The memory with its switch", useReturnTypeSchema = true)
     @Operation(operationId = "setChatMemoryEnabled", summary = "Turn Chat's memory of you on or off")
-    ChatMemoryResponse enabled(@CurrentActor IdentityContext identity, @RequestBody ChatMemoryEnabledRequest request) {
+    ChatMemoryResponse enabled(@CurrentActor IdentityContext identity, @Valid @RequestBody ChatMemoryEnabledRequest request) {
         return ChatMemoryResponse.from(memories.enabled(identity.actorId(), request.enabled()));
     }
 }

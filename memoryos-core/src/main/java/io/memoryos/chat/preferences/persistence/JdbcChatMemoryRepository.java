@@ -26,9 +26,11 @@ public class JdbcChatMemoryRepository {
 
     /**
      * Replaces the text when the stored revision is still {@code expected}, and advances it; empty when another
-     * write came first. A member without a row has revision 0, so only {@code expected} 0 creates one.
+     * write came first. A member without a row has revision 0, so only {@code expected} 0 creates one. With
+     * {@code onlyEnabled} the write also needs the memory to be switched on when it lands, so the tool cannot write
+     * after the member switched it off; the member's own edits in Settings pass false.
      */
-    public Optional<ChatMemory> replace(UUID tenant, UUID actor, String content, long expected) {
+    public Optional<ChatMemory> replace(UUID tenant, UUID actor, String content, long expected, boolean onlyEnabled) {
         if (expected == 0) {
             return jdbc.sql("""
                             INSERT INTO chat_memory (tenant_id, actor_id, content, revision, updated_at)
@@ -36,16 +38,19 @@ public class JdbcChatMemoryRepository {
                             ON CONFLICT (tenant_id, actor_id) DO UPDATE SET
                                 content = EXCLUDED.content, revision = chat_memory.revision + 1,
                                 updated_at = CURRENT_TIMESTAMP
-                            WHERE chat_memory.revision = 0
+                            WHERE chat_memory.revision = 0 AND (chat_memory.enabled OR NOT :onlyEnabled)
                             RETURNING\s""" + COLUMNS)
                     .param("tenant", tenant).param("actor", actor).param("content", content)
+                    .param("onlyEnabled", onlyEnabled)
                     .query((row, _) -> map(row)).optional();
         }
         return jdbc.sql("""
                         UPDATE chat_memory SET content = :content, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
                         WHERE tenant_id = :tenant AND actor_id = :actor AND revision = :expected
+                            AND (enabled OR NOT :onlyEnabled)
                         RETURNING\s""" + COLUMNS)
                 .param("tenant", tenant).param("actor", actor).param("content", content).param("expected", expected)
+                .param("onlyEnabled", onlyEnabled)
                 .query((row, _) -> map(row)).optional();
     }
 

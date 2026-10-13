@@ -53,6 +53,10 @@ public final class UpdateMemoryTool {
                 yield "oldText occurs more than once. Include more of the surrounding text. Current memory:\n"
                         + shown(twice.memory());
             }
+            case ChatMemoryService.Edit.SwitchedOff _ -> {
+                activity.fail();
+                yield "Not saved: the user has switched memory off. Do not try again in this conversation.";
+            }
             case ChatMemoryService.Edit.TooLong tooLong -> {
                 activity.fail();
                 yield "Not saved: the memory would be " + tooLong.length() + " characters, over the limit of "

@@ -25,6 +25,8 @@ public class ChatMemoryService {
         record PassageNotFound(ChatMemory memory) implements Edit {}
         record PassageNotUnique(ChatMemory memory) implements Edit {}
         record TooLong(ChatMemory memory, int length) implements Edit {}
+        /** The member switched the memory off after this turn began. */
+        record SwitchedOff() implements Edit {}
     }
 
     private final JdbcChatMemoryRepository memories;
@@ -47,7 +49,7 @@ public class ChatMemoryService {
         if (text.length() > ChatMemory.MAX_CONTENT)
             throw ChatException.invalid("Memory must be at most " + ChatMemory.MAX_CONTENT + " characters.");
         var tenant = tenant(actor);
-        var saved = memories.replace(tenant, actor.value(), text, revision).orElseThrow(ChatException::conflict);
+        var saved = memories.replace(tenant, actor.value(), text, revision, false).orElseThrow(ChatException::conflict);
         updated(tenant, "settings");
         return saved;
     }
@@ -57,7 +59,7 @@ public class ChatMemoryService {
         var tenant = tenant(actor);
         var current = memories.find(tenant, actor.value());
         if (current.content().isEmpty()) return current;
-        var saved = memories.replace(tenant, actor.value(), "", current.revision()).orElseThrow(ChatException::conflict);
+        var saved = memories.replace(tenant, actor.value(), "", current.revision(), false).orElseThrow(ChatException::conflict);
         updated(tenant, "settings");
         return saved;
     }
@@ -89,11 +91,12 @@ public class ChatMemoryService {
 
     /** One read and compare-and-set; null when another write came between them. */
     private Edit.@Nullable Applied saveIfUnchanged(TenantId tenant, ActorId actor, String next, long revision) {
-        return memories.replace(tenant.value(), actor.value(), next, revision).map(Edit.Applied::new).orElse(null);
+        return memories.replace(tenant.value(), actor.value(), next, revision, true).map(Edit.Applied::new).orElse(null);
     }
 
     private @Nullable Edit editOnce(TenantId tenant, ActorId actor, String oldText, String newText) {
         var current = memories.find(tenant.value(), actor.value());
+        if (!current.enabled()) return new Edit.SwitchedOff();
         String old = oldText == null ? "" : oldText.strip();
         String replacement = newText == null ? "" : newText.strip();
         String next;

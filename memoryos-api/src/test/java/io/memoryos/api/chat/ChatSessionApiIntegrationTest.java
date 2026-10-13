@@ -1260,6 +1260,10 @@ class ChatSessionApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"content\":\"x\",\"revision\":1}"))
                 .andExpect(status().isForbidden());
 
+        // A body without the switch is refused rather than read as off.
+        mockMvc.perform(put("/api/chat/memory/enabled").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
         // The switch keeps the text; clearing empties it and advances the revision.
         mockMvc.perform(put("/api/chat/memory/enabled").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
@@ -1303,6 +1307,9 @@ class ChatSessionApiIntegrationTest {
         assertTrue(memories.usableIn(tenant, owner, id));
         memories.enabled(owner, false);
         assertFalse(memories.usableIn(tenant, owner, id));
+        // A turn that began before the member switched memory off cannot write afterwards.
+        assertInstanceOf(ChatMemoryService.Edit.SwitchedOff.class, memories.edit(tenant, owner, "", "Ghi sau khi tắt."));
+        assertEquals("Làm ở phòng tài chính.", memories.get(owner).content());
     }
 
     @Test
