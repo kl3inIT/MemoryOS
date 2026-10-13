@@ -92,10 +92,12 @@ public class ChannelInboundService {
 
     /** Why the message is not answered at all, or null. */
     private @Nullable Refusal refusal(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message) {
-        // Fail closed: a bot whose organisation is not known yet admits nobody.
-        if (connection.organisationKey() == null || !connection.organisationKey().equals(message.organisationKey())) {
-            return new Refusal("OUTSIDER", ChannelNotice.OUTSIDER);
-        }
+        // The sender must belong to the organisation of the bot's app, which the provider names on every event; a bot
+        // whose organisation was recorded admits only that one. An event that names neither admits nobody.
+        boolean member = !message.botOrganisationKey().isBlank()
+                && message.botOrganisationKey().equals(message.organisationKey())
+                && (connection.organisationKey() == null || connection.organisationKey().equals(message.botOrganisationKey()));
+        if (!member) return new Refusal("OUTSIDER", ChannelNotice.OUTSIDER);
         if (message.type() != ChannelMessage.Type.TEXT || message.text().isBlank()) {
             return new Refusal("NOT_TEXT", ChannelNotice.TEXT_ONLY);
         }

@@ -92,7 +92,7 @@ class ChannelSupervisorTest {
     void aMessageIsAnsweredOffTheAdaptersThreadAndMarksTheConnection() {
         supervisor.start();
         while (adapter.receivers.isEmpty()) Thread.onSpinWait();
-        var message = new ChannelMessage(connection, "m1", "oc_chat", ChannelMessage.Kind.DIRECT, "ou_ha", null, "org", true,
+        var message = new ChannelMessage(connection, "m1", "oc_chat", ChannelMessage.Kind.DIRECT, "ou_ha", null, "org", "org", true,
                 ChannelMessage.Type.TEXT, "Hello", null);
         adapter.receivers.getFirst().accept(message);
         verify(inbound, timeout(5000)).receive(message);

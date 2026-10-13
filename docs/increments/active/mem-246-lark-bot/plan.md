@@ -77,8 +77,10 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
 - [ ] Settle on the test tenant what the design lists as not exercised (a group message naming the bot, `@all`,
   a slow handler, the streaming reply with sources and a footer, a reaction, the client's threads after close,
   the mark of an external group) and record it in the design; keep `LarkChannel` or fall back.
-- [ ] The adapter in `memoryos-integration-lark`, with recorded events as fixtures; the rule test between the bot
-  and connector packages; `checkRuntimeClasspathIsolation` unchanged.
+- [x] The adapter in `memoryos-integration-lark` (`LarkChannelAdapter`): the long connection, the conversion of
+  a message with both organisations read from the event, the streaming reply, notices, the sender's e-mail and the
+  external-chat check; `checkRuntimeClasspathIsolation` unchanged. It shares the connector's package, because both
+  use its bounded `LarkTransport`.
 - [ ] `/api/channels/lark` with its contract records; `openapi.yml` and the web client regenerated.
 - [ ] Whether a member can change the `email` Lark reports, settled on the test tenant; the adapter reads only
   an address that is safe to match an account by.

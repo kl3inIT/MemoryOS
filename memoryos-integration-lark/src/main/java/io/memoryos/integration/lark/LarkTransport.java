@@ -56,14 +56,22 @@ final class LarkTransport implements IHttpTransport, AutoCloseable {
     private final ExecutorService exchanges = Executors.newVirtualThreadPerTaskExecutor();
     private final String userAgent;
 
+    private final Exchange unbound;
+
     LarkTransport(Duration connectTimeout, String userAgent) {
+        this(connectTimeout, userAgent, UNBOUND);
+    }
+
+    /** {@code unbound} is the budget of a request made outside an exchange: the bot's SDK makes its own (MEM-246). */
+    LarkTransport(Duration connectTimeout, String userAgent, Exchange unbound) {
+        this.unbound = unbound;
         this.client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(connectTimeout).version(HttpClient.Version.HTTP_1_1).build();
         this.userAgent = userAgent;
     }
 
     @Override public RawResponse execute(RawRequest request) throws IOException {
-        Exchange exchange = EXCHANGE.isBound() ? EXCHANGE.get() : UNBOUND;
+        Exchange exchange = EXCHANGE.isBound() ? EXCHANGE.get() : unbound;
         HttpRequest http = request(request, exchange);
         Future<RawResponse> running = exchanges.submit(() -> exchange(http, exchange.maxBytes()));
         try {
