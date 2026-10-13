@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.execution;
 
 import io.memoryos.ai.ModelClients;
 import io.memoryos.ai.ModelLeases;

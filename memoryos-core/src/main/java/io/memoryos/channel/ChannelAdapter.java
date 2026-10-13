@@ -1,6 +1,7 @@
 package io.memoryos.channel;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * One messaging platform, as the capability sees it: the adapter owns the transport, the provider's ids and the
@@ -9,6 +10,14 @@ import java.util.Optional;
  */
 public interface ChannelAdapter {
     ChannelProvider provider();
+
+    /**
+     * Starts receiving for one bot. The adapter acknowledges each message to the provider and passes it to
+     * {@code receiver}, which returns at once; it never calls the receiver for a message it could not read.
+     *
+     * @param secret the app's secret, decrypted for this call only
+     */
+    ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver);
 
     /** Opens the reply to one message, which quotes it. */
     ChannelReply reply(ChannelConnection connection, ChannelMessage message);

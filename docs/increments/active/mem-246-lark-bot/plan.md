@@ -57,13 +57,20 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
 - [ ] 3c-2. What 3c-1 left: the sender's rate, the order within a conversation, the reaction that acknowledges
   a message, the asker's name a bot turn is told, the link to a direct conversation on the web. Originally: the rules, the sender, who the turn runs as and the asker's name it is told, the
   conversation, the turn and its reply; the order within a conversation and the sender's rate.
-- [ ] 3d. `channel_connection_state`, the supervisor and `ChannelRuntimeComponents`. `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 16 turns;
-  `Dockerfile` target, the compose service with its health check and secret file, the CI leg and area filter,
-  `deploy.sh` and the deployment tests.
-- [ ] `ModulithArchitectureTest` counts the module.
-- [ ] Tests with an in-test adapter: each rule's refusal, a duplicate, a second asker in a group, two messages of
-  one conversation in order, the sender's rate, a reply continuing an old conversation, a new group message
-  starting one, the idle window of a direct message, `/new`, a failed turn, restart recovery.
+- [x] 3d-1. The model catalog, `ModelCalls`, the native Asyncer and the tool-observation sanitizer move from the
+  API module into `chat.execution`, so every process that runs turns has them. `ChannelAdapter.open` and
+  `ChannelTransport`; `channel_connection_state`; `ChannelSupervisor`.
+- [ ] 3d-2. `ChannelRuntimeComponents` and the module `memoryos-channels`: an application with no HTTP API (health
+  on 8082), composed from what modules publish as the Worker is, no Flyway (schema validated, started after the
+  API); 16 turns, no per-person bound; a context test with an in-test adapter; its dependency rule test;
+  `io.memoryos.channels` added to core's rule against deployables.
+- [ ] 3d-3. The `Dockerfile` target; the compose service (health check, egress, memory limit 1.5 GiB, one
+  replica) in the base, staging and production files; a Redis user and a MinIO identity of its own; the channel
+  key and the turn's secrets; the database role limit raised from 40 to 50; the CI leg, image build and every
+  component list; `deploy.sh` with rollback to a release without it; the deployment tests; an alert and the
+  dashboard's service filter. Staging only until acceptance.
+- [x] `ModulithArchitectureTest` counts the module.
+- [x] Tests with an in-test adapter (3c-1); the sender's rate and the order of a conversation come with 3c-2.
 
 ## 4. The Lark adapter and the administrator's API
 
