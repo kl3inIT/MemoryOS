@@ -1,51 +1,20 @@
-package io.memoryos.api.chat;
+package io.memoryos.api.meeting;
 
-import com.embabel.agent.api.common.Asyncer;
-import com.embabel.agent.api.common.ExecutingOperationContext;
-import com.embabel.agent.core.AgentProcessRepository;
-import com.embabel.agent.spi.support.ExecutorAsyncer;
-import io.memoryos.ai.ModelCalls;
-import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.meeting.MeetingMinutesService;
 import io.memoryos.meeting.MeetingRecordingService;
-import io.memoryos.retrieval.SearchTasks;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
- * The API's scheduled meeting jobs and the model-call beans it composes across modules. Chat assembles its own turn
- * runtime and the ticks it owes ({@code io.memoryos.chat.execution}); this class qualifies its
- * {@code chatTaskExecutor}.
+ * The API's scheduled meeting jobs. Chat assembles its own turn runtime, the model calls and the ticks it owes
+ * ({@code io.memoryos.chat.execution}), which every process that runs turns shares.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableScheduling
-class ChatRuntimeConfiguration {
-    @Bean
-    @Primary
-    Asyncer chatNativeAsyncer(
-            @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor executor) {
-        // Keep native context propagation, typed binding and usage accounting. Attach actual native
-        // tasks to the helper deadline because canceling a CompletableFuture does not stop its IO.
-        return new ExecutorAsyncer(
-                command -> SearchTasks.executeNative(executor, command));
-    }
-
-    /** Single model calls outside conversations, bounded by the same deployment budgets as a Chat turn. */
-    @Bean
-    ModelCalls modelCalls(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
-                          ChatExecutionProperties limits,
-                          @Value("${embabel.agent.platform.llm-operations.data-binding.max-attempts:10}") int attempts) {
-        return new ModelCalls(contexts, repository, limits.costCap(), limits.tokenCap(), attempts);
-    }
-
+class MeetingJobsConfiguration {
     /**
      * Meeting minutes run here, not in the Worker, because the model catalog (`ai`) and its provider clients are wired
      * in this application. The claim leases one meeting per replica, so running several API replicas is safe.

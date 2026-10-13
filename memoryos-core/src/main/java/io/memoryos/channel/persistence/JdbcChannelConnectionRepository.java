@@ -8,9 +8,13 @@ import io.memoryos.shared.CredentialCipher;
 import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -45,6 +49,46 @@ public class JdbcChannelConnectionRepository {
     }
 
     public record Enabled(TenantId tenant, ChannelConnection connection) {}
+
+    /** Every bot that is switched on, of every Tenant: what the process that receives holds open. */
+    public List<Enabled> listEnabled() {
+        return jdbc.sql("SELECT tenant_id, " + COLUMNS + " FROM channel_connections WHERE enabled ORDER BY id")
+                .query((row, index) -> new Enabled(new TenantId(row.getObject("tenant_id", UUID.class)), connection(row, index)))
+                .list();
+    }
+
+    /** The stored envelope of a bot's secret; empty when the bot is gone. */
+    public Optional<CredentialCipher.EncryptedCredential> secret(TenantId tenant, UUID id) {
+        return jdbc.sql("""
+                        SELECT secret_ciphertext, secret_nonce, secret_key_version FROM channel_connections
+                        WHERE tenant_id = :tenant AND id = :id
+                        """)
+                .param("tenant", tenant.value()).param("id", id)
+                .query((row, ignored) -> new CredentialCipher.EncryptedCredential(row.getBytes("secret_ciphertext"),
+                        row.getBytes("secret_nonce"), row.getString("secret_key_version")))
+                .optional();
+    }
+
+    /** What the supervisor saw of a bot's connection at this pass. */
+    public void recordState(UUID id, @Nullable Instant openedAt, @Nullable String failureCode, @Nullable Instant failedAt,
+                            @Nullable Instant lastMessageAt, Instant now) {
+        jdbc.sql("""
+                        INSERT INTO channel_connection_state(connection_id, opened_at, last_failure_code, last_failure_at,
+                                                             last_message_at, heartbeat_at)
+                        VALUES (:id, :opened, :failure, :failed, :message, :now)
+                        ON CONFLICT (connection_id) DO UPDATE SET opened_at = EXCLUDED.opened_at,
+                            last_failure_code = EXCLUDED.last_failure_code, last_failure_at = EXCLUDED.last_failure_at,
+                            last_message_at = EXCLUDED.last_message_at, heartbeat_at = EXCLUDED.heartbeat_at
+                        """)
+                .param("id", id).param("opened", timestamp(openedAt), Types.TIMESTAMP)
+                .param("failure", failureCode, Types.VARCHAR).param("failed", timestamp(failedAt), Types.TIMESTAMP)
+                .param("message", timestamp(lastMessageAt), Types.TIMESTAMP)
+                .param("now", Timestamp.from(now)).update();
+    }
+
+    private static @Nullable Timestamp timestamp(@Nullable Instant instant) {
+        return instant == null ? null : Timestamp.from(instant);
+    }
 
     /** Whether any bot, of any Tenant, already holds the app. */
     public boolean appInUse(ChannelProvider provider, ChannelRegion region, String appId) {

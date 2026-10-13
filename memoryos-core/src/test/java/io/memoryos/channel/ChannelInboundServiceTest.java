@@ -302,6 +302,11 @@ class ChannelInboundServiceTest {
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
         @Override
+        public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public ChannelReply reply(ChannelConnection connection, ChannelMessage message) {
             return new ChannelReply() {
                 @Override public void append(String text) { replies.add("append:" + text); }

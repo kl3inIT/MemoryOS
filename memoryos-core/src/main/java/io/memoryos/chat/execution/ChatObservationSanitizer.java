@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.execution;
 
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationFilter;
