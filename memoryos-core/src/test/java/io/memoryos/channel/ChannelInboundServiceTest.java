@@ -192,12 +192,12 @@ class ChannelInboundServiceTest {
     @Test
     void outsidersOtherMessageTypesAndExternalGroupsAreRefusedWithANotice() throws Exception {
         service.receive(new ChannelMessage(connection, "x1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_out", null,
-                "another-org", true, ChannelMessage.Type.TEXT, "Hello", null));
+                "another-org", ORGANISATION, true, ChannelMessage.Type.TEXT, "Hello", null));
         assertEquals("This assistant serves members of the organisation only.", adapter.notices.getLast());
         assertEquals("REFUSED:OUTSIDER", outcome("x1") + ":" + reason("x1"));
 
         service.receive(new ChannelMessage(connection, "x2", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_ha", null,
-                ORGANISATION, true, ChannelMessage.Type.OTHER, "", null));
+                ORGANISATION, ORGANISATION, true, ChannelMessage.Type.OTHER, "", null));
         assertEquals("REFUSED:NOT_TEXT", outcome("x2") + ":" + reason("x2"));
 
         adapter.externalChats.add(GROUP_CHAT);
@@ -207,9 +207,10 @@ class ChannelInboundServiceTest {
     }
 
     @Test
-    void aBotWhoseOrganisationIsNotKnownOrThatIsSwitchedOffAnswersNobody() throws Exception {
-        jdbc.sql("UPDATE channel_connections SET organisation_key = NULL").update();
-        service.receive(direct("m1", "ou_ha", "Question", null));
+    void aBotOfAnotherOrganisationOrThatIsSwitchedOffAnswersNobody() throws Exception {
+        // The event names another organisation than the one recorded for the bot.
+        service.receive(new ChannelMessage(connection, "m1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_ha", null,
+                "org-other", "org-other", true, ChannelMessage.Type.TEXT, "Question", null));
         assertEquals("REFUSED:OUTSIDER", outcome("m1") + ":" + reason("m1"));
 
         jdbc.sql("UPDATE channel_connections SET enabled = FALSE, organisation_key = :key").param("key", ORGANISATION).update();
@@ -248,12 +249,12 @@ class ChannelInboundServiceTest {
     }
 
     private ChannelMessage direct(String id, String sender, String text, @Nullable String repliesTo) {
-        return new ChannelMessage(connection, id, DIRECT_CHAT, ChannelMessage.Kind.DIRECT, sender, null, ORGANISATION, true,
+        return new ChannelMessage(connection, id, DIRECT_CHAT, ChannelMessage.Kind.DIRECT, sender, null, ORGANISATION, ORGANISATION, true,
                 ChannelMessage.Type.TEXT, text, repliesTo);
     }
 
     private ChannelMessage group(String id, String sender, String text, boolean addressed, @Nullable String repliesTo) {
-        return new ChannelMessage(connection, id, GROUP_CHAT, ChannelMessage.Kind.GROUP, sender, null, ORGANISATION, addressed,
+        return new ChannelMessage(connection, id, GROUP_CHAT, ChannelMessage.Kind.GROUP, sender, null, ORGANISATION, ORGANISATION, addressed,
                 ChannelMessage.Type.TEXT, text, repliesTo);
     }
 

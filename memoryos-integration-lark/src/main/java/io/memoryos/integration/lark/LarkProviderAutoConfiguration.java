@@ -17,6 +17,12 @@ public class LarkProviderAutoConfiguration {
         return new RestLarkGateway(properties, registry);
     }
 
+    /** MEM-246: the Lark bot; only the process that receives opens a connection through it. */
+    @Bean(destroyMethod = "close")
+    LarkChannelAdapter larkChannelAdapter(LarkProviderProperties properties) {
+        return new LarkChannelAdapter(properties);
+    }
+
     @Bean
     LarkDocxSourceContentExtractor larkDocxSnapshotReader(ObjectMapper mapper) {
         return new LarkDocxSourceContentExtractor(mapper);
