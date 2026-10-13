@@ -16,7 +16,7 @@
 | A direct conversation ends after the idle window and on `/new` | `ChannelInboundServiceTest.aDirectConversationEndsAfterTheIdleWindowOrOnTheNewCommand` |
 | A conversation is continued only by the account it belongs to | `ChannelInboundServiceTest.aConversationIsContinuedOnlyByWhoeverItBelongsTo` |
 | An outsider, a message that is not text and an external group are refused with a notice and a reason, and no turn runs | `ChannelInboundServiceTest.outsidersOtherMessageTypesAndExternalGroupsAreRefusedWithANotice` |
-| A bot whose organisation is not known, or that is switched off, answers nobody | `ChannelInboundServiceTest.aBotWhoseOrganisationIsNotKnownOrThatIsSwitchedOffAnswersNobody` |
+| A bot of another organisation than its event names, or that is switched off, answers nobody | `ChannelInboundServiceTest.aBotOfAnotherOrganisationOrThatIsSwitchedOffAnswersNobody` |
 | A refused or failed turn becomes a notice and a recorded reason | `ChannelInboundServiceTest.aTurnThatIsRefusedOrFailsBecomesANoticeAndARecordedReason` |
 | Old message ids are swept and a recent one is kept | `ChannelInboundServiceTest.oldMessageIdsAreSweptAndARecentOneIsKept` |
 | A bot switched on is opened with its decrypted secret and its state is written; a second pass keeps it | `ChannelSupervisorTest.aBotSwitchedOnIsOpenedWithItsSecretAndItsStateIsWritten` |
@@ -26,6 +26,11 @@
 | Stopping closes every connection | `ChannelSupervisorTest.stoppingClosesEveryConnection` |
 | The channels process starts from its own composition with everything a turn reaches, runs the supervisor and reports ready | `ChannelsApplicationTest.startsWithWhatATurnNeedsAndReportsReady` |
 | The channels process scans only itself, names no module's implementation and imports only what the channel capability publishes for it | `ChannelsDependencyRulesTest` |
+| A Lark group message naming the bot is addressed, its mention removed and another's kept, with the sender's and the app's organisations from the event | `LarkChannelAdapterTest.aGroupMessageNamingTheBotIsAddressedWithTheMentionRemovedAndBothOrganisations` |
+| A Lark direct message is addressed and a reply names what it replies to | `LarkChannelAdapterTest.aDirectMessageIsAddressedAndAReplyNamesWhatItRepliesTo` |
+| A Lark message that is not text carries no text; a group message without the bot is not addressed | `LarkChannelAdapterTest.aMessageThatIsNotTextCarriesNoTextAndAGroupMessageWithoutTheBotIsNotAddressed` |
+| An answer is Markdown with its sources as links and its closing line; each region has its address | `LarkChannelAdapterTest.anAnswerIsMarkdownWithItsSourcesAsLinksAndItsClosingLine`, `eachRegionHasItsAddress` |
 
 The bridge to Chat (`ChannelTurns`: session, leaf, turn, stream, saved answer) has no test of its own; it is
-exercised end to end on staging with the Lark adapter (plan step 4).
+exercised end to end on staging with the Lark adapter (plan step 4), as is the adapter's connection, streaming reply,
+e-mail and external-chat calls, which need a live Lark tenant.

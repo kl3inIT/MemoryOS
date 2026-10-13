@@ -44,7 +44,9 @@ The one condition is that their Lark `email` equals the verified email of their 
      needs something of the asker's own (their mailbox, a connection they signed in to) is answered with an
      invitation to a direct message, as Lindy, Copilot Studio and Aily do.
 2. **Only members of this Lark organisation.**
-   - A sender whose `tenant_key` differs from the connection's is told the bot serves the organisation only.
+   - A sender whose `tenant_key` differs from the organisation the event names for the bot's app is told the bot
+     serves the organisation only. A custom app belongs to one organisation, which every event's header names, so
+     the check needs no stored key and no scope to read the tenant.
    - A group Lark marks external is refused whole, also for a member asking in it: outsiders read the answer.
    - A member with no matching MemoryOS account is still answered, as the bot: in a group like anyone, and in a
      direct message with a line saying that signing in to MemoryOS with that email opens their own documents.
