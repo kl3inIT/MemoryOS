@@ -994,3 +994,71 @@ test("steps between the cited passages of a PDF original from the reader's own t
   await expect(box).toBeInViewport();
   expect(await scrolled()).toBeLessThan(atSecondRegion - 300);
 });
+
+test("marks the words of the question inside the located passages of a text original", async ({
+  page,
+}) => {
+  const lines = [
+    "QUY ĐỊNH NGHỈ PHÉP",
+    "Nhân viên chính thức có 12 ngày nghỉ phép mỗi năm.",
+    "Đơn xin nghỉ gửi quản lý trước ba ngày.",
+    "Ngày phép còn lại được đối soát cuối năm.",
+  ];
+  const title = "Quy định nghỉ phép.txt";
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: matchedPassages(title, "text/plain", [
+        { content: `Title: ${title}\n${lines[1]}`, provenanceJson: "[]" },
+        { content: `Title: ${title}\n${lines[2]}`, provenanceJson: "[]" },
+      ]),
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) => {
+    const from = Number(new URL(route.request().url()).searchParams.get("from"));
+    const ordinal = from === 0 ? 0 : from + 1;
+    return route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title,
+        mediaType: "text/plain",
+        passages: [
+          {
+            ordinal,
+            content: `Title: ${title}\n${lines[ordinal / 10 + 1]}`,
+            provenanceJson: "[]",
+          },
+        ],
+        firstOrdinal: from,
+        totalChunks: 20,
+        hasMore: true,
+      },
+    });
+  });
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    route.fulfill({ contentType: "text/plain; charset=utf-8", body: lines.join("\n\n") }),
+  );
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: `Open best match in ${title}` }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Highlighted")).toHaveCount(2);
+  // Plain text is drawn at once and again when the syntax highlighter has loaded; the marks follow it.
+  await expect(dialog.locator("pre.shiki")).toBeVisible();
+
+  const painted = (name: string) =>
+    page.evaluate(
+      (highlight) => [...(CSS.highlights.get(highlight) ?? [])].map((range) => range.toString()),
+      name,
+    );
+  // The heading holds both words and is no cited passage, so it carries no mark.
+  await expect.poll(() => painted("memoryos-citation-term")).toEqual(["nghỉ phép", "nghỉ"]);
+  expect(await painted("memoryos-citation-active")).toEqual([lines[1]]);
+  expect(await painted("memoryos-citation")).toEqual([lines[2]]);
+
+  // The words stay marked when the other passage becomes the one being read.
+  await dialog.getByRole("button", { name: "Next passage" }).click();
+  await expect.poll(() => painted("memoryos-citation-active")).toEqual([lines[2]]);
+  expect(await painted("memoryos-citation-term")).toEqual(["nghỉ phép", "nghỉ"]);
+});
