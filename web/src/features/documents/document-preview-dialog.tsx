@@ -22,7 +22,7 @@ import { DocumentSourceIcon } from "./document-source-icon";
 import type { DocumentSourceType } from "./document-source-presentation";
 import type { EvidenceView } from "./evidence-order";
 import { DocumentMeta } from "./provider-link";
-import { readSourceLocation } from "./source-provenance";
+import { readSourceLocation, type SourceLocation } from "./source-provenance";
 
 export type DocumentSelection = {
   documentId: string;
@@ -98,9 +98,23 @@ export function DocumentPreviewDialog({
   }, [originalUrl, selection.title, selection.mediaType]);
 
   // A PDF citation is drawn from its recorded region, so its rail entry reports what provenance recorded.
-  const confidence: readonly CitationConfidence[] =
-    kind === "pdf" ? places.map((place) => (place.boxes.length ? "exact" : "none")) : placed;
-  const located = kind === "pdf" ? cited.boxes.length > 0 : SEARCHABLE.has(kind);
+  // A picture's is too, once the view has said whether the picture is the one the regions were measured
+  // in; until the citation being read has a region to check, the others report what was recorded.
+  const framed = (place: SourceLocation) => place.boxes.some((box) => box.frame);
+  const confidence: readonly (CitationConfidence | undefined)[] =
+    kind === "pdf"
+      ? places.map((place) => (place.boxes.length ? "exact" : "none"))
+      : kind === "image"
+        ? places.map((place, index) =>
+            !framed(place) ? "none" : framed(cited) ? placed[index] : "exact",
+          )
+        : placed;
+  const located =
+    kind === "pdf"
+      ? cited.boxes.length > 0
+      : kind === "image"
+        ? places.some(framed)
+        : SEARCHABLE.has(kind);
 
   return (
     <Dialog
