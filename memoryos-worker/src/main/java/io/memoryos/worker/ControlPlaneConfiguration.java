@@ -6,6 +6,7 @@ import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
 import io.memoryos.chat.ChatArtifactCleanupService;
+import io.memoryos.chat.ChatRunReconciliation;
 import io.memoryos.chat.ChatExportService;
 import io.memoryos.chat.ChatSessionPurgeService;
 import io.memoryos.connector.ConnectorSyncPort;
@@ -165,6 +166,18 @@ class ControlPlaneConfiguration {
     RecurringTask<Void> chatRetentionPolicyTask(ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-retention-policy-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> sessions.applyRetentionPolicies());
+    }
+
+    /**
+     * A turn whose process died keeps its conversation busy until its lease lapses (three minutes); this ends it then.
+     * Every process that executes turns renews its own leases, and none of them reconciles another's (MEM-246).
+     */
+    @Bean
+    RecurringTask<Void> chatRunReconciliationTask(ChatRunReconciliation runs) {
+        return Tasks.recurring("memoryos-chat-run-reconciliation-v1", FixedDelay.of(Duration.ofSeconds(15)))
+                .execute((_, _) -> {
+                    for (int batch = 0; batch < 10 && runs.endLapsed() == 100; batch++) { /* drain */ }
+                });
     }
 
     @Bean

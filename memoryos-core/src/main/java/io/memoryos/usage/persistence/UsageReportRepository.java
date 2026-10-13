@@ -147,14 +147,16 @@ public class UsageReportRepository {
                 });
     }
 
-    /** Every member of the Tenant, active or not, with their current Groups. */
+    /** Every person of the Tenant, active or not, with their current Groups; a service account holds no seat. */
     public List<Member> members(UUID tenant) {
         return jdbc.sql("""
                 SELECT m.actor_id, p.email, p.display_name, m.status,
                        ARRAY(SELECT g.name FROM iam_group_memberships gm
                              JOIN iam_groups g ON g.tenant_id = gm.tenant_id AND g.id = gm.group_id
                              WHERE gm.tenant_id = m.tenant_id AND gm.actor_id = m.actor_id ORDER BY g.name) AS groups
-                FROM tenant_memberships m LEFT JOIN actor_profiles p ON p.actor_id = m.actor_id
+                FROM tenant_memberships m
+                JOIN actors a ON a.id = m.actor_id AND a.account_type = 'STANDARD'
+                LEFT JOIN actor_profiles p ON p.actor_id = m.actor_id
                 WHERE m.tenant_id = :tenant ORDER BY p.email NULLS LAST, m.actor_id
                 """).param("tenant", tenant)
                 .query((r, ignored) -> new Member(r.getObject("actor_id", UUID.class), r.getString("email"),

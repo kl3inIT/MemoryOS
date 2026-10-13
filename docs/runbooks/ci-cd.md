@@ -163,7 +163,9 @@ is the whole protection.
 
 Nginx Proxy Manager already sets the forwarding headers, `Host`, TLS 1.2/1.3, gzip,
 `server_tokens off`, 90-second proxy timeouts and a 2000 MiB body limit. Only what those do not
-cover is configured, and only on the host that needs it:
+cover is configured, and only on the host that needs it. Its gzip reaches HTML only (measured on
+staging 2026-10-13: scripts and stylesheets left it as `identity`), so `web/nginx.conf` compresses
+the static files it serves itself and nothing is configured on the proxy for it:
 
 | Host | Upstream | Configured beyond the defaults |
 | --- | --- | --- |

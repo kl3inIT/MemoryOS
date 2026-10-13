@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +33,7 @@ import java.util.Set;
 import org.mockito.Mockito;
 import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.streaming.ChatStreamProperties;
+import io.memoryos.chat.streaming.TurnWaiting;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -67,7 +69,7 @@ class ChatTurnServiceTest {
     private final ChatModelExecutor model = mock(ChatModelExecutor.class);
     private final ChatModelSelector models = mock(ChatModelSelector.class);
     private final ModelClients.Lease lease = mock(ModelClients.Lease.class);
-    private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(60), 6, 1024, 32000, 10000,
+    private final ChatExecutionProperties limits = new ChatExecutionProperties(1, 1, 0, Duration.ofSeconds(60), Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(60), 6, 1024, 32000, 10000,
             null, null, 10, Duration.ofSeconds(60));
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final StreamBufferWriter streams = new StreamBufferWriter(TestRedis.template(),
@@ -171,7 +173,7 @@ class ChatTurnServiceTest {
     @Test
     void failedLeaseRenewalKeepsTheRunAndLostOwnershipInterruptsIt() throws Exception {
         prepare();
-        var renewing = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofMillis(50), Duration.ofSeconds(60),
+        var renewing = new ChatExecutionProperties(1, 1, 0, Duration.ofSeconds(60), Duration.ofMinutes(30), Duration.ofMillis(50), Duration.ofSeconds(60),
                 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
         var started = new CountDownLatch(1);
         doAnswer(call -> {
@@ -298,9 +300,134 @@ class ChatTurnServiceTest {
         }
     }
 
+    private ChatExecutionProperties waitingLimits(int concurrency, int perActor, Duration waitLimit) {
+        return new ChatExecutionProperties(concurrency, perActor, 4, waitLimit, Duration.ofMinutes(30), Duration.ofSeconds(60),
+                Duration.ofSeconds(60), 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
+    }
+
+    /** A second conversation with its own reply; the fixture's context serves both. */
+    private ChatTurnPersistence.Reservation otherTurn(UUID other) {
+        var otherPair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
+        when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
+                .thenAnswer(call -> session.equals(call.getArgument(1)) ? pair : otherPair);
+        return otherPair;
+    }
+
+    private List<String> waitingEvents(UUID assistant) throws InterruptedException {
+        streams.flush();
+        try (var reader = streams.subscribe(assistant, 0, () -> true)) {
+            return reader.read().events().stream().filter(TurnWaiting.class::isInstance)
+                    .map(event -> Boolean.toString(((TurnWaiting) event).waiting())).toList();
+        }
+    }
+
+    @Test
+    void aTurnBeyondTheBoundWaitsAndStartsWhenASlotFrees() throws Exception {
+        prepare();
+        var other = UUID.randomUUID();
+        var otherPair = otherTurn(other);
+        doAnswer(call -> { call.<Consumer<String>>getArgument(3).accept("Answer"); return null; })
+                .when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var service = new ChatTurnService(persistence, model, waitingLimits(1, 1, Duration.ofSeconds(60)), queued::add, streams, models)) {
+            service.send(actor, session, parent, request, "Question", null);
+            service.send(actor, other, parent, UUID.randomUUID(), "Question", null);
+            // Both are accepted; only the first was dispatched, and the second's stream says it waits.
+            assertEquals(1, queued.size());
+            assertEquals(List.of("true"), waitingEvents(otherPair.assistantMessageId()));
+            verify(persistence, times(2)).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
+            queued.remove().run();
+            // The first reply ended and gave its slot to the one that waited.
+            assertEquals(1, queued.size());
+            assertEquals(List.of("true", "false"), waitingEvents(otherPair.assistantMessageId()));
+            queued.remove().run();
+            verify(model, times(2)).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            verify(persistence).finishAndRead(eq(other), eq(otherPair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq("Answer"),
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
+        }
+    }
+
+    @Test
+    void aWaitingTurnIsStoppedWithoutTheModelAndLeavesTheQueue() {
+        prepare();
+        var other = UUID.randomUUID();
+        var otherPair = otherTurn(other);
+        when(persistence.authorizeReply(actor, other, otherPair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var service = new ChatTurnService(persistence, model, waitingLimits(1, 1, Duration.ofSeconds(60)), queued::add, streams, models)) {
+            service.send(actor, session, parent, request, "Question", null);
+            service.send(actor, other, parent, UUID.randomUUID(), "Question", null);
+            service.cancel(actor, other, otherPair.assistantMessageId());
+            verify(persistence).finishAndRead(eq(other), eq(otherPair.assistantMessageId()), eq(ChatMessage.Status.CANCELED), eq(""),
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
+            queued.remove().run();
+            // Nothing waited any more when the slot was freed.
+            assertTrue(queued.isEmpty());
+            verify(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Test
+    void aTurnThatWaitedPastTheLimitFailsWithTheCapacityCode() throws Exception {
+        prepare();
+        var other = UUID.randomUUID();
+        var otherPair = otherTurn(other);
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var service = new ChatTurnService(persistence, model, waitingLimits(1, 1, Duration.ofMillis(1)), queued::add, streams, models)) {
+            service.send(actor, session, parent, request, "Question", null);
+            service.send(actor, other, parent, UUID.randomUUID(), "Question", null);
+            Thread.sleep(20);
+            service.maintain();
+            verify(persistence).finishAndRead(eq(other), eq(otherPair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
+                    eq("CHAT_CAPACITY_EXCEEDED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(),
+                    eq(ChatResearch.EMPTY), isNull(), any());
+            // Its place in the queue is free again.
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
+                    .thenReturn(new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true));
+            service.send(actor, UUID.randomUUID(), parent, UUID.randomUUID(), "Question", null);
+            assertEquals(1, queued.size());
+        }
+    }
+
+    @Test
+    void aPersonAtTheirBoundWaitsWhileAnotherPersonTakesTheFreeSlot() throws Exception {
+        prepare();
+        var other = UUID.randomUUID();
+        var otherPair = otherTurn(other);
+        var colleague = new ActorId(UUID.randomUUID());
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var service = new ChatTurnService(persistence, model, waitingLimits(2, 1, Duration.ofSeconds(60)), queued::add, streams, models)) {
+            service.send(actor, session, parent, request, "Question", null);
+            service.send(actor, other, parent, UUID.randomUUID(), "Question", null);
+            assertEquals(1, queued.size());
+            assertEquals(List.of("true"), waitingEvents(otherPair.assistantMessageId()));
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
+                    .thenReturn(new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true));
+            service.send(colleague, UUID.randomUUID(), parent, UUID.randomUUID(), "Question", null);
+            // The free slot went to the colleague, past the person who is at their own bound.
+            assertEquals(2, queued.size());
+        }
+    }
+
+    @Test
+    void aFullQueueRefusesBeforeReserving() {
+        prepare();
+        var limited = new ChatExecutionProperties(1, 1, 1, Duration.ofSeconds(60), Duration.ofMinutes(30), Duration.ofSeconds(60),
+                Duration.ofSeconds(60), 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
+        otherTurn(UUID.randomUUID());
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var service = new ChatTurnService(persistence, model, limited, queued::add, streams, models)) {
+            service.send(actor, session, parent, request, "Question", null);
+            service.send(actor, UUID.randomUUID(), parent, UUID.randomUUID(), "Question", null);
+            assertEquals("CHAT_CAPACITY_EXCEEDED", assertThrows(ChatException.class,
+                    () -> service.send(actor, UUID.randomUUID(), parent, UUID.randomUUID(), "Question", null)).code());
+            verify(persistence, times(2)).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
+        }
+    }
+
     private final McpTurnService mcp = mock(McpTurnService.class);
     private final McpTurnTools tools = mock(McpTurnTools.class);
-    private final ChatExecutionProperties twoTurns = new ChatExecutionProperties(2, Duration.ofMinutes(30), Duration.ofSeconds(60),
+    private final ChatExecutionProperties twoTurns = new ChatExecutionProperties(2, 2, 0, Duration.ofSeconds(60), Duration.ofMinutes(30), Duration.ofSeconds(60),
             Duration.ofSeconds(60), 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
 
     private ChatTurnService withMcp(ChatExecutionProperties properties, TaskExecutor executor) {
@@ -396,6 +523,41 @@ class ChatTurnServiceTest {
                 release.countDown();
                 for (Runnable run; (run = queued.poll()) != null; ) run.run();
             }
+        }
+    }
+
+    @Test
+    void aConversationDeletedWhileItsWaitingTurnOpensToolsNeverJoinsTheQueue() throws Exception {
+        prepare();
+        var other = UUID.randomUUID();
+        var otherPair = otherTurn(other);
+        when(persistence.delete(actor, other)).thenReturn(List.of(otherPair.assistantMessageId()));
+        var opening = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        slowMcpOpen(opening, release);
+        var oneWaiting = new ChatExecutionProperties(1, 1, 1, Duration.ofSeconds(60), Duration.ofMinutes(30), Duration.ofSeconds(60),
+                Duration.ofSeconds(60), 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(oneWaiting, queued::add)) {
+            try {
+                service.send(actor, session, parent, request, "Question", null);
+                var sending = tasks.submit(() -> service.command(actor, other, mcpCommand(UUID.randomUUID())));
+                assertTrue(opening.await(5, TimeUnit.SECONDS));
+                // Its stream goes with the conversation while the turn has not reached the queue yet.
+                tasks.submit(() -> service.delete(actor, other)).get(1, TimeUnit.SECONDS);
+                release.countDown();
+                assertEquals(otherPair.assistantMessageId(), sending.get(5, TimeUnit.SECONDS).assistantMessageId());
+            } finally { release.countDown(); }
+            verify(tools).close();
+            // The only place in the queue is free again, and the freed slot starts nothing that was deleted.
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
+                    .thenReturn(new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true));
+            service.send(actor, UUID.randomUUID(), parent, UUID.randomUUID(), "Question", null);
+            assertEquals(1, queued.size());
+            queued.remove().run();
+            assertEquals(1, queued.size());
+            queued.remove().run();
+            verify(model, times(2)).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
         }
     }
 

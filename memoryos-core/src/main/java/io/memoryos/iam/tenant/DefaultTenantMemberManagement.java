@@ -3,6 +3,7 @@ package io.memoryos.iam.tenant;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.AccountType;
 import io.memoryos.iam.TenantMemberException;
 import io.memoryos.iam.TenantMemberManagement;
 import io.memoryos.iam.TenantMembershipRole;
@@ -81,7 +82,9 @@ public class DefaultTenantMemberManagement implements TenantMemberManagement {
                 administrator,
                 IamCapability.USERS_MANAGE
         ).tenantId();
+        // A service account is its owner's to retire, not a person of the Users page.
         TenantMembershipEntity member = tenants.findMembershipLocked(tenantId, target)
+                .filter(found -> found.getActor().getAccountType() == AccountType.STANDARD)
                 .orElseThrow(TenantMemberException::notFound);
         if (member.getRole() == TenantMembershipRole.OWNER) {
             throw TenantMemberException.ownerProtected();

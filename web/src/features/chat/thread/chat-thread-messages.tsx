@@ -75,7 +75,16 @@ export function UserMessage({ readOnly }: { readOnly: boolean }) {
  */
 function ChatPendingIndicator() {
   const ui = useAppTranslation();
-  return <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />;
+  const waiting = useAuiState(
+    (state) => state.message.metadata.custom.waiting as boolean | undefined,
+  );
+  return (
+    <ThinkingIndicator
+      role="status"
+      label={waiting ? ui("Đang chờ lượt…") : ui("Đang suy nghĩ…")}
+      className="mb-3"
+    />
+  );
 }
 
 /** Why a committed turn failed, in words the reader can act on; a model manager is sent to fix the credential. */

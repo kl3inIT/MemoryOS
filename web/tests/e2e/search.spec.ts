@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "./deployment-policy";
-import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
+import {
+  fulfillPdfRange,
+  rangedBytes,
+  rangedHandbookPdf,
+  readsBytes,
+  scannedReportPdf,
+} from "../fixtures/ranged-pdf";
 
 const documentId = "73835d74-d386-4b4e-b392-ad7f81e3b55a";
 const generation = "6b780b3a-de22-4307-ace9-6c2f44e22fc1";
@@ -600,7 +607,8 @@ test("shows source type, provider and authors, links to Google Drive and outline
   expect(new Set(originals.map(({ url }) => url.searchParams.get("generation")))).toEqual(
     new Set([generation]),
   );
-  expect(originals.filter(({ range }) => !range)).toHaveLength(1);
+  // The reader opens the file by range itself; nothing probes it whole.
+  expect(originals.filter(({ range }) => !range)).toHaveLength(0);
   expect(
     rangedBytes(
       originals.map(({ range }) => range),
@@ -623,9 +631,234 @@ test("shows source type, provider and authors, links to Google Drive and outline
   );
   await expect(dialog.getByRole("spinbutton", { name: "Page number" })).toHaveValue("7");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
-  expect(fallbackReads.filter((range) => !range)).toHaveLength(2);
+  expect(fallbackReads.filter((range) => !range)).toHaveLength(1);
   await dialog.getByRole("button", { name: "All passages" }).click();
   await expect(dialog.getByRole("article", { name: "Selected passage" })).toContainText(
     nextPassage.content,
   );
+});
+
+test("opens a scanned report at its cited page without reading the rest of it", async ({
+  page,
+}) => {
+  // A scan lists its pages flat, each a picture apart; pdf.js needs every page dictionary before it draws one.
+  const box =
+    '[{"page_no":13,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}]';
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Báo cáo tài chính 2023.pdf",
+            mediaType: "application/pdf",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [{ ...sections[0], provenance: [{ ordinal: 2, provenanceJson: box }] }],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Báo cáo tài chính 2023.pdf",
+        mediaType: "application/pdf",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  const originalPdf = scannedReportPdf();
+  const reads: (string | undefined)[] = [];
+  await page.route("**/api/search/documents/*/original?*", (route) => {
+    reads.push(route.request().headers()["range"]);
+    return fulfillPdfRange(route, originalPdf);
+  });
+  /** No read for a while: the neighbours of the cited page and the thumbnails in view are in. */
+  const settled = () =>
+    expect
+      .poll(
+        async () => {
+          const before = reads.length;
+          await page.waitForTimeout(800);
+          return reads.length === before;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("báo cáo");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  const title = page.getByRole("button", { name: "Báo cáo tài chính 2023.pdf", exact: true });
+  await title.click();
+  const dialog = page.getByRole("dialog");
+  const cited = dialog.locator('[data-slot="pdf-page"][data-page="13"]');
+  await expect(cited.locator("canvas")).toBeVisible();
+  await expect(dialog.locator('[data-slot="pdf-citation-box"]')).toBeInViewport();
+  await expect(dialog.getByText("/ 24")).toBeVisible();
+  const rail = dialog.getByRole("navigation", { name: "Pages" });
+  await expect(rail.locator("canvas").first()).toBeVisible();
+  await settled();
+
+  // Every read is a range: the file is opened by its head and its tail, never probed whole.
+  expect(reads.every(Boolean)).toBe(true);
+  expect(reads[0]).toBe("bytes=0-131071");
+  // The first page is twelve pages from the cited one. Its picture is neither drawn nor fetched.
+  expect(readsBytes(reads, 150 * 1024, 280 * 1024)).toBe(false);
+  expect(rangedBytes(reads, originalPdf.length)).toBeLessThan(originalPdf.length / 2);
+  // The rail draws the thumbnails in view, not one for every page.
+  expect(await rail.locator("canvas").count()).toBeLessThan(12);
+
+  // Opening the document again authorizes it with one byte and reads what it kept from memory.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  const kept = reads.length;
+  await title.click();
+  await expect(cited.locator("canvas")).toBeVisible();
+  await settled();
+  const again = reads.slice(kept);
+  expect(again[0]).toBe("bytes=0-0");
+  expect(rangedBytes(again, originalPdf.length)).toBeLessThan(originalPdf.length / 10);
+
+  // A range that fails once the document is open reads it whole, and the new canvas follows the reader. The
+  // first page's picture was never fetched, so drawing it is such a read.
+  await page.unroute("**/api/search/documents/*/original?*");
+  const later: (string | undefined)[] = [];
+  await page.route("**/api/search/documents/*/original?*", (route) => {
+    const range = route.request().headers()["range"];
+    later.push(range);
+    return range ? route.fulfill({ status: 500 }) : fulfillPdfRange(route, originalPdf);
+  });
+  const pageNumber = dialog.getByRole("spinbutton", { name: "Page number" });
+  await pageNumber.fill("1");
+  await pageNumber.press("Enter");
+  await expect.poll(() => later.filter((range) => !range).length).toBe(1);
+  // The whole read opens at the cited page again.
+  await expect(pageNumber).toHaveValue("13");
+  await pageNumber.fill("24");
+  await pageNumber.press("Enter");
+  await expect(dialog.locator('[data-slot="pdf-page"][data-page="24"] canvas')).toBeVisible();
+  await expect(pageNumber).toHaveValue("24");
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  expect(later.filter((range) => !range)).toHaveLength(1);
+});
+
+test("marks the cited region on an image original, through zoom and a turn, and only on the picture it was measured in", async ({
+  page,
+}) => {
+  // The fixture is 854 x 534 pixels; the OCR answered [171, 107, 598, 267] in those pixels.
+  const picture = readFileSync(
+    new URL("../fixtures/generated-files/bieu-do-doanh-thu.png", import.meta.url),
+  );
+  const box = (width: number) =>
+    `{"page_no":1,"bbox":{"l":171,"t":107,"r":598,"b":267,"coord_origin":"TOPLEFT","frame_width":${width},"frame_height":534}}`;
+  let frameWidth = 854;
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Biểu đồ doanh thu.png",
+            mediaType: "image/png",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [
+              { ...sections[0], provenance: [{ ordinal: 2, provenanceJson: box(frameWidth) }] },
+            ],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Biểu đồ doanh thu.png",
+        mediaType: "image/png",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    route.fulfill({ contentType: "image/png", body: picture }),
+  );
+  const search = async () => {
+    await page.goto("/search");
+    await page.getByRole("textbox", { name: "Search documents" }).fill("doanh thu");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Biểu đồ doanh thu.png", exact: true }).click();
+  };
+
+  await search();
+  const dialog = page.getByRole("dialog");
+  const shown = dialog.getByRole("img", { name: "Biểu đồ doanh thu.png" });
+  const region = dialog.locator('[data-slot="image-citation-box"]');
+  await expect(region).toBeInViewport();
+  await expect(dialog.getByText("Highlighted")).toBeVisible();
+  /** The region's box as shares of the picture's box on screen. */
+  const share = async () => {
+    const [outer, inner] = [await shown.boundingBox(), await region.boundingBox()];
+    if (!outer || !inner) throw new Error("the picture or its region is not laid out");
+    return [
+      (inner.x - outer.x) / outer.width,
+      (inner.y - outer.y) / outer.height,
+      inner.width / outer.width,
+      inner.height / outer.height,
+    ];
+  };
+  const close = (actual: number[], expected: number[]) =>
+    actual.forEach((value, index) => expect(value).toBeCloseTo(expected[index] ?? NaN, 2));
+  const [left, top, width, height] = [171 / 854, 107 / 534, 427 / 854, 160 / 534];
+  close(await share(), [left, top, width, height]);
+
+  // Zoomed, the region keeps its place on the picture.
+  await dialog.getByRole("button", { name: "Zoom in" }).click();
+  await expect.poll(async () => (await shown.boundingBox())?.width).toBeGreaterThan(0);
+  await page.waitForTimeout(400);
+  close(await share(), [left, top, width, height]);
+
+  // Turned a quarter clockwise, what was the picture's top edge is its right edge.
+  await dialog.getByRole("button", { name: "Rotate right" }).click();
+  await page.waitForTimeout(400);
+  close(await share(), [1 - top - height, left, height, width]);
+
+  // A region measured in a picture of another size is not this picture's: nothing is drawn, and the rail says so.
+  frameWidth = 534;
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await search();
+  await expect(shown).toBeVisible();
+  await expect(dialog.getByText("Not found")).toBeVisible();
+  await expect(region).toHaveCount(0);
 });

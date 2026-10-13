@@ -14,7 +14,7 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.lark.persistence.JdbcLarkCredentialRepository;
 import io.memoryos.connector.lark.persistence.LarkCredentialConfiguration;
-import io.memoryos.connector.source.persistence.CredentialCipher;
+import io.memoryos.shared.CredentialCipher;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamException;

@@ -852,6 +852,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không mở được bản PDF gốc. Hãy xem đoạn trích.":
     "The original PDF could not be opened. Use the passages view.",
   "Vùng được trích dẫn trên trang {{page}}": "Cited region on page {{page}}",
+  "Vùng được trích dẫn trên ảnh": "Cited region on the picture",
   "Trang {{pages}} / {{total}}": "Page {{pages}} / {{total}}",
   "Đang tải tài liệu…": "Loading the document…",
   "Điều khiển tài liệu": "Document controls",
@@ -1896,6 +1897,7 @@ Object.assign(vietnameseUi, {
   "Đang chọn đoạn liên quan…": "Selecting relevant passages…",
   "Đang đọc ngữ cảnh tài liệu…": "Reading document context…",
   "Đang tìm trong tài liệu…": "Searching documents…",
+  "Đang chờ lượt…": "Waiting for a turn…",
   "Đang suy nghĩ…": "Thinking…",
   "Tệp tải lên": "Uploaded files",
   "Không giới hạn": "Unlimited",

@@ -30,7 +30,7 @@ export type PreviewCitations = {
   texts: readonly string[];
   /** The heading each citation was read under, which tells two identical passages apart. */
   sections?: readonly (string | undefined)[];
-  /** Pages and regions the extraction recorded; PDF only, empty when none were recorded. */
+  /** Pages and regions the extraction recorded; a PDF or a picture, empty when none were recorded. */
   pages?: readonly number[];
   boxes?: readonly PdfHighlight[];
   /** The sheet and row recorded for each citation; workbooks only. */
@@ -106,7 +106,11 @@ export function FilePreview({
     case "pdf":
       // PDF citations are drawn from the regions provenance recorded, never searched for.
       return <LazyPdfView url={content.file} pages={pages} boxes={boxes} thumbnails={thumbnails} />;
-    case "image":
+    case "image": {
+      // A picture's citations are drawn from the regions provenance recorded, as a PDF's are. Every region
+      // of one picture is measured in the same frame, so what the view says of one holds for them all.
+      const onMarked = (marked: boolean) =>
+        citations.onPlaced?.(texts.map(() => (marked ? "exact" : "none")));
       return image ? (
         <ImageView
           blob={content.blob}
@@ -114,10 +118,13 @@ export function FilePreview({
           zoom={image.zoom}
           rotation={image.rotation}
           onZoom={image.onZoom}
+          boxes={boxes}
+          onMarked={onMarked}
         />
       ) : (
-        <ControlledImage blob={content.blob} alt={filename} />
+        <ControlledImage blob={content.blob} alt={filename} boxes={boxes} onMarked={onMarked} />
       );
+    }
     case "docx":
       return highlighted((onRendered) => (
         <DocxView
@@ -199,12 +206,29 @@ export function FilePreview({
 }
 
 /** An image with its own zoom and turn, for a surface that has no tools of its own for it. */
-function ControlledImage({ blob, alt }: { blob: Blob; alt: string }) {
+function ControlledImage({
+  blob,
+  alt,
+  boxes,
+  onMarked,
+}: {
+  blob: Blob;
+  alt: string;
+  boxes: readonly PdfHighlight[];
+  onMarked: (marked: boolean) => void;
+}) {
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-surface-sunken">
-      <ImageView blob={blob} alt={alt} zoom={zoom} rotation={rotation} />
+      <ImageView
+        blob={blob}
+        alt={alt}
+        zoom={zoom}
+        rotation={rotation}
+        boxes={boxes}
+        onMarked={onMarked}
+      />
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
         <div className="pointer-events-auto">
           <ImageControls

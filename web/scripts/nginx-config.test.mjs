@@ -124,3 +124,43 @@ describe("nginx security headers", () => {
     expect(overriding).toEqual([]);
   });
 });
+
+/**
+ * The scripts and the stylesheet are most of what a page loads, and the image served them uncompressed until a
+ * reader was measured waiting for them. Compression is a per-location switch, so a new static location has to
+ * turn it on, and a location that proxies to the API must not: its responses carry secrets beside text the
+ * caller chose, and a streamed answer cannot wait in a compression buffer.
+ */
+describe("nginx compression", () => {
+  const server = locations(config).reduce((text, block) => text.replace(block.body, ""), config);
+
+  it.each(["/assets/index-AbC123.js", "/assets/index-AbC123.css", "/favicon.svg", "/search", "/"])(
+    "compresses %s, which it serves from disk",
+    (path) => {
+      expect(chosen(path).body).toMatch(/(^|\s)gzip\s+on\s*;/);
+    },
+  );
+
+  it("compresses the pdf.js worker in its own location", () => {
+    // Nginx prefers this regex location to the /assets/ prefix, so the worker is served from here.
+    const worker = locations(config).find((block) => block.selector === "~ ^/assets/.+\\.mjs$");
+    expect(worker).toBeDefined();
+    expect(worker.body).toMatch(/(^|\s)gzip\s+on\s*;/);
+  });
+
+  it("covers the script and stylesheet types the build emits", () => {
+    const types = /gzip_types\s+([^;]+);/.exec(config)?.[1] ?? "";
+    for (const type of ["application/javascript", "text/javascript", "text/css"])
+      expect(types.split(/\s+/)).toContain(type);
+  });
+
+  it("leaves every response proxied from the API as it is", () => {
+    const proxied = locations(config).filter((block) => /proxy_pass\s/.test(block.body));
+    expect(proxied.length).toBeGreaterThan(0);
+    for (const block of proxied)
+      expect(block.body, `${block.selector} compresses API responses`).not.toMatch(
+        /(^|\s)gzip\s+on\s*;/,
+      );
+    expect(server, "gzip is switched on outside a location").not.toMatch(/(^|\s)gzip\s+on\s*;/);
+  });
+});

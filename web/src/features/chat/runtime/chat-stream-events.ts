@@ -31,6 +31,8 @@ export const codeSchema = eventSchema.extend({
   stream: z.enum(["stdout", "stderr"]).nullish(),
   files: z.array(generatedFileSchema).max(25).default([]),
 });
+/** The reply waits for a turn, or has just been given one. */
+export const waitingSchema = eventSchema.extend({ waiting: z.boolean() });
 export const imageSchema = eventSchema.extend({
   stage: z.enum(["GENERATING", "COMPLETED", "FAILED"]),
   id: z.string().uuid().nullish(),

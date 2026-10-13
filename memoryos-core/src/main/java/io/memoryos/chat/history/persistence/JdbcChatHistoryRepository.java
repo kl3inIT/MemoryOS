@@ -7,6 +7,7 @@ import io.memoryos.chat.ChatHistoryFeedback;
 import io.memoryos.chat.ChatHistoryMessage;
 import io.memoryos.chat.ChatHistoryQuery;
 import io.memoryos.chat.ChatHistoryTotals;
+import io.memoryos.chat.ChatSurface;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -35,7 +36,7 @@ public class JdbcChatHistoryRepository {
     public record Entry(UUID id, UUID rootMessageId, @Nullable UUID actorId, @Nullable String actorLabel, @Nullable String actorEmail,
                         String title, @Nullable String firstQuestion, @Nullable String firstAnswer,
                         @Nullable String modelName, long messages, ChatHistoryFeedback feedback, boolean deleted,
-                        Instant updatedAt) {}
+                        Instant updatedAt, ChatSurface surface) {}
 
     /** The page cursor: a conversation's own (updated_at, id), so a page never repeats or skips one. */
     public record Cursor(Instant updatedAt, UUID id) {}
@@ -51,7 +52,7 @@ public class JdbcChatHistoryRepository {
 
     private static final String PAGE = """
             SELECT s.id, s.root_message_id, s.owner_actor_id, p.display_name, p.email, s.title, s.updated_at,
-                   s.deleted_at IS NOT NULL AS deleted,
+                   s.surface, s.deleted_at IS NOT NULL AS deleted,
                    (SELECT m.content FROM chat_message m
                      WHERE m.session_id = s.id AND m.role = 'USER' ORDER BY m.created_at, m.id LIMIT 1) AS question,
                    (SELECT m.content FROM chat_message m
@@ -151,7 +152,7 @@ public class JdbcChatHistoryRepository {
                 row.getString("display_name"), row.getString("email"), row.getString("title"),
                 row.getString("question"), row.getString("answer"), row.getString("model_name"),
                 row.getLong("messages"), ChatHistoryFeedback.valueOf(row.getString("feedback")), row.getBoolean("deleted"),
-                row.getTimestamp("updated_at").toInstant());
+                row.getTimestamp("updated_at").toInstant(), ChatSurface.valueOf(row.getString("surface")));
     }
 
     private static ChatHistoryMessage message(ResultSet row, int ignored) throws SQLException {

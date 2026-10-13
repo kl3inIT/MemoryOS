@@ -94,6 +94,8 @@ public class AiUsageLimitRepository {
      * actor and is excluded everywhere: indexing a Source must never exhaust anyone's budget.
      */
     public List<DaySpend> spend(UUID tenant, LocalDate from, AiUsageLimitScope scope, @Nullable UUID subject) {
+        // A budget for each person is not one for a service account (MEM-246): all of a channel's group turns
+        // are its bot's, so its spend counts in the Tenant's budget and in its Groups', and in no person's.
         String sql = switch (scope) {
             case TENANT -> """
                     SELECT u.day, SUM(u.input_tokens + u.output_tokens) AS tokens, SUM(u.cost_usd) AS cost
@@ -103,6 +105,7 @@ public class AiUsageLimitRepository {
             case PERSON -> """
                     SELECT u.day, SUM(u.input_tokens + u.output_tokens) AS tokens, SUM(u.cost_usd) AS cost
                     FROM ai_usage u
+                    JOIN actors a ON a.id = u.actor_id AND a.account_type = 'STANDARD'
                     WHERE u.tenant_id = :tenant AND u.day >= :from AND u.actor_id = :subject
                     GROUP BY u.day ORDER BY u.day""";
             case GROUP -> """
@@ -123,7 +126,8 @@ public class AiUsageLimitRepository {
         return jdbc.sql("""
                         SELECT SUM(u.input_tokens + u.output_tokens) AS tokens, SUM(u.cost_usd) AS cost
                         FROM ai_usage u
-                        WHERE u.tenant_id = :tenant AND u.day >= :from AND u.actor_id IS NOT NULL
+                        JOIN actors a ON a.id = u.actor_id AND a.account_type = 'STANDARD'
+                        WHERE u.tenant_id = :tenant AND u.day >= :from
                         GROUP BY u.actor_id ORDER BY tokens DESC LIMIT 1
                         """)
                 .param("tenant", tenant).param("from", from)

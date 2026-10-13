@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * The figures behind the report's PDF, aggregated from exactly the rows written to {@code usage_by_user.csv} so the
@@ -91,6 +92,10 @@ public record UsageReportData(
         }
 
         public UsageReportData build(List<Member> members) {
+            // What a service account spent stays in the totals and has its own line; the people counted are people.
+            var persons = members.stream().map(Member::actor).collect(Collectors.toSet());
+            active.retainAll(persons);
+            dailyPeople.values().forEach(day -> day.retainAll(persons));
             var seats = members.stream().filter(member -> "ACTIVE".equals(member.status())).toList();
             var seated = seats.stream().map(Member::actor).filter(active::contains).count();
             var idle = seats.stream().filter(member -> !active.contains(member.actor()))
