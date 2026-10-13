@@ -43,7 +43,7 @@ public class IamAuthorizationRepository {
              AND tenant.status = 'ACTIVE'
             JOIN actors actor
               ON actor.id = membership.actor_id
-             AND actor.account_type = 'STANDARD'
+             AND actor.account_type IN ('STANDARD', 'SERVICE')
             LEFT JOIN iam_group_memberships group_membership
               ON group_membership.tenant_id = membership.tenant_id
              AND group_membership.actor_id = membership.actor_id

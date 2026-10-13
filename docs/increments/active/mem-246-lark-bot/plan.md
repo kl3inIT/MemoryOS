@@ -19,17 +19,17 @@ of step 5 is merged, so an administrator can always turn the bot off.
 
 ## 2. Service accounts, the session's surface and account lookup
 
-- [ ] `iam`: account type `SERVICE`; a service that creates and removes a service account (actor, self-issued
+- [x] `iam`: account type `SERVICE`; a service that creates and removes a service account (actor, self-issued
   identity and profile, active membership, Basic Group) for an owner such as a channel connection; the authority
   query admits it.
-- [ ] A service account is left out of the Users list and count, the people pickers, Group candidates and the
+- [x] A service account is left out of the Users list and count, the people pickers, Group candidates and the
   groupless invariant, and is refused by deactivation and Group edits; the web types and pages for the new
   account type.
-- [ ] `usage`: a service account is outside the per-person budget, the seats and the "active users" of reports,
+- [x] `usage`: a service account is outside the per-person budget, the seats and the "active users" of reports,
   and keeps its own line in costs by actor.
 - [ ] `chat_session.surface`, set at creation and immutable; sidebar and session search list `WEB`; the
   administrator's history shows the surface.
-- [ ] `iam`: the active member whose verified email equals a given one, none when several match; an index on the
+- [x] `iam`: the active member whose verified email equals a given one, none when several match; an index on the
   lower-cased email.
 - [ ] Tests at the PostgreSQL boundary: a turn of a service account finds only `PUBLIC` and everyone-granted
   documents, not a private Group's, and a chunk without the public flag is refused by the recheck; nobody signs

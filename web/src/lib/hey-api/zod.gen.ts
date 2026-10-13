@@ -2504,7 +2504,7 @@ export const zChatLibraryFile = z.object({
     deletable: z.boolean()
 });
 
-export const zAccountType = z.enum(['STANDARD']);
+export const zAccountType = z.enum(['STANDARD', 'SERVICE']);
 
 export const zTenantMembershipRole = z.enum(['OWNER', 'MEMBER']);
 
@@ -3075,7 +3075,7 @@ export const zGroupMember = z.object({
     actorId: z.uuid(),
     displayName: z.string().nullable(),
     email: z.string().nullable(),
-    accountType: z.enum(['STANDARD']),
+    accountType: z.enum(['STANDARD', 'SERVICE']),
     status: z.enum(['ACTIVE', 'INACTIVE']),
     isManager: z.boolean(),
     protectedOwner: z.boolean()

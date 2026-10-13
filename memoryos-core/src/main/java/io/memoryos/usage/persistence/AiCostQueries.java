@@ -42,7 +42,9 @@ public class AiCostQueries {
                        COALESCE(SUM(u.calls), 0) AS calls, COALESCE(SUM(u.unknown_cost_calls), 0) AS unknown,
                        COALESCE(SUM(u.input_tokens), 0) AS input, COALESCE(SUM(u.output_tokens), 0) AS output,
                        COALESCE(SUM(u.cache_read_tokens), 0) AS cache_read, COALESCE(SUM(u.image_count), 0) AS images,
-                       COALESCE(SUM(u.audio_seconds), 0) AS audio, COUNT(DISTINCT u.actor_id) AS people
+                       COALESCE(SUM(u.audio_seconds), 0) AS audio,
+                       COUNT(DISTINCT u.actor_id) FILTER (WHERE EXISTS (
+                           SELECT 1 FROM actors a WHERE a.id = u.actor_id AND a.account_type = 'STANDARD')) AS people
                 FROM ai_usage u WHERE\s""" + FILTER), scope)
                 .query((r, ignored) -> new AiCostTotals(r.getBigDecimal("cost"), r.getBigDecimal("external_cost"), r.getLong("calls"),
                         r.getLong("unknown"), r.getLong("input"), r.getLong("output"), r.getLong("cache_read"), r.getLong("images"),
