@@ -38,14 +38,16 @@ of step 5 is merged, so an administrator can always turn the bot off.
 
 ## 3. The `channel` capability and its deployable
 
-- [ ] `CredentialCipher` to the shared kernel.
-- [ ] Migrations: `channel_connections`, `channel_connection_state`, `channel_conversations`,
-  `channel_identities`, `channel_messages`.
-- [ ] The port, the registry, the settings service, the inbound service, the supervisor, the daily cleanup,
-  `ChannelRuntimeComponents`.
-- [ ] `maintain()` and the stream flush are scheduled by components `chat` publishes for a process that executes
-  turns; the API imports them.
-- [ ] `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 16 turns;
+Four pull requests, each green on its own.
+
+- [ ] 3a. `maintain()` and the stream flush are scheduled by components `chat` publishes for a process that
+  executes turns; the API imports them. A turn can be told the name of the person it answers.
+- [ ] 3b. `CredentialCipher` to the shared kernel. Migrations: `channel_connections`,
+  `channel_connection_state`, `channel_conversations`, `channel_identities`, `channel_messages`. The port, the
+  registry and the settings service, which creates and retires the bot's service account.
+- [ ] 3c. The inbound service: the rules, the sender, who the turn runs as, the conversation, the turn and its
+  reply; the order within a conversation and the sender's rate; the daily cleanup.
+- [ ] 3d. The supervisor and `ChannelRuntimeComponents`. `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 16 turns;
   `Dockerfile` target, the compose service with its health check and secret file, the CI leg and area filter,
   `deploy.sh` and the deployment tests.
 - [ ] `ModulithArchitectureTest` counts the module.
@@ -60,7 +62,13 @@ of step 5 is merged, so an administrator can always turn the bot off.
   the mark of an external group) and record it in the design; keep `LarkChannel` or fall back.
 - [ ] The adapter in `memoryos-integration-lark`, with recorded events as fixtures; the rule test between the bot
   and connector packages; `checkRuntimeClasspathIsolation` unchanged.
+- [ ] The capability `CHANNELS_MANAGE`: assignable, held by administrators, shown with the other administrative
+  capabilities on the Groups page in both languages.
 - [ ] `/api/channels/lark` with its contract records; `openapi.yml` and the web client regenerated.
+- [ ] Whether a member can change the `email` Lark reports, settled on the test tenant; the adapter reads only
+  an address that is safe to match an account by.
+- [ ] The wording of every notice and the reaction, taken from what Onyx, WeKnora, Dust and Claude in Slack
+  show for the same cases, in both languages, for review.
 - [ ] On staging, through the API: enable the bot on the test tenant; a direct message from a mapped member, from
   an unmapped one, a group message, a second message while the first is answered; restart `memoryos-channels`
   during an answer and during idle.
