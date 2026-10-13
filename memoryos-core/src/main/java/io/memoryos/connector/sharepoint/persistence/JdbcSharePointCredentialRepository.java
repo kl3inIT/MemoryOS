@@ -8,7 +8,7 @@ import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointGateway;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
-import io.memoryos.connector.source.persistence.CredentialCipher;
+import io.memoryos.shared.CredentialCipher;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;

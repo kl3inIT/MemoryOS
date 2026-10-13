@@ -12,7 +12,7 @@ import io.memoryos.connector.GoogleDriveServiceAccountKey;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceStatus;
-import io.memoryos.connector.source.persistence.CredentialCipher;
+import io.memoryos.shared.CredentialCipher;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;

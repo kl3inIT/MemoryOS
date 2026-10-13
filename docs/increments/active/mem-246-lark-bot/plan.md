@@ -40,16 +40,21 @@ of step 5 is merged, so an administrator can always turn the bot off.
 
 Four pull requests, each green on its own.
 
+Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INTERRUPTED` 3 min 8 s later
+(lease 3 min); 30 turns of one person sent at once all completed, in 6.6 to 33.9 s.
+
 - [x] 3a. `maintain()` and the stream flush are scheduled by `chat`'s own configuration beside the turn
   runtime, so any process that runs turns runs them; the API no longer schedules them. Ending the runs of a
   process that died is a Worker task, which reads nothing a process holds.
-- [ ] 3b. `CredentialCipher` to the shared kernel. Migrations: `channel_connections`,
-  `channel_connection_state`, `channel_conversations`, `channel_identities`, `channel_messages`. The port, the
-  registry and the settings service, which creates and retires the bot's service account. The Worker's daily
-  task that deletes `channel_messages` older than ninety days, through `ChannelWorkerComponents`.
-- [ ] 3c. The inbound service: the rules, the sender, who the turn runs as and the asker's name it is told, the
+- [x] 3b. `CredentialCipher` to the shared kernel. `channel_connections`, several a Tenant. The capability
+  `CHANNELS_MANAGE` (backend, contract, the Groups page's copy in both languages). The connection service, which
+  creates and retires the bot's service account. Each table comes with the code that writes it: the others move to
+  3c and 3d.
+- [ ] 3c. The port and the registry; `channel_conversations`, `channel_identities`, `channel_messages`, and
+  the Worker's daily task that deletes `channel_messages` older than ninety days, through
+  `ChannelWorkerComponents`. The inbound service: the rules, the sender, who the turn runs as and the asker's name it is told, the
   conversation, the turn and its reply; the order within a conversation and the sender's rate.
-- [ ] 3d. The supervisor and `ChannelRuntimeComponents`. `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 16 turns;
+- [ ] 3d. `channel_connection_state`, the supervisor and `ChannelRuntimeComponents`. `memoryos-channels`: the application, its configuration, its dependency rule test, the bound of 16 turns;
   `Dockerfile` target, the compose service with its health check and secret file, the CI leg and area filter,
   `deploy.sh` and the deployment tests.
 - [ ] `ModulithArchitectureTest` counts the module.
@@ -64,8 +69,6 @@ Four pull requests, each green on its own.
   the mark of an external group) and record it in the design; keep `LarkChannel` or fall back.
 - [ ] The adapter in `memoryos-integration-lark`, with recorded events as fixtures; the rule test between the bot
   and connector packages; `checkRuntimeClasspathIsolation` unchanged.
-- [ ] The capability `CHANNELS_MANAGE`: assignable, held by administrators, shown with the other administrative
-  capabilities on the Groups page in both languages.
 - [ ] `/api/channels/lark` with its contract records; `openapi.yml` and the web client regenerated.
 - [ ] Whether a member can change the `email` Lark reports, settled on the test tenant; the adapter reads only
   an address that is safe to match an account by.
