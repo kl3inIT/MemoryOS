@@ -7,15 +7,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.ExternalIdentity;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupQuery;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.InitialTenantBootstrapRequest;
 import io.memoryos.iam.InitialTenantBootstrapper;
 import io.memoryos.iam.ServiceAccounts;
+import io.memoryos.iam.UserQuery;
 import io.memoryos.iam.group.DefaultIamAuthorization;
 import io.memoryos.iam.group.GroupProvisioner;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
+import io.memoryos.iam.group.persistence.GroupEntity;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
 import io.memoryos.iam.group.persistence.GroupMembershipRepository;
+import io.memoryos.iam.group.persistence.GroupProjectionRepository;
 import io.memoryos.iam.group.persistence.GroupRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
@@ -29,6 +34,7 @@ import io.memoryos.iam.user.persistence.UserQueryRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -120,6 +126,15 @@ class DefaultServiceAccountsTest {
         // Not a person: the people picker and the Group commands do not find it.
         assertTrue(users.searchActiveMembers(TENANT, null, 50).stream().noneMatch(person -> person.actorId().equals(bot)));
         assertEquals(Set.of(owner), new GroupInvariantRepository(jdbc).existingTenantMembers(TENANT, Set.of(owner, bot)));
+
+        // Nor do the Users list and its counts, a Group's members and its candidates.
+        var page = users.findPage(TENANT, UserQuery.defaults(), Instant.now());
+        assertEquals(1L, page.totalItems());
+        assertEquals(1L, page.counts().active());
+        var projections = new GroupProjectionRepository(jdbc);
+        var everyone = new GroupQuery(null, 0, 20);
+        assertEquals(1L, projections.members(TENANT, new GroupId(GroupEntity.BASIC_ID), everyone).totalItems());
+        assertEquals(0L, projections.candidates(TENANT, new GroupId(GroupEntity.ADMIN_ID), everyone).totalItems());
 
         // One account an owner.
         assertThrows(IllegalStateException.class,

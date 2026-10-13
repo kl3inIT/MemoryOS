@@ -53,7 +53,10 @@ Every endpoint except `/mine` requires `MODELS_MANAGE` (implied by `SYSTEM_ADMIN
 
 `ai_usage_limit` (V103) caps what may be spent, as Onyx's `token_rate_limit` does. One row per Tenant and scope:
 `TENANT`, `GROUP` (one row per Group) or `PERSON`, where `PERSON` is one budget applied to each person separately,
-not a budget for one named person. A row sets a token budget, an estimated cost budget, or both, over a trailing
+not a budget for one named person. A service account ([identity](identity.md#account-classification-and-group-authority))
+is not a person: `PERSON` never binds it and it is not the "busiest person", while its spend counts in `TENANT`
+and in its Groups' budgets, is its own line in costs by actor, and it is left out of the people of the AI costs
+totals and of the seats and active people of a usage report. A row sets a token budget, an estimated cost budget, or both, over a trailing
 window of `period_days` whole UTC days, and can be kept but switched off.
 
 - **What counts.** Input and output tokens, and known cost, from rows that carry an actor. System work has no actor,

@@ -75,6 +75,21 @@ class AiUsageLimitServiceTest {
         assertTrue(limits.check(new ActorId(other)).isEmpty());
     }
 
+    @Test void aServiceAccountIsBoundByTheTenantsBudgetAndByNoPersons() {
+        UUID bot = person();
+        jdbc.sql("UPDATE actors SET account_type = 'SERVICE' WHERE id = :id").param("id", bot).update();
+        limit(AiUsageLimitScope.PERSON, null, 1_000L, null, 7);
+        // Every group turn of a channel is its bot's: a budget meant for each person would stop it at once.
+        spend(bot, 5_000, 0, 0.5, NOW);
+        assertTrue(limits.check(new ActorId(bot)).isEmpty());
+        // A person is still held to their own.
+        spend(actor, 1_000, 0, 0.1, NOW);
+        assertEquals(AiUsageLimitScope.PERSON, limits.check(new ActorId(actor)).orElseThrow().scope());
+        // What the bot spent counts in the Tenant's budget, which binds it like anyone.
+        limit(AiUsageLimitScope.TENANT, null, 5_500L, null, 7);
+        assertEquals(AiUsageLimitScope.TENANT, limits.check(new ActorId(bot)).orElseThrow().scope());
+    }
+
     @Test void systemWorkIsNeitherCountedNorRefused() {
         limit(AiUsageLimitScope.TENANT, null, 1_000L, null, 7);
         // Indexing a Source carries no person; it must not exhaust the Tenant's budget.
