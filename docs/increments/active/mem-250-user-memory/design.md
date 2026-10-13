@@ -48,7 +48,7 @@ latency of the additional step"). Neither problem was about where memory was sto
 ## Contracts
 
 - `chat_memory(tenant_id, actor_id, content VARCHAR(4000), enabled BOOLEAN DEFAULT TRUE, revision BIGINT,
-  updated_at TIMESTAMPTZ)` (V155), primary key `(tenant_id, actor_id)`, foreign key to `tenant_memberships`
+  updated_at TIMESTAMPTZ)` (V161), primary key `(tenant_id, actor_id)`, foreign key to `tenant_memberships`
   with `ON DELETE CASCADE`. A missing row reads as an empty memory that is switched on, at revision 0.
 - `GET /api/chat/memory` returns `{content, enabled, revision, maxLength}` for the caller; `PUT` takes
   `{content, revision}` and answers 409 on a stale revision; `DELETE` clears the content; `PUT
