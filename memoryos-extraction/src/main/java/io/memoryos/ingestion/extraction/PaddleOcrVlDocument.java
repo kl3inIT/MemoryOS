@@ -96,9 +96,10 @@ final class PaddleOcrVlDocument {
             if (!items.isArray()) throw failure(ExtractionFailure.MALFORMED);
             JsonNode width = page.path("width");
             JsonNode height = page.path("height");
-            if (!width.isNumber() || !height.isNumber() || width.asDouble() <= 0 || height.asDouble() <= 0) {
-                throw failure(ExtractionFailure.MALFORMED);
-            }
+            boolean sized = width.isNumber() && height.isNumber() && width.asDouble() > 0 && height.asDouble() > 0;
+            // A PDF page is not read without the size of its rendering. A picture's text needs none: an
+            // answer without it keeps the picture's page alone.
+            if (!sized && !pages.isEmpty()) throw failure(ExtractionFailure.MALFORMED);
             JsonNode preprocessor = page.path("model_settings").path("use_doc_preprocessor");
             boolean asSent = preprocessor.isBoolean() && !preprocessor.asBoolean();
             boolean corrected = preprocessor.isBoolean() && preprocessor.asBoolean();
@@ -109,7 +110,7 @@ final class PaddleOcrVlDocument {
             double shownWidth = 0;
             double shownHeight = 0;
             if (pages.isEmpty()) {
-                if (asSent) {
+                if (asSent && sized) {
                     scaleX = scaleY = 1;
                     shownWidth = width.asDouble();
                     shownHeight = height.asDouble();

@@ -155,9 +155,11 @@ carries for one reader, in three responses another increment is editing.
 
 ### C1 — the adapter keeps an image's boxes
 
-`PaddleOcrVlDocument.blocks` with no PDF frames: each result needs a positive numeric `width` and `height`
-(otherwise `MALFORMED`, as for a PDF) and every block's box is kept as it was answered, `TOPLEFT`, with that
-size as its frame. A box outside the frame or with no area is dropped and the block keeps its page.
+`PaddleOcrVlDocument.blocks` with no PDF frames: with a positive numeric `width` and `height` in the result,
+every block's box is kept as it was answered, `TOPLEFT`, with that size as its frame. A box outside the frame
+or with no area is dropped and the block keeps its page. A result without a size is still read, its blocks on
+their page without a box: the picture's text does not depend on where it is, and no image answer has been
+recorded to say the size is always there.
 
 ### C3 — the adapter keeps a rotated page's box
 

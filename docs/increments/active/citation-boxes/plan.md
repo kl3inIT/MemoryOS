@@ -21,7 +21,7 @@
 | What | Where |
 | --- | --- |
 | A framed box survives the artifact and chunk provenance; an unframed one is written as before | `StructuredDocumentChunkerTest`, `ExtractionArtifactReaderTest` |
-| An image keeps its boxes in the picture's pixels, per frame; none when the answer does not say the picture was read as sent, outside the picture or without area; an answer without a size is refused | `PaddleOcrVlDocumentTest`, `PaddleOcrVlRoutingTest.aSourceImageIsReadByPaddleOcrVlThroughTheRouter` |
+| An image keeps its boxes in the picture's pixels, per frame; none when the answer does not say the picture was read as sent, outside the picture or without area; an answer without a size keeps its text and no box | `PaddleOcrVlDocumentTest`, `PaddleOcrVlRoutingTest.aSourceImageIsReadByPaddleOcrVlThroughTheRouter` |
 | A turned page keeps its boxes at 90, 180 and 270 in points of the displayed page; the stored page's proportions, a preprocessed answer and a half turn that does not say keep the page alone | `PaddleOcrVlDocumentTest` |
 | Provenance with a frame reads as a framed box, a broken frame as none | `source-provenance.test.ts` |
 | A framed box is placed on a turned PDF page and refused on a page of other proportions | `pdf-pages.test.ts` |

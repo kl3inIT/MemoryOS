@@ -120,7 +120,7 @@ The PaddleOCR-VL adapter maps `result.layoutParsingResults[i]` to page `i+1` and
 
 - *PDF user space* (no frame): an upright PDF page, as above. Origin at the page's lower left, unit a point, y up, `coord_origin: BOTTOMLEFT`.
 - *The frame as displayed* (`frame_width` and `frame_height` on the box, `coord_origin: TOPLEFT`): origin at the top left of the frame as a reader sees it, x right and y down, and the frame is `frame_width` × `frame_height` in the box's own unit.
-  - An image input: the unit is a pixel of the picture **after** its EXIF orientation is applied, and the frame is `prunedResult.width` × `height`; `l, t, r, b` are `block_bbox` unchanged. Page `n` is the picture's `n`th frame (1 for anything but a multi-frame TIFF).
+  - An image input: the unit is a pixel of the picture **after** its EXIF orientation is applied, and the frame is `prunedResult.width` × `height`; `l, t, r, b` are `block_bbox` unchanged. Page `n` is the picture's `n`th frame (1 for anything but a multi-frame TIFF). An image answer without that size is still read: its blocks keep their page and no box.
   - A PDF page with `/Rotate` 90, 180 or 270: the unit is a point of the page as displayed, `/Rotate` applied, and the frame is that displayed size, the CropBox with width and height swapped for 90 and 270 (the page's `pages[]` entry). `l = x1·sx`, `t = y1·sy`, `r = x2·sx`, `b = y2·sy` with `sx = displayed width / prunedResult.width` and `sy = displayed height / prunedResult.height`. The CropBox's own corner is not part of it.
 
 A framed box is kept only when all of this holds; otherwise the block keeps `page_no` alone, and an unlocated passage is never drawn:

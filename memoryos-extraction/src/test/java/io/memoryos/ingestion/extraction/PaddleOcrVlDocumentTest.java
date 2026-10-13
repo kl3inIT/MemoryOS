@@ -377,9 +377,18 @@ class PaddleOcrVlDocumentTest {
                 "[{\"prunedResult\":{\"width\":0,\"height\":10,\"parsing_res_list\":[]}}]"), List.of(upright(1, 1))));
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree(
                 "[{\"prunedResult\":{\"width\":10,\"height\":10}}]"), List.of(upright(1, 1))));
-        // An image answer without the picture's size cannot place a box either.
-        assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree(
-                "[{\"prunedResult\":{\"parsing_res_list\":[]}}]"), List.of()));
+    }
+
+    @Test
+    void anImageAnswerWithoutThePicturesSizeKeepsItsTextAndNoBox() throws Exception {
+        var blocks = PaddleOcrVlDocument.blocks(mapper.readTree("""
+                [{"prunedResult":{"model_settings":{"use_doc_preprocessor":false},"parsing_res_list":[
+                  {"block_label":"text","block_content":"Tổng cộng","block_bbox":[100,200,300,400]}]}}]
+                """), List.of());
+
+        assertEquals("Tổng cộng", blocks.getFirst().text());
+        assertEquals(1, blocks.getFirst().locations().getFirst().pageNo());
+        assertNull(blocks.getFirst().locations().getFirst().bbox());
     }
 
     @Test
