@@ -1,6 +1,6 @@
 # Backend guide
 
-For work in the Gradle modules `memoryos-core`, `memoryos-api`, `memoryos-worker`, the `memoryos-integration-*` modules and `memoryos-extraction`; the first three are called `core`, `api` and `worker` below. This page is a checklist that points to the canonical rule; it does not restate it. When a rule here and its linked source disagree, the linked source wins.
+For work in the Gradle modules `memoryos-core`, `memoryos-api`, `memoryos-worker`, `memoryos-channels`, the `memoryos-integration-*` modules and `memoryos-extraction`; the first three are called `core`, `api` and `worker` below. This page is a checklist that points to the canonical rule; it does not restate it. When a rule here and its linked source disagree, the linked source wins.
 
 ## Where things live
 
@@ -11,6 +11,7 @@ For work in the Gradle modules `memoryos-core`, `memoryos-api`, `memoryos-worker
 | `memoryos-extraction` | Content extraction under `io.memoryos.ingestion.extraction` | Anything but public `core` APIs; a platform module or its SDK |
 | `memoryos-api` | Controllers, security, the `contract/` records of each API package, OpenAPI configuration | Business rules, SQL, a `persistence` import, a core type returned as an HTTP body |
 | `memoryos-worker` | Redis Streams and db-scheduler composition of durable background work | Capability business or persistence behavior |
+| `memoryos-channels` | The chat bots' process: its application, configuration and the composition it imports (`ChannelRuntimeComponents`) | Capability business or persistence behavior; a component scan of its own beyond its package |
 
 The capability map and allowed dependency edges are in [ARCHITECTURE.md](../../ARCHITECTURE.md#code-and-capability-boundaries); the layout inside a module is in [ADR 0015](../decisions/0015-capability-module-map.md#layout-inside-a-module).
 

@@ -155,6 +155,7 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 | `memoryos-extraction` | Bounded content extraction (`io.memoryos.ingestion.extraction`): Tika, Docling, the OCR adapters and the spreadsheet readers; a provider's snapshot is read by the reader its integration registers for that input format, so extraction names no platform |
 | `memoryos-api` | HTTP, security, migrations and interactive Chat composition |
 | `memoryos-worker` | Redis/db-scheduler composition and durable background work |
+| `memoryos-channels` | The chat bots' process: imports `ChannelRuntimeComponents`, holds each bot's connection through `ChannelSupervisor` and runs Chat turns in process; no HTTP API, health on 8082, no migrations; not deployed yet (MEM-246) |
 
 | Capability | Owns | Detailed contract |
 | --- | --- | --- |

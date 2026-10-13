@@ -55,6 +55,18 @@ recorded and tried again at the next pass. The secret is decrypted for the open 
 message is answered on a virtual thread of its own. Stopping closes every connection, then waits up to 30 seconds
 for the answers in progress.
 
+## The process
+
+`memoryos-channels` runs the supervisor and the turns. Its application scans only its own package and imports
+`ChannelRuntimeComponents`, which scans what a turn reaches (`channel`, `chat`, `ai`, `retrieval`, `connector`,
+`document`, `library`, `objectstorage`, `mcp`, `usage`, `audit`, `iam`) and leaves out what serves a browser or
+another process: Keycloak administration, invitations, identity providers and sign-in, the MemoryOS MCP endpoint
+and its trusted apps, the library page's shelves; ingestion, meetings and voice are not scanned. Every external
+Source type's adapter is on its classpath, because a turn's search reaches them. It runs no migration (the API
+does and starts first; this process validates the schema), serves only `/actuator/health` on port 8082 (readiness:
+the database), and runs at most 16 turns with no separate bound for one person, since every group turn is the
+bot's account. Its database pool is 5. It is not deployed yet.
+
 ## Receiving a message
 
 `ChannelInboundService.receive` handles one message to its end, on the adapter's thread, after the adapter has

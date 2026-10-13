@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
 
 /**
@@ -44,6 +45,7 @@ public class ChannelSupervisor implements SmartLifecycle {
     private final ExecutorService answers = Executors.newVirtualThreadPerTaskExecutor();
     private @Nullable ScheduledExecutorService passes;
 
+    @Autowired
     public ChannelSupervisor(JdbcChannelConnectionRepository connections, ChannelCredentialConfiguration credentials,
                              ChannelAdapters adapters, ChannelInboundService inbound) {
         this(connections, credentials, adapters, inbound, Clock.systemUTC());
