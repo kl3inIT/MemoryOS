@@ -1,5 +1,5 @@
 import { Download, Maximize2, Minimize2, X } from "lucide-react";
-import { lazy, Suspense, useCallback, useState, type RefObject } from "react";
+import { useCallback, useEffect, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,8 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import type { CitationConfidence } from "@/features/preview/file-preview";
+import { LazyOriginalView } from "@/features/preview/lazy-original-view";
 import { previewKind, previewSize } from "@/features/preview/preview-kind";
-import { PreviewCanvas, PreviewSkeleton } from "@/features/preview/preview-surface";
+import { warmOriginal } from "@/features/preview/warm-original";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { CitationRail } from "./citation-rail";
 import { DocumentPreviewContent } from "./document-preview-content";
@@ -22,11 +23,6 @@ import type { DocumentSourceType } from "./document-source-presentation";
 import type { EvidenceView } from "./evidence-order";
 import { DocumentMeta } from "./provider-link";
 import { readSourceLocation } from "./source-provenance";
-
-// The readers pull in pdf.js and docx-preview, so they load only when a reader opens a document.
-const OriginalView = lazy(() =>
-  import("@/features/preview/original-view").then((module) => ({ default: module.OriginalView })),
-);
 
 export type DocumentSelection = {
   documentId: string;
@@ -95,6 +91,11 @@ export function DocumentPreviewDialog({
   }, []);
   const [full, setFull] = useState(false);
   const [passages, setPassages] = useState(!reader || view === "passages");
+  // The readers' code, and a PDF's first bytes, start with the dialog rather than after its own code has run.
+  const originalUrl = passages ? undefined : reader?.url;
+  useEffect(() => {
+    if (originalUrl) warmOriginal(selection.title, selection.mediaType, originalUrl);
+  }, [originalUrl, selection.title, selection.mediaType]);
 
   // A PDF citation is drawn from its recorded region, so its rail entry reports what provenance recorded.
   const confidence: readonly CitationConfidence[] =
@@ -137,30 +138,22 @@ export function DocumentPreviewDialog({
           {/* min-w-0 keeps a wide original — a workbook with many columns — from pushing the rail out. */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {reader && !passages ? (
-              <Suspense
-                fallback={
-                  <PreviewCanvas>
-                    <PreviewSkeleton />
-                  </PreviewCanvas>
-                }
-              >
-                <OriginalView
-                  reader={reader}
-                  filename={selection.title}
-                  mediaType={selection.mediaType}
-                  pages={cited.pages}
-                  boxes={cited.boxes}
-                  rows={places.map((place) =>
-                    place.row === undefined ? undefined : { sheet: place.sheet, row: place.row },
-                  )}
-                  texts={reading.citations}
-                  sections={reading.sections}
-                  active={reading.activeMatchIndex}
-                  onPlaced={onPlaced}
-                  onActive={reading.select}
-                  thumbnails
-                />
-              </Suspense>
+              <LazyOriginalView
+                reader={reader}
+                filename={selection.title}
+                mediaType={selection.mediaType}
+                pages={cited.pages}
+                boxes={cited.boxes}
+                rows={places.map((place) =>
+                  place.row === undefined ? undefined : { sheet: place.sheet, row: place.row },
+                )}
+                texts={reading.citations}
+                sections={reading.sections}
+                active={reading.activeMatchIndex}
+                onPlaced={onPlaced}
+                onActive={reading.select}
+                thumbnails
+              />
             ) : (
               <DocumentPreviewContent
                 selection={selection}
