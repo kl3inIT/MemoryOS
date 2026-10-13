@@ -60,7 +60,7 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
 - [x] 3d-1. The model catalog, `ModelCalls`, the native Asyncer and the tool-observation sanitizer move from the
   API module into `chat.execution`, so every process that runs turns has them. `ChannelAdapter.open` and
   `ChannelTransport`; `channel_connection_state`; `ChannelSupervisor`.
-- [ ] 3d-2. `ChannelRuntimeComponents` and the module `memoryos-channels`: an application with no HTTP API (health
+- [x] 3d-2. `ChannelRuntimeComponents` and the module `memoryos-channels`: an application with no HTTP API (health
   on 8082), composed from what modules publish as the Worker is, no Flyway (schema validated, started after the
   API); 16 turns, no per-person bound; a context test with an in-test adapter; its dependency rule test;
   `io.memoryos.channels` added to core's rule against deployables.

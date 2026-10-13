@@ -35,6 +35,11 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         },
         excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX, pattern = {
                 "io\\.memoryos\\.iam\\.(keycloak|invitation|identityprovider)\\..*",
+                // Signing in, and the MemoryOS MCP endpoint with the apps trusted at it, are Keycloak's and the API's.
+                "io\\.memoryos\\.iam\\.(identity\\.DefaultSignInAdmission|JitAllowlistSeeder)",
+                "io\\.memoryos\\.mcp\\.(McpTrustedAppService|McpEndpoint[A-Za-z]*)",
+                // The library page's shelves read meetings, which this process does not run.
+                "io\\.memoryos\\.library\\.LibraryShelfService",
                 "io\\.memoryos\\.channel\\.ChannelRuntimeComponents"
         })
 )

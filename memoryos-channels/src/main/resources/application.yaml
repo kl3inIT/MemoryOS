@@ -125,6 +125,12 @@ memoryos:
     credential-encryption-key: ${MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:}
   object-storage:
+    upload:
+      lifetime: ${MEMORYOS_OBJECT_UPLOAD_LIFETIME:15m}
+      verification-lease: ${MEMORYOS_OBJECT_UPLOAD_VERIFICATION_LEASE:30s}
+      adoption-timeout: ${MEMORYOS_OBJECT_UPLOAD_ADOPTION_TIMEOUT:5m}
+      cleanup-lease: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_LEASE:1m}
+      cleanup-batch-size: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_BATCH_SIZE:16}
     s3:
       service-endpoint: ${MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT}
       upload-endpoint: ${MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT:${MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT}}
@@ -134,5 +140,6 @@ memoryos:
       secret-key: ${MEMORYOS_OBJECT_STORAGE_SECRET_KEY}
       path-style-access: ${MEMORYOS_OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
       readiness-key: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:system/readiness}
+      authorization-lifetime: ${MEMORYOS_OBJECT_UPLOAD_AUTHORIZATION_LIFETIME:10m}
       connect-timeout: ${MEMORYOS_OBJECT_STORAGE_CONNECT_TIMEOUT:2s}
       read-timeout: ${MEMORYOS_OBJECT_STORAGE_READ_TIMEOUT:30s}

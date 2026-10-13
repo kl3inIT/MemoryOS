@@ -51,7 +51,7 @@ class ChannelsDependencyRulesTest {
             if (!type.isAnnotatedWith(Import.class)) return;
             assertThat(Arrays.stream(type.reflect().getAnnotation(Import.class).value())
                     .filter(imported -> imported.getPackageName().startsWith("io.memoryos.")
-                            && !imported.getPackageName().startsWith("io.memoryos.channels"))
+                            && !imported.getPackageName().startsWith("io.memoryos.channels")))
                     .as(type.getName())
                     .allSatisfy(imported -> assertThat(imported.getSimpleName()).endsWith("RuntimeComponents"));
         });
