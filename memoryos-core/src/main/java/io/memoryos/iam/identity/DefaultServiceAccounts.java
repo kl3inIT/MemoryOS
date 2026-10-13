@@ -15,6 +15,7 @@ import io.memoryos.shared.TenantId;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,19 @@ public class DefaultServiceAccounts implements ServiceAccounts {
     private final GroupProvisioner groups;
     private final Clock clock;
 
+    @Autowired
     public DefaultServiceAccounts(
+            JpaTenantRepository tenants,
+            IamLockRepository locks,
+            ExternalIdentityRegistrar identities,
+            ActorProfileRecorder profiles,
+            TenantMembershipProvisioner memberships,
+            GroupProvisioner groups
+    ) {
+        this(tenants, locks, identities, profiles, memberships, groups, Clock.systemUTC());
+    }
+
+    DefaultServiceAccounts(
             JpaTenantRepository tenants,
             IamLockRepository locks,
             ExternalIdentityRegistrar identities,
