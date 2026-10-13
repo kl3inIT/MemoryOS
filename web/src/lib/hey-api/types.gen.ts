@@ -2594,7 +2594,7 @@ export type ChatLibraryFileUsage = {
     name: string;
 };
 
-export type AccountType = 'STANDARD';
+export type AccountType = 'STANDARD' | 'SERVICE';
 
 export type TenantMembershipRole = 'OWNER' | 'MEMBER';
 
@@ -3111,7 +3111,7 @@ export type GroupMember = {
     actorId: string;
     displayName: string | null;
     email: string | null;
-    accountType: 'STANDARD';
+    accountType: 'STANDARD' | 'SERVICE';
     status: 'ACTIVE' | 'INACTIVE';
     isManager: boolean;
     protectedOwner: boolean;

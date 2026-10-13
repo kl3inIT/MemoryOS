@@ -28493,6 +28493,7 @@ components:
       type: string
       enum:
       - STANDARD
+      - SERVICE
     TenantMembershipRole:
       type: string
       enum:
@@ -30051,6 +30052,7 @@ components:
           type: string
           enum:
           - STANDARD
+          - SERVICE
         status:
           type: string
           enum:

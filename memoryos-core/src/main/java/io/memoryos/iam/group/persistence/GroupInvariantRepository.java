@@ -90,6 +90,7 @@ public class GroupInvariantRepository {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
     }
 
+    /** The given actors that are people of the Tenant; a service account is none. */
     public Set<ActorId> existingTenantMembers(TenantId tenantId, Collection<ActorId> actorIds) {
         Objects.requireNonNull(tenantId, "tenantId must not be null");
         Set<ActorId> requiredActorIds = Set.copyOf(actorIds);
@@ -99,6 +100,9 @@ public class GroupInvariantRepository {
         return Set.copyOf(jdbcClient.sql("""
                         SELECT membership.actor_id
                         FROM tenant_memberships membership
+                        JOIN actors actor
+                          ON actor.id = membership.actor_id
+                         AND actor.account_type = 'STANDARD'
                         WHERE membership.tenant_id = :tenantId
                           AND membership.actor_id IN (:actorIds)
                         """)
