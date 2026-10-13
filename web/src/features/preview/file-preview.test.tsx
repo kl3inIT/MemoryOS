@@ -1,7 +1,33 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type * as CodeRenderers from "@/components/assistant-ui/elements/code-renderers.aui";
 import { i18n } from "@/i18n/index";
 import { FilePreview } from "./file-preview";
+
+// Source is drawn plain and then again as other markup of the same text, as the syntax highlighter does once
+// it has loaded; here the second rendering arrives on a timer instead of with a grammar.
+vi.mock("@/components/assistant-ui/elements/code-renderers.aui", async (importOriginal) => {
+  const { useEffect, useState } = await import("react");
+  return {
+    ...(await importOriginal<typeof CodeRenderers>()),
+    HighlightedCode: ({ code }: { code: string }) => {
+      const [highlighted, setHighlighted] = useState(false);
+      useEffect(() => {
+        const loaded = setTimeout(() => setHighlighted(true), 20);
+        return () => clearTimeout(loaded);
+      }, []);
+      return (
+        <pre data-highlighted={highlighted || undefined}>
+          {highlighted ? (
+            code.split("\n").map((line) => <span key={line}>{`${line}\n`}</span>)
+          ) : (
+            <code>{code}</code>
+          )}
+        </pre>
+      );
+    },
+  };
+});
 
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
@@ -62,6 +88,38 @@ it("paints the reader's words over the located passage, above both passage highl
   // "Doanh thu" is in the file but outside the cited passage, so it is left alone.
   expect(terms?.ranges.map((range) => range.toString())).toEqual(["quản lý"]);
   expect(terms?.priority).toBeGreaterThan(registry.get("memoryos-citation-active")?.priority ?? 0);
+  vi.unstubAllGlobals();
+});
+
+it("keeps a passage marked in source once the highlighter has replaced the plain rendering", async () => {
+  const registry = new Map<string, { ranges: Range[] }>();
+  vi.stubGlobal(
+    "Highlight",
+    class {
+      priority = 0;
+      ranges: Range[];
+      constructor(...ranges: Range[]) {
+        this.ranges = ranges;
+      }
+    },
+  );
+  vi.stubGlobal("CSS", { highlights: registry });
+  const text = "Doanh thu quý 3 đạt 412 tỷ đồng.\nChi phí quản lý tăng 12%.";
+  const { container } = render(
+    <FilePreview
+      content={{ kind: "text", text, truncated: false, bytes: text.length }}
+      filename="bao-cao.txt"
+      download="/api/files/1/content"
+      citations={{ texts: ["Chi phí quản lý tăng 12%."] }}
+    />,
+  );
+  const marked = () => registry.get("memoryos-citation-active")?.ranges[0];
+  await waitFor(() => expect(marked()?.toString()).toBe("Chi phí quản lý tăng 12%."));
+
+  // The highlighter's own markup takes the place of the plain text the passage was first found in.
+  await waitFor(() => expect(container.querySelector("pre[data-highlighted]")).not.toBeNull());
+  await waitFor(() => expect(marked()?.toString()).toBe("Chi phí quản lý tăng 12%."));
+  expect(marked()?.collapsed).toBe(false);
   vi.unstubAllGlobals();
 });
 

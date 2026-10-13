@@ -1,5 +1,13 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -99,7 +107,11 @@ export function FilePreview({
     rows = NONE,
     active = 0,
   } = citations;
-  const highlighted = (children: (onRendered: Rendered) => ReactNode, rendered?: boolean) => (
+  const highlighted = (
+    children: (onRendered: Rendered) => ReactNode,
+    rendered?: boolean,
+    replaced?: boolean,
+  ) => (
     <HighlightedText
       citations={texts}
       sections={sections}
@@ -108,6 +120,7 @@ export function FilePreview({
       onPlaced={citations.onPlaced}
       onActive={citations.onActive}
       rendered={rendered}
+      replaced={replaced}
     >
       {children}
     </HighlightedText>
@@ -194,6 +207,7 @@ export function FilePreview({
           />
         ),
         true,
+        true,
       );
     case "doc":
       return (
@@ -263,6 +277,7 @@ function HighlightedText({
   terms,
   active,
   rendered = false,
+  replaced = false,
   onPlaced,
   onActive,
   children,
@@ -273,6 +288,11 @@ function HighlightedText({
   active: number;
   /** A view that renders synchronously is ready as soon as it is in the tree. */
   rendered?: boolean;
+  /**
+   * The view swaps its text for another rendering of it after mounting, as source does once its highlighter
+   * has loaded. The passages are then placed again, in the text that took its place.
+   */
+  replaced?: boolean;
   onPlaced?: (confidence: readonly CitationConfidence[]) => void;
   onActive?: (index: number) => void;
   children: (onRendered: Rendered) => ReactNode;
@@ -281,6 +301,7 @@ function HighlightedText({
   const [ready, setReady] = useState(rendered);
   const onRendered = useCallback(() => setReady(true), []);
   const report = useRef(onPlaced);
+  const [placed, placeAgain] = useReducer((times: number) => times + 1, 0);
   useEffect(() => {
     report.current = onPlaced;
   }, [onPlaced]);
@@ -288,6 +309,13 @@ function HighlightedText({
     const root = container.current;
     if (!root || !ready || !citations.length) return undefined;
     const placements = placeCitations(root, citations, sections, terms);
+    // A range whose text left the document collapses onto where it was, and paints nothing.
+    const swapped = replaced
+      ? new MutationObserver(() => {
+          if (placements.some((placement) => placement.range?.collapsed)) placeAgain();
+        })
+      : undefined;
+    swapped?.observe(root, { childList: true, subtree: true });
     paintCitations(placements, active);
     report.current?.(placements.map((placement) => placement.confidence));
     const opened = placements[active]?.range ?? placements.find((found) => found.range)?.range;
@@ -296,8 +324,11 @@ function HighlightedText({
         ? (opened.startContainer as Element)
         : opened?.startContainer.parentElement;
     anchor?.scrollIntoView({ block: "center" });
-    return () => clearCitations();
-  }, [citations, sections, terms, active, ready]);
+    return () => {
+      swapped?.disconnect();
+      clearCitations();
+    };
+  }, [citations, sections, terms, active, ready, replaced, placed]);
   return (
     <CitationSteps active={active} total={citations.length} onActive={onActive}>
       <div ref={container} className="flex min-h-0 flex-1 flex-col">
