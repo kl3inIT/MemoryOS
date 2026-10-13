@@ -3831,6 +3831,10 @@ export type ChatHistoryEntry = {
      */
     deleted: boolean;
     updatedAt: string;
+    /**
+     * Where the conversation is held
+     */
+    surface: 'WEB' | 'CHANNEL';
 };
 
 export type ChatHistoryPage = {

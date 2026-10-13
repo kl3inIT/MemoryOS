@@ -13,6 +13,7 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatMessage.Role;
 import io.memoryos.chat.ChatMessage.Status;
 import io.memoryos.chat.ChatSession;
+import io.memoryos.chat.ChatSurface;
 import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatTurnOptions;
@@ -73,14 +74,16 @@ public class JdbcChatRepository {
                 .param("tenant", tenant.value()).query(UUID.class).optional();
     }
 
-    public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary) {
+    public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
+                              ChatSurface surface) {
         UUID id = UUID.randomUUID();
         UUID root = UUID.randomUUID();
         var session = jdbc.sql("""
                         INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title,
-                                                 temporary)
-                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary) RETURNING *
+                                                 temporary, surface)
+                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface) RETURNING *
                         """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("surface", surface.name())
                 .param("persona", personaId).param("root", root).param("title", title).param("temporary", temporary)
                 .query(JdbcChatRepository::session).single();
         jdbc.sql("""
@@ -190,7 +193,7 @@ public class JdbcChatRepository {
     public List<ChatSession> list(TenantId tenant, ActorId actor, boolean archived, int offset, int limit) {
         return jdbc.sql("""
                         SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor
-                            AND deleted_at IS NULL AND NOT temporary
+                            AND deleted_at IS NULL AND NOT temporary AND surface = 'WEB'
                             AND (CASE WHEN :archived THEN archived_at IS NOT NULL ELSE archived_at IS NULL END)
                         ORDER BY (CASE WHEN :archived THEN archived_at ELSE updated_at END) DESC, id
                         LIMIT :limit OFFSET :offset

@@ -7,6 +7,7 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSession;
 import io.memoryos.chat.ChatSessionMatch;
 import io.memoryos.chat.ChatSessionService;
+import io.memoryos.chat.ChatSurface;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.chat.session.persistence.JdbcChatSearchRepository;
 import io.memoryos.shared.ActorId;
@@ -45,13 +46,23 @@ public class DefaultChatSessionService implements ChatSessionService {
     @Override
     @Transactional
     public ChatSession create(ActorId actor, String title, boolean temporary) {
+        return create(actor, title, temporary, ChatSurface.WEB);
+    }
+
+    @Override
+    @Transactional
+    public ChatSession createInChannel(ActorId actor, String title) {
+        return create(actor, title, false, ChatSurface.CHANNEL);
+    }
+
+    private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface) {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
         var personaId = chats.defaultPersona(tenant).orElseThrow(ChatException::unavailable);
-        return chats.create(tenant, actor, personaId, title.strip(), temporary);
+        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface);
     }
 
     @Override
