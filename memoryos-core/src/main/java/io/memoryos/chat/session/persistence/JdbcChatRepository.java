@@ -13,6 +13,7 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatMessage.Role;
 import io.memoryos.chat.ChatMessage.Status;
 import io.memoryos.chat.ChatSession;
+import io.memoryos.chat.ChatSurface;
 import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatTurnOptions;
@@ -73,14 +74,16 @@ public class JdbcChatRepository {
                 .param("tenant", tenant.value()).query(UUID.class).optional();
     }
 
-    public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary) {
+    public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
+                              ChatSurface surface) {
         UUID id = UUID.randomUUID();
         UUID root = UUID.randomUUID();
         var session = jdbc.sql("""
                         INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title,
-                                                 temporary)
-                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary) RETURNING *
+                                                 temporary, surface)
+                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface) RETURNING *
                         """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("surface", surface.name())
                 .param("persona", personaId).param("root", root).param("title", title).param("temporary", temporary)
                 .query(JdbcChatRepository::session).single();
         jdbc.sql("""
@@ -190,7 +193,7 @@ public class JdbcChatRepository {
     public List<ChatSession> list(TenantId tenant, ActorId actor, boolean archived, int offset, int limit) {
         return jdbc.sql("""
                         SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor
-                            AND deleted_at IS NULL AND NOT temporary
+                            AND deleted_at IS NULL AND NOT temporary AND surface = 'WEB'
                             AND (CASE WHEN :archived THEN archived_at IS NOT NULL ELSE archived_at IS NULL END)
                         ORDER BY (CASE WHEN :archived THEN archived_at ELSE updated_at END) DESC, id
                         LIMIT :limit OFFSET :offset
@@ -259,6 +262,21 @@ public class JdbcChatRepository {
                         ) SELECT * FROM branch WHERE depth > 0 ORDER BY depth
                         """).param("session", session.id()).param("start", start).param("limit", limit)
                 .query(JdbcChatRepository::message).list();
+    }
+
+    /** The end of the selected branch: the root when nothing was written, never further than a history can be. */
+    public UUID leaf(ChatSession session) {
+        return jdbc.sql("""
+                        WITH RECURSIVE branch AS (
+                            SELECT m.id, m.latest_child_message_id, 0 AS depth FROM chat_message m
+                            WHERE session_id = :session AND id = :root
+                            UNION ALL
+                            SELECT m.id, m.latest_child_message_id, b.depth + 1 FROM branch b
+                            JOIN chat_message m ON m.id = b.latest_child_message_id AND m.session_id = :session
+                            WHERE b.depth < 10000
+                        ) SELECT id FROM branch ORDER BY depth DESC LIMIT 1
+                        """).param("session", session.id()).param("root", session.rootMessageId())
+                .query(UUID.class).single();
     }
 
     public Optional<ReservedRequest> previousRequest(UUID session, UUID requestId) {
@@ -639,18 +657,6 @@ public class JdbcChatRepository {
                 .optional();
         if (written.isPresent()) touch(session);
         return written;
-    }
-
-    /** One bounded batch of every RUNNING row, regardless of lease; only valid when no process can own one. */
-    public int failOrphanedRuns() {
-        return jdbc.sql("""
-                WITH orphaned AS (
-                    SELECT id FROM chat_message WHERE status = 'RUNNING' ORDER BY deadline_at LIMIT 100 FOR UPDATE SKIP LOCKED
-                ) UPDATE chat_message m SET status = 'FAILED',
-                    failure_code = 'CHAT_INTERRUPTED',
-                    finished_at = clock_timestamp()
-                FROM orphaned o WHERE m.id = o.id AND m.status = 'RUNNING'
-                """).update();
     }
 
     public int expireRuns() {

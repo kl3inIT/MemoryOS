@@ -20,6 +20,7 @@ const entry = {
   messages: 4,
   feedback: "POSITIVE",
   deleted: false,
+  surface: "WEB",
   updatedAt: "2026-09-21T03:14:00Z",
 };
 
@@ -82,6 +83,12 @@ describe("conversation history", () => {
     expect(within(row).getByText("4 messages")).toBeVisible();
     expect(within(row).getByText("Marked good")).toBeVisible();
     expect(screen.getByText("Conversations").closest("div")).toHaveTextContent("1");
+  });
+
+  it("marks a conversation held in a channel", async () => {
+    mount([{ ...entry, surface: "CHANNEL" }]);
+    const row = (await screen.findByText("Tôi còn bao nhiêu ngày phép?")).closest("tr")!;
+    expect(within(row).getByText("Bot")).toBeVisible();
   });
 
   it("marks a conversation its owner deleted, which is still listed", async () => {

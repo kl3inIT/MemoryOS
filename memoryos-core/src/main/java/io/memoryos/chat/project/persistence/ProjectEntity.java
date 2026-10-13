@@ -23,6 +23,8 @@ public class ProjectEntity {
     @Column(nullable = false, length = 2000) private String description;
     @Column(nullable = false, columnDefinition = "text") private String instructions;
     @Column(name = "icon_name", length = 40) private @Nullable String iconName;
+    /** The owner's chosen order, ascending. A sort key only; reordering writes it without touching revision or updatedAt. */
+    @Column(nullable = false) private int position;
     @Version private @Nullable Long revision;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "file_ids", nullable = false, columnDefinition = "jsonb")
@@ -32,8 +34,8 @@ public class ProjectEntity {
 
     protected ProjectEntity() {}
     public ProjectEntity(UUID id, UUID tenant, UUID owner, String name, String description, String instructions,
-                         @Nullable String iconName) {
-        this.id = id; this.tenantId = tenant; this.ownerId = owner; this.createdAt = Instant.now();
+                         @Nullable String iconName, int position) {
+        this.id = id; this.tenantId = tenant; this.ownerId = owner; this.createdAt = Instant.now(); this.position = position;
         update(name, description, instructions, iconName);
     }
     public void update(String name, String description, String instructions, @Nullable String iconName) {

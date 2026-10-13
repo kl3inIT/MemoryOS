@@ -68,6 +68,17 @@ class AiCostQueriesTest {
         assertEquals(0, queries.totals(new Scope(tenant, day.minusDays(10), day.minusDays(1), null, null, null, false)).calls());
     }
 
+    @Test void aServiceAccountSpendsAndIsNotCountedAmongThePeople() {
+        UUID bot = actor("Lark", "lark-bot@id.test");
+        jdbc.sql("UPDATE actors SET account_type = 'SERVICE' WHERE id = :id").param("id", bot).update();
+        recorder.record(AiUsage.tokens(tenant, bot, AiUsageFlow.CHAT, "OpenAI", "gpt-5.1", null, null, "EXTERNAL", 500, 50, 0, 0.02,
+                day.atTime(10, 0).toInstant(ZoneOffset.UTC)));
+        var totals = queries.totals(scope(null, false, null, null));
+        assertEquals(0, new BigDecimal("0.06").compareTo(totals.cost()));
+        assertEquals(5, totals.calls());
+        assertEquals(2, totals.activePeople());
+    }
+
     @Test void dailySeriesSplitByBoundaryOrModel() {
         var byBoundary = queries.daily(scope(null, false, null, null), AiCostSplit.BOUNDARY);
         assertEquals(2, byBoundary.stream().filter(point -> point.day().equals(day)).count());

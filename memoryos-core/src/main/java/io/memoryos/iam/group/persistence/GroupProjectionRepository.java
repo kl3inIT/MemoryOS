@@ -71,6 +71,9 @@ public class GroupProjectionRepository {
                 (
                     SELECT COUNT(*)
                     FROM iam_group_memberships membership
+                    JOIN actors member_actor
+                      ON member_actor.id = membership.actor_id
+                     AND member_actor.account_type = 'STANDARD'
                     WHERE membership.tenant_id = group_record.tenant_id
                       AND membership.group_id = group_record.id
                 ) AS member_count,
@@ -92,7 +95,7 @@ public class GroupProjectionRepository {
                             OR (
                                 group_record.system_key IS NULL
                                 AND grant_record.capability IN (
-                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE',
+                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE', 'CHANNELS_MANAGE',
                                     'AGENTS_CREATE', 'AGENTS_MANAGE', 'AUDIT_READ', 'CHAT_HISTORY_READ'
                                 )
                             )
@@ -125,6 +128,9 @@ public class GroupProjectionRepository {
                 (
                     SELECT COUNT(*)
                     FROM iam_group_memberships membership
+                    JOIN actors member_actor
+                      ON member_actor.id = membership.actor_id
+                     AND member_actor.account_type = 'STANDARD'
                     WHERE membership.tenant_id = group_record.tenant_id
                       AND membership.group_id = group_record.id
                 ) AS member_count,
@@ -146,7 +152,7 @@ public class GroupProjectionRepository {
                             OR (
                                 group_record.system_key IS NULL
                                 AND grant_record.capability IN (
-                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE',
+                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE', 'CHANNELS_MANAGE',
                                     'AGENTS_CREATE', 'AGENTS_MANAGE', 'AUDIT_READ', 'CHAT_HISTORY_READ'
                                 )
                             )
@@ -171,6 +177,9 @@ public class GroupProjectionRepository {
             JOIN tenant_memberships tenant_membership
               ON tenant_membership.tenant_id = group_membership.tenant_id
              AND tenant_membership.actor_id = group_membership.actor_id
+            JOIN actors actor
+              ON actor.id = group_membership.actor_id
+             AND actor.account_type = 'STANDARD'
             LEFT JOIN actor_profiles profile
               ON profile.actor_id = group_membership.actor_id
             WHERE group_membership.tenant_id = :tenantId
@@ -197,6 +206,7 @@ public class GroupProjectionRepository {
              AND tenant_membership.actor_id = group_membership.actor_id
             JOIN actors actor
               ON actor.id = group_membership.actor_id
+             AND actor.account_type = 'STANDARD'
             LEFT JOIN actor_profiles profile
               ON profile.actor_id = group_membership.actor_id
             WHERE group_membership.tenant_id = :tenantId
@@ -217,6 +227,7 @@ public class GroupProjectionRepository {
             FROM tenant_memberships tenant_membership
             JOIN actors actor
               ON actor.id = tenant_membership.actor_id
+             AND actor.account_type = 'STANDARD'
             LEFT JOIN actor_profiles profile
               ON profile.actor_id = tenant_membership.actor_id
             WHERE tenant_membership.tenant_id = :tenantId
@@ -246,6 +257,7 @@ public class GroupProjectionRepository {
             FROM tenant_memberships tenant_membership
             JOIN actors actor
               ON actor.id = tenant_membership.actor_id
+             AND actor.account_type = 'STANDARD'
             LEFT JOIN actor_profiles profile
               ON profile.actor_id = tenant_membership.actor_id
             WHERE tenant_membership.tenant_id = :tenantId

@@ -204,8 +204,9 @@ public class MeetingRepository {
     public List<UUID> members(UUID tenant, List<UUID> actors) {
         if (actors.isEmpty()) return List.of();
         return jdbc.sql("""
-                SELECT actor_id FROM tenant_memberships
-                WHERE tenant_id = :tenant AND actor_id IN (:actors) AND status = 'ACTIVE'
+                SELECT m.actor_id FROM tenant_memberships m
+                JOIN actors a ON a.id = m.actor_id AND a.account_type = 'STANDARD'
+                WHERE m.tenant_id = :tenant AND m.actor_id IN (:actors) AND m.status = 'ACTIVE'
                 """).param("tenant", tenant).param("actors", actors)
                 .query((r, ignored) -> r.getObject("actor_id", UUID.class)).list();
     }

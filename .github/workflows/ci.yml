@@ -89,7 +89,7 @@ jobs:
                     backend=true
                     landing=true
                     ;;
-                  build-logic/*|memoryos-core/*|memoryos-integration-*/*|memoryos-extraction/*|memoryos-api/*|memoryos-worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
+                  build-logic/*|memoryos-core/*|memoryos-integration-*/*|memoryos-extraction/*|memoryos-api/*|memoryos-worker/*|memoryos-channels/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
                     backend=true
                     ;;
                   interpreter/*)
@@ -257,7 +257,7 @@ jobs:
             tasks: ':memoryos-api:check'
           - leg: integrations-worker
             tasks: >-
-              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-extraction:check :memoryos-worker:check
+              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-extraction:check :memoryos-worker:check :memoryos-channels:check
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -293,6 +293,7 @@ jobs:
             memoryos-extraction/build/test-results/test/*.xml
             memoryos-api/build/test-results/test/*.xml
             memoryos-worker/build/test-results/test/*.xml
+            memoryos-channels/build/test-results/test/*.xml
           if-no-files-found: warn
           retention-days: 3
 
@@ -480,6 +481,16 @@ jobs:
                 exit 1
               fi
             done
+          done
+          # Scripts are most of what a page loads. The largest one under the /assets/ prefix and the worker in
+          # its own location must both leave the real nginx compressed.
+          largest=$(docker exec "$container" sh -c 'ls -S /usr/share/nginx/html/assets/*.js | head -n 1')
+          for path in "${largest#/usr/share/nginx/html}" "${worker#/usr/share/nginx/html}"; do
+            headers=$(curl --silent --fail --output /dev/null --dump-header - --header 'Accept-Encoding: gzip' "http://127.0.0.1:18080$path")
+            if ! grep -qi '^content-encoding: gzip' <<< "$headers"; then
+              echo "$path is served uncompressed." >&2
+              exit 1
+            fi
           done
 
       - name: Push verified frontend image to GHCR

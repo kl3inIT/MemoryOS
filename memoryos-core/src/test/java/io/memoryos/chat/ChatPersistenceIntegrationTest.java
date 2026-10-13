@@ -107,6 +107,11 @@ class ChatPersistenceIntegrationTest {
     private TestDatabase.JpaHarness jpa;
     private ChatSessionService sessions;
     private ChatTurnPersistence turns;
+
+    /** What the Worker runs to end the turns of a process that died. */
+    private ChatRunReconciliation reconciliation() {
+        return new ChatRunReconciliation(new JdbcChatRepository(jdbc));
+    }
     private TransactionTemplate tx;
     private ActorId owner;
     private ActorId other;
@@ -289,6 +294,68 @@ class ChatPersistenceIntegrationTest {
         assertEquals(4, sessions.history(owner, session.id(), null, 100).size());
         personas.select(owner, session.id(), session.personaId());
         assertTrue(reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Default again").created());
+    }
+
+    @Test
+    void projectsListInTheChosenOrderANewOneComesFirstAndAnEditOrReorderMovesNothing() {
+        var work = projects.create(owner, new ChatProjectService.ProjectInput("Work", "", ""));
+        var home = projects.create(owner, new ChatProjectService.ProjectInput("Home", "", ""));
+        var travel = projects.create(owner, new ChatProjectService.ProjectInput("Travel", "", ""));
+        var foreign = projects.create(other, new ChatProjectService.ProjectInput("Foreign", "", ""));
+        assertEquals(List.of(travel.id(), home.id(), work.id()), projectIds(owner));
+        assertEquals(List.of(foreign.id()), projectIds(other));
+
+        // An edit changes updatedAt but never the place; the list no longer sorts by recency.
+        projects.update(owner, work.id(), work.revision(), new ChatProjectService.ProjectInput("Work 2", "", ""));
+        assertEquals(List.of(travel.id(), home.id(), work.id()), projectIds(owner));
+
+        var before = projects.list(owner, 0, 100);
+        projects.reorder(owner, List.of(work.id(), travel.id(), home.id()));
+        var after = projects.list(owner, 0, 100);
+        assertEquals(List.of(work.id(), travel.id(), home.id()), after.stream().map(ChatProjectService.ProjectView::id).toList());
+        for (var project : after) {
+            var was = before.stream().filter(p -> p.id().equals(project.id())).findFirst().orElseThrow();
+            assertEquals(was.revision(), project.revision());
+            assertEquals(was.updatedAt(), project.updatedAt());
+        }
+        assertEquals(List.of(0, 1, 2), jdbc.sql("SELECT position FROM chat_project WHERE owner_actor_id=:owner ORDER BY position")
+                .param("owner", owner.value()).query(Integer.class).list());
+
+        // A new project takes one less than the lowest place, without rewriting the others.
+        var newest = projects.create(owner, new ChatProjectService.ProjectInput("Newest", "", ""));
+        assertEquals(List.of(newest.id(), work.id(), travel.id(), home.id()), projectIds(owner));
+        assertEquals(-1, (int) jdbc.sql("SELECT position FROM chat_project WHERE id=:id").param("id", newest.id()).query(Integer.class).single());
+        // The revision a client holds still works after a reorder.
+        projects.update(owner, work.id(), after.getFirst().revision(), new ChatProjectService.ProjectInput("Work 3", "", ""));
+    }
+
+    @Test
+    void reorderingRequiresExactlyTheActorsProjectsAndChangesNothingOtherwise() {
+        var first = projects.create(owner, new ChatProjectService.ProjectInput("First", "", ""));
+        var second = projects.create(owner, new ChatProjectService.ProjectInput("Second", "", ""));
+        var foreign = projects.create(other, new ChatProjectService.ProjectInput("Foreign", "", ""));
+        var expected = List.of(second.id(), first.id());
+
+        for (var bad : List.of(List.of(first.id()), List.of(first.id(), first.id()), List.of(first.id(), second.id(), foreign.id()),
+                List.of(first.id(), foreign.id()), List.of(first.id(), second.id(), UUID.randomUUID()), List.<UUID>of())) {
+            assertEquals("CHAT_CONFLICT", assertThrows(ChatException.class, () -> projects.reorder(owner, bad)).code());
+            assertEquals(expected, projectIds(owner));
+        }
+        assertEquals(List.of(foreign.id()), projectIds(other));
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class, () -> projects.reorder(owner, null)).code());
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class,
+                () -> projects.reorder(owner, Collections.nCopies(1001, first.id()))).code());
+        var withNull = new ArrayList<UUID>(); withNull.add(first.id()); withNull.add(null);
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class, () -> projects.reorder(owner, withNull)).code());
+
+        // A person without a project reorders the empty list; an empty list never hides a project.
+        projects.reorder(member(tenant), List.of());
+        projects.reorder(owner, List.of(first.id(), second.id()));
+        assertEquals(List.of(first.id(), second.id()), projectIds(owner));
+    }
+
+    private List<UUID> projectIds(ActorId actor) {
+        return projects.list(actor, 0, 100).stream().map(ChatProjectService.ProjectView::id).toList();
     }
 
     @Test
@@ -710,7 +777,7 @@ class ChatPersistenceIntegrationTest {
         var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Earlier question");
         jdbc.sql("UPDATE chat_message SET deadline_at = CURRENT_TIMESTAMP - INTERVAL '10 seconds' WHERE id = :id")
                 .param("id", first.assistantMessageId()).update();
-        turns.expireRuns();
+        reconciliation().endLapsed();
         assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, session.id(), first.assistantMessageId()));
         var next = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Newest question");
         var context = turns.loadContext(owner, session.id(), next);
@@ -738,30 +805,10 @@ class ChatPersistenceIntegrationTest {
         var reserved = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
         jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '10 seconds' WHERE id = :id")
                 .param("id", reserved.assistantMessageId()).update();
-        assertEquals(1, turns.expireRuns());
+        assertEquals(1, reconciliation().endLapsed());
         assertEquals(ChatMessage.Status.FAILED, sessions.history(owner, session.id(), null, 20).getLast().status());
         assertFalse(turns.finish(session.id(), reserved.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "late", null, null, null, null, null));
-    }
-
-    @Test
-    void startupReconciliationFailsRunningRowsWithLiveLeasesAndLeavesFinishedRows() {
-        var session = sessions.create(owner, "Orphaned");
-        var orphaned = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
-        var other = sessions.create(owner, "Finished");
-        var finished = reserve(other, other.rootMessageId(), UUID.randomUUID(), "Question");
-        assertTrue(turns.finish(other.id(), finished.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer"));
-        // The lease is still live: only startup knows no process owns the row.
-        assertEquals(0, turns.expireRuns());
-        assertTrue(turns.failOrphanedRuns() >= 1);
-        assertEquals(0, turns.failOrphanedRuns());
-        assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, session.id(), orphaned.assistantMessageId()));
-        assertEquals("CHAT_INTERRUPTED", jdbc.sql("SELECT failure_code FROM chat_message WHERE id = :id")
-                .param("id", orphaned.assistantMessageId()).query(String.class).single());
-        assertEquals(ChatMessage.Status.COMPLETED, turns.authorizeReply(owner, other.id(), finished.assistantMessageId()));
-        assertFalse(turns.finish(session.id(), orphaned.assistantMessageId(), ChatMessage.Status.COMPLETED, "late"));
-        // The session accepts the next question at once.
-        reserve(session, orphaned.assistantMessageId(), UUID.randomUUID(), "Next question");
     }
 
     @Test
@@ -996,10 +1043,10 @@ class ChatPersistenceIntegrationTest {
                 .param("id", lapsed.assistantMessageId()).update();
         assertEquals(Set.of(live.assistantMessageId(), lapsed.assistantMessageId()),
                 turns.renewLeases(List.of(live.assistantMessageId(), lapsed.assistantMessageId()), Duration.ofMinutes(30)));
-        assertEquals(0, turns.expireRuns(), "Renewed leases are not reconciled");
+        assertEquals(0, reconciliation().endLapsed(), "Renewed leases are not reconciled");
         jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '10 seconds' WHERE id = :id")
                 .param("id", lapsed.assistantMessageId()).update();
-        assertEquals(1, turns.expireRuns());
+        assertEquals(1, reconciliation().endLapsed());
         assertEquals(ChatMessage.Status.RUNNING, turns.authorizeReply(owner, session.id(), live.assistantMessageId()));
         assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, other.id(), lapsed.assistantMessageId()));
         // A reconciled row is not renewed, so its process learns it no longer owns the run.

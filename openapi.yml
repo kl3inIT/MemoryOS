@@ -4811,6 +4811,59 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/projects/order:
+    put:
+      tags:
+      - Chat
+      summary: Set the actor's project order from one list of every owned project
+      operationId: reorderChatProjects
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectOrderRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Order saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/preferences:
     get:
       tags:
@@ -16912,7 +16965,7 @@ paths:
       summary: Read or resume reply events; reset requires persisted history
       description: "Events: text, reasoning, tool, image, code, research_plan, top_level_branching,\
         \ research_agent_start, intermediate_report, intermediate_report_citations,\
-        \ outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
+        \ waiting, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
         \ confirms a committed terminal state. Heartbeats are comments. A reset has\
         \ no event id."
       operationId: streamChatMessage
@@ -16984,6 +17037,7 @@ paths:
                 - $ref: "#/components/schemas/ResearchAgentStartEvent"
                 - $ref: "#/components/schemas/IntermediateReportEvent"
                 - $ref: "#/components/schemas/IntermediateReportCitationsEvent"
+                - $ref: "#/components/schemas/WaitingEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -25026,6 +25080,15 @@ components:
             format: uuid
         iconName:
           type: string
+    ProjectOrderRequest:
+      type: object
+      description: "Every project of the actor exactly once, in the chosen order"
+      properties:
+        projectIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     ChatPreferencesInput:
       type: object
       properties:
@@ -27746,6 +27809,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -27814,12 +27878,13 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
             - CHAT_HISTORY_READ
-          maxItems: 7
-          maxLength: 7
+          maxItems: 8
+          maxLength: 8
           minItems: 0
       required:
       - capabilities
@@ -28725,6 +28790,7 @@ components:
       type: string
       enum:
       - STANDARD
+      - SERVICE
     TenantMembershipRole:
       type: string
       enum:
@@ -30150,6 +30216,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -30176,6 +30243,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -30283,6 +30351,7 @@ components:
           type: string
           enum:
           - STANDARD
+          - SERVICE
         status:
           type: string
           enum:
@@ -30363,6 +30432,7 @@ components:
           - SOURCES_DELETE
           - MODELS_MANAGE
           - MCP_MANAGE
+          - CHANNELS_MANAGE
           - AGENTS_CREATE
           - AGENTS_MANAGE
           - AUDIT_READ
@@ -30393,6 +30463,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -31344,6 +31415,21 @@ components:
       required:
       - citationId
       - marker
+    WaitingEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        waiting:
+          type: boolean
+      required:
+      - assistantMessageId
+      - sequence
+      - waiting
     ChatBranch:
       type: object
       properties:
@@ -32098,11 +32184,18 @@ components:
         updatedAt:
           type: string
           format: date-time
+        surface:
+          type: string
+          description: Where the conversation is held
+          enum:
+          - WEB
+          - CHANNEL
       required:
       - deleted
       - feedback
       - id
       - messages
+      - surface
       - title
       - updatedAt
     ChatHistoryPage:

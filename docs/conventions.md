@@ -163,7 +163,7 @@ Domain Story and Consumer
 - Files are previewed through the shared kit in `web/src/features/preview` (`FilePreview`); a feature does not build its own viewer or import another feature's.
 - React root `onCaughtError` and `onUncaughtError` (`web/src/main.tsx`) log to the console in development only; a router not-found or redirect is not a failure. Browser error monitoring is absent: Sentry Cloud was removed on 2026-09-28 and [MEM-200](https://linear.app/memory-os/issue/MEM-200) tracks a replacement. Do not swallow a failure in a `catch` that neither shows it nor rethrows it.
 - The deployment CSP is `style-src 'self'`: inline `<style>` elements and style attributes parsed from markup are dropped. Styles live in a stylesheet or in token classes; markup built at runtime is moved as nodes, not reparsed. Specs that import `test` from `web/tests/e2e/deployment-policy.ts` fail on any CSP or Permissions-Policy violation outside its listed third-party reports; CI runs them under the production build and nginx headers in the `frontend-preview` job (`MEMORYOS_E2E_PREVIEW=1`).
-- The initial load (the entry script, its modulepreloads and linked stylesheets) has a gzip budget that `pnpm build` enforces (`web/scripts/assert-bundle-budget.mjs`). The budget only ratchets down; do not raise it to absorb an eager import. Viewers, charts, grammars and other heavy code load through dynamic `import()`. Vietnamese ships in the entry bundle and the English catalog loads when a person chooses English ([localization](specs/localization.md)).
+- The initial load (the entry script, its modulepreloads and linked stylesheets) has a gzip budget that `pnpm build` enforces (`web/scripts/assert-bundle-budget.mjs`). The budget only ratchets down; do not raise it to absorb an eager import. Viewers, charts, grammars and other heavy code load through dynamic `import()`. A reader a person waits for after a click loads through `loadable` (`web/src/lib/loadable.tsx`), not `React.lazy`, and its surface starts the load as it opens (`warmOriginal` in the preview kit): a lazy component suspends once even when its chunk is in memory, and React then holds its content back until 300 ms after the fallback appeared, once for every boundary nested on the way. Vietnamese ships in the entry bundle and the English catalog loads when a person chooses English ([localization](specs/localization.md)).
 
 ## Component and library reuse
 
@@ -175,7 +175,7 @@ Domain Story and Consumer
 
 ### Page headers
 
-- Every page's title block is one `PageHeader` with an icon, the title, a one-line description and optional actions on the right. No page hand-rolls a heading row, adds an eyebrow above the title, or overrides the icon size.
+- Every page's title block is one `PageHeader` with an icon, the title, an optional one-line description and optional actions on the right. No page hand-rolls a heading row, adds an eyebrow above the title, or overrides the icon size.
 
 ### Detail pages
 
@@ -186,7 +186,7 @@ Domain Story and Consumer
 
 ### Composites
 
-- `web/src/components/composites` holds product patterns built only from registry primitives and tokens, shared by more than one feature: `SectionHeader`, `SettingRow`/`SettingRows`, `StatStrip`/`StatTile`/`StatToggleTile`, `FilterChips`, `PersonAvatar`, `CountSeparator`, `SortableList` and the `hoverReveal` class. Every figure summary (costs, usage, counts, generated metrics) uses `StatStrip`; a stat that must stay in a table cell uses its `statLabelClass`/`statValueClass`. They carry no data fetching or authorization.
+- `web/src/components/composites` holds product patterns built only from registry primitives and tokens, shared by more than one feature: `SectionHeader`, `SettingRow`/`SettingRows`, `StatStrip`/`StatTile`/`StatToggleTile`, `FilterChips`, `SearchField` (the one search box of a list, with its clear button) and `TooltipIconButton` (an icon-only action that names itself in a tooltip), `PersonAvatar`, `CountSeparator`, `SortableList` and the `hoverReveal` class. Every figure summary (costs, usage, counts, generated metrics) uses `StatStrip`; a stat that must stay in a table cell uses its `statLabelClass`/`statValueClass`. They carry no data fetching or authorization.
 - A stat tile reads label, then figure, then at most one supporting line. Its icon repeats what the label says and takes a chart colour, or a status colour where the figure names a status; the figure itself stays in neutral ink until a real condition (an exceeded budget, unpriced usage) gives it a status tone. A comparison against the previous period is a `trend` line whose arrow, not its colour, carries the direction. While a figure loads, the tile shows the placeholder rather than a dash, because a dash reads as a recorded zero.
 - The strip is the only frame: never wrap tiles in a second bordered container, and never give each tile its own border inside one.
 - Hover-revealed actions stay reachable: they appear on `focus-within` and are always visible on devices without hover.

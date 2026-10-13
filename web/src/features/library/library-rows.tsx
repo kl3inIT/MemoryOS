@@ -1,4 +1,4 @@
-import { Fragment, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useId, useState, type ReactNode } from "react";
 import { formatUiDay } from "@/i18n/format";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -14,6 +14,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,8 +33,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { IconButton } from "@/components/ui/icon-button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/components/ui/item";
+import { usePointerOpenedTrigger } from "@/hooks/use-pointer-opened-trigger";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
@@ -67,6 +68,8 @@ export type RowActions = {
   /** Absent where no Project can be reached, which leaves the command out. */
   onAddToProject?: (file: LibraryFile) => void;
   onRename: (file: LibraryFile) => void;
+  /** Absent without Chat, which leaves the command out. */
+  onAsk?: (file: LibraryFile) => void;
   onFavorite: (file: LibraryFile) => void;
   onRestore: (file: LibraryFile) => Promise<void>;
   onPurge: (file: LibraryFile) => Promise<void>;
@@ -536,11 +539,11 @@ export function FileActions({
   compact = false,
 }: {
   file: LibraryFile;
-  actions: Pick<RowActions, "onDelete" | "onAddToProject" | "onRename" | "onFavorite">;
+  actions: Pick<RowActions, "onDelete" | "onAddToProject" | "onRename" | "onFavorite" | "onAsk">;
   compact?: boolean;
 }) {
   const ui = useAppTranslation();
-  const byPointer = useRef(false);
+  const pointer = usePointerOpenedTrigger();
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       {/* A phone row gives this width to the file's name; the "…" menu stars and downloads. */}
@@ -548,13 +551,13 @@ export function FileActions({
         className={cn("flex items-center gap-0.5", !compact && rowShortcutReveal, "max-sm:hidden")}
       >
         {!compact && (
-          <IconButton
+          <TooltipIconButton
             size="sm"
             prominence="internal"
             // The "…" menu also downloads, so a phone row gives this width to the file's name.
             className="hidden sm:inline-flex"
             aria-label={ui("Tải về {{name}}", { name: file.filename })}
-            title={ui("Tải về")}
+            tooltip={ui("Tải về")}
             asChild
           >
             <a
@@ -564,9 +567,9 @@ export function FileActions({
             >
               <Download />
             </a>
-          </IconButton>
+          </TooltipIconButton>
         )}
-        <IconButton
+        <TooltipIconButton
           size="sm"
           prominence="internal"
           aria-pressed={file.favorite}
@@ -575,35 +578,27 @@ export function FileActions({
               ? ui("Bỏ gắn sao {{name}}", { name: file.filename })
               : ui("Gắn sao {{name}}", { name: file.filename })
           }
+          tooltip={file.favorite ? ui("Bỏ sao") : ui("Thêm sao")}
           onClick={() => actions.onFavorite(file)}
         >
           <Star
             className={file.favorite ? "fill-current text-status-warning-content" : undefined}
           />
-        </IconButton>
+        </TooltipIconButton>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <IconButton
+          <TooltipIconButton
             size="sm"
             prominence="internal"
             aria-label={ui("Thao tác với {{name}}", { name: file.filename })}
-            onPointerDown={() => (byPointer.current = true)}
+            tooltip={ui("Thao tác")}
+            {...pointer.trigger}
           >
             <MoreHorizontal />
-          </IconButton>
+          </TooltipIconButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="w-auto min-w-48"
-          onCloseAutoFocus={(event) => {
-            // Closing hands focus back to the trigger, which the browser then rings as if the keyboard had
-            // reached it. A menu opened with the pointer keeps that ring off; the keyboard still gets it back.
-            if (!byPointer.current) return;
-            byPointer.current = false;
-            event.preventDefault();
-          }}
-        >
+        <DropdownMenuContent align="end" className="w-auto min-w-48" {...pointer.content}>
           <DropdownMenuItem className="sm:hidden" onSelect={() => actions.onFavorite(file)}>
             <Star />
             {file.favorite ? ui("Bỏ sao") : ui("Thêm sao")}
@@ -612,6 +607,12 @@ export function FileActions({
             <Pencil />
             {ui("Đổi tên")}
           </DropdownMenuItem>
+          {actions.onAsk && (
+            <DropdownMenuItem onSelect={() => actions.onAsk?.(file)}>
+              <MessageSquare />
+              {ui("Hỏi Chat")}
+            </DropdownMenuItem>
+          )}
           {actions.onAddToProject && (
             <DropdownMenuItem onSelect={() => actions.onAddToProject?.(file)}>
               <FolderPlus />
@@ -669,14 +670,15 @@ function TrashActions({
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       {compact ? (
-        <IconButton
+        <TooltipIconButton
           size="sm"
           prominence="internal"
           aria-label={ui("Khôi phục {{name}}", { name: file.filename })}
+          tooltip={ui("Khôi phục")}
           onClick={() => void onRestore()}
         >
           <Undo2 />
-        </IconButton>
+        </TooltipIconButton>
       ) : (
         <Button size="sm" prominence="internal" onClick={() => void onRestore()}>
           <Undo2 data-icon="inline-start" />
@@ -685,13 +687,14 @@ function TrashActions({
       )}
       <ConfirmDialog
         trigger={
-          <IconButton
+          <TooltipIconButton
             size="sm"
             prominence="internal"
             aria-label={ui("Xóa vĩnh viễn {{name}}", { name: file.filename })}
+            tooltip={ui("Xóa vĩnh viễn")}
           >
             <Trash2 />
-          </IconButton>
+          </TooltipIconButton>
         }
         title={ui("Xóa vĩnh viễn?")}
         description={ui(
@@ -728,30 +731,31 @@ function PendingActions({
       {file.status === "FAILED" &&
         file.errorCode !== "UPLOAD_EXPIRED" &&
         (compact ? (
-          <IconButton
+          <TooltipIconButton
             size="sm"
             prominence="internal"
             pending={busy}
             aria-label={ui("Thử lại {{name}}", { name: file.filename })}
+            tooltip={ui("Thử lại")}
             onClick={start}
           >
             <RotateCcw />
-          </IconButton>
+          </TooltipIconButton>
         ) : (
           <Button size="sm" prominence="internal" pending={busy} onClick={start}>
             <RotateCcw data-icon="inline-start" />
             {ui("Thử lại")}
           </Button>
         ))}
-      <IconButton
+      <TooltipIconButton
         size="sm"
         prominence="internal"
         aria-label={ui("Gỡ bỏ {{name}}", { name: file.filename })}
-        title={ui("Gỡ bỏ")}
+        tooltip={ui("Gỡ bỏ")}
         onClick={onRemove}
       >
         <Trash2 />
-      </IconButton>
+      </TooltipIconButton>
     </div>
   );
 }

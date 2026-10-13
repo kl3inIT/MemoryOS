@@ -205,7 +205,11 @@ class PaddleOcrVlRoutingTest {
             assertTrue(document.path("pages").isMissingNode() || document.path("pages").isEmpty());
             var location = document.path("blocks").get(0).path("locations").get(0);
             assertEquals(1, location.path("page_no").asInt());
-            assertTrue(location.path("bbox").isMissingNode(), "an image has no page in points to place a box on");
+            // The picture's own pixels, from its top left, with the size the service read it at.
+            assertEquals("TOPLEFT", location.path("bbox").path("coord_origin").asString());
+            assertEquals(1685, location.path("bbox").path("frame_width").asDouble());
+            assertEquals(1191, location.path("bbox").path("frame_height").asDouble());
+            assertTrue(result.metadata().get("parser_configuration").contains(";boxes=displayed-frame-v1"));
         }
     }
 

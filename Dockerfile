@@ -16,6 +16,7 @@ COPY memoryos-integration-microsoft/build.gradle.kts ./memoryos-integration-micr
 COPY memoryos-extraction/build.gradle.kts ./memoryos-extraction/
 COPY memoryos-api/build.gradle.kts ./memoryos-api/
 COPY memoryos-worker/build.gradle.kts ./memoryos-worker/
+COPY memoryos-channels/build.gradle.kts ./memoryos-channels/
 RUN sed -i 's/\r$//' gradlew \
     && chmod 0755 gradlew \
     && ./gradlew --no-daemon --no-configuration-cache --stacktrace resolveDependencies
@@ -27,6 +28,7 @@ COPY memoryos-integration-microsoft ./memoryos-integration-microsoft
 COPY memoryos-extraction ./memoryos-extraction
 COPY memoryos-api ./memoryos-api
 COPY memoryos-worker ./memoryos-worker
+COPY memoryos-channels ./memoryos-channels
 
 RUN ./gradlew --no-daemon --stacktrace :memoryos-api:bootJar :memoryos-worker:bootJar \
     && api_jar="$(find memoryos-api/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \

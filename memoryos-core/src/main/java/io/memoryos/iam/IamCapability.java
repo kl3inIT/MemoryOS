@@ -22,6 +22,8 @@ public enum IamCapability {
     SOURCES_DELETE,
     MODELS_MANAGE,
     MCP_MANAGE,
+    /** Add, configure and remove the Tenant's chat bots, such as the Lark bot (MEM-246). */
+    CHANNELS_MANAGE,
     AGENTS_CREATE,
     AGENTS_MANAGE,
     /** Read and export the Tenant's audit stream (ADR 0013); held apart from the powers it records. */
@@ -44,7 +46,8 @@ public enum IamCapability {
 
     public boolean isOrdinaryGrant() {
         return switch (this) {
-            case USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE, MCP_MANAGE, AGENTS_CREATE, AGENTS_MANAGE,
+            case USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE, MCP_MANAGE, CHANNELS_MANAGE, AGENTS_CREATE,
+                 AGENTS_MANAGE,
                  AUDIT_READ, CHAT_HISTORY_READ -> true;
             default -> false;
         };

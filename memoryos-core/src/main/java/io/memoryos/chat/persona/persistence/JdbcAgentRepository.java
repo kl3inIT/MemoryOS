@@ -197,7 +197,11 @@ public class JdbcAgentRepository {
 
     public int countActiveMembers(UUID tenant, Collection<UUID> actors) {
         if (actors.isEmpty()) return 0;
-        return jdbc.sql("SELECT count(*) FROM tenant_memberships WHERE tenant_id = :tenant AND actor_id IN (:actors) AND status = 'ACTIVE'")
+        return jdbc.sql("""
+                        SELECT count(*) FROM tenant_memberships m
+                        JOIN actors a ON a.id = m.actor_id AND a.account_type = 'STANDARD'
+                        WHERE m.tenant_id = :tenant AND m.actor_id IN (:actors) AND m.status = 'ACTIVE'
+                        """)
                 .param("tenant", tenant).param("actors", actors).query(Integer.class).single();
     }
 

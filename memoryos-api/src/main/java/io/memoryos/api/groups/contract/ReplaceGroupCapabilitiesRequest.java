@@ -11,8 +11,8 @@ import java.util.List;
 @Schema(name = "ReplaceGroupCapabilitiesRequest", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record ReplaceGroupCapabilitiesRequest(
         @NotNull(message = "Capabilities are required.")
-        @Size(max = 7, message = "Capabilities exceed the server registry.")
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 7)
+        @Size(max = 8, message = "Capabilities exceed the server registry.")
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 8)
         List<@NotNull IamCapability> capabilities
 ) {
     public ReplaceGroupCapabilitiesRequest {

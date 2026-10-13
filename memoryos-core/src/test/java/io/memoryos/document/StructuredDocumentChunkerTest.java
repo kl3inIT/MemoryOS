@@ -70,6 +70,23 @@ class StructuredDocumentChunkerTest {
     }
 
     @Test
+    void aBoxKeepsTheFrameItIsMeasuredInAndAnUnframedBoxIsWrittenAsBefore() {
+        var chunks = chunker.chunk("Hóa đơn", """
+                {"schema":"memoryos-extraction-v2","blocks":[
+                  {"index":0,"kind":"HEADING","headingLevel":1,"text":"Ảnh chụp",
+                   "locations":[{"page_no":1,"bbox":{"l":158.0,"t":286.0,"r":1520.0,"b":876.0,"coord_origin":"TOPLEFT",
+                     "frame_width":1685.0,"frame_height":1191.0}}]},
+                  {"index":1,"kind":"HEADING","headingLevel":1,"text":"Trang PDF",
+                   "locations":[{"page_no":2,"bbox":{"l":12.5,"t":20.0,"r":300.0,"b":40.0,"coord_origin":"BOTTOMLEFT"}}]}]}
+                """);
+
+        assertEquals("{\"page_no\":1,\"bbox\":{\"l\":158.0,\"t\":286.0,\"r\":1520.0,\"b\":876.0,\"coord_origin\":\"TOPLEFT\","
+                + "\"frame_width\":1685.0,\"frame_height\":1191.0}}", chunks.get(0).provenanceJson());
+        assertEquals("{\"page_no\":2,\"bbox\":{\"l\":12.5,\"t\":20.0,\"r\":300.0,\"b\":40.0,\"coord_origin\":\"BOTTOMLEFT\"}}",
+                chunks.get(1).provenanceJson());
+    }
+
+    @Test
     void tableKeepsHeadersNumbersAndRowLocation() {
         var chunks = chunker.chunk("Báo cáo KPI", """
                 {"schema":"memoryos-extraction-v2","blocks":[{"index":4,"kind":"TABLE","text":"","table":{

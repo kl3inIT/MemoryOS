@@ -1,0 +1,108 @@
+# Channel
+
+The Tenant's chat bots on messaging platforms, the Lark bot first. Design and status:
+[MEM-246](../increments/active/mem-246-lark-bot/design.md). What a bot receives and how a question becomes a Chat
+turn is built up to the adapter; no platform adapter and no process that receives exist yet, so no bot answers.
+This page describes what exists.
+
+## Connections
+
+A Tenant may have several bots; `channel_connections` holds one row a bot: its provider (`LARK`), a name the
+administrator gives it, the region of its app (`LARK` or `FEISHU`), the app's id, the app's secret as an AES-GCM
+envelope, the language of the bot's own notices (`vi` or `en`), whether it is switched on, the service account it
+owns and a revision. One provider app serves one bot across every Tenant.
+
+`ChannelConnectionService` lists, reads, adds, switches on or off, replaces the secret of and removes a bot. Every
+call requires `CHANNELS_MANAGE`, an assignable administrative capability that administrators hold; a write takes
+the Tenant's exclusive authority lock and checks the revision it was given (`CHANNEL_CHANGED` when it moved on).
+
+- **Adding** validates the name (1 to 100 characters), the app id (a Lark app id starts with `cli_`), the secret (1 to
+  256 characters) and the language, refuses an app another bot holds (`CHANNEL_APP_IN_USE`), and creates the bot's
+  service account ([identity](identity.md#account-classification-and-group-authority)) named after the bot, in the
+  same transaction. A new bot is switched off.
+- **Removing** deletes the row and retires the service account, so the conversations and costs of the bot keep its
+  name.
+- The secret is encrypted with `memoryos.channel.credential-encryption-key` and `credential-key-version`, a key of
+  the channels' own, apart from the connectors'; the credential kind in the envelope's authenticated data is
+  `CHANNEL_<PROVIDER>`. Without the key every bot call fails with `CHANNEL_NOT_CONFIGURED` and nothing else is
+  affected. No view carries the secret.
+- Each change is audited as `channel.create`, `channel.update` (`change`: `enabled`, `disabled`, `secret`) or
+  `channel.delete`.
+
+No HTTP surface exposes this yet; the administrator's API comes with the Lark adapter.
+
+## The adapter
+
+A platform is a `ChannelAdapter`, one a `ChannelProvider`, found through `ChannelAdapters`. It owns the transport,
+the provider's ids and the shape of a reply: `reply(connection, message)` opens a `ChannelReply` that quotes the
+message (`append` text as it is written, then `finish(text, sources, footer)`, which returns the provider's id of
+the answer, or `fail(notice)`); `notice` sends one short message; `senderEmail` answers the e-mail the provider
+holds for a sender; `externalChat` says whether people outside the organisation read a chat. It hands over a
+`ChannelMessage`: the provider's message id, the chat and whether it is `DIRECT` or `GROUP`, the sender and their
+organisation, whether the bot was named, `TEXT` or `OTHER`, the text without the bot's mention, and the message it
+replies to. `open(connection, secret, receiver)` starts receiving for one bot and returns a `ChannelTransport`
+(`connected()`, `close()`); the adapter acknowledges each message to the provider and hands it to the receiver,
+which returns at once. Verifying an app is added with the Lark adapter.
+
+## Holding connections
+
+`ChannelSupervisor` holds open the transport of every bot that is switched on, in the process that receives
+(`memoryos-channels`); it is not a component, so no other process opens a connection. Every 30 seconds it opens a
+bot switched on since, reopens one whose revision changed or whose transport reports it is no longer connected,
+closes one switched off or removed, and writes `channel_connection_state` (since when it is open, the typed code
+and time of the last failure, the last message, a heartbeat). A failed open, an unreadable secret among them, is
+recorded and tried again at the next pass. The secret is decrypted for the open only and the buffer cleared. Each
+message is answered on a virtual thread of its own. Stopping closes every connection, then waits up to 30 seconds
+for the answers in progress.
+
+## The process
+
+`memoryos-channels` runs the supervisor and the turns. Its application scans only its own package and imports
+`ChannelRuntimeComponents`, which scans what a turn reaches (`channel`, `chat`, `ai`, `retrieval`, `connector`,
+`document`, `library`, `objectstorage`, `mcp`, `usage`, `audit`, `iam`) and leaves out what serves a browser or
+another process: Keycloak administration, invitations, identity providers and sign-in, the MemoryOS MCP endpoint
+and its trusted apps, the library page's shelves; ingestion, meetings and voice are not scanned. Every external
+Source type's adapter is on its classpath, because a turn's search reaches them. It runs no migration (the API
+does and starts first; this process validates the schema), serves only `/actuator/health` on port 8082 (readiness:
+the database), and runs at most 16 turns with no separate bound for one person, since every group turn is the
+bot's account. Its database pool is 5. It is not deployed yet.
+
+## Receiving a message
+
+`ChannelInboundService.receive` handles one message to its end, on the adapter's thread, after the adapter has
+acknowledged it to the provider:
+
+1. The bot must be switched on. A group message that does not name the bot is dropped unrecorded.
+2. The message is claimed by inserting `channel_messages (connection_id, external_message_id)`; a message handed
+   over again, by this or another process, ends here. The row holds ids only (the chat, the sender, then the
+   session, the answer and the provider's id of the answer) and how it ended (`ANSWERED`, `REFUSED`, `FAILED`
+   with a reason); the text is in the chat session.
+3. It is refused with a notice when the sender's organisation is not the bot's (`OUTSIDER`; a bot whose
+   organisation is not recorded yet admits nobody), when it is not text (`NOT_TEXT`) or when the group has people
+   outside the organisation (`EXTERNAL_GROUP`).
+4. The sender's account is the one active person whose verified e-mail equals the e-mail the provider holds
+   ([identity](identity.md#account-classification-and-group-authority)), remembered in `channel_identities` for
+   `memoryos.channel.identity-ttl` (1 hour); a sender without one is remembered as such.
+5. A direct message from a sender with an account runs as that person. A group message, and a direct message from
+   a sender without an account, runs as the bot's service account, which reads what every member may read.
+6. The conversation: a reply to a message, the question or the bot's answer, continues that message's session
+   however old and whoever replies; a new message in a group starts a session; a new direct message continues
+   the one in `channel_conversations` while its last message is younger than `memoryos.channel.conversation-idle`
+   (1 hour); `/new` in a direct message forgets it and says so. A session is continued only by the account that
+   owns it, so a sender who gained or lost an account starts over.
+7. The question becomes a Chat turn through the API the web uses: a session created with
+   `ChatSessionService.createInChannel`, a `SEND` at `ChatSessionService.leaf` with a request id derived from
+   the provider's message id, the reply's stream read for text, and the saved answer read for its text and
+   sources. The answer is finished with a closing line in a group ("reply to continue, send a direct message for
+   your own documents") and for a sender without an account ("sign in").
+
+A failure is a notice and a recorded reason, never a provider message or the question: a refused or busy turn
+says "busy", a spend limit names the limit, anything else says the bot could not answer. Notices are in the
+connection's language.
+
+The Worker task `memoryos-channel-message-retention-v1` runs daily and deletes `channel_messages` rows older than
+`memoryos.channel.message-retention` (90 days); a reply to a message that old starts a new conversation.
+
+Not built yet: a sender's rate, the order of two messages of one conversation (the second is told "busy" while the
+first is answered), the reaction that acknowledges a message, the asker's name given to a turn, and the link to a
+direct conversation on the web.

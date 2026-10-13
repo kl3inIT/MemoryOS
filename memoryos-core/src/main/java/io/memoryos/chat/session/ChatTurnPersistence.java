@@ -512,16 +512,6 @@ public class ChatTurnPersistence {
         if (usageCall != null) usage.record(usageCall);
     }
 
-    @Transactional
-    public int failOrphanedRuns() {
-        return chats.failOrphanedRuns();
-    }
-
-    @Transactional
-    public int expireRuns() {
-        return chats.expireRuns();
-    }
-
     @Transactional(readOnly = true)
     public List<UUID> ownedSessions(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);

@@ -362,6 +362,25 @@ export async function handleChatFixture(
   const segments = url.pathname.split("/");
   if (segments[3] === "projects") {
     const project = projects.get(segments[4]!);
+    if (segments.length === 5 && segments[4] === "order" && request.method === "PUT") {
+      // Every project of the actor exactly once; a stale list is a conflict, a malformed one a bad request.
+      const { projectIds } = await body(request);
+      if (!Array.isArray(projectIds) || projectIds.some((id) => typeof id !== "string"))
+        json(response, {}, 400);
+      else if (
+        new Set(projectIds).size !== projectIds.length ||
+        projectIds.length !== projects.size ||
+        projectIds.some((id) => !projects.has(id))
+      )
+        json(response, {}, 409);
+      else {
+        const ordered = projectIds.map((id) => [id, projects.get(id)!] as const);
+        projects.clear();
+        for (const [id, value] of ordered) projects.set(id, value);
+        json(response, null, 204);
+      }
+      return true;
+    }
     if (segments.length === 4) {
       if (request.method === "POST") {
         const input = await body(request);
@@ -371,7 +390,11 @@ export async function handleChatFixture(
           revision: 0,
           updatedAt: new Date().toISOString(),
         };
-        projects.set(created.id, created);
+        // A new project takes the first place, as the API lists it.
+        const others = [...projects];
+        projects.clear();
+        for (const [id, value] of [[created.id, created] as const, ...others])
+          projects.set(id, value);
         json(response, created, 201);
       } else {
         const offset = Number(url.searchParams.get("offset") ?? 0);

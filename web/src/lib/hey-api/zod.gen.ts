@@ -1085,6 +1085,13 @@ export const zProjectView = z.object({
     iconName: z.string().optional()
 });
 
+/**
+ * Every project of the actor exactly once, in the chosen order
+ */
+export const zProjectOrderRequest = z.object({
+    projectIds: z.array(z.uuid()).optional()
+});
+
 export const zChatPreferencesInput = z.object({
     workRole: z.string().max(200),
     personalPreferences: z.string().max(2000),
@@ -2125,6 +2132,7 @@ export const zGroupSummary = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -2158,11 +2166,12 @@ export const zReplaceGroupCapabilitiesRequest = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
         'CHAT_HISTORY_READ'
-    ])).min(0).max(7)
+    ])).min(0).max(8)
 });
 
 export const zSharePointCredentialTestResponse = z.object({
@@ -2520,7 +2529,7 @@ export const zChatLibraryFile = z.object({
     deletable: z.boolean()
 });
 
-export const zAccountType = z.enum(['STANDARD']);
+export const zAccountType = z.enum(['STANDARD', 'SERVICE']);
 
 export const zTenantMembershipRole = z.enum(['OWNER', 'MEMBER']);
 
@@ -3044,6 +3053,7 @@ export const zCurrentIdentity = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -3065,6 +3075,7 @@ export const zCurrentIdentity = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -3091,7 +3102,7 @@ export const zGroupMember = z.object({
     actorId: z.uuid(),
     displayName: z.string().nullable(),
     email: z.string().nullable(),
-    accountType: z.enum(['STANDARD']),
+    accountType: z.enum(['STANDARD', 'SERVICE']),
     status: z.enum(['ACTIVE', 'INACTIVE']),
     isManager: z.boolean(),
     protectedOwner: z.boolean()
@@ -3122,6 +3133,7 @@ export const zGroupCapability = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -3146,6 +3158,7 @@ export const zGroupCapability = z.object({
         'SOURCES_DELETE',
         'MODELS_MANAGE',
         'MCP_MANAGE',
+        'CHANNELS_MANAGE',
         'AGENTS_CREATE',
         'AGENTS_MANAGE',
         'AUDIT_READ',
@@ -3556,6 +3569,12 @@ export const zIntermediateReportCitationsEvent = z.object({
     citations: z.array(zResearchCitation)
 });
 
+export const zWaitingEvent = z.object({
+    assistantMessageId: z.uuid(),
+    sequence: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    waiting: z.boolean()
+});
+
 export const zChatBranch = z.object({
     id: z.uuid().optional(),
     parentMessageId: z.uuid().nullish(),
@@ -3872,7 +3891,8 @@ export const zChatHistoryEntry = z.object({
         'NONE'
     ]),
     deleted: z.boolean(),
-    updatedAt: z.iso.datetime()
+    updatedAt: z.iso.datetime(),
+    surface: z.enum(['WEB', 'CHANNEL'])
 });
 
 export const zChatHistoryPage = z.object({
@@ -4974,6 +4994,13 @@ export const zUpdateChatProjectQuery = z.object({
  * Successful chat operation
  */
 export const zUpdateChatProjectResponse = zProjectView;
+
+export const zReorderChatProjectsBody = zProjectOrderRequest;
+
+/**
+ * Order saved
+ */
+export const zReorderChatProjectsResponse = z.void();
 
 /**
  * The current member's Chat preferences
@@ -7298,7 +7325,8 @@ export const zStreamChatMessageResponse = z.union([
     zTopLevelBranchingEvent,
     zResearchAgentStartEvent,
     zIntermediateReportEvent,
-    zIntermediateReportCitationsEvent
+    zIntermediateReportCitationsEvent,
+    zWaitingEvent
 ]);
 
 export const zGetChatFeedbackPath = z.object({

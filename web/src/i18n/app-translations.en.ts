@@ -444,8 +444,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chỉ tệp gắn sao": "Starred files only",
   "Gắn sao {{name}}": "Star {{name}}",
   "Bỏ gắn sao {{name}}": "Unstar {{name}}",
-  "Mọi tệp, cuộc họp và tài liệu bạn xem và dùng được, ở cùng một chỗ.":
-    "Every file, meeting and document you can see and use, in one place.",
   "Chia sẻ bởi {{name}}": "Shared by {{name}}",
   "Qua nhóm {{names}}": "Through the group {{names}}",
   "Qua trợ lý {{names}}": "Through the assistant {{names}}",
@@ -670,7 +668,6 @@ export const vietnameseUi: Record<string, string> = {
   // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
   "Khớp nội dung tệp.": "Matches the file's contents.",
   "Tìm trong nội dung tệp": "Search inside files",
-  "Cách hiển thị": "Display",
   "Nội dung": "Contents",
   "Tên A → Z": "Name A → Z",
   "Trạng thái tệp": "File state",
@@ -743,7 +740,6 @@ export const vietnameseUi: Record<string, string> = {
   "Trình chiếu": "Presentations",
   Khác: "Other",
   "{{count}} tệp · {{size}}": "{{count}} files · {{size}}",
-  "Bố cục": "Layout",
   "Tìm theo": "Search by",
   "Dạng bảng": "Table view",
   "Dạng lưới": "Grid view",
@@ -856,6 +852,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không mở được bản PDF gốc. Hãy xem đoạn trích.":
     "The original PDF could not be opened. Use the passages view.",
   "Vùng được trích dẫn trên trang {{page}}": "Cited region on page {{page}}",
+  "Vùng được trích dẫn trên ảnh": "Cited region on the picture",
   "Trang {{pages}} / {{total}}": "Page {{pages}} / {{total}}",
   "Đang tải tài liệu…": "Loading the document…",
   "Điều khiển tài liệu": "Document controls",
@@ -1450,6 +1447,14 @@ export const vietnameseUi: Record<string, string> = {
   "Tạo dự án": "Create project",
   "Đang tải dự án…": "Loading projects…",
   "Tải lại dự án": "Reload projects",
+  "Danh sách dự án đã thay đổi ở nơi khác. Đã tải lại, hãy sắp xếp lại.":
+    "The project list changed elsewhere. It has been reloaded; reorder it again.",
+  "Danh sách dự án": "Project list",
+  "Xem tất cả dự án": "See all projects",
+  "Hội thoại trong {{v1}}": "Conversations in {{v1}}",
+  "Mỗi dự án gom hội thoại, tệp và hướng dẫn dùng chung cho một mảng công việc.":
+    "Each project gathers conversations, files and shared instructions for one area of work.",
+  "{{count}} tệp · Cập nhật {{date}}": "Files: {{count}} · Updated {{date}}",
   "Tạo dự án mới": "Create new project",
   "Tạo và thêm tệp": "Create and add the files",
   "Chọn dự án có sẵn": "Choose an existing project",
@@ -1508,7 +1513,7 @@ export const vietnameseUi: Record<string, string> = {
   "Thao tác dự án": "Project actions",
   "Chỉnh sửa dự án": "Edit project",
   "Xóa dự án": "Delete project",
-  "Xóa dự án?": "Delete project?",
+  "Xóa dự án “{{name}}”?": "Delete project “{{name}}”?",
   "Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử.":
     "Conversations are moved out of the project and their history is preserved.",
   "Hướng dẫn dự án": "Project instructions",
@@ -1535,13 +1540,10 @@ export const vietnameseUi: Record<string, string> = {
   "Thao tác hội thoại {{v1}}": "Conversation actions for {{v1}}",
   "Chia sẻ": "Share",
   "Đổi tên": "Rename",
-  "Chuyển vào dự án": "Move to project",
+  "Chuyển đến dự án": "Move to project",
+  "Dự án mới": "New project",
+  "Gỡ khỏi dự án": "Remove from project",
   "Cấu hình hội thoại": "Conversation settings",
-  "Chuyển hội thoại": "Move conversation",
-  "Lịch sử hội thoại được giữ nguyên. Hướng dẫn dự án áp dụng cho lượt tiếp theo.":
-    "Conversation history is preserved. Project instructions apply to the next turn.",
-  Chuyển: "Move",
-  "Dự án đích": "Destination project",
   "Xóa hội thoại?": "Delete conversation?",
   "“{{v1}}” sẽ bị xóa vĩnh viễn khỏi lịch sử và liên kết chia sẻ, không khôi phục được. Câu trả lời đang chạy cũng sẽ dừng.":
     "“{{v1}}” will be permanently removed from history and sharing, and cannot be restored. Any running answer will also stop.",
@@ -1900,6 +1902,7 @@ Object.assign(vietnameseUi, {
   "Đang chọn đoạn liên quan…": "Selecting relevant passages…",
   "Đang đọc ngữ cảnh tài liệu…": "Reading document context…",
   "Đang tìm trong tài liệu…": "Searching documents…",
+  "Đang chờ lượt…": "Waiting for a turn…",
   "Đang suy nghĩ…": "Thinking…",
   "Tệp tải lên": "Uploaded files",
   "Không giới hạn": "Unlimited",

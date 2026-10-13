@@ -399,8 +399,8 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   expect(new Set(originalReads.map(({ url }) => url.searchParams.get("generation")))).toEqual(
     new Set([fixtureSource.generation]),
   );
-  // One whole-file response supplies the headers; the cited page then needs only a few ranges of the original.
-  expect(originalReads.filter(({ range }) => !range)).toHaveLength(1);
+  // The reader opens the file by range itself; the cited page then needs only a few ranges of the original.
+  expect(originalReads.filter(({ range }) => !range)).toHaveLength(0);
   expect(originalReads.some(({ range }) => range)).toBe(true);
   expect(
     rangedBytes(

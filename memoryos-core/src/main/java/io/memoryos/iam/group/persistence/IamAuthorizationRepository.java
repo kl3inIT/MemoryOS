@@ -43,7 +43,7 @@ public class IamAuthorizationRepository {
              AND tenant.status = 'ACTIVE'
             JOIN actors actor
               ON actor.id = membership.actor_id
-             AND actor.account_type = 'STANDARD'
+             AND actor.account_type IN ('STANDARD', 'SERVICE')
             LEFT JOIN iam_group_memberships group_membership
               ON group_membership.tenant_id = membership.tenant_id
              AND group_membership.actor_id = membership.actor_id
@@ -59,7 +59,7 @@ public class IamAuthorizationRepository {
                     OR (
                         authority_group.system_key IS NULL
                         AND capability.capability IN (
-                            'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE',
+                            'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE', 'CHANNELS_MANAGE',
                                     'AGENTS_CREATE', 'AGENTS_MANAGE', 'AUDIT_READ', 'CHAT_HISTORY_READ'
                         )
                     )

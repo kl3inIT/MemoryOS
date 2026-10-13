@@ -41,6 +41,6 @@ public record PaddleOcrVlProperties(Duration timeout, int maxPages, String revis
                 + ";visualize=false;mergeTables=false;docOrientation=false;docUnwarping=false"
                 + ";maxPages=" + maxPages + ";timeoutSeconds=" + timeout.toSeconds() + ";maxInput=" + maxInput
                 + ";maxOutput=33554432;tableHeaders=none"
-                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2";
+                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2;boxes=displayed-frame-v1";
     }
 }

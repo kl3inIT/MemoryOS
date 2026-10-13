@@ -56,6 +56,8 @@ public class DefaultGroupService implements GroupService {
             metadata(IamCapability.MCP_MANAGE, "Manage MCP servers",
                     "Register remote MCP servers, their authentication and OAuth clients, enable their tools "
                             + "and control Group access within the Tenant.", true),
+            metadata(IamCapability.CHANNELS_MANAGE, "Manage chat bots",
+                    "Connect, configure, switch on or off and remove the Tenant's chat bots, such as the Lark bot.", true),
             metadata(IamCapability.AGENTS_CREATE, "Create agents",
                     "Create custom Chat agents and share the agents they own or edit.", true),
             metadata(IamCapability.CHAT_HISTORY_READ, "View conversation history",
@@ -405,6 +407,7 @@ public class DefaultGroupService implements GroupService {
                 requiredGroupId,
                 requiredMemberActorId
         ).orElseThrow(() -> memberNotFound(requiredGroupId, requiredMemberActorId));
+        requirePerson(access.tenantId(), requiredGroupId, requiredMemberActorId);
         if (access.authority() == Authority.SCOPED && requiredActorId.equals(requiredMemberActorId)) {
             throw new IamException(
                     IamFailureReason.ACCESS_DENIED,
@@ -603,6 +606,13 @@ public class DefaultGroupService implements GroupService {
         return new AccessToGroup(access, group);
     }
 
+
+    /** A service account's Group edge is its owner's to change, so a Group command does not find it. */
+    private void requirePerson(TenantId tenantId, GroupId groupId, ActorId member) {
+        if (invariants.existingTenantMembers(tenantId, Set.of(member)).isEmpty()) {
+            throw memberNotFound(groupId, member);
+        }
+    }
 
     private GroupEntity mutableMembershipGroup(
             ActorId actorId,

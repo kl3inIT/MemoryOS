@@ -14,6 +14,7 @@ import { ThemeProvider } from "@/features/theme/theme-provider";
 import { MicrophoneUnavailableError } from "@/features/voice/capture/audio-capture";
 import type * as VoiceDictationModule from "@/features/voice/voice-dictation";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { ActionNotifications } from "@/components/ui/action-notifications";
 import { SearchPage } from "./search-page";
 import { searchPageSearchSchema } from "./search-params";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -119,7 +120,9 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION, pat
   renderedRouter = router;
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <RouterProvider router={router} />
+      <ActionNotifications>
+        <RouterProvider router={router} />
+      </ActionNotifications>
     </QueryClientProvider>,
   );
 }

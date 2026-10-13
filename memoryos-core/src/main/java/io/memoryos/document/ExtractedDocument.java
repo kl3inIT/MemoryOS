@@ -66,7 +66,7 @@ public record ExtractedDocument(
     }
 
     /**
-     * Where a block came from. A PDF location is `page_no` plus an optional `bbox` in PDF points; a
+     * Where a block came from. A PDF or image location is `page_no` plus an optional `bbox`; a
      * workbook location names its sheet; a Google Docs location names its tab, section and
      * character indices. Chunk provenance, Chat and Search read these keys, so they never change.
      */
@@ -94,10 +94,30 @@ public record ExtractedDocument(
         }
     }
 
+    /**
+     * A box without a frame is in PDF user space, in points. A box with {@code frame_width} and
+     * {@code frame_height} is measured from the top left of a frame of that size as a reader sees it,
+     * x right and y down, in the frame's own unit: a pixel of a picture after its EXIF orientation,
+     * or a point of a PDF page as displayed, {@code /Rotate} applied. Its origin is {@code TOPLEFT}.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record BoundingBox(double l, double t, double r, double b,
-            @JsonProperty("coord_origin") CoordOrigin coordOrigin) {
+            @JsonProperty("coord_origin") CoordOrigin coordOrigin,
+            @JsonProperty("frame_width") @Nullable Double frameWidth,
+            @JsonProperty("frame_height") @Nullable Double frameHeight) {
         public BoundingBox {
             Objects.requireNonNull(coordOrigin, "coordOrigin");
+            if ((frameWidth == null) != (frameHeight == null)) {
+                throw new IllegalArgumentException("a frame has a width and a height");
+            }
+            if (frameWidth != null && (coordOrigin != CoordOrigin.TOPLEFT || !(frameWidth > 0) || !(frameHeight > 0))) {
+                throw new IllegalArgumentException("a framed box is measured from the top left of a frame with a size");
+            }
+        }
+
+        /** A box in PDF user space. */
+        public BoundingBox(double l, double t, double r, double b, CoordOrigin coordOrigin) {
+            this(l, t, r, b, coordOrigin, null, null);
         }
     }
 

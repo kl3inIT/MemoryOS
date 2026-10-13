@@ -1163,6 +1163,13 @@ export type ProjectView = {
     iconName?: string;
 };
 
+/**
+ * Every project of the actor exactly once, in the chosen order
+ */
+export type ProjectOrderRequest = {
+    projectIds?: Array<string>;
+};
+
 export type ChatPreferencesInput = {
     workRole: string;
     personalPreferences: string;
@@ -2244,7 +2251,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     permissions: GroupPermissions;
 };
 
@@ -2259,7 +2266,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
 };
 
 export type SharePointCredentialTestResponse = {
@@ -2628,7 +2635,7 @@ export type ChatLibraryFileUsage = {
     name: string;
 };
 
-export type AccountType = 'STANDARD';
+export type AccountType = 'STANDARD' | 'SERVICE';
 
 export type TenantMembershipRole = 'OWNER' | 'MEMBER';
 
@@ -3099,11 +3106,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -3145,7 +3152,7 @@ export type GroupMember = {
     actorId: string;
     displayName: string | null;
     email: string | null;
-    accountType: 'STANDARD';
+    accountType: 'STANDARD' | 'SERVICE';
     status: 'ACTIVE' | 'INACTIVE';
     isManager: boolean;
     protectedOwner: boolean;
@@ -3164,11 +3171,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
 };
 
 export type WebAvailabilityResponse = {
@@ -3508,6 +3515,12 @@ export type IntermediateReportCitationsEvent = {
 export type ResearchCitation = {
     marker: number;
     citationId: number;
+};
+
+export type WaitingEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    waiting: boolean;
 };
 
 export type ChatBranch = {
@@ -3865,6 +3878,10 @@ export type ChatHistoryEntry = {
      */
     deleted: boolean;
     updatedAt: string;
+    /**
+     * Where the conversation is held
+     */
+    surface: 'WEB' | 'CHANNEL';
 };
 
 export type ChatHistoryPage = {
@@ -7496,6 +7513,47 @@ export type UpdateChatProjectResponses = {
 };
 
 export type UpdateChatProjectResponse = UpdateChatProjectResponses[keyof UpdateChatProjectResponses];
+
+export type ReorderChatProjectsData = {
+    body: ProjectOrderRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/projects/order';
+};
+
+export type ReorderChatProjectsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ReorderChatProjectsError = ReorderChatProjectsErrors[keyof ReorderChatProjectsErrors];
+
+export type ReorderChatProjectsResponses = {
+    /**
+     * Order saved
+     */
+    204: void;
+};
+
+export type ReorderChatProjectsResponse = ReorderChatProjectsResponses[keyof ReorderChatProjectsResponses];
 
 export type GetChatPreferencesData = {
     body?: never;
@@ -16232,7 +16290,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
+    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

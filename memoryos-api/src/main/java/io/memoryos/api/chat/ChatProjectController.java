@@ -2,6 +2,7 @@ package io.memoryos.api.chat;
 
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatProjectConversationRequest;
+import io.memoryos.api.chat.contract.ChatProjectOrderRequest;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.chat.ChatProjectService;
 import io.memoryos.chat.ChatProjectService.ProjectInput;
@@ -51,6 +52,13 @@ class ChatProjectController {
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
     ProjectView create(@CurrentActor IdentityContext identity, @RequestBody ProjectInput request) {
         return projects.create(identity.actorId(), request);
+    }
+    @PutMapping("/order")
+    @Operation(operationId = "reorderChatProjects", summary = "Set the actor's project order from one list of every owned project")
+    @ApiResponse(responseCode = "204", description = "Order saved")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void reorder(@CurrentActor IdentityContext identity, @RequestBody ChatProjectOrderRequest request) {
+        projects.reorder(identity.actorId(), request.projectIds());
     }
     @PutMapping("/{projectId}")
     @Operation(operationId = "updateChatProject", summary = "Update project instructions with an expected revision")

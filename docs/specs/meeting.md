@@ -63,7 +63,7 @@ An utterance also carries `spans`: the stretches the provider was least sure of,
 
 ## Finding a line, and keeping one
 
-The transcript has no scrollbar of its own: it is read by scrolling the page, and only the lines in view are rendered. While a meeting is being recorded the page keeps the sentence being said on screen. Scrolling back stops the following until the reader returns to the end; opening a meeting never moves the page by itself.
+The transcript has no scrollbar of its own: it is read by scrolling the page, and only the lines in view are rendered. While a meeting is being recorded the page keeps the sentence being said on screen. Scrolling back stops the following until the reader returns to the end; opening a meeting never moves the page by itself. Scrolling back is what the reader does (the wheel or a finger moving up, a key that moves up, dragging the scrollbar), not any movement of the page, since the list moves the page itself when it measures a line above the window.
 
 Searching a transcript happens in the browser over what is already loaded; no route answers a query. Every hit is numbered across the whole meeting so the arrows walk them in reading order, and a hit is drawn over an uncertain stretch where the two overlap.
 

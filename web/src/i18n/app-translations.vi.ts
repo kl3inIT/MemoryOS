@@ -1933,6 +1933,7 @@ Object.assign(englishUi, {
   "Account ID": "Account ID",
   "System One": "System One",
   Change: "Thay đổi",
+  App: "Ứng dụng",
   Client: "Client",
   Task: "Tác vụ",
   "Join on first sign-in": "Tự tham gia khi đăng nhập lần đầu",
@@ -2043,11 +2044,17 @@ Object.assign(englishUi, {
   "Added a credential": "Đã thêm thông tin xác thực",
   "Updated a credential": "Đã sửa thông tin xác thực",
   "Deleted a credential": "Đã xóa thông tin xác thực",
+  "Added a chat bot": "Đã thêm bot chat",
+  "Updated a chat bot": "Đã cập nhật bot chat",
+  "Removed a chat bot": "Đã gỡ bot chat",
   "Exported the audit log": "Đã xuất nhật ký audit",
   "Access refused": "Bị từ chối truy cập",
   "Read and export who changed sign-in, users, Groups, models, connections and Sources within the organization.":
     "Xem và xuất nhật ký ai đã thay đổi đăng nhập, người dùng, Nhóm, mô hình, kết nối và nguồn dữ liệu trong tổ chức.",
   "Manage MCP servers": "Quản lý máy chủ MCP",
+  "Manage chat bots": "Quản lý bot chat",
+  "Connect, configure, switch on or off and remove the organization's chat bots, such as the Lark bot.":
+    "Kết nối, cấu hình, bật hoặc tắt và gỡ các bot chat của tổ chức, như bot Lark.",
   "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the organization.":
     "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
   "IAM administration": "Quản trị danh tính và quyền truy cập",

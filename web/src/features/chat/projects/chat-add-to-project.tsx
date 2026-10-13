@@ -4,6 +4,7 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createChatProjectMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -87,7 +88,9 @@ export function ChatAddToProjectDialog({
         onOpenChange(false);
       }}
     >
-      {projects.isPending && open && <p role="status">{ui("Đang tải dự án…")}</p>}
+      {projects.isPending && open && (
+        <Skeleton role="status" aria-label={ui("Đang tải dự án…")} className="h-9" />
+      )}
       {projects.isError && <p role="alert">{ui("Không tải được danh sách dự án.")}</p>}
       {projects.data && creating && (
         <Field>
