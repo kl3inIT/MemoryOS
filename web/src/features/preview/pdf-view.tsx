@@ -16,12 +16,7 @@ import {
 } from "./pdf-pages";
 import { BLOCK } from "./pdf-range-plan";
 import { openPdfOriginal, PdfReading } from "./pdf-range-source";
-
-// Self-hosted worker: the bundler emits it under the app origin, so `script-src 'self'` covers it.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
+import { useReaderWorker } from "./pdf-reader-worker";
 
 // A same-origin original is read by HTTP range through `PdfReading`, which answers the blocks pdf.js asks for.
 // Image decoders (JBIG2, JPEG 2000) for scanned originals, copied from pdfjs-dist by vite.config.ts. The CSP does not
@@ -128,6 +123,11 @@ export function PdfView({
   const [moved, setMoved] = useState(false);
   const readWhole = useCallback(() => setWholeFile(true), []);
   const file = useOriginal(url, wholeFile, readWhole);
+  const worker = useReaderWorker();
+  const options = useMemo(
+    () => ({ ...(wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS), worker }),
+    [wholeFile, worker],
+  );
   const cited = pages.length ? pages : [1];
   const [firstCited = 1] = cited;
   const anchor = Math.min(firstCited, pageCount ?? firstCited);
@@ -236,8 +236,8 @@ export function PdfView({
     <div className="relative flex min-h-0 flex-1 flex-col">
       <Document
         key={wholeFile ? "whole" : "range"}
-        file={file}
-        options={wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS}
+        file={worker ? file : undefined}
+        options={options}
         suspense={false}
         loading={loadingPages}
         noData={loadingPages}

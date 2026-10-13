@@ -1,16 +1,12 @@
 import { FileText, TextQuote } from "lucide-react";
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { PdfHighlight } from "@/features/preview/pdf-pages";
+import { LazyOriginalView } from "@/features/preview/lazy-original-view";
+import { warmOriginal } from "@/features/preview/warm-original";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PreviewCanvas, PreviewSkeleton } from "@/features/preview/preview-surface";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { OriginalReader } from "@/features/preview/original-view";
 import { firstEvidenceView, type EvidenceView } from "./evidence-order";
-
-// The readers pull in pdf.js and docx-preview, so they load only when a reader opens the original.
-const OriginalView = lazy(() =>
-  import("@/features/preview/original-view").then((module) => ({ default: module.OriginalView })),
-);
 
 export type OriginalEvidence = {
   reader: OriginalReader;
@@ -53,10 +49,19 @@ export function EvidenceViewSwitch({
       ? "original"
       : "passages",
   );
+  const shown = view ?? ownView;
+  // The readers' code, and a PDF's first bytes, start with the tab rather than after its own code has run.
+  const opened = original && shown === "original" ? original : undefined;
+  const originalUrl = opened?.reader.url;
+  const filename = opened?.filename;
+  const mediaType = opened?.mediaType;
+  useEffect(() => {
+    if (originalUrl && filename) warmOriginal(filename, mediaType, originalUrl);
+  }, [originalUrl, filename, mediaType]);
   if (!original) return <>{children}</>;
   return (
     <Tabs
-      value={view ?? ownView}
+      value={shown}
       onValueChange={(value) => {
         const next: EvidenceView = value === "original" ? "original" : "passages";
         setOwnView(next);
@@ -80,22 +85,14 @@ export function EvidenceViewSwitch({
         {children}
       </TabsContent>
       <TabsContent value="original" className={panel}>
-        <Suspense
-          fallback={
-            <PreviewCanvas>
-              <PreviewSkeleton />
-            </PreviewCanvas>
-          }
-        >
-          <OriginalView
-            reader={original.reader}
-            filename={original.filename}
-            mediaType={original.mediaType}
-            pages={original.pages}
-            boxes={original.boxes}
-            texts={original.citations}
-          />
-        </Suspense>
+        <LazyOriginalView
+          reader={original.reader}
+          filename={original.filename}
+          mediaType={original.mediaType}
+          pages={original.pages}
+          boxes={original.boxes}
+          texts={original.citations}
+        />
       </TabsContent>
     </Tabs>
   );
