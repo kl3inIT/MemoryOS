@@ -1,11 +1,10 @@
-import { useContext, useState } from "react";
-import { ApplicationSessionContext } from "@/features/identity/application-session-context";
+import { useState } from "react";
+import { useApplicationSession } from "@/features/identity/application-session-context";
 import type { LibraryLayout } from "./library-toolbar";
 
 const storageKey = (owner: string) => `memoryos:library-layout:${owner}`;
 
-function readLayout(owner: string | undefined): LibraryLayout {
-  if (!owner) return "list";
+function readLayout(owner: string): LibraryLayout {
   try {
     return localStorage.getItem(storageKey(owner)) === "grid" ? "grid" : "list";
   } catch {
@@ -18,13 +17,12 @@ function readLayout(owner: string | undefined): LibraryLayout {
  * page. A browser preference only; storage that is disabled or full leaves the choice for the visit.
  */
 export function useLibraryLayout(): [LibraryLayout, (next: LibraryLayout) => void] {
-  const owner = useContext(ApplicationSessionContext)?.actorId;
+  const owner = useApplicationSession().actorId;
   const [layout, setLayout] = useState(() => readLayout(owner));
   return [
     layout,
     (next) => {
       setLayout(next);
-      if (!owner) return;
       try {
         localStorage.setItem(storageKey(owner), next);
       } catch {
