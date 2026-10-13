@@ -49,7 +49,8 @@ of step 5 is merged, so an administrator can always turn the bot off.
   `deploy.sh` and the deployment tests.
 - [ ] `ModulithArchitectureTest` counts the module.
 - [ ] Tests with an in-test adapter: each rule's refusal, a duplicate, a second asker in a group, two messages of
-  one conversation in order, the sender's rate, the idle window, a failed turn, restart recovery.
+  one conversation in order, the sender's rate, a reply continuing an old conversation, a new group message
+  starting one, the idle window of a direct message, `/new`, a failed turn, restart recovery.
 
 ## 4. The Lark adapter and the administrator's API
 
