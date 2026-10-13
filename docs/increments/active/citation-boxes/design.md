@@ -74,6 +74,41 @@ service). For 90 and 270 the answer verifies itself: a displayed page is landsca
 portrait, so the adapter keeps a box only when the answer's `width`×`height` has the displayed page's
 proportions. For 180 the two spaces have the same size and the box rests on the PDFium semantics alone.
 
+**What the service does to the picture before it answers.** PaddleX's layout parsing has a document
+preprocessor in front of layout detection: an orientation classifier (`useDocOrientationClassify`) that turns
+the picture by 0, 90, 180 or 270, and unwarping (`useDocUnwarping`). When it runs, layout is read from its
+`output_img`, `prunedResult.width`/`height` are that corrected picture's, and `block_bbox` is in it
+(`paddlex/inference/pipelines/paddleocr_vl/pipeline.py` at `v3.6.1`: `doc_preprocessor_images` feed layout and
+the result's `"width": doc_preprocessor_image.shape[1]`). A half-turn correction keeps the size, so neither
+the proportion check nor the exact-size check sees it; unwarping cannot be mapped back at all.
+
+- *What the adapter requests.* `PaddleOcrVlClient` writes `"useDocOrientationClassify":false,
+  "useDocUnwarping":false` into every request, for PDFs and images alike. MEM-192 chose that on 2026-09-23: the
+  serving image loads no preprocessing model (`use_doc_preprocessor: False` in its pipeline file), switching
+  the classifier on answered HTTP 500, and its test of a scan turned inside an unrotated page showed the
+  table read identically and the boxes on the page as displayed with both flags off. Page turning was left
+  to nobody: nothing corrects orientation on this route.
+- *What the deployment enables.* The pipeline file is inside the pinned image
+  (`/home/paddleocr/pipeline_config_vllm.yaml`, named by `compose.serving.yaml`), not in the repository. It
+  does not decide the outcome: `get_model_settings` takes the request's flags when either is given, and with
+  both `false` sets `use_doc_preprocessor = False` whatever the file says; the pipeline then passes each
+  picture through as `{"output_img": arr}`.
+- *What the answer reports.* `prunedResult.model_settings.use_doc_preprocessor`, always; and
+  `prunedResult.doc_preprocessor_res` (with the angle and the preprocessor's own settings) only when it ran.
+  Both recorded fixtures say `"use_doc_preprocessor": false`.
+
+So the case that holds is **both off, requested off by the adapter**, and every framed box is on as designed.
+The adapter does not take that on trust per answer: a framed box needs `model_settings.use_doc_preprocessor`
+to be `false`. An answer that says `true` keeps no framed box (stricter than "angle 0 only": the request
+cannot produce that answer, so nothing reads the angle). An answer without the field, from a service that is
+not the pinned one, keeps a quarter-turned PDF page's boxes on the proportion check alone, and none for a
+half-turned page or an image.
+
+**`parser_configuration` is diagnostic.** It is written by the four extractors into `DocumentContent.metadata`
+and stored as the Document's `metadata_json` (`JdbcDocumentRepository`). No Java, SQL or web code reads the
+key or compares the string: nothing decides re-extraction, re-chunking, republication or the served generation
+by it. `boxes=displayed-frame-v1` is therefore added.
+
 ## Decision
 
 ### One more kind of box: measured in the frame as displayed
@@ -149,7 +184,14 @@ after it.
   `data-slot="image-citation-box"`, the same accessible label. It draws only when the loaded picture's
   `naturalWidth`×`naturalHeight` is exactly the recorded frame, and tells its caller which it was.
 - The rail: an image citation that recorded a framed box is `exact` once the picture agreed with the frame and
-  `none` when it did not; an image with no recorded box keeps "Không có lớp văn bản".
+  `none` when it did not; an image with no recorded box keeps "Không có lớp văn bản". The view checks the
+  citation being read; every region of one picture is in the same frame, so its answer stands for the other
+  citations with a region, and while the citation being read has none they report what was recorded.
+- A rotated PDF page: the rail reports a PDF citation from provenance, as before. Whether a framed box was
+  refused is known only inside the PDF reader, once the page's `view` has loaded; reporting it needs a
+  callback out of `pdf-view.tsx`, which the search-matches increment is editing. It is left as it is and
+  listed under Open in the plan. The adapter writes a framed box only with the displayed page's proportions,
+  so the reader refuses one only when the page pdf.js shows is not the page PDFBox measured.
 
 Rejected: a canvas overlay (the highlight is a positioned element everywhere else), and scaling a box whose
 frame differs from the picture (a resized or re-oriented picture is exactly the case where the box may be
