@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import tools.jackson.databind.JsonNode;
@@ -123,7 +124,7 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
-    void aPageTurnedByRotateIsMeasuredAsItIsDisplayedAndCarriesNoBox() throws Exception {
+    void aPageTurnedByRotateIsMeasuredAndBoxedAsItIsDisplayed() throws Exception {
         try (var pdf = new PDDocument(); var out = new ByteArrayOutputStream()) {
             var portrait = new PDRectangle((float) A4_SHORT, (float) A4_LONG);
             var turned = new PDPage(portrait);
@@ -147,17 +148,55 @@ class PaddleOcrVlDocumentTest {
             assertEquals(new PdfLayout.Frame(0, 0, (float) A4_SHORT, (float) A4_LONG, 90), layout.frames().get(0));
             assertEquals(270, layout.frames().get(3).rotation());
 
-            // The sideways fixture's first page, stored portrait with /Rotate 90, renders landscape. The
-            // viewer outlines no rotated page, so its blocks keep the page and drop the box.
+            // The sideways fixture's first page, stored portrait with /Rotate 90, renders landscape: its
+            // boxes are the pixel boxes of the 1685 x 1191 rendering in points of the displayed page.
             var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"), layout.frames().subList(0, 2));
-            var onTurnedPage = blocks.stream().filter(block -> block.locations().getFirst().pageNo() == 1).toList();
-            assertFalse(onTurnedPage.isEmpty());
-            assertTrue(onTurnedPage.stream().allMatch(block -> block.locations().getFirst().bbox() == null));
+            var turnedTable = blocks.stream().filter(block -> block.kind() == Kind.TABLE).toList().get(0);
+            assertEquals(1, turnedTable.locations().getFirst().pageNo());
+            assertFramed(259 * A4_LONG / 1685, 91 * A4_SHORT / 1191, 1005 * A4_LONG / 1685, 1032 * A4_SHORT / 1191,
+                    A4_LONG, A4_SHORT, Objects.requireNonNull(turnedTable.locations().getFirst().bbox()));
             var upright = blocks.stream().filter(block -> block.kind() == Kind.TABLE).toList().get(1);
             assertEquals(2, upright.locations().getFirst().pageNo());
             assertBox(158 * A4_SHORT / 1191, A4_LONG - 270 * A4_LONG / 1685, 1100 * A4_SHORT / 1191,
                     A4_LONG - 1000 * A4_LONG / 1685, Objects.requireNonNull(upright.locations().getFirst().bbox()));
         }
+    }
+
+    @Test
+    void aTurnedPageKeepsItsBoxAtEveryRightAngleAndIgnoresTheCropBoxCorner() throws Exception {
+        String answer = """
+                [{"prunedResult":{"width":%d,"height":%d,"model_settings":{"use_doc_preprocessor":false},
+                  "parsing_res_list":[{"block_label":"text","block_content":"Tổng cộng","block_bbox":[100,200,300,400]}]}}]
+                """;
+        // A 500 x 1000 pt CropBox at (36, 48): displayed 1000 x 500 for a quarter turn, rendered at twice its points.
+        for (int rotation : List.of(90, 270)) {
+            var blocks = PaddleOcrVlDocument.blocks(mapper.readTree(answer.formatted(2000, 1000)),
+                    List.of(new PdfLayout.Frame(36, 48, 500, 1000, rotation)));
+            assertFramed(50, 100, 150, 200, 1000, 500, Objects.requireNonNull(blocks.getFirst().locations().getFirst().bbox()));
+        }
+        var half = PaddleOcrVlDocument.blocks(mapper.readTree(answer.formatted(1000, 2000)),
+                List.of(new PdfLayout.Frame(36, 48, 500, 1000, 180)));
+        assertFramed(50, 100, 150, 200, 500, 1000, Objects.requireNonNull(half.getFirst().locations().getFirst().bbox()));
+    }
+
+    @Test
+    void aTurnedPageAnsweredInAnotherFrameKeepsItsPageAlone() throws Exception {
+        String answer = """
+                [{"prunedResult":{"width":%d,"height":%d,%s
+                  "parsing_res_list":[{"block_label":"text","block_content":"Tổng cộng","block_bbox":[100,200,300,400]}]}}]
+                """;
+        String asSent = "\"model_settings\":{\"use_doc_preprocessor\":false},";
+        String corrected = "\"model_settings\":{\"use_doc_preprocessor\":true},";
+        var quarter = List.of(new PdfLayout.Frame(0, 0, 500, 1000, 90));
+        var half = List.of(new PdfLayout.Frame(0, 0, 500, 1000, 180));
+        // The stored page's proportions, not the displayed page's: the rendering did not apply /Rotate.
+        assertNull(onlyBox(answer.formatted(1000, 2000, asSent), quarter));
+        // The preprocessor ran: the answer is in a page it turned or unwarped.
+        assertNull(onlyBox(answer.formatted(2000, 1000, corrected), quarter));
+        assertNull(onlyBox(answer.formatted(1000, 2000, corrected), half));
+        // An answer that does not say: a quarter turn is told by its proportions, a half turn by nothing.
+        assertNotNull(onlyBox(answer.formatted(2000, 1000, ""), quarter));
+        assertNull(onlyBox(answer.formatted(1000, 2000, ""), half));
     }
 
     @Test
@@ -374,6 +413,12 @@ class PaddleOcrVlDocumentTest {
         assertEquals(r, box.r(), 0.01);
         assertEquals(b, box.b(), 0.01);
         assertEquals(CoordOrigin.BOTTOMLEFT, box.coordOrigin());
+    }
+
+    private @Nullable BoundingBox onlyBox(String answer, List<PdfLayout.Frame> pages) throws Exception {
+        var block = PaddleOcrVlDocument.blocks(mapper.readTree(answer), pages).getFirst();
+        assertEquals(1, block.locations().getFirst().pageNo());
+        return block.locations().getFirst().bbox();
     }
 
     private static void assertFramed(double l, double t, double r, double b, double width, double height,

@@ -29,16 +29,21 @@ import tools.jackson.databind.JsonNode;
  * <p>Each result is one rendered page, and {@code parsing_res_list} is already in reading order.
  * A block's {@code block_bbox} is in pixels of that rendering, which is the page's CropBox. Scaled
  * by the CropBox size and moved to its corner, it becomes a box in PDF user space with a
- * bottom-left origin, the space the viewer's page {@code view} is in. A page turned by
- * {@code /Rotate} carries its page number alone: the viewer outlines no rotated page, and an
- * unlocated passage is never drawn.
+ * bottom-left origin, the space the viewer's page {@code view} is in.
  *
- * <p>An image input has no page in points. Its boxes stay in the pixels they were answered in, from
- * the top left of the picture as the service decoded it (OpenCV, EXIF orientation applied), with the
- * picture's size as their frame. That holds only for the picture as sent: the service's document
- * preprocessor turns or unwarps a picture before the layout is read and answers in the result, so a
- * box is kept only when the answer says the preprocessor did not run
- * ({@code model_settings.use_doc_preprocessor} false, which the request's two flags ask for).
+ * <p>A page turned by {@code /Rotate} is rendered as it is displayed (PDFium applies the rotation),
+ * so its boxes are scaled to points of the displayed page and kept from its top left, with the
+ * displayed size as their frame. An image input has no page in points: its boxes stay in the pixels
+ * they were answered in, from the top left of the picture as the service decoded it (OpenCV, EXIF
+ * orientation applied), with the picture's size as their frame.
+ *
+ * <p>A framed box holds only for the page or picture as sent. The service's document preprocessor
+ * turns or unwarps it before the layout is read and answers in the result, so the answer has to say
+ * the preprocessor did not run ({@code model_settings.use_doc_preprocessor} false, which the
+ * request's two flags ask for). An answer that says it ran keeps no framed box. One that does not
+ * say keeps a quarter-turned page's boxes alone, because there the answer's proportions tell the
+ * displayed page from the stored one and from a page turned back; a half turn and a picture have no
+ * such check.
  *
  * <p>A {@code doc_title} is a level-1 heading: in the reports it names a part (the disclosure cover,
  * the notes). A {@code paragraph_title} is level 2: a note's title above its table. A
@@ -65,6 +70,11 @@ final class PaddleOcrVlDocument {
             + "|\\d{1,3}(?:[.,]\\d+)?%|\\d{2,3}|[IVX]+\\.\\d+(?:\\.\\d+)*|[-\\u2013]");
     private static final Pattern WORD = Pattern.compile("[a-z]{2,}");
     private static final int MAX_HEADER_ROWS = 3;
+    /**
+     * How far the two scales of a rendering may differ and still be one page: PDFium rounds each side
+     * up to a pixel, a fraction of a percent at twice the page's points.
+     */
+    private static final double SAME_PROPORTIONS = 0.01;
 
     private PaddleOcrVlDocument() {}
 
@@ -91,15 +101,37 @@ final class PaddleOcrVlDocument {
             }
             JsonNode preprocessor = page.path("model_settings").path("use_doc_preprocessor");
             boolean asSent = preprocessor.isBoolean() && !preprocessor.asBoolean();
+            boolean corrected = preprocessor.isBoolean() && preprocessor.asBoolean();
             PdfLayout.Frame frame = null;
             double scaleX = 0;
             double scaleY = 0;
-            if (!pages.isEmpty() && pages.get(index).rotation() == 0) {
+            // The frame a box is kept in when it is not user space: the picture, or a turned page as displayed.
+            double shownWidth = 0;
+            double shownHeight = 0;
+            if (pages.isEmpty()) {
+                if (asSent) {
+                    scaleX = scaleY = 1;
+                    shownWidth = width.asDouble();
+                    shownHeight = height.asDouble();
+                }
+            } else if (pages.get(index).rotation() == 0) {
                 frame = pages.get(index);
                 scaleX = frame.width() / width.asDouble();
                 scaleY = frame.height() / height.asDouble();
+            } else if (!corrected) {
+                var stored = pages.get(index);
+                boolean quarter = stored.rotation() != 180;
+                double displayedWidth = quarter ? stored.height() : stored.width();
+                double displayedHeight = quarter ? stored.width() : stored.height();
+                double x = displayedWidth / width.asDouble();
+                double y = displayedHeight / height.asDouble();
+                if ((quarter || asSent) && Math.abs(x / y - 1) <= SAME_PROPORTIONS) {
+                    scaleX = x;
+                    scaleY = y;
+                    shownWidth = displayedWidth;
+                    shownHeight = displayedHeight;
+                }
             }
-            boolean picture = pages.isEmpty() && asSent;
             for (int at = 0; at < items.size(); at++) {
                 JsonNode item = items.get(at);
                 String label = item.path("block_label").asString("");
@@ -111,7 +143,7 @@ final class PaddleOcrVlDocument {
                 double[] pixels = pixels(item.path("block_bbox"));
                 BoundingBox box = pixels == null ? null
                         : frame != null ? box(pixels, frame, scaleX, scaleY)
-                        : picture ? framed(pixels, 1, 1, width.asDouble(), height.asDouble())
+                        : shownWidth > 0 ? framed(pixels, scaleX, scaleY, shownWidth, shownHeight)
                         : null;
                 var locations = List.of(Location.page(index + 1, box));
                 int position = blocks.size();
