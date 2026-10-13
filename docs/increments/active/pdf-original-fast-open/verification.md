@@ -122,6 +122,9 @@ image" step in CI, not on the development machine.
   through server ID promotion and resets only when switching", fails the same way against the unchanged
   build. The other specs were not run.
 - The new `search.spec.ts` case fails against the unchanged build at its first assertion, the whole-file read.
+- Its last step, a range that fails once the document is open, fails against a build without the reset in
+  `readWhole`: the page number stays where the reader was sent, because the observers are still on the canvas
+  the whole read replaced.
 
 ## Not verified
 

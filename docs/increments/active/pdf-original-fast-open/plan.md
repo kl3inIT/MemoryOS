@@ -25,7 +25,7 @@
 | An opening started ahead is claimed once; a held original is authorized with one byte; a refusal or a changed size drops what was held | `pdf-range-source.test.ts` ("opening an original") |
 | Held bytes answer without a request; an ordinary read serves the next ask; a burst is one request each, newest first; a failed read reports once; a closed reading asks for nothing | `pdf-range-source.test.ts` ("reading an opened original") |
 | The oldest blocks are shed first; only whole blocks and a file's last short one are kept | `pdf-range-source.test.ts` ("HeldOriginal") |
-| A 24-page scan opens at cited page 13 by range only, starting with its head; the first page's picture is never fetched; under half the file is read once the neighbours and the thumbnails in view are in; the rail draws fewer than twelve thumbnails; opening it again starts with one byte and reads under a tenth of the file | `search.spec.ts` ("opens a scanned report at its cited page without reading the rest of it"); fails on the build before this change |
+| A 24-page scan opens at cited page 13 by range only, starting with its head; the first page's picture is never fetched; under half the file is read once the neighbours and the thumbnails in view are in; the rail draws fewer than twelve thumbnails; opening it again starts with one byte and reads under a tenth of the file; a range that fails once it is open reads it whole once, returns to the cited page, and the page then asked for is drawn and shown as the page number | `search.spec.ts` ("opens a scanned report at its cited page without reading the rest of it"); fails on the build before this change |
 | A text original still opens at its cited page with no whole read, and falls back to exactly one whole read when ranges fail | `search.spec.ts` (source presentation case), `chat.spec.ts` (citation case) |
 | Static locations switch gzip on, the worker's own location too, the script and stylesheet types are covered, and no location that proxies to the API compresses | `scripts/nginx-config.test.mjs` ("nginx compression") |
 | The built image's nginx sends its largest script and the pdf.js worker with `Content-Encoding: gzip` | CI, "Verify the frontend image" |
@@ -41,5 +41,10 @@ does not touch.
 - `chat.spec.ts` "keeps the new conversation mounted through server ID promotion…" fails against a privately
   served production build of unchanged `origin/main` as well as of this change (the suite's own port was held by
   another session); not looked into here.
+- A read that fails once the document is open puts the reader back at the cited page of the whole read, not
+  on the page they were reading.
+- The planner sees a burst only among asks that arrive within 4 ms of the first. pdf.js posts a flat
+  document's page dictionaries in one task, so they do; a burst split across two windows would have its one
+  or two stragglers read ahead 256 KiB each.
 - The tail waits for the head's response headers because the server ignores a suffix range (`bytes=-N`).
   Honouring one would start both at once and save a request's latency on every first opening.
