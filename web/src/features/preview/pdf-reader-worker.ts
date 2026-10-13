@@ -15,11 +15,13 @@ function join() {
   worker ??= new pdfjs.PDFWorker();
   return () => {
     readers -= 1;
-    if (readers > 0) return;
-    const idle = worker;
-    worker = undefined;
-    // A document released in the same pass still says goodbye to its worker; stop it after that.
-    queueMicrotask(() => idle?.destroy());
+    // react-pdf releases a document a microtask after its reader unmounts, and that release still talks to the
+    // worker; a reader mounted in the same pass takes the worker over. So it stops a task later, if nobody reads.
+    setTimeout(() => {
+      if (readers > 0 || !worker) return;
+      worker.destroy();
+      worker = undefined;
+    });
   };
 }
 
