@@ -286,7 +286,7 @@ for (const theme of ["light", "dark"] as const) {
 
       await page.goto("/");
       await page.getByRole("button", { name: "Thêm vào câu hỏi" }).click();
-      await page.getByRole("button", { name: "Công cụ MCP" }).click();
+      await page.getByRole("button", { name: /Ứng dụng/ }).click();
       await expect(page.getByRole("switch", { name: "Google Drive" })).toBeVisible();
       await page.screenshot({ path: `${OUTPUT}/mem112-mcp-composer-${theme}-${width}.png` });
 
@@ -363,7 +363,7 @@ test("The composer lists MCP servers with their own connection state", async ({ 
   await page.goto("/");
 
   await page.getByRole("button", { name: "Thêm vào câu hỏi" }).click();
-  await page.getByRole("button", { name: "Công cụ MCP" }).click();
+  await page.getByRole("button", { name: /Ứng dụng/ }).click();
   await expect(page.getByRole("switch", { name: "Google Drive" })).toBeVisible();
   // Jira needs the User's own key and Figma expired, so both offer Connect instead of a switch.
   await expect(page.getByRole("switch", { name: "Jira Cloud" })).toHaveCount(0);

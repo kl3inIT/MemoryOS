@@ -1080,8 +1080,13 @@ export const vietnameseUi: Record<string, string> = {
   "Kết nối tài khoản dùng chung": "Connect the shared account",
   "Kết nối tài khoản của bạn": "Connect your account",
   "Ứng dụng đã kết nối": "Connected apps",
+  // MEM-253 the composer's apps
+  "{{count}} đang bật": "{{count}} on",
+  "Chưa có ứng dụng nào dành cho bạn.": "No apps are available to you yet.",
+  "Quản lý kết nối": "Manage connections",
   // MEM-252 MCP catalog
-  "Tạo ứng dụng OAuth ở trang của nhà cung cấp": "Create the OAuth application in the provider's console",
+  "Tạo ứng dụng OAuth ở trang của nhà cung cấp":
+    "Create the OAuth application in the provider's console",
   "Thêm {{name}}": "Add {{name}}",
   "Đã thêm": "Added",
   "Ứng dụng phổ biến": "Popular apps",

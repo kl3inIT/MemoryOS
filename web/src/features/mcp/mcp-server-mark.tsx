@@ -80,7 +80,12 @@ function brandOf(url: string, name: string): Brand | undefined {
   return brands.find(([word]) => haystack.includes(word))?.[1];
 }
 
-const tileClass = "inline-flex size-10 shrink-0 items-center justify-center rounded-xl";
+const tileSize = {
+  md: { tile: "size-10 rounded-xl", logo: "size-6!", mark: "size-5!" },
+  sm: { tile: "size-7 rounded-lg", logo: "size-4!", mark: "size-3.5!" },
+  xs: { tile: "size-5 rounded-md", logo: "size-3!", mark: "size-3!" },
+};
+const tileClass = "inline-flex shrink-0 items-center justify-center";
 
 /**
  * Identifies one MCP server in a list: the service's logo when the address or name names a known service,
@@ -90,21 +95,24 @@ export function McpServerMark({
   slug,
   url = "",
   name = "",
+  size = "md",
   className,
 }: {
   slug: string;
   url?: string;
   name?: string;
+  size?: keyof typeof tileSize;
   className?: string;
 }) {
   const brand = brandOf(url, name);
+  const sized = tileSize[size];
   if (brand && "logo" in brand) {
     return (
       <span
         aria-hidden="true"
-        className={cn(tileClass, "bg-white ring-1 ring-black/10", className)}
+        className={cn(tileClass, sized.tile, "bg-white ring-1 ring-black/10", className)}
       >
-        <Icon icon={brand.logo} className="size-6!" />
+        <Icon icon={brand.logo} className={sized.logo} />
       </span>
     );
   }
@@ -112,10 +120,10 @@ export function McpServerMark({
     return (
       <span
         aria-hidden="true"
-        className={cn(tileClass, "bg-(--mcp-brand) text-white", className)}
+        className={cn(tileClass, sized.tile, "bg-(--mcp-brand) text-white", className)}
         style={{ "--mcp-brand": brand.color } as CSSProperties}
       >
-        <Icon icon={brand.tile} className="size-5!" />
+        <Icon icon={brand.tile} className={sized.mark} />
       </span>
     );
   }
@@ -129,7 +137,9 @@ export function McpServerMark({
       aria-hidden="true"
       className={cn(
         tileClass,
-        "bg-surface-sunken font-main-ui-action text-content-secondary uppercase",
+        sized.tile,
+        size === "md" ? "font-main-ui-action" : "text-xs font-medium",
+        "bg-surface-sunken text-content-secondary uppercase",
         className,
       )}
     >

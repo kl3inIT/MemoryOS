@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { HttpResponse } from "msw";
@@ -40,14 +47,27 @@ function show(connections: McpConnection[], onChange = vi.fn(), selected: string
     }),
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
+  // The submenu links to Settings › Connections, so it renders inside a router.
+  const rootRoute = createRootRoute();
+  const route = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/",
+    component: () => (
       <ChatMcpServers
         selected={selected}
         onChange={onChange}
         onBack={vi.fn()}
         sessionId="session-7"
       />
+    ),
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([route]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
   return onChange;
