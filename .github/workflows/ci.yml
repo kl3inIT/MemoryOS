@@ -190,6 +190,7 @@ jobs:
         env:
           MEMORYOS_API_IMAGE: memoryos-api:config-check
           MEMORYOS_WORKER_IMAGE: memoryos-worker:config-check
+          MEMORYOS_CHANNELS_IMAGE: memoryos-channels:config-check
           MEMORYOS_WEB_IMAGE: memoryos-web:config-check
           MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
           MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
@@ -756,6 +757,25 @@ jobs:
             type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache
           cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache,mode=max,ignore-error=true' || '' }}
 
+      # MEM-246: the chat bots' process, from the same Gradle build stage.
+      - name: Build production channels image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: channels
+          tags: memoryos-channels:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: |
+            type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache
+            type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache
+            type=registry,ref=ghcr.io/kl3init/memoryos-channels:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-channels:buildcache,mode=max,ignore-error=true' || '' }}
+
       # The login theme is inside this image, so a release carries its own sign-in page.
       - name: Build production Keycloak image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -779,7 +799,7 @@ jobs:
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/push-release-images
         with:
-          components: api worker keycloak
+          components: api worker keycloak channels
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Remove registry credentials
@@ -891,7 +911,7 @@ jobs:
             ${{ needs.interpreter.outputs.images }}
         run: |
           mkdir release
-          for component in api worker web interpreter interpreter-executor keycloak; do
+          for component in api worker web interpreter interpreter-executor keycloak channels; do
             # Compose rejects a hyphen in an environment key.
             key=${component//-/_}
             key="MEMORYOS_${key^^}_IMAGE"

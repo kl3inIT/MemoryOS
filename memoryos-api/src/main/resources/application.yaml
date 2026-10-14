@@ -229,6 +229,10 @@ memoryos:
     registration-id: memoryos
     # Equal to Keycloak's SSO session (configure-memoryos-realm.sh), so the two end together.
     session-max-lifetime: 7d
+  # MEM-246: the key a bot's app secret is stored with, apart from the connectors'. Unset, bots cannot be added.
+  channel:
+    credential-encryption-key: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:}
   mcp:
     credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
     # HTTPS (or loopback HTTP) ending in /login/oauth2/code/mcp; registered with each OAuth client.

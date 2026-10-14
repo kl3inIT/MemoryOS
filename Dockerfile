@@ -30,15 +30,19 @@ COPY memoryos-api ./memoryos-api
 COPY memoryos-worker ./memoryos-worker
 COPY memoryos-channels ./memoryos-channels
 
-RUN ./gradlew --no-daemon --stacktrace :memoryos-api:bootJar :memoryos-worker:bootJar \
+RUN ./gradlew --no-daemon --stacktrace :memoryos-api:bootJar :memoryos-worker:bootJar :memoryos-channels:bootJar \
     && api_jar="$(find memoryos-api/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && worker_jar="$(find memoryos-worker/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
+    && channels_jar="$(find memoryos-channels/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && test -n "${api_jar}" \
     && test -n "${worker_jar}" \
+    && test -n "${channels_jar}" \
     && cp "${api_jar}" /workspace/api.jar \
     && cp "${worker_jar}" /workspace/worker.jar \
+    && cp "${channels_jar}" /workspace/channels.jar \
     && java -Djarmode=tools -jar /workspace/api.jar extract --layers --destination /workspace/api-extracted \
-    && java -Djarmode=tools -jar /workspace/worker.jar extract --layers --destination /workspace/worker-extracted
+    && java -Djarmode=tools -jar /workspace/worker.jar extract --layers --destination /workspace/worker-extracted \
+    && java -Djarmode=tools -jar /workspace/channels.jar extract --layers --destination /workspace/channels-extracted
 
 FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:f4273aca6e32b3da7440b3776238116b3f1db7b85060c12848cc24048032207c AS runtime
 
@@ -95,3 +99,19 @@ COPY --from=build --chown=1654:1654 /workspace/api-extracted/dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/spring-boot-loader/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/application/ ./
+
+# MEM-246: the chat bots' process. It runs Chat turns like the API and serves no browser, so it needs none of the
+# API's native speech libraries; it is sized like the Worker (MEM-244).
+FROM runtime AS channels
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.title="MemoryOS Channels" \
+      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+ENV MEMORYOS_APPLICATION_JAR=channels.jar \
+    JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=10 -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:+UseCompactObjectHeaders -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
+COPY --from=build --chown=1654:1654 /workspace/channels-extracted/dependencies/ ./
+COPY --from=build --chown=1654:1654 /workspace/channels-extracted/spring-boot-loader/ ./
+COPY --from=build --chown=1654:1654 /workspace/channels-extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=1654:1654 /workspace/channels-extracted/application/ ./
