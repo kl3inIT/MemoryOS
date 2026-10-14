@@ -35,7 +35,12 @@
 | A Lark group message naming the bot is addressed, its mention removed and another's kept, with the sender's and the app's organisations from the event | `LarkChannelAdapterTest.aGroupMessageNamingTheBotIsAddressedWithTheMentionRemovedAndBothOrganisations` |
 | A Lark direct message is addressed and a reply names what it replies to | `LarkChannelAdapterTest.aDirectMessageIsAddressedAndAReplyNamesWhatItRepliesTo` |
 | A Lark message that is not text carries no text; a group message without the bot is not addressed | `LarkChannelAdapterTest.aMessageThatIsNotTextCarriesNoTextAndAGroupMessageWithoutTheBotIsNotAddressed` |
-| An answer is Markdown with its sources as links and its closing line; each region has its address | `LarkChannelAdapterTest.anAnswerIsMarkdownWithItsSourcesAsLinksAndItsClosingLine`, `eachRegionHasItsAddress` |
+| Another person's mention key becomes their name; each region has its address | `LarkChannelAdapterTest.anotherPersonsMentionKeyBecomesTheirName`, `eachRegionHasItsAddress` |
+| The reply card has no header, streams the answer with rising sequences, ends with its sources and closing line, and closes its streaming with a one-line summary | `LarkReplyCardTest.theCardHasNoHeaderStreamsTheAnswerAndClosesWithItsSources` |
+| A failure keeps what was written and adds the notice | `LarkReplyCardTest.aFailureKeepsWhatWasWrittenAndAddsTheNotice` |
+| A write after Lark closed the stream reopens it once | `LarkReplyCardTest.aWriteAfterLarkClosedTheStreamReopensItOnce` |
+| A card Lark refuses fails before any reply is sent | `LarkReplyCardTest.aCardLarkRefusesIsReportedAndNothingIsSent` |
+| Mention tags are written out, long text is cut, the summary is one line | `LarkReplyCardTest.mentionTagsAreWrittenOutLongTextIsCutAndTheSummaryIsOneLine` |
 
 The bridge to Chat (`ChannelTurns`: session, leaf, turn, stream, saved answer) has no test of its own; it is
 exercised end to end on staging with the Lark adapter (plan step 4), as is the adapter's connection, streaming reply,

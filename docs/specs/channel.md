@@ -79,11 +79,20 @@ in-memory deduplication on and not relied on, and the raw event kept so that the
 custom app belongs to one organisation, which every event's header names, and the sender's is in its body. Requests
 go through a `LarkTransport` of its own with a 30-second, 1 MiB budget for the calls the SDK makes itself.
 
-- A message's text is the `text` or `post` content without the bot's own mention; another person's mention stays.
-  Any other message type is `OTHER`. A reply names the message it answers, or the topic's root.
-- An answer streams into one Markdown message that quotes the question (`replyInThread` false): the text as it is
-  written, then the whole answer, its sources as a numbered list of links, and the closing line. A notice is a text
-  message quoting the question.
+- A message's text is the `text` or `post` content without the bot's own mention; another person's mention stays,
+  by name rather than by Lark's `@_user_N` key. Any other message type is `OTHER`. A reply names the message it
+  answers, or the topic's root.
+- An answer is a card of the bot's own (`LarkReplyCard`), not the SDK's Markdown stream, whose card has a fixed
+  English header and placeholders. The card (schema 2.0, no header, streaming on) is created through CardKit,
+  showing the bot's `WRITING` notice in its language, and replies to the question by its id (`replyInThread` false,
+  with a `uuid` named after the question so a retried send is not doubled); a card or reply Lark refuses fails the
+  message before the turn starts. One writer rewrites the card's Markdown element with the whole text at most every
+  800 ms, each write with a higher sequence; a write Lark refuses because the card's streaming ended (300309)
+  reopens it once. The answer ends as its text, its sources as a numbered list of links and the closing line, cut
+  at 9,000 characters; the card's streaming is closed with the answer's first line as its chat-list summary. A
+  failure keeps what was written and adds the notice below it. A notice is a text message quoting the question.
+- Text the model wrote, and a source's title, carry Lark's `<at>` and `<person>` tags written out, so an answer or a
+  document it quotes cannot notify a person or the whole group.
 - The sender's e-mail is the contact `email` of their `open_id` (scope `contact:user.email:readonly`); none when
   Lark will not say. Whether a member can change it themself is settled on the test tenant before acceptance.
 - A group is external unless Lark answers that it is not; the answer is remembered for an hour, and a chat whose
