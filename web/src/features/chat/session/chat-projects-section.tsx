@@ -1,16 +1,33 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams, useRouterState } from "@tanstack/react-router";
-import { ChevronRight, GripVertical, Plus } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Link, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
+import {
+  ChevronRight,
+  FolderOpen,
+  GripVertical,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
 import { ThreadList } from "@/components/assistant-ui/elements/thread-list";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { SortableList } from "@/components/composites/sortable-list";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { projectsOptions, type Project } from "@/features/chat/projects/chat-projects-api";
+import { ProjectDeleteDialog } from "@/features/chat/projects/project-delete-dialog";
 import { ProjectEditor } from "@/features/chat/projects/project-editor";
 import { ProjectIcon } from "@/features/chat/projects/project-icon";
 import { useReorderProjects } from "@/features/chat/projects/use-reorder-projects";
@@ -115,6 +132,7 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
 
   return (
     <Collapsible
+      className="group/project-section"
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
@@ -122,20 +140,19 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
       }}
     >
       <div className="mb-2 flex items-center justify-between px-2">
-        <div className="flex items-center gap-1">
-          <Link
-            to="/projects"
-            onClick={onNavigate}
-            className="rounded text-sm font-medium text-content-secondary hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            aria-label={ui("Danh sách dự án")}
+            className="flex h-7 min-w-0 flex-1 items-center gap-1 rounded text-left text-sm font-medium text-content-secondary outline-none hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
           >
             {ui("Dự án")}
-          </Link>
-          <CollapsibleTrigger asChild>
-            <IconButton size="sm" prominence="internal" aria-label={ui("Danh sách dự án")}>
-              <ChevronRight className="transition-transform group-data-[state=open]/icon-button:rotate-90 motion-reduce:transition-none" />
-            </IconButton>
-          </CollapsibleTrigger>
-        </div>
+            <ChevronRight
+              aria-hidden="true"
+              className="size-4 transition-transform group-data-[state=open]/project-section:rotate-90 motion-reduce:transition-none"
+            />
+          </button>
+        </CollapsibleTrigger>
         <IconButton
           size="sm"
           prominence="internal"
@@ -152,10 +169,7 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
               ref={handle.setNodeRef}
               style={handle.style}
               data-project-id={project.id}
-              className={cn(
-                "relative rounded-lg",
-                handle.dragging && "z-10 bg-surface-raised shadow-hover",
-              )}
+              className={cn("relative rounded-lg", handle.dragging && "z-10 bg-surface-sunken")}
             >
               <ProjectFolder
                 project={project}
@@ -180,7 +194,7 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
             </div>
           )}
         </SortableList>
-        {all.length > SECTION_PROJECTS && (
+        {all.length > 0 && (
           <Link
             to="/projects"
             onClick={onNavigate}
@@ -238,6 +252,14 @@ function ProjectFolder({
   const selected = useRouterState({
     select: (state) => state.location.pathname === `/projects/${project.id}`,
   });
+  const navigate = useNavigate();
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  function openProject() {
+    onNavigate?.();
+    void navigate({ to: "/projects/$projectId", params: { projectId: project.id } });
+  }
   return (
     <Collapsible
       open={open}
@@ -273,25 +295,67 @@ function ProjectFolder({
       >
         {grip}
         <CollapsibleTrigger asChild>
-          <IconButton
-            size="sm"
-            prominence="internal"
+          <button
+            type="button"
             aria-label={ui("Hội thoại trong {{v1}}", { v1: project.name })}
+            aria-current={selected ? "page" : undefined}
+            className="group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-1 pl-1 text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
           >
-            <ChevronRight className="transition-transform group-data-[state=open]/icon-button:rotate-90 motion-reduce:transition-none" />
-          </IconButton>
+            <ChevronRight
+              aria-hidden="true"
+              className="size-4 shrink-0 transition-transform group-data-[state=open]/project-row:rotate-90 motion-reduce:transition-none"
+            />
+            <ProjectIcon
+              iconName={project.iconName}
+              className="size-4 shrink-0 text-content-muted"
+            />
+            <span className="truncate">{project.name}</span>
+          </button>
         </CollapsibleTrigger>
-        <Link
-          to="/projects/$projectId"
-          params={{ projectId: project.id }}
-          onClick={onNavigate}
-          aria-current={selected ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
-        >
-          <ProjectIcon iconName={project.iconName} className="size-4 shrink-0 text-content-muted" />
-          <span className="truncate">{project.name}</span>
-        </Link>
+        <DropdownMenu>
+          <span className={cn("flex pr-0.5", hoverReveal, "has-data-[state=open]:opacity-100")}>
+            <DropdownMenuTrigger asChild>
+              <IconButton
+                ref={menuTrigger}
+                size="sm"
+                prominence="internal"
+                aria-label={ui("Thao tác với {{name}}", { name: project.name })}
+              >
+                <MoreHorizontal />
+              </IconButton>
+            </DropdownMenuTrigger>
+          </span>
+          <DropdownMenuContent
+            align="end"
+            className="w-auto min-w-44"
+            onCloseAutoFocus={(event) => {
+              if (editing || deleting) event.preventDefault();
+            }}
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuItem onSelect={openProject}>
+                <FolderOpen /> {ui("Xem dự án")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setEditing(true)}>
+                <Pencil /> {ui("Sửa")}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(true)}>
+                <Trash2 /> {ui("Xóa")}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+      <ProjectDeleteDialog
+        project={project}
+        open={deleting}
+        onOpenChange={setDeleting}
+        restoreFocusRef={menuTrigger}
+      />
+      {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}
       <CollapsibleContent>
         <ProjectConversations project={project} onNavigate={onNavigate} />
       </CollapsibleContent>

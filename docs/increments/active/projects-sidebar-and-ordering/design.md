@@ -18,18 +18,19 @@ Not in scope: pinning a conversation, a conversation-files entry in the menu, pl
 
 ### Sidebar section
 
-- The *Dự án* heading keeps its link to `/projects`. A chevron button next to it opens and closes the
-  section; the state is kept in `localStorage`, as the sidebar keeps its own collapsed state.
-- The section lists the first five projects in the person's order. With more than five, a
-  *Xem tất cả dự án* row links to `/projects`. The project being viewed (its page, or the project of
-  the open conversation) is listed even when it is outside the first five.
-- Each project row has a chevron that opens the project in place. An open project lists its five most
+- The full-width *Dự án* heading button, with its chevron, opens and closes the section; the state is
+  kept in `localStorage`. A separate plus button creates a project.
+- The section lists the first five projects in the person's order. If at least one project exists,
+  *Xem tất cả dự án* links to `/projects`. The project being viewed (its page, or the project of the
+  open conversation) is listed even when it is outside the first five.
+- Each project row has a chevron disclosure button that opens the project in place. An open project lists its five most
   recent conversations from `GET /api/chat/projects/{id}/sessions?limit=5`, rendered with
   `ChatSessionRow` so rename, move, archive and delete work as in *Hội thoại gần đây*. A full page of
   five shows *Xem thêm*, linking to the project page. The project of the open conversation opens by
   itself. Which projects are open is component state and is not persisted.
-- The project name still links to the project page, and a row is still a drop target for a dragged
-  conversation.
+- A row's *…* menu opens the project page, edits it through `ProjectEditor`, or deletes it through
+  `ProjectDeleteDialog`; deleting preserves its conversations. The row remains a drop target for a
+  dragged conversation.
 - Loading shows `Skeleton` rows: `BrandLoader` is a page-scale loader and does not fit the column.
 - A conversation in a project still appears in *Hội thoại gần đây*. That list is not filtered in this
   increment.

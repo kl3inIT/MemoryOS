@@ -8,16 +8,20 @@ const ROW_HEIGHT = 40;
  */
 export function stackRows(selector: string) {
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-    const top = Math.max([...document.querySelectorAll(selector)].indexOf(this), 0) * ROW_HEIGHT;
+    const rows = [...document.querySelectorAll(selector)];
+    const row = rows.indexOf(this);
+    // Anything that is not a row is as tall as the whole list, so a list keeps its rows inside itself.
+    const top = row < 0 ? 0 : row * ROW_HEIGHT;
+    const height = row < 0 ? rows.length * ROW_HEIGHT : ROW_HEIGHT;
     return {
       x: 0,
       y: top,
       top,
       left: 0,
       right: 240,
-      bottom: top + ROW_HEIGHT,
+      bottom: top + height,
       width: 240,
-      height: ROW_HEIGHT,
+      height,
       toJSON: () => ({}),
     };
   });

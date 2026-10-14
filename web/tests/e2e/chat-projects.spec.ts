@@ -30,16 +30,13 @@ test("closes and opens the Dự án section and remembers it", async ({ page }) 
   await page.goto("/");
   const sidebar = page.getByRole("complementary");
   const toggle = sidebar.getByRole("button", { name: "Danh sách dự án" });
-  const project = sidebar.getByRole("link", { name: "Section toggle project", exact: true });
+  const project = sidebar.getByRole("button", {
+    name: "Hội thoại trong Section toggle project",
+  });
   await expect(project).toBeVisible();
 
   await toggle.click();
   await expect(project).toBeHidden();
-  // The heading still leads to the Projects page while the list is closed.
-  await expect(sidebar.getByRole("link", { name: "Dự án", exact: true })).toHaveAttribute(
-    "href",
-    "/projects",
-  );
   await page.reload();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(project).toBeHidden();
@@ -145,8 +142,8 @@ test("reorders projects in the sidebar by dragging the handle with the pointer",
   const sidebar = page.getByRole("complementary");
   const names = () =>
     sidebar
-      .getByRole("link", { name: /^Drag test/ })
-      .evaluateAll((links) => links.map((link) => link.textContent));
+      .getByRole("button", { name: /^Hội thoại trong Drag test/ })
+      .evaluateAll((rows) => rows.map((row) => row.textContent));
   // A new project comes first.
   await expect.poll(names).toEqual(["Drag test upper", "Drag test lower"]);
 
@@ -156,7 +153,7 @@ test("reorders projects in the sidebar by dragging the handle with the pointer",
   );
   const handle = sidebar.getByRole("button", { name: "Kéo để sắp xếp Drag test lower" });
   const target = await sidebar
-    .getByRole("link", { name: "Drag test upper", exact: true })
+    .getByRole("button", { name: "Hội thoại trong Drag test upper" })
     .boundingBox();
   const from = await handle.boundingBox();
   if (!from || !target) throw new Error("The project rows have no layout.");

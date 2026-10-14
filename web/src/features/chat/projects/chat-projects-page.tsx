@@ -92,7 +92,7 @@ export function ChatProjectsPage() {
                   style={handle.style}
                   className={cn(
                     "group relative flex items-center gap-1 py-1",
-                    handle.dragging && "z-10 rounded-xl bg-surface-raised shadow-hover",
+                    handle.dragging && "z-10 rounded-xl bg-surface-sunken",
                   )}
                 >
                   <button

@@ -165,7 +165,7 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
               style={handle.style}
               className={cn(
                 "group relative flex items-center rounded-lg hover:bg-surface-subtle",
-                handle.dragging && "z-10 bg-surface-raised shadow-hover",
+                handle.dragging && "z-10 bg-surface-sunken",
               )}
             >
               <button
