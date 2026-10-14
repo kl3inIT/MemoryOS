@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VP Bridge Console</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#30363d;
+  --text:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --ok:#3fb950;
+  --err:#f85149; --warn:#d29922; --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border)}
+header h1{font-size:15px;font-weight:600;white-space:nowrap}
+header .sub{color:var(--dim);font-size:12px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--err);display:inline-block;margin-right:6px}
+.dot.up{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.chip{font-family:var(--mono);font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:1px 8px;white-space:nowrap}
+.spacer{flex:1}
+main{flex:1;display:grid;grid-template-columns:280px 1fr 1fr;min-height:0}
+.col{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--border)}
+.col:last-child{border-right:none}
+.col-head{padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--dim);display:flex;align-items:center;gap:8px}
+.col-head input[type=search]{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 8px;font-size:12px;outline:none}
+.col-head input:focus{border-color:var(--accent)}
+.scroll{flex:1;overflow-y:auto}
+.tool{padding:7px 12px;cursor:pointer;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:6px}
+.tool:hover{background:var(--panel2)}
+.tool.sel{background:#1f2f45;border-left:2px solid var(--accent)}
+.tool .name{font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:9px;font-family:var(--mono);border-radius:4px;padding:0 4px;line-height:14px;flex:none}
+.b-ro{background:#1a3a26;color:var(--ok)} .b-de{background:#4a1f1f;color:var(--err)} .b-id{background:#3a3018;color:var(--warn)}
+#detail{padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+#detail h2{font-family:var(--mono);font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#detail .desc{color:var(--dim);font-size:12px;white-space:pre-wrap}
+table.params{width:100%;border-collapse:collapse;font-size:12px}
+.params th,.params td{border:1px solid var(--border);padding:4px 8px;text-align:left}
+.params th{background:var(--panel);color:var(--dim);font-weight:600}
+.params td.nm{font-family:var(--mono)} .params td.ty{color:var(--accent);font-family:var(--mono);font-size:11px}
+.req{color:var(--err)}
+textarea#args{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);
+  font-family:var(--mono);font-size:12px;padding:8px;min-height:110px;resize:vertical;outline:none}
+textarea#args:focus{border-color:var(--accent)}
+.btn{background:var(--accent);color:#04101f;border:none;border-radius:6px;padding:7px 16px;font-weight:600;cursor:pointer;font-size:13px}
+.btn:hover{filter:brightness(1.15)} .btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;align-items:center}
+.hint{color:var(--dim);font-size:11px}
+pre.result{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:var(--mono);
+  font-size:11.5px;white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto}
+pre.result.err{border-color:var(--err)}
+.feed-head{display:flex;gap:8px;align-items:center}
+.feed-head .toggle{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px}
+.mini{background:none;border:1px solid var(--border);color:var(--dim);border-radius:5px;padding:2px 8px;font-size:11px;cursor:pointer}
+.mini:hover{color:var(--text);border-color:var(--dim)}
+.ev{border-bottom:1px solid #21262d;padding:6px 12px;font-family:var(--mono);font-size:12px;cursor:pointer}
+.ev:hover{background:var(--panel2)}
+.ev .t{color:var(--dim);font-size:10.5px;margin-right:8px}
+.ev .nm{color:var(--accent)}
+.ev .cd{float:right;font-size:10.5px;padding:0 6px;border-radius:8px}
+.cd.ok{background:#1a3a26;color:var(--ok)} .cd.err{background:#4a1f1f;color:var(--err)} .cd.cache{background:#22303f;color:var(--accent)}
+.ev .ms{color:var(--warn);font-size:10.5px;margin-left:8px}
+.ev pre{margin:6px 0 2px;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px;
+  font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}
+.empty{color:var(--dim);font-size:12px;padding:16px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>&#9638; VP Bridge Console</h1>
+  <span class="sub">Visual Paradigm MCP bridge</span>
+  <span class="spacer"></span>
+  <span class="chip" id="cat">catalog —</span>
+  <span class="chip" id="cnt">— tools</span>
+  <span class="chip" id="queue">queue 0</span>
+  <span class="chip"><span class="dot" id="dot"></span><span id="conn">offline</span></span>
+</header>
+<main>
+  <section class="col">
+    <div class="col-head"><input id="filter" type="search" placeholder="filter tools…"></div>
+    <div class="scroll" id="tools"></div>
+  </section>
+  <section class="col">
+    <div class="col-head">Tool</div>
+    <div id="detail" class="scroll"><div class="empty">select a tool</div></div>
+  </section>
+  <section class="col">
+    <div class="col-head feed-head">Activity
+      <span class="spacer"></span>
+      <label class="toggle"><input type="checkbox" id="pause"> pause</label>
+      <button class="mini" id="clear">clear</button>
+    </div>
+    <div class="scroll" id="feed"><div class="empty">waiting for calls…</div></div>
+  </section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const state={tools:[],sel:null,lastSeq:0,paused:false};
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+async function j(u,o){const r=await fetch(u,o);const b=await r.json().catch(()=>({}));if(!r.ok&&b.message)throw new Error(b.message);return b}
+function fmt(j){return JSON.stringify(j,null,2)}
+function ago(ts){return new Date(ts).toLocaleTimeString('en-GB')+'.'+String(ts%1000).padStart(3,'0')}
+
+function setConn(h){
+  const up=!!h; $('#dot').className='dot'+(up?' up':'');
+  $('#conn').textContent=up?'connected':'offline';
+  if(up){$('#queue').textContent='queue '+h.queuedCommands;$('#cnt').textContent=h.toolCount+' tools';
+    $('#cat').textContent='catalog '+String(h.catalogVersion).slice(0,8)}
+}
+async function loadStatus(){try{setConn(await j('/health'))}catch(e){setConn(null)}}
+
+function badges(t){
+  const a=t.annotations||{};const w=el('span');w.style.display='inline-flex';w.style.gap='4px';
+  if(a.readOnlyHint)w.append(el('span','badge b-ro','RO'));
+  if(a.destructiveHint)w.append(el('span','badge b-de','DEST'));
+  if(a.idempotentHint)w.append(el('span','badge b-id','IDEM'));
+  return w}
+function renderList(){
+  const q=$('#filter').value.toLowerCase();const box=$('#tools');box.textContent='';
+  state.tools.filter(t=>!q||t.name.toLowerCase().includes(q)).forEach(t=>{
+    const d=el('div','tool'+(state.sel===t.name?' sel':''));
+    const n=el('span','name',t.name);d.append(n,badges(t));
+    d.onclick=()=>{state.sel=t.name;renderList();renderDetail(t)};
+    box.append(d)});
+  if(!box.children.length)box.append(el('div','empty','no tools'))}
+
+function skeleton(t){
+  const p=(t.inputSchema&&t.inputSchema.properties)||{};const req=new Set((t.inputSchema&&t.inputSchema.required)||[]);
+  const o={};for(const k of Object.keys(p)){if(req.has(k)){const ty=p[k].type;
+    o[k]=ty==='number'||ty==='integer'?0:ty==='boolean'?false:ty==='array'?[]:ty==='object'?{}:''}}
+  return o}
+
+function renderDetail(t){
+  const d=$('#detail');d.textContent='';
+  const h=el('h2',null,t.name);h.append(badges(t));d.append(h);
+  d.append(el('div','desc',t.description||''));
+  const p=(t.inputSchema&&t.inputSchema.properties)||{};const req=new Set((t.inputSchema&&t.inputSchema.required)||[]);
+  const ks=Object.keys(p);
+  if(ks.length){
+    const tb=el('table','params');
+    const hd=el('tr');['param','type','req','default'].forEach(x=>hd.append(el('th',null,x)));tb.append(hd);
+    ks.forEach(k=>{const tr=el('tr');tr.append(el('td','nm',k),el('td','ty',p[k].type||'?'));
+      const rq=el('td',null,req.has(k)?'yes':'');if(req.has(k))rq.className='req';tr.append(rq);
+      tr.append(el('td','ty',p[k].default!==undefined?String(p[k].default):''));tb.append(tr)});
+    d.append(tb)}
+  d.append(el('div','hint','Arguments (JSON) — server binds types per schema'));
+  const ta=el('textarea');ta.id='args';ta.value=fmt(skeleton(t));ta.spellcheck=false;d.append(ta);
+  const row=el('div','row');
+  const run=el('button','btn','Run');
+  const fill=el('button','mini','reset args');
+  run.onclick=()=>runTool(t,ta,run); fill.onclick=()=>{ta.value=fmt(skeleton(t))};
+  row.append(run,fill,el('span','hint',(t.annotations||{}).destructiveHint?'⚠ destructive — mutates the open project':''));
+  d.append(row);
+  d.append(el('pre','result','—'))}
+
+async function runTool(t,ta,btn){
+  const out=$('#detail .result');let args;
+  try{args=ta.value.trim()?JSON.parse(ta.value):{}}catch(e){out.textContent='args JSON parse error: '+e.message;out.className='result err';return}
+  btn.disabled=true;out.className='result';out.textContent='running…';
+  const t0=performance.now();
+  try{
+    const r=await j('/execute',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:fmt({toolName:t.name,arguments:args})});
+    const ms=Math.round(performance.now()-t0);
+    out.className='result'+(r.success?'':' err');
+    out.textContent=ms+' ms\n\n'+fmt(r);
+  }catch(e){out.className='result err';out.textContent=String(e)}
+  btn.disabled=false}
+
+function addEvent(e){
+  const feed=$('#feed');const emp=feed.querySelector('.empty');if(emp)emp.remove();
+  const d=el('div','ev');
+  const head=el('div');
+  head.append(el('span','t','#'+e.seq+' '+ago(e.ts)),el('span','nm',e.toolName||'(invalid request)'));
+  const cd=el('span','cd '+(e.cached?'cache':e.success?'ok':'err'),e.cached?'CACHED':e.code);
+  head.append(cd);if(e.durationMs!=null)head.append(el('span','ms',e.durationMs+' ms'));
+  d.append(head);
+  const body=el('pre');body.style.display='none';
+  body.textContent='args: '+fmt(e.arguments)+'\nresult: '+fmt(e.resultPreview);
+  d.append(body);
+  d.onclick=()=>{body.style.display=body.style.display==='none'?'block':'none'};
+  feed.prepend(d);
+  while(feed.children.length>200)feed.lastChild.remove()}
+
+async function poll(){
+  if(!state.paused){
+    try{
+      const d=await j('/activity?after='+state.lastSeq);
+      (d.entries||[]).slice().reverse().forEach(e=>{state.lastSeq=Math.max(state.lastSeq,e.seq);addEvent(e)});
+    }catch(e){}}
+  setTimeout(poll,1000)}
+
+$('#pause').onchange=e=>state.paused=e.target.checked;
+$('#clear').onclick=()=>{$('#feed').textContent='';$('#feed').append(el('div','empty','cleared — waiting…'))};
+$('#filter').oninput=renderList;
+
+(async()=>{
+  await loadStatus();
+  try{const d=await j('/tools');state.tools=d.tools||[];renderList()}catch(e){}
+  setInterval(loadStatus,2000);
+  poll()})();
+</script>
+</body>
+</html>

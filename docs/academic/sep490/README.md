@@ -26,6 +26,8 @@ Bộ mẫu R1–R7 hiện hành do chủ dự án cung cấp ngày 14/09/2026 (`
 | [Student Guide Fall 2023](<templates/SEP490 StudentGuide_Fall 2023.docx>) | Bản cũ: yêu cầu đầu ra, đánh giá, quy định ngôn ngữ |
 | [Lịch mẫu PDF](<templates/Report2_Sample Project Schedule.pdf>) · [ProjectLibre](<templates/Report2_Sample Project Schedule.pod>) | Bản cũ: lịch dự án mẫu |
 
+Kế hoạch snapshot cho chuỗi báo cáo tuần SEP490_G53 được ghi riêng tại [weekly-reports.md](weekly-reports.md). Đây là cửa sổ báo cáo và backlog đề xuất, không phải thay thế cho timeline dự án đã/đang xác nhận.
+
 ## Cách xây dựng hồ sơ MemoryOS
 
 | Đầu ra | Nội dung phải chuẩn bị | Nguồn đối chiếu trong dự án |
