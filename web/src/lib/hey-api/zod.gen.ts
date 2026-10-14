@@ -4109,6 +4109,60 @@ export const zApiProblem = z.object({
     })).optional()
 });
 
+export const zReplaceChannelSecretRequest = z.object({
+    appSecret: z.string().min(0).max(256)
+});
+
+export const zChannelResponse = z.object({
+    id: z.uuid(),
+    provider: z.enum(['LARK']),
+    name: z.string(),
+    region: z.enum(['LARK', 'FEISHU']),
+    appId: z.string(),
+    noticeLanguage: z.string(),
+    enabled: z.boolean(),
+    serviceAccountId: z.uuid(),
+    botName: z.string().optional(),
+    missingScopes: z.array(z.string()),
+    status: z.enum([
+        'OFF',
+        'NOT_RUNNING',
+        'CONNECTING',
+        'CONNECTED',
+        'FAILED'
+    ]),
+    failureCode: z.string().optional(),
+    failedAt: z.iso.datetime().optional(),
+    connectedAt: z.iso.datetime().optional(),
+    lastMessageAt: z.iso.datetime().optional(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime()
+});
+
+export const zUpdateChannelEnabledRequest = z.object({
+    enabled: z.boolean()
+});
+
+export const zCreateChannelRequest = z.object({
+    name: z.string().min(0).max(100),
+    region: z.enum(['LARK', 'FEISHU']),
+    appId: z.string().min(0).max(64),
+    appSecret: z.string().min(0).max(256),
+    noticeLanguage: z.enum(['vi', 'en'])
+});
+
+export const zChannelAppRequest = z.object({
+    region: z.enum(['LARK', 'FEISHU']),
+    appId: z.string().min(0).max(64),
+    appSecret: z.string().min(0).max(256)
+});
+
+export const zChannelAppCheckResponse = z.object({
+    botName: z.string(),
+    missingScopes: z.array(z.string())
+});
+
 export const zReplaceSharePointScopeBody = zReplaceSharePointScopeRequest;
 
 export const zReplaceSharePointScopeHeaders = z.object({
@@ -8293,3 +8347,65 @@ export const zListLarkSpacesPath = z.object({
  * Wiki spaces a source may name
  */
 export const zListLarkSpacesResponse = z.array(zLarkSpaceOptionResponse);
+
+export const zReplaceChannelSecretBody = zReplaceChannelSecretRequest;
+
+export const zReplaceChannelSecretHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zReplaceChannelSecretPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zReplaceChannelSecretResponse = zChannelResponse;
+
+export const zUpdateChannelEnabledBody = zUpdateChannelEnabledRequest;
+
+export const zUpdateChannelEnabledHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateChannelEnabledPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zUpdateChannelEnabledResponse = zChannelResponse;
+
+export const zCreateLarkChannelBody = zCreateChannelRequest;
+
+/**
+ * Added bot
+ */
+export const zCreateLarkChannelResponse = zChannelResponse;
+
+export const zTestLarkChannelAppBody = zChannelAppRequest;
+
+/**
+ * Lark accepts the app
+ */
+export const zTestLarkChannelAppResponse = zChannelAppCheckResponse;
+
+/**
+ * Bots
+ */
+export const zListChannelsResponse = z.array(zChannelResponse);
+
+export const zDeleteChannelHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zDeleteChannelPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Bot removed
+ */
+export const zDeleteChannelResponse = z.void();
