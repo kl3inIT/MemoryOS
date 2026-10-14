@@ -2,7 +2,7 @@
 
 The Tenant's chat bots on messaging platforms, the Lark bot first. Design and status:
 [MEM-246](../increments/active/mem-246-lark-bot/design.md). What a bot receives and how a question becomes a Chat
-turn is built, with the Lark adapter; no administrator's API exists yet to add and switch on a bot.
+turn is built, with the Lark adapter and the administrator's API; no settings page exists yet.
 This page describes what exists.
 
 ## Connections
@@ -10,11 +10,20 @@ This page describes what exists.
 A Tenant may have several bots; `channel_connections` holds one row a bot: its provider (`LARK`), a name the
 administrator gives it, the region of its app (`LARK` or `FEISHU`), the app's id, the app's secret as an AES-GCM
 envelope, the language of the bot's own notices (`vi` or `en`), whether it is switched on, the service account it
-owns and a revision. One provider app serves one bot across every Tenant.
+owns, a revision, and what the platform said at the last check: the bot's name and id and the scopes it refused. One
+provider app serves one bot across every Tenant.
 
 `ChannelConnectionService` lists, reads, adds, switches on or off, replaces the secret of and removes a bot. Every
 call requires `CHANNELS_MANAGE`, an assignable administrative capability that administrators hold; a write takes
 the Tenant's exclusive authority lock and checks the revision it was given (`CHANNEL_CHANGED` when it moved on).
+
+- **Checking an app.** Adding a bot, replacing its secret and testing an app ask the platform first, through the
+  adapter's `verify`: the credential works and the app has a bot. The platform is asked between two transactions,
+  so no lock and no database connection is held while it answers, and at most two checks run at once (else
+  `CHANNEL_PROVIDER_UNAVAILABLE`). A refused credential, or an app without a bot, is `CHANNEL_APP_REJECTED` and
+  nothing is stored; a platform that does not answer is `CHANNEL_PROVIDER_UNAVAILABLE`. A scope the bot needs that
+  the platform refuses does not stop it: it is recorded and shown. For Lark the check is the connector gateway's:
+  a tenant token, `/open-apis/bot/v3/info`, and a probe of `contact:user.email:readonly` and `im:chat:readonly`.
 
 - **Adding** validates the name (1 to 100 characters), the app id (a Lark app id starts with `cli_`), the secret (1 to
   256 characters) and the language, refuses an app another bot holds (`CHANNEL_APP_IN_USE`), and creates the bot's
@@ -29,7 +38,24 @@ the Tenant's exclusive authority lock and checks the revision it was given (`CHA
 - Each change is audited as `channel.create`, `channel.update` (`change`: `enabled`, `disabled`, `secret`) or
   `channel.delete`.
 
-No HTTP surface exposes this yet; the administrator's API comes with the Lark adapter.
+### The administrator's API
+
+`/api/channels` (`ChannelController`, tag `Channels`) exposes the service; each mutation needs the CSRF header and
+each change of a bot an `If-Match` of its quoted revision.
+
+| Operation | What it does |
+| --- | --- |
+| `GET /api/channels` | The Tenant's bots, each with its status and the state its process last wrote |
+| `POST /api/channels/lark/test` | Checks a Lark app (`region`, `appId`, `appSecret`) and stores nothing |
+| `POST /api/channels/lark` | Checks the app and adds its bot, switched off; `201` |
+| `PUT /api/channels/{id}/secret` | Checks the new secret and replaces the old one |
+| `PUT /api/channels/{id}/enabled` | Switches the bot on or off |
+| `DELETE /api/channels/{id}` | Removes the bot and retires its account; `204` |
+
+A bot's `status` is `OFF` when switched off; `NOT_RUNNING` when its supervisor has not written for three passes
+(90 seconds), so no process holds it; else `CONNECTED` while its connection is open, `FAILED` after a failure to open
+it, with the failure's typed code and time, or `CONNECTING`. No response carries the secret, and the request
+records redact it.
 
 ## The adapter
 

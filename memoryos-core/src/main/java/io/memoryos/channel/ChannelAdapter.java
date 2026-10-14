@@ -19,6 +19,14 @@ public interface ChannelAdapter {
      */
     ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver);
 
+    /**
+     * Checks an app with the platform before it is stored: the credential works and the app has a bot.
+     *
+     * @throws ChannelException {@code CHANNEL_APP_REJECTED} when the platform refuses the credential or the app has
+     *         no bot, {@code CHANNEL_PROVIDER_UNAVAILABLE} when it does not answer
+     */
+    ChannelVerification verify(ChannelRegion region, String appId, String secret);
+
     /** Opens the reply to one message, which quotes it. */
     ChannelReply reply(ChannelConnection connection, ChannelMessage message);
 

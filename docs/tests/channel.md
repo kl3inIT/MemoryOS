@@ -8,6 +8,12 @@
 | Removing a bot retires its account and keeps its name | `PostgresChannelConnectionTest.removingABotRetiresItsAccountAndKeepsItsName` |
 | The name, app id and language are checked; a member without `CHANNELS_MANAGE` neither reads nor adds a bot | `PostgresChannelConnectionTest.inputIsCheckedAndOnlyAHolderOfTheCapabilityManagesBots` |
 | A missing key fails the bots alone | `PostgresChannelConnectionTest.aMissingKeyFailsTheBotsAlone` |
+| An app the platform refuses is not stored, nor is its new secret; a test stores nothing and needs the capability | `PostgresChannelConnectionTest.anAppThePlatformRefusesIsNotStoredAndATestStoresNothing` |
+| The list carries what the process that holds a bot last wrote | `PostgresChannelConnectionTest.theListCarriesWhatTheProcessThatHoldsABotLastWrote` |
+| The API lists bots with their status and no secret, and needs the capability | `ChannelApiTest.theListNeedsTheCapabilityAndCarriesTheStateButNoSecret` |
+| The API's test checks an app; a rejected app is `400 CHANNEL_APP_REJECTED`; a mutation needs the CSRF header | `ChannelApiTest.aTestChecksTheAppAndARejectedAppIsABadRequest` |
+| Adding a bot is `201` and the notice language is checked | `ChannelApiTest.addingABotReturnsItCreated` |
+| Switching, replacing the secret and removing need a quoted revision; a stale one is `409` | `ChannelApiTest.changesFollowTheRevision` |
 | The secret envelope moved to the shared kernel unchanged | `CredentialCipherTest` |
 | A direct message runs as its sender and a message handed over twice is answered once | `ChannelInboundServiceTest.aDirectMessageRunsAsItsSenderAndIsAnsweredOnce` |
 | A sender without an account is answered as the bot, told to sign in, and the provider is asked once while that is remembered | `ChannelInboundServiceTest.aSenderWithoutAnAccountIsAnsweredAsTheBotAndRememberedForAWhile` |

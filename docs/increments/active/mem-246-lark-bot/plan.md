@@ -82,7 +82,8 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
   a message with both organisations read from the event, the streaming reply, notices, the sender's e-mail and the
   external-chat check; `checkRuntimeClasspathIsolation` unchanged. It shares the connector's package, because both
   use its bounded `LarkTransport`.
-- [ ] `/api/channels/lark` with its contract records; `openapi.yml` and the web client regenerated.
+- [x] `/api/channels` with its contract records (list with status, test, add, replace the secret, switch,
+  remove), each app checked with Lark before it is stored; `openapi.yml` and the web client regenerated.
 - [ ] Whether a member can change the `email` Lark reports, settled on the test tenant; the adapter reads only
   an address that is safe to match an account by.
 - [ ] The wording of every notice and the reaction, taken from what Onyx, WeKnora, Dust and Claude in Slack

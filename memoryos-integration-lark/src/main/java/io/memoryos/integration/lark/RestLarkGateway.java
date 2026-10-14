@@ -26,6 +26,7 @@ import com.lark.oapi.service.auth.v3.model.InternalTenantAccessTokenReqBody;
 import com.lark.oapi.service.contact.v3.model.BatchUserReq;
 import com.lark.oapi.service.contact.v3.model.ChildrenDepartmentReq;
 import com.lark.oapi.service.contact.v3.model.FindByDepartmentUserReq;
+import com.lark.oapi.service.contact.v3.model.GetUserReq;
 import com.lark.oapi.service.docx.v1.model.ListDocumentBlockReq;
 import com.lark.oapi.service.drive.v1.model.BatchQueryMetaReq;
 import com.lark.oapi.service.drive.v1.model.DownloadFileReq;
@@ -35,6 +36,7 @@ import com.lark.oapi.service.drive.v1.model.ListPermissionMemberReq;
 import com.lark.oapi.service.drive.v1.model.MetaRequest;
 import com.lark.oapi.service.drive.v1.model.RequestDoc;
 import com.lark.oapi.service.im.v1.model.GetChatMembersReq;
+import com.lark.oapi.service.im.v1.model.GetChatReq;
 import com.lark.oapi.service.sheets.v3.model.QuerySpreadsheetSheetReq;
 import com.lark.oapi.service.sheets.v3.model.Sheet;
 import com.lark.oapi.service.wiki.v2.model.GetSpaceReq;
@@ -119,6 +121,20 @@ public final class RestLarkGateway implements LarkGateway, AutoCloseable {
         transport.close();
     }
 
+    /**
+     * MEM-246: a bot's app, as the administrator adds it: the credential works, the app has a bot, and the scopes the
+     * bot needs that Lark refuses to its tenant token. Receiving messages and sending them are event and send scopes,
+     * which no read can probe; what is probed is what the bot reads.
+     */
+    BotCheck checkBot(Region region, String appId, byte[] secret) {
+        try (var credential = new Credential(region, appId, secret.clone());
+             var session = (LarkSession) open(credential)) {
+            return new BotCheck(session.bot(), session.missingBotScopes());
+        }
+    }
+
+    record BotCheck(Bot bot, Set<String> missingScopes) {}
+
     private String token(Client client, Credential credential) {
         var body = InternalTenantAccessTokenReqBody.newBuilder().appId(credential.appId())
                 .appSecret(new String(credential.appSecret(), StandardCharsets.UTF_8)).build();
@@ -165,6 +181,18 @@ public final class RestLarkGateway implements LarkGateway, AutoCloseable {
                         .list(ListPermissionMemberReq.newBuilder().token("doxusMemoryOSProbe").type("docx").build(), tenant));
                 probe(missing, "im:chat:readonly", () -> client.im().v1().chatMembers().get(GetChatMembersReq.newBuilder()
                         .chatId("oc_00000000000000000000000000000000").memberIdType("open_id").pageSize(1).build(), tenant));
+                return Set.copyOf(missing);
+            });
+        }
+
+        /** What the bot reads: a sender's e-mail and whether a group is external. */
+        Set<String> missingBotScopes() {
+            return metrics.record(Operation.SCOPES, () -> {
+                var missing = new LinkedHashSet<String>();
+                probe(missing, "contact:user.email:readonly", () -> client.contact().v3().user().get(GetUserReq.newBuilder()
+                        .userId("ou_00000000000000000000000000000000").userIdType("open_id").build(), tenant));
+                probe(missing, "im:chat:readonly", () -> client.im().v1().chat().get(GetChatReq.newBuilder()
+                        .chatId("oc_00000000000000000000000000000000").build(), tenant));
                 return Set.copyOf(missing);
             });
         }

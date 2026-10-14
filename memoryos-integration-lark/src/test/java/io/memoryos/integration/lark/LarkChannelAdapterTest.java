@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 
 class LarkChannelAdapterTest {
     private static final ChannelConnection CONNECTION = new ChannelConnection(UUID.randomUUID(), ChannelProvider.LARK, "Bot",
-            ChannelRegion.LARK, "cli_a1b2c3d4e5f6", "vi", true, new ActorId(UUID.randomUUID()), 1, Instant.now(), Instant.now(), null);
+            ChannelRegion.LARK, "cli_a1b2c3d4e5f6", "vi", true, new ActorId(UUID.randomUUID()), 1, Instant.now(), Instant.now(), null, null, null, List.of());
     private static final MentionInfo BOT = new MentionInfo("@_user_1", "ou_bot", "Trợ lý", true);
     private static final MentionInfo QUAN = new MentionInfo("@_user_2", "ou_quan", "Quân", false);
 

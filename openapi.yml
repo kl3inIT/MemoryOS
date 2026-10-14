@@ -22236,6 +22236,396 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/{channelId}/secret:
+    put:
+      tags:
+      - Channels
+      summary: "Replace the App Secret of a bot's app once the platform accepts it,\
+        \ with a revision precondition"
+      operationId: replaceChannelSecret
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceChannelSecretRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}/enabled:
+    put:
+      tags:
+      - Channels
+      summary: Switch a bot on or off with a revision precondition
+      operationId: updateChannelEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelEnabledRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/lark:
+    post:
+      tags:
+      - Channels
+      summary: "Check a Lark app with Lark and add its bot, switched off; nothing\
+        \ is stored when Lark rejects it"
+      operationId: createLarkChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Added bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/lark/test:
+    post:
+      tags:
+      - Channels
+      summary: Check a Lark app with Lark without storing anything
+      operationId: testLarkChannelApp
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelAppRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark accepts the app
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAppCheckResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels:
+    get:
+      tags:
+      - Channels
+      summary: List the Tenant's bots with the state of their connections
+      operationId: listChannels
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Bots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}:
+    delete:
+      tags:
+      - Channels
+      summary: "Remove a bot and retire its account, with a revision precondition"
+      operationId: deleteChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Bot removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
 components:
   schemas:
     ReplaceSharePointScopeRequest:
@@ -32719,6 +33109,184 @@ components:
       - instance
       - status
       - title
+    ReplaceChannelSecretRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        appSecret:
+          type: string
+          maxLength: 256
+          minLength: 0
+      required:
+      - appSecret
+    ChannelResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum:
+          - LARK
+        name:
+          type: string
+        region:
+          type: string
+          enum:
+          - LARK
+          - FEISHU
+        appId:
+          type: string
+        noticeLanguage:
+          type: string
+        enabled:
+          type: boolean
+        serviceAccountId:
+          type: string
+          format: uuid
+          description: The account a group question runs as
+        botName:
+          type: string
+          description: The bot the platform named at the last check
+        missingScopes:
+          type: array
+          description: Scopes the bot needs that the platform refused at the last
+            check
+          items:
+            type: string
+        status:
+          type: string
+          description: "OFF when switched off; NOT_RUNNING when no process holds it;\
+            \ else CONNECTING, CONNECTED or FAILED"
+          enum:
+          - "OFF"
+          - NOT_RUNNING
+          - CONNECTING
+          - CONNECTED
+          - FAILED
+        failureCode:
+          type: string
+          description: The typed code of the last failure to open the connection
+        failedAt:
+          type: string
+          format: date-time
+          description: When that failure happened
+        connectedAt:
+          type: string
+          format: date-time
+          description: Since when the connection has been open
+        lastMessageAt:
+          type: string
+          format: date-time
+          description: When the bot last received a message
+        revision:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - appId
+      - createdAt
+      - enabled
+      - id
+      - missingScopes
+      - name
+      - noticeLanguage
+      - provider
+      - region
+      - revision
+      - serviceAccountId
+      - status
+      - updatedAt
+    UpdateChannelEnabledRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+      required:
+      - enabled
+    CreateChannelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: "The bot's name here, and its account's"
+          maxLength: 100
+          minLength: 0
+        region:
+          type: string
+          description: Lark international or Feishu
+          enum:
+          - LARK
+          - FEISHU
+        appId:
+          type: string
+          description: "App ID of the custom app, starting with cli_"
+          maxLength: 64
+          minLength: 0
+        appSecret:
+          type: string
+          description: App Secret of the custom app
+          maxLength: 256
+          minLength: 0
+        noticeLanguage:
+          type: string
+          description: The language of the bot's notices
+          enum:
+          - vi
+          - en
+          pattern: vi|en
+      required:
+      - appId
+      - appSecret
+      - name
+      - noticeLanguage
+      - region
+    ChannelAppRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        region:
+          type: string
+          description: Lark international or Feishu
+          enum:
+          - LARK
+          - FEISHU
+        appId:
+          type: string
+          description: "App ID of the custom app, starting with cli_"
+          maxLength: 64
+          minLength: 0
+        appSecret:
+          type: string
+          description: App Secret of the custom app
+          maxLength: 256
+          minLength: 0
+      required:
+      - appId
+      - appSecret
+      - region
+    ChannelAppCheckResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        botName:
+          type: string
+        missingScopes:
+          type: array
+          items:
+            type: string
+      required:
+      - botName
+      - missingScopes
   securitySchemes:
     browserSession:
       type: apiKey

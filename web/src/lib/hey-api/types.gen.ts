@@ -4117,6 +4117,102 @@ export type ApiProblem = {
     }>;
 };
 
+export type ReplaceChannelSecretRequest = {
+    appSecret: string;
+};
+
+export type ChannelResponse = {
+    id: string;
+    provider: 'LARK';
+    name: string;
+    region: 'LARK' | 'FEISHU';
+    appId: string;
+    noticeLanguage: string;
+    enabled: boolean;
+    /**
+     * The account a group question runs as
+     */
+    serviceAccountId: string;
+    /**
+     * The bot the platform named at the last check
+     */
+    botName?: string;
+    /**
+     * Scopes the bot needs that the platform refused at the last check
+     */
+    missingScopes: Array<string>;
+    /**
+     * OFF when switched off; NOT_RUNNING when no process holds it; else CONNECTING, CONNECTED or FAILED
+     */
+    status: 'OFF' | 'NOT_RUNNING' | 'CONNECTING' | 'CONNECTED' | 'FAILED';
+    /**
+     * The typed code of the last failure to open the connection
+     */
+    failureCode?: string;
+    /**
+     * When that failure happened
+     */
+    failedAt?: string;
+    /**
+     * Since when the connection has been open
+     */
+    connectedAt?: string;
+    /**
+     * When the bot last received a message
+     */
+    lastMessageAt?: string;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type UpdateChannelEnabledRequest = {
+    enabled: boolean;
+};
+
+export type CreateChannelRequest = {
+    /**
+     * The bot's name here, and its account's
+     */
+    name: string;
+    /**
+     * Lark international or Feishu
+     */
+    region: 'LARK' | 'FEISHU';
+    /**
+     * App ID of the custom app, starting with cli_
+     */
+    appId: string;
+    /**
+     * App Secret of the custom app
+     */
+    appSecret: string;
+    /**
+     * The language of the bot's notices
+     */
+    noticeLanguage: 'vi' | 'en';
+};
+
+export type ChannelAppRequest = {
+    /**
+     * Lark international or Feishu
+     */
+    region: 'LARK' | 'FEISHU';
+    /**
+     * App ID of the custom app, starting with cli_
+     */
+    appId: string;
+    /**
+     * App Secret of the custom app
+     */
+    appSecret: string;
+};
+
+export type ChannelAppCheckResponse = {
+    botName: string;
+    missingScopes: Array<string>;
+};
+
 export type ReplaceSharePointScopeData = {
     body: ReplaceSharePointScopeRequest;
     headers: {
@@ -20206,3 +20302,288 @@ export type ListLarkSpacesResponses = {
 };
 
 export type ListLarkSpacesResponse = ListLarkSpacesResponses[keyof ListLarkSpacesResponses];
+
+export type ReplaceChannelSecretData = {
+    body: ReplaceChannelSecretRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/secret';
+};
+
+export type ReplaceChannelSecretErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type ReplaceChannelSecretError = ReplaceChannelSecretErrors[keyof ReplaceChannelSecretErrors];
+
+export type ReplaceChannelSecretResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type ReplaceChannelSecretResponse = ReplaceChannelSecretResponses[keyof ReplaceChannelSecretResponses];
+
+export type UpdateChannelEnabledData = {
+    body: UpdateChannelEnabledRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/enabled';
+};
+
+export type UpdateChannelEnabledErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChannelEnabledError = UpdateChannelEnabledErrors[keyof UpdateChannelEnabledErrors];
+
+export type UpdateChannelEnabledResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type UpdateChannelEnabledResponse = UpdateChannelEnabledResponses[keyof UpdateChannelEnabledResponses];
+
+export type CreateLarkChannelData = {
+    body: CreateChannelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/lark';
+};
+
+export type CreateLarkChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type CreateLarkChannelError = CreateLarkChannelErrors[keyof CreateLarkChannelErrors];
+
+export type CreateLarkChannelResponses = {
+    /**
+     * Added bot
+     */
+    201: ChannelResponse;
+};
+
+export type CreateLarkChannelResponse = CreateLarkChannelResponses[keyof CreateLarkChannelResponses];
+
+export type TestLarkChannelAppData = {
+    body: ChannelAppRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/lark/test';
+};
+
+export type TestLarkChannelAppErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type TestLarkChannelAppError = TestLarkChannelAppErrors[keyof TestLarkChannelAppErrors];
+
+export type TestLarkChannelAppResponses = {
+    /**
+     * Lark accepts the app
+     */
+    200: ChannelAppCheckResponse;
+};
+
+export type TestLarkChannelAppResponse = TestLarkChannelAppResponses[keyof TestLarkChannelAppResponses];
+
+export type ListChannelsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/channels';
+};
+
+export type ListChannelsErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type ListChannelsError = ListChannelsErrors[keyof ListChannelsErrors];
+
+export type ListChannelsResponses = {
+    /**
+     * Bots
+     */
+    200: Array<ChannelResponse>;
+};
+
+export type ListChannelsResponse = ListChannelsResponses[keyof ListChannelsResponses];
+
+export type DeleteChannelData = {
+    body?: never;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}';
+};
+
+export type DeleteChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChannelError = DeleteChannelErrors[keyof DeleteChannelErrors];
+
+export type DeleteChannelResponses = {
+    /**
+     * Bot removed
+     */
+    204: void;
+};
+
+export type DeleteChannelResponse = DeleteChannelResponses[keyof DeleteChannelResponses];
