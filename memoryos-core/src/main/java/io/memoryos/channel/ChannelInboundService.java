@@ -9,6 +9,8 @@ import io.memoryos.chat.ChatSource;
 import io.memoryos.iam.MemberLookup;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -35,6 +37,9 @@ public class ChannelInboundService {
     private static final Logger LOG = LoggerFactory.getLogger(ChannelInboundService.class);
     private static final String NEW_CONVERSATION = "/new";
     private static final int TITLE_LENGTH = 80;
+    /** Spans of a received message and of each of its steps; {@code step} is refusal, sender, conversation, reply, turn or finish. */
+    static final String MESSAGE = "memoryos.channel.message";
+    static final String STEP = "memoryos.channel.message.step";
 
     private final JdbcChannelConnectionRepository connections;
     private final JdbcChannelInboundRepository inbound;
@@ -42,16 +47,19 @@ public class ChannelInboundService {
     private final MemberLookup members;
     private final ChannelTurns turns;
     private final ChannelProperties properties;
+    private final ObservationRegistry observations;
     private final Clock clock = Clock.systemUTC();
 
     ChannelInboundService(JdbcChannelConnectionRepository connections, JdbcChannelInboundRepository inbound,
-                          ChannelAdapters adapters, MemberLookup members, ChannelTurns turns, ChannelProperties properties) {
+                          ChannelAdapters adapters, MemberLookup members, ChannelTurns turns, ChannelProperties properties,
+                          ObservationRegistry observations) {
         this.connections = connections;
         this.inbound = inbound;
         this.adapters = adapters;
         this.members = members;
         this.turns = turns;
         this.properties = properties;
+        this.observations = observations;
     }
 
     /**
@@ -66,20 +74,34 @@ public class ChannelInboundService {
         // A group message that does not name the bot is not for it, and is not even recorded.
         if (message.kind() == ChannelMessage.Kind.GROUP && !message.addressed()) return;
         if (!inbound.claim(tenant, message)) return;
+        // One span a message, whose steps and Chat turn are its children: where the time before an answer goes.
+        var observation = Observation.createNotStarted(MESSAGE, observations)
+                .lowCardinalityKeyValue("provider", connection.provider().name())
+                .lowCardinalityKeyValue("kind", message.kind().name()).start();
+        String outcome = "FAILED";
+        try (var ignored = observation.openScope()) {
+            outcome = handle(tenant, connection, message);
+        } finally {
+            observation.lowCardinalityKeyValue("outcome", outcome).stop();
+        }
+    }
+
+    /** @return the outcome: {@code ANSWERED}, {@code REFUSED}, {@code NEW_CONVERSATION} or {@code FAILED} */
+    private String handle(TenantId tenant, ChannelConnection connection, ChannelMessage message) {
         var adapter = adapters.of(connection.provider());
         try {
-            var refusal = refusal(connection, adapter, message);
+            var refusal = step("refusal", () -> refusal(connection, adapter, message));
             if (refusal != null) {
                 refuse(connection, adapter, message, refusal);
-                return;
+                return "REFUSED";
             }
             if (message.kind() == ChannelMessage.Kind.DIRECT && NEW_CONVERSATION.equals(message.text().strip())) {
                 inbound.forget(connection.id(), message.chatId(), message.senderId());
                 adapter.notice(connection, message, ChannelNotice.NEW_CONVERSATION.in(connection.noticeLanguage()));
                 inbound.settle(connection.id(), message.messageId(), "ANSWERED", "NEW_CONVERSATION", null, null, null);
-                return;
+                return "NEW_CONVERSATION";
             }
-            answer(tenant, connection, adapter, message);
+            return answer(tenant, connection, adapter, message) ? "ANSWERED" : "FAILED";
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             fail(connection, message, null, "INTERRUPTED", interrupted);
@@ -88,6 +110,25 @@ public class ChannelInboundService {
             notice(connection, adapter, message, noticeFor(failure));
             fail(connection, message, null, codeOf(failure), failure);
         }
+        return "FAILED";
+    }
+
+    /** One step of handling a message as a child span, named by a word of a bounded set. */
+    private <T, E extends Exception> T step(String step, Step<T, E> action) throws E {
+        var observation = Observation.createNotStarted(STEP, observations).lowCardinalityKeyValue("step", step).start();
+        try (var ignored = observation.openScope()) {
+            return action.run();
+        } catch (Exception failure) {
+            observation.error(failure);
+            throw failure;
+        } finally {
+            observation.stop();
+        }
+    }
+
+    @FunctionalInterface
+    private interface Step<T, E extends Exception> {
+        T run() throws E;
     }
 
     /** Why the message is not answered at all, or null. */
@@ -107,23 +148,25 @@ public class ChannelInboundService {
         return null;
     }
 
-    private void answer(TenantId tenant, ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message)
+    /** @return whether the message was answered */
+    private boolean answer(TenantId tenant, ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message)
             throws InterruptedException {
         Instant now = clock.instant();
-        ActorId sender = sender(tenant, connection, adapter, message.senderId(), now);
+        ActorId sender = step("sender", () -> sender(tenant, connection, adapter, message.senderId(), now));
         boolean direct = message.kind() == ChannelMessage.Kind.DIRECT;
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
         ActorId actor = direct && sender != null ? sender : connection.serviceAccount();
-        UUID session = conversation(connection, message, actor, now);
-        var reply = adapter.reply(connection, message, ChannelNotice.WRITING.in(connection.noticeLanguage()));
+        UUID session = step("conversation", () -> conversation(connection, message, actor, now));
+        var reply = step("reply", () -> adapter.reply(connection, message,
+                ChannelNotice.WRITING.in(connection.noticeLanguage())));
         ChannelTurns.Answer answer;
         try {
-            answer = turns.ask(actor, session, title(message.text()), request(connection, message), message.text(),
-                    reply::append);
+            answer = step("turn", () -> turns.ask(actor, session, title(message.text()), request(connection, message),
+                    message.text(), reply::append));
         } catch (RuntimeException failure) {
             reply.fail(noticeFor(failure).in(connection.noticeLanguage()));
             fail(connection, message, session, codeOf(failure), failure);
-            return;
+            return false;
         }
         if (direct) inbound.keep(tenant, connection.id(), message.chatId(), message.senderId(), answer.session(), now);
         if (answer.status() != ChatMessage.Status.COMPLETED) {
@@ -132,13 +175,16 @@ public class ChannelInboundService {
             inbound.settle(connection.id(), message.messageId(), "FAILED",
                     answer.failureCode() == null ? answer.status().name() : answer.failureCode(), answer.session(),
                     answer.assistantMessage(), null);
-            return;
+            return false;
         }
-        String replyId = reply.finish(answer.text(), sources(answer.sources()), footer(connection, direct, sender));
+        var answered = answer;
+        String replyId = step("finish", () -> reply.finish(answered.text(), sources(answered.sources()),
+                footer(connection, direct, sender)));
         inbound.settle(connection.id(), message.messageId(), "ANSWERED", null, answer.session(), answer.assistantMessage(),
                 replyId);
         LOG.atInfo().addKeyValue("event", "channel.message.answered").addKeyValue("provider", connection.provider())
                 .log("Channel message answered");
+        return true;
     }
 
     /** The sender's account here, or null: remembered for a while, else found by the e-mail the provider holds. */
