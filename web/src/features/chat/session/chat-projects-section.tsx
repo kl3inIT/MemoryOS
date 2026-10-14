@@ -1,19 +1,11 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import {
-  ChevronRight,
-  FolderOpen,
-  GripVertical,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { FolderOpen, GripVertical, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { memo, useCallback, useRef, useState } from "react";
 import { ThreadList } from "@/components/assistant-ui/elements/thread-list";
 import { hoverReveal } from "@/components/composites/hover-reveal";
-import { SortableList } from "@/components/composites/sortable-list";
+import { SortableList, type SortableDrag } from "@/components/composites/sortable-list";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -36,7 +28,7 @@ import { actionErrorText } from "@/lib/action-errors";
 import {
   getChatSessionOptions,
   getChatSessionQueryKey,
-  listProjectChatSessionsOptions,
+  listProjectChatSessionsInfiniteOptions,
   moveChatProjectMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
@@ -114,14 +106,14 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
     setOpenProjects((current) => new Set(current).add(projectId));
   }
 
-  function toggleProject(projectId: string, next: boolean) {
+  const toggleProject = useCallback((projectId: string, next: boolean) => {
     setOpenProjects((current) => {
       const projectsOpen = new Set(current);
       if (next) projectsOpen.add(projectId);
       else projectsOpen.delete(projectId);
       return projectsOpen;
     });
-  }
+  }, []);
 
   const all = projects.data ?? [];
   const shown = all.slice(0, SECTION_PROJECTS);
@@ -139,18 +131,14 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
         storeSectionOpen(next);
       }}
     >
-      <div className="mb-2 flex items-center justify-between px-2">
+      <div className="mb-2 flex items-center justify-between rounded-lg pr-0.5 pl-2 hover:bg-surface-sunken">
         <CollapsibleTrigger asChild>
           <button
             type="button"
             aria-label={ui("Danh sách dự án")}
-            className="flex h-7 min-w-0 flex-1 items-center gap-1 rounded text-left text-sm font-medium text-content-secondary outline-none hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-8 min-w-0 flex-1 items-center rounded-lg text-left text-sm font-medium text-content-secondary outline-none hover:text-content-primary"
           >
             {ui("Dự án")}
-            <ChevronRight
-              aria-hidden="true"
-              className="size-4 transition-transform group-data-[state=open]/project-section:rotate-90 motion-reduce:transition-none"
-            />
           </button>
         </CollapsibleTrigger>
         <IconButton
@@ -174,22 +162,9 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
               <ProjectFolder
                 project={project}
                 open={openProjects.has(project.id)}
-                onOpenChange={(next) => toggleProject(project.id, next)}
+                onOpenChange={toggleProject}
                 onNavigate={onNavigate}
-                grip={
-                  <button
-                    ref={handle.setHandleRef}
-                    type="button"
-                    aria-label={ui("Kéo để sắp xếp {{v1}}", { v1: project.name })}
-                    className={cn(
-                      "grid h-8 w-4 shrink-0 cursor-grab place-items-center text-content-muted outline-none focus-visible:opacity-100 active:cursor-grabbing",
-                      hoverReveal,
-                    )}
-                    {...handle.attributes}
-                  >
-                    <GripVertical aria-hidden="true" className="size-3.5" />
-                  </button>
-                }
+                drag={handle.drag}
               />
             </div>
           )}
@@ -198,7 +173,7 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
           <Link
             to="/projects"
             onClick={onNavigate}
-            className="flex h-8 items-center rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-8 items-center rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary"
           >
             {ui("Xem tất cả dự án")}
           </Link>
@@ -222,18 +197,19 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
   );
 }
 
-function ProjectFolder({
+/** Memoized: dragging another project re-renders the list, and a folder that did not change keeps its output. */
+const ProjectFolder = memo(function ProjectFolder({
   project,
-  grip,
+  drag: { handleNode, attributes, rowProps },
   open,
   onOpenChange,
   onNavigate,
 }: {
   project: Project;
-  /** The drag handle, which the sortable list owns and the row shows at its start. */
-  grip: ReactNode;
+  /** The drag handle and pointer listeners, which the sortable list owns; a pointer drags the row from anywhere. */
+  drag: SortableDrag;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (projectId: string, open: boolean) => void;
   onNavigate?: () => void;
 }) {
   const ui = useAppTranslation();
@@ -263,7 +239,7 @@ function ProjectFolder({
   return (
     <Collapsible
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => onOpenChange(project.id, next)}
       onDragOver={(event) => {
         if (!move.isPending && event.dataTransfer.types.includes(CHAT_DRAG_TYPE)) {
           event.preventDefault();
@@ -287,24 +263,28 @@ function ProjectFolder({
       }}
     >
       <div
+        {...rowProps}
         className={cn(
-          "group flex items-center rounded-lg hover:bg-surface-sunken",
+          "group flex touch-none items-center rounded-lg hover:bg-surface-sunken active:cursor-grabbing",
           (selected || over) && "bg-surface-sunken",
-          over && "ring-2 ring-ring",
         )}
       >
-        {grip}
+        <button
+          ref={handleNode}
+          type="button"
+          aria-label={ui("Kéo để sắp xếp {{v1}}", { v1: project.name })}
+          className="sr-only"
+          {...attributes}
+        >
+          <GripVertical aria-hidden="true" className="size-3.5" />
+        </button>
         <CollapsibleTrigger asChild>
           <button
             type="button"
             aria-label={ui("Hội thoại trong {{v1}}", { v1: project.name })}
             aria-current={selected ? "page" : undefined}
-            className="group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-1 pl-1 text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+            className="group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-1 pl-3 text-left text-sm outline-none"
           >
-            <ChevronRight
-              aria-hidden="true"
-              className="size-4 shrink-0 transition-transform group-data-[state=open]/project-row:rotate-90 motion-reduce:transition-none"
-            />
             <ProjectIcon
               iconName={project.iconName}
               className="size-4 shrink-0 text-content-muted"
@@ -333,16 +313,20 @@ function ProjectFolder({
             }}
           >
             <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={openProject}>
+              <DropdownMenuItem className="cursor-pointer" onSelect={openProject}>
                 <FolderOpen /> {ui("Xem dự án")}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setEditing(true)}>
+              <DropdownMenuItem className="cursor-pointer" onSelect={() => setEditing(true)}>
                 <Pencil /> {ui("Sửa")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(true)}>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                variant="destructive"
+                onSelect={() => setDeleting(true)}
+              >
                 <Trash2 /> {ui("Xóa")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -371,7 +355,7 @@ function ProjectFolder({
       )}
     </Collapsible>
   );
-}
+});
 
 /** The most recent conversations of an open project; mounted, and so fetched, only while it is open. */
 function ProjectConversations({
@@ -382,14 +366,20 @@ function ProjectConversations({
   onNavigate?: () => void;
 }) {
   const ui = useAppTranslation();
-  const sessions = useQuery(
-    listProjectChatSessionsOptions({
+  const sessions = useInfiniteQuery({
+    ...listProjectChatSessionsInfiniteOptions({
       path: { projectId: project.id },
       query: { limit: PROJECT_SESSIONS },
     }),
-  );
+    initialPageParam: 0,
+    getNextPageParam: (last, pages) =>
+      last.length === PROJECT_SESSIONS && pages.length * PROJECT_SESSIONS <= 10000
+        ? pages.length * PROJECT_SESSIONS
+        : undefined,
+  });
+  const rows = sessions.data?.pages.flat();
   return (
-    <div className="pl-4">
+    <div className="pl-6">
       {sessions.isPending && <LoadingRows label={ui("Đang tải hội thoại…")} />}
       {sessions.isError && (
         <div role="alert" className="flex items-center gap-2 px-2 py-1 text-xs">
@@ -399,25 +389,25 @@ function ProjectConversations({
           </Button>
         </div>
       )}
-      {sessions.data?.length === 0 && (
+      {rows?.length === 0 && (
         <p className="px-2 py-1 text-xs text-content-muted">{ui("Chưa có hội thoại.")}</p>
       )}
-      {sessions.data && sessions.data.length > 0 && (
+      {rows && rows.length > 0 && (
         <ThreadList label={ui("Hội thoại trong {{v1}}", { v1: project.name })}>
-          {sessions.data.map((session) => (
+          {rows.map((session) => (
             <ChatSessionRow key={session.id} session={session} onNavigate={onNavigate} />
           ))}
         </ThreadList>
       )}
-      {sessions.data && sessions.data.length >= PROJECT_SESSIONS && (
-        <Link
-          to="/projects/$projectId"
-          params={{ projectId: project.id }}
-          onClick={onNavigate}
-          className="flex h-8 items-center rounded-lg px-2 text-xs text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+      {sessions.hasNextPage && (
+        <button
+          type="button"
+          disabled={sessions.isFetchingNextPage}
+          onClick={() => void sessions.fetchNextPage()}
+          className="flex h-8 w-full cursor-pointer items-center rounded-lg px-2 text-left text-xs text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary disabled:cursor-default disabled:opacity-60"
         >
           {ui("Xem thêm")}
-        </Link>
+        </button>
       )}
     </div>
   );
