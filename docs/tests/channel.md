@@ -15,7 +15,7 @@
 | Adding a bot is `201` and the notice language is checked | `ChannelApiTest.addingABotReturnsItCreated` |
 | Switching, replacing the secret and removing need a quoted revision; a stale one is `409` | `ChannelApiTest.changesFollowTheRevision` |
 | The secret envelope moved to the shared kernel unchanged | `CredentialCipherTest` |
-| A direct message runs as its sender and a message handed over twice is answered once | `ChannelInboundServiceTest.aDirectMessageRunsAsItsSenderAndIsAnsweredOnce` |
+| A direct message runs as its sender and a message handed over twice is answered once; the message and each of its steps are spans | `ChannelInboundServiceTest.aDirectMessageRunsAsItsSenderAndIsAnsweredOnce` |
 | A sender without an account is answered as the bot, told to sign in, and the provider is asked once while that is remembered | `ChannelInboundServiceTest.aSenderWithoutAnAccountIsAnsweredAsTheBotAndRememberedForAWhile` |
 | A group is answered only when the bot is named, as the bot, with the closing line; a new group message starts a conversation | `ChannelInboundServiceTest.aGroupIsAnsweredOnlyWhenTheBotIsNamedAndAsTheBot` |
 | A reply to the bot's answer or to the question continues its conversation, however old and whoever replies | `ChannelInboundServiceTest.aReplyContinuesItsConversationHoweverOldAndWhoeverReplies` |

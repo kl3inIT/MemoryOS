@@ -23,6 +23,9 @@ import io.memoryos.chat.ChatSurface;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationHandler;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -61,6 +65,7 @@ class ChannelInboundServiceTest {
     private UUID connection;
     private ActorId bot;
     private ActorId ha;
+    private final List<String> spans = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void setUp() throws Exception {
@@ -95,9 +100,20 @@ class ChannelInboundServiceTest {
                         "SELECT EXISTS (SELECT 1 FROM chat_session WHERE id = :id AND owner_actor_id = :actor)")
                 .param("id", call.<UUID>getArgument(1)).param("actor", call.<ActorId>getArgument(0).value())
                 .query(Boolean.class).single());
+        var observations = ObservationRegistry.create();
+        observations.observationConfig().observationHandler(new ObservationHandler<Observation.Context>() {
+            @Override public boolean supportsContext(Observation.Context context) { return true; }
+
+            @Override
+            public void onStop(Observation.Context context) {
+                var step = context.getLowCardinalityKeyValue("step");
+                var outcome = context.getLowCardinalityKeyValue("outcome");
+                spans.add(context.getName() + ":" + (step != null ? step.getValue() : outcome == null ? "" : outcome.getValue()));
+            }
+        });
         service = new ChannelInboundService(new JdbcChannelConnectionRepository(jdbc), inbound, new ChannelAdapters(List.of(adapter)),
                 (ignored, email) -> "ha@tasco.vn".equals(email) ? Optional.of(ha) : Optional.empty(), turns,
-                new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90)));
+                new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90)), observations);
     }
 
     @AfterEach
@@ -117,6 +133,11 @@ class ChannelInboundServiceTest {
         assertEquals(List.of("append:An", "finish:Answer|footer=null"), adapter.replies);
         assertEquals("ANSWERED", outcome("m1"));
         assertEquals(ha.value(), owner(session("m1")));
+        // Each step of the answer is a span inside the message's, so the time before a turn starts can be read.
+        assertEquals(List.of("memoryos.channel.message.step:refusal", "memoryos.channel.message.step:sender",
+                "memoryos.channel.message.step:conversation", "memoryos.channel.message.step:reply",
+                "memoryos.channel.message.step:turn", "memoryos.channel.message.step:finish",
+                "memoryos.channel.message:ANSWERED"), spans);
     }
 
     @Test

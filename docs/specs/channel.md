@@ -155,6 +155,11 @@ A failure is a notice and a recorded reason, never a provider message or the que
 says "busy", a spend limit names the limit, anything else says the bot could not answer. Notices are in the
 connection's language.
 
+A claimed message is one `memoryos.channel.message` observation (`provider`, `kind`, `outcome`: `ANSWERED`,
+`REFUSED`, `NEW_CONVERSATION` or `FAILED`), with a child `memoryos.channel.message.step` for each step (`step`:
+`refusal`, `sender`, `conversation`, `reply`, `turn`, `finish`); the Chat turn's spans sit under `turn`, so a trace
+shows where the time before an answer goes.
+
 The Worker task `memoryos-channel-message-retention-v1` runs daily and deletes `channel_messages` rows older than
 `memoryos.channel.message-retention` (90 days); a reply to a message that old starts a new conversation.
 
