@@ -192,6 +192,7 @@ function FileGroup({
           {onSelectDay && selected.length > 0 ? (
             <>
               <Checkbox
+                focus="soft"
                 id={dayId}
                 aria-label={ui("Chọn tất cả {{day}}", { day: label })}
                 checked={chosen === 0 ? false : chosen === files.length ? true : "indeterminate"}
@@ -273,6 +274,7 @@ function LibraryRow({
     >
       <Item>
         <Checkbox
+          focus="soft"
           aria-label={ui("Chọn {{name}}", { name: file.filename })}
           checked={selected}
           onCheckedChange={() => onSelect(file)}
@@ -471,6 +473,7 @@ function LibraryCard({
        */}
       <div className="absolute top-4 left-4 z-10 opacity-100 transition-opacity md:opacity-0 md:group-hover/card:opacity-100 md:group-has-[:focus-visible]/card:opacity-100 md:group-has-[[data-state=open]]/card:opacity-100">
         <Checkbox
+          focus="soft"
           aria-label={ui("Chọn {{name}}", { name: file.filename })}
           checked={selected}
           onCheckedChange={() => onSelect(file)}
