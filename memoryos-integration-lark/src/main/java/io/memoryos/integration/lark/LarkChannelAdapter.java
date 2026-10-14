@@ -2,12 +2,9 @@ package io.memoryos.integration.lark;
 
 import com.lark.oapi.channel.LarkChannel;
 import com.lark.oapi.channel.config.LarkChannelOptions;
-import com.lark.oapi.channel.model.MarkdownStreamController;
 import com.lark.oapi.channel.model.NormalizedMessage;
 import com.lark.oapi.channel.model.SendInput;
 import com.lark.oapi.channel.model.SendOptions;
-import com.lark.oapi.channel.model.SendResult;
-import com.lark.oapi.channel.model.StreamInput;
 import com.lark.oapi.service.contact.v3.model.GetUserReq;
 import com.lark.oapi.service.im.v1.model.GetChatReq;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
@@ -27,23 +24,18 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The Lark bot (MEM-246) on the SDK's {@link LarkChannel}: its long connection, its normalized messages, its mention
- * rule and its streaming reply. The SDK's own chat queue is off, because it orders and merges by chat while the
+ * The Lark bot (MEM-246) on the SDK's {@link LarkChannel}: its long connection, its normalized messages and its mention
+ * rule. An answer is a card of the bot's own ({@link LarkReplyCard}), written through the channel's client. The SDK's own chat queue is off, because it orders and merges by chat while the
  * capability orders by conversation; its in-memory deduplication stays on and is not relied on. Requests go through
  * a {@link LarkTransport} of the bot's own, bounded like every other Lark call.
  *
@@ -55,7 +47,6 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     /** The budget of a call the SDK makes outside any exchange the adapter binds: sending, streaming, reading. */
     static final LarkTransport.Exchange CALL = new LarkTransport.Exchange(Duration.ofSeconds(30), 1_048_576);
     private static final Duration CHAT_TTL = Duration.ofHours(1);
-    private static final String END = "\u0000end";
 
     private final LarkTransport transport;
     private final @Nullable RestLarkGateway gateway;
@@ -149,23 +140,35 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
                 text ? ChannelMessage.Type.TEXT : ChannelMessage.Type.OTHER, content, repliesTo);
     }
 
-    /** The text without the bot's own mentions; another person's mention stays, as the question names them. */
+    /**
+     * The text without the bot's own mentions. Another person's mention stays, as the question names them, by name
+     * rather than by the placeholder key Lark writes for it.
+     */
     private static String withoutBotMentions(NormalizedMessage message) {
         String content = message.getContent();
         if (message.getMentions() != null) {
             for (var mention : message.getMentions()) {
-                if (!mention.isBot() || mention.getName() == null) continue;
-                content = content.replace("@" + mention.getName(), "");
-                if (mention.getKey() != null) content = content.replace(mention.getKey(), "");
+                if (mention.getName() == null) continue;
+                if (mention.isBot()) {
+                    content = content.replace("@" + mention.getName(), "");
+                    if (mention.getKey() != null) content = content.replace(mention.getKey(), "");
+                } else if (mention.getKey() != null) {
+                    content = content.replace(mention.getKey(), "@" + mention.getName());
+                }
             }
         }
         return content.strip();
     }
 
     @Override
-    public ChannelReply reply(ChannelConnection connection, ChannelMessage message) {
-        var channel = channel(connection);
-        return new StreamingReply(channel, message);
+    public ChannelReply reply(ChannelConnection connection, ChannelMessage message, String waiting) {
+        try {
+            return new LarkReplyCard(channel(connection).getRawClient(), message, waiting);
+        } catch (RuntimeException failed) {
+            throw failed;
+        } catch (Exception failed) {
+            throw new IllegalStateException("the Lark reply could not be sent", failed);
+        }
     }
 
     @Override
@@ -235,75 +238,5 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         };
     }
 
-    /** Markdown of an answer: the text, its sources as links, then the closing line. */
-    static String markdown(String text, List<ChannelReply.Source> sources, @Nullable String footer) {
-        var out = new StringBuilder(text.strip());
-        if (!sources.isEmpty()) {
-            out.append("\n\n");
-            int index = 1;
-            for (var source : sources) {
-                String title = source.title().replace("[", "(").replace("]", ")");
-                out.append(index++).append(". ");
-                if (source.url() != null) out.append('[').append(title).append("](").append(source.url()).append(')');
-                else out.append(title);
-                out.append('\n');
-            }
-        }
-        if (footer == null || footer.isBlank()) return out.toString().strip();
-        return out.toString().strip() + "\n\n" + footer.strip();
-    }
-
     private record Known(boolean external, Instant until) {}
-
-    /**
-     * One answer streamed into a Lark message that quotes the question. The SDK pulls the text from a producer on a
-     * thread of its own; the capability pushes it, so a queue joins the two and the last item ends the stream.
-     */
-    private static final class StreamingReply implements ChannelReply {
-        private final BlockingQueue<String> pieces = new LinkedBlockingQueue<>();
-        private final CompletableFuture<SendResult> sent;
-        private volatile @Nullable String whole;
-
-        StreamingReply(LarkChannel channel, ChannelMessage message) {
-            sent = channel.stream(message.chatId(), StreamInput.markdown(this::produce), replyTo(message));
-        }
-
-        private void produce(MarkdownStreamController stream) throws InterruptedException {
-            while (true) {
-                String piece = pieces.poll(15, TimeUnit.MINUTES);
-                if (piece == null || END.equals(piece)) break;
-                stream.append(piece);
-            }
-            if (whole != null) stream.setContent(whole);
-        }
-
-        @Override
-        public void append(String text) {
-            if (!text.isEmpty()) pieces.add(text);
-        }
-
-        @Override
-        public @Nullable String finish(String text, List<Source> sources, @Nullable String footer) {
-            return end(markdown(text, sources, footer));
-        }
-
-        @Override
-        public void fail(String notice) {
-            end(notice);
-        }
-
-        private @Nullable String end(String content) {
-            whole = content;
-            pieces.add(END);
-            try {
-                var result = sent.get(60, TimeUnit.SECONDS);
-                return result == null ? null : result.getMessageId();
-            } catch (Exception failed) {
-                LOG.atWarn().addKeyValue("event", "channel.lark.reply_failed")
-                        .addKeyValue("error_type", failed.getClass().getName()).log("Lark reply could not be completed");
-                if (failed instanceof InterruptedException) Thread.currentThread().interrupt();
-                return null;
-            }
-        }
-    }
 }

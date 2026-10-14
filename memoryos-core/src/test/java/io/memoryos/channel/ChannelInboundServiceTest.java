@@ -308,7 +308,7 @@ class ChannelInboundServiceTest {
         }
 
         @Override
-        public ChannelReply reply(ChannelConnection connection, ChannelMessage message) {
+        public ChannelReply reply(ChannelConnection connection, ChannelMessage message, String waiting) {
             return new ChannelReply() {
                 @Override public void append(String text) { replies.add("append:" + text); }
 
