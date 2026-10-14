@@ -120,41 +120,77 @@ it("lists the first five projects and links to the rest", async () => {
   await show(projects);
 
   for (const shown of projects.slice(0, 5))
-    expect(await screen.findByRole("link", { name: shown.name ?? "" })).toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: "Dự án 6" })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: `Hội thoại trong ${shown.name}` }),
+    ).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Hội thoại trong Dự án 6" })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Xem tất cả dự án" })).toHaveAttribute(
     "href",
     "/projects",
   );
 });
 
-it("shows no link to the rest while every project fits", async () => {
+it("links to the Projects page even while every project fits", async () => {
   await show([1, 2].map(project));
 
-  await screen.findByRole("link", { name: "Dự án 2" });
-  expect(screen.queryByRole("link", { name: "Xem tất cả dự án" })).not.toBeInTheDocument();
+  await screen.findByRole("button", { name: "Hội thoại trong Dự án 2" });
+  expect(screen.getByRole("link", { name: "Xem tất cả dự án" })).toHaveAttribute(
+    "href",
+    "/projects",
+  );
+});
+
+it("opens the project page from its row action menu", async () => {
+  const user = userEvent.setup();
+  const router = await show([project(1)]);
+
+  await user.click(await screen.findByRole("button", { name: "Thao tác với Dự án 1" }));
+  await user.click(screen.getByRole("menuitem", { name: "Xem dự án" }));
+
+  await waitFor(() => expect(router.state.location.pathname).toBe(`/projects/${id(1)}`));
+});
+
+it("opens the project editor from its row action menu", async () => {
+  const user = userEvent.setup();
+  await show([project(1)]);
+
+  await user.click(await screen.findByRole("button", { name: "Thao tác với Dự án 1" }));
+  await user.click(screen.getByRole("menuitem", { name: "Sửa" }));
+
+  expect(await screen.findByRole("dialog", { name: "Chỉnh sửa dự án" })).toBeInTheDocument();
+});
+
+it("requires confirmation before deleting a project from its row action menu", async () => {
+  const user = userEvent.setup();
+  await show([project(1)]);
+
+  await user.click(await screen.findByRole("button", { name: "Thao tác với Dự án 1" }));
+  await user.click(screen.getByRole("menuitem", { name: "Xóa" }));
+
+  expect(await screen.findByRole("alertdialog")).toHaveTextContent(
+    "Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử.",
+  );
+  expect(screen.getByRole("button", { name: "Xóa dự án" })).toBeInTheDocument();
 });
 
 it("lists the project being viewed even when it is beyond the first five", async () => {
   await show([1, 2, 3, 4, 5, 6, 7].map(project), `/projects/${id(7)}`);
 
-  const viewed = await screen.findByRole("link", { name: "Dự án 7" });
+  const viewed = await screen.findByRole("button", { name: "Hội thoại trong Dự án 7" });
   expect(viewed).toHaveAttribute("aria-current", "page");
-  expect(screen.queryByRole("link", { name: "Dự án 6" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Hội thoại trong Dự án 6" })).not.toBeInTheDocument();
 });
 
 it("opens and closes the section and remembers it", async () => {
   const user = userEvent.setup();
   await show([project(1)]);
-  await screen.findByRole("link", { name: "Dự án 1" });
+  await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" });
 
   const toggle = screen.getByRole("button", { name: "Danh sách dự án" });
   expect(toggle).toHaveAttribute("aria-expanded", "true");
   await user.click(toggle);
-  expect(screen.queryByRole("link", { name: "Dự án 1" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Hội thoại trong Dự án 1" })).not.toBeInTheDocument();
   expect(toggle).toHaveAttribute("aria-expanded", "false");
-  // The heading keeps leading to the Projects page while the list is closed.
-  expect(screen.getByRole("link", { name: "Dự án" })).toHaveAttribute("href", "/projects");
 
   cleanup();
   await show([project(1)]);
@@ -171,7 +207,7 @@ it("fetches a project's five latest conversations only once it is opened", async
     [id(1)]: [1, 2, 3, 4, 5].map((n) => session(n, id(1))),
   });
   await show([first]);
-  await screen.findByRole("link", { name: "Dự án 1" });
+  await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" });
   expect(requests).toEqual([]);
 
   await user.click(screen.getByRole("button", { name: "Hội thoại trong Dự án 1" }));
@@ -280,7 +316,7 @@ it("reads an open project's conversations again after a conversation is moved", 
   await screen.findByRole("link", { name: "Hội thoại 1" });
 
   // A conversation from the thread list dropped on another project.
-  const target = screen.getByRole("link", { name: "Dự án 2" });
+  const target = screen.getByRole("button", { name: "Hội thoại trong Dự án 2" });
   const drop = createEvent.drop(target);
   Object.defineProperty(drop, "dataTransfer", {
     value: { types: [CHAT_DRAG_TYPE], getData: () => id(101) },
@@ -307,7 +343,9 @@ async function moveWithKeyboard(
 
 /** The projects' names in the order the sidebar lists them. */
 function listedNames() {
-  return screen.getAllByRole("link", { name: /^Dự án \d/ }).map((link) => link.textContent);
+  return screen
+    .getAllByRole("button", { name: /^Hội thoại trong Dự án \d/ })
+    .map((link) => link.textContent);
 }
 
 /** The ids the order endpoint received, one entry per request. */
@@ -327,7 +365,7 @@ it("sends every project, not only the five shown, when the shown ones are reorde
   const saved = serveOrder();
   const user = userEvent.setup();
   await show([1, 2, 3, 4, 5, 6, 7].map(project));
-  await screen.findByRole("link", { name: "Dự án 1" });
+  await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" });
 
   await moveWithKeyboard(user, "Dự án 1", "ArrowDown");
 
@@ -340,7 +378,7 @@ it("keeps the projects that are not listed in their places when the viewed one m
   const saved = serveOrder();
   const user = userEvent.setup();
   await show([1, 2, 3, 4, 5, 6, 7].map(project), `/projects/${id(7)}`);
-  await screen.findByRole("link", { name: "Dự án 7" });
+  await screen.findByRole("button", { name: "Hội thoại trong Dự án 7" });
 
   await moveWithKeyboard(user, "Dự án 7", "ArrowUp");
 
@@ -353,7 +391,7 @@ it("restores the order and says so when the order cannot be saved", async () => 
   server.use(handleReorderChatProjects(() => new HttpResponse(null, { status: 500 })));
   const user = userEvent.setup();
   await show([1, 2, 3].map(project));
-  await screen.findByRole("link", { name: "Dự án 1" });
+  await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" });
 
   await moveWithKeyboard(user, "Dự án 1", "ArrowDown");
 

@@ -3,7 +3,8 @@
 ## Sidebar
 
 - [x] *Dự án* section opens and closes; state kept in `localStorage`
-- [x] First five projects, *Xem tất cả dự án*, the viewed project always listed
+- [x] Full-width section toggle and project rows retain visible chevrons; each project row has an action menu to view, edit or delete
+- [x] First five projects, an always-available *Xem tất cả dự án* link when projects exist, and the viewed project always listed
 - [x] A project opens to its five most recent conversations with `ChatSessionRow`; *Xem thêm*
 - [x] The project of the open conversation opens by itself
 - [x] `Skeleton` rows while projects or conversations load

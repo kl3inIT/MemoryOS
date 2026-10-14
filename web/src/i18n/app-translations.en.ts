@@ -1451,6 +1451,7 @@ export const vietnameseUi: Record<string, string> = {
     "The project list changed elsewhere. It has been reloaded; reorder it again.",
   "Danh sách dự án": "Project list",
   "Xem tất cả dự án": "See all projects",
+  "Xem dự án": "View project",
   "Hội thoại trong {{v1}}": "Conversations in {{v1}}",
   "Mỗi dự án gom hội thoại, tệp và hướng dẫn dùng chung cho một mảng công việc.":
     "Each project gathers conversations, files and shared instructions for one area of work.",

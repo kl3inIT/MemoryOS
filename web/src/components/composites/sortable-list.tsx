@@ -7,6 +7,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type Modifier,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -16,6 +17,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
+/** A row moves only up and down, and only inside its list: it cannot be pulled sideways or drag the page along. */
+const keepInList: Modifier = ({ transform, draggingNodeRect, containerNodeRect }) => {
+  if (!draggingNodeRect || !containerNodeRect) return { ...transform, x: 0 };
+  const highest = containerNodeRect.top - draggingNodeRect.top;
+  const lowest = containerNodeRect.bottom - draggingNodeRect.bottom;
+  return { ...transform, x: 0, y: Math.min(Math.max(transform.y, highest), lowest) };
+};
 
 export type SortableHandle = {
   /** Spread on the drag handle: pointer drag and Space/arrow keyboard reordering. */
@@ -49,7 +58,12 @@ export function SortableList<T>({
     if (from >= 0 && to >= 0 && from !== to) onReorder(arrayMove(items, from, to));
   }
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={end}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      modifiers={[keepInList]}
+      onDragEnd={end}
+    >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         {items.map((item) => (
           <SortableItem key={getId(item)} id={getId(item)}>
