@@ -67,6 +67,13 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(finish.index('"$(cat "$state/pending")" == "$release"'), finish.index("verify_runtime"))
         self.assertLess(finish.index("verify_runtime"), finish.index('rm -- "$state/pending"'))
 
+    def test_no_pipe_ends_in_a_grep_that_stops_reading(self):
+        # Under pipefail, grep -q exits at its first match and the writer before it dies of SIGPIPE, so the pipeline
+        # fails or succeeds by timing; on 2026-10-14 that started no channels and then failed the verification.
+        for number, line in enumerate(SCRIPT.splitlines(), 1):
+            self.assertNotRegex(line, r"\|\s*grep\s+-[a-zA-Z]*q", f"deploy.sh:{number}")
+        self.assertIn('services=$(compose config --services)\n  grep -qx channels <<< "$services"', SCRIPT)
+
     def test_a_failure_reports_its_line_and_command(self):
         # The trap is set before the first assertion so no refusal is silent.
         self.assertIn("set -Eeuo pipefail\n"
