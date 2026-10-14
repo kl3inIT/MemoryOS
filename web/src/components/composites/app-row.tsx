@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** The two-column list of apps, as ChatGPT's plugin directory lays them out. */
-export function McpAppGrid({ children }: { children: ReactNode }) {
+/** The two-column list of apps, MCP servers or bots, as ChatGPT's plugin directory lays them out. */
+export function AppGrid({ children }: { children: ReactNode }) {
   return <ul className="grid gap-x-8 gap-y-1 md:grid-cols-2">{children}</ul>;
 }
 
@@ -14,7 +14,7 @@ export const appRowLinkClass =
  * One app: its mark, its name and one line, with a single action at the end. The line says what is missing when
  * something is, so a row needs no badge; everything else is on the app's own page, which `link` opens.
  */
-export function McpAppRow({
+export function AppRow({
   mark,
   title,
   line,

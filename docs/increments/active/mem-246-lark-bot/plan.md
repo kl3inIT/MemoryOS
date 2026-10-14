@@ -95,9 +95,10 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
 
 ## 5. The settings page
 
-- [ ] `web/src/features/channels`: the Lark bot section under administration, in both languages, following the
-  Lark credential section's components.
-- [ ] Screenshots reviewed at desktop and phone widths, light and dark.
+- [x] `web/src/features/channels`: "Kênh chat" under administration (`/admin/channels`), in both languages,
+  listed and opened as the MCP servers now are (the shared `AppRow`, a page a bot), the add dialog following the
+  Lark credential dialog.
+- [x] Screenshots reviewed at desktop and phone widths, light and dark (`channels-administration.spec.ts`).
 
 ## 6. Acceptance and consolidation
 
