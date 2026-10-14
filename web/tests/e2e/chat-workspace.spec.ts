@@ -528,7 +528,7 @@ test("moves and removes a conversation with keyboard menus and desktop drag and 
     .getByRole("complementary")
     .locator('[data-slot="thread-list-row"]')
     .filter({ has: page.getByRole("link", { name: "Movable conversation", exact: true }) });
-  await row.dragTo(folder.getByRole("link", { name: "Move destination", exact: true }));
+  await row.dragTo(folder.getByRole("button", { name: "Hội thoại trong Move destination" }));
   await expect
     .poll(
       async () =>

@@ -124,7 +124,7 @@ test("reorders projects with the keyboard and keeps the order after a reload", a
   // The sidebar lists the same order.
   const sidebarNames = await page
     .getByRole("complementary")
-    .getByRole("link", { name: /^Order test/ })
+    .getByRole("button", { name: /^Hội thoại trong Order test/ })
     .evaluateAll((links) => links.map((link) => link.textContent));
   expect(sidebarNames).toEqual(["Order test second", "Order test third", "Order test first"]);
 
