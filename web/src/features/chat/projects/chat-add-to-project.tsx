@@ -97,6 +97,7 @@ export function ChatAddToProjectDialog({
           <FieldLabel htmlFor="add-to-project-name">{ui("Tên dự án")}</FieldLabel>
           <Input
             id="add-to-project-name"
+            focus="quiet"
             value={name}
             maxLength={120}
             placeholder={ui("Ví dụ: Báo cáo quý 4")}
@@ -109,6 +110,7 @@ export function ChatAddToProjectDialog({
           <FieldLabel htmlFor="add-to-project-target">{ui("Dự án")}</FieldLabel>
           <NativeSelect
             id="add-to-project-target"
+            focus="quiet"
             value={chosen?.id ?? ""}
             onChange={(event) => setProjectId(event.target.value)}
           >

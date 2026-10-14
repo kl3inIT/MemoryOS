@@ -70,6 +70,7 @@ export function LibraryFiles({
               column so the three checkbox gutters (page, day, file) read as one line down the page. */}
           <div className="flex items-center gap-2 px-3.25">
             <Checkbox
+              focus="soft"
               id="library-select-page"
               // The scope is in the name, because a selection never leaves its page.
               aria-label={ui("Chọn tất cả trên trang này")}

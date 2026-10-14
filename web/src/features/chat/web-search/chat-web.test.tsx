@@ -98,7 +98,7 @@ it("offers Web to a tool-capable model only, never guessing from its name", asyn
   );
   expect(screen.getByRole("radio", { name: "Use Web automatically" })).toBeDisabled();
   expect(screen.getByRole("radio", { name: "Web off" })).toHaveAttribute("aria-checked", "true");
-  expect(screen.getByText("The selected model cannot use Web search.")).toBeInTheDocument();
+  expect(await screen.findByText("The selected model cannot use Web search.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("radio", { name: "Use Web automatically" }));
   expect(change).not.toHaveBeenCalled();
   unmount();

@@ -131,9 +131,7 @@ test("reorders projects with the keyboard and keeps the order after a reload", a
   for (const id of ids) await page.request.delete(`/api/chat/projects/${id}?revision=0`);
 });
 
-test("reorders projects in the sidebar by dragging the handle with the pointer", async ({
-  page,
-}) => {
+test("reorders projects in the sidebar by dragging the row with the pointer", async ({ page }) => {
   const ids = [
     await createProject(page, "Drag test lower"),
     await createProject(page, "Drag test upper"),
@@ -151,7 +149,7 @@ test("reorders projects in the sidebar by dragging the handle with the pointer",
     (response) =>
       response.url().endsWith("/api/chat/projects/order") && response.request().method() === "PUT",
   );
-  const handle = sidebar.getByRole("button", { name: "Kéo để sắp xếp Drag test lower" });
+  const handle = sidebar.getByRole("button", { name: "Hội thoại trong Drag test lower" });
   const target = await sidebar
     .getByRole("button", { name: "Hội thoại trong Drag test upper" })
     .boundingBox();
@@ -164,8 +162,88 @@ test("reorders projects in the sidebar by dragging the handle with the pointer",
 
   await expect.poll(names).toEqual(["Drag test lower", "Drag test upper"]);
   expect((await saved).status()).toBe(204);
+  // Letting go of the dragged row must not open it.
+  await expect(handle).toHaveAttribute("aria-expanded", "false");
   await page.reload();
   await expect.poll(names).toEqual(["Drag test lower", "Drag test upper"]);
+
+  for (const id of ids) await page.request.delete(`/api/chat/projects/${id}?revision=0`);
+});
+
+test("reorders projects on the Projects page by dragging a row and does not open it on release", async ({
+  page,
+}) => {
+  const ids = [
+    await createProject(page, "Page drag lower"),
+    await createProject(page, "Page drag upper"),
+  ];
+  await page.goto("/projects");
+  const rows = page.getByRole("main").getByRole("link", { name: /^Page drag/ });
+  const names = () =>
+    rows.evaluateAll((links) => links.map((link) => link.textContent?.replace(/0 tệp.*/, "")));
+  // A new project comes first.
+  await expect.poll(names).toEqual(["Page drag upper", "Page drag lower"]);
+
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/chat/projects/order") && response.request().method() === "PUT",
+  );
+  const from = await rows.nth(0).boundingBox();
+  const target = await rows.nth(1).boundingBox();
+  if (!from || !target) throw new Error("The project rows have no layout.");
+  await page.mouse.move(from.x + 60, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 60, target.y + target.height - 2, { steps: 12 });
+  await page.mouse.up();
+
+  await expect.poll(names).toEqual(["Page drag lower", "Page drag upper"]);
+  expect((await saved).status()).toBe(204);
+  await page.waitForTimeout(300);
+  await expect(page).toHaveURL(/\/projects$/);
+
+  for (const id of ids) await page.request.delete(`/api/chat/projects/${id}?revision=0`);
+});
+
+test("selecting text in the project editor does not drag the project rows behind it", async ({
+  page,
+}) => {
+  const ids = [
+    await createProject(page, "Editor drag lower"),
+    await createProject(page, "Editor drag upper"),
+  ];
+  await page.goto("/projects");
+  const rows = page.getByRole("main").getByRole("link", { name: /^Editor drag/ });
+  const names = () =>
+    rows.evaluateAll((links) => links.map((link) => link.textContent?.replace(/0 tệp.*/, "")));
+  await expect.poll(names).toEqual(["Editor drag upper", "Editor drag lower"]);
+
+  await page
+    .getByRole("main")
+    .getByRole("button", { name: "Thao tác với Editor drag upper" })
+    .click();
+  await page.getByRole("menuitem", { name: "Sửa" }).click();
+  const dialog = page.getByRole("dialog");
+  const name = dialog.getByRole("textbox", { name: /Tên/ });
+  const field = await name.boundingBox();
+  if (!field) throw new Error("The editor has no layout.");
+
+  let reordered = false;
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/chat/projects/order") && request.method() === "PUT")
+      reordered = true;
+  });
+  // Select the name by dragging from its end down past the dialog, as a person does when the hand overshoots.
+  await page.mouse.move(field.x + field.width - 20, field.y + field.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(field.x + 10, (page.viewportSize()?.height ?? 720) - 5, { steps: 12 });
+  await page.mouse.up();
+
+  await expect(dialog).toBeVisible();
+  await expect(name).toHaveValue("Editor drag upper");
+  await page.waitForTimeout(300);
+  expect(reordered).toBe(false);
+  await dialog.getByRole("button", { name: "Đóng" }).click();
+  await expect.poll(names).toEqual(["Editor drag upper", "Editor drag lower"]);
 
   for (const id of ids) await page.request.delete(`/api/chat/projects/${id}?revision=0`);
 });

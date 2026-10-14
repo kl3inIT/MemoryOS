@@ -456,7 +456,7 @@ function DocumentSourceSelect({
       value={value ?? EVERY_SOURCE}
       onValueChange={(next) => onChange(next === EVERY_SOURCE ? undefined : next)}
     >
-      <SelectTrigger aria-label={ui("Nguồn")} className="w-full">
+      <SelectTrigger aria-label={ui("Nguồn")} focus="quiet" className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent position="popper" align="end" sideOffset={4}>

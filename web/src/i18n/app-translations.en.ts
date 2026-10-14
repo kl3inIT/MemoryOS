@@ -1504,8 +1504,6 @@ export const vietnameseUi: Record<string, string> = {
   "Xem tất cả dự án": "See all projects",
   "Xem dự án": "View project",
   "Hội thoại trong {{v1}}": "Conversations in {{v1}}",
-  "Mỗi dự án gom hội thoại, tệp và hướng dẫn dùng chung cho một mảng công việc.":
-    "Each project gathers conversations, files and shared instructions for one area of work.",
   "{{count}} tệp · Cập nhật {{date}}": "Files: {{count}} · Updated {{date}}",
   "Tạo dự án mới": "Create new project",
   "Tạo và thêm tệp": "Create and add the files",
@@ -1581,6 +1579,8 @@ export const vietnameseUi: Record<string, string> = {
   "Gỡ {{v1}} khỏi dự án": "Remove {{v1}} from project",
   "tệp không còn khả dụng": "unavailable file",
   "Hội thoại trong dự án": "Conversations in this project",
+  "Nội dung dự án": "Project content",
+  "Trò chuyện": "Chats",
   "Hội thoại dự án": "Project conversations",
   "Chưa có hội thoại. Gửi câu hỏi ở trên để bắt đầu.":
     "No conversations yet. Send a question above to get started.",

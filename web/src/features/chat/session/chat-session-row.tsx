@@ -69,6 +69,8 @@ export function ChatSessionRow({
           ref={link}
           to="/chat/$sessionId"
           params={{ sessionId: session.id }}
+          // The row is what is dragged; a dragged link would carry its address as the picture.
+          draggable={false}
           onClick={onNavigate}
           aria-current={selected ? "page" : undefined}
           className="flex min-w-0 flex-col gap-1 rounded-lg px-2 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"

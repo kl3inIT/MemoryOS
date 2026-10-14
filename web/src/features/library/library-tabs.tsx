@@ -107,6 +107,7 @@ export function LibraryTabs({
           >
             <TabsList
               variant="line"
+              slider
               aria-label={ui("Phần của thư viện")}
               // On a phone the tabs are one row that scrolls sideways inside the wrapper above, which keeps room for
               // the underline and never scrolls up and down; the row fades at its end to say there is more, and the
@@ -119,6 +120,7 @@ export function LibraryTabs({
                 <TabsTrigger
                   key={entry.value}
                   value={entry.value}
+                  focus="soft"
                   className="flex-none pointer-coarse:min-h-11"
                 >
                   {entry.icon}
@@ -132,7 +134,7 @@ export function LibraryTabs({
           )}
         </div>
         {section ? (
-          <TabsContent value={section.value}>
+          <TabsContent key={section.value} value={section.value} animated>
             <div className="flex min-w-0 flex-col gap-4">
               {section.views.length > 1 && (
                 <ToggleGroup
@@ -144,7 +146,7 @@ export function LibraryTabs({
                   onValueChange={(next) => next && onView(next as LibraryView)}
                 >
                   {section.views.map((entry) => (
-                    <ToggleGroupItem key={entry} value={entry} size="sm">
+                    <ToggleGroupItem key={entry} value={entry} size="sm" focus="soft">
                       {viewLabels[entry]}
                       {entry === view && (count ?? 0) > 0 && (
                         <span className="text-content-muted tabular-nums">{count}</span>
