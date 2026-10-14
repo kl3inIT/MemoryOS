@@ -163,6 +163,15 @@ shows where the time before an answer goes.
 The Worker task `memoryos-channel-message-retention-v1` runs daily and deletes `channel_messages` rows older than
 `memoryos.channel.message-retention` (90 days); a reply to a message that old starts a new conversation.
 
-Not built yet: a sender's rate, the order of two messages of one conversation (the second is told "busy" while the
-first is answered), the reaction that acknowledges a message, the asker's name given to a turn, and the link to a
-direct conversation on the web.
+- **A sender's rate.** A person who sent the bot more than `memoryos.channel.sender-rate` messages (10) in the last
+  minute, this one included, is refused (`RATE_LIMITED`) and told to wait a minute.
+- **One turn a conversation.** A message whose conversation already runs a turn waits for it, asking again every
+  second at the conversation's new leaf, up to `memoryos.channel.order-wait` (5 minutes); then it is refused as
+  busy. While it waits it carries the `Get` reaction, put once, so the sender sees it was taken. The reply card is
+  opened only once the question is accepted, so it is not shown while the question waits, and it is written while
+  the turn is being prepared.
+- **The asker's name.** A turn that runs as the bot is asked `[name]: question`, the name the provider shows for the
+  sender cut to a plain label of at most 64 characters, so the answer addresses the right person. A turn that runs
+  as the sender is asked the question alone. The session's title is the question either way.
+
+Not built yet: the link to a direct conversation on the web.

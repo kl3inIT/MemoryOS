@@ -36,6 +36,16 @@ public class JdbcChannelInboundRepository {
     }
 
     /** How the message ended: {@code ANSWERED}, {@code REFUSED} or {@code FAILED}, with what a reply to it needs. */
+    /** How many messages {@code senderId} sent the bot since {@code since}, this one included once claimed. */
+    public int receivedFrom(UUID connection, String senderId, Instant since) {
+        return jdbc.sql("""
+                        SELECT count(*) FROM channel_messages
+                        WHERE connection_id = :connection AND external_user_id = :sender AND received_at >= :since
+                        """)
+                .param("connection", connection).param("sender", senderId).param("since", Timestamp.from(since))
+                .query(Integer.class).single();
+    }
+
     public void settle(UUID connection, String messageId, String outcome, @Nullable String reason, @Nullable UUID session,
                        @Nullable UUID assistantMessage, @Nullable String replyMessageId) {
         jdbc.sql("""
