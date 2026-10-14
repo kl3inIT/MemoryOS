@@ -22,6 +22,7 @@ import com.vp.plugin.model.IInteractionOperand;
 import com.vp.plugin.model.IMessage;
 import com.vp.plugin.model.IModel;
 import com.vp.plugin.model.IModelElement;
+import com.vp.plugin.model.IStereotype;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -116,6 +117,30 @@ public final class SequenceDiagramTools extends VpAccess {
           shape.setShowClassifier(true);
           shape.resetCaption();
           return "Added lifeline " + lifelineName;
+        });
+  }
+  @Tool(
+      description =
+          "Add a UML stereotype to an existing sequence participant (actor or lifeline)."
+              + " The stereotype is stored on the participant model so it renders in the header"
+              + " caption. Typical values: boundary, control, entity, service, repository.")
+  public String setParticipantStereotype(
+      String diagramName, String participantName, String stereotype) throws Exception {
+    return onEdt(
+        () -> {
+          IInteractionDiagramUIModel diagram = sequenceDiagram(diagramName);
+          Participant participant = participant(diagram, participantName);
+          IModelElement target = participant.model;
+          String value = clean(stereotype);
+          if (!value.isEmpty() && !target.hasStereotype(value)) {
+            target.addStereotype(value);
+          }
+          if (participant.shape instanceof IInteractionLifeLineUIModel) {
+            ((IInteractionLifeLineUIModel) participant.shape).setShowClassifier(false);
+          }
+          participant.shape.setRequestResetCaption(true);
+          participant.shape.setRequestResetCaptionFitWidth(true);
+          return "Set stereotype on " + participantName + ": " + value;
         });
   }
 
@@ -270,6 +295,7 @@ public final class SequenceDiagramTools extends VpAccess {
           IMessage reply = models().createMessage();
           reply.setName(messageName);
           reply.setSequenceNumber(clean(sequenceNumber));
+          reply.setActionType(models().createActionTypeReturn());
           original.setReturnMessage(reply);
           createMessageConnector(diagram, reply, from, to);
           return "Added return message " + messageName;

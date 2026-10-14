@@ -16,3 +16,12 @@ Các sơ đồ là bản trình bày nghiệp vụ rút gọn để review, chư
 Context đã qua kiểm tra native: 1 tiến trình, 5 external entities, 12 luồng, không có vi phạm được validator báo. Đã kiểm tra ảnh các luồng và sửa nhãn nhánh/đường đi. File VPP là bản chỉnh sửa chính; bốn ảnh PNG là bản xem trước. Các JSON dựng thử, log kiểm tra và bản xuất cũ không lưu trong Git.
 
 Ảnh PNG xuất trực tiếp có watermark do Visual Paradigm Evaluation Copy; dùng để xem trước, chưa phải bản nộp cuối. Dùng sơ đồ 01–04 trong project; sơ đồ có tiền tố “Bản cũ” chỉ là bản lưu tham khảo.
+
+## R2 — Quy trình phát triển (draw.io)
+
+Bản chỉnh sửa: [r2-process-methodology.drawio](r2-process-methodology.drawio), mở bằng draw.io desktop hoặc app.diagrams.net. File có hai trang, đều là UML activity diagram cho mục II.1 của R2. Nhãn viết bằng tiếng Anh để dùng trong bản nộp.
+
+- [Quy trình Waterfall](r2-waterfall-process.png) (trang 1): 6 phase nối tiếp. Đầu ra của mỗi phase là object node, sau đó là review gate: đạt thì sang phase sau, chưa đạt thì làm lại phase đó.
+- [Thực hiện một issue](r2-implementation-issue-flow.png) (trang 2): các bước từ issue Linear đến staging. Nếu review hoặc CI Gate chưa đạt thì quay lại bước code. Sơ đồ vẽ review pull request là điều kiện bắt buộc trước khi merge. Hiện `main` chưa bắt buộc review.
+
+Hai ảnh PNG được chụp ở tỉ lệ 2x bằng draw.io viewer. Khi sửa file `.drawio` thì xuất lại PNG.
