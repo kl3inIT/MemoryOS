@@ -9,7 +9,7 @@ Design: [design.md](design.md). Rides on the MEM-251 pull request.
 
 ## 2. Levels per tool
 
-- [x] V163 `mcp_server_tool.approval_required`, set for tools not declared read-only; a newly listed tool that
+- [x] V164 `mcp_server_tool.approval_required`, set for tools not declared read-only; a newly listed tool that
   may change data starts off and asks once turned on.
 - [x] `PUT /api/mcp/servers/{s}/tools/{t}/approval` at the tool's revision, audited; `approvalRequired` on the tool
   view.

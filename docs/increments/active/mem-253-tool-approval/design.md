@@ -18,7 +18,7 @@ the sandbox request at its egress proxy for up to 180 seconds until the person d
 ### Three levels per tool
 
 A tool is **Luôn cho phép**, **Hỏi trước** or **Tắt**: `mcp_server_tool.enabled` stays the on/off switch and
-`approval_required` (V163) says whether an enabled tool asks first. Existing tools that may change data become
+`approval_required` (V164) says whether an enabled tool asks first. Existing tools that may change data become
 "Hỏi trước"; a newly listed one starts off and, once turned on, asks first; a read-only one starts on without
 asking (MEM-252). The administrator sets the level per tool on the server's page. Narrowing it per person is left
 out.
