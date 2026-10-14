@@ -1368,12 +1368,39 @@ export const zInterpreterSettingsResponse = z.object({
 });
 
 export const zImageSelectionRequest = z.object({
-    provider: z.enum(['OPENAI_IMAGE', 'CLOUDFLARE_WORKERS_AI']).optional()
+    provider: z.enum([
+        'OPENAI_IMAGE',
+        'CLOUDFLARE_WORKERS_AI',
+        'GEMINI_IMAGE',
+        'OPENROUTER_IMAGE',
+        'XAI_IMAGE',
+        'FAL_AI',
+        'CUSTOM_HTTP'
+    ]).optional()
+});
+
+export const zImageTemplateStep = z.object({
+    path: z.string().min(0).max(512),
+    body: z.string().min(0).max(16384),
+    imagePointer: z.string().min(0).max(200),
+    imageFormat: z.enum([
+        'BASE64',
+        'DATA_URI',
+        'RAW'
+    ])
+});
+
+export const zImageTemplate = z.object({
+    authHeader: z.string().min(0).max(64),
+    authPrefix: z.string().min(0).max(32),
+    generate: zImageTemplateStep,
+    edit: zImageTemplateStep.optional()
 });
 
 export const zImageConnectionRequest = z.object({
     endpoint: z.string().min(0).max(2048),
     model: z.string().min(0).max(200),
+    template: zImageTemplate.optional(),
     credentialAction: z.enum([
         'KEEP',
         'REPLACE',
@@ -1384,9 +1411,18 @@ export const zImageConnectionRequest = z.object({
 });
 
 export const zImageConnectionResponse = z.object({
-    provider: z.enum(['OPENAI_IMAGE', 'CLOUDFLARE_WORKERS_AI']),
+    provider: z.enum([
+        'OPENAI_IMAGE',
+        'CLOUDFLARE_WORKERS_AI',
+        'GEMINI_IMAGE',
+        'OPENROUTER_IMAGE',
+        'XAI_IMAGE',
+        'FAL_AI',
+        'CUSTOM_HTTP'
+    ]),
     endpoint: z.string(),
     model: z.string(),
+    template: zImageTemplate.optional(),
     credentialConfigured: z.boolean().optional(),
     active: z.boolean().optional(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
@@ -2416,6 +2452,7 @@ export const zChatLibraryArchive = z.object({
 export const zImageConnectionTestRequest = z.object({
     endpoint: z.string().min(0).max(2048),
     model: z.string().min(0).max(200),
+    template: zImageTemplate.optional(),
     credentialValue: z.string().min(0).max(8192).optional()
 });
 
@@ -3874,7 +3911,15 @@ export const zInterpreterHealthResponse = z.object({
 
 export const zImageAvailabilityResponse = z.object({
     available: z.boolean(),
-    provider: z.enum(['OPENAI_IMAGE', 'CLOUDFLARE_WORKERS_AI']).optional(),
+    provider: z.enum([
+        'OPENAI_IMAGE',
+        'CLOUDFLARE_WORKERS_AI',
+        'GEMINI_IMAGE',
+        'OPENROUTER_IMAGE',
+        'XAI_IMAGE',
+        'FAL_AI',
+        'CUSTOM_HTTP'
+    ]).optional(),
     model: z.string().optional()
 });
 
@@ -3888,7 +3933,15 @@ export const zImageKnownModelResponse = z.object({
 });
 
 export const zImageProviderResponse = z.object({
-    provider: z.enum(['OPENAI_IMAGE', 'CLOUDFLARE_WORKERS_AI']),
+    provider: z.enum([
+        'OPENAI_IMAGE',
+        'CLOUDFLARE_WORKERS_AI',
+        'GEMINI_IMAGE',
+        'OPENROUTER_IMAGE',
+        'XAI_IMAGE',
+        'FAL_AI',
+        'CUSTOM_HTTP'
+    ]),
     credentialRequired: z.boolean(),
     defaultEndpoint: z.string().optional(),
     endpointRequired: z.boolean(),
@@ -5362,7 +5415,15 @@ export const zSelectChatImageProviderResponse = z.void();
 export const zSaveChatImageConnectionBody = zImageConnectionRequest;
 
 export const zSaveChatImageConnectionPath = z.object({
-    provider: z.enum(['OPENAI_IMAGE', 'CLOUDFLARE_WORKERS_AI'])
+    provider: z.enum([
+        'OPENAI_IMAGE',
+        'CLOUDFLARE_WORKERS_AI',
+        'GEMINI_IMAGE',
+        'OPENROUTER_IMAGE',
+        'XAI_IMAGE',
+        'FAL_AI',
+        'CUSTOM_HTTP'
+    ])
 });
 
 /**
@@ -6736,7 +6797,15 @@ export const zRequestChatLibraryArchiveResponse = zChatLibraryArchive;
 export const zTestChatImageConnectionBody = zImageConnectionTestRequest;
 
 export const zTestChatImageConnectionPath = z.object({
-    provider: z.enum(['OPENAI_IMAGE', 'CLOUDFLARE_WORKERS_AI'])
+    provider: z.enum([
+        'OPENAI_IMAGE',
+        'CLOUDFLARE_WORKERS_AI',
+        'GEMINI_IMAGE',
+        'OPENROUTER_IMAGE',
+        'XAI_IMAGE',
+        'FAL_AI',
+        'CUSTOM_HTTP'
+    ])
 });
 
 /**

@@ -12,6 +12,7 @@ import io.memoryos.chat.image.ImageProvider;
 import io.memoryos.chat.image.ImageProviderCapabilities;
 import io.memoryos.chat.image.ImageProviderCapabilities.KnownModel;
 import io.memoryos.chat.image.ImageProviderClient;
+import io.memoryos.chat.image.ImageTemplate;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,7 +33,8 @@ public final class OpenAiImageAdapter implements ImageGenerationAdapter {
     @Override public String resolvedModel(String model) { return model.isBlank() ? "gpt-image-1" : model; }
 
     @Override public ImageProviderClient.Result generate(ImageCall call, String base, String key, String model, String prompt,
-                                                         @Nullable String size) throws IOException {
+                                                         @Nullable String size,
+                                                         @Nullable ImageTemplate template) throws IOException {
         var body = new LinkedHashMap<String, Object>();
         body.put("model", resolvedModel(model));
         body.put("prompt", prompt);
@@ -46,7 +48,7 @@ public final class OpenAiImageAdapter implements ImageGenerationAdapter {
 
     /** The whole image is edited; input fidelity keeps faces and features for gpt-image models. */
     @Override public ImageProviderClient.Result edit(ImageCall call, String base, String key, String model, String prompt,
-                                                     ImageEditImages.Working image) throws IOException {
+                                                     ImageEditImages.Working image, @Nullable ImageTemplate template) throws IOException {
         String resolved = resolvedModel(model);
         var fields = new LinkedHashMap<String, String>();
         fields.put("model", resolved);

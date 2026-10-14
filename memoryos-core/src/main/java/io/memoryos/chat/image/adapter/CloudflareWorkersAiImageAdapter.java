@@ -12,6 +12,7 @@ import io.memoryos.chat.image.ImageProvider;
 import io.memoryos.chat.image.ImageProviderCapabilities;
 import io.memoryos.chat.image.ImageProviderCapabilities.KnownModel;
 import io.memoryos.chat.image.ImageProviderClient;
+import io.memoryos.chat.image.ImageTemplate;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,7 +47,8 @@ public final class CloudflareWorkersAiImageAdapter implements ImageGenerationAda
 
     /** Cloudflare wraps run output in {@code {"result": {...}}}; text-to-image returns base64 JPEG. */
     @Override public ImageProviderClient.Result generate(ImageCall call, String base, String key, String model, String prompt,
-                                                         @Nullable String size) throws IOException {
+                                                         @Nullable String size,
+                                                         @Nullable ImageTemplate template) throws IOException {
         requireAccount(base);
         var body = new LinkedHashMap<String, Object>();
         body.put("prompt", prompt);
@@ -57,7 +59,7 @@ public final class CloudflareWorkersAiImageAdapter implements ImageGenerationAda
 
     /** FLUX.2 [klein] reference editing: multipart input image; the output keeps the requested working size. */
     @Override public ImageProviderClient.Result edit(ImageCall call, String base, String key, String model, String prompt,
-                                                     ImageEditImages.Working image) throws IOException {
+                                                     ImageEditImages.Working image, @Nullable ImageTemplate template) throws IOException {
         requireAccount(base);
         var fields = new LinkedHashMap<String, String>();
         fields.put("prompt", prompt);

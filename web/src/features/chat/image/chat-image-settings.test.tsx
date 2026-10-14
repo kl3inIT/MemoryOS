@@ -325,3 +325,57 @@ it("disconnects the active provider after choosing a replacement", async () => {
     }),
   );
 });
+
+const customHttp: ImageProviderResponse = {
+  provider: "CUSTOM_HTTP",
+  credentialRequired: true,
+  endpointRequired: true,
+  knownModels: [],
+};
+
+async function openCustom() {
+  show([customHttp], []);
+  await userEvent.click(await screen.findByRole("button", { name: "Kết nối" }));
+  await userEvent.type(await screen.findByLabelText("Địa chỉ API"), "https://fal.run");
+  await userEvent.type(screen.getByLabelText("Khóa API"), "fal-key");
+  await userEvent.type(screen.getByLabelText("Tên mô hình"), "flux-schnell");
+}
+
+it("saves a custom HTTP connection with the template of the chosen preset", async () => {
+  await openCustom();
+  await userEvent.selectOptions(screen.getByLabelText("Bắt đầu từ mẫu"), "fal");
+  expect(screen.getByLabelText("Đường dẫn tạo ảnh")).toHaveValue("/fal-ai/flux/schnell");
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await waitFor(() => expect(saveChatImageConnection).toHaveBeenCalled());
+  expect(saveChatImageConnection).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: { provider: "CUSTOM_HTTP" },
+      body: expect.objectContaining({
+        endpoint: "https://fal.run",
+        model: "flux-schnell",
+        credentialValue: "fal-key",
+        template: {
+          authHeader: "Authorization",
+          authPrefix: "Key ",
+          generate: {
+            path: "/fal-ai/flux/schnell",
+            body: '{"prompt":"{{prompt}}","sync_mode":true}',
+            imagePointer: "/images/0/url",
+            imageFormat: "DATA_URI",
+          },
+        },
+      }),
+    }),
+  );
+});
+
+it("keeps a custom HTTP connection whose body is not JSON from being saved", async () => {
+  await openCustom();
+  await userEvent.selectOptions(screen.getByLabelText("Bắt đầu từ mẫu"), "openai-compatible");
+  const body = screen.getByLabelText("Body tạo ảnh (JSON)");
+  await userEvent.clear(body);
+  await userEvent.type(body, "not json");
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  expect(await screen.findByText("Body phải là JSON hợp lệ")).toBeInTheDocument();
+  expect(saveChatImageConnection).not.toHaveBeenCalled();
+});

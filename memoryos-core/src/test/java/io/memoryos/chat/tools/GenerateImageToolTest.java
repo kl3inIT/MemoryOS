@@ -31,7 +31,7 @@ class GenerateImageToolTest {
     private final UUID messageId = UUID.randomUUID();
     private final List<ChatImageEvent> events = new ArrayList<>();
     private final ImageConnectionService.Connection connection = new ImageConnectionService.Connection(
-            UUID.randomUUID(), tenant.value(), ImageProvider.OPENAI_IMAGE, "", "gpt-image-1", "encrypted", 1);
+            UUID.randomUUID(), tenant.value(), ImageProvider.OPENAI_IMAGE, "", "gpt-image-1", null, "encrypted", 1);
 
     private GenerateImageTool tool(int maxCalls) {
         return new GenerateImageTool(client, connection, artifacts, tenant, messageId, () -> {},

@@ -14,6 +14,8 @@ public class ImageConnectionEntity {
     @Column(nullable = false, length = 2048) private String endpoint = "";
     @Column(nullable = false, length = 200) private String model = "";
     @Column(columnDefinition = "text") private @Nullable String credential;
+    /** The custom HTTP connection's {@code ImageTemplate} as JSON; null for every other provider. */
+    @Column(columnDefinition = "text") private @Nullable String template;
     @Column(nullable = false) private boolean active;
     @Version private @Nullable Long revision;
 
@@ -27,10 +29,11 @@ public class ImageConnectionEntity {
     public String endpoint() { return endpoint; }
     public String model() { return model; }
     public @Nullable String credential() { return credential; }
+    public @Nullable String template() { return template; }
     public boolean active() { return active; }
     public long revision() { return revision == null ? 0 : revision; }
-    public void configure(String endpoint, String model, @Nullable String credential) {
-        this.endpoint = endpoint; this.model = model; this.credential = credential;
+    public void configure(String endpoint, String model, @Nullable String credential, @Nullable String template) {
+        this.endpoint = endpoint; this.model = model; this.credential = credential; this.template = template;
     }
     public void select(boolean active) { this.active = active; }
 }
