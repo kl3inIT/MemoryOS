@@ -2,14 +2,9 @@
 // browser, so the registry's isomorphic layout-effect helper is plain useLayoutEffect.
 import { useLayoutEffect, useRef, type ComponentProps } from "react";
 
-type FocusHandlers = Pick<
-  ComponentProps<"div">,
-  "onFocusCapture" | "onBlurCapture"
->;
+type FocusHandlers = Pick<ComponentProps<"div">, "onFocusCapture" | "onBlurCapture">;
 
-export function useReceiptFocus<T extends HTMLElement = HTMLElement>(
-  handlers: FocusHandlers = {},
-) {
+export function useReceiptFocus<T extends HTMLElement = HTMLElement>(handlers: FocusHandlers = {}) {
   const focusedElementRef = useRef<HTMLElement | null>(null);
   const receiptRef = useRef<T | null>(null);
 
@@ -17,10 +12,7 @@ export function useReceiptFocus<T extends HTMLElement = HTMLElement>(
     const focusedElement = focusedElementRef.current;
     if (focusedElement && !focusedElement.isConnected) {
       focusedElementRef.current = null;
-      if (
-        focusedElement.ownerDocument.activeElement ===
-        focusedElement.ownerDocument.body
-      ) {
+      if (focusedElement.ownerDocument.activeElement === focusedElement.ownerDocument.body) {
         receiptRef.current?.focus({ preventScroll: true });
       }
     }
@@ -38,8 +30,7 @@ export function useReceiptFocus<T extends HTMLElement = HTMLElement>(
         if (
           event.target.isConnected &&
           !event.currentTarget.contains(
-            event.relatedTarget ??
-              event.currentTarget.ownerDocument.activeElement,
+            event.relatedTarget ?? event.currentTarget.ownerDocument.activeElement,
           )
         ) {
           focusedElementRef.current = null;

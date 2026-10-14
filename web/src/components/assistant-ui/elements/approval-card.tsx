@@ -1,4 +1,5 @@
-// Adapted from assistant-ui (MIT), elements-approval-card registry, 2026-10-14.
+// Adapted from assistant-ui (MIT), elements-approval-card registry, 2026-10-14: colours, radius and type sizes
+// in the MemoryOS tokens, as the other adapted elements.
 import { useId, type ComponentProps, type ReactNode } from "react";
 import { CheckIcon, Loader2Icon, TerminalIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -79,11 +80,7 @@ export function ApprovalCard({
       data-slot="approval-card"
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
-      className={cn(
-        paper,
-        "flex w-full max-w-sm flex-col gap-3.5 rounded-[20px] p-4",
-        className,
-      )}
+      className={cn(paper, "flex w-full max-w-sm flex-col gap-3.5 rounded-2xl p-4", className)}
     >
       <div className="flex items-center gap-3">
         <span
@@ -91,50 +88,40 @@ export function ApprovalCard({
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-xl",
             variant === "destructive"
-              ? "bg-red-600/10 text-red-600 dark:bg-red-400/10 dark:text-red-400"
+              ? "bg-status-danger-surface text-status-danger-content"
               : "bg-foreground/[0.05] text-muted-foreground",
           )}
         >
           {icon ?? <TerminalIcon className="size-4" />}
         </span>
         <div className="flex flex-col">
-          <p id={titleId} className="text-[13.5px] font-medium">
+          <p id={titleId} className="text-sm font-medium">
             {title}
           </p>
-          <p className="text-muted-foreground text-xs">{subtitle}</p>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>
 
       {description ? (
-        <p id={descriptionId} className="text-foreground/60 text-[13px]">
+        <p id={descriptionId} className="text-code text-foreground/60">
           {description}
         </p>
       ) : null}
 
       {command ? (
-        <div
-          className={cn(
-            field,
-            "text-foreground/70 rounded-xl px-3.5 py-2.5 font-mono text-xs",
-          )}
-        >
+        <div className={cn(field, "rounded-xl px-3.5 py-2.5 font-mono text-xs text-foreground/70")}>
           {command}
         </div>
       ) : null}
 
       {details?.length ? (
-        <dl
-          className={cn(field, "flex flex-col gap-2 rounded-xl px-3.5 py-2.5")}
-        >
+        <dl className={cn(field, "flex flex-col gap-2 rounded-xl px-3.5 py-2.5")}>
           {details.map((detail, index) => (
-            <div
-              key={`${detail.label}-${index}`}
-              className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-4 text-xs"
-            >
-              <dt className={cn(mono, "text-muted-foreground")}>
-                {detail.label}
-              </dt>
-              <dd className="text-foreground/80 break-words">{detail.value}</dd>
+            <div key={`${detail.label}-${index}`} className="grid grid-cols-3 gap-4 text-xs">
+              <dt className={cn(mono, "text-muted-foreground")}>{detail.label}</dt>
+              <dd className="col-span-2 break-words whitespace-pre-wrap text-foreground/80">
+                {detail.value}
+              </dd>
             </div>
           ))}
         </dl>
@@ -148,10 +135,7 @@ export function ApprovalCard({
                 type="button"
                 data-slot="approval-card-deny"
                 onClick={onDeny}
-                className={cn(
-                  ghostButton,
-                  "h-8 px-3.5 text-xs font-medium whitespace-nowrap",
-                )}
+                className={cn(ghostButton, "h-8 px-3.5 text-xs font-medium whitespace-nowrap")}
               >
                 {denyLabel}
               </button>
@@ -161,10 +145,7 @@ export function ApprovalCard({
                 type="button"
                 data-slot="approval-card-always-allow"
                 onClick={onAlwaysAllow}
-                className={cn(
-                  ghostButton,
-                  "h-8 px-3.5 text-xs font-medium whitespace-nowrap",
-                )}
+                className={cn(ghostButton, "h-8 px-3.5 text-xs font-medium whitespace-nowrap")}
               >
                 {alwaysAllowLabel}
               </button>
@@ -176,7 +157,7 @@ export function ApprovalCard({
                 onClick={onAllowOnce}
                 className={cn(
                   variant === "destructive"
-                    ? "text-background bg-red-600 transition-[background-color,scale] duration-150 hover:bg-red-600/90 active:scale-[0.96] motion-reduce:transition-none dark:bg-red-400 dark:text-red-950 dark:hover:bg-red-400/90"
+                    ? "bg-destructive text-white transition-colors duration-150 hover:bg-destructive/90 motion-reduce:transition-none"
                     : inkButton,
                   "flex h-8 items-center rounded-full px-3.5 text-xs font-medium whitespace-nowrap",
                 )}
@@ -191,21 +172,21 @@ export function ApprovalCard({
             ref={receiptRef}
             tabIndex={-1}
             role="status"
-            className="fade-in animate-in text-muted-foreground flex items-center gap-2 text-xs duration-300 motion-reduce:animate-none"
+            className="flex animate-in items-center gap-2 text-xs text-muted-foreground duration-300 fade-in motion-reduce:animate-none"
           >
             {state === "running" ? (
               <>
-                <Loader2Icon className="text-muted-foreground size-3.5 animate-spin motion-reduce:animate-none" />
+                <Loader2Icon className="size-3.5 animate-spin text-muted-foreground motion-reduce:animate-none" />
                 {statusLabel ?? receiptText.running}
               </>
             ) : state === "denied" ? (
               <>
-                <XIcon className="text-muted-foreground size-3.5" />
+                <XIcon className="size-3.5 text-muted-foreground" />
                 {statusLabel ?? receiptText.denied}
               </>
             ) : (
               <>
-                <CheckIcon className="size-3.5 text-emerald-500" />
+                <CheckIcon className="size-3.5 text-status-success-strong" />
                 {statusLabel ?? receiptText.done}
               </>
             )}
