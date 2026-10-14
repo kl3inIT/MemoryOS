@@ -27,6 +27,12 @@ public interface ChannelAdapter {
      */
     ChannelVerification verify(ChannelRegion region, String appId, String secret);
 
+    /**
+     * Marks a message as taken while it waits for the turn its conversation is already running. Best effort: a mark
+     * that cannot be put is logged and the message is still answered.
+     */
+    void acknowledge(ChannelConnection connection, ChannelMessage message);
+
     /** Opens the reply to one message, which quotes it. */
     ChannelReply reply(ChannelConnection connection, ChannelMessage message, String waiting);
 

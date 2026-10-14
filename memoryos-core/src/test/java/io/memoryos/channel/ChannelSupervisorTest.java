@@ -173,6 +173,8 @@ class ChannelSupervisorTest {
 
         @Override public void notice(ChannelConnection connection, ChannelMessage message, String text) {}
 
+        @Override public void acknowledge(ChannelConnection connection, ChannelMessage message) {}
+
         @Override public Optional<String> senderEmail(ChannelConnection connection, String senderId) { return Optional.empty(); }
 
         @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }

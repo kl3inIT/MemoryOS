@@ -238,8 +238,10 @@ event again when its handler has not returned within three seconds, up to four m
    the row) and streams it: a reader on the turn's stream appends text to the reply, and at the outcome the final
    message is read from history for its sources.
 
-The bot puts a reaction on the message as soon as step 1 accepts it and removes it when the reply appears, as
-Onyx and Hermes Agent do, so a person sees the question was taken while it waits. Messages of one conversation are
+The bot puts a reaction on a message only while it waits for the turn its conversation is already running, as
+spring-agent's Feishu bot does with `Get`, so a person sees the question was taken while it waits. A message that
+does not wait is acknowledged by the reply card itself, opened within about a second and a half; a reaction on it
+too would cost a Lark call and say nothing more (changed 2026-10-14, after the card replaced the SDK's stream). Messages of one conversation are
 handled one at a time: the second waits for the first turn to end, up to the waiting bound, instead of being
 refused. Nobody answers two messages of one conversation at once: Dust, WeKnora and RAGFlow queue the second as
 this does, and OpenClaw, Hermes Agent and spring-agent feed it into the running turn, which is left for later. A
