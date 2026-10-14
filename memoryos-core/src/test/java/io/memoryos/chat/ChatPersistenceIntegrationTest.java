@@ -310,7 +310,11 @@ class ChatPersistenceIntegrationTest {
         assertEquals(List.of(travel.id(), home.id(), work.id()), projectIds(owner));
 
         var before = projects.list(owner, 0, 100);
+        statements.reset();
         projects.reorder(owner, List.of(work.id(), travel.id(), home.id()));
+        // Every place is written by one statement, however many Projects the person has.
+        assertEquals(1, statements.count(sql -> sql.toLowerCase(Locale.ROOT).startsWith("update chat_project")),
+                statements.statements().toString());
         var after = projects.list(owner, 0, 100);
         assertEquals(List.of(work.id(), travel.id(), home.id()), after.stream().map(ChatProjectService.ProjectView::id).toList());
         for (var project : after) {
