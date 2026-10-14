@@ -1,8 +1,10 @@
 package io.memoryos.channel.persistence;
 
 import io.memoryos.channel.ChannelConnection;
+import io.memoryos.channel.ChannelConnectionState;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
+import io.memoryos.channel.ChannelVerification;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.CredentialCipher;
 import io.memoryos.shared.TenantId;
@@ -11,7 +13,9 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -23,7 +27,7 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcChannelConnectionRepository {
     private static final String COLUMNS = "id, provider, name, region, app_id, notice_language, enabled, service_account_id, "
-            + "revision, created_at, updated_at, organisation_key";
+            + "revision, created_at, updated_at, organisation_key, bot_name, bot_external_id, missing_scopes";
     private final JdbcClient jdbc;
 
     public JdbcChannelConnectionRepository(JdbcClient jdbc) {
@@ -84,6 +88,42 @@ public class JdbcChannelConnectionRepository {
                 .param("failure", failureCode, Types.VARCHAR).param("failed", timestamp(failedAt), Types.TIMESTAMP)
                 .param("message", timestamp(lastMessageAt), Types.TIMESTAMP)
                 .param("now", Timestamp.from(now)).update();
+    }
+
+    /** What the platform said of the bot's app at a check; the scopes are kept separated by spaces. */
+    public void recordVerification(TenantId tenant, UUID id, ChannelVerification verification) {
+        jdbc.sql("""
+                        UPDATE channel_connections SET bot_name = :name, bot_external_id = :external, missing_scopes = :scopes
+                        WHERE tenant_id = :tenant AND id = :id
+                        """)
+                .param("name", verification.botName()).param("external", verification.botExternalId())
+                .param("scopes", String.join(" ", verification.missingScopes().stream().sorted().toList()))
+                .param("tenant", tenant.value()).param("id", id).update();
+    }
+
+    /** What the supervisor last wrote of each of the Tenant's bots. */
+    public Map<UUID, ChannelConnectionState> states(TenantId tenant) {
+        var states = new HashMap<UUID, ChannelConnectionState>();
+        jdbc.sql("""
+                        SELECT s.connection_id, s.opened_at, s.last_failure_code, s.last_failure_at, s.last_message_at,
+                               s.heartbeat_at
+                        FROM channel_connection_state s JOIN channel_connections c ON c.id = s.connection_id
+                        WHERE c.tenant_id = :tenant
+                        """)
+                .param("tenant", tenant.value())
+                .query((row, ignored) -> states.put(row.getObject("connection_id", UUID.class), new ChannelConnectionState(
+                        instant(row.getTimestamp("opened_at")), row.getString("last_failure_code"),
+                        instant(row.getTimestamp("last_failure_at")), instant(row.getTimestamp("last_message_at")),
+                        instant(row.getTimestamp("heartbeat_at"))))).list();
+        return states;
+    }
+
+    private static List<String> scopes(@Nullable String joined) {
+        return joined == null || joined.isBlank() ? List.of() : List.of(joined.strip().split(" +"));
+    }
+
+    private static @Nullable Instant instant(@Nullable Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toInstant();
     }
 
     private static @Nullable Timestamp timestamp(@Nullable Instant instant) {
@@ -153,6 +193,7 @@ public class JdbcChannelConnectionRepository {
                 row.getString("notice_language"), row.getBoolean("enabled"),
                 new ActorId(row.getObject("service_account_id", UUID.class)), row.getLong("revision"),
                 row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
-                row.getString("organisation_key"));
+                row.getString("organisation_key"), row.getString("bot_name"), row.getString("bot_external_id"),
+                scopes(row.getString("missing_scopes")));
     }
 }

@@ -13,14 +13,20 @@ import com.lark.oapi.service.im.v1.model.GetChatReq;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
 import io.memoryos.channel.ChannelAdapter;
 import io.memoryos.channel.ChannelConnection;
+import io.memoryos.channel.ChannelException;
 import io.memoryos.channel.ChannelMessage;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
 import io.memoryos.channel.ChannelReply;
 import io.memoryos.channel.ChannelTransport;
+import io.memoryos.channel.ChannelVerification;
+import io.memoryos.connector.LarkGateway;
+import io.memoryos.connector.LarkProviderException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,17 +58,37 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     private static final String END = "\u0000end";
 
     private final LarkTransport transport;
+    private final @Nullable RestLarkGateway gateway;
     private final Map<UUID, LarkChannel> channels = new ConcurrentHashMap<>();
     private final Map<String, Known> external = new ConcurrentHashMap<>();
     private final Clock clock;
 
-    public LarkChannelAdapter(LarkProviderProperties properties) {
-        this(new LarkTransport(properties.connectTimeout(), properties.userAgent(), CALL), Clock.systemUTC());
+    public LarkChannelAdapter(LarkProviderProperties properties, @Nullable RestLarkGateway gateway) {
+        this(new LarkTransport(properties.connectTimeout(), properties.userAgent(), CALL), gateway, Clock.systemUTC());
     }
 
-    LarkChannelAdapter(LarkTransport transport, Clock clock) {
+    LarkChannelAdapter(LarkTransport transport, @Nullable RestLarkGateway gateway, Clock clock) {
         this.transport = transport;
+        this.gateway = gateway;
         this.clock = clock;
+    }
+
+    @Override
+    public ChannelVerification verify(ChannelRegion region, String appId, String secret) {
+        if (gateway == null) throw ChannelException.providerUnavailable();
+        byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
+        try {
+            var check = gateway.checkBot(region == ChannelRegion.FEISHU ? LarkGateway.Region.FEISHU : LarkGateway.Region.LARK,
+                    appId, bytes);
+            return new ChannelVerification(check.bot().appName(), check.bot().openId(), check.missingScopes());
+        } catch (LarkProviderException refused) {
+            throw switch (refused.failure()) {
+                case AUTHENTICATION, AUTHORIZATION, NOT_FOUND, MALFORMED -> ChannelException.rejected();
+                default -> ChannelException.providerUnavailable();
+            };
+        } finally {
+            Arrays.fill(bytes, (byte) 0);
+        }
     }
 
     @Override

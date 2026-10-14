@@ -339,5 +339,7 @@ class ChannelInboundServiceTest {
         public boolean externalChat(ChannelConnection connection, String chatId) {
             return externalChats.contains(chatId);
         }
+
+        @Override public ChannelVerification verify(ChannelRegion region, String appId, String secret) { throw new UnsupportedOperationException(); }
     }
 }

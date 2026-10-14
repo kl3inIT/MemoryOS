@@ -176,6 +176,8 @@ class ChannelSupervisorTest {
         @Override public Optional<String> senderEmail(ChannelConnection connection, String senderId) { return Optional.empty(); }
 
         @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
+
+        @Override public ChannelVerification verify(ChannelRegion region, String appId, String secret) { throw new UnsupportedOperationException(); }
     }
 
     private static final class FakeTransport implements ChannelTransport {

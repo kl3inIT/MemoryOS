@@ -29,6 +29,17 @@ public final class ChannelException extends BusinessException {
         return new ChannelException("CHANNEL_INVALID", FailureCategory.VALIDATION, safeMessage, "Channel connection input is invalid");
     }
 
+    public static ChannelException rejected() {
+        return new ChannelException("CHANNEL_APP_REJECTED", FailureCategory.VALIDATION,
+                "The platform rejected the App ID or the App Secret, or the app has no bot. Copy both from the app's "
+                        + "credentials page and turn on its bot.", "Channel app was rejected by the platform");
+    }
+
+    public static ChannelException providerUnavailable() {
+        return new ChannelException("CHANNEL_PROVIDER_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "The platform did not answer. Try again in a moment.", "Channel platform did not answer");
+    }
+
     public static ChannelException appInUse() {
         return new ChannelException("CHANNEL_APP_IN_USE", FailureCategory.CONFLICT,
                 "Another bot already uses this app. Each bot needs an app of its own.", "Channel app is already connected");

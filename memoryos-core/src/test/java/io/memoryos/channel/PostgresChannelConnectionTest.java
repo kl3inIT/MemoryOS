@@ -31,9 +31,13 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +56,7 @@ class PostgresChannelConnectionTest {
     private JpaHarness jpa;
     private JdbcClient jdbc;
     private ChannelConnectionService channels;
+    private final Platform platform = new Platform();
     private ActorId owner;
     private ActorId member;
 
@@ -89,7 +94,9 @@ class PostgresChannelConnectionTest {
                         new JdbcChannelConnectionRepository(jdbc),
                         new ChannelCredentialConfiguration(KEY, "test-1"),
                         accounts,
-                        TestDatabase.audit(jdbc, jpa.transactionManager())),
+                        TestDatabase.audit(jdbc, jpa.transactionManager()),
+                        new ChannelAdapters(List.of(platform)),
+                        jpa.transactionManager()),
                 ChannelConnectionService.class, jpa.transactionManager());
     }
 
@@ -108,6 +115,9 @@ class PostgresChannelConnectionTest {
 
         assertEquals("Trợ lý Lark", bot.name());
         assertFalse(bot.enabled());
+        assertEquals("MemoryOS Bot", bot.botName());
+        assertEquals("ou_bot", bot.botExternalId());
+        assertEquals(List.of("contact:user.email:readonly"), bot.missingScopes());
         assertEquals(List.of(bot), channels.list(owner));
         assertEquals("SERVICE:ACTIVE:Trợ lý Lark", jdbc.sql("""
                         SELECT a.account_type || ':' || m.status || ':' || p.display_name
@@ -166,6 +176,42 @@ class PostgresChannelConnectionTest {
     }
 
     @Test
+    void anAppThePlatformRefusesIsNotStoredAndATestStoresNothing() {
+        platform.refusing = true;
+        assertEquals("CHANNEL_APP_REJECTED", code(() -> channels.create(owner, draft("cli_a1b2c3d4e5f6"))));
+        assertEquals("CHANNEL_APP_REJECTED", code(() -> channels.test(owner, ChannelProvider.LARK, ChannelRegion.LARK,
+                "cli_a1b2c3d4e5f6", SECRET)));
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_connections").query(Long.class).single());
+
+        platform.refusing = false;
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        platform.refusing = true;
+        assertEquals("CHANNEL_APP_REJECTED", code(() -> channels.replaceSecret(owner, bot.id(), bot.revision(), "wrong")));
+        assertEquals(bot.revision(), channels.get(owner, bot.id()).revision());
+
+        platform.refusing = false;
+        assertEquals("MemoryOS Bot", channels.test(owner, ChannelProvider.LARK, ChannelRegion.LARK, "cli_f6e5d4c3b2a1", SECRET)
+                .botName());
+        assertEquals(1, channels.list(owner).size());
+        assertThrows(BusinessException.class, () -> channels.test(member, ChannelProvider.LARK, ChannelRegion.LARK,
+                "cli_f6e5d4c3b2a1", SECRET));
+        assertEquals(List.of(SECRET, SECRET, SECRET, "wrong", SECRET), platform.secrets);
+    }
+
+    @Test
+    void theListCarriesWhatTheProcessThatHoldsABotLastWrote() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        assertEquals(ChannelConnectionState.NONE, channels.listWithState(owner).getFirst().state());
+        jdbc.sql("""
+                        INSERT INTO channel_connection_state (connection_id, opened_at, heartbeat_at)
+                        VALUES (:id, now(), now())
+                        """).param("id", bot.id()).update();
+        var listed = channels.listWithState(owner).getFirst();
+        assertEquals(bot.id(), listed.connection().id());
+        assertTrue(listed.state().openedAt() != null && listed.state().heartbeatAt() != null);
+    }
+
+    @Test
     void aMissingKeyFailsTheBotsAlone() {
         var unconfigured = new ChannelCredentialConfiguration("", "");
         assertEquals("CHANNEL_NOT_CONFIGURED", assertThrows(ChannelException.class,
@@ -179,5 +225,33 @@ class PostgresChannelConnectionTest {
 
     private static String code(Runnable call) {
         return assertThrows(BusinessException.class, call::run).code();
+    }
+
+    /** A platform that accepts or refuses every app, and records the secrets it was shown. */
+    private static final class Platform implements ChannelAdapter {
+        final List<String> secrets = new ArrayList<>();
+        boolean refusing;
+
+        @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
+
+        @Override
+        public ChannelVerification verify(ChannelRegion region, String appId, String secret) {
+            secrets.add(secret);
+            if (refusing) throw ChannelException.rejected();
+            return new ChannelVerification("MemoryOS Bot", "ou_bot", Set.of("contact:user.email:readonly"));
+        }
+
+        @Override
+        public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override public ChannelReply reply(ChannelConnection connection, ChannelMessage message) { throw new UnsupportedOperationException(); }
+
+        @Override public void notice(ChannelConnection connection, ChannelMessage message, String text) {}
+
+        @Override public Optional<String> senderEmail(ChannelConnection connection, String senderId) { return Optional.empty(); }
+
+        @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
     }
 }
