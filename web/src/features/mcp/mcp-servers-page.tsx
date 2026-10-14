@@ -1,16 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { Blocks, Plus } from "lucide-react";
-import { EmptyState } from "@/components/composites/empty-state";
+import { SectionHeader } from "@/components/composites/section-header";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listMcpServersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { McpConnection, McpServerView } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { appRowLinkClass, McpAppGrid, McpAppRow } from "./mcp-app-row";
+import { availableCatalog } from "./mcp-catalog";
 import { useMcpConnections } from "./mcp-connections";
 import { useOAuthSetup } from "./mcp-oauth-setup";
 import { ConnectionOutcome, NextStepAction, ServerMenu } from "./mcp-server-actions";
@@ -26,7 +28,11 @@ export function McpServersPage() {
   const ui = useAppTranslation();
   const problem = useProblemMessage();
   const outcome = useSearch({ from: "/_authenticated/admin/mcp/" });
-  const admin = useServerAdmin();
+  const navigate = useNavigate();
+  const admin = useServerAdmin({
+    onCreated: (server) =>
+      void navigate({ to: "/admin/mcp/$serverId", params: { serverId: server.id } }),
+  });
   const list = useQuery(listMcpServersOptions());
   // The administrator's own connections decide whether a per-person server's tools can be listed yet.
   const connections = useMcpConnections();
@@ -61,23 +67,23 @@ export function McpServersPage() {
         </Alert>
       ) : null}
 
-      {list.data && list.data.length === 0 ? (
-        <EmptyState
-          icon={<Blocks />}
-          title={ui("Chưa có máy chủ MCP nào. Thêm một máy chủ để Chat dùng công cụ của nó.")}
-        />
+      {list.data && list.data.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <SectionHeader title={ui("Đã thêm")} />
+          <McpAppGrid>
+            {list.data.map((server) => (
+              <McpServerRow
+                key={server.id}
+                server={server}
+                own={connections.data?.find((connection) => connection.id === server.id)}
+                admin={admin}
+              />
+            ))}
+          </McpAppGrid>
+        </section>
       ) : null}
 
-      <McpAppGrid>
-        {(list.data ?? []).map((server) => (
-          <McpServerRow
-            key={server.id}
-            server={server}
-            own={connections.data?.find((connection) => connection.id === server.id)}
-            admin={admin}
-          />
-        ))}
-      </McpAppGrid>
+      {list.data ? <CatalogSection servers={list.data} admin={admin} /> : null}
 
       {admin.dialogs}
     </SettingsLayout>
@@ -130,5 +136,52 @@ function McpServerRow({
         )
       }
     />
+  );
+}
+
+/** Known servers not added yet, as ChatGPT lists its popular plugins; adding one opens the dialog filled in. */
+function CatalogSection({
+  servers,
+  admin,
+}: {
+  servers: readonly McpServerView[];
+  admin: ServerAdmin;
+}) {
+  const ui = useAppTranslation();
+  const entries = availableCatalog(servers);
+  if (entries.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionHeader title={ui("Ứng dụng phổ biến")} />
+      <McpAppGrid>
+        {entries.map((entry) => (
+          <McpAppRow
+            key={entry.id}
+            mark={<McpServerMark slug={entry.id} url={entry.url} name={entry.name} />}
+            title={entry.name}
+            line={ui(entry.description)}
+            link={(body) => (
+              <button
+                type="button"
+                className={appRowLinkClass}
+                onClick={() => admin.addFrom(entry)}
+              >
+                {body}
+              </button>
+            )}
+            action={
+              <IconButton
+                size="sm"
+                prominence="internal"
+                aria-label={ui("Thêm {{name}}", { name: entry.name })}
+                onClick={() => admin.addFrom(entry)}
+              >
+                <Plus />
+              </IconButton>
+            }
+          />
+        ))}
+      </McpAppGrid>
+    </section>
   );
 }

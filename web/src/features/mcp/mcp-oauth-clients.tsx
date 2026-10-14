@@ -6,7 +6,7 @@ import { useAppForm } from "@/components/form/app-form";
 import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import { SectionHeader } from "@/components/composites/section-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Trash2 } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -23,7 +23,9 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
+import { catalogEntryOf } from "./mcp-catalog";
 import { type ClientDraft, fromDiscovery, type OAuthSetup, registrable } from "./mcp-oauth-setup";
+import { RedirectUri } from "./mcp-server-editor";
 
 /**
  * The OAuth applications of one server. A Tenant may hold several: a Google `Internal` app authorizes only its own
@@ -148,6 +150,7 @@ export function McpOAuthClients({ server, setup }: { server: McpServerView; setu
       {setup.manual ? (
         <McpOAuthClientEditor
           serverId={server.id}
+          setupUrl={catalogEntryOf(server.url)?.setupUrl}
           defaultLabel={server.name}
           draft={setup.manual}
           onClose={setup.closeManual}
@@ -303,12 +306,15 @@ type ClientValues = z.input<typeof clientSchema>;
  */
 function McpOAuthClientEditor({
   serverId,
+  setupUrl,
   defaultLabel,
   draft,
   onClose,
   onSaved,
 }: {
   serverId: string;
+  /** The provider's console where the application is created, for a catalog server. */
+  setupUrl?: string;
   defaultLabel: string;
   draft: ClientDraft;
   onClose: () => void;
@@ -377,6 +383,20 @@ function McpOAuthClientEditor({
         }}
       >
         <FieldGroup>
+          {setupUrl ? (
+            <p className="font-secondary-body text-content-secondary">
+              <a
+                href={setupUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-content-primary underline underline-offset-4"
+              >
+                {ui("Tạo ứng dụng OAuth ở trang của nhà cung cấp")}
+                <ExternalLink className="size-3.5" aria-hidden="true" />
+              </a>
+            </p>
+          ) : null}
+          <RedirectUri />
           <form.AppField name="label">
             {(field) => <field.TextField label={ui("Nhãn")} />}
           </form.AppField>

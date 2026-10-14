@@ -5152,8 +5152,10 @@ class ChatSessionApiIntegrationTest {
             assertTrue(search != null && tooLong != null, refreshed.toString());
             assertTrue(search.path("exposable").asBoolean());
             assertTrue(search.path("readOnlyHint").asBoolean());
-            assertFalse(search.path("enabled").asBoolean());
+            // A newly listed read-only tool starts on; one whose model-facing name cannot fit stays off.
+            assertTrue(search.path("enabled").asBoolean());
             assertFalse(tooLong.path("exposable").asBoolean());
+            assertFalse(tooLong.path("enabled").asBoolean());
             mockMvc.perform(put(server + "/tools/" + tooLong.path("id").asText() + "/enabled").param("revision", tooLong.path("revision").asText())
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"enabled\":true}")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_TOOL_NAME_UNSUPPORTED"));

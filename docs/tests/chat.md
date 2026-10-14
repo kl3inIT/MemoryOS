@@ -426,7 +426,7 @@ Open: visual review of the research timeline, staging acceptance with the real c
 
 | Behaviour | Evidence |
 | --- | --- |
-| Administration seals secrets, refreshes the tool snapshot and fences every write by revision | `ChatSessionApiIntegrationTest.mcpAdministrationSealsSecretsRefreshesToolsAndFencesRevisions` |
+| Administration seals secrets, refreshes the tool snapshot (a new read-only tool starts on, a tool whose name cannot fit stays off) and fences every write by revision | `ChatSessionApiIntegrationTest.mcpAdministrationSealsSecretsRefreshesToolsAndFencesRevisions` |
 | A per-User server is Group-scoped; a User's API key is listed against the server before it is stored, a rejected key writes nothing, and two Users hold separate credentials | `ChatSessionApiIntegrationTest.mcpUserConnectionsAreGroupScopedProbedAndIsolatedPerUser` |
 | Discovery, DCR, per-organization clients, `iss` validation, PKCE with `resource`, refresh races and disconnect-with-revocation | `ChatSessionApiIntegrationTest.mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects` |
 | Deleting a registered OAuth client or its server deletes it at the authorization server with its registration access token after the local delete; no management access sends nothing; a refused deletion does not fail the local one | `ChatSessionApiIntegrationTest.deletingARegisteredMcpOAuthClientDeletesItAtItsAuthorizationServerWithoutDependingOnIt`; `McpOAuthProtocolTest.deletesARegisteredClientWithItsRegistrationAccessToken` |

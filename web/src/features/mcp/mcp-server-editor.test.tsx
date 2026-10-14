@@ -106,3 +106,32 @@ it("shows the chosen sign-in method as a checked radio", () => {
   expect(screen.getByRole("radio", { name: "Mỗi người dùng tài khoản của mình" })).toBeChecked();
   expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 });
+
+it("adds a catalog entry with its address, short code, scopes and parameters filled in", async () => {
+  const onSave = vi.fn<(input: McpServerInput, revision?: number) => void>();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <McpServerEditor
+        preset={{
+          name: "Gmail",
+          url: "https://gmailmcp.googleapis.com/mcp/v1",
+          slug: "gmail",
+          oauthScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          oauthAdditionalParameters: { access_type: "offline", prompt: "consent" },
+        }}
+        saving={false}
+        onSave={onSave}
+        onClose={() => undefined}
+      />
+    </QueryClientProvider>,
+  );
+  expect(screen.getByRole("heading", { name: "Thêm Gmail" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Thêm" }));
+  await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+  expect(onSave.mock.lastCall?.[0]).toMatchObject({
+    slug: "gmail",
+    url: "https://gmailmcp.googleapis.com/mcp/v1",
+    oauthScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+    oauthAdditionalParameters: { access_type: "offline", prompt: "consent" },
+  });
+});

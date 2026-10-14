@@ -250,7 +250,11 @@ public class McpServerService {
             for (var tool : snapshot) {
                 listedNames.add(tool.name());
                 var entity = existing.get(tool.name());
-                if (entity == null) entity = new McpServerToolEntity(UUID.randomUUID(), tenant, serverId, tool.name());
+                if (entity == null) {
+                    entity = new McpServerToolEntity(UUID.randomUUID(), tenant, serverId, tool.name());
+                    // A tool the server declares read-only starts on; one that may change data waits for the administrator.
+                    entity.enabled(tool.readOnly() && McpServerRules.modelToolName(server.slug(), tool.name()).isPresent());
+                }
                 entity.snapshot(tool.title(), tool.description(), tool.inputSchema(), tool.annotations(), tool.readOnly(), now);
                 tools.save(entity);
             }

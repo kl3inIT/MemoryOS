@@ -11,6 +11,7 @@ import {
 import type { McpConnection, McpServerInput, McpServerView } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
+import { type McpCatalogEntry, type McpServerPreset, presetOf } from "./mcp-catalog";
 import { McpApiKeyDialog } from "./mcp-connect-actions";
 import { invalidateMcpConnections } from "./mcp-connections";
 import { McpServerEditor } from "./mcp-server-editor";
@@ -20,11 +21,19 @@ import { invalidateMcpServers } from "./mcp-servers";
  * The administrator's actions on servers, shared by the list and a server's page: add, edit, fetch tools, delete,
  * and the personal API key the next step may ask for. `dialogs` renders whichever of them is open.
  */
-export function useServerAdmin({ onRemoved }: { onRemoved?: () => void } = {}) {
+export function useServerAdmin({
+  onRemoved,
+  onCreated,
+}: {
+  onRemoved?: () => void;
+  /** A new server's page continues its setup, so the list goes there once it is added. */
+  onCreated?: (server: McpServerView) => void;
+} = {}) {
   const ui = useAppTranslation();
   const problem = useProblemMessage();
   const cache = useQueryClient();
   const [editing, setEditing] = useState<McpServerView | "new" | null>(null);
+  const [preset, setPreset] = useState<McpServerPreset | undefined>(undefined);
   const [removing, setRemoving] = useState<McpServerView | null>(null);
   const [apiKeyFor, setApiKeyFor] = useState<McpConnection | null>(null);
   const reread = (serverId?: string) =>
@@ -34,7 +43,14 @@ export function useServerAdmin({ onRemoved }: { onRemoved?: () => void } = {}) {
     await reread();
   };
   // A server input can carry a shared API key, so a finished save is not kept in the mutation cache.
-  const create = useMutation({ ...createMcpServerMutation(), gcTime: 0, onSuccess: saved });
+  const create = useMutation({
+    ...createMcpServerMutation(),
+    gcTime: 0,
+    onSuccess: async (server) => {
+      await saved();
+      onCreated?.(server);
+    },
+  });
   const update = useMutation({ ...updateMcpServerMutation(), gcTime: 0, onSuccess: saved });
   const remove = useMutation({
     ...deleteMcpServerMutation(),
@@ -65,6 +81,7 @@ export function useServerAdmin({ onRemoved }: { onRemoved?: () => void } = {}) {
       {editing ? (
         <McpServerEditor
           server={editing === "new" ? undefined : editing}
+          preset={editing === "new" ? preset : undefined}
           saving={create.isPending || update.isPending}
           error={saveError ? problem(presentProblem(saveError, "mutation").message) : undefined}
           onSave={save}
@@ -100,7 +117,14 @@ export function useServerAdmin({ onRemoved }: { onRemoved?: () => void } = {}) {
   );
 
   return {
-    add: () => setEditing("new"),
+    add: () => {
+      setPreset(undefined);
+      setEditing("new");
+    },
+    addFrom: (entry: McpCatalogEntry) => {
+      setPreset(presetOf(entry));
+      setEditing("new");
+    },
     edit: setEditing,
     remove: setRemoving,
     askApiKey: setApiKeyFor,

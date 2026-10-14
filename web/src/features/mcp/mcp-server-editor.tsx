@@ -33,6 +33,7 @@ import { listMcpGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-query.
 import type { McpServerInput, McpServerView } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
+import type { McpServerPreset } from "./mcp-catalog";
 import { slugFromName } from "./mcp-servers";
 
 const SLUG = /^[a-z0-9]{1,16}$/;
@@ -142,21 +143,24 @@ function serverInput(draft: ServerDraft, editing: boolean): McpServerInput {
 
 function useServerForm(
   server: McpServerView | undefined,
+  preset: McpServerPreset | undefined,
   onSave: (input: McpServerInput, revision?: number) => void,
 ) {
   const schema = serverSchema(server !== undefined);
+  // An existing server wins over the catalog entry it came from; a new one starts from the entry when given.
+  const start = server ?? preset;
   const defaultValues: ServerDraft = {
-    url: server?.url ?? "",
-    name: server?.name ?? "",
-    slug: server?.slug ?? "",
-    slugEdited: server !== undefined,
+    url: start?.url ?? "",
+    name: start?.name ?? "",
+    slug: start?.slug ?? "",
+    slugEdited: start !== undefined,
     description: server?.description ?? "",
     authType: server?.authType ?? "OAUTH",
     performer: server?.authPerformer ?? "PER_USER",
     providerMode: server?.oauthProviderMode ?? "AUTO_DISCOVERY",
     apiKey: "",
-    scopes: (server?.oauthScopes ?? []).join(" "),
-    parameters: Object.entries(server?.oauthAdditionalParameters ?? {}).map(([name, value]) => ({
+    scopes: (start?.oauthScopes ?? []).join(" "),
+    parameters: Object.entries(start?.oauthAdditionalParameters ?? {}).map(([name, value]) => ({
       name,
       value,
     })),
@@ -195,12 +199,15 @@ function hasAdvancedValues(server: McpServerView | undefined): boolean {
  */
 export function McpServerEditor({
   server,
+  preset,
   saving,
   error,
   onSave,
   onClose,
 }: {
   server?: McpServerView;
+  /** A catalog entry's values for a new server. */
+  preset?: McpServerPreset;
   saving: boolean;
   error?: string;
   onSave: (input: McpServerInput, revision?: number) => void;
@@ -208,12 +215,21 @@ export function McpServerEditor({
 }) {
   const ui = useAppTranslation();
   const editing = server !== undefined;
-  const form = useServerForm(server, onSave);
+  const form = useServerForm(server, preset, onSave);
   const values = useStore(form.store, (state) => state.values);
   const complete = serverSchema(editing).safeParse(values).success;
 
   return (
-    <CatalogDialog title={ui(editing ? "Sửa máy chủ MCP" : "Thêm máy chủ MCP")} onClose={onClose}>
+    <CatalogDialog
+      title={
+        editing
+          ? ui("Sửa máy chủ MCP")
+          : preset
+            ? ui("Thêm {{name}}", { name: preset.name })
+            : ui("Thêm máy chủ MCP")
+      }
+      onClose={onClose}
+    >
       <form
         noValidate
         className="flex flex-col gap-5"
@@ -736,7 +752,7 @@ function Choice<T extends string>({
 }
 
 /** Google and other providers reject a callback that is not registered, so the exact URI is copyable here. */
-function RedirectUri() {
+export function RedirectUri() {
   const ui = useAppTranslation();
   const [copied, setCopied] = useState(false);
   // The runbook requires MEMORYOS_MCP_REDIRECT_URI to be this origin's callback.
