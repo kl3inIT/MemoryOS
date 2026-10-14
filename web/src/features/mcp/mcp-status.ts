@@ -3,7 +3,7 @@ import type { StatusTone } from "@/components/ui/status-badge";
 import type { AppCopy } from "@/i18n/app-text";
 
 /** One product vocabulary for MCP state, so the admin list, the composer and the timeline agree. */
-export function serverStatus(status: McpServerView["status"]): {
+function serverStatus(status: McpServerView["status"]): {
   tone: StatusTone;
   label: AppCopy;
 } {
