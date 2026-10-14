@@ -21,6 +21,7 @@ import type { ProjectView } from "@/lib/hey-api/types.gen";
 import { server } from "@/test/msw";
 import { stackRows } from "@/test/row-layout";
 import { ChatProjectsPage } from "./chat-projects-page";
+import { projectsSearchSchema } from "./projects-filter";
 
 const planning: ProjectView = {
   id: "44444444-4444-4444-8444-444444444444",
@@ -38,22 +39,26 @@ const finance: ProjectView = {
   description: "",
 };
 
-async function show() {
+async function show(path = "/projects") {
   const rootRoute = createRootRoute();
+  const authenticatedRoute = createRoute({ getParentRoute: () => rootRoute, id: "_authenticated" });
   const router = createRouter({
     routeTree: rootRoute.addChildren([
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects",
-        component: ChatProjectsPage,
-      }),
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId",
-        component: () => null,
-      }),
+      authenticatedRoute.addChildren([
+        createRoute({
+          getParentRoute: () => authenticatedRoute,
+          path: "projects/",
+          validateSearch: projectsSearchSchema,
+          component: ChatProjectsPage,
+        }),
+        createRoute({
+          getParentRoute: () => authenticatedRoute,
+          path: "projects/$projectId",
+          component: () => null,
+        }),
+      ]),
     ]),
-    history: createMemoryHistory({ initialEntries: ["/projects"] }),
+    history: createMemoryHistory({ initialEntries: [path] }),
   });
   await router.load();
   render(
@@ -303,4 +308,43 @@ it("does not drag the row behind the editor when text is selected by dragging in
   await new Promise((resolve) => setTimeout(resolve, 150));
   expect(saved).toHaveLength(0);
   expect(screen.getByRole("dialog")).toBeInTheDocument();
+});
+
+it("narrows the list by name or description without the marks and keeps the words in the address", async () => {
+  server.use(handleListChatProjects({ body: [planning, finance, reviews] }));
+  const router = await show();
+  const user = userEvent.setup();
+  await screen.findByRole("link", { name: /Kế hoạch/ });
+  const box = screen.getByRole("textbox", { name: "Tìm dự án" });
+
+  await user.type(box, "muc tieu");
+
+  // "Kế hoạch" and "Rà soát" share the description "Mục tiêu quý 4"; "Tài chính" has none.
+  expect(listedNames()).toEqual(["Kế hoạch", "Rà soát"]);
+  await waitFor(() => expect(router.state.location.search).toEqual({ q: "muc tieu" }));
+  await user.clear(box);
+  await user.type(box, "TAI");
+  expect(listedNames()).toEqual(["Tài chính"]);
+});
+
+it("opens narrowed by the address and offers no reordering while narrowed", async () => {
+  server.use(handleListChatProjects({ body: [planning, finance, reviews] }));
+  await show("/projects?q=ra%20soat");
+
+  expect(await screen.findByRole("textbox", { name: "Tìm dự án" })).toHaveValue("ra soat");
+  await waitFor(() => expect(listedNames()).toEqual(["Rà soát"]));
+  expect(screen.queryByRole("button", { name: /^Kéo để sắp xếp/ })).not.toBeInTheDocument();
+  expect(screen.getByText("Xóa từ khóa để sắp xếp lại dự án.")).toBeInTheDocument();
+});
+
+it("says nothing matches and clears the search from the empty state", async () => {
+  server.use(handleListChatProjects({ body: [planning, finance] }));
+  const router = await show("/projects?q=khong%20co");
+  const user = userEvent.setup();
+
+  expect(await screen.findByRole("heading", { name: "Không có dự án nào khớp" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
+  expect(listedNames()).toEqual(["Kế hoạch", "Tài chính"]);
+  await waitFor(() => expect(router.state.location.search).toEqual({}));
+  expect(screen.getByRole("button", { name: "Kéo để sắp xếp Kế hoạch" })).toBeInTheDocument();
 });

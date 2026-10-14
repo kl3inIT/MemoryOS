@@ -1585,6 +1585,9 @@ export const vietnameseUi: Record<string, string> = {
   "Gom hội thoại và dùng chung hướng dẫn trong một dự án.":
     "Organize conversations and share instructions within a project.",
   "Tạo dự án đầu tiên": "Create your first project",
+  "Tìm dự án": "Search projects",
+  "Xóa từ khóa để sắp xếp lại dự án.": "Clear the search to reorder projects.",
+  "Không có dự án nào khớp": "No project matches",
   "Thao tác dự án": "Project actions",
   "Chỉnh sửa dự án": "Edit project",
   "Xóa dự án": "Delete project",

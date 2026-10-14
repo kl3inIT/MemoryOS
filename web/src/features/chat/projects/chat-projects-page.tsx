@@ -1,13 +1,23 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { formatUiDay } from "@/i18n/format";
-import { memo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Folder, GripVertical, MoreHorizontal, Pencil, Plus, Trash2, WifiOff } from "lucide-react";
+import {
+  Folder,
+  GripVertical,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  SearchX,
+  Trash2,
+  WifiOff,
+} from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { BrandLoader } from "@/components/brand-loader";
 import { EmptyState } from "@/components/composites/empty-state";
 import { hoverReveal } from "@/components/composites/hover-reveal";
+import { SearchField } from "@/components/composites/search-field";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { SortableList, type SortableDrag } from "@/components/composites/sortable-list";
 import { Button } from "@/components/ui/button";
@@ -25,14 +35,26 @@ import { projectsOptions, type Project } from "./chat-projects-api";
 import { ProjectDeleteDialog } from "./project-delete-dialog";
 import { ProjectEditor } from "./project-editor";
 import { ProjectIcon } from "./project-icon";
+import { matchingProjects, useProjectsFilter } from "./projects-filter";
 import { useReorderProjects } from "./use-reorder-projects";
 
-/** The actor's Projects, in the order the API lists them; a handle on each row reorders them. */
+const rowClass =
+  "group relative flex items-center gap-1 rounded-xl pr-2 transition-colors hover:bg-surface-sunken";
+
+/**
+ * The actor's Projects, in the order the API lists them; a handle on each row reorders them. A search narrows the
+ * list by name and description, and a narrowed list is not reordered.
+ */
 export function ChatProjectsPage() {
   const ui = useAppTranslation();
   const [creating, setCreating] = useState(false);
   const projects = useQuery(projectsOptions());
   const reorderProjects = useReorderProjects();
+  const filter = useProjectsFilter();
+  const matches = useMemo(
+    () => matchingProjects(projects.data ?? [], filter.text),
+    [projects.data, filter.text],
+  );
   return (
     <>
       <AppShellHeader title={ui("Dự án")} pageHeader />
@@ -77,6 +99,38 @@ export function ChatProjectsPage() {
           />
         )}
         {projects.data && projects.data.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <SearchField value={filter.text} onChange={filter.setText} label={ui("Tìm dự án")} />
+            {filter.active && matches.length > 0 && (
+              <p className="px-2 font-secondary-body text-content-muted">
+                {ui("Xóa từ khóa để sắp xếp lại dự án.")}
+              </p>
+            )}
+          </div>
+        )}
+        {filter.active && projects.data && projects.data.length > 0 && matches.length === 0 && (
+          <EmptyState
+            icon={<SearchX />}
+            title={ui("Không có dự án nào khớp")}
+            detail={ui("Hãy thử từ khóa khác.")}
+            action={
+              <Button size="sm" prominence="secondary" onClick={() => filter.setText("")}>
+                {ui("Xóa bộ lọc")}
+              </Button>
+            }
+          />
+        )}
+        {filter.active && matches.length > 0 && (
+          // A narrowed list is not dragged: its rows hold no places of their own in the full order.
+          <ul className="flex flex-col gap-1 px-2">
+            {matches.map((project) => (
+              <li key={project.id} className={rowClass}>
+                <ProjectRow project={project} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {!filter.active && projects.data && projects.data.length > 0 && (
           <ul className="flex flex-col gap-1 px-2">
             <SortableList
               items={projects.data}
@@ -89,7 +143,8 @@ export function ChatProjectsPage() {
                   style={handle.style}
                   {...handle.drag.rowProps}
                   className={cn(
-                    "group relative flex touch-none items-center gap-1 rounded-xl pr-2 transition-colors hover:bg-surface-sunken active:cursor-grabbing",
+                    rowClass,
+                    "touch-none active:cursor-grabbing",
                     handle.dragging &&
                       "z-10 bg-surface-sunken shadow-hover ring-1 ring-border-subtle",
                   )}
