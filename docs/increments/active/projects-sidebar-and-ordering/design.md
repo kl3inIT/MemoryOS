@@ -26,7 +26,8 @@ Not in scope: pinning a conversation, a conversation-files entry in the menu, pl
 - Each project row has a chevron disclosure button that opens the project in place. An open project lists its five most
   recent conversations from `GET /api/chat/projects/{id}/sessions?limit=5`, rendered with
   `ChatSessionRow` so rename, move, archive and delete work as in *Hội thoại gần đây*. A full page of
-  five shows *Xem thêm*, linking to the project page. The project of the open conversation opens by
+  five shows *Xem thêm*, which loads the next five in place; the project page opens only from the row's
+  *Xem dự án* menu item. The project of the open conversation opens by
   itself. Which projects are open is component state and is not persisted.
 - A row's *…* menu opens the project page, edits it through `ProjectEditor`, or deletes it through
   `ProjectDeleteDialog`; deleting preserves its conversations. The row remains a drop target for a
@@ -37,11 +38,15 @@ Not in scope: pinning a conversation, a conversation-files entry in the menu, pl
 
 ### Projects page
 
-- `SettingsLayout` and `PageHeader` (icon, title, one-line description, *Tạo dự án* action) replace
+- `SettingsLayout` and `PageHeader` (icon, title, *Tạo dự án* action; no description line) replace
   the hand-rolled heading row and the hardcoded width.
 - One column of rows: icon, name, one-line description, *N tệp · Cập nhật …*, and a `⋯` menu with
   *Sửa* (the existing `ProjectEditor`) and *Xóa* (`ConfirmDialog`; conversations are kept). A single
   column keeps the same `SortableList` usable here and in the sidebar.
+- The whole row is the hover card, including its `⋯` menu, and a row is dragged from anywhere. The
+  keyboard handle stays in the row as a visually hidden button. Letting go of a dragged row never opens
+  it: dnd-kit stops the click from reaching the page but not the browser, so the list cancels that
+  click's default itself.
 - Loading uses `BrandLoader`; a failed load is an `EmptyState` with a retry; the empty state stays.
 - The project page's own loading state in `chat-page.tsx` uses `BrandLoader` too.
 
@@ -67,7 +72,14 @@ Not in scope: pinning a conversation, a conversation-files entry in the menu, pl
   holding a stale list reloads instead of losing a project's place. Reordering changes neither a
   project's `revision` nor its `updatedAt`.
 - The web reorders with `SortableList` in the sidebar and on the Projects page, shows the new order at
-  once and restores the server's order when the write fails, as pinned agents do.
+  once and restores the server's order when the write fails, as pinned agents do. The list keeps the
+  dropped order itself until the save ends, so the row never returns to its old place for a frame, and
+  rows are memoized so dragging one does not render the others.
+
+### Project page
+
+- Under the composer, the page shows two tabs: *Trò chuyện* (the project's conversations) and *Tệp*
+  (its files, with *Thêm tệp*). The files are no longer a collapsible block above the composer.
 
 ## Reuse
 
