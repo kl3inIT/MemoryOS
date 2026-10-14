@@ -25,6 +25,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.StreamReadFeature;
@@ -39,6 +41,8 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Component
 public final class McpOAuthProtocol {
+    private static final Logger LOG = LoggerFactory.getLogger(McpOAuthProtocol.class);
+    private static final Pattern OAUTH_ERROR_CODE = Pattern.compile("[a-z_]{1,64}");
     static final int MAX_RESPONSE_BYTES = 65536;
     private static final int MAX_AUTHORIZATION_SERVERS = 4;
     private static final int MAX_TOKEN_CHARACTERS = 16384;
@@ -344,32 +348,53 @@ public final class McpOAuthProtocol {
             throw McpException.oauthTokenFailed();
         }
         if (response.status() == 400 || response.status() == 401) {
+            String error = null;
             try {
-                if ("invalid_grant".equals(optionalText(object(response.body()), "error", 64)))
-                    throw McpException.authorizationRequired();
-            } catch (McpException required) {
-                if ("MCP_AUTHORIZATION_REQUIRED".equals(required.code())) throw required;
+                error = optionalText(object(response.body()), "error", 64);
             } catch (RuntimeException ignored) {
                 // An unreadable error body is a token failure, not a reauthorization signal.
             }
+            // RFC 6749 error codes are a closed vocabulary; anything else, and the description, stays out of logs.
+            LOG.atWarn().addKeyValue("event", "mcp.oauth.token.rejected").addKeyValue("http_status", response.status())
+                    .addKeyValue("error_code", error != null && OAUTH_ERROR_CODE.matcher(error).matches() ? error : "unreadable")
+                    .addKeyValue("grant_type", parameters.get("grant_type"))
+                    .log("Authorization server rejected the MCP OAuth token request");
+            if ("invalid_grant".equals(error)) throw McpException.authorizationRequired();
             throw McpException.oauthTokenFailed();
         }
-        if (response.status() != 200) throw McpException.oauthTokenFailed();
+        if (response.status() != 200) {
+            LOG.atWarn().addKeyValue("event", "mcp.oauth.token.rejected").addKeyValue("http_status", response.status())
+                    .addKeyValue("grant_type", parameters.get("grant_type"))
+                    .log("Authorization server rejected the MCP OAuth token request");
+            throw McpException.oauthTokenFailed();
+        }
+        JsonNode token;
         try {
-            JsonNode token = object(response.body());
-            if (!"bearer".equalsIgnoreCase(text(token, "token_type", 32))) throw McpException.oauthTokenFailed();
-            Instant expiresAt = null;
-            if (token.has("expires_in")) {
-                long seconds = token.path("expires_in").asLong(-1);
-                if (!token.path("expires_in").isNumber() || seconds <= 0 || seconds > MAX_EXPIRES_IN_SECONDS)
-                    throw McpException.oauthTokenFailed();
-                expiresAt = Instant.now().plusSeconds(seconds);
-            }
+            token = object(response.body());
+        } catch (RuntimeException unreadable) {
+            throw unusableToken(parameters, "body");
+        }
+        if (!"bearer".equalsIgnoreCase(token.path("token_type").asString(""))) throw unusableToken(parameters, "token_type");
+        Instant expiresAt = null;
+        if (token.has("expires_in")) {
+            long seconds = token.path("expires_in").asLong(-1);
+            if (!token.path("expires_in").isNumber() || seconds <= 0 || seconds > MAX_EXPIRES_IN_SECONDS)
+                throw unusableToken(parameters, "expires_in");
+            expiresAt = Instant.now().plusSeconds(seconds);
+        }
+        try {
             return new Tokens(text(token, "access_token", MAX_TOKEN_CHARACTERS),
                     optionalText(token, "refresh_token", MAX_TOKEN_CHARACTERS), expiresAt, optionalText(token, "scope", 4096));
         } catch (RuntimeException invalid) {
-            throw McpException.oauthTokenFailed();
+            throw unusableToken(parameters, "token_fields");
         }
+    }
+
+    /** Names the rejected member of a 200 token response, never its value. */
+    private static McpException unusableToken(Map<String, String> parameters, String reason) {
+        LOG.atWarn().addKeyValue("event", "mcp.oauth.token.invalid").addKeyValue("grant_type", parameters.get("grant_type"))
+                .addKeyValue("reason", reason).log("MCP OAuth token response is not a usable bearer token");
+        return McpException.oauthTokenFailed();
     }
 
     private HttpRequest tokenRequest(URI endpoint, Client client, Map<String, String> parameters) {
