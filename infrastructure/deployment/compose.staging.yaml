@@ -153,11 +153,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # memoryos-internal reaches the stores and is internal; shared-infra is the egress the API's turns use, to the
+    # model providers and to Lark, whose long connection this process opens.
     networks:
       memoryos-internal:
         aliases:
           - memoryos-channels
       memoryos-telemetry:
+      shared-infra:
     healthcheck:
       test:
         - CMD-SHELL

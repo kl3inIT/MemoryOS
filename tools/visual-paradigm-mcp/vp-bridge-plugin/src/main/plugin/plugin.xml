@@ -14,5 +14,6 @@
         <library path="lib/jboss-logging.jar"/>
         <library path="lib/jboss-threads.jar"/>
         <library path="lib/wildfly-common.jar"/>
+        <library path="lib/wildfly-client-config.jar"/>
     </runtime>
 </plugin>

@@ -46,8 +46,13 @@ has_keycloak() {
 
 # MEM-246: the chat bots' process runs where the target's Compose files define it, from a release that carries its
 # image; production defines none until the bot is accepted, and a release accepted before it has no image.
+# The services are read whole before they are searched: under pipefail, grep -q leaving a pipe early makes Compose
+# die of SIGPIPE, and the answer would then turn on timing.
 has_channels() {
-  grep -q "^$(image_key channels)=" "$tx/$target.env" && compose config --services | grep -qx channels
+  local services
+  grep -q "^$(image_key channels)=" "$tx/$target.env" || return 1
+  services=$(compose config --services)
+  grep -qx channels <<< "$services"
 }
 
 # Empty before the first deployment: Flyway creates its history table when it first runs, and
