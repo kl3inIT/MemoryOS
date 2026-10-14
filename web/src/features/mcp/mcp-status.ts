@@ -21,6 +21,54 @@ export function serverStatus(status: McpServerView["status"]): {
   }
 }
 
+/** What an administrator must do next before a server's tools reach Chat; null when nothing is missing. */
+type ServerNextStep = "ADD_OAUTH_APP" | "CONNECT_SHARED" | "CONNECT_OWN" | "FETCH_TOOLS" | null;
+
+/**
+ * The first missing piece, in the order a server becomes usable: an OAuth application to sign in with, the shared
+ * account, the administrator's own account (listing a per-person server's tools uses it), then the tool list.
+ * `oauthApps` is undefined while the applications load and `own` when the administrator may not use the server.
+ */
+export function serverNextStep(
+  server: McpServerView,
+  oauthApps: number | undefined,
+  own: McpConnection | undefined,
+): ServerNextStep {
+  if (server.authType === "OAUTH" && oauthApps === 0) return "ADD_OAUTH_APP";
+  if (
+    server.authType !== "NONE" &&
+    server.authPerformer === "ADMIN" &&
+    !server.sharedCredentialConfigured
+  )
+    return "CONNECT_SHARED";
+  if (
+    server.authType !== "NONE" &&
+    server.authPerformer === "PER_USER" &&
+    own &&
+    needsUserAction(own)
+  )
+    return "CONNECT_OWN";
+  if (server.status !== "CONNECTED" || server.toolCount === 0) return "FETCH_TOOLS";
+  return null;
+}
+
+/** The badge for a server: what is missing when something is, otherwise its status. */
+export function serverBadge(
+  server: McpServerView,
+  step: ServerNextStep,
+): { tone: StatusTone; label: AppCopy } {
+  switch (step) {
+    case "ADD_OAUTH_APP":
+      return { tone: "warning", label: "Chưa có ứng dụng OAuth" };
+    case "CONNECT_SHARED":
+      return { tone: "warning", label: "Chưa kết nối tài khoản dùng chung" };
+    case "CONNECT_OWN":
+      return { tone: "warning", label: "Bạn chưa kết nối" };
+    default:
+      return serverStatus(server.status);
+  }
+}
+
 export function connectionStatus(state: McpConnection["connectionState"]): {
   tone: StatusTone;
   label: AppCopy;

@@ -84,8 +84,8 @@ it("asks which account to use only when the server has several", async () => {
     }),
   ]);
   await userEvent.click(await screen.findByRole("button", { name: "Kết nối" }));
-  expect(screen.getByRole("button", { name: "Org A" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Org B" })).toBeInTheDocument();
+  expect(await screen.findByRole("menuitem", { name: "Org A" })).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "Org B" })).toBeInTheDocument();
   expect(startMcpConnectionAuthorization).not.toHaveBeenCalled();
 });
 

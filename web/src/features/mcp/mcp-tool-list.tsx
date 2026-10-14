@@ -37,11 +37,7 @@ export function McpToolList({ serverId }: { serverId: string }) {
     );
   }
   if (tools.data && tools.data.length === 0) {
-    return (
-      <FieldDescription>
-        {ui("Chưa lấy được công cụ nào. Bấm “Lấy công cụ” sau khi máy chủ đã kết nối.")}
-      </FieldDescription>
-    );
+    return <FieldDescription>{ui("Chưa lấy được công cụ nào.")}</FieldDescription>;
   }
   const setAll = (enabled: boolean) => {
     toggle.reset();
