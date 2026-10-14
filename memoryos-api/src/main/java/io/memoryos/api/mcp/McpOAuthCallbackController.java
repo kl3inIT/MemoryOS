@@ -9,6 +9,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Hidden
 @RestController
 final class McpOAuthCallbackController {
+    private static final Logger LOG = LoggerFactory.getLogger(McpOAuthCallbackController.class);
     private final McpOAuthService oauth;
 
     McpOAuthCallbackController(McpOAuthService oauth) {
@@ -39,13 +42,18 @@ final class McpOAuthCallbackController {
                         pending.verifier(), issuers == null ? null : issuers[0]);
                 outcome = "connected";
             } catch (McpException failure) {
+                LOG.atWarn().addKeyValue("event", "mcp.oauth.callback.failed").addKeyValue("error_code", failure.code())
+                        .log("MCP OAuth authorization could not be completed");
                 outcome = switch (failure.code()) {
                     case "MCP_OAUTH_ISSUER_MISMATCH" -> "issuer-mismatch";
                     case "MCP_CONFLICT" -> "configuration-changed";
                     default -> "authorization-failed";
                 };
-            } catch (RuntimeException ignored) {
-                // Provider bodies and tokens must never enter logs, sessions, or redirect queries.
+            } catch (RuntimeException failure) {
+                // Provider bodies and tokens must never enter logs, sessions, or redirect queries: the type only.
+                LOG.atWarn().addKeyValue("event", "mcp.oauth.callback.failed")
+                        .addKeyValue("error_type", failure.getClass().getName())
+                        .log("MCP OAuth authorization could not be completed");
             }
         }
         // A replayed or expired callback has no pending state, so it returns to a page every User may open.
