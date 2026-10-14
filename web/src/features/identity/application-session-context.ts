@@ -36,6 +36,7 @@ export type AdminAuthority = {
   canManageModels: boolean;
   canManageProviders: boolean;
   canManageMcp: boolean;
+  canManageChannels: boolean;
   canManageAgents: boolean;
   canReadAudit: boolean;
   canReadChatHistory: boolean;
@@ -55,6 +56,7 @@ export function adminAuthorityOf(
     canManageModels: global("MODELS_MANAGE"),
     canManageProviders: global("SYSTEM_ADMIN"),
     canManageMcp: global("MCP_MANAGE"),
+    canManageChannels: global("CHANNELS_MANAGE"),
     canManageAgents: global("AGENTS_MANAGE"),
     canReadAudit: global("AUDIT_READ"),
     canReadChatHistory: global("CHAT_HISTORY_READ"),

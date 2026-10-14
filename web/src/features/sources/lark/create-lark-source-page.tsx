@@ -23,7 +23,7 @@ import {
   useSourceCreation,
 } from "@/features/sources/shared/use-source-creation";
 import { LarkCredentialSection } from "./lark-credential-section";
-import { LarkIcon } from "./lark-icon";
+import { LarkIcon } from "@/components/lark-icon";
 import { larkRegion, larkScopeError, larkScopeRequest } from "./lark-scope";
 import { larkSetupSteps, type LarkSetupStep } from "./lark-setup-search";
 import { LarkAccessStep, LarkContentStep, LarkReviewStep } from "./lark-setup-steps";

@@ -17,7 +17,7 @@ import { disconnectMcpConnectionMutation } from "@/lib/hey-api/@tanstack/react-q
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { McpAppGrid, McpAppRow } from "./mcp-app-row";
+import { AppGrid, AppRow } from "@/components/composites/app-row";
 import { ConnectAction, McpApiKeyDialog } from "./mcp-connect-actions";
 import { invalidateMcpConnections, useMcpConnections } from "./mcp-connections";
 import { McpServerMark } from "./mcp-server-mark";
@@ -52,7 +52,7 @@ export function ConnectionsSettingsPage() {
       {connections.isSuccess && list.length === 0 ? (
         <EmptyState icon={<Blocks />} title={ui("Tổ chức chưa bật ứng dụng nào.")} />
       ) : (
-        <McpAppGrid>
+        <AppGrid>
           {list.map((connection) => {
             const status = connectionStatus(connection.connectionState);
             const waiting =
@@ -62,7 +62,7 @@ export function ConnectionsSettingsPage() {
             const own =
               connection.authPerformer === "PER_USER" && connection.connectionState === "CONNECTED";
             return (
-              <McpAppRow
+              <AppRow
                 key={connection.id}
                 mark={
                   <McpServerMark
@@ -110,7 +110,7 @@ export function ConnectionsSettingsPage() {
               />
             );
           })}
-        </McpAppGrid>
+        </AppGrid>
       )}
       {disconnecting ? (
         <ConfirmDialog
