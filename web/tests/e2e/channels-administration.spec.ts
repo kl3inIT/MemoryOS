@@ -119,7 +119,7 @@ test("adding a bot opens the dialog beside the console steps and waits for the A
   const dialog = page.getByRole("dialog", { name: "Thêm bot Lark" });
   await expect(dialog.getByText("im.message.receive_v1")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Kiểm tra và lưu" })).toBeDisabled();
-  await dialog.getByLabel("App Secret").fill("secret");
+  await dialog.getByRole("textbox", { name: "App Secret" }).fill("secret");
   await expect(dialog.getByRole("button", { name: "Kiểm tra và lưu" })).toBeEnabled();
 });
 
@@ -139,12 +139,15 @@ for (const theme of ["light", "dark"] as const) {
       await page.screenshot({ path: `${OUTPUT}/list-${theme}-${width}.png`, fullPage: true });
 
       await page.goto(`/admin/channels/${FINANCE}`);
-      await expect(page.getByRole("heading", { name: "Hỏi đáp Tài chính", level: 1 })).toBeAttached();
+      // A page opened by its address compiles its route on the dev server's first visit.
+      await expect(page.getByRole("heading", { name: "Hỏi đáp Tài chính", level: 1 })).toBeAttached({
+        timeout: 30_000,
+      });
       await page.screenshot({ path: `${OUTPUT}/detail-${theme}-${width}.png`, fullPage: true });
 
       await page.goto("/admin/channels");
-      await page.getByRole("button", { name: "Thêm bot Lark" }).click();
-      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.getByRole("button", { name: "Thêm bot Lark" }).click({ timeout: 30_000 });
+      await expect(page.getByRole("dialog")).toBeVisible({ timeout: 30_000 });
       await page.screenshot({ path: `${OUTPUT}/dialog-${theme}-${width}.png`, fullPage: true });
     });
   }
