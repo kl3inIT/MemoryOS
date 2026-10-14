@@ -45,6 +45,8 @@
 | A turn run as the bot is told the asker's name as a plain label; a sender's own turn is not | `ChannelInboundServiceTest.aTurnRunAsTheBotIsToldTheAskersNameAsALabel` |
 | A question waits for its conversation's running turn, is acknowledged once and asks at the new leaf | `ChannelTurnsTest.aQuestionWaitsForTheTurnItsConversationIsRunningAndAsksAtTheNewLeaf` |
 | A question stops waiting at its bound; another refusal is not waited for | `ChannelTurnsTest.aQuestionStopsWaitingAtItsBoundAndAnotherRefusalIsNotWaitedFor` |
+| The page lists bots with one line each; a switch saves on change with the bot's revision; a bot opens its page with its facts and missing scopes | `channels-administration.spec.ts` (Playwright), `channel-status.test.ts` |
+| Adding a bot opens the dialog beside the console steps and waits for the App Secret | `channels-administration.spec.ts` |
 
 The bridge to Chat (`ChannelTurns`: session, leaf, turn, stream, saved answer) has no test of its own; it is
 exercised end to end on staging with the Lark adapter (plan step 4), as is the adapter's connection, streaming reply,

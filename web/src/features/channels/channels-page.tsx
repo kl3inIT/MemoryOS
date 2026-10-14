@@ -44,7 +44,9 @@ export function ChannelsPage() {
       ) : null}
       {list.isError ? (
         <Alert variant="destructive" role="alert">
-          <AlertDescription>{problem(presentProblem(list.error, "initialLoad").message)}</AlertDescription>
+          <AlertDescription>
+            {problem(presentProblem(list.error, "initialLoad").message)}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -74,7 +76,11 @@ function ChannelRow({ channel, admin }: { channel: ChannelResponse; admin: Chann
       line={ui(line, { count: channel.missingScopes.length })}
       tone={tone}
       link={(body) => (
-        <Link to="/admin/channels/$channelId" params={{ channelId: channel.id }} className={appRowLinkClass}>
+        <Link
+          to="/admin/channels/$channelId"
+          params={{ channelId: channel.id }}
+          className={appRowLinkClass}
+        >
           {body}
         </Link>
       )}

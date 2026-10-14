@@ -87,20 +87,24 @@ async function stub(page: Page, list: ChannelResponse[] = channels) {
 
 test.describe.configure({ timeout: 120_000 });
 
-test("the bots are listed with one line each, a switch saves on change and a bot opens its page", async ({ page }) => {
+test("the bots are listed with one line each, a switch saves on change and a bot opens its page", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const switched = await stub(page);
   await page.goto("/admin/channels");
 
-  await expect(page.getByRole("heading", { name: "Kênh chat", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Kênh chat", level: 1 })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByText("Đang trả lời trên Lark")).toBeVisible();
   await expect(page.getByText("Thiếu 1 quyền trên Lark")).toBeVisible();
   await expect(page.getByText("Đang tắt")).toBeVisible();
 
   await page.getByRole("switch", { name: "Bật Bot Nhân sự" }).click();
-  await expect.poll(() => switched).toEqual([
-    { id: "6e2a9c4b-3d1f-4a8e-b7c6-d5e4f3a2b1c0", enabled: true, ifMatch: '"1"' },
-  ]);
+  await expect
+    .poll(() => switched)
+    .toEqual([{ id: "6e2a9c4b-3d1f-4a8e-b7c6-d5e4f3a2b1c0", enabled: true, ifMatch: '"1"' }]);
 
   await page.getByRole("link", { name: /Hỏi đáp Tài chính/ }).click();
   await expect(page.getByRole("heading", { name: "Hỏi đáp Tài chính", level: 1 })).toBeVisible();
@@ -109,7 +113,9 @@ test("the bots are listed with one line each, a switch saves on change and a bot
   await expect(page.getByText("contact:user.email:readonly")).toBeVisible();
 });
 
-test("adding a bot opens the dialog beside the console steps and waits for the App Secret", async ({ page }) => {
+test("adding a bot opens the dialog beside the console steps and waits for the App Secret", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await stub(page, []);
   await page.goto("/admin/channels");
@@ -135,14 +141,18 @@ for (const theme of ["light", "dark"] as const) {
       await stub(page);
 
       await page.goto("/admin/channels");
-      await expect(page.getByRole("heading", { name: "Kênh chat", level: 1 })).toBeAttached({ timeout: 30_000 });
+      await expect(page.getByRole("heading", { name: "Kênh chat", level: 1 })).toBeAttached({
+        timeout: 30_000,
+      });
       await page.screenshot({ path: `${OUTPUT}/list-${theme}-${width}.png`, fullPage: true });
 
       await page.goto(`/admin/channels/${FINANCE}`);
       // A page opened by its address compiles its route on the dev server's first visit.
-      await expect(page.getByRole("heading", { name: "Hỏi đáp Tài chính", level: 1 })).toBeAttached({
-        timeout: 30_000,
-      });
+      await expect(page.getByRole("heading", { name: "Hỏi đáp Tài chính", level: 1 })).toBeAttached(
+        {
+          timeout: 30_000,
+        },
+      );
       await page.screenshot({ path: `${OUTPUT}/detail-${theme}-${width}.png`, fullPage: true });
 
       await page.goto("/admin/channels");

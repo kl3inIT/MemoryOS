@@ -63,7 +63,12 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
     [ui("Kết nối từ"), when(channel.connectedAt)],
     [ui("Tin nhắn gần nhất"), when(channel.lastMessageAt)],
     ...(channel.failureCode
-      ? [[ui("Lỗi gần nhất"), `${channel.failureCode} · ${when(channel.failedAt)}`] as [string, string]]
+      ? [
+          [ui("Lỗi gần nhất"), `${channel.failureCode} · ${when(channel.failedAt)}`] as [
+            string,
+            string,
+          ],
+        ]
       : []),
   ];
 

@@ -35,7 +35,11 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
   const problem = useProblemMessage();
   const cache = useQueryClient();
   const trigger = useRef<HTMLElement | null>(null);
-  const [dialog, setDialog] = useState<{ open: boolean; session: number; replacing: ChannelResponse | null }>({
+  const [dialog, setDialog] = useState<{
+    open: boolean;
+    session: number;
+    replacing: ChannelResponse | null;
+  }>({
     open: false,
     session: 0,
     replacing: null,
@@ -87,7 +91,9 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
               headers: { "If-Match": `"${removing.revision}"` },
             });
           }}
-          errorMessage={(failure) => channelError(failure) ?? presentProblem(failure, "mutation").message}
+          errorMessage={(failure) =>
+            channelError(failure) ?? presentProblem(failure, "mutation").message
+          }
           onOpenChange={(next) => {
             if (!next) setRemoving(null);
           }}
@@ -107,7 +113,8 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
         headers: { "If-Match": `"${channel.revision}"` },
         body: { enabled },
       }),
-    switching: (channel: ChannelResponse) => toggle.isPending && toggle.variables?.path.channelId === channel.id,
+    switching: (channel: ChannelResponse) =>
+      toggle.isPending && toggle.variables?.path.channelId === channel.id,
     toggleError: toggle.error ? message(toggle.error) : undefined,
     dialogs,
   };

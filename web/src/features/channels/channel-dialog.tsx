@@ -16,8 +16,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -61,7 +73,9 @@ export function ChannelDialog(props: ChannelDialogProps) {
         }}
       >
         <DialogHeader>
-          <DialogTitle>{replacing ? ui("Thay App Secret của bot") : ui("Thêm bot Lark")}</DialogTitle>
+          <DialogTitle>
+            {replacing ? ui("Thay App Secret của bot") : ui("Thêm bot Lark")}
+          </DialogTitle>
           <DialogDescription className="sr-only">
             {ui("Lark kiểm tra app trước khi lưu; app bị từ chối sẽ không được lưu.")}
           </DialogDescription>
@@ -141,7 +155,13 @@ function ChannelForm({
         });
       } else {
         await createLarkChannel({
-          body: { name: value.botName.trim(), region, appId: value.appId.trim(), appSecret, noticeLanguage: language },
+          body: {
+            name: value.botName.trim(),
+            region,
+            appId: value.appId.trim(),
+            appSecret,
+            noticeLanguage: language,
+          },
         });
       }
       if (!active.current) return;
@@ -176,7 +196,9 @@ function ChannelForm({
             <span className="grid size-8 place-items-center text-content-muted">
               <BotMessageSquare className="size-4" aria-hidden="true" />
             </span>
-            <h3 className="font-main-ui-action text-content-primary">{ui("Chuẩn bị app trên Lark")}</h3>
+            <h3 className="font-main-ui-action text-content-primary">
+              {ui("Chuẩn bị app trên Lark")}
+            </h3>
           </div>
           <ChannelAppGuide />
         </aside>
@@ -207,7 +229,9 @@ function ChannelForm({
                       <RadioGroupItem id={`${id}-${value}`} value={value} />
                       <FieldContent>
                         <FieldTitle>{value === "LARK" ? ui("Lark") : ui("Feishu")}</FieldTitle>
-                        <FieldDescription>{value === "LARK" ? ui("larksuite.com") : ui("feishu.cn")}</FieldDescription>
+                        <FieldDescription>
+                          {value === "LARK" ? ui("larksuite.com") : ui("feishu.cn")}
+                        </FieldDescription>
                       </FieldContent>
                     </Field>
                   </FieldLabel>

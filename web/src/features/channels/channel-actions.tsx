@@ -14,7 +14,13 @@ import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import type { ChannelAdmin } from "./channel-admin";
 
 /** Switches a bot on or off; saved on change. */
-export function ChannelSwitch({ channel, admin }: { channel: ChannelResponse; admin: ChannelAdmin }) {
+export function ChannelSwitch({
+  channel,
+  admin,
+}: {
+  channel: ChannelResponse;
+  admin: ChannelAdmin;
+}) {
   const ui = useAppTranslation();
   return (
     <Switch
@@ -32,7 +38,11 @@ export function ChannelMenu({ channel, admin }: { channel: ChannelResponse; admi
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <IconButton size="sm" prominence="internal" aria-label={ui("Thao tác với {{name}}", { name: channel.name })}>
+        <IconButton
+          size="sm"
+          prominence="internal"
+          aria-label={ui("Thao tác với {{name}}", { name: channel.name })}
+        >
           <MoreHorizontal />
         </IconButton>
       </DropdownMenuTrigger>
