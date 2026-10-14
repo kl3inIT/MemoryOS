@@ -31,6 +31,18 @@ export const codeSchema = eventSchema.extend({
   stream: z.enum(["stdout", "stderr"]).nullish(),
   files: z.array(generatedFileSchema).max(25).default([]),
 });
+/**
+ * A tool call that waits for the person's approval, then the same call with the decision (MEM-253). It carries the
+ * call's arguments, bounded, because the person decides on them.
+ */
+export const toolApprovalSchema = eventSchema.extend({
+  toolCallId: z.string().min(1).max(256),
+  serverName: z.string().max(200),
+  toolName: z.string().max(128),
+  arguments: z.string().max(4000),
+  decision: z.enum(["APPROVED", "DECLINED", "NO_DECISION"]).nullish(),
+});
+
 /** The reply waits for a turn, or has just been given one. */
 export const waitingSchema = eventSchema.extend({ waiting: z.boolean() });
 export const imageSchema = eventSchema.extend({

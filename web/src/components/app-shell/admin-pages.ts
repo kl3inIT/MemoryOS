@@ -112,6 +112,7 @@ export const adminPages: readonly AdminPageEntry[] = [
     icon: Blocks,
     group: "agents",
     visible: (authority) => authority.canManageMcp,
+    fuzzy: true,
   },
   {
     id: "mcpEndpoint",

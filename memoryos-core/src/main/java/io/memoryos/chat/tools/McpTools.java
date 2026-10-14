@@ -111,6 +111,22 @@ public final class McpTools {
                 return refused(binding, "invalid_arguments",
                         "The arguments were not a JSON object matching the tool's schema.");
             }
+            // MEM-253: a tool that may change data can wait for the person; declining is an answer, not a failure of the turn.
+            if (binding.approvalRequired()) {
+                var decision = turn.decide(binding, call.id(), argumentJson == null ? "{}" : argumentJson);
+                active.run();
+                if (decision != McpTurnTools.Decision.APPROVED) {
+                    boolean declined = decision == McpTurnTools.Decision.DECLINED;
+                    activity.fail(declined ? ChatToolEvent.Failure.DECLINED : ChatToolEvent.Failure.NO_DECISION);
+                    failure = declined ? ChatToolEvent.Failure.DECLINED : ChatToolEvent.Failure.NO_DECISION;
+                    measure(binding, declined ? "declined" : "no_decision", 0);
+                    return Tool.Result.text(declined
+                            ? "The user declined this call of " + binding.toolName() + ". Do not call it again for this request; "
+                                    + "answer without it or ask the user what to do instead."
+                            : "The user did not approve this call of " + binding.toolName() + " in time, so it did not run. "
+                                    + "Tell the user it is waiting for their approval and do not call it again in this answer.");
+                }
+            }
             // A turn has no total deadline, so each call is bounded only by the configured MCP call timeout.
             Instant callDeadline = Instant.now().plus(callTimeout);
             long upstream = System.nanoTime();

@@ -21,7 +21,7 @@ public final class McpTurnTools implements AutoCloseable {
      * administrator text for people to read.
      */
     public record Binding(UUID serverId, String slug, String serverName, String toolName, String modelName,
-                          String description, String inputSchema, boolean readOnly) {}
+                          String description, String inputSchema, boolean readOnly, boolean approvalRequired) {}
 
     /** A server the User selected but cannot use yet, so the turn offers a connect action instead of tools. */
     public record Unavailable(UUID serverId, String serverName, Reason reason) {
@@ -47,12 +47,26 @@ public final class McpTurnTools implements AutoCloseable {
         public Reason reason() { return reason; }
     }
 
+    /** The person's answer to a call of a tool that requires approval. */
+    public enum Decision { APPROVED, DECLINED, NO_DECISION }
+
+    /**
+     * Asks the person whether a call may run and waits for the answer; the turn that owns these tools supplies it.
+     * {@code arguments} is the call's JSON as the model sent it.
+     */
+    @FunctionalInterface
+    public interface Approvals {
+        Decision decide(Binding binding, String callId, String arguments);
+    }
+
     private final McpClients clients;
     private final Map<UUID, Target> targets;
     private final List<Binding> bindings;
     private final List<Unavailable> unavailable;
     private final Map<UUID, McpSession> sessions = new LinkedHashMap<>();
     private boolean closed;
+    /** Until a turn with a person to ask supplies one, a call that requires approval is declined. */
+    private volatile Approvals approvals = (binding, callId, arguments) -> Decision.DECLINED;
 
     record Target(UUID serverId, String url, Map<String, String> headers) {
         @Override public @NonNull String toString() { return "McpTurnTarget[redacted]"; }
@@ -68,6 +82,14 @@ public final class McpTurnTools implements AutoCloseable {
     public List<Binding> bindings() { return bindings; }
 
     public List<Unavailable> unavailable() { return unavailable; }
+
+    /** Set once by the turn that owns these tools, before the model runs. */
+    public void approvals(Approvals approvals) { this.approvals = approvals; }
+
+    /** Whether a call of {@code binding}, which requires approval, may run. */
+    public Decision decide(Binding binding, String callId, String arguments) {
+        return approvals.decide(binding, callId, arguments);
+    }
 
     /**
      * Calls one tool with the turn's credential. {@code deadline} bounds this call together with the configured

@@ -438,9 +438,17 @@ export type McpToolView = {
     readOnlyHint: boolean | null;
     destructiveHint: boolean | null;
     enabled: boolean;
+    /**
+     * An enabled tool waits for the person to approve each call
+     */
+    approvalRequired: boolean;
     exposable: boolean;
     snapshotAt: string;
     revision: number;
+};
+
+export type McpToolApproval = {
+    approvalRequired: boolean;
 };
 
 /**
@@ -2381,6 +2389,10 @@ export type BranchChatSessionRequest = {
     title?: string;
 };
 
+export type ChatToolDecision = {
+    approved: boolean;
+};
+
 export type Cancellation = {
     assistantMessageId: string;
     status: 'RUNNING' | 'COMPLETED' | 'CANCELED' | 'FAILED';
@@ -3245,7 +3257,7 @@ export type ActivityStep = {
     filters?: SearchFilters;
     documents?: Array<ReadingDocument>;
     citations?: Array<number>;
-    failure?: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE';
+    failure?: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE' | 'DECLINED' | 'NO_DECISION';
 };
 
 export type ChatActivity = {
@@ -3521,6 +3533,22 @@ export type WaitingEvent = {
     assistantMessageId: string;
     sequence: number;
     waiting: boolean;
+};
+
+export type ToolApprovalEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    serverName: string;
+    toolName: string;
+    /**
+     * The call's JSON arguments, cut at 4,000 characters
+     */
+    arguments: string;
+    /**
+     * Absent while the call waits
+     */
+    decision?: 'APPROVED' | 'DECLINED' | 'NO_DECISION';
 };
 
 export type ChatBranch = {
@@ -5284,6 +5312,56 @@ export type SetMcpServerToolEnabledResponses = {
 };
 
 export type SetMcpServerToolEnabledResponse = SetMcpServerToolEnabledResponses[keyof SetMcpServerToolEnabledResponses];
+
+export type SetMcpServerToolApprovalData = {
+    body: McpToolApproval;
+    path: {
+        serverId: string;
+        toolId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/tools/{toolId}/approval';
+};
+
+export type SetMcpServerToolApprovalErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpServerToolApprovalError = SetMcpServerToolApprovalErrors[keyof SetMcpServerToolApprovalErrors];
+
+export type SetMcpServerToolApprovalResponses = {
+    /**
+     * Saved tool
+     */
+    200: McpToolView;
+};
+
+export type SetMcpServerToolApprovalResponse = SetMcpServerToolApprovalResponses[keyof SetMcpServerToolApprovalResponses];
 
 export type SetAllMcpServerToolsEnabledData = {
     body: McpToolEnablement;
@@ -12537,6 +12615,55 @@ export type BranchChatSessionResponses = {
 
 export type BranchChatSessionResponse = BranchChatSessionResponses[keyof BranchChatSessionResponses];
 
+export type DecideChatToolCallData = {
+    body: ChatToolDecision;
+    path: {
+        sessionId: string;
+        assistantMessageId: string;
+        toolCallId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/tool-calls/{toolCallId}/decision';
+};
+
+export type DecideChatToolCallErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting request or active reply
+     */
+    409: ApiProblem;
+    /**
+     * Chat capacity exhausted or provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DecideChatToolCallError = DecideChatToolCallErrors[keyof DecideChatToolCallErrors];
+
+export type DecideChatToolCallResponses = {
+    /**
+     * Decision delivered to the running reply
+     */
+    204: void;
+};
+
+export type DecideChatToolCallResponse = DecideChatToolCallResponses[keyof DecideChatToolCallResponses];
+
 export type CancelChatMessageData = {
     body?: never;
     path: {
@@ -16386,7 +16513,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent;
+    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent | ToolApprovalEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

@@ -29,6 +29,8 @@ public class McpServerToolEntity implements Persistable<UUID> {
     @JdbcTypeCode(SqlTypes.JSON) @Column(nullable = false, columnDefinition = "jsonb") private String annotations = "{}";
     @Column(name = "read_only", nullable = false) private boolean readOnly;
     @Column(nullable = false) private boolean enabled;
+    /** An enabled tool that waits for the person to approve each call. */
+    @Column(name = "approval_required", nullable = false) private boolean approvalRequired;
     @Column(name = "snapshot_at", nullable = false) private Instant snapshotAt;
     @Version private long revision = 1;
     @Transient private boolean fresh = true;
@@ -47,6 +49,8 @@ public class McpServerToolEntity implements Persistable<UUID> {
 
     public void enabled(boolean enabled) { this.enabled = enabled; }
 
+    public void approvalRequired(boolean approvalRequired) { this.approvalRequired = approvalRequired; }
+
     @Override public UUID getId() { return id; }
     @Override public boolean isNew() { return fresh; }
     @PostLoad @PostPersist void persisted() { fresh = false; }
@@ -59,6 +63,7 @@ public class McpServerToolEntity implements Persistable<UUID> {
     public String annotations() { return annotations; }
     public boolean readOnly() { return readOnly; }
     public boolean enabled() { return enabled; }
+    public boolean approvalRequired() { return approvalRequired; }
     public Instant snapshotAt() { return snapshotAt; }
     public long revision() { return revision; }
 }

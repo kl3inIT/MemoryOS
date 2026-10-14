@@ -36,11 +36,13 @@ For each organization:
 1. Create an `Internal` Web application in that organization's Google Cloud project.
 2. Enable the Drive API and the Drive MCP API in the project, and configure its consent screen.
 3. Register `MEMORYOS_MCP_REDIRECT_URI` exactly as the authorized redirect URI.
-4. In MemoryOS, open the server under `/admin/mcp`, choose **Nhập ứng dụng**, and paste the label, issuer,
-   client ID and secret. The secret is sealed and never shown again.
+4. In MemoryOS, open the server under `/admin/mcp` and choose **Thêm ứng dụng OAuth**. Google does not register
+   clients automatically, so the form opens with Google's endpoints filled in: paste the label, client ID and
+   secret. The secret is sealed and never shown again.
 
 Google issues a refresh token only when the authorization request carries `access_type=offline`, and on
-reconnection only with `prompt=consent`. Put both in the server's additional authorization parameters.
+reconnection only with `prompt=consent`. Put both in the server's additional authorization parameters (server
+dialog › Nâng cao; for a Google API address the dialog offers a button that adds them).
 Without them a connection stops working after about an hour and becomes `REAUTH_REQUIRED`.
 
 Workspace administrators may additionally have to trust the application under API controls before members of
@@ -61,3 +63,17 @@ failing, timing out or rejecting credentials is visible before people report it.
 A turn offers at most 8 servers and 64 tools. As Onyx, the cycle limit (`max-cycles`, 6) bounds the calls in one
 turn; `memoryos.chat.execution.mcp-call-limit` is an optional per-turn cap, unset by default. `mcp-call-timeout`
 (60 seconds) bounds each call, since a turn has no total deadline; it has not been measured against a live provider.
+
+## Catalog servers
+
+`/admin/mcp` offers the [catalog](../increments/active/mem-252-mcp-catalog/design.md#the-catalog). Entries whose
+OAuth application is automatic need nothing beyond outbound HTTPS and, for the client metadata document, the
+inbound route above. Entries made by hand need one application per organization in the provider's console, with
+`MEMORYOS_MCP_REDIRECT_URI` registered as its redirect URI; the form links to the console.
+
+| Entry | Checked |
+| --- | --- |
+| Google Drive | Connected and used in Chat (MEM-112) |
+| Linear | Server, discovery and automatic application on staging 2026-10-14; a person's connection pending |
+| Others | Unauthenticated discovery only, 2026-10-14 |
+

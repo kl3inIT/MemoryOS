@@ -133,11 +133,11 @@ export function ChatComposerMenu({
               {allowed?.image !== false && image && <ChatImageToggle {...image} onDone={close} />}
               <ChatMcpToggle
                 selected={mcp.selected}
-                available={
+                connections={
                   mcpConnections.data?.filter(
                     (connection) =>
                       !allowed?.mcpServerIds || allowed.mcpServerIds.includes(connection.id),
-                  ).length ?? 0
+                  ) ?? []
                 }
                 onOpen={() => setView("mcp")}
               />

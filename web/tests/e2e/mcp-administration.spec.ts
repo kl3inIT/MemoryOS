@@ -74,6 +74,7 @@ const tools: ListMcpServerToolsResponse = [
     readOnlyHint: true,
     destructiveHint: false,
     enabled: true,
+    approvalRequired: false,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -87,6 +88,7 @@ const tools: ListMcpServerToolsResponse = [
     readOnlyHint: true,
     destructiveHint: false,
     enabled: true,
+    approvalRequired: false,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -100,6 +102,7 @@ const tools: ListMcpServerToolsResponse = [
     readOnlyHint: false,
     destructiveHint: true,
     enabled: false,
+    approvalRequired: true,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -113,6 +116,7 @@ const tools: ListMcpServerToolsResponse = [
     readOnlyHint: true,
     destructiveHint: false,
     enabled: false,
+    approvalRequired: false,
     exposable: false,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -262,7 +266,10 @@ for (const theme of ["light", "dark"] as const) {
         fullPage: true,
       });
 
-      await page.getByRole("button", { name: "Xem công cụ" }).first().click();
+      await page
+        .getByRole("link", { name: /Google Drive/ })
+        .first()
+        .click();
       await expect(page.getByRole("heading", { name: "Ứng dụng OAuth" })).toBeVisible();
       await page.screenshot({
         path: `${OUTPUT}/mem112-mcp-tools-${theme}-${width}.png`,
@@ -271,6 +278,9 @@ for (const theme of ["light", "dark"] as const) {
 
       await page.goto("/admin/mcp");
       await page.getByRole("button", { name: "Thêm máy chủ" }).click();
+      await page.getByLabel("Địa chỉ máy chủ").fill("https://drivemcp.googleapis.com/mcp/v1");
+      await page.getByLabel("Tên").fill("Google Drive");
+      // A Google API address opens Advanced with the parameters Google needs.
       await expect(page.getByText("Địa chỉ callback")).toBeVisible();
       await page.screenshot({
         path: `${OUTPUT}/mem112-mcp-add-${theme}-${width}.png`,
@@ -280,7 +290,7 @@ for (const theme of ["light", "dark"] as const) {
 
       await page.goto("/");
       await page.getByRole("button", { name: "Thêm vào câu hỏi" }).click();
-      await page.getByRole("button", { name: "Công cụ MCP" }).click();
+      await page.getByRole("button", { name: /Ứng dụng/ }).click();
       await expect(page.getByRole("switch", { name: "Google Drive" })).toBeVisible();
       await page.screenshot({ path: `${OUTPUT}/mem112-mcp-composer-${theme}-${width}.png` });
 
@@ -314,38 +324,41 @@ test("MCP administration lists servers, tools and OAuth applications", async ({ 
     timeout: 30_000,
   });
   await expect(page.getByText("Google Drive")).toBeVisible();
-  await expect(page.getByText("Đã kết nối")).toBeVisible();
+  await expect(page.getByText("4/6 công cụ đang bật")).toBeVisible();
   await expect(page.getByText("Cần kết nối")).toBeVisible();
   await page.screenshot({ path: "test-results/mcp-admin-list.png", fullPage: true });
 
-  await page.getByRole("button", { name: "Xem công cụ" }).first().click();
+  await page
+    .getByRole("link", { name: /Google Drive/ })
+    .first()
+    .click();
   await expect(page.getByText("Tasco Miền Bắc")).toBeVisible();
   await expect(page.getByText("Có thể thay đổi dữ liệu")).toBeVisible();
   await expect(page.getByText("Tên quá dài", { exact: true })).toBeVisible();
   // A tool whose model-facing name cannot fit is visible but not switchable.
   await expect(
-    page.getByRole("switch", {
+    page.getByRole("combobox", {
       name: "a_tool_name_that_cannot_fit_inside_the_model_tool_name_limit_at_all",
     }),
   ).toBeDisabled();
   await page.screenshot({ path: "test-results/mcp-admin-tools.png", fullPage: true });
 });
 
-test("Adding an MCP server requires the trust acknowledgement", async ({ page }) => {
+test("Adding an MCP server needs only its address and name", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await stub(page);
   await page.goto("/admin/mcp");
 
   await page.getByRole("button", { name: "Thêm máy chủ" }).click();
-  await page.getByLabel("Tên").fill("Google Drive");
-  await page.getByLabel("Mã ngắn").fill("drive");
-  await page.getByLabel("Địa chỉ máy chủ").fill("https://drivemcp.googleapis.com/mcp");
   const add = page.getByRole("button", { name: "Thêm", exact: true });
   await expect(add).toBeDisabled();
-  await page.screenshot({ path: "test-results/mcp-admin-add.png" });
-
-  await page.getByRole("checkbox").last().check();
+  await page.getByLabel("Địa chỉ máy chủ").fill("https://mcp.linear.app/mcp");
+  await page.getByLabel("Tên").fill("Linear");
   await expect(add).toBeEnabled();
+  await expect(page.getByRole("radio", { name: "OAuth" })).toBeChecked();
+  await page.getByRole("button", { name: "Nâng cao" }).click();
+  await expect(page.getByLabel("Mã ngắn")).toHaveValue("linear");
+  await page.screenshot({ path: "test-results/mcp-admin-add.png" });
 });
 
 test("The composer lists MCP servers with their own connection state", async ({ page }) => {
@@ -354,7 +367,7 @@ test("The composer lists MCP servers with their own connection state", async ({ 
   await page.goto("/");
 
   await page.getByRole("button", { name: "Thêm vào câu hỏi" }).click();
-  await page.getByRole("button", { name: "Công cụ MCP" }).click();
+  await page.getByRole("button", { name: /Ứng dụng/ }).click();
   await expect(page.getByRole("switch", { name: "Google Drive" })).toBeVisible();
   // Jira needs the User's own key and Figma expired, so both offer Connect instead of a switch.
   await expect(page.getByRole("switch", { name: "Jira Cloud" })).toHaveCount(0);
@@ -392,12 +405,29 @@ test("Rare server actions sit in one menu so the row fits a phone", async ({ pag
     timeout: 30_000,
   });
 
-  const refresh = page.getByRole("button", { name: "Lấy công cụ" }).first();
+  // Jira's next step is its only action; Drive, which lacks nothing, keeps its rare actions in one menu.
+  await expect(page.getByRole("button", { name: "Lấy công cụ" })).toBeVisible();
   const menu = page.getByRole("button", { name: "Thao tác với Google Drive" });
-  // Every visible action of the row shares one line.
-  expect((await refresh.boundingBox())!.y).toBe((await menu.boundingBox())!.y);
-
   await menu.click();
   await page.getByRole("menuitem", { name: "Xóa máy chủ" }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
+});
+
+test("A tool that asks first waits for the owner and continues once allowed", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await stub(page);
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", {
+      data: { title: "Báo cáo tháng 9", mode: "approval" },
+    })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  await page.getByRole("textbox", { name: "Câu hỏi" }).fill("Gửi báo cáo cho anh An qua Gmail");
+  await page.keyboard.press("Enter");
+
+  // The card shows each argument the call would send, before anything runs.
+  await expect(page.getByText("Cho phép send_email trên Gmail?")).toBeVisible();
+  await expect(page.getByText("an.nguyen@tasco.vn")).toBeVisible();
+  await page.getByRole("button", { name: "Cho phép" }).click();
+  await expect(page.getByText("Đã gửi email báo cáo cho anh An.")).toBeVisible();
 });

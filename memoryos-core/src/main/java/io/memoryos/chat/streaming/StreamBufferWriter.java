@@ -186,6 +186,12 @@ public final class StreamBufferWriter {
         publishNow(id, sequence -> new ToolProgress(id, sequence, event));
     }
 
+    /** A call waiting for the person, or with {@code decision}, the person's answer to it. */
+    public void approval(UUID id, String toolCallId, String serverName, String toolName, String arguments,
+                         ToolApproval.@Nullable Decision decision) {
+        publishNow(id, sequence -> new ToolApproval(id, sequence, toolCallId, serverName, toolName, arguments, decision));
+    }
+
     public void image(UUID id, ChatImageEvent event) {
         publishNow(id, sequence -> new ImageProgress(id, sequence, event));
     }

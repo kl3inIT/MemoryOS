@@ -1,5 +1,7 @@
 package io.memoryos.api.chat;
 
+import jakarta.validation.constraints.Size;
+import io.memoryos.api.chat.contract.ChatToolDecisionRequest;
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatEditTurnRequest;
 import io.memoryos.api.chat.contract.ChatRegenerateTurnRequest;
@@ -67,6 +69,16 @@ class ChatTurnController {
                         @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId) {
         var result = turns.cancel(identity.actorId(), sessionId, assistantMessageId);
         return new ChatTurnCancellationResponse(result.assistantMessageId(), result.status().name());
+    }
+
+    @PostMapping("/{assistantMessageId}/tool-calls/{toolCallId}/decision")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "decideChatToolCall", summary = "Approve or decline a tool call that waits for the reply owner's approval")
+    @ApiResponse(responseCode = "204", description = "Decision delivered to the running reply", content = @Content)
+    @ApiResponse(responseCode = "409", description = "No call of this reply waits for approval")
+    void decide(@CurrentActor IdentityContext identity, @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
+                @PathVariable @Size(min = 1, max = 256) String toolCallId, @Valid @RequestBody ChatToolDecisionRequest request) {
+        turns.decide(identity.actorId(), sessionId, assistantMessageId, toolCallId, request.approved());
     }
 
     @PostMapping("/{userMessageId}/edit")
