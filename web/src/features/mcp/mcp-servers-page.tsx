@@ -11,7 +11,7 @@ import { listMcpServersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { McpConnection, McpServerView } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { appRowLinkClass, McpAppGrid, McpAppRow } from "./mcp-app-row";
+import { appRowLinkClass, AppGrid, AppRow } from "@/components/composites/app-row";
 import { availableCatalog } from "./mcp-catalog";
 import { useMcpConnections } from "./mcp-connections";
 import { useOAuthSetup } from "./mcp-oauth-setup";
@@ -70,7 +70,7 @@ export function McpServersPage() {
       {list.data && list.data.length > 0 ? (
         <section className="flex flex-col gap-3">
           <SectionHeader title={ui("Đã thêm")} />
-          <McpAppGrid>
+          <AppGrid>
             {list.data.map((server) => (
               <McpServerRow
                 key={server.id}
@@ -79,7 +79,7 @@ export function McpServersPage() {
                 admin={admin}
               />
             ))}
-          </McpAppGrid>
+          </AppGrid>
         </section>
       ) : null}
 
@@ -105,7 +105,7 @@ function McpServerRow({
   const step = serverNextStep(server, setup.clients.data?.length, own);
   const { line, tone } = serverLine(server, step);
   return (
-    <McpAppRow
+    <AppRow
       mark={<McpServerMark slug={server.slug} url={server.url} name={server.name} />}
       title={server.name}
       line={ui(line, { enabled: server.enabledToolCount, total: server.toolCount })}
@@ -153,9 +153,9 @@ function CatalogSection({
   return (
     <section className="flex flex-col gap-3">
       <SectionHeader title={ui("Ứng dụng phổ biến")} />
-      <McpAppGrid>
+      <AppGrid>
         {entries.map((entry) => (
-          <McpAppRow
+          <AppRow
             key={entry.id}
             mark={<McpServerMark slug={entry.id} url={entry.url} name={entry.name} />}
             title={entry.name}
@@ -181,7 +181,7 @@ function CatalogSection({
             }
           />
         ))}
-      </McpAppGrid>
+      </AppGrid>
     </section>
   );
 }
