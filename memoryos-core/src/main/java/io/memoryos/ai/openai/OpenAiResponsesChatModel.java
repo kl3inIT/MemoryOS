@@ -93,6 +93,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
 
     /** A provider failure without its text; a refused reasoning effort also names the effort the model accepts. */
     private static TurnFailureException failure(Throwable error, @Nullable String effort) {
+        OpenAiFailures.logRefusal(error);
         if (OpenAiFailures.credentialRejected(error)) return TurnFailure.PROVIDER_CREDENTIAL_REJECTED.exception();
         var failure = TurnFailure.PROVIDER_UNAVAILABLE.exception();
         String accepted = OpenAiReasoningFallback.replacementFor(error, effort);
