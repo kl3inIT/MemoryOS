@@ -70,7 +70,7 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
   return (
     <>
       <DetailHeader
-        parent={{ label: ui("Bot chat"), to: "/admin/channels" }}
+        parent={{ label: ui("Kênh chat"), to: "/admin/channels" }}
         icon={<ChannelMark />}
         iconSize="lg"
         title={channel.name}

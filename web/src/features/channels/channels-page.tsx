@@ -27,7 +27,7 @@ export function ChannelsPage() {
   return (
     <SettingsLayout wide>
       <PageHeader
-        title={ui("Bot chat")}
+        title={ui("Kênh chat")}
         icon={<BotMessageSquare />}
         actions={
           <Button onClick={admin.add}>

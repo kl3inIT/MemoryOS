@@ -59,7 +59,7 @@ records redact it.
 
 ### The administration page
 
-`/admin/channels` (`web/src/features/channels`), shown to a holder of `CHANNELS_MANAGE` under the agents and tools
+`/admin/channels` (`web/src/features/channels`, "Kênh chat"), shown to a holder of `CHANNELS_MANAGE` under the agents and tools
 section, lists the bots as the MCP servers are listed: Lark's mark, the bot's name, one line and the switch, which
 saves on change. The line names what is wrong first (no connection, the bots' process not running), then a scope Lark
 refuses, else that the bot is off, connecting or answering; the list is read again every five seconds while a bot

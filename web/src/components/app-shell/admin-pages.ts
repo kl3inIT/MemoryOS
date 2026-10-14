@@ -128,8 +128,8 @@ export const adminPages: readonly AdminPageEntry[] = [
   {
     id: "channels",
     to: "/admin/channels",
-    label: appText("Bot chat"),
-    title: appText("Bot chat"),
+    label: appText("Kênh chat"),
+    title: appText("Kênh chat"),
     icon: BotMessageSquare,
     group: "agents",
     visible: (authority) => authority.canManageChannels,

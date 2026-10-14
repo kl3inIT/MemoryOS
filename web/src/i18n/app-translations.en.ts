@@ -2100,7 +2100,7 @@ Object.assign(vietnameseUi, {
   "Đã cập nhật bộ nhớ": "Updated memory",
   "Chưa cập nhật bộ nhớ": "Memory not updated",
   // MEM-246 the chat bots' administration
-  "Bot chat": "Chat bots",
+  "Kênh chat": "Chat channels",
   "Thêm bot Lark": "Add a Lark bot",
   "Chưa có bot nào.": "No bots yet.",
   "Không kết nối được tới Lark": "Cannot connect to Lark",

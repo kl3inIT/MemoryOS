@@ -92,7 +92,7 @@ test("the bots are listed with one line each, a switch saves on change and a bot
   const switched = await stub(page);
   await page.goto("/admin/channels");
 
-  await expect(page.getByRole("heading", { name: "Bot chat", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Kênh chat", level: 1 })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Đang trả lời trên Lark")).toBeVisible();
   await expect(page.getByText("Thiếu 1 quyền trên Lark")).toBeVisible();
   await expect(page.getByText("Đang tắt")).toBeVisible();
@@ -135,7 +135,7 @@ for (const theme of ["light", "dark"] as const) {
       await stub(page);
 
       await page.goto("/admin/channels");
-      await expect(page.getByRole("heading", { name: "Bot chat", level: 1 })).toBeAttached({ timeout: 30_000 });
+      await expect(page.getByRole("heading", { name: "Kênh chat", level: 1 })).toBeAttached({ timeout: 30_000 });
       await page.screenshot({ path: `${OUTPUT}/list-${theme}-${width}.png`, fullPage: true });
 
       await page.goto(`/admin/channels/${FINANCE}`);
