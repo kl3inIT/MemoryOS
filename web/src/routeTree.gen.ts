@@ -61,6 +61,8 @@ import { Route as AuthenticatedAdminDocumentSetsNewRouteImport } from './routes/
 import { Route as AuthenticatedAdminGroupsIndexRouteImport } from './routes/_authenticated.admin.groups.index'
 import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from './routes/_authenticated.admin.groups.$groupId'
 import { Route as AuthenticatedAdminGroupsNewRouteImport } from './routes/_authenticated.admin.groups.new'
+import { Route as AuthenticatedAdminMcpIndexRouteImport } from './routes/_authenticated.admin.mcp.index'
+import { Route as AuthenticatedAdminMcpServerIdRouteImport } from './routes/_authenticated.admin.mcp.$serverId'
 import { Route as AuthenticatedAdminSourcesSourceIdRouteImport } from './routes/_authenticated.admin.sources.$sourceId'
 import { Route as AuthenticatedAdminSourcesNewRouteImport } from './routes/_authenticated.admin.sources.new'
 import { Route as AuthenticatedAgentsAgentIdEditRouteImport } from './routes/_authenticated.agents_.$agentId.edit'
@@ -361,6 +363,18 @@ const AuthenticatedAdminGroupsNewRoute =
     path: '/new',
     getParentRoute: () => AuthenticatedAdminGroupsRoute,
   } as any)
+const AuthenticatedAdminMcpIndexRoute =
+  AuthenticatedAdminMcpIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminMcpRoute,
+  } as any)
+const AuthenticatedAdminMcpServerIdRoute =
+  AuthenticatedAdminMcpServerIdRouteImport.update({
+    id: '/$serverId',
+    path: '/$serverId',
+    getParentRoute: () => AuthenticatedAdminMcpRoute,
+  } as any)
 const AuthenticatedAdminSourcesSourceIdRoute =
   AuthenticatedAdminSourcesSourceIdRouteImport.update({
     id: '/sources/$sourceId',
@@ -432,7 +446,7 @@ export interface FileRoutesByFullPath {
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
-  '/admin/mcp': typeof AuthenticatedAdminMcpRoute
+  '/admin/mcp': typeof AuthenticatedAdminMcpRouteWithChildren
   '/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
@@ -459,11 +473,13 @@ export interface FileRoutesByFullPath {
   '/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
+  '/admin/mcp/$serverId': typeof AuthenticatedAdminMcpServerIdRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
   '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/admin/document-sets/': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
+  '/admin/mcp/': typeof AuthenticatedAdminMcpIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
   '/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
@@ -489,7 +505,6 @@ export interface FileRoutesByTo {
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
-  '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
@@ -516,10 +531,12 @@ export interface FileRoutesByTo {
   '/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
+  '/admin/mcp/$serverId': typeof AuthenticatedAdminMcpServerIdRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/admin/document-sets': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
+  '/admin/mcp': typeof AuthenticatedAdminMcpIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
   '/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
@@ -550,7 +567,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
-  '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
+  '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRouteWithChildren
   '/_authenticated/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
@@ -578,11 +595,13 @@ export interface FileRoutesById {
   '/_authenticated/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/_authenticated/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/_authenticated/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
+  '/_authenticated/admin/mcp/$serverId': typeof AuthenticatedAdminMcpServerIdRoute
   '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
   '/_authenticated/agents_/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/_authenticated/admin/document-sets/': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
+  '/_authenticated/admin/mcp/': typeof AuthenticatedAdminMcpIndexRoute
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
   '/_authenticated/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
@@ -640,11 +659,13 @@ export interface FileRouteTypes {
     | '/admin/document-sets/new'
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
+    | '/admin/mcp/$serverId'
     | '/admin/sources/$sourceId'
     | '/admin/sources/new'
     | '/agents/$agentId/edit'
     | '/admin/document-sets/'
     | '/admin/groups/'
+    | '/admin/mcp/'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
     | '/admin/sources/new/lark'
@@ -670,7 +691,6 @@ export interface FileRouteTypes {
     | '/admin/code-interpreter'
     | '/admin/identity-providers'
     | '/admin/image-generation'
-    | '/admin/mcp'
     | '/admin/mcp-endpoint'
     | '/admin/models'
     | '/admin/search-settings'
@@ -697,10 +717,12 @@ export interface FileRouteTypes {
     | '/admin/document-sets/new'
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
+    | '/admin/mcp/$serverId'
     | '/admin/sources/$sourceId'
     | '/agents/$agentId/edit'
     | '/admin/document-sets'
     | '/admin/groups'
+    | '/admin/mcp'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
     | '/admin/sources/new/lark'
@@ -758,11 +780,13 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/document-sets/new'
     | '/_authenticated/admin/groups/$groupId'
     | '/_authenticated/admin/groups/new'
+    | '/_authenticated/admin/mcp/$serverId'
     | '/_authenticated/admin/sources/$sourceId'
     | '/_authenticated/admin/sources/new'
     | '/_authenticated/agents_/$agentId/edit'
     | '/_authenticated/admin/document-sets/'
     | '/_authenticated/admin/groups/'
+    | '/_authenticated/admin/mcp/'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/google-drive'
     | '/_authenticated/admin/sources/new/lark'
@@ -1143,6 +1167,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminGroupsNewRouteImport
       parentRoute: typeof AuthenticatedAdminGroupsRoute
     }
+    '/_authenticated/admin/mcp/': {
+      id: '/_authenticated/admin/mcp/'
+      path: '/'
+      fullPath: '/admin/mcp/'
+      preLoaderRoute: typeof AuthenticatedAdminMcpIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminMcpRoute
+    }
+    '/_authenticated/admin/mcp/$serverId': {
+      id: '/_authenticated/admin/mcp/$serverId'
+      path: '/$serverId'
+      fullPath: '/admin/mcp/$serverId'
+      preLoaderRoute: typeof AuthenticatedAdminMcpServerIdRouteImport
+      parentRoute: typeof AuthenticatedAdminMcpRoute
+    }
     '/_authenticated/admin/sources/$sourceId': {
       id: '/_authenticated/admin/sources/$sourceId'
       path: '/sources/$sourceId'
@@ -1236,6 +1274,21 @@ const AuthenticatedAdminGroupsRouteWithChildren =
     AuthenticatedAdminGroupsRouteChildren,
   )
 
+interface AuthenticatedAdminMcpRouteChildren {
+  AuthenticatedAdminMcpServerIdRoute: typeof AuthenticatedAdminMcpServerIdRoute
+  AuthenticatedAdminMcpIndexRoute: typeof AuthenticatedAdminMcpIndexRoute
+}
+
+const AuthenticatedAdminMcpRouteChildren: AuthenticatedAdminMcpRouteChildren = {
+  AuthenticatedAdminMcpServerIdRoute: AuthenticatedAdminMcpServerIdRoute,
+  AuthenticatedAdminMcpIndexRoute: AuthenticatedAdminMcpIndexRoute,
+}
+
+const AuthenticatedAdminMcpRouteWithChildren =
+  AuthenticatedAdminMcpRoute._addFileChildren(
+    AuthenticatedAdminMcpRouteChildren,
+  )
+
 interface AuthenticatedAdminSourcesNewRouteChildren {
   AuthenticatedAdminSourcesNewFileRoute: typeof AuthenticatedAdminSourcesNewFileRoute
   AuthenticatedAdminSourcesNewGoogleDriveRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -1274,7 +1327,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
   AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
-  AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
+  AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRouteWithChildren
   AuthenticatedAdminMcpEndpointRoute: typeof AuthenticatedAdminMcpEndpointRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminSearchSettingsRoute: typeof AuthenticatedAdminSearchSettingsRoute
@@ -1304,7 +1357,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
     AuthenticatedAdminIdentityProvidersRoute,
   AuthenticatedAdminImageGenerationRoute:
     AuthenticatedAdminImageGenerationRoute,
-  AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRoute,
+  AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRouteWithChildren,
   AuthenticatedAdminMcpEndpointRoute: AuthenticatedAdminMcpEndpointRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminSearchSettingsRoute: AuthenticatedAdminSearchSettingsRoute,

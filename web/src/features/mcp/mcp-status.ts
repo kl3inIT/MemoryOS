@@ -69,6 +69,18 @@ export function serverBadge(
   }
 }
 
+/** The one line under a server's name: what is missing when something is, otherwise how many tools are on. */
+export function serverLine(
+  server: McpServerView,
+  step: ServerNextStep,
+): { line: AppCopy; tone: "muted" | "warning" | "danger" } {
+  const badge = serverBadge(server, step);
+  if (step !== null && step !== "FETCH_TOOLS") return { line: badge.label, tone: "warning" };
+  if (server.status === "DISCONNECTED") return { line: badge.label, tone: "danger" };
+  if (server.toolCount === 0) return { line: badge.label, tone: "muted" };
+  return { line: "{{enabled}}/{{total}} công cụ đang bật", tone: "muted" };
+}
+
 export function connectionStatus(state: McpConnection["connectionState"]): {
   tone: StatusTone;
   label: AppCopy;

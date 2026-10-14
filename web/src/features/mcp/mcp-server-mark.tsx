@@ -107,7 +107,7 @@ export function McpServerMark({
         )}
         style={brand.color === null ? undefined : ({ "--mcp-brand": brand.color } as CSSProperties)}
       >
-        <Icon icon={brand.icon} className="size-5" />
+        <Icon icon={brand.icon} className="size-5!" />
       </span>
     );
   }

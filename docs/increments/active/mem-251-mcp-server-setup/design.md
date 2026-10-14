@@ -79,15 +79,18 @@ Servers are listed in two columns as ChatGPT lists its plugins. Each row shows t
 colour (a bundled simple-icons mark matched by a word of the address or name, a monogram otherwise; a favicon would
 tell the host the Tenant's server list), the name, and one line: what is missing when something is, in the warning
 colour, otherwise the description or the enabled tool count. The row's only action is the next step, or a menu
-(edit, fetch tools again, delete) when nothing is missing. Selecting the row opens a side sheet with the URL, the
-status, whose account, who may use it, the OAuth applications, the tools and the delete action.
+(edit, fetch tools again, delete) when nothing is missing. Selecting the row opens the server's own page,
+`/admin/mcp/$serverId`, as ChatGPT gives each app a page and as Sources and Groups do here: the breadcrumb, the
+mark, name and next step, an information table (address, status, whose account, who may use it, tools), the OAuth
+applications and the tools. A side sheet was tried first and dropped by the owner. The OAuth callback may only
+return to `/admin/mcp`, so that route forwards an outcome about one server to the server's page.
 
 The next step is computed from the server, its OAuth applications and the administrator's own connection (the list
 Settings › Connections already reads):
 
 | State | Action |
 | --- | --- |
-| OAuth server without an application | **Thêm ứng dụng OAuth**: the sheet opens and discovery runs; if the authorization server accepts the client metadata document or registration, one button creates the application named after the server; otherwise the manual form opens with the discovered issuer and endpoints filled in, so only the client ID and secret are typed |
+| OAuth server without an application | **Thêm ứng dụng OAuth**, which opens the server's page, where it runs discovery; if the authorization server accepts the client metadata document or registration, one button creates the application named after the server; otherwise the manual form opens with the discovered issuer and endpoints filled in, so only the client ID and secret are typed |
 | Shared connection not made | **Kết nối tài khoản dùng chung** |
 | Per-person server whose administrator has not connected | **Kết nối tài khoản của bạn**, returning to the page, because listing tools uses that credential |
 | No tools listed yet, or the last listing failed | **Lấy công cụ** |

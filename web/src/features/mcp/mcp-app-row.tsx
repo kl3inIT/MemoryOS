@@ -6,23 +6,28 @@ export function McpAppGrid({ children }: { children: ReactNode }) {
   return <ul className="grid gap-x-8 gap-y-1 md:grid-cols-2">{children}</ul>;
 }
 
+/** Classes for the clickable part of a row when it opens the app's page. */
+export const appRowLinkClass =
+  "flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none";
+
 /**
  * One app: its mark, its name and one line, with a single action at the end. The line says what is missing when
- * something is, so a row needs no badge; everything else is behind `onOpen`.
+ * something is, so a row needs no badge; everything else is on the app's own page, which `link` opens.
  */
 export function McpAppRow({
   mark,
   title,
   line,
   tone = "muted",
-  onOpen,
+  link,
   action,
 }: {
   mark: ReactNode;
   title: string;
   line?: ReactNode;
   tone?: "muted" | "warning" | "danger";
-  onOpen?: () => void;
+  /** Wraps the mark and text in a link to the app's page; give it `appRowLinkClass`. */
+  link?: (body: ReactNode) => ReactNode;
   action?: ReactNode;
 }) {
   const body = (
@@ -49,17 +54,7 @@ export function McpAppRow({
   );
   return (
     <li className="flex min-h-16 items-center gap-3 rounded-xl px-2 py-2 hover:bg-surface-subtle">
-      {onOpen ? (
-        <button
-          type="button"
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
-          onClick={onOpen}
-        >
-          {body}
-        </button>
-      ) : (
-        <span className="flex min-w-0 flex-1 items-center gap-3">{body}</span>
-      )}
+      {link ? link(body) : <span className="flex min-w-0 flex-1 items-center gap-3">{body}</span>}
       {action ? <span className="shrink-0">{action}</span> : null}
     </li>
   );

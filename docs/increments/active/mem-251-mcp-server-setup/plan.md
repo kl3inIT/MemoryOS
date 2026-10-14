@@ -12,7 +12,7 @@ Design: [design.md](design.md). One pull request; web only, no API or migration 
 
 ## 2. Server list
 
-- [x] Two-column list with brand marks, one line and one action; details in a side sheet.
+- [x] Two-column list with brand marks, one line and one action; each server on its own page `/admin/mcp/$serverId`.
 - [x] Next-step rule from the server, its OAuth applications and the administrator's own connection; the line names
   what is missing.
 - [x] One "create automatically" discovery action; the manual form prefilled from discovery.

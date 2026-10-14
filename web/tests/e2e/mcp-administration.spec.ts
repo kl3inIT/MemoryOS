@@ -263,7 +263,7 @@ for (const theme of ["light", "dark"] as const) {
       });
 
       await page
-        .getByRole("button", { name: /Google Drive/ })
+        .getByRole("link", { name: /Google Drive/ })
         .first()
         .click();
       await expect(page.getByRole("heading", { name: "Ứng dụng OAuth" })).toBeVisible();
@@ -320,12 +320,12 @@ test("MCP administration lists servers, tools and OAuth applications", async ({ 
     timeout: 30_000,
   });
   await expect(page.getByText("Google Drive")).toBeVisible();
-  await expect(page.getByText("Tìm và đọc tài liệu trên Drive của tổ chức.")).toBeVisible();
+  await expect(page.getByText("4/6 công cụ đang bật")).toBeVisible();
   await expect(page.getByText("Cần kết nối")).toBeVisible();
   await page.screenshot({ path: "test-results/mcp-admin-list.png", fullPage: true });
 
   await page
-    .getByRole("button", { name: /Google Drive/ })
+    .getByRole("link", { name: /Google Drive/ })
     .first()
     .click();
   await expect(page.getByText("Tasco Miền Bắc")).toBeVisible();
