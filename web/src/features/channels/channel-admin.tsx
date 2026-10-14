@@ -1,17 +1,6 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, KeyRound, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { IconButton } from "@/components/ui/icon-button";
-import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   deleteChannelMutation,
@@ -87,7 +76,7 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
           open
           title={ui("Xóa bot {{name}}?", { name: removing.name })}
           description={ui(
-            "Bot ngừng trả lời trên Lark và tài khoản của bot bị vô hiệu hóa; các cuộc trò chuyện cũ vẫn giữ tên bot. Không hoàn tác được.",
+            "Bot ngừng trả lời trên Lark và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
           )}
           confirmLabel={ui("Xóa")}
           pendingLabel={ui("Đang xóa")}
@@ -125,43 +114,3 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
 }
 
 export type ChannelAdmin = ReturnType<typeof useChannelAdmin>;
-
-/** Switches a bot on or off; saved on change. */
-export function ChannelSwitch({ channel, admin }: { channel: ChannelResponse; admin: ChannelAdmin }) {
-  const ui = useAppTranslation();
-  return (
-    <Switch
-      checked={channel.enabled}
-      disabled={admin.switching(channel)}
-      aria-label={ui(channel.enabled ? "Tắt {{name}}" : "Bật {{name}}", { name: channel.name })}
-      onCheckedChange={(checked) => admin.setEnabled(channel, checked)}
-    />
-  );
-}
-
-/** Rare actions share one menu. */
-export function ChannelMenu({ channel, admin }: { channel: ChannelResponse; admin: ChannelAdmin }) {
-  const ui = useAppTranslation();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <IconButton size="sm" prominence="internal" aria-label={ui("Thao tác với {{name}}", { name: channel.name })}>
-          <MoreHorizontal />
-        </IconButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-44">
-        <DropdownMenuGroup>
-          <DropdownMenuItem onSelect={() => admin.replaceSecret(channel)}>
-            <KeyRound /> {ui("Thay App Secret")}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem variant="destructive" onSelect={() => admin.remove(channel)}>
-            <Trash2 /> {ui("Xóa bot")}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}

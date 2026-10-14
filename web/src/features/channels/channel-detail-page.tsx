@@ -11,7 +11,8 @@ import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
-import { type ChannelAdmin, ChannelMenu, ChannelSwitch, useChannelAdmin, useChannels } from "./channel-admin";
+import { ChannelMenu, ChannelSwitch } from "./channel-actions";
+import { type ChannelAdmin, useChannelAdmin, useChannels } from "./channel-admin";
 import { channelLine, channelState } from "./channel-status";
 import { ChannelMark } from "./channels-page";
 
@@ -56,9 +57,9 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
   const facts: [string, string][] = [
     [ui("Trạng thái"), ui(channelState(channel.status))],
     [ui("Bot trên Lark"), channel.botName ?? ui("Chưa rõ")],
-    [ui("Khu vực"), channel.region === "FEISHU" ? "Feishu" : "Lark"],
+    [ui("Khu vực"), channel.region === "FEISHU" ? ui("Feishu") : ui("Lark")],
     [ui("App ID"), channel.appId],
-    [ui("Ngôn ngữ thông báo"), channel.noticeLanguage === "en" ? "English" : "Tiếng Việt"],
+    [ui("Ngôn ngữ thông báo"), channel.noticeLanguage === "en" ? ui("English") : ui("Tiếng Việt")],
     [ui("Kết nối từ"), when(channel.connectedAt)],
     [ui("Tin nhắn gần nhất"), when(channel.lastMessageAt)],
     ...(channel.failureCode

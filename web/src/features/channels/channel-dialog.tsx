@@ -206,8 +206,8 @@ function ChannelForm({
                     <Field orientation="horizontal">
                       <RadioGroupItem id={`${id}-${value}`} value={value} />
                       <FieldContent>
-                        <FieldTitle>{value === "LARK" ? "Lark" : "Feishu"}</FieldTitle>
-                        <FieldDescription>{value === "LARK" ? "larksuite.com" : "feishu.cn"}</FieldDescription>
+                        <FieldTitle>{value === "LARK" ? ui("Lark") : ui("Feishu")}</FieldTitle>
+                        <FieldDescription>{value === "LARK" ? ui("larksuite.com") : ui("feishu.cn")}</FieldDescription>
                       </FieldContent>
                     </Field>
                   </FieldLabel>
@@ -221,7 +221,7 @@ function ChannelForm({
                 label={ui("App ID")}
                 disabled={saving || Boolean(replacing)}
                 readOnly={Boolean(replacing)}
-                placeholder="cli_a1b2c3d4e5f6a7b8"
+                placeholder={ui("cli_a1b2c3d4e5f6a7b8")}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -269,7 +269,7 @@ function ChannelForm({
                     <FieldLabel key={value} htmlFor={`${id}-${value}`} className="min-w-40 flex-1">
                       <Field orientation="horizontal">
                         <RadioGroupItem id={`${id}-${value}`} value={value} />
-                        <FieldTitle>{value === "vi" ? "Tiếng Việt" : "English"}</FieldTitle>
+                        <FieldTitle>{value === "vi" ? ui("Tiếng Việt") : ui("English")}</FieldTitle>
                       </Field>
                     </FieldLabel>
                   ))}
@@ -297,6 +297,8 @@ function ChannelForm({
     </form>
   );
 }
+
+const EVENT = "im.message.receive_v1";
 
 const SCOPES = [
   "im:message.p2p_msg:readonly",
@@ -326,7 +328,7 @@ function ChannelAppGuide() {
       </li>
       <li>
         {ui("Trong Events & callbacks, chọn nhận sự kiện qua long connection và thêm sự kiện")}{" "}
-        <code className="font-mono text-xs text-content-primary">im.message.receive_v1</code>.
+        <code className="font-mono text-xs text-content-primary">{EVENT}</code>.
       </li>
       <li>{ui("Tạo phiên bản và phát hành app, rồi sao chép App ID và App Secret.")}</li>
     </ol>

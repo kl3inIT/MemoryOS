@@ -2,7 +2,7 @@
 
 The Tenant's chat bots on messaging platforms, the Lark bot first. Design and status:
 [MEM-246](../increments/active/mem-246-lark-bot/design.md). What a bot receives and how a question becomes a Chat
-turn is built, with the Lark adapter and the administrator's API; no settings page exists yet.
+turn is built, with the Lark adapter, the administrator's API and its page.
 This page describes what exists.
 
 ## Connections
@@ -56,6 +56,17 @@ A bot's `status` is `OFF` when switched off; `NOT_RUNNING` when its supervisor h
 (90 seconds), so no process holds it; else `CONNECTED` while its connection is open, `FAILED` after a failure to open
 it, with the failure's typed code and time, or `CONNECTING`. No response carries the secret, and the request
 records redact it.
+
+### The administration page
+
+`/admin/channels` (`web/src/features/channels`), shown to a holder of `CHANNELS_MANAGE` under the agents and tools
+section, lists the bots as the MCP servers are listed: Lark's mark, the bot's name, one line and the switch, which
+saves on change. The line names what is wrong first (no connection, the bots' process not running), then a scope Lark
+refuses, else that the bot is off, connecting or answering; the list is read again every five seconds while a bot
+switched on is not connected. Each bot has its page, `/admin/channels/{id}`: its status, Lark's name for the bot,
+region, App ID, notice language, when it connected, its last message and its last failure, the scopes still missing,
+and a menu to replace the App Secret or delete the bot. Adding a bot is a dialog beside the console steps and scopes
+the app needs; the App Secret stays in a ref, never in query state or storage, and is cleared once sent.
 
 ## The adapter
 

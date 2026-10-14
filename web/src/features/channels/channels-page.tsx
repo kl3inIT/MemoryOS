@@ -10,7 +10,8 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { type ChannelAdmin, ChannelSwitch, useChannelAdmin, useChannels } from "./channel-admin";
+import { ChannelSwitch } from "./channel-actions";
+import { type ChannelAdmin, useChannelAdmin, useChannels } from "./channel-admin";
 import { channelLine } from "./channel-status";
 
 /**
