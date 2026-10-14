@@ -204,6 +204,60 @@ test("reorders projects on the Projects page by dragging a row and does not open
   for (const id of ids) await page.request.delete(`/api/chat/projects/${id}?revision=0`);
 });
 
+test("narrows the Projects page by a search kept in the address, without dragging, and says when nothing matches", async ({
+  page,
+}) => {
+  const ids = [
+    await createProject(page, "Lọc Tài chính"),
+    await createProject(page, "Lọc Kế hoạch quý"),
+  ];
+  await page.goto("/projects");
+  const main = page.getByRole("main");
+  const box = main.getByRole("textbox", { name: "Tìm dự án" });
+  const rows = main.getByRole("link", { name: /^Lọc/ });
+  const names = () =>
+    rows.evaluateAll((links) => links.map((link) => link.textContent?.replace(/0 tệp.*/, "")));
+  await expect.poll(names).toEqual(["Lọc Kế hoạch quý", "Lọc Tài chính"]);
+
+  // Typed without its marks, the search still finds the name.
+  await box.fill("loc ke hoach");
+  await expect.poll(names).toEqual(["Lọc Kế hoạch quý"]);
+  await expect(page).toHaveURL(/[?&]q=loc(\+|%20)ke(\+|%20)hoach/);
+  await page.reload();
+  await expect(box).toHaveValue("loc ke hoach");
+  await expect.poll(names).toEqual(["Lọc Kế hoạch quý"]);
+
+  // A narrowed list has no handles and does not move under the pointer.
+  await box.fill("loc");
+  await expect.poll(names).toEqual(["Lọc Kế hoạch quý", "Lọc Tài chính"]);
+  await expect(main.getByText("Xóa từ khóa để sắp xếp lại dự án.")).toBeVisible();
+  await expect(main.getByRole("button", { name: /^Kéo để sắp xếp/ })).toHaveCount(0);
+  let reordered = false;
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/chat/projects/order") && request.method() === "PUT")
+      reordered = true;
+  });
+  const from = await rows.nth(0).boundingBox();
+  const target = await rows.nth(1).boundingBox();
+  if (!from || !target) throw new Error("The project rows have no layout.");
+  await page.mouse.move(from.x + 60, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 60, target.y + target.height - 2, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  expect(reordered).toBe(false);
+  await expect.poll(names).toEqual(["Lọc Kế hoạch quý", "Lọc Tài chính"]);
+
+  await box.fill("khong co du an nay");
+  await expect(main.getByRole("heading", { name: "Không có dự án nào khớp" })).toBeVisible();
+  await main.getByRole("button", { name: "Xóa bộ lọc" }).click();
+  await expect(box).toHaveValue("");
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(main.getByRole("button", { name: "Kéo để sắp xếp Lọc Tài chính" })).toHaveCount(1);
+
+  for (const id of ids) await page.request.delete(`/api/chat/projects/${id}?revision=0`);
+});
+
 test("selecting text in the project editor does not drag the project rows behind it", async ({
   page,
 }) => {
