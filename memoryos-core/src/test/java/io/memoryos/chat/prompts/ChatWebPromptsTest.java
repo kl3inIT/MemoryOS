@@ -67,6 +67,22 @@ class ChatWebPromptsTest {
         assertEquals(2, original.getInstructions().size());
         assertSame(original.getOptions(), guided.getOptions());
     }
+    /** MEM-254: a gateway that keeps only the first system message must still see the agent prompt. */
+    @Test void theGuidanceOpensTheAgentPromptInOneSystemMessage() {
+        var guided = ChatPrompts.forInference(prompt(Set.of("search_knowledge"), null), true, true, true, "Task.", true, "Rules.");
+        var systems = guided.getInstructions().stream().filter(SystemMessage.class::isInstance).map(Message::getText).toList();
+        assertEquals(1, systems.size());
+        assertTrue(systems.getFirst().contains("Answer only from the organization's documents"));
+        assertTrue(systems.getFirst().contains("Rules."));
+        assertTrue(systems.getFirst().endsWith("Preserve my Persona instructions."));
+        assertTrue(guided.getInstructions().getFirst() instanceof SystemMessage);
+
+        var withoutSystem = new Prompt(List.of(new UserMessage("Hi")), OpenAiChatOptions.builder().build());
+        var created = ChatPrompts.forInference(withoutSystem, false, false, true, "", true, "");
+        assertEquals(1, created.getInstructions().stream().filter(SystemMessage.class::isInstance).count());
+        assertTrue(created.getInstructions().getFirst().getText().startsWith("# Answer only from the organization's documents"));
+    }
+
     @Test void disabledWebAndNoToolsNeverAdvertiseUnavailableTools() {
         String internal = ChatPrompts.forInference(prompt(Set.of("search_knowledge"), null), false, false).toString();
         assertTrue(internal.contains("## search_knowledge"));

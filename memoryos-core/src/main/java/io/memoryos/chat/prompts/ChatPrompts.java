@@ -336,8 +336,7 @@ public final class ChatPrompts {
         if (!topicRules.isEmpty()) guidance = guidance.isEmpty() ? topicRules : guidance + "\n" + topicRules;
         boolean openPages = !lastCycle && tools.contains("open_url") && justSearchedWeb(original);
         if (!hasEvidence && !lastCycle && !openPages && !task && guidance.isEmpty()) return original;
-        var messages = new ArrayList<>(original.getInstructions());
-        if (!guidance.isEmpty()) messages.addFirst(new SystemMessage(guidance));
+        var messages = new ArrayList<>(withGuidance(original, guidance).getInstructions());
         if (!hasEvidence && !lastCycle && !openPages && !task) return new Prompt(messages, original.getOptions());
         var reminder = new StringBuilder("<system-reminder>\n");
         if (task) reminder.append(taskPrompt.strip()).append('\n');
@@ -350,5 +349,18 @@ public final class ChatPrompts {
         reminder.append("</system-reminder>");
         messages.add(new UserMessage(reminder.toString()));
         return new Prompt(messages, original.getOptions());
+    }
+
+    /**
+     * MEM-254: the guidance opens the system message the request already carries rather than becoming a second one.
+     * Embabel consolidates system content into one message, Onyx builds one system prompt with its tool guidance, and
+     * a gateway may keep only the first system message (9Router's Chat-to-Responses translator did, dropping the agent
+     * prompt and the user information). Spring AI's {@link Prompt#augmentSystemMessage} creates one when there is none.
+     */
+    private static Prompt withGuidance(Prompt original, String guidance) {
+        if (guidance.isEmpty()) return original;
+        return original.augmentSystemMessage(system -> system.mutate()
+                .text(system.getText() == null || system.getText().isBlank() ? guidance : guidance + "\n" + system.getText())
+                .build());
     }
 }
