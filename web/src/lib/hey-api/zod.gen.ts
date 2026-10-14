@@ -411,9 +411,14 @@ export const zMcpToolView = z.object({
     readOnlyHint: z.boolean().nullable(),
     destructiveHint: z.boolean().nullable(),
     enabled: z.boolean(),
+    approvalRequired: z.boolean(),
     exposable: z.boolean(),
     snapshotAt: z.iso.datetime(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zMcpToolApproval = z.object({
+    approvalRequired: z.boolean()
 });
 
 /**
@@ -2283,6 +2288,10 @@ export const zBranchChatSessionRequest = z.object({
     title: z.string().min(0).max(200).optional()
 });
 
+export const zChatToolDecision = z.object({
+    approved: z.boolean()
+});
+
 export const zCancellation = z.object({
     assistantMessageId: z.uuid(),
     status: z.enum([
@@ -3342,7 +3351,9 @@ export const zActivityStep = z.object({
     failure: z.enum([
         'AUTHORIZATION_REQUIRED',
         'TIMEOUT',
-        'UNAVAILABLE'
+        'UNAVAILABLE',
+        'DECLINED',
+        'NO_DECISION'
     ]).optional()
 });
 
@@ -3573,6 +3584,20 @@ export const zWaitingEvent = z.object({
     assistantMessageId: z.uuid(),
     sequence: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     waiting: z.boolean()
+});
+
+export const zToolApprovalEvent = z.object({
+    assistantMessageId: z.uuid(),
+    sequence: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    toolCallId: z.string(),
+    serverName: z.string(),
+    toolName: z.string(),
+    arguments: z.string(),
+    decision: z.enum([
+        'APPROVED',
+        'DECLINED',
+        'NO_DECISION'
+    ]).optional()
 });
 
 export const zChatBranch = z.object({
@@ -4466,6 +4491,22 @@ export const zSetMcpServerToolEnabledQuery = z.object({
  * Saved tool
  */
 export const zSetMcpServerToolEnabledResponse = zMcpToolView;
+
+export const zSetMcpServerToolApprovalBody = zMcpToolApproval;
+
+export const zSetMcpServerToolApprovalPath = z.object({
+    serverId: z.uuid(),
+    toolId: z.uuid()
+});
+
+export const zSetMcpServerToolApprovalQuery = z.object({
+    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Saved tool
+ */
+export const zSetMcpServerToolApprovalResponse = zMcpToolView;
 
 export const zSetAllMcpServerToolsEnabledBody = zMcpToolEnablement;
 
@@ -6398,6 +6439,19 @@ export const zBranchChatSessionPath = z.object({
  */
 export const zBranchChatSessionResponse = zChatSession;
 
+export const zDecideChatToolCallBody = zChatToolDecision;
+
+export const zDecideChatToolCallPath = z.object({
+    sessionId: z.uuid(),
+    assistantMessageId: z.uuid(),
+    toolCallId: z.string().min(1).max(256)
+});
+
+/**
+ * Decision delivered to the running reply
+ */
+export const zDecideChatToolCallResponse = z.void();
+
 export const zCancelChatMessagePath = z.object({
     sessionId: z.uuid(),
     assistantMessageId: z.uuid()
@@ -7380,7 +7434,8 @@ export const zStreamChatMessageResponse = z.union([
     zResearchAgentStartEvent,
     zIntermediateReportEvent,
     zIntermediateReportCitationsEvent,
-    zWaitingEvent
+    zWaitingEvent,
+    zToolApprovalEvent
 ]);
 
 export const zGetChatFeedbackPath = z.object({

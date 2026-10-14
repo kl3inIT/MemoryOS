@@ -285,6 +285,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
   if (mode === "mcp") seedMcp(value);
   return value;
 }
+const APPROVAL_CALL = { toolCallId: "call-send", toolName: "mcp_gmail_send_email" };
 function emit(run: Run, event: string, data: object) {
   const sequence = run.packets.length + 1;
   const packet = `id: ${run.id}:${sequence}\nevent: ${event}\ndata: ${JSON.stringify({ assistantMessageId: run.id, sequence, ...data })}\n\n`;
@@ -704,6 +705,22 @@ export async function handleChatFixture(
       202,
     );
     const grounded = state.mode.startsWith("grounded");
+    if (state.mode === "approval") {
+      // MEM-253: a Gmail send that waits for the person; the decision endpoint finishes the reply.
+      emit(run, "tool", { ...APPROVAL_CALL, stage: "STARTED", source: null });
+      emit(run, "tool_approval", {
+        toolCallId: APPROVAL_CALL.toolCallId,
+        serverName: "Gmail",
+        toolName: "send_email",
+        arguments: JSON.stringify({
+          to: "an.nguyen@tasco.vn",
+          subject: "Báo cáo doanh thu tháng 9",
+          body: "Chào anh An,\n\nEm gửi báo cáo doanh thu tháng 9 của khu vực miền Bắc.\n\nTrân trọng,\nMinh Anh",
+        }),
+        decision: null,
+      });
+      return true;
+    }
     if (state.mode === "grounded-progress")
       emit(run, "reasoning", { text: "Checking the latest HR policy before answering." });
     if (grounded)
@@ -884,6 +901,32 @@ export async function handleChatFixture(
   const run = state.runs.get(segments[6]!);
   if (!run) {
     json(response, {}, 404);
+    return true;
+  }
+  if (segments[7] === "tool-calls" && segments[9] === "decision") {
+    const { approved } = (await body(request)) as { approved: boolean };
+    const decision = approved ? "APPROVED" : "DECLINED";
+    emit(run, "tool_approval", {
+      toolCallId: segments[8],
+      serverName: "Gmail",
+      toolName: "send_email",
+      arguments: "{}",
+      decision,
+    });
+    emit(run, "tool", {
+      ...APPROVAL_CALL,
+      stage: approved ? "COMPLETED" : "FAILED",
+      source: null,
+      durationMs: 900,
+      failure: approved ? null : "DECLINED",
+    });
+    const text = approved
+      ? "Đã gửi email báo cáo cho anh An."
+      : "Bạn đã từ chối nên email chưa được gửi.";
+    state.messages.at(-1)!.content = text;
+    emit(run, "text", { text });
+    response.writeHead(204).end();
+    setTimeout(() => finish(state, run, "COMPLETED"), 300);
     return true;
   }
   if (segments[7] === "cancel") {

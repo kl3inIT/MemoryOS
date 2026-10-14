@@ -1567,6 +1567,91 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/servers/{serverId}/tools/{toolId}/approval:
+    put:
+      tags:
+      - MCP
+      summary: "Set whether an enabled tool asks the person before each call, at the\
+        \ expected revision"
+      operationId: setMcpServerToolApproval
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpToolApproval"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers/{serverId}/tools/enabled:
     put:
       tags:
@@ -11901,6 +11986,84 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/tool-calls/{toolCallId}/decision:
+    post:
+      tags:
+      - Chat
+      summary: Approve or decline a tool call that waits for the reply owner's approval
+      operationId: decideChatToolCall
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: assistantMessageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: toolCallId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 256
+          minLength: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatToolDecision"
+        required: true
+      responses:
+        "204":
+          description: Decision delivered to the running reply
+        "409":
+          description: Conflicting request or active reply
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Chat capacity exhausted or provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel:
     post:
       tags:
@@ -16965,9 +17128,9 @@ paths:
       summary: Read or resume reply events; reset requires persisted history
       description: "Events: text, reasoning, tool, image, code, research_plan, top_level_branching,\
         \ research_agent_start, intermediate_report, intermediate_report_citations,\
-        \ waiting, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
-        \ confirms a committed terminal state. Heartbeats are comments. A reset has\
-        \ no event id."
+        \ waiting, tool_approval, outcome, reset. Content event id is assistantMessageId:sequence.\
+        \ Only outcome confirms a committed terminal state. Heartbeats are comments.\
+        \ A reset has no event id."
       operationId: streamChatMessage
       parameters:
       - name: sessionId
@@ -17038,6 +17201,7 @@ paths:
                 - $ref: "#/components/schemas/IntermediateReportEvent"
                 - $ref: "#/components/schemas/IntermediateReportCitationsEvent"
                 - $ref: "#/components/schemas/WaitingEvent"
+                - $ref: "#/components/schemas/ToolApprovalEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -23732,6 +23896,9 @@ components:
           - "null"
         enabled:
           type: boolean
+        approvalRequired:
+          type: boolean
+          description: An enabled tool waits for the person to approve each call
         exposable:
           type: boolean
         snapshotAt:
@@ -23741,6 +23908,7 @@ components:
           type: integer
           format: int64
       required:
+      - approvalRequired
       - description
       - destructiveHint
       - enabled
@@ -23752,6 +23920,13 @@ components:
       - revision
       - snapshotAt
       - title
+    McpToolApproval:
+      type: object
+      properties:
+        approvalRequired:
+          type: boolean
+      required:
+      - approvalRequired
     McpOAuthClientInput:
       type: object
       description: A pre-registered OAuth client; the secret is write-only
@@ -28563,6 +28738,13 @@ components:
             when absent
           maxLength: 200
           minLength: 0
+    ChatToolDecision:
+      type: object
+      properties:
+        approved:
+          type: boolean
+      required:
+      - approved
     Cancellation:
       type: object
       properties:
@@ -31049,6 +31231,8 @@ components:
           - AUTHORIZATION_REQUIRED
           - TIMEOUT
           - UNAVAILABLE
+          - DECLINED
+          - NO_DECISION
     ChatActivity:
       type: object
       properties:
@@ -31820,6 +32004,38 @@ components:
       - assistantMessageId
       - sequence
       - waiting
+    ToolApprovalEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        serverName:
+          type: string
+        toolName:
+          type: string
+        arguments:
+          type: string
+          description: "The call's JSON arguments, cut at 4,000 characters"
+        decision:
+          type: string
+          description: Absent while the call waits
+          enum:
+          - APPROVED
+          - DECLINED
+          - NO_DECISION
+      required:
+      - arguments
+      - assistantMessageId
+      - sequence
+      - serverName
+      - toolCallId
+      - toolName
     ChatBranch:
       type: object
       properties:

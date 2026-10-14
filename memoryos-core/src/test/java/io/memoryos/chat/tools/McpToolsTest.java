@@ -40,7 +40,7 @@ class McpToolsTest {
     private final List<ChatToolEvent> events = new ArrayList<>();
     private final MeterRegistry meters = new SimpleMeterRegistry();
     private final McpTurnTools.Binding binding = new McpTurnTools.Binding(SERVER, "drive", "Drive", "search_files",
-            "mcp_drive_search_files", "Search files.", "{\"type\":\"object\"}", true);
+            "mcp_drive_search_files", "Search files.", "{\"type\":\"object\"}", true, false);
 
     private McpTools tools(int maxCalls, int contextTokens) {
         when(turn.bindings()).thenReturn(List.of(binding));
@@ -62,7 +62,7 @@ class McpToolsTest {
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 Tokenizers.o200k(), meters);
         when(turn.bindings()).thenReturn(List.of(new McpTurnTools.Binding(SERVER, "drive", "Drive", "delete_file",
-                "mcp_drive_delete_file", "Delete a file.", "{\"type\":\"object\"}", false)));
+                "mcp_drive_delete_file", "Delete a file.", "{\"type\":\"object\"}", false, false)));
         assertTrue(writeTool.tools().getFirst().getDefinition().getDescription()
                 .startsWith("This tool can change or delete data."));
     }
@@ -98,6 +98,41 @@ class McpToolsTest {
         String message = assertInstanceOf(Tool.Result.Error.class, rejectedResult).getMessage();
         assertTrue(message.contains("reconnect"));
         assertTrue(message.contains("Drive"));
+    }
+
+    @Test
+    void runsACallThatRequiresApprovalOnlyOnceThePersonApproves() {
+        var send = new McpTurnTools.Binding(SERVER, "gmail", "Gmail", "send_email", "mcp_gmail_send_email",
+                "Send an email.", "{\"type\":\"object\"}", false, true);
+        when(turn.bindings()).thenReturn(List.of(send));
+        when(turn.unavailable()).thenReturn(List.of());
+        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("sent", false));
+        var activity = new ChatToolActivity(ignored -> {});
+        var tool = new McpTools(turn, () -> {}, Duration.ofSeconds(30), 10, events::add, activity, () -> 8000,
+                Tokenizers.o200k(), meters).tools().getFirst();
+
+        when(turn.decide(any(), any(), any())).thenReturn(McpTurnTools.Decision.DECLINED);
+        String declined = assertInstanceOf(Tool.Result.Text.class, tool.call("{\"to\":\"a@example.com\"}")).getContent();
+        assertTrue(declined.contains("declined"));
+        verify(turn, Mockito.never()).call(any(), any(), any());
+        verify(turn).decide(send, events.getLast().toolCallId(), "{\"to\":\"a@example.com\"}");
+        assertEquals(ChatToolEvent.Failure.DECLINED, events.getLast().failure());
+
+        when(turn.decide(any(), any(), any())).thenReturn(McpTurnTools.Decision.NO_DECISION);
+        assertTrue(assertInstanceOf(Tool.Result.Text.class, tool.call("{}")).getContent().contains("did not approve"));
+        assertEquals(ChatToolEvent.Failure.NO_DECISION, events.getLast().failure());
+        verify(turn, Mockito.never()).call(any(), any(), any());
+
+        when(turn.decide(any(), any(), any())).thenReturn(McpTurnTools.Decision.APPROVED);
+        assertTrue(assertInstanceOf(Tool.Result.Text.class, tool.call("{}")).getContent().contains("sent"));
+        verify(turn).call(any(), any(), any());
+    }
+
+    @Test
+    void neverAsksBeforeACallThatDoesNotRequireApproval() {
+        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false));
+        tools(10, 8000).tools().getFirst().call("{}");
+        verify(turn, Mockito.never()).decide(any(), any(), any());
     }
 
     @Test

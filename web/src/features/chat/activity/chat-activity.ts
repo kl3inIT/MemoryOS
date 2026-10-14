@@ -30,7 +30,13 @@ const stageSchema = z.enum([
   "FAILED",
 ]);
 /** Why a failed step failed when the person can act on it; a category only, never upstream text. */
-const failureSchema = z.enum(["AUTHORIZATION_REQUIRED", "TIMEOUT", "UNAVAILABLE"]);
+const failureSchema = z.enum([
+  "AUTHORIZATION_REQUIRED",
+  "TIMEOUT",
+  "UNAVAILABLE",
+  "DECLINED",
+  "NO_DECISION",
+]);
 
 export const toolEventSchema = z.object({
   toolCallId: z.string().min(1).max(256),

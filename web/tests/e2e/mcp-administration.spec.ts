@@ -74,6 +74,7 @@ const tools: ListMcpServerToolsResponse = [
     readOnlyHint: true,
     destructiveHint: false,
     enabled: true,
+    approvalRequired: false,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -87,6 +88,7 @@ const tools: ListMcpServerToolsResponse = [
     readOnlyHint: true,
     destructiveHint: false,
     enabled: true,
+    approvalRequired: false,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -100,6 +102,7 @@ const tools: ListMcpServerToolsResponse = [
     readOnlyHint: false,
     destructiveHint: true,
     enabled: false,
+    approvalRequired: true,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -113,6 +116,7 @@ const tools: ListMcpServerToolsResponse = [
     readOnlyHint: true,
     destructiveHint: false,
     enabled: false,
+    approvalRequired: false,
     exposable: false,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -333,7 +337,7 @@ test("MCP administration lists servers, tools and OAuth applications", async ({ 
   await expect(page.getByText("Tên quá dài", { exact: true })).toBeVisible();
   // A tool whose model-facing name cannot fit is visible but not switchable.
   await expect(
-    page.getByRole("switch", {
+    page.getByRole("combobox", {
       name: "a_tool_name_that_cannot_fit_inside_the_model_tool_name_limit_at_all",
     }),
   ).toBeDisabled();
@@ -407,4 +411,23 @@ test("Rare server actions sit in one menu so the row fits a phone", async ({ pag
   await menu.click();
   await page.getByRole("menuitem", { name: "Xóa máy chủ" }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
+});
+
+test("A tool that asks first waits for the owner and continues once allowed", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await stub(page);
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", {
+      data: { title: "Báo cáo tháng 9", mode: "approval" },
+    })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  await page.getByRole("textbox", { name: "Câu hỏi" }).fill("Gửi báo cáo cho anh An qua Gmail");
+  await page.keyboard.press("Enter");
+
+  // The card shows each argument the call would send, before anything runs.
+  await expect(page.getByText("Cho phép send_email trên Gmail?")).toBeVisible();
+  await expect(page.getByText("an.nguyen@tasco.vn")).toBeVisible();
+  await page.getByRole("button", { name: "Cho phép" }).click();
+  await expect(page.getByText("Đã gửi email báo cáo cho anh An.")).toBeVisible();
 });

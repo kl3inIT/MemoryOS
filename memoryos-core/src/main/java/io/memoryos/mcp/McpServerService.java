@@ -97,7 +97,7 @@ public class McpServerService {
     /** {@code exposable} is false when {@code mcp_<slug>_<name>} does not fit model tool-name limits. */
     public record ToolView(UUID id, String name, String modelName, @Nullable String title, String description,
                            @Nullable Boolean readOnlyHint, @Nullable Boolean destructiveHint, boolean enabled,
-                           boolean exposable, Instant snapshotAt, long revision) {}
+                           boolean approvalRequired, boolean exposable, Instant snapshotAt, long revision) {}
 
     public record Refresh(ServerView server, List<ToolView> tools) {}
 
@@ -192,6 +192,21 @@ public class McpServerService {
         return toolView(server, saved);
     }
 
+    /** Whether an enabled tool waits for the person to approve each call (MEM-253). */
+    @Transactional
+    public ToolView setToolApproval(ActorId actor, UUID serverId, UUID toolId, long revision, boolean approvalRequired) {
+        UUID tenant = write(actor);
+        var server = server(tenant, serverId);
+        var tool = tools.findByTenantIdAndServerIdAndId(tenant, serverId, toolId).orElseThrow(McpException::notFound);
+        if (tool.revision() != revision) throw McpException.conflict();
+        boolean changed = tool.approvalRequired() != approvalRequired;
+        tool.approvalRequired(approvalRequired);
+        var saved = tools.saveAndFlush(tool);
+        if (changed) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", List.of(tool.name())).detail("approvalRequired", approvalRequired));
+        return toolView(server, saved);
+    }
+
     /** Enables every exposable tool, or disables every tool. */
     @Transactional
     public List<ToolView> setAllToolsEnabled(ActorId actor, UUID serverId, boolean enabled) {
@@ -252,8 +267,10 @@ public class McpServerService {
                 var entity = existing.get(tool.name());
                 if (entity == null) {
                     entity = new McpServerToolEntity(UUID.randomUUID(), tenant, serverId, tool.name());
-                    // A tool the server declares read-only starts on; one that may change data waits for the administrator.
+                    // A tool the server declares read-only starts on; one that may change data waits for the administrator
+                    // and, once turned on, asks the person before each call.
                     entity.enabled(tool.readOnly() && McpServerRules.modelToolName(server.slug(), tool.name()).isPresent());
+                    entity.approvalRequired(!tool.readOnly());
                 }
                 entity.snapshot(tool.title(), tool.description(), tool.inputSchema(), tool.annotations(), tool.readOnly(), now);
                 tools.save(entity);
@@ -431,7 +448,7 @@ public class McpServerService {
         var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
         return new ToolView(tool.getId(), tool.name(), modelName.orElse(""), tool.title(), tool.description(),
                 McpServerRules.hint(tool.annotations(), "readOnlyHint"), McpServerRules.hint(tool.annotations(), "destructiveHint"),
-                tool.enabled(), modelName.isPresent(), tool.snapshotAt(), tool.revision());
+                tool.enabled(), tool.approvalRequired(), modelName.isPresent(), tool.snapshotAt(), tool.revision());
     }
 
     private McpServerEntity server(UUID tenant, UUID serverId) {
