@@ -214,5 +214,22 @@ class ComposeLayeringTest(unittest.TestCase):
         egress = re.search(r"\n  egress:\n((?:    .*\n?)*)", "\n" + declared).group(1)
         self.assertNotIn("internal: true", egress, "an internal network is no way out")
 
+
+def networks(text, service):
+    """The networks a service block names, in its own text."""
+    block = re.search(r"\n  %s:\n(.*?)(?=\n  [a-z0-9_-]+:\n|\Z)" % re.escape(service), text, re.S).group(1)
+    listed = re.search(r"\n    networks:\n((?:      .*\n?)*)", "\n" + block)
+    return set(re.findall(r"^      ([a-z0-9-]+):", listed.group(1), re.M)) if listed else set()
+
+
+class ChannelsEgressTest(unittest.TestCase):
+    def test_the_bots_process_reaches_out_as_the_api_does(self):
+        # MEM-246: the first staging run of the bots' process had only internal networks; it could resolve neither
+        # Lark nor a model provider, and every bot failed to open with CHANNEL_OPEN_FAILED.
+        egress = networks(STAGING, "api") - {"memoryos-telemetry"}
+        self.assertTrue(egress)
+        self.assertLessEqual(egress, networks(STAGING, "channels"))
+
+
 if __name__ == "__main__":
     unittest.main()
