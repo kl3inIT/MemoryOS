@@ -62,7 +62,7 @@ export function ChannelDialog(props: ChannelDialogProps) {
       >
         <DialogHeader>
           <DialogTitle>{replacing ? ui("Thay App Secret của bot") : ui("Thêm bot Lark")}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             {ui("Lark kiểm tra app trước khi lưu; app bị từ chối sẽ không được lưu.")}
           </DialogDescription>
         </DialogHeader>

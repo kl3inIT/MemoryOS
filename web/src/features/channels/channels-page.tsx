@@ -29,7 +29,6 @@ export function ChannelsPage() {
       <PageHeader
         title={ui("Bot chat")}
         icon={<BotMessageSquare />}
-        description={ui("Bot trả lời trong Lark bằng tri thức của MemoryOS, theo quyền của người hỏi.")}
         actions={
           <Button onClick={admin.add}>
             <Plus data-icon="inline-start" />
