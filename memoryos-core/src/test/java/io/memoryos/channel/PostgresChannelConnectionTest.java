@@ -246,7 +246,7 @@ class PostgresChannelConnectionTest {
             throw new UnsupportedOperationException();
         }
 
-        @Override public ChannelReply reply(ChannelConnection connection, ChannelMessage message) { throw new UnsupportedOperationException(); }
+        @Override public ChannelReply reply(ChannelConnection connection, ChannelMessage message, String waiting) { throw new UnsupportedOperationException(); }
 
         @Override public void notice(ChannelConnection connection, ChannelMessage message, String text) {}
 

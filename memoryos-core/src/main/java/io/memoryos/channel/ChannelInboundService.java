@@ -115,7 +115,7 @@ public class ChannelInboundService {
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
         ActorId actor = direct && sender != null ? sender : connection.serviceAccount();
         UUID session = conversation(connection, message, actor, now);
-        var reply = adapter.reply(connection, message);
+        var reply = adapter.reply(connection, message, ChannelNotice.WRITING.in(connection.noticeLanguage()));
         ChannelTurns.Answer answer;
         try {
             answer = turns.ask(actor, session, title(message.text()), request(connection, message), message.text(),

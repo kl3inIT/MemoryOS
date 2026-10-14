@@ -28,7 +28,7 @@ public interface ChannelAdapter {
     ChannelVerification verify(ChannelRegion region, String appId, String secret);
 
     /** Opens the reply to one message, which quotes it. */
-    ChannelReply reply(ChannelConnection connection, ChannelMessage message);
+    ChannelReply reply(ChannelConnection connection, ChannelMessage message, String waiting);
 
     /** Sends one short message in answer to another: a refusal, a notice. */
     void notice(ChannelConnection connection, ChannelMessage message, String text);

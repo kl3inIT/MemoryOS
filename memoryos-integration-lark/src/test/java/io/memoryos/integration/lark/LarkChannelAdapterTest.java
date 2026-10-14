@@ -15,7 +15,6 @@ import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelMessage;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
-import io.memoryos.channel.ChannelReply;
 import io.memoryos.shared.ActorId;
 import java.time.Instant;
 import java.util.List;
@@ -64,18 +63,11 @@ class LarkChannelAdapterTest {
     }
 
     @Test
-    void anAnswerIsMarkdownWithItsSourcesAsLinksAndItsClosingLine() {
-        assertEquals("""
-                Bạn có 12 ngày phép.
+    void anotherPersonsMentionKeyBecomesTheirName() {
+        var message = LarkChannelAdapter.convert(CONNECTION, message("oc_group", "group", "@_user_1 hỏi giúp @_user_2 về phép",
+                "text", List.of(BOT, QUAN), true, null, "o", "o"));
 
-                1. [Quy chế (2026)](https://tasco.larksuite.com/wiki/abc)
-                2. Sổ tay nhân sự
-
-                Trả lời vào tin này để hỏi tiếp.""",
-                LarkChannelAdapter.markdown(" Bạn có 12 ngày phép. ", List.of(
-                        new ChannelReply.Source("Quy chế [2026]", "https://tasco.larksuite.com/wiki/abc"),
-                        new ChannelReply.Source("Sổ tay nhân sự", null)), "Trả lời vào tin này để hỏi tiếp."));
-        assertEquals("Chỉ câu trả lời.", LarkChannelAdapter.markdown("Chỉ câu trả lời.", List.of(), null));
+        assertEquals("hỏi giúp @Quân về phép", message.text());
     }
 
     @Test

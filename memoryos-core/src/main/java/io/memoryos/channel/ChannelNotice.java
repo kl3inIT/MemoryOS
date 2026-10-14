@@ -11,6 +11,7 @@ enum ChannelNotice {
             "The assistant does not answer in a group with people outside the organisation. Send it a direct message."),
     TEXT_ONLY("Hiện trợ lý chỉ đọc được tin nhắn văn bản.", "The assistant reads text messages only for now."),
     NEW_CONVERSATION("Đã bắt đầu cuộc trò chuyện mới.", "A new conversation has started."),
+    WRITING("Đang trả lời…", "Answering…"),
     BUSY("Trợ lý đang bận. Hãy hỏi lại sau ít phút.", "The assistant is busy. Ask again in a moment."),
     LIMIT("Đã hết hạn mức sử dụng AI. Hãy liên hệ quản trị viên.", "The AI usage limit is reached. Contact an administrator."),
     FAILED("Trợ lý chưa trả lời được câu này. Hãy thử lại.", "The assistant could not answer this. Try again."),
