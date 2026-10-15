@@ -2,7 +2,7 @@
 
 Design: [design.md](design.md).
 
-Status 2026-10-15: step 0 done (references read, probe on staging recorded in the design). Each later step is one
+Status 2026-10-15: step 0 done (references read, probe on staging recorded in the design); step 1 in progress on `dathip04/mem-270-sandbox-runtime`: `memoryos-sandbox/` (server and computer images), the `sandbox` Compose service, CI job, `deploy.sh`, runbook and ADR 0029. Each later step is one
 pull request, merged and deployed before the next. Comes before MEM-265 (owner, 2026-10-15).
 
 | Step | Change | Verification |

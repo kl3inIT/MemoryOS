@@ -305,6 +305,27 @@ Operating constraints:
 - **Logs.** The service writes JSON logs to stdout. Read them with `docker logs memoryos-interpreter`; they are not exported through OTLP.
 - **Executor image.** The image is about 3.3 GB, including LibreOffice Calc for `recalc-xlsx`. The service's image watchdog is disabled because the service has no registry credentials. `docker image prune -a` or `docker system prune -a` removes the executor image; `/health` then fails, and runs fail until the next deployment pulls it again. The interpreter CI job has no layer cache yet, so each release adds roughly 3.5 GB of new layers on the host; remove only interpreter images that neither `deployments/current.env` nor a retained `previous.env` references.
 
+## Sandbox runtime
+
+`memoryos-sandbox` ([MEM-270](../increments/active/mem-270-chat-sandbox/design.md), [ADR 0029](../decisions/0029-chat-sandbox-through-opensandbox.md)) is the OpenSandbox lifecycle server: it starts one sandbox container per Chat conversation from `memoryos-sandbox-computer`. No MemoryOS component calls it until MEM-270 step 2.
+
+- **Release.** The CI `sandbox` job builds both images from `memoryos-sandbox/`, checks the computer image's tools and starts the server with a key from a file, and on a main push pushes both to GHCR for publication to record. The server image is `opensandbox/server` pinned by digest with `memoryos-sandbox/server/config.toml` inside it.
+- **Pull.** The deployment pulls the server through Compose and the computer image with `docker pull`, both with the job-scoped token, and checks both revision labels. The computer image is not a Compose service. The server pulls OpenSandbox's own `execd` and `egress` images, pinned by digest in its configuration, from Docker Hub when it first starts a sandbox.
+- **Acceptance.** The server rolls out after the interpreter and must be healthy (`/health`).
+- **First release and rollback.** The first deployment with the sandbox has no previous server to capture. Rolling back to a release without it stops the candidate server, because the previous Compose files have no `sandbox` service.
+
+Operating constraints:
+
+- **Socket.** The server runs as root with `/var/run/docker.sock` mounted, so a compromised server controls the host's Docker daemon. It joins `memoryos-internal` (alias `memoryos-sandbox`) and `memoryos-sandbox-control`, which exists only so it can reach the ports sandboxes publish on the default bridge's gateway (`172.17.0.1`, range 40000–40999). It has no host port. Java callers reach sandboxes through the server's proxy.
+- **Host firewall.** Both hosts run `ufw`. On staging the server reached the published ports through it in the 2026-10-15 rehearsal; production's rules were not readable without root, so the first production promotion with the sandbox checks that a sandbox can be created before it is accepted.
+- **Network of a sandbox.** Sandboxes run on the default bridge. Every sandbox MemoryOS creates carries a network policy, and the egress sidecar enforces it in `dns+nft` mode: the MEM-270 probe reached direct IPs and the host's SSH, HTTP and HTTPS ports in the default `dns` mode, and nothing but the allowed domains and the host's DNS resolvers in `dns+nft`.
+- **API key.** The server requires `OPEN-SANDBOX-API-KEY` on every route but `/health`; its start script reads `/apps/memoryos/secrets/sandbox/api-key.txt`, mounted as the Compose secret `sandbox_api_key`, and refuses to start when it is missing or empty.
+  - Create the file before the first deployment that mounts it: `install -d -m 0700 /apps/memoryos/secrets/sandbox && (umask 077; openssl rand -hex 32 > /apps/memoryos/secrets/sandbox/api-key.txt)`.
+  - The server reads the 0600 key through `DAC_OVERRIDE` (root with every other capability dropped), as the interpreter does.
+  - To rotate the key, replace the file and recreate `memoryos-sandbox` and its callers with the accepted configuration.
+- **Logs.** `docker logs memoryos-sandbox`. Sandbox containers are named `sandbox-<id>` and their egress sidecars `sandbox-egress-<id>`; both are removed when a sandbox expires or is killed.
+- **Computer image.** About 5.2 GB (the executor is 3.7 GB; LibreOffice Writer, Tesseract, ffmpeg and Node add the rest). `docker image prune -a` removes it and sandboxes then fail to start until the next deployment pulls it; `prune-release-images.sh` keeps it like the interpreter executor.
+
 ## Keycloak runtime
 
 Each release builds `memoryos-keycloak` from `infrastructure/keycloak/Dockerfile`: Keycloak 26.8.0 pinned by digest and optimized for PostgreSQL with health, metrics and the `cimd` feature on (MEM-114), plus the `memoryos` login theme copied into the image. CI starts the image against a throwaway PostgreSQL and fails unless the server advertises Client ID Metadata Documents, a login page uses the theme and every image the stylesheet names is served (`infrastructure/keycloak/smoke-test-image.sh`). Keycloak does not fail on a missing theme. It logs `Failed to find LOGIN theme memoryos` and shows its built-in page, so a healthy container proves nothing about the theme.

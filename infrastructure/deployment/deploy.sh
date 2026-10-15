@@ -21,9 +21,9 @@ exec 9>"$state/lock"
 flock --nonblock 9 || { echo "Another $environment operation owns the lock" >&2; exit 1; }
 
 # Release images in images.env order. The interpreter starts executor containers from
-# interpreter-executor on the host daemon, so it is pulled and verified here but is not a Compose
-# service.
-images=(api worker web interpreter interpreter-executor keycloak channels)
+# interpreter-executor on the host daemon, and the sandbox server starts a conversation's sandbox from
+# sandbox-computer, so both are pulled and verified here but are not Compose services.
+images=(api worker web interpreter interpreter-executor keycloak channels sandbox sandbox-computer)
 
 image_key() {
   local key=${1//-/_}
@@ -37,6 +37,11 @@ image_reference() {
 # A runtime accepted before MEM-110 has no interpreter.
 has_interpreter() {
   grep -q "^$(image_key interpreter)=" "$1"
+}
+
+# MEM-270: a runtime accepted before the Chat sandbox has no sandbox server.
+has_sandbox() {
+  grep -q "^$(image_key sandbox)=" "$1"
 }
 
 # A runtime accepted before Keycloak joined the release has none of its own to capture or restore.
@@ -103,6 +108,9 @@ rollout() {
   if has_interpreter "$tx/$target.env"; then
     compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 interpreter
   fi
+  if has_sandbox "$tx/$target.env"; then
+    compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 sandbox
+  fi
 }
 
 verify_runtime() {
@@ -121,6 +129,13 @@ verify_runtime() {
   fi
   if has_channels; then
     components+=(channels)
+  fi
+  if has_sandbox "$tx/$target.env"; then
+    components+=(sandbox)
+    reference=$(image_reference sandbox-computer "$tx/$target.env")
+    docker image inspect "$reference" | jq --exit-status --arg sha "$sha" '
+      .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
+    ' > /dev/null
   fi
   local containers container
   for component in "${components[@]}"; do
@@ -222,6 +237,9 @@ if [[ "$mode" == deploy ]]; then
     if [[ -f "$state/current.env" ]] && has_interpreter "$state/current.env"; then
       previous_components+=(interpreter)
     fi
+    if [[ -f "$state/current.env" ]] && has_sandbox "$state/current.env"; then
+      previous_components+=(sandbox)
+    fi
     # Only once a release put it there: before that, Keycloak carries another image's revision
     # label and another Compose project's files, and would read as a mixed runtime.
     if [[ -f "$state/current.env" ]] && has_keycloak "$state/current.env"; then
@@ -270,6 +288,12 @@ if [[ "$mode" == deploy ]]; then
       [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-interpreter-executor@sha256:[0-9a-f]{64}$ ]] || { echo 'Unexpected interpreter-executor reference in the accepted record' >&2; exit 1; }
       printf '%s=%s\n' "$(image_key interpreter-executor)" "$reference" >> "$tx/previous.env"
     fi
+    if has_sandbox "$tx/previous.env"; then
+      # Sandboxes come and go with conversations; the accepted record holds their image.
+      reference=$(image_reference sandbox-computer "$state/current.env")
+      [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-sandbox-computer@sha256:[0-9a-f]{64}$ ]] || { echo 'Unexpected sandbox-computer reference in the accepted record' >&2; exit 1; }
+      printf '%s=%s\n' "$(image_key sandbox-computer)" "$reference" >> "$tx/previous.env"
+    fi
     printf 'MEMORYOS_RELEASE=%s\n' "$previous_sha" >> "$tx/previous.env"
     jq --raw-output '.[0].labels["com.docker.compose.project.config_files"] | split(",")[]' <<< "$previous" > "$tx/previous.compose"
     while IFS= read -r file; do
@@ -302,10 +326,11 @@ if [[ "$mode" == deploy ]]; then
   mkdir "$DOCKER_CONFIG"
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
   docker login ghcr.io --username "${4:?registry user}" --password-stdin
-  compose pull api worker web interpreter
+  compose pull api worker web interpreter sandbox
   if has_channels; then compose pull channels; fi
   if has_keycloak "$tx/candidate.env"; then compose pull keycloak; fi
   docker pull --quiet "$(image_reference interpreter-executor "$tx/candidate.env")" > /dev/null
+  docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")" > /dev/null
   for component in "${images[@]}"; do
     reference=$(image_reference "$component" "$tx/candidate.env")
     [[ -n "$reference" ]] || continue
@@ -360,7 +385,7 @@ elif [[ "$mode" == rollback ]]; then
     # keeps saying that somebody has to look. The database was empty when this began, so recovery
     # is to take the stack down, discard its volumes and deploy again, not to restore anything.
     echo 'First deployment on this host: no previous runtime exists to restore.' >&2
-    echo 'Stop the candidate api, worker, web and interpreter, then remove the reservation.' >&2
+    echo 'Stop the candidate api, worker, web, interpreter and sandbox, then remove the reservation.' >&2
     echo 'Keep the database: the same volume holds the identity realm, and migrations already applied' >&2
     echo 'are carried by the next release as well. See the CI/CD runbook.' >&2
     exit 1
@@ -374,6 +399,10 @@ elif [[ "$mode" == rollback ]]; then
   if ! has_interpreter "$tx/previous.env"; then
     # The previous Compose files have no interpreter service to restore; leave the candidate one stopped.
     target=candidate; compose stop --timeout 65 interpreter
+  fi
+  if ! has_sandbox "$tx/previous.env"; then
+    # The previous Compose files have no sandbox server to restore; leave the candidate one stopped.
+    target=candidate; compose stop --timeout 30 sandbox
   fi
   # A previous runtime without a release Keycloak leaves the candidate's running: stopping it would
   # sign nobody in, and restoring the operator's image is the operator's call.

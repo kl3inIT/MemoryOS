@@ -7,7 +7,8 @@
 #
 # The interpreter executor is kept by the same rule even though no container runs it between Python
 # executions. That is exactly why `docker image prune -a` removed it on staging, the interpreter
-# answered 503, and the next deployment refused to replace a runtime it could not call healthy.
+# answered 503, and the next deployment refused to replace a runtime it could not call healthy. The sandbox
+# computer (MEM-270) is kept the same way: sandboxes come and go with conversations.
 #
 # Only ghcr.io/kl3init/memoryos-* images are considered, which includes the Keycloak a release brings.
 # PostgreSQL, an operator-run Keycloak such as staging's, MinIO, OpenSearch,

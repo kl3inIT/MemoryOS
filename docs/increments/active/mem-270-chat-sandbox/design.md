@@ -153,6 +153,7 @@ bridge network) on the staging host, from a Java 25 program on the SDK 1.1.1 wit
 | Network, `dns+nft` mode | Allowed domain 200; other domains, direct IPs and every host port blocked; only the host's DNS resolvers remain reachable | Required: `[egress] mode = "dns+nft"` |
 | User | Commands run as root by default; `uid(1000)` runs them unprivileged; the image has no user 1000, no `/workspace` and no `git` | Run as 1000; the image adds the user, `/workspace` and `git` |
 | Renew | `renew(3 min)` moves `expiresAt` | Renew on every tool call |
+| Topology | With the server on an internal network plus a bridge of its own, a client on the internal network alone created a sandbox, ran commands, wrote and read files and saw a timeout through `useServerProxy(true)`; the API key came from a secret file through a start script | `memoryos-internal` stays internal; Java uses the server's proxy |
 | Expired or killed sandbox | `connector().connect()` throws `SandboxNotFoundException` (HTTP 404 `DOCKER::SANDBOX_NOT_FOUND`) | That exception means "create a new one and restore the workspace" |
 
 ## Out of scope

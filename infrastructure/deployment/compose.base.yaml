@@ -698,6 +698,45 @@ services:
       interval: 15s
       timeout: 5s
       retries: 8
+
+  # MEM-270: the OpenSandbox lifecycle server for the Chat sandbox. It starts one sandbox container per conversation
+  # from memoryos-sandbox-computer on the host daemon through the socket, which grants host-level Docker control: it is
+  # reached only on the internal network, with an API key, and has no host port. Sandboxes publish their ports on the
+  # default bridge's gateway alone, which the server reaches through memoryos-sandbox-control. See the sandbox section
+  # of docs/runbooks/ci-cd.md.
+  sandbox:
+    <<: *service-defaults
+    image: ${MEMORYOS_SANDBOX_IMAGE:?Set MEMORYOS_SANDBOX_IMAGE}
+    container_name: memoryos-sandbox
+    user: root
+    # Compose file secrets keep their host owner and mode, so root in this capability-dropped container needs
+    # DAC_OVERRIDE to read the API key, as the interpreter does.
+    cap_add:
+      - DAC_OVERRIDE
+    environment:
+      SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
+    secrets:
+      - sandbox_api_key
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      memoryos-internal:
+        aliases:
+          - memoryos-sandbox
+      sandbox-control: {}
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /root:size=64m,mode=0700
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=4)
+      interval: 15s
+      timeout: 5s
+      retries: 8
       start_period: 30s
     stop_grace_period: 65s
     deploy:
@@ -709,6 +748,9 @@ networks:
   memoryos-internal:
     name: ${MEMORYOS_INTERNAL_NETWORK:-memoryos-internal}
     internal: true
+  # MEM-270: the sandbox server alone joins it, to reach the ports sandboxes publish on the default bridge's gateway.
+  sandbox-control:
+    name: ${MEMORYOS_SANDBOX_CONTROL_NETWORK:-memoryos-sandbox-control}
   proxy:
     name: ${MEMORYOS_PROXY_NETWORK:-proxy-network}
     external: true
@@ -745,6 +787,8 @@ secrets:
     file: ${MEMORYOS_MINIO_WORKER_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/worker-secret-key.txt}
   interpreter_api_key:
     file: ${MEMORYOS_INTERPRETER_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/interpreter/api-key.txt}
+  sandbox_api_key:
+    file: ${MEMORYOS_SANDBOX_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/sandbox/api-key.txt}
   redis_admin_password:
     file: ${MEMORYOS_REDIS_ADMIN_PASSWORD_FILE:?Set MEMORYOS_REDIS_ADMIN_PASSWORD_FILE}
   redis_worker_password:
