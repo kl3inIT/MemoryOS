@@ -26213,11 +26213,22 @@ components:
           items:
             type: string
             format: uuid
-        iconName:
-          type: string
+        avatarSeed:
+          type:
+          - string
+          - "null"
+          description: "The seed of the agent's face; null keeps it, and a new agent\
+            \ gets a random one"
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]{1,64}$"
         avatarFileId:
           type: string
           format: uuid
+        removeAvatar:
+          type:
+          - boolean
+          - "null"
+          description: True drops the uploaded image so the face shows
         labelIds:
           type: array
           items:
@@ -26380,7 +26391,7 @@ components:
           items:
             type: string
             format: uuid
-        iconName:
+        avatarSeed:
           type: string
         hasAvatar:
           type: boolean

@@ -24,8 +24,7 @@ export function AgentPreview({ values, agentId }: { values: AgentValues; agentId
             <AgentAvatar
               agent={{
                 id: agentId,
-                name,
-                iconName: values.iconName,
+                avatarSeed: values.avatarSeed,
                 hasAvatar: values.keepAvatar && !values.avatarFileId,
               }}
               size="lg"

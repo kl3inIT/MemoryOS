@@ -47,6 +47,7 @@ function agent(overrides: Record<string, unknown>) {
     tools: ["search"],
     mcpServers: [],
     fileIds: [],
+    avatarSeed: "tasco",
     hasAvatar: false,
     labels: [],
     owner: { actor: { actorId: me, name: "Đạt Phan", email: "dat@tasco.vn" }, group: null },
@@ -180,7 +181,7 @@ const tascoAgents = () => [
     description: "Xếp loại A/B/C và kết quả KPI của các đơn vị theo tháng, kèm link báo cáo gốc.",
     featured: true,
     isPublic: true,
-    iconName: "chart",
+    avatarSeed: "chart",
     labels: [{ id: "70000000-0000-4000-8000-000000000030", name: "Tài chính" }],
     owner: {
       actor: {
@@ -202,7 +203,7 @@ const tascoAgents = () => [
     id: finance,
     name: "Báo cáo tài chính",
     description: "Tra cứu số liệu trong báo cáo tài chính đã ban hành theo quý.",
-    iconName: "finance",
+    avatarSeed: "finance",
     groupShares: [{ group: { id: board, name: "Ban điều hành" }, permission: "VIEWER" }],
     owner: { actor: null, group: { id: board, name: "Ban điều hành" } },
     permissions: {
@@ -219,7 +220,7 @@ const tascoAgents = () => [
     id: hr,
     name: "Chính sách nhân sự",
     description: "Giải đáp chính sách lương, nghỉ phép và mẫu hợp đồng đang có hiệu lực.",
-    iconName: "people",
+    avatarSeed: "people",
     pinned: true,
     permissions: {
       edit: true,
@@ -248,7 +249,7 @@ const moreAgents = () => [
     id: "70000000-0000-4000-8000-000000000050",
     name: "Pháp chế hợp đồng",
     description: "Rà soát điều khoản theo mẫu hợp đồng đã ban hành và chỉ ra điểm khác biệt.",
-    iconName: "legal",
+    avatarSeed: "legal",
     isPublic: true,
     labels: [{ id: "70000000-0000-4000-8000-000000000031", name: "Pháp chế" }],
     owner: {
@@ -264,7 +265,7 @@ const moreAgents = () => [
     id: "70000000-0000-4000-8000-000000000051",
     name: "Quy trình mua sắm",
     description: "Hướng dẫn các bước đề xuất, phê duyệt và thanh toán theo quy chế mua sắm 2026.",
-    iconName: "document",
+    avatarSeed: "document",
     labels: [{ id: "70000000-0000-4000-8000-000000000032", name: "Vận hành" }],
     groupShares: [{ group: { id: board, name: "Ban điều hành" }, permission: "VIEWER" }],
     owner: { actor: null, group: { id: board, name: "Ban điều hành" } },
@@ -273,7 +274,7 @@ const moreAgents = () => [
     id: "70000000-0000-4000-8000-000000000052",
     name: "Dự toán công trình",
     description: "Tính nhanh khối lượng và đơn giá từ bộ định mức đã duyệt.",
-    iconName: "calculator",
+    avatarSeed: "calculator",
     labels: [
       { id: "70000000-0000-4000-8000-000000000030", name: "Tài chính" },
       { id: "70000000-0000-4000-8000-000000000032", name: "Vận hành" },
@@ -367,9 +368,14 @@ test("creates an agent on its own page and shares it with a Group and the organi
   await expect(page).toHaveURL(/\/agents\/create$/);
   await page.getByLabel("Tên trợ lý", { exact: true }).fill("Pháp chế hợp đồng");
   await page.getByLabel("Mô tả").fill("Rà soát điều khoản theo mẫu hợp đồng đã ban hành.");
-  await page.getByRole("button", { name: "Đổi biểu tượng" }).click();
-  await page.getByRole("radio", { name: "Pháp chế" }).click();
-  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Đổi ảnh đại diện" }).click();
+  const studio = page.getByRole("dialog", { name: "Ảnh đại diện" });
+  await studio.getByRole("radio", { name: "Khuôn mặt 3" }).click();
+  await expect(studio.getByRole("radio", { name: "Khuôn mặt 3" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await studio.getByRole("button", { name: "Xong" }).click();
   await page.getByLabel("Nhắc việc mỗi lượt").fill("Luôn trích số hiệu mẫu hợp đồng.");
   await page.getByLabel("Câu hỏi gợi ý 1").fill("Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?");
 
@@ -391,7 +397,7 @@ test("creates an agent on its own page and shares it with a Group and the organi
   await expect(page).toHaveURL(/\/agents$/);
   expect(state.created).toMatchObject({
     name: "Pháp chế hợp đồng",
-    iconName: "legal",
+    avatarSeed: expect.stringMatching(/^[A-Za-z0-9_-]{1,64}$/),
     taskPrompt: "Luôn trích số hiệu mẫu hợp đồng.",
     starterPrompts: ["Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?"],
     sourceIds: [sources[1]!.id],

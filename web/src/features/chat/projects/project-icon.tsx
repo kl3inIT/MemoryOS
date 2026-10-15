@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Folder } from "lucide-react";
 import { InputGroupButton } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { agentIcons, agentIconTones } from "@/features/agents/agent-icons";
+import { projectIconTones, projectIcons } from "./project-icon-set";
 import { cn } from "@/lib/utils";
 
 /** The project's chosen topic icon, or the plain folder when none was picked. */
@@ -13,7 +13,7 @@ export function ProjectIcon({
   iconName?: string | null;
   className?: string;
 }) {
-  const Icon = (iconName && agentIcons[iconName]) || Folder;
+  const Icon = (iconName && projectIcons[iconName]) || Folder;
   return <Icon className={className} aria-hidden="true" />;
 }
 
@@ -62,11 +62,11 @@ export function ProjectIconPicker({
             aria-checked={iconName === ""}
             aria-label={ui("Thư mục")}
             onClick={() => onIcon("")}
-            className={cn(tile, agentIconTones.bot, iconName === "" ? chosenTile : otherTile)}
+            className={cn(tile, projectIconTones.bot, iconName === "" ? chosenTile : otherTile)}
           >
             <Folder aria-hidden="true" className="size-4.5" strokeWidth={1.75} />
           </button>
-          {Object.entries(agentIcons).map(([key, Icon]) => (
+          {Object.entries(projectIcons).map(([key, Icon]) => (
             <button
               key={key}
               type="button"
@@ -74,7 +74,7 @@ export function ProjectIconPicker({
               aria-checked={iconName === key}
               aria-label={iconNames[key] ?? ui("Biểu tượng")}
               onClick={() => onIcon(key)}
-              className={cn(tile, agentIconTones[key], iconName === key ? chosenTile : otherTile)}
+              className={cn(tile, projectIconTones[key], iconName === key ? chosenTile : otherTile)}
             >
               <Icon aria-hidden="true" className="size-4.5" strokeWidth={1.75} />
             </button>

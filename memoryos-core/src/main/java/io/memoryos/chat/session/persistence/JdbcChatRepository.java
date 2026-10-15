@@ -54,8 +54,8 @@ public class JdbcChatRepository {
     public UUID provisionPersona(TenantId tenant, String name, String instructions) {
         UUID id = UUID.randomUUID();
         int inserted = jdbc.sql("""
-                        INSERT INTO persona(id, tenant_id, builtin_key, name, instructions)
-                        VALUES (:id, :tenant, 'default', :name, :instructions)
+                        INSERT INTO persona(id, tenant_id, builtin_key, name, instructions, avatar_seed)
+                        VALUES (:id, :tenant, 'default', :name, :instructions, 'memoryos')
                         ON CONFLICT (tenant_id, builtin_key) DO NOTHING
                         """).param("id", id).param("tenant", tenant.value())
                 .param("name", name).param("instructions", instructions)
