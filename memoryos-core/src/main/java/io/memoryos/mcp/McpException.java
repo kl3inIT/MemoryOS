@@ -40,6 +40,11 @@ public final class McpException extends BusinessException {
         return new McpException("MCP_TOOL_SNAPSHOT_INVALID", FailureCategory.VALIDATION, message);
     }
 
+    public static McpException toolPolicyNotAllowed() {
+        return new McpException("MCP_TOOL_POLICY_NOT_ALLOWED", FailureCategory.VALIDATION,
+                "A tool that may overwrite or delete data always asks before it runs.");
+    }
+
     public static McpException toolNameUnsupported() {
         return new McpException("MCP_TOOL_NAME_UNSUPPORTED", FailureCategory.VALIDATION,
                 "This tool's name cannot be exposed to the model.");

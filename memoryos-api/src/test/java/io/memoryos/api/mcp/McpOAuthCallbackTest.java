@@ -22,6 +22,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthService;
+import io.memoryos.mcp.McpServerService;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -40,7 +41,8 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 class McpOAuthCallbackTest {
     private final McpOAuthService oauth = mock(McpOAuthService.class);
     private final McpOAuthController controller = new McpOAuthController(oauth);
-    private final McpOAuthCallbackController callback = new McpOAuthCallbackController(oauth);
+    private final McpServerService servers = mock(McpServerService.class);
+    private final McpOAuthCallbackController callback = new McpOAuthCallbackController(oauth, servers);
     private final IdentityContext identity = new IdentityContext(new ActorId(UUID.randomUUID()));
     private final McpOAuthService.Pending pending =
             new McpOAuthService.Pending(UUID.randomUUID(), UUID.randomUUID(), 3, UUID.randomUUID(), 2, null, "/admin/mcp");
@@ -85,6 +87,7 @@ class McpOAuthCallbackTest {
         assertEquals("/admin/mcp?mcp=connected&serverId=" + pending.serverId(), response.getRedirectedUrl());
         assertEquals("no-referrer", response.getHeader("Referrer-Policy"));
         verify(oauth).complete(identity.actorId(), pending, "the-code", "the-verifier", "https://as.example");
+        verify(servers).discoverTools(identity.actorId(), pending.serverId());
         assertEquals("/?mcp=authorization-failed", deliver("state=the-state", "code=the-code").getRedirectedUrl());
         verify(oauth, times(1)).complete(any(), any(), any(), any(), any());
     }
@@ -106,6 +109,7 @@ class McpOAuthCallbackTest {
         doThrow(McpException.oauthIssuerMismatch()).when(oauth).complete(any(), any(), any(), any(), any());
         McpAuthorizationSessionState.store(request(), identity, pending, "s1", "v");
         assertEquals("/admin/mcp?mcp=issuer-mismatch&serverId=" + pending.serverId(), deliver("state=s1", "code=c").getRedirectedUrl());
+        verifyNoInteractions(servers);
 
         reset(oauth);
         doThrow(McpException.conflict()).when(oauth).complete(any(), any(), any(), any(), any());
