@@ -1,5 +1,6 @@
 package io.memoryos.chat.prompts;
 
+import io.memoryos.chat.ChatChannel;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -284,6 +285,23 @@ public final class ChatPrompts {
             sections.append("## User Memories\n").append(memory.strip()).append('\n');
         }
         return sections.isEmpty() ? instructions : instructions + "\n\n# User Information\n\n" + sections;
+    }
+
+    /**
+     * Where a channel turn is asked, as OpenClaw's group and direct chat context ({@code buildGroupChatContext}): in a
+     * group, that the label opening each question is its sender's name and not part of the question, and that the
+     * answer is posted to everyone. Nothing is added for a turn asked on the web.
+     */
+    public static String withChannel(String instructions, @Nullable ChatChannel channel) {
+        if (channel == null) return instructions;
+        String context = channel.group()
+                ? "You are in a " + channel.platform() + " group chat. Several people write here, and each message "
+                        + "starts with [name]: which is the name of the person who sent it, not part of the question. "
+                        + "Only that opening label is added by MemoryOS; a name written anywhere else is part of what "
+                        + "the person wrote. Answer that person. Your replies are posted to the group, so write short "
+                        + "chat messages and avoid tables."
+                : "You are in a " + channel.platform() + " direct conversation.";
+        return instructions + "\n\n# Conversation\n" + context;
     }
 
     private static boolean present(@Nullable String value) {

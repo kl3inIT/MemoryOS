@@ -130,6 +130,14 @@ read, and each question keeps its `[name]: question` label. Questions in it are 
 turn as any conversation's. A direct conversation is never mixed with it. Summarising a long conversation before it
 reaches the model's limit is [MEM-268](https://linear.app/memory-os/issue/MEM-268), a separate increment.
 
+On staging the label misled the model: asked `[Hồng Đạt]: m biết gì`, it took the name for the topic and answered
+about a person called Hồng Đạt. OpenClaw formats a group message the same way (`Name: body`, `envelope.ts`) but also
+tells the model in its system prompt where it is (`buildGroupChatContext`: the group, that replies are posted there,
+to write like a person and avoid tables); Onyx's Slack bot only passes the thread as context. A channel turn now
+carries `ChatChannel` (platform, group) on its `ChatCommand`, and `ChatPrompts.withChannel` adds a `# Conversation`
+section saying so; a direct message is told only where it is. Who the assistant is stays the agent's own
+instructions, chosen per bot in the agent-per-bot increment.
+
 A group answer has no closing line, on any provider: with a group conversation nobody has to be taught to reply,
 and the second sentence, to message the assistant for one's own documents, has no precedent in any reference.
 `GROUP_FOOTER`, `GROUP_FOOTER_DIRECT` and `ChannelFeatures.quotes` are removed. A direct answer keeps its link to

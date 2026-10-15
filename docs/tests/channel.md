@@ -98,6 +98,7 @@
 | A reply in a group continues the conversation of the answer it replies to, however old, and a reply naming a direct message's id never reaches that conversation | `ChannelInboundServiceTest.aReplyInAGroupContinuesTheGroupsConversationAndNeverReachesADirectOne` |
 | A sender past the minute's rate is refused and told to wait | `ChannelInboundServiceTest.aSenderPastTheMinutesRateIsToldToWait` |
 | A turn run as the bot is told the asker's name as a plain label; a sender's own turn is not | `ChannelInboundServiceTest.aTurnRunAsTheBotIsToldTheAskersNameAsALabel` |
+| A channel turn names its platform and whether it is a group, which the system prompt states, with the group's `[name]:` label explained; a web turn gets no such section | `ChannelInboundServiceTest.aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink`, `ChannelTurnsTest.aQuestionWaitsForTheTurnItsConversationIsRunningAndAsksAtTheNewLeaf`, `ChatChannelPromptTest` |
 | A question waits for its conversation's running turn, is acknowledged once and asks at the new leaf | `ChannelTurnsTest.aQuestionWaitsForTheTurnItsConversationIsRunningAndAsksAtTheNewLeaf` |
 | A question stops waiting at its bound; another refusal is not waited for | `ChannelTurnsTest.aQuestionStopsWaitingAtItsBoundAndAnotherRefusalIsNotWaitedFor` |
 | The page lists bots with one line each; a switch saves on change with the bot's revision; a bot opens its page with its facts and missing scopes | `channels-administration.spec.ts` (Playwright), `channel-status.test.ts` |
