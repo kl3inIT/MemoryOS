@@ -13,7 +13,7 @@ Design: [design.md](design.md).
 
 - [x] `McpToolsTest`: a large server offers one opener naming its tools; a selection opens the named tools and the
   opener; unknown names open nothing; an opener call is no step.
-- [ ] Staging with Linear (76 tools): the first call is far below 35k tokens on Claude; "create an issue" opens
-  `save_issue`, shows the approval card and runs; a tool past the old cut opens and runs; the per-call log shows one
-  cache miss per opening turn.
+- [x] Staging with Linear (76 tools), [verification](verification.md): the first call is far below 35k tokens on Claude;
+  a tool past the old cut opens and runs; the per-call log shows one cache miss per opening.
+- [ ] Staging: "create an issue" opens `save_issue`, shows the approval card and runs.
 - [x] Spec `chat`, runbook `mcp-servers`, roadmap.

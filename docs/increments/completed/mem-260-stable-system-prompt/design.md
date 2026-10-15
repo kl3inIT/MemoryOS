@@ -1,7 +1,7 @@
 # A system prompt that stays the same between turns
 
 Linear: [MEM-260](https://linear.app/memory-os/issue/MEM-260). Plan: [plan.md](plan.md). Follows
-[MEM-269](../../completed/mem-269-prompt-cache/design.md).
+[MEM-269](../mem-269-prompt-cache/design.md).
 
 ## Problem
 
