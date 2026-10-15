@@ -82,10 +82,7 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
     [ui("Tin nhắn gần nhất"), when(channel.lastMessageAt)],
     ...(channel.failureCode
       ? ([
-          [
-            ui("Lỗi gần nhất"),
-            `${ui(channelFailure(channel) ?? "")} · ${when(channel.failedAt)}`,
-          ],
+          [ui("Lỗi gần nhất"), `${ui(channelFailure(channel) ?? "")} · ${when(channel.failedAt)}`],
         ] as [string, ReactNode][])
       : []),
   ];
