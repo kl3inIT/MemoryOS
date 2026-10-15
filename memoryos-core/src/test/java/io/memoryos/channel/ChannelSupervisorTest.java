@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -60,9 +59,9 @@ class ChannelSupervisorTest {
         var envelope = credentials.cipher(ChannelProvider.LARK).encrypt(tenant, connection, "app-secret",
                 SECRET.getBytes(StandardCharsets.UTF_8));
         jdbc.sql("""
-                INSERT INTO channel_connections(tenant_id, id, provider, name, region, app_id, secret_ciphertext, secret_nonce,
+                INSERT INTO channel_connections(tenant_id, id, provider, name, settings, app_id, secret_ciphertext, secret_nonce,
                                                 secret_key_version, notice_language, enabled, service_account_id)
-                VALUES (:tenant, :id, 'LARK', 'Bot', 'LARK', 'cli_a1b2c3d4e5f6', :secret, :nonce, :version, 'vi', TRUE, :account)
+                VALUES (:tenant, :id, 'LARK', 'Bot', '{"region": "LARK"}', 'cli_a1b2c3d4e5f6', :secret, :nonce, :version, 'vi', TRUE, :account)
                 """).param("tenant", tenant.value()).param("id", connection).param("secret", envelope.ciphertext())
                 .param("nonce", envelope.nonce()).param("version", envelope.keyVersion()).param("account", bot).update();
         supervisor = new ChannelSupervisor(new JdbcChannelConnectionRepository(jdbc), credentials,
@@ -92,7 +91,7 @@ class ChannelSupervisorTest {
     void aMessageIsAnsweredOffTheAdaptersThreadAndMarksTheConnection() {
         supervisor.start();
         while (adapter.receivers.isEmpty()) Thread.onSpinWait();
-        var message = new ChannelMessage(connection, "m1", "oc_chat", ChannelMessage.Kind.DIRECT, "ou_ha", null, "org", "org", true,
+        var message = new ChannelMessage(connection, "m1", "oc_chat", ChannelMessage.Kind.DIRECT, "ou_ha", null, new ChannelMessage.Organisations("org", "org"), true,
                 ChannelMessage.Type.TEXT, "Hello", null);
         adapter.receivers.getFirst().accept(message);
         verify(inbound, timeout(5000)).receive(message);
@@ -175,11 +174,13 @@ class ChannelSupervisorTest {
 
         @Override public void acknowledge(ChannelConnection connection, ChannelMessage message) {}
 
-        @Override public Optional<String> senderEmail(ChannelConnection connection, String senderId) { return Optional.empty(); }
+        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, 150_000); }
+
+        @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return ChannelSender.UNKNOWN; }
 
         @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
 
-        @Override public ChannelVerification verify(ChannelRegion region, String appId, String secret) { throw new UnsupportedOperationException(); }
+        @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }
     }
 
     private static final class FakeTransport implements ChannelTransport {

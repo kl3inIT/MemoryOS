@@ -8,17 +8,21 @@ exists; operating a bot is in the [runbook](../runbooks/lark-bot.md).
 ## Connections
 
 A Tenant may have several bots; `channel_connections` holds one row a bot: its provider (`LARK`), a name the
-administrator gives it, the region of its app (`LARK` or `FEISHU`), the app's id, the app's secret as an AES-GCM
+administrator gives it, the provider's id of its app, the provider's public settings of it (`settings`, JSON; a
+Lark bot's names its region, `LARK` or `FEISHU`, which the database requires), the app's secret as an AES-GCM
 envelope, the language of the bot's own notices (`vi` or `en`), whether it is switched on, the service account it
 owns, a revision, and what the platform said at the last check: the bot's name and id and the scopes it refused. One
-provider app serves one bot across every Tenant.
+provider app serves one bot across every Tenant: the provider and the app's id are unique.
 
 `ChannelConnectionService` lists, reads, adds, switches on or off, replaces the secret of and removes a bot. Every
 call requires `CHANNELS_MANAGE`, an assignable administrative capability that administrators hold; a write takes
 the Tenant's exclusive authority lock and checks the revision it was given (`CHANNEL_CHANGED` when it moved on).
 
 - **Checking an app.** Adding a bot, replacing its secret and testing an app ask the platform first, through the
-  adapter's `verify`: the credential works and the app has a bot. The platform is asked between two transactions,
+  adapter's `verify(ChannelCredentials)`, given the app's id when the administrator gives one, its secret and the
+  provider's settings: they are the provider's shape (`CHANNEL_INVALID` when not), the credential works and the app
+  has a bot. The answer names the app's id as the provider normalises it, which is what is stored and checked for
+  a second bot of the same app; a replaced secret of another app is `CHANNEL_APP_REJECTED`. The platform is asked between two transactions,
   so no lock and no database connection is held while it answers, and at most two checks run at once (else
   `CHANNEL_PROVIDER_UNAVAILABLE`). A refused credential, or an app without a bot, is `CHANNEL_APP_REJECTED` and
   nothing is stored; a platform that does not answer is `CHANNEL_PROVIDER_UNAVAILABLE`. A scope the bot needs that
@@ -70,16 +74,26 @@ the app needs; the App Secret stays in a ref, never in query state or storage, a
 
 ## The adapter
 
-A platform is a `ChannelAdapter`, one a `ChannelProvider`, found through `ChannelAdapters`. It owns the transport,
-the provider's ids and the shape of a reply: `reply(connection, message)` opens a `ChannelReply` that quotes the
-message (`append` text as it is written, then `finish(text, sources, footer)`, which returns the provider's id of
-the answer, or `fail(notice)`); `notice` sends one short message; `senderEmail` answers the e-mail the provider
-holds for a sender; `externalChat` says whether people outside the organisation read a chat. It hands over a
-`ChannelMessage`: the provider's message id, the chat and whether it is `DIRECT` or `GROUP`, the sender and their
-organisation, whether the bot was named, `TEXT` or `OTHER`, the text without the bot's mention, and the message it
-replies to. `open(connection, secret, receiver)` starts receiving for one bot and returns a `ChannelTransport`
-(`connected()`, `close()`); the adapter acknowledges each message to the provider and hands it to the receiver,
-which returns at once. Verifying an app is added with the Lark adapter.
+A platform is a `ChannelAdapter`, one a `ChannelProvider`, found through `ChannelAdapters`; the port carries no
+provider's shape. It owns the transport, the provider's ids and the shape of a reply, and states what the
+provider's chats can do with `features()`: `ChannelFeatures(organisations, editsReply, maxText)`, whether the
+provider names an organisation for each sender, whether a reply can be rewritten while it is written, and the
+longest text one message takes. `reply(connection, message)` opens a `ChannelReply` that quotes the message where
+the provider can: `append` text as it is written, called only when the reply can be rewritten; then
+`finish(pieces, sources, footer)`, given the whole answer as one piece when the reply can be rewritten and otherwise
+cut by `ChannelText.pieces` at `maxText` (at the last paragraph, line, sentence or space that fits), returning the
+provider's id of the answer's last message; or `fail(notice)`. `notice` sends one short message; `sender` answers
+a `ChannelSender` with the e-mail the provider holds, if any; `externalChat` says whether people outside the
+organisation read a chat, false for a provider without organisations. It hands over a `ChannelMessage`: the
+provider's message id, the chat and whether it is `DIRECT` or `GROUP`, the sender, the sender's organisation and
+the bot's as the provider names them (none for a provider without organisations), whether the bot was named,
+`TEXT` or `OTHER`, the text without the bot's mention, and the message it replies to.
+`open(connection, secret, receiver)` starts receiving for one bot and returns a `ChannelTransport` (`connected()`,
+`close()`), which either keeps a connection of its own or names the `ChannelWebhook` the provider pushes to
+(`accept(headers, body)` checks the provider's secret and reads the messages); the adapter acknowledges each message
+to the provider and hands it to the receiver, which returns at once. Lark's transport keeps a connection; no route
+serves a webhook yet ([MEM-263](../increments/active/mem-263-zalo-bot/design.md)). Lark states organisations, a
+reply it rewrites and 150,000 characters.
 
 ## The Lark adapter
 
@@ -146,7 +160,7 @@ acknowledged it to the provider:
    with a reason); the text is in the chat session.
 3. It is refused with a notice when the sender's organisation is not the organisation the event names for the
    bot's app, or not the one recorded for the bot when one is (`OUTSIDER`; an event that names neither admits
-   nobody), when it is not text (`NOT_TEXT`) or when the group has people outside the organisation
+   nobody, and a provider without organisations admits nobody until linked accounts exist), when it is not text (`NOT_TEXT`) or when the group has people outside the organisation
    (`EXTERNAL_GROUP`).
 4. The sender's account is the one active person whose verified e-mail equals the e-mail the provider holds
    ([identity](identity.md#account-classification-and-group-authority)), remembered in `channel_identities` for

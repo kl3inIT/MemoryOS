@@ -40,7 +40,9 @@ public record ChannelResponse(
     public static ChannelResponse from(Listed listed) {
         ChannelConnection bot = listed.connection();
         var state = listed.state();
-        return new ChannelResponse(bot.id(), bot.provider(), bot.name(), bot.region(), bot.appId(), bot.noticeLanguage(),
+        // Every bot is Lark's today, and the database refuses a Lark bot without its region.
+        var region = ChannelRegion.of(bot.settings()).orElseThrow(() -> new IllegalStateException("the bot names no region"));
+        return new ChannelResponse(bot.id(), bot.provider(), bot.name(), region, bot.appId(), bot.noticeLanguage(),
                 bot.enabled(), bot.serviceAccount().value(), bot.botName(), bot.missingScopes(), listed.status(),
                 state.failureCode(), state.failedAt(), state.openedAt(), state.lastMessageAt(), bot.revision(),
                 bot.createdAt(), bot.updatedAt());

@@ -21,6 +21,7 @@ import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelConnectionService;
 import io.memoryos.channel.ChannelConnectionService.Listed;
 import io.memoryos.channel.ChannelConnectionState;
+import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelException;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
@@ -34,6 +35,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -197,7 +199,8 @@ class ChannelApiTest {
     }
 
     private static Listed listed(UUID id, boolean enabled, Listed.Status status) {
-        var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", ChannelRegion.LARK, "cli_a1b2c3d4e5f6", "vi",
+        var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", "cli_a1b2c3d4e5f6",
+                Map.of(ChannelRegion.SETTING, "LARK"), "vi",
                 enabled, new ActorId(UUID.randomUUID()), 3, Instant.now(), Instant.now(), null, "MemoryOS Bot", "ou_bot",
                 List.of("contact:user.email:readonly"));
         var state = new ChannelConnectionState(Instant.now(), null, null, null, Instant.now());
@@ -227,8 +230,9 @@ class ChannelApiTest {
         String body = """
                 {"region":"LARK","appId":"cli_a1b2c3d4e5f6","appSecret":"%s"}
                 """.formatted(SECRET);
-        when(channels.test(any(), eq(ChannelProvider.LARK), eq(ChannelRegion.LARK), eq("cli_a1b2c3d4e5f6"), eq(SECRET)))
-                .thenReturn(new ChannelVerification("MemoryOS Bot", "ou_bot", Set.of("im:chat:readonly")));
+        when(channels.test(any(), eq(ChannelProvider.LARK), eq(new ChannelCredentials("cli_a1b2c3d4e5f6", SECRET,
+                Map.of(ChannelRegion.SETTING, "LARK")))))
+                .thenReturn(new ChannelVerification("cli_a1b2c3d4e5f6", "MemoryOS Bot", "ou_bot", Set.of("im:chat:readonly")));
         mockMvc.perform(post("/api/channels/lark/test").with(authentication(owner))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden());
@@ -238,7 +242,7 @@ class ChannelApiTest {
                 .andExpect(jsonPath("$.botName").value("MemoryOS Bot"))
                 .andExpect(jsonPath("$.missingScopes[0]").value("im:chat:readonly"));
 
-        when(channels.test(any(), any(), any(), any(), any())).thenThrow(ChannelException.rejected());
+        when(channels.test(any(), any(), any())).thenThrow(ChannelException.rejected());
         mockMvc.perform(post("/api/channels/lark/test").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
@@ -259,7 +263,8 @@ class ChannelApiTest {
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.status").value("OFF"));
         verify(channels).create(any(), argThat(draft -> draft.provider() == ChannelProvider.LARK
-                && draft.secret().equals(SECRET) && draft.noticeLanguage().equals("vi")));
+                && draft.credentials().equals(new ChannelCredentials("cli_a1b2c3d4e5f6", SECRET, Map.of(ChannelRegion.SETTING, "LARK")))
+                && draft.noticeLanguage().equals("vi")));
 
         mockMvc.perform(post("/api/channels/lark").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content("""

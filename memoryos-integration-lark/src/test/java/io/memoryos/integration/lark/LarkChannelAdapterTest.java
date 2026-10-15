@@ -3,6 +3,7 @@ package io.memoryos.integration.lark;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.lark.oapi.channel.model.MentionInfo;
@@ -12,19 +13,25 @@ import com.lark.oapi.service.im.v1.model.EventSender;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1Data;
 import io.memoryos.channel.ChannelConnection;
+import io.memoryos.channel.ChannelCredentials;
+import io.memoryos.channel.ChannelException;
+import io.memoryos.channel.ChannelFeatures;
 import io.memoryos.channel.ChannelMessage;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
 import io.memoryos.shared.ActorId;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 class LarkChannelAdapterTest {
     private static final ChannelConnection CONNECTION = new ChannelConnection(UUID.randomUUID(), ChannelProvider.LARK, "Bot",
-            ChannelRegion.LARK, "cli_a1b2c3d4e5f6", "vi", true, new ActorId(UUID.randomUUID()), 1, Instant.now(), Instant.now(), null, null, null, List.of());
+            "cli_a1b2c3d4e5f6", Map.of(ChannelRegion.SETTING, "LARK"), "vi", true, new ActorId(UUID.randomUUID()), 1, Instant.now(), Instant.now(), null, null, null, List.of());
     private static final MentionInfo BOT = new MentionInfo("@_user_1", "ou_bot", "Trợ lý", true);
     private static final MentionInfo QUAN = new MentionInfo("@_user_2", "ou_quan", "Quân", false);
 
@@ -37,8 +44,7 @@ class LarkChannelAdapterTest {
         assertTrue(message.addressed());
         assertEquals(ChannelMessage.Type.TEXT, message.type());
         assertEquals("chính sách nghỉ phép cho @Quân?", message.text());
-        assertEquals("org-member", message.organisationKey());
-        assertEquals("org-bot", message.botOrganisationKey());
+        assertEquals(new ChannelMessage.Organisations("org-member", "org-bot"), message.organisations());
         assertNull(message.repliesTo());
     }
 
@@ -68,6 +74,25 @@ class LarkChannelAdapterTest {
                 "text", List.of(BOT, QUAN), true, null, "o", "o"));
 
         assertEquals("hỏi giúp @Quân về phép", message.text());
+    }
+
+    @Test
+    void anAppIsCheckedForItsShapeBeforeLarkIsAsked() {
+        try (var adapter = new LarkChannelAdapter(new LarkTransport(Duration.ofSeconds(1), "memoryos-test",
+                LarkChannelAdapter.CALL), null, Clock.systemUTC())) {
+            var lark = Map.of(ChannelRegion.SETTING, "LARK");
+            assertEquals("CHANNEL_INVALID", code(() -> adapter.verify(new ChannelCredentials("app-without-prefix", "s", lark))));
+            assertEquals("CHANNEL_INVALID", code(() -> adapter.verify(new ChannelCredentials(null, "s", lark))));
+            assertEquals("CHANNEL_INVALID", code(() -> adapter.verify(new ChannelCredentials("cli_a1b2c3d4e5f6", "s",
+                    Map.of(ChannelRegion.SETTING, "MARS")))));
+            // Well formed, it is Lark's to answer, and no gateway here means Lark cannot be asked.
+            assertEquals("CHANNEL_PROVIDER_UNAVAILABLE", code(() -> adapter.verify(new ChannelCredentials("cli_a1b2c3d4e5f6", "s", lark))));
+            assertEquals(new ChannelFeatures(true, true, 150_000), adapter.features());
+        }
+    }
+
+    private static String code(Runnable call) {
+        return assertThrows(ChannelException.class, call::run).code();
     }
 
     @Test
