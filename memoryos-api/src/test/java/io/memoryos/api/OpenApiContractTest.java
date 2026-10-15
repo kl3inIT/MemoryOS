@@ -197,6 +197,7 @@ class OpenApiContractTest {
             "/api/chat/persona-labels",
             "/api/chat/persona-labels/{labelId}",
             "/api/chat/persona-pins",
+            "/api/chat/assistants",
             "/api/chat/persona-order",
             "/api/chat/prompt-shortcuts",
             "/api/chat/prompt-shortcuts/{shortcutId}",

@@ -1341,6 +1341,113 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void anAssistantsTopicsAreItsConversationsFilteredAndSearchedWithTheirRunningReply() {
+        var finance = personas.create(owner, input("Báo cáo tài chính", List.of(), List.of(), false, null, null, List.of()));
+        var plain = sessions.create(owner, "Quy trình mua sắm");
+        var older = sessions.create(owner, "Lợi nhuận gộp quý 3");
+        personas.select(owner, older.id(), finance.id());
+        var newer = sessions.create(owner, "Báo cáo tuần 41");
+        personas.select(owner, newer.id(), finance.id());
+        var reply = reserve(newer, newer.rootMessageId(), UUID.randomUUID(), "Doanh thu tuần 41?");
+
+        assertEquals(List.of(newer.id(), older.id()), sessions.list(owner, false, finance.id(), 0, 30).stream()
+                .map(ChatSession::id).toList());
+        assertEquals(List.of(plain.id()), sessions.list(owner, false, plain.personaId(), 0, 30).stream()
+                .map(ChatSession::id).toList(), "a plain conversation is a topic of the built-in assistant");
+        assertTrue(sessions.list(other, false, finance.id(), 0, 30).isEmpty(), "only the caller's own topics");
+        assertEquals(List.of(newer.id(), older.id()), sessions.search(owner, "", finance.id(), 0, 30).stream()
+                .map(match -> match.session().id()).toList());
+        assertEquals(List.of(older.id()), sessions.search(owner, "quý", finance.id(), 0, 30).stream()
+                .map(match -> match.session().id()).toList());
+        assertTrue(sessions.search(owner, "mua sắm", finance.id(), 0, 30).isEmpty());
+
+        assertTrue(sessions.get(owner, newer.id()).replyRunning());
+        assertEquals(List.of(true, false), sessions.list(owner, false, finance.id(), 0, 30).stream()
+                .map(ChatSession::replyRunning).toList());
+        assertTrue(sessions.search(owner, "tuần", finance.id(), 0, 30).getFirst().session().replyRunning());
+        turns.finish(newer.id(), reply.assistantMessageId(), ChatMessage.Status.COMPLETED, "Tăng 6,2%.");
+        assertFalse(sessions.get(owner, newer.id()).replyRunning());
+    }
+
+    @Test
+    void theListOfAssistantsLeadsWithTheBuiltinOneAndKeepsAnUnusablePinWithItsTopics() {
+        var creator = member(tenant); var reader = member(tenant);
+        when(authorization.effectiveCapabilities(creator)).thenReturn(Set.of(IamCapability.CHAT_WRITE, IamCapability.AGENTS_CREATE));
+        when(authorization.effectiveCapabilities(reader)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
+        var finance = published(creator, personas.create(creator, input("Báo cáo tài chính", List.of(), List.of(), false, null, null, List.of())));
+        var hr = published(creator, personas.create(creator, new ChatPersonaService.PersonaInput("Chính sách nhân sự",
+                "Nghỉ phép, lương thưởng và công tác phí", "", null, List.of(), List.of(), null, Set.of(), null, null, null, null,
+                List.of(), "hr-face", null, null, null, null, null, null)));
+        personas.replacePins(reader, List.of(hr.id(), finance.id()));
+        var plain = sessions.create(reader, "Quy trình mua sắm");
+        var hrTopic = sessions.create(reader, "Ngày phép còn lại");
+        personas.select(reader, hrTopic.id(), hr.id());
+        var older = sessions.create(reader, "Lợi nhuận gộp quý 3");
+        personas.select(reader, older.id(), finance.id());
+        var newer = sessions.create(reader, "Báo cáo tuần 41");
+        personas.select(reader, newer.id(), finance.id());
+        var reply = turns.reserve(reader, newer.id(), newer.rootMessageId(), UUID.randomUUID(), "Doanh thu tuần 41?",
+                Duration.ofMinutes(2), 32000);
+
+        statements.reset();
+        var assistants = personas.assistants(reader);
+        long reads = statements.statements().size();
+        assertEquals(List.of(plain.personaId(), hr.id(), finance.id()), assistants.stream().map(ChatAssistant::id).toList(),
+                "the built-in assistant first, then the pins in order");
+        var builtin = assistants.getFirst();
+        assertTrue(builtin.builtin() && builtin.usable());
+        assertNotNull(builtin.latestTopic());
+        assertEquals(plain.id(), builtin.latestTopic().sessionId());
+        assertEquals("", builtin.latestTopic().preview(), "nobody wrote in it yet");
+        var financeRow = assistants.get(2);
+        assertNotNull(financeRow.latestTopic());
+        assertEquals(newer.id(), financeRow.latestTopic().sessionId());
+        assertTrue(financeRow.latestTopic().replyRunning());
+        assertEquals("Doanh thu tuần 41?", financeRow.latestTopic().preview());
+
+        turns.finish(newer.id(), reply.assistantMessageId(), ChatMessage.Status.COMPLETED,
+                "**Doanh thu** tăng 6,2% [1] so với [tuần trước](https://example.com/w40).\n\n```\nraw\n```");
+        var finished = personas.assistants(reader).get(2).latestTopic();
+        assertNotNull(finished);
+        assertFalse(finished.replyRunning());
+        assertEquals("Doanh thu tăng 6,2% so với tuần trước.", finished.preview());
+
+        var third = published(creator, personas.create(creator, input("OKR/KPI hằng tháng", List.of(), List.of(), false, null, null, List.of())));
+        personas.replacePins(reader, List.of(hr.id(), finance.id(), third.id()));
+        var kpi = sessions.create(reader, "Xếp loại C tháng 9");
+        personas.select(reader, kpi.id(), third.id());
+        statements.reset();
+        assertEquals(4, personas.assistants(reader).size());
+        assertEquals(reads, statements.statements().size(), "one more pin reads no more statements");
+
+        var hrNow = personas.get(creator, hr.id());
+        personas.share(creator, hr.id(), hrNow.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), false, null));
+        var unusable = personas.assistants(reader).get(1);
+        assertEquals(hr.id(), unusable.id());
+        assertFalse(unusable.usable());
+        assertEquals("Chính sách nhân sự", unusable.name());
+        assertEquals("hr-face", unusable.avatarSeed());
+        assertEquals("", unusable.description(), "an unusable assistant shows only its name and face");
+        assertNotNull(unusable.latestTopic());
+        assertEquals(hrTopic.id(), unusable.latestTopic().sessionId());
+        assertEquals(List.of(hrTopic.id()), sessions.list(reader, false, hr.id(), 0, 30).stream().map(ChatSession::id).toList(),
+                "its topics stay listed");
+
+        personas.replacePins(reader, List.of(finance.id(), third.id(), hr.id()));
+        assertEquals(List.of(plain.personaId(), finance.id(), third.id(), hr.id()),
+                personas.assistants(reader).stream().map(ChatAssistant::id).toList(), "a reorder keeps the unusable pin");
+        assertEquals(List.of(finance.id(), third.id()), personas.pins(reader).stream().map(ChatPersonaService.PersonaView::id).toList());
+        personas.replacePins(reader, List.of(finance.id()));
+        personas.replacePins(reader, List.of(finance.id(), hr.id()));
+        assertEquals(List.of(plain.personaId(), finance.id()), personas.assistants(reader).stream().map(ChatAssistant::id).toList(),
+                "an unusable assistant cannot be pinned again");
+    }
+
+    private ChatPersonaService.PersonaView published(ActorId creator, ChatPersonaService.PersonaView agent) {
+        return personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), true, null));
+    }
+
+    @Test
     void featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged() {
         var creator = member(tenant); var reader = member(tenant);
         when(authorization.effectiveCapabilities(creator)).thenReturn(Set.of(IamCapability.CHAT_WRITE, IamCapability.AGENTS_CREATE));

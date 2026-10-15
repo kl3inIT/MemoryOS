@@ -121,13 +121,20 @@ LobeHub paths are under `tmp/refs/lobe-chat` (lobehub/lobehub, cloned 2026-10-15
 ## API
 
 - `GET /api/chat/assistants` returns the sidebar rows in pin order, MemoryOS first. Each row has the assistant's
-  view (name, avatar fields, owner, fork origin), `usable`, and the caller's latest web topic of it: id, last message
-  time, a plain-text preview of the last message (at most 120 characters) and whether a reply is running. One query
-  with a lateral join per pinned assistant; no N+1 reads. `PUT /api/chat/persona-pins` still reorders.
-- `GET /api/chat/sessions` and `GET /api/chat/sessions/search` take an optional `personaId`.
-- `ChatSessionResponse` gains `replyRunning`, so topic rows and "Gần đây" draw the ring.
-- Migration (next free version): an index on `chat_session (tenant_id, owner_actor_id, persona_id, updated_at DESC,
-  id)` for active web sessions, for the per-assistant list and the latest topic.
+  name, description, avatar fields, `builtin`, `ownerName`, `usable`, and the caller's latest web topic of it: id,
+  title, last message time, a plain-text preview of the last question or finished answer (at most 120 characters)
+  and whether a reply is running. The rows come from a fixed number of statements (the latest topics in one, with a
+  lateral join per assistant). An unusable row carries only the name and face. The fork origin waits for step 3,
+  which adds forks. `PUT /api/chat/persona-pins` still reorders, and keeps an unusable pin the list still names.
+- `GET /api/chat/sessions` and `GET /api/chat/sessions/search` take an optional `personaId`. They list the caller's
+  own sessions only, so the filter needs no access check on the assistant: an unusable assistant's row still opens
+  its topics (decision 2).
+- Every session read (`ChatSessionResponse`) gains `replyRunning`, so topic rows and "Gần đây" draw the ring.
+- V178: an index on `chat_session (tenant_id, owner_actor_id, persona_id, updated_at DESC, id)` for active web
+  sessions, for the per-assistant list and the latest topic.
+- The search dialog needs no new endpoint. Its assistant group reads the existing `GET /api/chat/personas?q=`,
+  which already matches name and description; its project group filters, in the browser, the projects the sidebar
+  already loads (`GET /api/chat/projects`, a person's own and few), as the Projects page search does.
 
 ## Reuse
 

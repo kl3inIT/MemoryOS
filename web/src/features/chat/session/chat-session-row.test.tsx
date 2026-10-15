@@ -26,6 +26,7 @@ const session: ChatSession = {
   branchedFromSessionId: null,
   branchedFromMessageId: null,
   temporary: false,
+  replyRunning: false,
 };
 
 async function startRenaming(rename: (title: string) => Promise<void>) {

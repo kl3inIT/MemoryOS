@@ -32,6 +32,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -46,6 +47,13 @@ import org.springframework.stereotype.Repository;
 public class JdbcChatRepository {
     private final JdbcClient jdbc;
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    /**
+     * Every read of a conversation says whether an answer is being written in it, from the partial unique index on
+     * running replies. The trailing space lets a text block follow.
+     */
+    static final String SELECT_SESSION = "SELECT chat_session.*, EXISTS (SELECT 1 FROM chat_message reply"
+            + " WHERE reply.session_id = chat_session.id AND reply.status = 'RUNNING') AS reply_running ";
 
     public JdbcChatRepository(JdbcClient jdbc) {
         this.jdbc = jdbc;
@@ -82,7 +90,8 @@ public class JdbcChatRepository {
         var session = jdbc.sql("""
                         INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title,
                                                  temporary, surface)
-                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface) RETURNING *
+                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface)
+                        RETURNING *, FALSE AS reply_running
                         """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("surface", surface.name())
                 .param("persona", personaId).param("root", root).param("title", title).param("temporary", temporary)
@@ -108,7 +117,7 @@ public class JdbcChatRepository {
                                                  project_id, reasoning_effort, branched_from_session_id,
                                                  branched_from_message_id)
                         VALUES (:id, :tenant, :actor, :persona, :root, :title, :project, :effort, :origin, :message)
-                        RETURNING *
+                        RETURNING *, FALSE AS reply_running
                         """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("persona", origin.personaId()).param("root", root).param("title", title)
                 .param("project", origin.projectId())
@@ -176,12 +185,49 @@ public class JdbcChatRepository {
     }
 
     public Optional<ChatSession> findOwned(TenantId tenant, ActorId actor, UUID id, boolean lock) {
-        return jdbc.sql("""
-                        SELECT * FROM chat_session
+        return jdbc.sql(SELECT_SESSION + """
+                        FROM chat_session
                         WHERE tenant_id = :tenant AND owner_actor_id = :actor AND id = :id AND deleted_at IS NULL
                         """ + (lock ? " FOR UPDATE" : ""))
                 .param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
                 .query(JdbcChatRepository::session).optional();
+    }
+
+    /**
+     * The newest web topic of an assistant, with its last question or finished answer ({@code content} is cut to
+     * 2000 characters, and null with {@code messageAt} before anyone wrote).
+     */
+    public record LatestTopic(UUID personaId, UUID sessionId, String title, Instant updatedAt, @Nullable String content,
+                              @Nullable Instant messageAt, boolean replyRunning) {}
+
+    /** One row per assistant of {@code personas} the actor has a sidebar topic with, read in one statement. */
+    public List<LatestTopic> latestTopics(TenantId tenant, ActorId actor, Collection<UUID> personas) {
+        if (personas.isEmpty()) return List.of();
+        return jdbc.sql("""
+                        SELECT s.persona_id, s.id, s.title, s.updated_at, last.content, last.created_at,
+                               EXISTS (SELECT 1 FROM chat_message r WHERE r.session_id = s.id AND r.status = 'RUNNING')
+                                   AS reply_running
+                        FROM unnest(CAST(:personas AS uuid[])) AS p(id)
+                        JOIN LATERAL (
+                            SELECT * FROM chat_session c
+                            WHERE c.tenant_id = :tenant AND c.owner_actor_id = :actor AND c.persona_id = p.id
+                              AND c.deleted_at IS NULL AND c.archived_at IS NULL AND NOT c.temporary AND c.surface = 'WEB'
+                            ORDER BY c.updated_at DESC, c.id LIMIT 1
+                        ) s ON TRUE
+                        LEFT JOIN LATERAL (
+                            SELECT left(m.content, 2000) AS content, m.created_at FROM chat_message m
+                            WHERE m.session_id = s.id AND m.content <> ''
+                              AND (m.role = 'USER' OR m.role = 'ASSISTANT' AND m.status = 'COMPLETED')
+                            ORDER BY m.created_at DESC, m.id LIMIT 1
+                        ) last ON TRUE
+                        """).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("personas", personas.stream().map(UUID::toString).toArray(String[]::new))
+                .query((row, ignored) -> {
+                    var messageAt = row.getTimestamp("created_at");
+                    return new LatestTopic(row.getObject("persona_id", UUID.class), row.getObject("id", UUID.class),
+                            row.getString("title"), row.getTimestamp("updated_at").toInstant(), row.getString("content"),
+                            messageAt == null ? null : messageAt.toInstant(), row.getBoolean("reply_running"));
+                }).list();
     }
 
     /** Every conversation the member owns that is not deleted, for Delete All Chats. */
@@ -190,16 +236,24 @@ public class JdbcChatRepository {
                 .param("tenant", tenant.value()).param("actor", actor.value()).query(UUID.class).list();
     }
 
-    /** The sidebar's conversations, or the archive; an archived conversation is read by when it was archived. */
-    public List<ChatSession> list(TenantId tenant, ActorId actor, boolean archived, int offset, int limit) {
-        return jdbc.sql("""
-                        SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor
+    /**
+     * The sidebar's conversations, or the archive; an archived conversation is read by when it was archived. A
+     * {@code persona} keeps the topics of one assistant (MEM-273).
+     */
+    public List<ChatSession> list(TenantId tenant, ActorId actor, boolean archived, @Nullable UUID persona,
+                                  int offset, int limit) {
+        var sql = jdbc.sql(SELECT_SESSION + """
+                        FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor
                             AND deleted_at IS NULL AND NOT temporary AND surface = 'WEB'
                             AND (CASE WHEN :archived THEN archived_at IS NOT NULL ELSE archived_at IS NULL END)
+                        """ + (persona == null ? "" : " AND persona_id = :persona") + """
+
                         ORDER BY (CASE WHEN :archived THEN archived_at ELSE updated_at END) DESC, id
                         LIMIT :limit OFFSET :offset
                         """).param("tenant", tenant.value()).param("actor", actor.value()).param("archived", archived)
-                .param("limit", limit).param("offset", offset).query(JdbcChatRepository::session).list();
+                .param("limit", limit).param("offset", offset);
+        if (persona != null) sql = sql.param("persona", persona);
+        return sql.query(JdbcChatRepository::session).list();
     }
 
     /**
@@ -545,8 +599,8 @@ public class JdbcChatRepository {
     }
 
     public List<ChatSession> projectSessions(TenantId tenant, ActorId actor, UUID project, int offset, int limit) {
-        return jdbc.sql("""
-                SELECT * FROM chat_session WHERE tenant_id=:tenant AND owner_actor_id=:actor
+        return jdbc.sql(SELECT_SESSION + """
+                FROM chat_session WHERE tenant_id=:tenant AND owner_actor_id=:actor
                     AND project_id=:project AND deleted_at IS NULL ORDER BY updated_at DESC,id LIMIT :limit OFFSET :offset
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("project", project)
                 .param("limit", limit).param("offset", offset).query(JdbcChatRepository::session).list();
@@ -554,7 +608,8 @@ public class JdbcChatRepository {
 
     public Optional<ChatSession> shared(TenantId tenant, UUID session) {
         return jdbc.sql("""
-                SELECT s.* FROM chat_session s JOIN chat_sharing h ON h.session_id=s.id AND h.tenant_id=s.tenant_id
+                SELECT s.*, EXISTS (SELECT 1 FROM chat_message r WHERE r.session_id = s.id AND r.status = 'RUNNING') AS reply_running
+                FROM chat_session s JOIN chat_sharing h ON h.session_id=s.id AND h.tenant_id=s.tenant_id
                 WHERE s.tenant_id=:tenant AND s.id=:session AND s.deleted_at IS NULL AND h.enabled
                 """).param("tenant", tenant.value()).param("session", session).query(JdbcChatRepository::session).optional();
     }
@@ -681,7 +736,8 @@ public class JdbcChatRepository {
                 row.getObject("project_id", UUID.class),
                 effort == null ? null : ReasoningEffort.valueOf(effort),
                 archived == null ? null : archived.toInstant(), row.getObject("branched_from_session_id", UUID.class),
-                row.getObject("branched_from_message_id", UUID.class), row.getBoolean("temporary"));
+                row.getObject("branched_from_message_id", UUID.class), row.getBoolean("temporary"),
+                row.getBoolean("reply_running"));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {

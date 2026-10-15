@@ -5,28 +5,37 @@ and staging has deployed it. The web pull request is accepted when the owner has
 
 ## 1. Backend
 
-- [ ] Migration V178 (V176 is held by MEM-270): the index on `chat_session (tenant_id, owner_actor_id, persona_id,
+- [x] Migration V178 (V176 is held by MEM-270): the index on `chat_session (tenant_id, owner_actor_id, persona_id,
   updated_at DESC, id) WHERE deleted_at IS NULL AND archived_at IS NULL AND NOT temporary AND surface = 'WEB'`.
-- [ ] `personaId` filter on the session list and the search, in `DefaultChatSessionService`, `JdbcChatRepository` and
-  `JdbcChatSearchRepository`; the caller must be able to read the persona, or the list is empty.
-- [ ] `replyRunning` on `ChatSessionResponse`, computed in the list, search and single-session reads from the running
-  reply (`uq_chat_active_reply`).
-- [ ] Pins keep an unusable assistant and return it marked `usable: false`; reordering keeps such pins; seeding is
+- [x] `personaId` filter on the session list and the search, in `DefaultChatSessionService`, `JdbcChatRepository` and
+  `JdbcChatSearchRepository`. It lists the caller's own sessions only, so it checks no access on the assistant: an
+  unusable assistant still opens its topics (design decision 2; the earlier "empty unless readable" wording
+  contradicted it).
+- [x] `replyRunning` on every session read (`ChatSession`, `ChatSessionResponse`), from the running reply
+  (`uq_chat_active_reply`) in the same statement as the session.
+- [x] Pins keep an unusable assistant: `PUT /api/chat/persona-pins` keeps a pin the list still names and never pins an
+  unusable assistant anew; `GET /api/chat/assistants` returns it marked `usable: false`. `GET /api/chat/persona-pins`
+  still lists usable pins only, so the web's pin queue must move to the assistants list before it writes. Seeding is
   unchanged.
-- [ ] `GET /api/chat/assistants` in `ChatPersonaController`, from `ChatPersonaService`:
+- [x] `GET /api/chat/assistants` in `ChatPersonaController`, from `ChatPersonaService.assistants`:
   - in pin order, the built-in assistant first;
-  - each row with the assistant's view, `usable`, and the latest web topic (id, last message time, preview, running);
-  - the preview is plain text of the last user or assistant message, at most 120 characters;
-  - one query for the rows, with a lateral join per assistant.
-- [ ] Contract: refresh `openapi.yml` and regenerate the Hey API client.
-- [ ] Tests at the PostgreSQL boundary:
-  - the list and the search filtered by assistant return only its topics, and nothing for an assistant the caller
-    cannot read;
+  - each row with name, description, avatar fields, `builtin`, `ownerName`, `usable`, and the latest web topic (id,
+    title, last message time, preview, running);
+  - the preview is plain text of the last question or finished answer, at most 120 characters, without code blocks,
+    link targets, citation markers or Markdown marks;
+  - a fixed number of statements, the latest topics in one with a lateral join per assistant.
+- [x] Contract: refresh `openapi.yml` and regenerate the Hey API client; web fixtures gain `replyRunning`.
+- [x] Tests at the PostgreSQL boundary:
+  - the list and the search filtered by assistant return only the caller's topics of it;
   - `replyRunning` is true while a reply runs and false after;
-  - an unshared assistant's pin is kept, marked unusable, and survives a reorder;
-  - the assistants list puts MemoryOS first, follows pin order, shows each latest topic and preview, and reads in a
-    fixed number of queries;
+  - an unshared assistant's pin is kept, marked unusable, survives a reorder and cannot be pinned anew;
+  - the assistants list puts MemoryOS first, follows pin order, shows each latest topic and preview, and reads the
+    same number of statements with one more pin;
   - API test of `GET /api/chat/assistants` and the `personaId` parameter.
+- [x] Verification on zm, throttled (`--cpus=3 --memory=4g`, `nice -n 19`): `ChatPersistenceIntegrationTest` (51),
+  `ChatLifecycleIntegrationTest` (5), `ChatExportIntegrationTest` (2), `ModelCatalogSelectionTest` (10),
+  `ModulithArchitectureTest`, `CoreDependencyRulesTest`, `ChatSessionApiIntegrationTest` (98, 4 skipped as on main),
+  `OpenApiContractTest` written then checked against the committed file.
 
 ## 2. Web
 
@@ -44,6 +53,8 @@ and staging has deployed it. The web pull request is accepted when the owner has
 - [ ] Routes: `/assistants/$personaId` (latest topic or new), `/assistants/$personaId/new`, `/history` with search
   and the assistant filter; the agents page "Trò chuyện" opens the assistant instead of creating a session.
 - [ ] Pinned assistants no longer create a session on click; the first send creates it.
+- [ ] Pin changes (`usePinUpdates`) take the current order from `GET /api/chat/assistants` (every row but the
+  built-in one) instead of `GET /api/chat/persona-pins`, so a write keeps the unusable pins.
 - [ ] Search dialog per design decision 9: the sidebar trigger, assistant, topic and project groups of five, the "Trong: <trợ lý>" chip, the empty state.
 - [ ] Phones: the sheet shows the sidebar of the open page; choosing a topic closes it.
 - [ ] i18n in natural Vietnamese; remove the strings of the removed entries.

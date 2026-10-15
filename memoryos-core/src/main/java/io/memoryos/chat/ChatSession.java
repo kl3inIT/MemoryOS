@@ -10,10 +10,12 @@ import org.jspecify.annotations.Nullable;
  * {@code archivedAt} is set while the conversation is out of the sidebar but kept (MEM-153),
  * {@code branchedFrom*} name the conversation and message this one was branched from, and {@code temporary}
  * marks a conversation that leaves no history: it is listed nowhere and deletes itself with its uploads.
+ * {@code replyRunning} is true while an answer is being written in it, as read with the conversation.
  */
 public record ChatSession(UUID id, UUID personaId, UUID rootMessageId, String title,
         Instant createdAt, Instant updatedAt, @Nullable UUID projectId,
         @Nullable ReasoningEffort reasoningEffort, @Nullable Instant archivedAt,
-        @Nullable UUID branchedFromSessionId, @Nullable UUID branchedFromMessageId, boolean temporary) {
+        @Nullable UUID branchedFromSessionId, @Nullable UUID branchedFromMessageId, boolean temporary,
+        boolean replyRunning) {
     public boolean archived() { return archivedAt != null; }
 }
