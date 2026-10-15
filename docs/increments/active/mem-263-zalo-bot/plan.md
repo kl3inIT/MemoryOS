@@ -11,7 +11,7 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 2. The port without Lark's shape
 
-- [ ] `ChannelCredentials`, `settings` in place of `region` (migration), `verify` answering the app id;
+- [x] `ChannelCredentials`, `settings` in place of `region` (migration V165), `verify` answering the app id;
   `ChannelFeatures` and the shared splitter; `ChannelWebhook`; `ChannelSender` and the nullable organisation.
   Lark's adapter, the API and the web keep their behaviour; existing tests stay green and new ones cover the
   splitter and the admission rule for a provider without organisations.

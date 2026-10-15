@@ -92,7 +92,11 @@ final class LarkReplyCard implements ChannelReply {
     }
 
     @Override
-    public String finish(String answer, List<Source> sources, @Nullable String footer) {
+    public String finish(List<String> pieces, List<Source> sources, @Nullable String footer) {
+        // The card is rewritten as the answer is written, so the answer comes as one piece.
+        String answer = String.join("
+
+", pieces);
         end();
         rewrite(markdown(cut(inert(answer)), sources, footer));
         close(summary(inert(answer)));

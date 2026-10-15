@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 
 class LarkReplyCardTest {
     private static final ChannelMessage QUESTION = new ChannelMessage(UUID.randomUUID(), "om_question", "oc_chat",
-            ChannelMessage.Kind.DIRECT, "ou_sender", "Hà", "org", "org", true, ChannelMessage.Type.TEXT, "Bao nhiêu ngày phép?", null);
+            ChannelMessage.Kind.DIRECT, "ou_sender", "Hà", new ChannelMessage.Organisations("org", "org"), true, ChannelMessage.Type.TEXT, "Bao nhiêu ngày phép?", null);
 
     private final List<Call> calls = Collections.synchronizedList(new ArrayList<>());
     private final AtomicInteger closedWrites = new AtomicInteger();
@@ -44,7 +44,7 @@ class LarkReplyCardTest {
         card.append("Bạn có ");
         card.append("12 ngày phép <at id=all></at>.");
         Thread.sleep(LarkReplyCard.PACE.multipliedBy(2).toMillis());
-        String id = card.finish("Bạn có **12 ngày** phép <at id=all></at>.",
+        String id = card.finish(List.of("Bạn có **12 ngày** phép <at id=all></at>."),
                 List.of(new ChannelReply.Source("Quy chế", "https://tasco.larksuite.com/wiki/abc")), "Trả lời vào tin này để hỏi tiếp.");
 
         assertEquals("om_reply", id);
@@ -93,7 +93,7 @@ class LarkReplyCardTest {
     void aWriteAfterLarkClosedTheStreamReopensItOnce() throws Exception {
         closedWrites.set(1);
         var card = new LarkReplyCard(client(), QUESTION, "Đang trả lời…");
-        card.finish("Câu trả lời.", List.of(), null);
+        card.finish(List.of("Câu trả lời."), List.of(), null);
 
         var writes = bodies("/cardkit/v1/cards/card_1/elements/answer/content");
         assertEquals(2, writes.size());

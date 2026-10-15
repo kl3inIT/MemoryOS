@@ -2,11 +2,13 @@
 
 | Contract | Test |
 | --- | --- |
-| A bot starts switched off with its own service account named after it and an encrypted secret; it is audited | `PostgresChannelConnectionTest.aBotStartsSwitchedOffWithItsOwnServiceAccountAndAnEncryptedSecret` |
+| A bot starts switched off with its own service account named after it, its provider settings and an encrypted secret; it is audited | `PostgresChannelConnectionTest.aBotStartsSwitchedOffWithItsOwnServiceAccountAndAnEncryptedSecret` |
+| The app stored is the one the platform names; a second bot of it is refused, and a secret of another app replaces nothing | `PostgresChannelConnectionTest.theAppIsTheOneThePlatformNamesAndASecretOfAnotherAppReplacesNothing` |
 | One app serves one bot; two apps make two bots of the Tenant, each with its own account | `PostgresChannelConnectionTest.oneAppServesOneBotAndTwoAppsMakeTwoBots` |
 | Switching on or off and replacing the secret follow the revision; an unknown bot is not found | `PostgresChannelConnectionTest.switchingAndReplacingTheSecretFollowTheRevision` |
 | Removing a bot retires its account and keeps its name | `PostgresChannelConnectionTest.removingABotRetiresItsAccountAndKeepsItsName` |
-| The name, app id and language are checked; a member without `CHANNELS_MANAGE` neither reads nor adds a bot | `PostgresChannelConnectionTest.inputIsCheckedAndOnlyAHolderOfTheCapabilityManagesBots` |
+| The name, secret and language are checked; a member without `CHANNELS_MANAGE` neither reads nor adds a bot | `PostgresChannelConnectionTest.inputIsCheckedAndOnlyAHolderOfTheCapabilityManagesBots` |
+| A Lark app's id and region are checked before Lark is asked; Lark's features | `LarkChannelAdapterTest.anAppIsCheckedForItsShapeBeforeLarkIsAsked` |
 | A missing key fails the bots alone | `PostgresChannelConnectionTest.aMissingKeyFailsTheBotsAlone` |
 | An app the platform refuses is not stored, nor is its new secret; a test stores nothing and needs the capability | `PostgresChannelConnectionTest.anAppThePlatformRefusesIsNotStoredAndATestStoresNothing` |
 | The list carries what the process that holds a bot last wrote | `PostgresChannelConnectionTest.theListCarriesWhatTheProcessThatHoldsABotLastWrote` |
@@ -23,6 +25,9 @@
 | A conversation is continued only by the account it belongs to | `ChannelInboundServiceTest.aConversationIsContinuedOnlyByWhoeverItBelongsTo` |
 | An outsider, a message that is not text and an external group are refused with a notice and a reason, and no turn runs | `ChannelInboundServiceTest.outsidersOtherMessageTypesAndExternalGroupsAreRefusedWithANotice` |
 | A bot of another organisation than its event names, or that is switched off, answers nobody | `ChannelInboundServiceTest.aBotOfAnotherOrganisationOrThatIsSwitchedOffAnswersNobody` |
+| A provider without organisations answers nobody until a sender can link an account | `ChannelInboundServiceTest.aProviderWithoutOrganisationsAnswersNobodyUntilASenderCanLinkAnAccount` |
+| A reply that cannot be rewritten gets no partial text and the whole answer in pieces | `ChannelInboundServiceTest.aReplyThatCannotBeRewrittenGetsTheWholeAnswerInPiecesAndNoPartialText` |
+| An answer is cut at the last paragraph, line, sentence or space that fits, never inside a character, and keeps every word | `ChannelTextTest` |
 | A refused or failed turn becomes a notice and a recorded reason | `ChannelInboundServiceTest.aTurnThatIsRefusedOrFailsBecomesANoticeAndARecordedReason` |
 | Old message ids are swept and a recent one is kept | `ChannelInboundServiceTest.oldMessageIdsAreSweptAndARecentOneIsKept` |
 | A bot switched on is opened with its decrypted secret and its state is written; a second pass keeps it | `ChannelSupervisorTest.aBotSwitchedOnIsOpenedWithItsSecretAndItsStateIsWritten` |

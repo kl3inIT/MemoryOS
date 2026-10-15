@@ -9,8 +9,10 @@ import io.memoryos.api.channel.contract.UpdateChannelEnabledRequest;
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.channel.ChannelConnectionDraft;
 import io.memoryos.channel.ChannelConnectionService;
+import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelException;
 import io.memoryos.channel.ChannelProvider;
+import io.memoryos.channel.ChannelRegion;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,6 +21,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -66,7 +69,7 @@ final class ChannelController {
     ResponseEntity<ChannelAppCheckResponse> test(@CurrentActor IdentityContext identity,
             @Valid @RequestBody ChannelAppRequest body) {
         return ResponseEntity.ok().body(ChannelAppCheckResponse.from(channels.test(identity.actorId(), ChannelProvider.LARK,
-                body.region(), body.appId(), body.appSecret())));
+                lark(body.region(), body.appId(), body.appSecret()))));
     }
 
     @Operation(operationId = "createLarkChannel",
@@ -76,7 +79,7 @@ final class ChannelController {
     ResponseEntity<ChannelResponse> create(@CurrentActor IdentityContext identity,
             @Valid @RequestBody CreateChannelRequest body) {
         var created = channels.create(identity.actorId(), new ChannelConnectionDraft(ChannelProvider.LARK, body.name(),
-                body.region(), body.appId(), body.appSecret(), body.noticeLanguage()));
+                lark(body.region(), body.appId(), body.appSecret()), body.noticeLanguage()));
         return ResponseEntity.status(HttpStatus.CREATED).body(find(identity, created.id()));
     }
 
@@ -121,6 +124,11 @@ final class ChannelController {
         if (value == null || !value.matches("\"[0-9]{1,19}\"")) throw invalidRevision();
         try { return Long.parseLong(value.substring(1, value.length() - 1)); }
         catch (NumberFormatException exception) { throw invalidRevision(); }
+    }
+
+    /** A Lark app's credentials: its region is one of the provider's settings. */
+    private static ChannelCredentials lark(ChannelRegion region, String appId, String appSecret) {
+        return new ChannelCredentials(appId, appSecret, Map.of(ChannelRegion.SETTING, region.name()));
     }
 
     private static ChannelException invalidRevision() {

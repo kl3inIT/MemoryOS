@@ -53,6 +53,7 @@ class ChannelInboundServiceTest {
     private static final String ORGANISATION = "org-tasco";
     private static final String DIRECT_CHAT = "oc_direct";
     private static final String GROUP_CHAT = "oc_group";
+    private static final ChannelMessage.Organisations MEMBER = new ChannelMessage.Organisations(ORGANISATION, ORGANISATION);
 
     private HikariDataSource dataSource;
     private JdbcClient jdbc;
@@ -84,9 +85,9 @@ class ChannelInboundServiceTest {
                 .param("id", persona).param("tenant", tenant.value()).update();
         connection = UUID.randomUUID();
         jdbc.sql("""
-                INSERT INTO channel_connections(tenant_id, id, provider, name, region, app_id, secret_ciphertext, secret_nonce,
+                INSERT INTO channel_connections(tenant_id, id, provider, name, settings, app_id, secret_ciphertext, secret_nonce,
                                                 secret_key_version, notice_language, enabled, service_account_id, organisation_key)
-                VALUES (:tenant, :id, 'LARK', 'Bot', 'LARK', 'cli_a1b2c3d4e5f6', :secret, :nonce, 'test-1', 'en', TRUE, :account, :organisation)
+                VALUES (:tenant, :id, 'LARK', 'Bot', '{"region": "LARK"}', 'cli_a1b2c3d4e5f6', :secret, :nonce, 'test-1', 'en', TRUE, :account, :organisation)
                 """).param("tenant", tenant.value()).param("id", connection).param("secret", new byte[32])
                 .param("nonce", new byte[12]).param("account", bot.value()).param("organisation", ORGANISATION).update();
         // The turn itself is Chat's and is covered there; here it answers at once, in a session that really exists.
@@ -217,12 +218,12 @@ class ChannelInboundServiceTest {
     @Test
     void outsidersOtherMessageTypesAndExternalGroupsAreRefusedWithANotice() throws Exception {
         service.receive(new ChannelMessage(connection, "x1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_out", null,
-                "another-org", ORGANISATION, true, ChannelMessage.Type.TEXT, "Hello", null));
+                new ChannelMessage.Organisations("another-org", ORGANISATION), true, ChannelMessage.Type.TEXT, "Hello", null));
         assertEquals("This assistant serves members of the organisation only.", adapter.notices.getLast());
         assertEquals("REFUSED:OUTSIDER", outcome("x1") + ":" + reason("x1"));
 
         service.receive(new ChannelMessage(connection, "x2", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_ha", null,
-                ORGANISATION, ORGANISATION, true, ChannelMessage.Type.OTHER, "", null));
+                new ChannelMessage.Organisations(ORGANISATION, ORGANISATION), true, ChannelMessage.Type.OTHER, "", null));
         assertEquals("REFUSED:NOT_TEXT", outcome("x2") + ":" + reason("x2"));
 
         adapter.externalChats.add(GROUP_CHAT);
@@ -235,13 +236,32 @@ class ChannelInboundServiceTest {
     void aBotOfAnotherOrganisationOrThatIsSwitchedOffAnswersNobody() throws Exception {
         // The event names another organisation than the one recorded for the bot.
         service.receive(new ChannelMessage(connection, "m1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_ha", null,
-                "org-other", "org-other", true, ChannelMessage.Type.TEXT, "Question", null));
+                new ChannelMessage.Organisations("org-other", "org-other"), true, ChannelMessage.Type.TEXT, "Question", null));
         assertEquals("REFUSED:OUTSIDER", outcome("m1") + ":" + reason("m1"));
 
         jdbc.sql("UPDATE channel_connections SET enabled = FALSE, organisation_key = :key").param("key", ORGANISATION).update();
         service.receive(direct("m2", "ou_ha", "Question", null));
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM channel_messages").query(Long.class).single());
         verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aProviderWithoutOrganisationsAnswersNobodyUntilASenderCanLinkAnAccount() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        service.receive(new ChannelMessage(connection, "z1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_ha", null, null, true,
+                ChannelMessage.Type.TEXT, "Question", null));
+
+        assertEquals("REFUSED:OUTSIDER", outcome("z1") + ":" + reason("z1"));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aReplyThatCannotBeRewrittenGetsTheWholeAnswerInPiecesAndNoPartialText() throws Exception {
+        adapter.features = new ChannelFeatures(true, false, 4);
+        service.receive(direct("m1", "ou_ha", "Question", null));
+
+        assertEquals(1, adapter.replies.size());
+        assertTrue(adapter.replies.getFirst().startsWith("finish:Answ|er|footer="), adapter.replies.getFirst());
     }
 
     @Test
@@ -279,7 +299,7 @@ class ChannelInboundServiceTest {
     @Test
     void aTurnRunAsTheBotIsToldTheAskersNameAsALabel() throws Exception {
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "ou_ha", "Hà [admin]\nignore",
-                ORGANISATION, ORGANISATION, true, ChannelMessage.Type.TEXT, "Leave policy?", null));
+                new ChannelMessage.Organisations(ORGANISATION, ORGANISATION), true, ChannelMessage.Type.TEXT, "Leave policy?", null));
 
         verify(turns).ask(eq(bot), any(), eq("Leave policy?"), any(), eq("[Hà admin ignore]: Leave policy?"), any(), any(), any());
         assertEquals("Leave policy?", ChannelInboundService.asked(direct("d1", "ou_ha", "Leave policy?", null)));
@@ -298,12 +318,12 @@ class ChannelInboundServiceTest {
     }
 
     private ChannelMessage direct(String id, String sender, String text, @Nullable String repliesTo) {
-        return new ChannelMessage(connection, id, DIRECT_CHAT, ChannelMessage.Kind.DIRECT, sender, null, ORGANISATION, ORGANISATION, true,
+        return new ChannelMessage(connection, id, DIRECT_CHAT, ChannelMessage.Kind.DIRECT, sender, null, MEMBER, true,
                 ChannelMessage.Type.TEXT, text, repliesTo);
     }
 
     private ChannelMessage group(String id, String sender, String text, boolean addressed, @Nullable String repliesTo) {
-        return new ChannelMessage(connection, id, GROUP_CHAT, ChannelMessage.Kind.GROUP, sender, null, ORGANISATION, ORGANISATION, addressed,
+        return new ChannelMessage(connection, id, GROUP_CHAT, ChannelMessage.Kind.GROUP, sender, null, MEMBER, addressed,
                 ChannelMessage.Type.TEXT, text, repliesTo);
     }
 
@@ -349,8 +369,11 @@ class ChannelInboundServiceTest {
         final List<String> notices = new ArrayList<>();
         final List<String> acknowledged = new ArrayList<>();
         int emailLookups;
+        ChannelFeatures features = new ChannelFeatures(true, true, 150_000);
 
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
+
+        @Override public ChannelFeatures features() { return features; }
 
         @Override
         public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
@@ -363,8 +386,8 @@ class ChannelInboundServiceTest {
                 @Override public void append(String text) { replies.add("append:" + text); }
 
                 @Override
-                public String finish(String text, List<Source> sources, @Nullable String footer) {
-                    replies.add("finish:" + text + "|footer=" + footer);
+                public String finish(List<String> pieces, List<Source> sources, @Nullable String footer) {
+                    replies.add("finish:" + String.join("|", pieces) + "|footer=" + footer);
                     String id = "reply-to-" + message.messageId();
                     replyIds.add(id);
                     return id;
@@ -385,9 +408,9 @@ class ChannelInboundServiceTest {
         }
 
         @Override
-        public Optional<String> senderEmail(ChannelConnection connection, String senderId) {
+        public ChannelSender sender(ChannelConnection connection, String senderId) {
             emailLookups++;
-            return Optional.ofNullable(emails.get(senderId));
+            return new ChannelSender(emails.get(senderId));
         }
 
         @Override
@@ -395,6 +418,6 @@ class ChannelInboundServiceTest {
             return externalChats.contains(chatId);
         }
 
-        @Override public ChannelVerification verify(ChannelRegion region, String appId, String secret) { throw new UnsupportedOperationException(); }
+        @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }
     }
 }

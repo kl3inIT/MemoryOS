@@ -3,7 +3,6 @@ package io.memoryos.channel.persistence;
 import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelConnectionState;
 import io.memoryos.channel.ChannelProvider;
-import io.memoryos.channel.ChannelRegion;
 import io.memoryos.channel.ChannelVerification;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.CredentialCipher;
@@ -21,13 +20,17 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /** The Tenant's bots (MEM-246). The secret envelope is written here and never read back into a view. */
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcChannelConnectionRepository {
-    private static final String COLUMNS = "id, provider, name, region, app_id, notice_language, enabled, service_account_id, "
-            + "revision, created_at, updated_at, organisation_key, bot_name, bot_external_id, missing_scopes";
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final TypeReference<Map<String, String>> SETTINGS = new TypeReference<>() {};
+    private static final String COLUMNS = "id, provider, name, app_id, settings::text AS settings, notice_language, enabled, "
+            + "service_account_id, revision, created_at, updated_at, organisation_key, bot_name, bot_external_id, missing_scopes";
     private final JdbcClient jdbc;
 
     public JdbcChannelConnectionRepository(JdbcClient jdbc) {
@@ -131,27 +134,27 @@ public class JdbcChannelConnectionRepository {
     }
 
     /** Whether any bot, of any Tenant, already holds the app. */
-    public boolean appInUse(ChannelProvider provider, ChannelRegion region, String appId) {
+    public boolean appInUse(ChannelProvider provider, String appId) {
         return jdbc.sql("""
-                        SELECT EXISTS (SELECT 1 FROM channel_connections
-                                       WHERE provider = :provider AND region = :region AND app_id = :app)
+                        SELECT EXISTS (SELECT 1 FROM channel_connections WHERE provider = :provider AND app_id = :app)
                         """)
-                .param("provider", provider.name()).param("region", region.name()).param("app", appId)
+                .param("provider", provider.name()).param("app", appId)
                 .query(Boolean.class).single();
     }
 
-    public ChannelConnection insert(TenantId tenant, UUID id, ChannelProvider provider, String name, ChannelRegion region,
-                                    String appId, CredentialCipher.EncryptedCredential secret, String noticeLanguage,
-                                    ActorId serviceAccount) {
+    public ChannelConnection insert(TenantId tenant, UUID id, ChannelProvider provider, String name, String appId,
+                                    Map<String, String> settings, CredentialCipher.EncryptedCredential secret,
+                                    String noticeLanguage, ActorId serviceAccount) {
         return jdbc.sql("""
-                        INSERT INTO channel_connections(tenant_id, id, provider, name, region, app_id, secret_ciphertext,
+                        INSERT INTO channel_connections(tenant_id, id, provider, name, app_id, settings, secret_ciphertext,
                                                         secret_nonce, secret_key_version, notice_language, enabled,
                                                         service_account_id)
-                        VALUES (:tenant, :id, :provider, :name, :region, :app, :ciphertext, :nonce, :keyVersion, :language,
-                                FALSE, :account)
+                        VALUES (:tenant, :id, :provider, :name, :app, CAST(:settings AS JSONB), :ciphertext, :nonce,
+                                :keyVersion, :language, FALSE, :account)
                         RETURNING\s""" + COLUMNS)
                 .param("tenant", tenant.value()).param("id", id).param("provider", provider.name()).param("name", name)
-                .param("region", region.name()).param("app", appId).param("ciphertext", secret.ciphertext())
+                .param("app", appId).param("settings", JSON.writeValueAsString(settings))
+                .param("ciphertext", secret.ciphertext())
                 .param("nonce", secret.nonce()).param("keyVersion", secret.keyVersion()).param("language", noticeLanguage)
                 .param("account", serviceAccount.value())
                 .query(JdbcChannelConnectionRepository::connection).single();
@@ -189,7 +192,7 @@ public class JdbcChannelConnectionRepository {
 
     private static ChannelConnection connection(ResultSet row, int ignored) throws SQLException {
         return new ChannelConnection(row.getObject("id", UUID.class), ChannelProvider.valueOf(row.getString("provider")),
-                row.getString("name"), ChannelRegion.valueOf(row.getString("region")), row.getString("app_id"),
+                row.getString("name"), row.getString("app_id"), JSON.readValue(row.getString("settings"), SETTINGS),
                 row.getString("notice_language"), row.getBoolean("enabled"),
                 new ActorId(row.getObject("service_account_id", UUID.class)), row.getLong("revision"),
                 row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
