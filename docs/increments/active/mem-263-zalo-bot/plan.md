@@ -31,7 +31,7 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
   polling transport, the conversion of an update, the reply with typing, pieces, sources and footer, `429` as
   `CHANNEL_PROVIDER_QUOTA`; dependency rule test and classpath isolation.
 - [ ] `memoryos-channels`: `POST /hooks/channels/{id}` answering after the claim; the web nginx route;
-  `memoryos.channel.zalo.transport`; `CHANNEL_WEB_URL_MISSING`; compose and the staging example.
+  the bot's transport with `testWebhook` on switching on; `CHANNEL_WEB_URL_MISSING`, `CHANNEL_WEBHOOK_UNREACHABLE`.
 - [ ] `/api/channels` for `ZALO_BOT`; contract, `openapi.yml`, the web client.
 
 ## 5. The web
