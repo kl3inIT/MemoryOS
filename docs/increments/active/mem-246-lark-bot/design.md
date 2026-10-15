@@ -357,6 +357,29 @@ administrators hold and an ordinary Group can be granted; changes are audited. T
 console steps beside the
 form and saves a switch on change.
 
+### Notices
+
+What the bot says in its own voice (`ChannelNotice`), in the connection's language. Ready for review; the comparison
+column cites only what the research above recorded.
+
+| Notice | When | Vietnamese | English | Compared with |
+| --- | --- | --- | --- | --- |
+| `OUTSIDER` | The sender is not of the bot's organisation | Trợ lý này chỉ phục vụ thành viên của tổ chức. | This assistant serves members of the organisation only. | Not compared |
+| `EXTERNAL_GROUP` | The group has people outside the organisation | Trợ lý không trả lời trong nhóm có người ngoài tổ chức. Hãy nhắn riêng cho trợ lý. | The assistant does not answer in a group with people outside the organisation. Send it a direct message. | Glean, Microsoft, Agentforce and Aily refuse an external group; their wording not compared |
+| `TEXT_ONLY` | An image, file or other message type | Hiện trợ lý chỉ đọc được tin nhắn văn bản. | The assistant reads text messages only for now. | Not compared |
+| `NEW_CONVERSATION` | `/new` in a direct message | Đã bắt đầu cuộc trò chuyện mới. | A new conversation has started. | Not compared |
+| `WRITING` | The answer card before the first text | Đang trả lời… | Answering… | Replaces the SDK card's fixed English placeholder |
+| `BUSY` | A turn refused or still waiting at its bound | Trợ lý đang bận. Hãy hỏi lại sau ít phút. | The assistant is busy. Ask again in a moment. | Not compared |
+| `RATE` | More than ten messages from one sender in a minute | Bạn đang gửi quá nhanh. Hãy đợi một phút rồi hỏi tiếp. | You are sending messages too fast. Wait a minute, then ask again. | WeKnora tells the sender; its wording not compared |
+| `LIMIT` | A spend limit refused the turn | Đã hết hạn mức sử dụng AI. Hãy liên hệ quản trị viên. | The AI usage limit is reached. Contact an administrator. | Not compared |
+| `FAILED` | Any other failure | Trợ lý chưa trả lời được câu này. Hãy thử lại. | The assistant could not answer this. Try again. | Not compared |
+| `GROUP_FOOTER` | The closing line of a group answer | Trả lời vào tin này để hỏi tiếp. Nhắn riêng cho trợ lý để hỏi theo tài liệu của riêng bạn. | Reply to this message to continue. Send the assistant a direct message to ask from your own documents. | Not compared |
+| `CONTINUE_ON_WEB` | The link closing a sender's own direct answer | Tiếp tục trên MemoryOS | Continue in MemoryOS | Dust's "Continue on Dust" |
+| `UNMAPPED_FOOTER` | The closing line for a sender without an account | Đăng nhập MemoryOS bằng email công việc để trợ lý dùng được tài liệu của riêng bạn. | Sign in to MemoryOS with your work e-mail so the assistant can use your own documents. | Onyx answers an unmapped member as the bot; Dust replies that the sender is not a member; wording not compared |
+| Reaction `Get` | A question waiting for its conversation's running turn | — | — | spring-agent's Feishu bot |
+
+Claude in Slack was not part of the research, so no notice is compared with it.
+
 ### Observability
 
 Events `channel.connection.opened`, `.closed`, `.failed`, `channel.message.answered`, `.rejected`, `.failed` with

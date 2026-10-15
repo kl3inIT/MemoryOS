@@ -29,9 +29,15 @@ flowchart LR
     WORKER --> PVL[PaddleOCR-VL]
     WORKER --> OS
     WORKER --> LLM
+
+    LARK[Lark] <-->|long connection| CH[Channels process]
+    CH --> PG
+    CH --> RS
+    CH --> OS
+    CH --> LLM
 ```
 
-The API and worker are separate deployables. The API owns HTTP, browser sessions, authorization, business commands, Chat inference and Flyway. The worker owns durable background execution for source synchronization, ingestion, cleanup and Search projection. The web application is a separate Vite/React deployable served by Nginx.
+The API and worker are separate deployables. The API owns HTTP, browser sessions, authorization, business commands, Chat inference and Flyway. The worker owns durable background execution for source synchronization, ingestion, cleanup and Search projection. The web application is a separate Vite/React deployable served by Nginx. On staging, `memoryos-channels` runs the chat bots: it holds a long connection to Lark for each bot switched on and runs their Chat turns in process; it and the API never call each other and share only PostgreSQL and Redis ([channel](docs/specs/channel.md), [ADR 0028](docs/decisions/0028-chat-channels-in-their-own-process.md)).
 
 ## Why the system has these components
 
@@ -150,7 +156,7 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `memoryos-core` | Fourteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on an integration, on extraction or on a deployable |
+| `memoryos-core` | Fifteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on an integration, on extraction or on a deployable |
 | `memoryos-integration-lark`, `-google`, `-microsoft` | One module a platform, holding everything that calls it (`io.memoryos.integration.<platform>`): Lark through the official `oapi-sdk` on a transport of the JDK client, Google Drive through Google's API clients on a guarded `google-http-client` with the account consent protocol the API's callback uses, SharePoint through the Microsoft Graph SDK on a guarded OkHttp client. Each depends only on public `core` APIs and on no other platform ([ADR 0027](docs/decisions/0027-integrations-by-platform-and-memoryos-module-names.md)) |
 | `memoryos-extraction` | Bounded content extraction (`io.memoryos.ingestion.extraction`): Tika, Docling, the OCR adapters and the spreadsheet readers; a provider's snapshot is read by the reader its integration registers for that input format, so extraction names no platform |
 | `memoryos-api` | HTTP, security, migrations and interactive Chat composition |
@@ -244,7 +250,7 @@ flowchart LR
     LOOP --> OUTCOME[Persist terminal or partial outcome]
 ```
 
-Chat inference runs in the API process and does not use the ingestion worker or its Redis work streams. PostgreSQL owns sessions, message branches, command identity, outcome, run lease and model metadata. A bounded per-reply Redis Stream (`memoryos:chat:stream:*`, TTL-bound) supports live SSE and replay from any API process; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
+Chat inference runs in the API process, and for the chat bots in `memoryos-channels`, and does not use the ingestion worker or its Redis work streams. Each process bounds the turns it runs at once (80 in the API with 3 a person, 24 in `memoryos-channels`); a turn beyond the bound waits, and the sum stays under the model provider's limit ([chat](docs/specs/chat.md)). PostgreSQL owns sessions, message branches, command identity, outcome, run lease and model metadata. A bounded per-reply Redis Stream (`memoryos:chat:stream:*`, TTL-bound) supports live SSE and replay from any API process; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
 
 Custom agents (Personas) are Chat-owned, Tenant-scoped configurations Onyx calls agents: instructions, an optional task prompt and knowledge cutoff, a tool policy (`search`, `web_search`, `image_generation`, `code_interpreter` and attached MCP servers), Source attachments, labels, pins and prompt shortcuts. Every use and edit check comes from one SQL predicate in `AgentAccessSql`, reused by listing, session selection, turn admission and the model catalog, so an agent a member can no longer use fails the next admission while an admitted turn keeps its captured context. `ChatTurnService` reads the session agent's tool policy under that authority before the Web, image and MCP checks, and registers only the tools the agent allows. Mutations lock the persona row and check its revision. Authority tokens are in the [identity contract](docs/specs/identity.md); behavior in the [Chat contract](docs/specs/chat.md).
 
@@ -346,11 +352,16 @@ flowchart TB
     WORKER --> PADDLE[PaddleOCR-VL on the serving node]
     API --> OTEL[OTel collector]
     WORKER --> OTEL
+    CHANNELS[Channels, staging only] --> PG
+    CHANNELS --> REDIS
+    CHANNELS --> MINIO
+    CHANNELS --> OPENSEARCH
+    CHANNELS --> LARKWS[Lark long connections]
 ```
 
 Base Compose owns PostgreSQL, MinIO, Keycloak, TLS Redis, Docling, the code interpreter, API, worker and web; OpenSearch comes from a separate `compose.search.<environment>.yaml`. Production's GPU services run on a second node from `compose.serving.yaml`, published on its private address and admitted to the application node alone by a `DOCKER-USER` rule; the production deployment rolls that node out first. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
 
-The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, TLS Redis, Docling, the code interpreter, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
+The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, TLS Redis, Docling, the code interpreter, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds `memoryos-channels` ([runbook](docs/runbooks/lark-bot.md)), Mailpit, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
 
 Structured logs, metrics and traces flow through OpenTelemetry to the independently operated LGTM stack. Telemetry carries correlation and operation-origin identifiers but never changes authorization, durable claims or acknowledgement semantics. See the [observability policy](docs/guidelines/observability.md).
 

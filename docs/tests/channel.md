@@ -15,7 +15,7 @@
 | Adding a bot is `201` and the notice language is checked | `ChannelApiTest.addingABotReturnsItCreated` |
 | Switching, replacing the secret and removing need a quoted revision; a stale one is `409` | `ChannelApiTest.changesFollowTheRevision` |
 | The secret envelope moved to the shared kernel unchanged | `CredentialCipherTest` |
-| A direct message runs as its sender and a message handed over twice is answered once; the message and each of its steps are spans | `ChannelInboundServiceTest.aDirectMessageRunsAsItsSenderAndIsAnsweredOnce` |
+| A direct message runs as its sender and a message handed over twice is answered once; the message and each of its steps are spans; the answer ends with the link to its session on the web | `ChannelInboundServiceTest.aDirectMessageRunsAsItsSenderAndIsAnsweredOnce` |
 | A sender without an account is answered as the bot, told to sign in, and the provider is asked once while that is remembered | `ChannelInboundServiceTest.aSenderWithoutAnAccountIsAnsweredAsTheBotAndRememberedForAWhile` |
 | A group is answered only when the bot is named, as the bot, with the closing line; a new group message starts a conversation | `ChannelInboundServiceTest.aGroupIsAnsweredOnlyWhenTheBotIsNamedAndAsTheBot` |
 | A reply to the bot's answer or to the question continues its conversation, however old and whoever replies | `ChannelInboundServiceTest.aReplyContinuesItsConversationHoweverOldAndWhoeverReplies` |
@@ -48,6 +48,10 @@
 | The page lists bots with one line each; a switch saves on change with the bot's revision; a bot opens its page with its facts and missing scopes | `channels-administration.spec.ts` (Playwright), `channel-status.test.ts` |
 | Adding a bot opens the dialog beside the console steps and waits for the App Secret | `channels-administration.spec.ts` |
 
-The bridge to Chat (`ChannelTurns`: session, leaf, turn, stream, saved answer) has no test of its own; it is
-exercised end to end on staging with the Lark adapter (plan step 4), as is the adapter's connection, streaming reply,
-e-mail and external-chat calls, which need a live Lark tenant.
+The bridge to Chat (`ChannelTurns`: session, leaf, turn, stream, saved answer) has no test of its own beyond the
+waiting above; it is exercised end to end on staging with the Lark adapter, as are the adapter's connection,
+streaming reply, e-mail and external-chat calls, which need a live Lark tenant. Run on staging so far: direct
+messages from a mapped member answered as that member, the session opened and continued on the web by its
+address, a restart of the process while idle, and the load and provider limits
+([verification](../increments/active/mem-246-lark-bot/verification.md)). A group message naming the bot, `@all`,
+a second message during an answer and the three-account acceptance wait for a person on the Lark test tenant.
