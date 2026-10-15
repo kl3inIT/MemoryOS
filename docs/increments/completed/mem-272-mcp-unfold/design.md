@@ -1,13 +1,13 @@
 # MCP tools opened on demand
 
 Linear: [MEM-272](https://linear.app/memory-os/issue/MEM-272). Plan: [plan.md](plan.md). Follows
-[MEM-264](../mem-264-mcp-tool-policy/design.md) (tool policy) and
-[MEM-269](../../completed/mem-269-prompt-cache/design.md) (prompt cache).
+[MEM-264](../../active/mem-264-mcp-tool-policy/design.md) (tool policy) and
+[MEM-269](../mem-269-prompt-cache/design.md) (prompt cache).
 
 ## Problem
 
 With Linear selected, every model call carried 64 tools, about 30k tokens on Claude
-([MEM-269 verification](../../completed/mem-269-prompt-cache/verification.md)). The other 12 enabled tools were cut in
+([MEM-269 verification](../mem-269-prompt-cache/verification.md)). The other 12 enabled tools were cut in
 alphabetical order. From the second call on, the prompt cache carries most of that cost. Three costs remain:
 
 - the first call of a conversation pays in full, and Claude bills that write at 1.25 times input;
