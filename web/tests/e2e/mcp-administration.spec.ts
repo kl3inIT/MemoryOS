@@ -446,8 +446,8 @@ test("A tool that asks first waits for the owner and continues once allowed", as
   // The card sits in the answer, not in the thinking that collapses once the answer starts, so its outcome stays.
   await expect(page.getByText("Bạn đã cho phép.")).toBeVisible();
   // MEM-267: the composer shows how full the context was on that answer.
-  await expect(page.getByRole("button", { name: "Mức dùng ngữ cảnh" })).toContainText("75%");
-  await page.getByRole("button", { name: "Mức dùng ngữ cảnh" }).hover();
-  await expect(page.getByText("Đã dùng 75% ngữ cảnh")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Mức dùng context" })).toContainText("75%");
+  await page.getByRole("button", { name: "Mức dùng context" }).hover();
+  await expect(page.getByText("Đã dùng 75% context")).toBeVisible();
   await page.screenshot({ path: "test-results/mcp-approval-answered.png" });
 });

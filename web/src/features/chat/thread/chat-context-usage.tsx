@@ -19,8 +19,8 @@ export function ChatContextUsage() {
     <ContextDisplay
       tokens={context?.tokens}
       limit={context?.limit}
-      label={ui("Mức dùng ngữ cảnh")}
-      summary={(percent) => ui("Đã dùng {{percent}}% ngữ cảnh", { percent })}
+      label={ui("Mức dùng context")}
+      summary={(percent) => ui("Đã dùng {{percent}}% context", { percent })}
     />
   );
 }

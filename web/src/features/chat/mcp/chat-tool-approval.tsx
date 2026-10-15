@@ -94,14 +94,14 @@ export function ChatToolApproval({
         denyLabel={ui("Từ chối")}
         statusLabel={
           expired
-            ? ui("Không có phản hồi nên công cụ không chạy.")
+            ? ui("Hết thời gian chờ, công cụ không chạy.")
             : state === "denied"
               ? ui("Bạn đã từ chối.")
               : state === "running"
                 ? ui("Đang chạy…")
                 : state === "done"
                   ? gate.optionId === "allow-always"
-                    ? ui("Bạn đã cho phép luôn công cụ này.")
+                    ? ui("Đã bật luôn cho phép công cụ này.")
                     : ui("Bạn đã cho phép.")
                   : undefined
         }

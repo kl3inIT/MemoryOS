@@ -22,12 +22,12 @@ export function ChatMessageTiming() {
   const seconds = new Intl.NumberFormat(uiLocale(), { maximumFractionDigits: 1 });
   const stats = [
     timing?.firstTokenTime !== undefined
-      ? ui("Token đầu sau {{seconds}} giây", {
+      ? ui("Bắt đầu trả lời sau {{seconds}} giây", {
           seconds: seconds.format(timing.firstTokenTime / 1000),
         })
       : null,
     timing?.totalStreamTime !== undefined
-      ? ui("Tổng {{seconds}} giây", { seconds: seconds.format(timing.totalStreamTime / 1000) })
+      ? ui("Xong trong {{seconds}} giây", { seconds: seconds.format(timing.totalStreamTime / 1000) })
       : null,
     timing?.tokensPerSecond !== undefined
       ? ui("{{speed}} token/giây", { speed: Math.round(timing.tokensPerSecond) })
