@@ -5,8 +5,8 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 
 /**
  * Answer time from the saved message timestamp, revealed on hover or focus. An answer streamed in this session also
- * shows assistant-ui's own timing (MEM-267): how long until the first token, the whole answer, and its speed, which
- * helps compare models; a reloaded answer has only its time.
+ * shows assistant-ui's own timing (MEM-267): when the answer started and how long it took; the runtime also measures
+ * its speed, which stays off the screen. A reloaded answer has only its time.
  */
 export function ChatMessageTiming() {
   const ui = useAppTranslation();
@@ -27,10 +27,9 @@ export function ChatMessageTiming() {
         })
       : null,
     timing?.totalStreamTime !== undefined
-      ? ui("Xong trong {{seconds}} giây", { seconds: seconds.format(timing.totalStreamTime / 1000) })
-      : null,
-    timing?.tokensPerSecond !== undefined
-      ? ui("{{speed}} token/giây", { speed: Math.round(timing.tokensPerSecond) })
+      ? ui("Xong trong {{seconds}} giây", {
+          seconds: seconds.format(timing.totalStreamTime / 1000),
+        })
       : null,
   ].filter((stat) => stat !== null);
   const time = formatUiDate(started, {

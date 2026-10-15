@@ -18,7 +18,7 @@ Design: [design.md](design.md).
 
 ## 3. Answer timing
 
-- [x] `useMessageTiming` stats beside the answer's time.
+- [x] `useMessageTiming` start and total time beside the answer's time; its speed is measured but not shown.
 
 ## 4. Verification
 

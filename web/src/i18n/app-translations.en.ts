@@ -1091,7 +1091,6 @@ export const vietnameseUi: Record<string, string> = {
   "Đã dùng {{percent}}% context": "{{percent}}% of the context used",
   "Bắt đầu trả lời sau {{seconds}} giây": "Started after {{seconds}} s",
   "Xong trong {{seconds}} giây": "Done in {{seconds}} s",
-  "{{speed}} token/giây": "{{speed}} tokens/s",
   "Hỏi trước": "Ask first",
   "Cho phép": "Allow",
   "Từ chối": "Decline",
