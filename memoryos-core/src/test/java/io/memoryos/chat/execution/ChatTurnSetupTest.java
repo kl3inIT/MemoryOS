@@ -261,6 +261,69 @@ class ChatTurnSetupTest {
         assertTrue(setup.fileIds().isEmpty());
     }
 
+    /** MEM-268: an older turn's file text and presentation data go first; its file stays named and readable. */
+    @Test
+    void olderTurnsKeepTheirFilesNamedButNotInlinedForAModelWithTools() {
+        var old = new ChatFileDescriptor(UUID.randomUUID(), "quy-che.txt", "text/plain", 30);
+        var current = new ChatFileDescriptor(UUID.randomUUID(), "bao-cao.txt", "text/plain", 20);
+        var artifact = new ChatArtifact(UUID.randomUUID(), "Revenue", """
+                {"root":{"component":"Metric","props":{"label":"September","value":"125000"}}}
+                """);
+        var oldQuestion = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER,
+                ChatMessage.Status.COMPLETED, Instant.now()).content("Đọc quy chế").files(List.of(old))
+                .finishedAt(Instant.now()).build();
+        var oldAnswer = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.ASSISTANT,
+                ChatMessage.Status.COMPLETED, Instant.now()).content("Quy chế có ba phần.").artifacts(List.of(artifact))
+                .finishedAt(Instant.now()).build();
+        var question = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER,
+                ChatMessage.Status.COMPLETED, Instant.now()).content("Tóm tắt báo cáo").files(List.of(current))
+                .finishedAt(Instant.now()).build();
+        var history = List.of(question, message(ChatMessage.Role.ASSISTANT, "Phần hai nói về nghỉ phép."),
+                message(ChatMessage.Role.USER, "Phần hai nói gì?"), oldAnswer, oldQuestion);
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", history)
+                .fileTexts(Map.of(old.id(), new UserFileService.FileText("NỘI DUNG QUY CHẾ", 0, 16),
+                        current.id(), new UserFileService.FileText("NỘI DUNG BÁO CÁO", 0, 16)))
+                .build();
+        var base = binding();
+        var tools = ModelBinding.builder(base.service(), base.finalRequest(), base.policy(), 32000, 4096, true, false).build();
+
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, tools, "");
+        var texts = setup.messages().stream().map(Message::getContent).toList();
+        assertTrue(texts.stream().noneMatch(text -> text.contains("NỘI DUNG QUY CHẾ")), "the older file is not inlined");
+        assertTrue(texts.stream().noneMatch(text -> text.contains("125000")), "the older presentation data is gone");
+        assertTrue(texts.stream().anyMatch(text -> text.startsWith("Đọc quy chế") && text.contains("quy-che.txt")
+                && text.contains("read_file available")), "the older question still names its file");
+        assertTrue(texts.stream().anyMatch(text -> text.contains("NỘI DUNG BÁO CÁO")), "the current file stays inline");
+        assertEquals(Set.of(old.id(), current.id()), setup.fileIds(), "both files stay readable");
+        assertEquals(1, setup.evidence().snapshot().size(), "only the inlined file is cited");
+
+        // A model without tools has no read_file, so it keeps reading the older file inline as before.
+        var noTools = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, base, "");
+        assertTrue(noTools.messages().stream().anyMatch(m -> m.getContent().contains("NỘI DUNG QUY CHẾ")));
+        assertTrue(noTools.messages().stream().noneMatch(m -> m.getContent().contains("125000")));
+
+        // Less is sent, so a budget that held the whole conversation before still holds it.
+        int before = noTools.messages().size() - 1;
+        var fitting = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, tools, "");
+        assertTrue(fitting.messages().size() >= before, "no turn is lost by dropping bulky content");
+    }
+
+    @Test
+    void thePreviousAnswerKeepsItsPresentationDataForAModelWithTools() {
+        var artifact = new ChatArtifact(UUID.randomUUID(), "Revenue", """
+                {"root":{"component":"Metric","props":{"label":"September","value":"125000"}}}
+                """);
+        var answer = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.ASSISTANT,
+                ChatMessage.Status.COMPLETED, Instant.now()).content("").artifacts(List.of(artifact))
+                .finishedAt(Instant.now()).build();
+        var base = binding();
+        var tools = ModelBinding.builder(base.service(), base.finalRequest(), base.policy(), 32000, 4096, true, false).build();
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(
+                message(ChatMessage.Role.USER, "Đổi sang tháng mười"), answer, message(ChatMessage.Role.USER, "Doanh thu tháng chín"))),
+                32000, tools, "");
+        assertTrue(setup.messages().stream().anyMatch(m -> m.getContent().contains("125000")));
+    }
+
     @Test
     void aReplyDeclinedForAnotherReasonHidesNothing() {
         var session = UUID.randomUUID();

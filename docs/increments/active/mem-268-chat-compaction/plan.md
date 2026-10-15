@@ -4,7 +4,7 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 1. Bulky content first
 
-- [ ] `ChatTurnSetup`: older turns replay their file metadata without the inlined file text and artifact JSON, the
+- [x] `ChatTurnSetup`: older turns replay their file metadata without the inlined file text and artifact JSON, the
   newest turn unchanged; tests on the selected messages and the token count.
 
 ## 2. The summary and how a turn uses it
