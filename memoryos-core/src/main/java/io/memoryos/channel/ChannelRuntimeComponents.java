@@ -31,7 +31,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
                 "io.memoryos.mcp",
                 "io.memoryos.usage",
                 "io.memoryos.audit",
-                "io.memoryos.iam"
+                "io.memoryos.iam",
+                "io.memoryos.sandbox"
         },
         excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX, pattern = {
                 "io\\.memoryos\\.iam\\.(keycloak|invitation|identityprovider)\\..*",

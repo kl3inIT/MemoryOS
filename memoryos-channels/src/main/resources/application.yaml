@@ -108,6 +108,13 @@ memoryos:
       api-key: ${MEMORYOS_INTERPRETER_API_KEY:}
     storage:
       library-bytes: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:536870912}
+  # MEM-270: the Chat sandbox, as the API configures it.
+  sandbox:
+    computer-image: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:}
+    max-running: ${MEMORYOS_SANDBOX_MAX_RUNNING:3}
+    opensandbox:
+      endpoint: ${MEMORYOS_SANDBOX_ENDPOINT:}
+      api-key: ${MEMORYOS_SANDBOX_API_KEY:}
   channel:
     credential-encryption-key: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:}

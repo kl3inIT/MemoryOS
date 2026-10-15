@@ -27,6 +27,7 @@ import io.memoryos.chat.research.ResearchTelemetry;
 import io.memoryos.chat.tools.FileReaderTool;
 import io.memoryos.chat.tools.McpTools;
 import io.memoryos.chat.tools.RunPythonTool;
+import io.memoryos.chat.tools.SandboxTools;
 import io.memoryos.chat.tools.UpdateMemoryTool;
 import io.memoryos.chat.tools.SandboxDocuments;
 import io.memoryos.chat.tools.WebTools;
@@ -67,6 +68,7 @@ import reactor.core.scheduler.Scheduler;
 import io.memoryos.library.UserFileContentService;
 import io.memoryos.library.UserFileSearchService;
 import io.memoryos.library.UserFileService;
+import io.memoryos.sandbox.SandboxService;
 
 /** Calls the public native runner. There is no MemoryOS inference/tool loop here. */
 public final class ChatModelExecutor {
@@ -89,6 +91,7 @@ public final class ChatModelExecutor {
     private final @Nullable ChatMemoryService memories;
     private final MeterRegistry meters;
     private final @Nullable ResearchExecutor research;
+    private final @Nullable SandboxService sandboxes;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
@@ -98,12 +101,14 @@ public final class ChatModelExecutor {
             @Nullable InterpreterService interpreterSettings,
             @Nullable DocumentOriginalService originals,
             @Nullable ChatMemoryService memories,
+            @Nullable SandboxService sandboxes,
             @Nullable ResearchProperties researchLimits, @Nullable ResearchTelemetry researchTelemetry,
             MeterRegistry meters) {
         this.interpreter = interpreter;
         this.interpreterSettings = interpreterSettings;
         this.originals = originals;
         this.memories = memories;
+        this.sandboxes = sandboxes;
         this.research = researchLimits == null ? null : new ResearchExecutor(researchLimits, researchTelemetry == null ? ResearchTelemetry.NOOP : researchTelemetry);
         this.contexts = contexts;
         this.processes = processes;
@@ -328,8 +333,12 @@ public final class ChatModelExecutor {
             }
             // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
             // The session agent must also allow the tool (Onyx per-agent tools).
-            boolean python = pythonAllowed(selected.toolCalling(), setup.options()) && interpreter != null && interpreterSettings != null
-                    && interpreter.configured() && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy();
+            // MEM-270: code_interpreter and the Tenant's switch govern the Sandbox group: run_python where the interpreter
+            // is healthy, the sandbox tools where the deployment has a sandbox.
+            boolean group = pythonAllowed(selected.toolCalling(), setup.options()) && interpreterSettings != null
+                    && interpreterSettings.enabled(setup.tenant());
+            boolean python = group && interpreter != null && interpreter.configured() && interpreter.healthy();
+            boolean sandboxTools = group && sandboxes != null && sandboxes.available();
             // Onyx llm_loop.py: search hits with a stored original are staged for the Python calls that follow.
             var sandbox = python && originals != null ? new SandboxDocuments(originals, setup.actor()) : null;
             if (selected.toolCalling() && setup.options().searches()) {
@@ -358,6 +367,10 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new RunPythonTool(interpreter, interpreterSettings,
                         fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
                         activity, codeEvents).withSandbox(sandbox)));
+            }
+            if (sandboxTools) {
+                runner = runner.withTools(Tool.fromInstance(new SandboxTools(sandboxes, interpreterSettings, setup.tenant(),
+                        setup.actor(), setup.sessionId(), setup.assistantMessageId(), fileActive, activity, codeEvents)));
             }
             // MEM-250: only the owner's own, non-temporary conversation edits their memory, and only while it is on.
             if (selected.toolCalling() && memories != null && memories.usableIn(setup.tenant(), setup.actor(), setup.sessionId())) {

@@ -35,6 +35,7 @@ import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.usage.AiUsageLimitService;
+import io.memoryos.sandbox.SandboxService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.beans.factory.ObjectProvider;
@@ -75,9 +76,10 @@ class ChatExecutionConfiguration {
                                         WebProviderClient web, ImageProviderClient image, ImageArtifactService imageArtifacts,
                                         InterpreterClient interpreter, InterpreterService interpreterSettings,
                                         DocumentOriginalService originals, ChatMemoryService memories, ResearchProperties research,
-                                        MeterRegistry meters, ObservationRegistry observations) {
+                                        ObjectProvider<SandboxService> sandboxes, MeterRegistry meters,
+                                        ObservationRegistry observations) {
         return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent,
-                web, image, imageArtifacts, interpreter, interpreterSettings, originals, memories,
+                web, image, imageArtifacts, interpreter, interpreterSettings, originals, memories, sandboxes.getIfAvailable(),
                 research, new ResearchTelemetry(meters, observations), meters);
     }
 

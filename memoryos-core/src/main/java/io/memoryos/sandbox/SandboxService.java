@@ -154,6 +154,15 @@ public class SandboxService {
         return new Sandbox(tenant, conversation, id);
     }
 
+    /**
+     * Keeps the conversation's sandbox alive for at least {@code atLeast} from now, as a background command needs: a
+     * later use renews it by the idle timeout from a later moment, so it never shortens this.
+     */
+    public void keepAlive(TenantId tenant, ActorId actor, UUID conversation, Duration atLeast) {
+        Duration life = atLeast.compareTo(properties.idleTimeout()) > 0 ? atLeast : properties.idleTimeout();
+        withSandbox(tenant, actor, conversation, (runtime, id) -> { runtime.renew(id, life); return id; });
+    }
+
     /** Runs {@code command} in the conversation's sandbox, starting another once if the recorded one is gone. */
     public SandboxCommandResult run(TenantId tenant, ActorId actor, UUID conversation, SandboxCommand command) {
         return withSandbox(tenant, actor, conversation, (runtime, id) -> runtime.run(id, command));

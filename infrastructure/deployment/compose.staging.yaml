@@ -114,6 +114,9 @@ services:
       MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:-536870912}
       MEMORYOS_INTERPRETER_BASE_URL: http://memoryos-interpreter:8000
       MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key
+      MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
+      MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
+      MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
       MEMORYOS_REDIS_HOST: redis
       MEMORYOS_REDIS_PORT: "6379"
       MEMORYOS_REDIS_USERNAME: memoryos-api
@@ -143,6 +146,7 @@ services:
     secrets:
       - minio_api_secret_key
       - interpreter_api_key
+      - sandbox_api_key
       - redis_tls_ca
       - redis_api_password
       - database_password
