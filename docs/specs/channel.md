@@ -129,7 +129,7 @@ another process: Keycloak administration, invitations, identity providers and si
 and its trusted apps, the library page's shelves; ingestion, meetings and voice are not scanned. Every external
 Source type's adapter is on its classpath, because a turn's search reaches them. It runs no migration (the API
 does and starts first; this process validates the schema), serves only `/actuator/health` on port 8082 (readiness:
-the database), and runs at most 16 turns with no separate bound for one person, since every group turn is the
+the database), and runs at most 24 turns with no separate bound for one person, since every group turn is the
 bot's account. Its database pool is 5. It runs on staging only ([runbook](../runbooks/lark-bot.md)).
 
 ## Receiving a message

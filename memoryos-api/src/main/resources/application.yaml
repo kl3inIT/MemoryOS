@@ -182,8 +182,9 @@ memoryos:
       max-readers: 256
     execution:
       # A backstop sized to what the host and the provider take, not a throttle: a person is held by their own
-      # bound, and a turn beyond either waits in arrival order instead of being refused.
-      concurrency: 48
+      # bound, and a turn beyond either waits in arrival order instead of being refused. With memoryos-channels' 24
+      # it stays under the provider's limit, about 160 requests at once on staging (MEM-246 verification).
+      concurrency: 80
       per-actor-concurrency: 3
       max-waiting: 200
       wait-limit: 60s
