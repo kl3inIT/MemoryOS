@@ -390,7 +390,9 @@ export function TaskModels(catalog: Catalog) {
     },
     CHAT_COMPACTION: {
       title: ui("Long conversation summaries"),
-      description: ui("Summarizes the earlier turns of a long conversation so the chat model still knows them."),
+      description: ui(
+        "Summarizes the earlier turns of a long conversation so the chat model still knows them.",
+      ),
       ariaLabel: ui("Long conversation summary model"),
     },
     MEETING_MINUTES: {
