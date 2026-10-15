@@ -53,7 +53,9 @@ a file editor inside (owner, 2026-10-16).
 - **One switch.** The agent tool key `code_interpreter` turns on the whole group: `run_python` and the sandbox tools.
   No new key, no change to `persona_tool`'s CHECK; agents that have Code Interpreter get the computer. The Tenant
   switch `chat_interpreter_setting` and the page `/admin/code-interpreter` govern the group; the page becomes the
-  computer's page (the switch, the health of the interpreter and of the sandbox server, the allowed domains).
+  Sandbox page (the switch, the health of the interpreter and of the sandbox server, the allowed domains). The
+  group's label is "Sandbox" in the menu, the agent editor and the page, untranslated in Vietnamese too (owner,
+  2026-10-16).
 - **Few tools for the model.** Five, after Claude's bash and text editor, instead of ten: fewer tool schemas in every
   request and fewer wrong choices for a small model. Search goes through `rg` and `fd` in `bash`, as in Claude's
   container. The file editor's name avoids `read_file`, which the attachment reader already uses.
