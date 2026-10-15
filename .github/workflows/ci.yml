@@ -756,6 +756,11 @@ jobs:
                 qpdf pdftotext recalc-xlsx check-docx pptx-to-pdf; do
               command -v "$tool" > /dev/null || { echo "missing $tool" >&2; exit 1; }
             done
+            # The helpers start from their shebang, which names the image's virtual environment.
+            for helper in recalc-xlsx check-docx pptx-to-pdf; do
+              interpreter=$(sed -n "1s/^#!//p" "$(command -v "$helper")")
+              [[ -x "$interpreter" ]] || { echo "$helper starts $interpreter, which is missing" >&2; exit 1; }
+            done
             tesseract --list-langs 2>/dev/null | grep -qx vie
             node -e "require(\"pptxgenjs\")"
             python3 -c "import duckdb, matplotlib, openpyxl, pandas, plotly, pypdfium2, pytesseract, xlsxwriter"

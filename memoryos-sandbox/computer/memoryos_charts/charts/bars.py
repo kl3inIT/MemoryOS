@@ -20,6 +20,8 @@ class BarChart(Chart2D):
 
     def _extract_info(self, ax: Axes) -> None:
         super()._extract_info(ax)
+        # Labels and units swap once for a horizontal chart, not once per bar group.
+        swapped = False
         for container in ax.containers:
             group_label = container.get_label()
             if group_label.startswith("_container"):
@@ -29,7 +31,9 @@ class BarChart(Chart2D):
             heights = [rect.get_height() for rect in container]
             if all(height == heights[0] for height in heights):
                 # vertical bars
-                self._change_orientation()
+                if not swapped:
+                    self._change_orientation()
+                    swapped = True
                 labels = [label.get_text() for label in ax.get_yticklabels()]
                 values = [rect.get_width() for rect in container]
             else:

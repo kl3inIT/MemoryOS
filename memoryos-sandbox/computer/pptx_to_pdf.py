@@ -1,4 +1,4 @@
-#!/opt/executor-venv/bin/python
+#!/opt/sandbox-venv/bin/python
 """Convert one .pptx to PDF for the Chat preview (MEM-111), inside the network-less executor.
 
 Onyx Craft previews decks with LibreOffice in its sandbox (``generate_pptx_preview``); LibreChat hardens the same
