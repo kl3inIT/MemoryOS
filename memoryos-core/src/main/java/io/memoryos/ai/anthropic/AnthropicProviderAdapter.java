@@ -1,5 +1,7 @@
 package io.memoryos.ai.anthropic;
 
+import com.embabel.agent.anthropic.AnthropicCachingConfig;
+import com.embabel.agent.anthropic.AnthropicCachingConfigKt;
 import com.embabel.agent.anthropic.AnthropicOptionsConverter;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.OptionsConverter;
@@ -163,6 +165,9 @@ public final class AnthropicProviderAdapter implements ProviderAdapter {
                     helper && AnthropicRequestPolicy.takesTemperature(settings) ? options.getTemperature() : null);
             if (configured.get("temperature") instanceof Number value) effective = effective.withTemperature(value.doubleValue());
             if (configured.get("topP") instanceof Number value) effective = effective.withTopP(value.doubleValue());
+            // An answer marks its tools, system prompt and history for the prompt cache (MEM-269); Anthropic caches
+            // nothing unmarked. A helper's prompt is read once, so it is not written at the cache-write rate.
+            if (!helper) effective = AnthropicCachingConfigKt.withAnthropicCaching(effective, answerCaching());
             var converted = (AnthropicChatOptions) AnthropicOptionsConverter.INSTANCE.convertOptions(effective, modelName);
             if (settings.capabilities().reasoning()) {
                 if (helper) converted = converted.mutate().thinkingDisabled().build();
@@ -176,7 +181,7 @@ public final class AnthropicProviderAdapter implements ProviderAdapter {
         };
         var price = settings.pricing();
         var service = new SpringAiLlmService(name, "Anthropic", model, converter, null, List.of(),
-                price == null ? null : ModelPricing.of(price), settings.capabilities().reasoning());
+                price == null ? null : ModelPricing.of(price, CACHE_WRITE_RATE), settings.capabilities().reasoning());
         return ModelBinding.builder(service, AnthropicRequestPolicy::withoutTools,
                         AnthropicRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
                         settings.capabilities().toolCalling(), settings.capabilities().vision())
@@ -187,6 +192,18 @@ public final class AnthropicProviderAdapter implements ProviderAdapter {
                                 llmService.getOptionsConverter().convertOptions(requested, requestedModel),
                                 requested, sampling, settings)))
                 .failureReading(AnthropicFailures::read).build();
+    }
+
+    /** Anthropic bills a five-minute cache write at 1.25 times the input rate. */
+    static final double CACHE_WRITE_RATE = 1.25;
+
+    /** Breakpoints on the tools, the system prompt and the conversation so far, with the default five-minute life. */
+    private static AnthropicCachingConfig answerCaching() {
+        var caching = new AnthropicCachingConfig();
+        caching.setSystemPrompt(true);
+        caching.setTools(true);
+        caching.setConversationHistory(true);
+        return caching;
     }
 
     /** The API root; the SDK and the Models API add {@code /v1} themselves. */

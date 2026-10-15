@@ -20,4 +20,12 @@ class ModelPricingTest {
         var paidCache = ModelPricing.of(new ModelSettings.Pricing(0, 10, 0.5));
         assertEquals(-0.4, paidCache.cacheDiscount(800_000), 1e-12);
     }
+
+    @Test void inputWrittenToTheCacheCostsTheProvidersWriteRate() {
+        // Anthropic: $1 input; a five-minute cache write costs 1.25 times that.
+        var anthropic = ModelPricing.of(new ModelSettings.Pricing(1, 5, 0.1), 1.25);
+        assertEquals(0.25 * 0.4, anthropic.cacheWritePremium(400_000), 1e-12);
+        assertEquals(0, ModelPricing.of(new ModelSettings.Pricing(1, 5, 0.1)).cacheWritePremium(400_000), 1e-12);
+        assertThrows(IllegalArgumentException.class, () -> ModelPricing.of(new ModelSettings.Pricing(1, 5), 0.5));
+    }
 }

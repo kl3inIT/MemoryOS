@@ -28,6 +28,13 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
      */
     public static final String OUTPUT_SCHEMA = "memoryos.outputSchema";
 
+    /**
+     * The key under which an answer call carries its conversation's ID on Embabel's options (MEM-269). An OpenAI
+     * converter sends it as {@code prompt_cache_key}, which keeps one conversation's requests on the same prompt cache;
+     * a helper call carries none.
+     */
+    public static final String PROMPT_CACHE_KEY = "memoryos.promptCacheKey";
+
     /** A binding that leaves tool requests unchanged and has no per-turn sampling. */
     public static Builder builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
                                   int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {

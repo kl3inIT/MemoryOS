@@ -12,6 +12,7 @@ Contract: [AI usage and costs](../specs/ai-usage.md).
 | Deleting catalog entries leaves history unchanged; invalid usage is rejected | `AiUsageRecorderTest.catalogDeletionDoesNotTouchHistoryAndInvalidInputIsRejected` |
 | Totals separate known, External and unknown cost and count active people; daily series split by boundary or model; breakdowns rank by cost and label people, Groups, models, flows and providers | `memoryos-core/src/test/java/io/memoryos/usage/AiCostQueriesTest.java` |
 | Cached input costs the cache-read rate and defaults to the input rate | `memoryos-core/src/test/java/io/memoryos/ai/ModelPricingTest.java` |
+| MEM-269: input written to the cache costs the provider's write rate (Anthropic 1.25 times input), nothing extra elsewhere | `memoryos-core/src/test/java/io/memoryos/ai/ModelPricingTest.java` |
 | A Chat turn and its naming call reach the daily ledger with provider, boundary and cost | `memoryos-api/src/test/java/io/memoryos/api/chat/ChatSessionApiIntegrationTest.java` — `aiUsageRecordsTheTurnAndItsNamingToTheDailyLedger` (Spring API, PostgreSQL, synthetic provider) |
 | `/api/ai-costs` reports the ledger only to model managers; `/mine` returns only the caller's own usage to any member | `ChatSessionApiIntegrationTest.aiCostsReportTheLedgerOnlyToModelManagers` |
 | Settings → Usage shows the caller's spend, tokens per model, model prices with unpriced models and no budget | `web/src/features/usage/my-usage-page.test.tsx` |

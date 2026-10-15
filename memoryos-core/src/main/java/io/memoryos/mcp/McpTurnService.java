@@ -111,7 +111,9 @@ public class McpTurnService {
         var alwaysAllowable = new HashSet<String>();
         boolean manages = authorization.effectiveCapabilities(actor).contains(IamCapability.MCP_MANAGE);
         int offered = 0;
-        for (UUID serverId : serverIds.stream().distinct().toList()) {
+        // Servers in ID order and tools by name, so a conversation's tool list, which leads the provider's cached prefix,
+        // stays the same from turn to turn (MEM-269).
+        for (UUID serverId : serverIds.stream().distinct().sorted().toList()) {
             if (!accessible.contains(serverId)) continue;
             var server = servers.findByTenantIdAndId(tenant, serverId).orElse(null);
             if (server == null) continue;
