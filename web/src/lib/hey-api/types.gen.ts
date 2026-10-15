@@ -3630,6 +3630,10 @@ export type ToolApprovalEvent = {
     serverName: string;
     toolName: string;
     /**
+     * The tool's display name, when the server gives one
+     */
+    toolTitle?: string;
+    /**
      * The call's JSON arguments, cut at 4,000 characters
      */
     arguments: string;

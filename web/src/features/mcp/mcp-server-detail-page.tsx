@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { Blocks } from "lucide-react";
+import { Blocks, ChevronDown } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { BrandLoader } from "@/components/brand-loader";
 import { DetailHeader } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
@@ -8,6 +9,7 @@ import { SectionHeader } from "@/components/composites/section-header";
 import { SettingsLayout } from "@/components/composites/settings-layout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listMcpServersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { McpConnection, McpServerView } from "@/lib/hey-api/types.gen";
@@ -23,7 +25,8 @@ import { McpToolList } from "./mcp-tool-list";
 
 /**
  * One MCP server's page, as ChatGPT gives each app its own: the mark, name and next step at the top, then what it
- * is and who uses it, its OAuth applications and its tools. The OAuth callback lands here with its outcome.
+ * is and who uses it, its tools, and its OAuth applications under Advanced. The OAuth callback lands here with its
+ * outcome.
  */
 export function McpServerDetailPage() {
   const ui = useAppTranslation();
@@ -36,7 +39,7 @@ export function McpServerDetailPage() {
   const server = list.data?.find((candidate) => candidate.id === serverId);
 
   return (
-    <SettingsLayout wide>
+    <SettingsLayout>
       {list.isPending ? (
         <div role="status" className="flex justify-center px-6 py-20">
           <BrandLoader label={ui("Đang tải máy chủ MCP")} />
@@ -89,7 +92,7 @@ function ServerDetail({
       ? []
       : [
           [
-            ui("Tài khoản nào"),
+            ui("Tài khoản"),
             ui(
               server.authPerformer === "ADMIN"
                 ? "Dùng chung một tài khoản"
@@ -98,13 +101,12 @@ function ServerDetail({
           ] as [string, string],
         ]),
     [ui("Ai dùng được"), ui(server.tenantWide ? "Cả tổ chức" : "Chọn nhóm")],
-    [ui("Công cụ"), ui("{{enabled}}/{{total}} công cụ đang bật", counts)],
   ];
 
   return (
     <>
       <DetailHeader
-        parent={{ label: ui("Máy chủ MCP"), to: "/admin/mcp" }}
+        parent={{ label: ui("Ứng dụng MCP"), to: "/admin/mcp" }}
         icon={<McpServerMark slug={server.slug} url={server.url} name={server.name} />}
         iconSize="lg"
         title={server.name}
@@ -152,8 +154,30 @@ function ServerDetail({
         </dl>
       </section>
 
-      {server.authType === "OAUTH" ? <McpOAuthClients server={server} setup={setup} /> : null}
       <McpToolList serverId={server.id} />
+      {server.authType === "OAUTH" ? (
+        <Advanced open={setup.clients.data?.length === 0}>
+          <McpOAuthClients server={server} setup={setup} />
+        </Advanced>
+      ) : null}
     </>
+  );
+}
+
+/** The server's OAuth applications, which few administrators need once it connects; open while there is none. */
+function Advanced({ open, children }: { open: boolean; children: ReactNode }) {
+  const ui = useAppTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded || open;
+  return (
+    <Collapsible open={shown} onOpenChange={setExpanded}>
+      <CollapsibleTrigger asChild>
+        <Button prominence="internal" size="sm" className="-ml-2 self-start">
+          {ui("Nâng cao")}
+          <ChevronDown data-icon="inline-end" className={shown ? "rotate-180" : ""} />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-3">{children}</CollapsibleContent>
+    </Collapsible>
   );
 }

@@ -323,7 +323,7 @@ export function ToolsSection({ form, agent, choices }: SectionProps) {
           </SettingRows>
         )}
       </form.AppField>
-      <EditorField label={ui("Máy chủ MCP")}>
+      <EditorField label={ui("Ứng dụng MCP")}>
         {agent?.builtin ? (
           <p className="font-secondary-body text-content-muted">
             {ui("Trợ lý mặc định dùng mọi máy chủ MCP mà người dùng được phép dùng.")}

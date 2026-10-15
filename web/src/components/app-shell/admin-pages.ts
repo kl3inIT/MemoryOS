@@ -109,8 +109,8 @@ export const adminPages: readonly AdminPageEntry[] = [
   {
     id: "mcp",
     to: "/admin/mcp",
-    label: appText("Máy chủ MCP"),
-    title: appText("Máy chủ MCP"),
+    label: appText("Ứng dụng MCP"),
+    title: appText("Ứng dụng MCP"),
     icon: Blocks,
     group: "agents",
     visible: (authority) => authority.canManageMcp,

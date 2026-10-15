@@ -262,7 +262,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.goto("/admin/mcp");
       // Four capture tests share one dev server, so the first paint is given more room than the default.
       // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
-      await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeAttached({
+      await expect(page.getByRole("heading", { name: "Ứng dụng MCP", level: 1 })).toBeAttached({
         timeout: 30_000,
       });
       await page.screenshot({
@@ -274,6 +274,8 @@ for (const theme of ["light", "dark"] as const) {
         .getByRole("link", { name: /Google Drive/ })
         .first()
         .click();
+      // OAuth applications sit under Advanced (MEM-274); opening it shows them in the capture.
+      await page.getByRole("button", { name: "Nâng cao" }).click();
       await expect(page.getByRole("heading", { name: "Ứng dụng OAuth" })).toBeVisible();
       await page.screenshot({
         path: `${OUTPUT}/mem112-mcp-tools-${theme}-${width}.png`,
@@ -281,7 +283,7 @@ for (const theme of ["light", "dark"] as const) {
       });
 
       await page.goto("/admin/mcp");
-      await page.getByRole("button", { name: "Thêm máy chủ" }).click();
+      await page.getByRole("button", { name: "Thêm ứng dụng" }).click();
       await page.getByLabel("Địa chỉ máy chủ").fill("https://drivemcp.googleapis.com/mcp/v1");
       await page.getByLabel("Tên").fill("Google Drive");
       // A Google API address opens Advanced with the parameters Google needs.
@@ -324,7 +326,7 @@ test("MCP administration lists servers, tools and OAuth applications", async ({ 
   await stub(page);
   await page.goto("/admin/mcp");
 
-  await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Ứng dụng MCP", level: 1 })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByText("Google Drive")).toBeVisible();
@@ -336,6 +338,7 @@ test("MCP administration lists servers, tools and OAuth applications", async ({ 
     .getByRole("link", { name: /Google Drive/ })
     .first()
     .click();
+  await page.getByRole("button", { name: "Nâng cao" }).click();
   await expect(page.getByText("Tasco Miền Bắc")).toBeVisible();
   await expect(page.getByText("Ghi đè hoặc xóa · 1")).toBeVisible();
   await expect(page.getByText("Đã chỉnh", { exact: true })).toBeVisible();
@@ -360,7 +363,7 @@ test("Adding an MCP server needs only its address and name", async ({ page }) =>
   await stub(page);
   await page.goto("/admin/mcp");
 
-  await page.getByRole("button", { name: "Thêm máy chủ" }).click();
+  await page.getByRole("button", { name: "Thêm ứng dụng" }).click();
   const add = page.getByRole("button", { name: "Thêm", exact: true });
   await expect(add).toBeDisabled();
   await page.getByLabel("Địa chỉ máy chủ").fill("https://mcp.linear.app/mcp");
@@ -412,7 +415,7 @@ test("Rare server actions sit in one menu so the row fits a phone", async ({ pag
   await stub(page);
   await page.goto("/admin/mcp");
   // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
-  await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeAttached({
+  await expect(page.getByRole("heading", { name: "Ứng dụng MCP", level: 1 })).toBeAttached({
     timeout: 30_000,
   });
 

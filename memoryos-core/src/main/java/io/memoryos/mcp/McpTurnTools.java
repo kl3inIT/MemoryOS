@@ -19,10 +19,11 @@ import org.jspecify.annotations.Nullable;
 public final class McpTurnTools implements AutoCloseable {
     /**
      * A tool offered to the model for this turn. {@code slug} is the bounded metric label; {@code serverName} is
-     * administrator text for people to read.
+     * administrator text for people to read, as is {@code title}, the tool's own display name when it gives one.
      */
     public record Binding(UUID serverId, String slug, String serverName, String toolName, String modelName,
-                          String description, String inputSchema, boolean readOnly, boolean approvalRequired) {}
+                          String description, String inputSchema, boolean readOnly, boolean approvalRequired,
+                          @Nullable String title) {}
 
     /** A server the User selected but cannot use yet, so the turn offers a connect action instead of tools. */
     public record Unavailable(UUID serverId, String serverName, Reason reason) {

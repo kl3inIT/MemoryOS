@@ -989,16 +989,13 @@ export const vietnameseUi: Record<string, string> = {
     "The server rejected this key. Nothing was stored.",
   Tên: "Name",
   Xóa: "Delete",
-  "Máy chủ MCP": "MCP servers",
+  "Ứng dụng MCP": "MCP apps",
   "Kết nối máy chủ MCP để trợ lý dùng thêm công cụ như Jira, Google Sheets.":
     "Connect an MCP server so the assistant can use more tools such as Jira or Google Sheets.",
   "Kết nối MCP": "Connect MCP",
   Connectors: "Connectors",
-  "Thêm máy chủ": "Add server",
-  "Thêm máy chủ MCP": "Add MCP server",
+  "Thêm ứng dụng MCP": "Add MCP app",
   "Sửa máy chủ MCP": "Edit MCP server",
-  "Máy chủ MCP cung cấp công cụ cho Chat. Chúng là bên thứ ba: chỉ thêm máy chủ mà tổ chức của bạn tin tưởng.":
-    "MCP servers give Chat its tools. They are third parties: add only servers your organization trusts.",
   "Chưa có máy chủ MCP nào. Thêm một máy chủ để Chat dùng công cụ của nó.":
     "No MCP servers yet. Add one so Chat can use its tools.",
   "Mã ngắn": "Short code",
@@ -1036,7 +1033,7 @@ export const vietnameseUi: Record<string, string> = {
   "Chưa lấy công cụ": "Not fetched",
   // MEM-251 MCP server setup and connected apps
   "Ví dụ: Linear": "Example: Linear",
-  "Tài khoản nào": "Whose account",
+  "Tài khoản": "Account",
   "Mỗi người dùng tài khoản của mình": "Each person uses their own account",
   "Dùng chung một tài khoản": "One shared account",
   "Tự dò từ máy chủ": "Discover from the server",
@@ -1075,7 +1072,6 @@ export const vietnameseUi: Record<string, string> = {
   "Nhập khóa API dùng chung": "Enter the shared API key",
   "Kết nối tài khoản dùng chung": "Connect the shared account",
   "Kết nối tài khoản của bạn": "Connect your account",
-  "Ứng dụng đã kết nối": "Connected apps",
   // MEM-253 approval before a tool changes data
   "Chỉ đọc": "Read-only",
   Ghi: "Write",
@@ -1098,7 +1094,6 @@ export const vietnameseUi: Record<string, string> = {
   "Bạn đã từ chối.": "You declined it.",
   "Hết thời gian chờ, công cụ không chạy.": "Timed out; the tool did not run.",
   "Cho phép {{tool}} trên {{server}}?": "Allow {{tool}} on {{server}}?",
-  "Công cụ này có thể thay đổi dữ liệu": "This tool can change data",
   "Đang chạy…": "Running…",
   // MEM-253 the composer's apps
   "{{count}} đang bật": "{{count}} on",

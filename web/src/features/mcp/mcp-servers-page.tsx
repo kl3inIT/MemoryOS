@@ -38,17 +38,14 @@ export function McpServersPage() {
   const connections = useMcpConnections();
 
   return (
-    <SettingsLayout wide>
+    <SettingsLayout>
       <PageHeader
-        title={ui("Máy chủ MCP")}
+        title={ui("Ứng dụng MCP")}
         icon={<Blocks />}
-        description={ui(
-          "Máy chủ MCP cung cấp công cụ cho Chat. Chúng là bên thứ ba: chỉ thêm máy chủ mà tổ chức của bạn tin tưởng.",
-        )}
         actions={
           <Button onClick={admin.add}>
             <Plus data-icon="inline-start" />
-            {ui("Thêm máy chủ")}
+            {ui("Thêm ứng dụng")}
           </Button>
         }
       />

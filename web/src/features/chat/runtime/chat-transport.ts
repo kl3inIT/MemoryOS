@@ -573,6 +573,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               const descriptor = {
                 serverName: approval.serverName,
                 toolName: approval.toolName,
+                toolTitle: approval.toolTitle ?? undefined,
                 arguments: approval.arguments,
               };
               if (!approval.decision || approval.decision === "NO_DECISION")

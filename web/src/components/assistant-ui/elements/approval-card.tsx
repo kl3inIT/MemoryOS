@@ -23,6 +23,7 @@ export function ApprovalCard({
   details,
   variant = "default",
   icon,
+  mark,
   onAllowOnce,
   onAlwaysAllow,
   onDeny,
@@ -43,6 +44,7 @@ export function ApprovalCard({
   | "details"
   | "variant"
   | "icon"
+  | "mark"
   | "onAllowOnce"
   | "onAlwaysAllow"
   | "onDeny"
@@ -54,11 +56,13 @@ export function ApprovalCard({
   state: ApprovalState;
   command?: string | undefined;
   title: string;
-  subtitle: string;
+  subtitle?: string | undefined;
   description?: string | undefined;
   details?: readonly { label: string; value: string }[] | undefined;
   variant?: "default" | "destructive" | undefined;
   icon?: ReactNode | undefined;
+  /** A tile of its own, such as the app's logo, shown in place of the icon and its tile. */
+  mark?: ReactNode | undefined;
   onAllowOnce?: (() => void) | undefined;
   onAlwaysAllow?: (() => void) | undefined;
   onDeny?: (() => void) | undefined;
@@ -83,22 +87,24 @@ export function ApprovalCard({
       className={cn(paper, "flex w-full max-w-sm flex-col gap-3.5 rounded-2xl p-4", className)}
     >
       <div className="flex items-center gap-3">
-        <span
-          aria-hidden
-          className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-xl",
-            variant === "destructive"
-              ? "bg-status-danger-surface text-status-danger-content"
-              : "bg-foreground/[0.05] text-muted-foreground",
-          )}
-        >
-          {icon ?? <TerminalIcon className="size-4" />}
-        </span>
+        {mark ?? (
+          <span
+            aria-hidden
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-xl",
+              variant === "destructive"
+                ? "bg-status-danger-surface text-status-danger-content"
+                : "bg-foreground/[0.05] text-muted-foreground",
+            )}
+          >
+            {icon ?? <TerminalIcon className="size-4" />}
+          </span>
+        )}
         <div className="flex flex-col">
           <p id={titleId} className="text-sm font-medium">
             {title}
           </p>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+          {subtitle ? <p className="text-xs text-muted-foreground">{subtitle}</p> : null}
         </div>
       </div>
 

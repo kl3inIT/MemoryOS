@@ -135,7 +135,8 @@ public class McpTurnService {
                 var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
                 if (modelName.isEmpty()) continue;
                 bindings.add(new McpTurnTools.Binding(serverId, server.slug(), server.name(), tool.name(), modelName.get(),
-                        tool.description(), tool.inputSchema(), tool.readOnly(), tool.policy() == McpToolPolicy.ASK));
+                        tool.description(), tool.inputSchema(), tool.readOnly(), tool.policy() == McpToolPolicy.ASK,
+                        tool.title()));
                 if (manages && tool.policy() == McpToolPolicy.ASK
                         && McpServerRules.allowed(McpServerRules.risk(tool.readOnly(), tool.annotations()), McpToolPolicy.ALWAYS))
                     alwaysAllowable.add(modelName.get());

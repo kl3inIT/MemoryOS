@@ -7,10 +7,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * A tool call that waits for the person (MEM-253), then the same call with its {@code decision}. Unlike
  * {@link ToolProgress} it carries the call's arguments, bounded, because the person decides on them; the stream is
- * read only by those who may read the reply.
+ * read only by those who may read the reply. {@code toolTitle} is the tool's display name, when it gives one.
  */
 public record ToolApproval(UUID assistantMessageId, long sequence, String toolCallId, String serverName,
-                           String toolName, String arguments, @Nullable Decision decision, boolean alwaysAllowable)
+                           String toolName, @Nullable String toolTitle, String arguments, @Nullable Decision decision, boolean alwaysAllowable)
         implements ChatStreamEvent {
     public static final String TYPE = "tool_approval";
     /** The arguments shown in the card; a longer value is cut, the call itself is unchanged. */
