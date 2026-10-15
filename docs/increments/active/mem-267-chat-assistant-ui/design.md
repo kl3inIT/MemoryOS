@@ -45,8 +45,9 @@ that called tools; research turns record nothing.
 
 ### Answer timing
 
-The answer's time on hover adds `useMessageTiming()`: time to first token, total time and tokens per second, which the
-AI SDK runtime measures while it streams. A reloaded answer has only its time.
+The answer's time on hover adds `useMessageTiming()`: when the answer started and how long it took, which the AI SDK
+runtime measures while it streams. The runtime also measures tokens per second; the owner kept it off the screen. A
+reloaded answer has only its time.
 
 ## Not in this increment
 
