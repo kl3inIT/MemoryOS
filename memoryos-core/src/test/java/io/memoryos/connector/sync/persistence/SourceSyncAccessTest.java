@@ -213,6 +213,67 @@ class SourceSyncAccessTest {
         assertEquals(Set.of(), readersOf(team), "A credential that lost its authority stops granting membership");
     }
 
+    @Test
+    void aBotsServiceAccountReadsWhatEveryMemberMayReadAndNoPrivateGroupsDocument() {
+        // MEM-246: a channel's bot, a SERVICE account with no e-mail in the protected Basic Group only, which no Source
+        // can be granted to.
+        var bot = new ActorId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO actors(id,account_type) VALUES(:id,'SERVICE')").param("id", bot.value()).update();
+        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
+                .param("tenant", tenant.value()).param("actor", bot.value()).update();
+        jdbc.sql("INSERT INTO external_identity_bindings(issuer,subject,actor_id) VALUES('urn:memoryos:service',CAST(:actor AS TEXT),:actor)")
+                .param("actor", bot.value()).update();
+        jdbc.sql("""
+                INSERT INTO actor_profiles(actor_id,issuer,subject,email,email_verified,observed_at)
+                VALUES(:actor,'urn:memoryos:service',CAST(:actor AS TEXT),NULL,FALSE,CURRENT_TIMESTAMP)
+                """).param("actor", bot.value()).update();
+        UUID basic = UUID.randomUUID();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name,system_key) VALUES(:tenant,:id,'Basic','BASIC')")
+                .param("tenant", tenant.value()).param("id", basic).update();
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES(:tenant,:group,:actor)")
+                .param("tenant", tenant.value()).param("group", basic).param("actor", bot.value()).update();
+
+        var everyoneSource = pair("FILE", "PUBLIC");
+        var readersSource = pair("FILE", "PRIVATE");
+        grant(readersSource, jdbc.sql("SELECT id FROM iam_groups WHERE tenant_id=:tenant AND name='Readers'")
+                .param("tenant", tenant.value()).query(UUID.class).single());
+        var cases = new LinkedHashMap<String, UUID>();
+        cases.put("public Source", fileDocument(everyoneSource, "public"));
+        cases.put("private Group's Source", fileDocument(readersSource, "readers"));
+        cases.put("Drive link open to anyone", document("anyone", List.of(anyone(false))));
+        cases.put("Drive shared with a domain", document("domain", List.of(domain("example.test", null))));
+        cases.put("Drive shared with a person", document("person", List.of(user("owner@example.test", null, null))));
+        var ids = List.copyOf(cases.values());
+        var readable = Set.of(cases.get("public Source"), cases.get("Drive link open to anyone"));
+
+        assertEquals(readable, access.readableDocuments(bot, ids));
+        assertEquals(readable, search.readableMetadata(search.scope(bot), ids).keySet());
+        assertFalse(search.scope(bot).sources().containsKey(readersSource), "a private Group's Source is not in its scope");
+        // The index filter and the recheck agree: a chunk indexed without the public flag or a token the bot holds is
+        // refused when the search rechecks it.
+        var tokens = repository.actorAccessTokens(tenant, bot);
+        assertEquals(Set.of(DocumentAccess.group(basic)), tokens);
+        for (var entry : cases.entrySet()) {
+            var indexed = repository.documentAccess(tenant, entry.getValue());
+            boolean filtered = indexed.everyone() || indexed.tokens().stream().anyMatch(tokens::contains);
+            assertEquals(readable.contains(entry.getValue()), filtered, "index filter for " + entry.getKey());
+            assertEquals(filtered, access.canRead(bot, new DocumentId(entry.getValue())), "recheck for " + entry.getKey());
+        }
+    }
+
+    private void grant(UUID source, UUID group) {
+        jdbc.sql("INSERT INTO source_group_grants(tenant_id,connector_credential_pair_id,group_id) VALUES(:tenant,:source,:group)")
+                .param("tenant", tenant.value()).param("source", source).param("group", group).update();
+    }
+
+    private UUID fileDocument(UUID source, String title) {
+        UUID document = UUID.randomUUID();
+        jdbc.sql("INSERT INTO documents(id,tenant_id,status,title,content_generation) VALUES(:id,:tenant,'ELIGIBLE',:title,:generation)")
+                .param("id", document).param("tenant", tenant.value()).param("title", title).param("generation", generation).update();
+        map(source, document, null);
+        return document;
+    }
+
     private UUID serviceAccount(String adminEmail) {
         UUID id = UUID.randomUUID();
         jdbc.sql("INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:id,:tenant,'Workspace','GOOGLE_SERVICE_ACCOUNT','ACTIVE')")
@@ -286,15 +347,23 @@ class SourceSyncAccessTest {
 
     private UUID pair(String type, String accessType) {
         UUID id = UUID.randomUUID();
-        jdbc.sql("INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:id,:tenant,'Test',:kind,'ACTIVE')")
-                .param("id", id).param("tenant", tenant.value())
-                .param("kind", "FILE".equals(type) ? "NO_AUTH" : "GOOGLE_OAUTH").update();
+        // A Tenant holds one credential without authentication, which every file Source shares.
+        UUID credential = "FILE".equals(type)
+                ? jdbc.sql("SELECT id FROM credentials WHERE tenant_id=:tenant AND credential_kind='NO_AUTH'")
+                        .param("tenant", tenant.value()).query(UUID.class).optional().orElse(id)
+                : id;
+        if (credential.equals(id)) {
+            jdbc.sql("INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:id,:tenant,'Test',:kind,'ACTIVE')")
+                    .param("id", id).param("tenant", tenant.value())
+                    .param("kind", "FILE".equals(type) ? "NO_AUTH" : "GOOGLE_OAUTH").update();
+        }
         jdbc.sql("INSERT INTO connectors(id,tenant_id,name,connector_type,status) VALUES(:id,:tenant,:type,:type,'ACTIVE')")
                 .param("id", id).param("tenant", tenant.value()).param("type", type).update();
         jdbc.sql("""
                 INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status)
-                VALUES(:id,:tenant,:id,:id,:access,'ACTIVE')
-                """).param("id", id).param("tenant", tenant.value()).param("access", accessType).update();
+                VALUES(:id,:tenant,:id,:credential,:access,'ACTIVE')
+                """).param("id", id).param("tenant", tenant.value()).param("credential", credential)
+                .param("access", accessType).update();
         return id;
     }
 
