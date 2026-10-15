@@ -50,10 +50,12 @@ public record ModelAccounting(@Nullable Long input, @Nullable Long output, @Null
         // Only calls that reported usage were recorded on the process, so its totals are theirs.
         var usage = process.usage();
         long cached = used.stream().mapToLong(ModelGuard::cacheReadTokens).sum();
+        long written = used.stream().mapToLong(ModelGuard::cacheWriteTokens).sum();
         Double cost = metadata.getPricingModel() != null ? process.cost() : null;
-        // Embabel prices every input token at the input rate; cached input is billed at the model's cache rate.
+        // Embabel prices every input token at the input rate; cached input is billed at the model's cache rate, and
+        // input written to the cache at the provider's write rate.
         if (cost != null && metadata.getPricingModel() instanceof ModelPricing pricing)
-            cost = Math.max(0, cost - pricing.cacheDiscount(cached));
+            cost = Math.max(0, cost - pricing.cacheDiscount(cached) + pricing.cacheWritePremium(written));
         long input = usage.getPromptTokens() == null ? 0 : usage.getPromptTokens().longValue();
         long output = usage.getCompletionTokens() == null ? 0 : usage.getCompletionTokens().longValue();
         return new ModelAccounting(input, output, cost, Math.min(cached, input), true, complete);

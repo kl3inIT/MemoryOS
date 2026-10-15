@@ -68,6 +68,15 @@ class ResponsesRequestBuilderTest {
     }
 
     @Test
+    void thePromptCacheKeyIsSentWhenTheAnswerCarriesOne() {
+        var builder = new ResponsesRequestBuilder(false, false);
+        String conversation = "conversation-1";
+        var keyed = builder.build(new Prompt("Question"), options(false).promptCacheKey(conversation).build(), false, false);
+        assertEquals("conversation-1", keyed.promptCacheKey().orElseThrow());
+        assertTrue(builder.build(new Prompt("Question"), options(false).build(), false, false).promptCacheKey().isEmpty());
+    }
+
+    @Test
     void functionToolsHostedSearchAndTheToolChoiceAreDeclaredTogether() {
         var options = options(true).toolChoice("required").parallelToolCalls(false).build();
         var params = new ResponsesRequestBuilder(false, false).build(new Prompt("Question"), options, true, true);

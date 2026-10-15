@@ -271,7 +271,9 @@ public final class ChatModelExecutor {
             // Date was frozen into the admitted system message. Override Embabel's automatic date by role.
             var runner = context.promptRunner(new LlmOptions(), Set.of(), List.of(),
                     List.of(PromptContributor.fixed("", new CurrentDate().getRole())), List.of(), false).withLlmService(service);
-            var answerLlm = Objects.requireNonNull(runner.getLlm());
+            // The conversation's ID keeps its answer calls on one OpenAI prompt cache (MEM-269).
+            var answerLlm = Objects.requireNonNull(runner.getLlm())
+                    .withExtension(ModelBinding.PROMPT_CACHE_KEY, setup.sessionId().toString());
             runner = runner.withLlm(maxOutput != null ? answerLlm.withMaxTokens(maxOutput) : answerLlm)
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
             List<Message> messages;
