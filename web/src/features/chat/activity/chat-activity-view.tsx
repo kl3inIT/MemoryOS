@@ -231,15 +231,7 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
             }));
   const mcp = parseMcpToolName(part.toolName);
   if (mcp)
-    return (
-      <ChatMcpToolStep
-        slug={mcp.slug}
-        tool={mcp.tool}
-        part={part}
-        progress={progress}
-        state={state}
-      />
-    );
+    return <ChatMcpToolStep slug={mcp.slug} tool={mcp.tool} progress={progress} state={state} />;
   const queries = progress.queries.map((query) => ({ key: query, icon: <Search />, label: query }));
   const noResults = searching && state === "done" && progress.queries.length > 0 && !reading.length;
   return (

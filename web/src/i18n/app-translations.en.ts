@@ -1095,7 +1095,6 @@ export const vietnameseUi: Record<string, string> = {
   "Cho phép {{tool}} trên {{server}}?": "Allow {{tool}} on {{server}}?",
   "Công cụ này có thể thay đổi dữ liệu": "This tool can change data",
   "Đang chạy…": "Running…",
-  "Chờ bạn cho phép {{tool}} trên {{server}}": "Waiting for you to allow {{tool}} on {{server}}",
   // MEM-253 the composer's apps
   "{{count}} đang bật": "{{count}} on",
   "Chưa có ứng dụng nào dành cho bạn.": "No apps are available to you yet.",

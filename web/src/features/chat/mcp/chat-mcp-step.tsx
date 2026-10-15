@@ -5,10 +5,23 @@ import { ActivityStep } from "@/components/assistant-ui/elements/activity-group"
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 import type { ToolProgress } from "@/features/chat/activity/chat-activity";
-import { useMcpConnections } from "@/features/mcp/mcp-connections";
+import { parseMcpToolName, useMcpConnections } from "@/features/mcp/mcp-connections";
 import { ConnectAction, McpApiKeyDialog } from "@/features/mcp/mcp-connect-actions";
 import type { ToolPart } from "@/features/chat/activity/chat-activity-labels";
 import { ChatToolApproval } from "./chat-tool-approval";
+
+/** A call that asks first, shown in the answer rather than among the thinking steps, named by its server. */
+export function ChatMcpApproval({ part }: { part: ToolPart }) {
+  const connections = useMcpConnections();
+  const mcp = parseMcpToolName(part.toolName);
+  const slug = mcp?.slug ?? "";
+  const server = connections.data?.find((candidate) => candidate.slug === slug)?.name ?? slug;
+  return (
+    <div className="my-3">
+      <ChatToolApproval part={part} tool={mcp?.tool ?? part.toolName} server={server} />
+    </div>
+  );
+}
 
 /**
  * One MCP tool call in the answer timeline, named by tool and server. A call the server refused for authorization
@@ -17,18 +30,14 @@ import { ChatToolApproval } from "./chat-tool-approval";
 export function ChatMcpToolStep({
   slug,
   tool,
-  part,
   progress,
   state,
 }: {
   slug: string;
   tool: string;
-  /** The tool part, whose approval gate a call that asks first carries (MEM-253). */
-  part?: ToolPart;
   progress: ToolProgress;
   state: "running" | "done" | "failed";
 }) {
-  const approval = part?.approval;
   const ui = useAppTranslation();
   const { sessionId } = useParams({ strict: false });
   const connections = useMcpConnections();
@@ -36,10 +45,8 @@ export function ChatMcpToolStep({
   const connection = connections.data?.find((candidate) => candidate.slug === slug);
   // A shared transcript can name a server the viewer may not use; the slug still identifies it.
   const server = connection?.name ?? slug;
-  const waiting = approval !== undefined && approval.approved === undefined;
-  const title = waiting
-    ? ui("Chờ bạn cho phép {{tool}} trên {{server}}", { tool, server })
-    : state === "running"
+  const title =
+    state === "running"
       ? ui("Đang dùng {{tool}} trên {{server}}…", { tool, server })
       : ui("Đã dùng {{tool}} trên {{server}}", { tool, server });
   const failure = state === "failed" ? progress.failure : null;
@@ -50,9 +57,8 @@ export function ChatMcpToolStep({
 
   return (
     <ActivityStep icon={<Blocks />} status={state} title={title}>
-      {part && approval ? <ChatToolApproval part={part} tool={tool} server={server} /> : null}
       {/* A reloaded answer has no live approval, only the step's failure category. */}
-      {!approval && (failure === "DECLINED" || failure === "NO_DECISION") ? (
+      {failure === "DECLINED" || failure === "NO_DECISION" ? (
         <p className="text-xs">
           {failure === "DECLINED"
             ? ui("Bạn đã từ chối.")
