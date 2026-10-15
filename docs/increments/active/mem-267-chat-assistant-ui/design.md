@@ -38,7 +38,7 @@ of scope.
 ### Context use
 
 The turn's model guard already estimates the input of each call against the model's input limit. Its last call's
-estimate and the limit are stored on the answer (`chat_message.context_tokens`, `context_limit`, V168), sent on the
+estimate and the limit are stored on the answer (`chat_message.context_tokens`, `context_limit`, V169), sent on the
 `outcome` event and the history message, and the composer shows them with assistant-ui's Context display element (the
 ring preset), amber from 65% and red above 85%. The turn's token totals sum every call, so they would overstate a turn
 that called tools; research turns record nothing.

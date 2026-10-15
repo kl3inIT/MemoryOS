@@ -12,7 +12,7 @@ Design: [design.md](design.md).
 
 ## 2. Context use
 
-- [x] `ModelGuard.contextTokens`, `ModelAccounting.withContext`; V168; `recordContext` after the terminal write.
+- [x] `ModelGuard.contextTokens`, `ModelAccounting.withContext`; V169; `recordContext` after the terminal write.
 - [x] `outcome` and history carry `contextTokens` and `contextLimit`.
 - [x] Context display element (ring) in the composer.
 
