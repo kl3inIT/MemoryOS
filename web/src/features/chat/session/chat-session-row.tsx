@@ -111,6 +111,8 @@ function ChatSessionRenameForm({
   const input = useRef<HTMLInputElement>(null);
   // Set synchronously so Enter followed by the blur of the closing field writes once.
   const submitting = useRef(false);
+  // Whether the save was made in the field (Enter) rather than by leaving it; read when the save ends.
+  const returnFocus = useRef(false);
   const refreshSessions = useRefreshChatSessions();
   const renameSession = useMutation(renameChatSessionMutation());
   // The thread list renames its own rows, so the sidebar updates at once; other lists call the API.
@@ -127,7 +129,13 @@ function ChatSessionRenameForm({
     onSuccess: async () => {
       await refreshSessions(session.id);
       // Leaving the field already chose where focus goes; only a save made in the field returns it to the row.
-      onClose(document.activeElement === input.current);
+      // Refreshing the list can drop focus from the field to the page before this runs, so the choice made at
+      // Enter decides, unless the person has since moved focus somewhere else.
+      const focus = document.activeElement;
+      onClose(
+        returnFocus.current &&
+          (focus === input.current || focus === null || focus === document.body),
+      );
     },
     onSettled: () => {
       submitting.current = false;
@@ -141,6 +149,7 @@ function ChatSessionRenameForm({
       return;
     }
     submitting.current = true;
+    returnFocus.current = restoreFocus;
     save.mutate(next);
   }
   // The field replaces the row the person chose to rename, so it takes the focus with its text selected.
