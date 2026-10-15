@@ -58,8 +58,7 @@ public class JdbcChannelInboundRepository {
                 .param("connection", connection).param("message", messageId).update();
     }
 
-    /** The conversation of the message a reply names: the question itself or the bot's answer to it. */
-    /** The session of the message replied to, or of the answer replied to, in that chat alone. */
+    /** The conversation of the message a reply names, the question itself or the bot's answer to it, in that chat alone. */
     public Optional<UUID> sessionOf(UUID connection, String chatId, String repliedMessageId) {
         return jdbc.sql("""
                         SELECT session_id FROM channel_messages
