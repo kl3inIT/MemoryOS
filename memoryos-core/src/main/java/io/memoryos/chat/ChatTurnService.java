@@ -947,9 +947,8 @@ public final class ChatTurnService implements AutoCloseable {
     private static String failureCode(Throwable failure, ModelBinding binding) {
         // Only a typed turn failure or the adapter's reading of its own failure names the code: arbitrary provider
         // messages can contain private content.
-        return TurnFailureException.reportedIn(failure).map(TurnFailure::code)
-                .orElse(binding.credentialRejected(failure) ? TurnFailure.PROVIDER_CREDENTIAL_REJECTED.code()
-                        : "CHAT_EXECUTION_FAILED");
+        return TurnFailureException.reportedIn(failure).or(() -> binding.providerFailure(failure))
+                .map(TurnFailure::code).orElse("CHAT_EXECUTION_FAILED");
     }
 
     private enum StopReason { USER, INTERRUPTED }

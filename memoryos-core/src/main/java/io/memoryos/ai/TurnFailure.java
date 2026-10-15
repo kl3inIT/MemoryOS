@@ -18,6 +18,8 @@ public enum TurnFailure {
     MODEL_OUTPUT_LIMIT("CHAT_MODEL_OUTPUT_LIMIT", true),
     /** The provider refused the model's credential (HTTP 401 or 403), whichever call of the turn met it. */
     PROVIDER_CREDENTIAL_REJECTED("CHAT_PROVIDER_CREDENTIAL_REJECTED", true),
+    /** The provider limited the rate (HTTP 429, or a rate-limit error inside its stream): retry after a while. */
+    PROVIDER_RATE_LIMITED("CHAT_PROVIDER_RATE_LIMITED", true),
     DEADLINE("CHAT_DEADLINE", false),
     PROVIDER_UNAVAILABLE("CHAT_PROVIDER_UNAVAILABLE", false);
 

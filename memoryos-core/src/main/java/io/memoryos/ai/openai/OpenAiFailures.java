@@ -1,6 +1,8 @@
 package io.memoryos.ai.openai;
 
 import com.openai.errors.OpenAIServiceException;
+import io.memoryos.ai.TurnFailure;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,12 +37,22 @@ final class OpenAiFailures {
                 .log("The model endpoint call failed");
     }
 
-    /** Whether the endpoint refused the credential (HTTP 401 or 403), in {@code failure} or one of its causes. */
-    static boolean credentialRejected(@Nullable Throwable failure) {
+    /**
+     * MEM-255: what a failure means for the turn. A refused credential is HTTP 401 or 403. A rate limit is OpenAI's
+     * {@code rate_limit_exceeded}, as HTTP 429 or inside the stream with HTTP 200, or an HTTP 429 that names no code.
+     * Any other 429 code ({@code insufficient_quota}, {@code credit_balance_exhausted},
+     * {@code organization_spend_limit_exceeded}) is billing, which waiting does not fix, and stays unnamed.
+     */
+    static Optional<TurnFailure> read(@Nullable Throwable failure) {
         for (int depth = 0; failure != null && depth < MAX_CAUSES; depth++, failure = failure.getCause()) {
-            if (failure instanceof OpenAIServiceException service
-                    && (service.statusCode() == 401 || service.statusCode() == 403)) return true;
+            if (failure instanceof OpenAIServiceException service) {
+                if (service.statusCode() == 401 || service.statusCode() == 403)
+                    return Optional.of(TurnFailure.PROVIDER_CREDENTIAL_REJECTED);
+                String code = service.code().orElse("");
+                if ("rate_limit_exceeded".equals(code) || service.statusCode() == 429 && code.isEmpty())
+                    return Optional.of(TurnFailure.PROVIDER_RATE_LIMITED);
+            }
         }
-        return false;
+        return Optional.empty();
     }
 }

@@ -186,7 +186,7 @@ public final class AnthropicProviderAdapter implements ProviderAdapter {
                         AnthropicRequestPolicy.withSampling(
                                 llmService.getOptionsConverter().convertOptions(requested, requestedModel),
                                 requested, sampling, settings)))
-                .credentialRejection(AnthropicFailures::credentialRejected).build();
+                .failureReading(AnthropicFailures::read).build();
     }
 
     /** The API root; the SDK and the Models API add {@code /v1} themselves. */

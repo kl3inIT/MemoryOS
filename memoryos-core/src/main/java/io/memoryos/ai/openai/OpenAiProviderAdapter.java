@@ -298,7 +298,7 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                         OpenAiRequestPolicy.withSampling(
                                 llmService.getOptionsConverter().convertOptions(requested, requestedModel),
                                 requested, sampling, settings)),
-                OpenAiFailures::credentialRejected, null);
+                OpenAiFailures::read, null);
     }
 
     /** Onyx {@code is_true_openai_model}: the OpenAI API host, not a compatible gateway reusing this adapter. */
