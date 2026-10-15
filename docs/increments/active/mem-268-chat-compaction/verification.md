@@ -64,3 +64,77 @@ Run on zm in a container limited to 3 CPUs and 3 GB, with `nice`: the `io.memory
 (`ChatCompactionTest`, `ChatCompactionsTest`, `ChatTurnSetupTest`), `ChatTurnServiceTest`, `ChatGroundedTurnTest`,
 `ChatPersistenceIntegrationTest`, `ModelCatalogConstraintsTest`, the usage tests, the migration tests, the two
 architecture tests, and `OpenApiContractTest`, which rewrote `openapi.yml`. The repository-wide gate is left to CI.
+
+## Step 4 acceptance on staging (2026-10-15)
+
+### The release
+
+PR #683 merged as `64b9f504`. Its main CI run was cancelled by the next merge (#682, `d7f8cd1f`), and the CI run of
+`d7f8cd1f` passed.
+
+The first `Deploy staging` of `d7f8cd1f` (run 38767617925) failed with "Not enough free space under /apps/memoryos for
+the backup": after the day's releases the disk was at 100 %, with 1.8 GB free. The repository's
+`prune-release-images.sh` needs root, so its rule was applied as `dat`:
+
+- `docker image rm`, never forced, of the 72 `ghcr.io/kl3init/memoryos-*` images that no container used;
+- the interpreter's executor image (`acb33f…`) kept;
+- everything built since 14:40 UTC kept: the running release, the candidate and the release before them;
+- `memoryos-minio` left alone.
+
+The disk went to 47 GB free and the interpreter, API and channels stayed healthy. The rerun deployed. Staging then
+logged `"release":"d7f8cd1f…"` on API and channels, and `flyway_schema_history` showed V172 and V173 applied at
+16:26:07 UTC.
+
+### The web, through the API
+
+**Setup.**
+- A temporary agent with `contextTokenLimit` 12,000 and no tools. Its history budget is 12,000 − 4,000 = 8,000 tokens,
+  so the trigger is at 6,000.
+- It answered as the owner benchmark role, on `cx/gpt-6-luna` through 9Router.
+- Scripts `accept4.py` and `clean.sh` (scratch, not committed): turn 1 states facts, then 350-word writing requests,
+  then a question that needs turn 1.
+
+**Session `465eb38b` (the clean run).** Turn 1 gave four facts: contract HĐ-ZX-2093, partner Công ty Minh Phát,
+signing date 07/12/2026, contact anh Đỗ Quang Hiển. Ten writing turns followed, each adding about 650 context tokens
+(1,351, 1,291, 1,910, … 6,263, 6,914).
+
+| Check | Result |
+| --- | --- |
+| A summary is written once the threshold is passed | `chat_session_summary` `06848432`, written at 16:49:41, 14 s after the answer of turn 11. Parent `a3c79bd2` (the newest question), cutoff `b41e281e` (turn 8's answer); 674 tokens, 2,178 characters |
+| The claim ends | The `chat_session_compaction` row has `claimed_until` and `retry_after` both null |
+| The next answer knows what only the summary still holds | Turn 1 is before the cutoff, so it is not replayed. "mã hợp đồng, đối tác, ngày ký, người liên hệ?" was answered with all four correct, in 3.0 s |
+| The context drops | `context_tokens` was 6,914 on the turn before the summary and 3,765 on the next |
+| A regenerated answer above the cutoff ignores the summary | Regenerating turn 2 (`dd8ea533`) gave `context_tokens` 1,291, the same as the original answer; with the summary it would be about 674 more |
+| An edit above the cutoff ignores the summary | Turn 3 was edited to "list every question I sent". `context_tokens` was 1,926 (the original turn 3 had 1,910), and the answer listed turn 1, turn 2 and the edited question only, none of the later topics |
+| Usage | `ai_usage` flow `CHAT_COMPACTION`, `cx/gpt-6-luna`: 2 calls (both sessions), 16,265 input and 1,313 output tokens, US$0.00228 |
+| Failures | No `chat.compaction.failed` in the API or channels logs |
+
+**Session `4ba4edef` (the first run).** It wrote summary `b9a19657` (671 tokens, cutoff at turn 7), and the context
+fell from 6,477 to 3,840 tokens. Its recall question was asked before the threshold, so that question and its answer
+sat in the kept tail. This session therefore shows the trigger and the drop, not the recall.
+
+**Cleanup.** The test agent and both sessions were deleted. The sessions are soft-deleted, so their summaries stay until
+the purge, as their messages do.
+
+### Not verified on staging
+
+- **The span and the metrics.** The observability stack on zm is stopped: Tempo exited 7 hours before, and Prometheus,
+  Loki and Grafana 7 days before. `memoryos.chat.compaction`, `memoryos.chat.compaction.runs` and
+  `memoryos.chat.compaction.summary.tokens` could not be read. `ChatCompactionsTest` covers them.
+- **The cooldown after a failure.** No compaction failed. `ChatCompactionsTest` and
+  `ChatPersistenceIntegrationTest.oneCompactionHoldsASessionAndAFailureMakesItWait` cover it.
+- **A Zalo group session.** The group session `5fc7ea5c` has 16 messages and about 4,200 context tokens. It runs as the
+  bot with the Tenant's default agent, whose history budget on luna is about 253,000 tokens, so the trigger is about
+  190,000 tokens away and cannot be reached by hand. This check needs the owner: either a long group conversation, or a
+  small-context agent for the bot once MEM-273 lets a bot use its own agent.
+
+### Two findings on the summary prompt (not fixed)
+
+- **The kept tail is summarised too.** Both summaries list, under "Questions so far", questions after their cutoff;
+  `06848432` lists turns 9 and 10, which still replay verbatim. The design gives the recent messages as context only.
+  The duplication costs tokens but loses nothing.
+- **Facts the person states are not filed as facts.** In `06848432` the four contract facts are under "Constraints and
+  preferences", marked "not directly related", and "Established facts" reads "no source documents or specific facts".
+  The model read "facts established with their sources" as document-sourced facts only. The recall still answered
+  correctly, from that section, but a later roll-forward could drop them. The prompt should say that facts the person
+  gave are established facts.
