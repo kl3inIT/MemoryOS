@@ -124,7 +124,7 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
           {facts.map(([label, value]) => (
             <div key={label} className="grid grid-cols-3 items-center gap-4 px-4 py-3">
               <dt className="text-content-muted">{label}</dt>
-              <dd className="col-span-2 break-all text-content-primary">{value}</dd>
+              <dd className="col-span-2 wrap-anywhere text-content-primary">{value}</dd>
             </div>
           ))}
         </dl>
