@@ -123,7 +123,7 @@ test("adding a bot opens the dialog beside the console steps and waits for the A
   await expect(page.getByText("Chưa có bot nào.")).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Thêm bot" }).click();
   const dialog = page.getByRole("dialog", { name: "Thêm bot" });
-  await expect(dialog.getByRole("radio", { name: "Lark" })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: "Lark", exact: true })).toBeChecked();
   await expect(dialog.getByText("im.message.receive_v1")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Kiểm tra và lưu" })).toBeDisabled();
   await dialog.getByRole("textbox", { name: "App Secret" }).fill("secret");

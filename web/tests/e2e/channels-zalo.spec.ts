@@ -264,9 +264,11 @@ for (const theme of ["light", "dark"] as const) {
       await page.keyboard.press("Escape");
 
       await page.goto(`/admin/channels/${HR_ZALO}`);
-      await expect(page.getByRole("heading", { name: "Hỏi đáp Nhân sự", level: 1 })).toBeVisible({
+      // A page opened by its address compiles its route on the dev server's first visit.
+      await expect(page.getByRole("heading", { name: "Hỏi đáp Nhân sự", level: 1 })).toBeAttached({
         timeout: 30_000,
       });
+      await expect(page.getByText("Bot Nhan Su")).toBeVisible();
       await page.screenshot({ path: `${OUTPUT}/detail-${theme}-${width}.png`, fullPage: true });
 
       await page.unrouteAll({ behavior: "ignoreErrors" });
