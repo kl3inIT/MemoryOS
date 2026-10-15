@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
 /** Identity includes the operation, target, Web intent and Deep research mode; retries never append another reply. */
 public record ChatCommand(Operation operation, UUID targetMessageId, UUID requestId,
                           String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch, ImageMode image,
-                          boolean deepResearch, List<UUID> mcpServerIds) {
+                          boolean deepResearch, List<UUID> mcpServerIds, @Nullable ChatChannel channel) {
     public enum Operation { SEND, EDIT, REGENERATE }
     public ChatCommand {
         webSearch = webSearch == null ? WebSearchMode.off : webSearch;
@@ -47,6 +47,7 @@ public record ChatCommand(Operation operation, UUID targetMessageId, UUID reques
         private ImageMode image = ImageMode.off;
         private boolean deepResearch;
         private List<UUID> mcpServerIds = List.of();
+        private @Nullable ChatChannel channel;
 
         private Builder(Operation operation, UUID targetMessageId, UUID requestId, String text) {
             this.operation = operation;
@@ -61,10 +62,11 @@ public record ChatCommand(Operation operation, UUID targetMessageId, UUID reques
         public Builder image(ImageMode value) { image = value; return this; }
         public Builder deepResearch(boolean value) { deepResearch = value; return this; }
         public Builder mcpServerIds(List<UUID> value) { mcpServerIds = value; return this; }
+        public Builder channel(@Nullable ChatChannel value) { channel = value; return this; }
 
         public ChatCommand build() {
             return new ChatCommand(operation, targetMessageId, requestId, text, modelConfigurationId, fileIds, webSearch,
-                    image, deepResearch, mcpServerIds);
+                    image, deepResearch, mcpServerIds, channel);
         }
     }
 }

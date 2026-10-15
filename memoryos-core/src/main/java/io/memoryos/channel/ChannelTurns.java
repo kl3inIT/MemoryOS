@@ -1,5 +1,6 @@
 package io.memoryos.channel;
 
+import io.memoryos.chat.ChatChannel;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
@@ -51,13 +52,14 @@ class ChannelTurns {
      * {@code onWaiting} is told once.
      *
      * @param request one id a question: a question handed over twice is answered once
+     * @param channel where it was asked, which the answer model is told
      * @param onAccepted called once the question is accepted; it opens the reply and returns where the answer's
      *        text goes as it is written, while the turn is already being prepared
      */
-    Answer ask(ActorId actor, @Nullable UUID session, String title, UUID request, String text, Duration wait,
-               Runnable onWaiting, Supplier<Consumer<String>> onAccepted) throws InterruptedException {
+    Answer ask(ActorId actor, @Nullable UUID session, String title, UUID request, String text, ChatChannel channel,
+               Duration wait, Runnable onWaiting, Supplier<Consumer<String>> onAccepted) throws InterruptedException {
         UUID conversation = session != null ? session : sessions.createInChannel(actor, title).id();
-        var accepted = accept(actor, conversation, request, text, wait, onWaiting);
+        var accepted = accept(actor, conversation, request, text, channel, wait, onWaiting);
         Consumer<String> onText = onAccepted.get();
         try (var reader = turns.subscribe(actor, conversation, accepted.assistantMessageId(), 0).get()) {
             while (true) {
@@ -74,15 +76,15 @@ class ChannelTurns {
                 reply.sources(), reply.failureCode());
     }
 
-    ChatTurnService.Accepted accept(ActorId actor, UUID conversation, UUID request, String text, Duration wait,
-                                    Runnable onWaiting) throws InterruptedException {
+    ChatTurnService.Accepted accept(ActorId actor, UUID conversation, UUID request, String text, ChatChannel channel,
+                                    Duration wait, Runnable onWaiting) throws InterruptedException {
         long deadline = System.nanoTime() + wait.toNanos();
         boolean waiting = false;
         while (true) {
             try {
                 UUID parent = sessions.leaf(actor, conversation);
                 return turns.command(actor, conversation,
-                        ChatCommand.builder(ChatCommand.Operation.SEND, parent, request, text).build());
+                        ChatCommand.builder(ChatCommand.Operation.SEND, parent, request, text).channel(channel).build());
             } catch (ChatException conflict) {
                 // The conversation has a reply running, or moved on while this was read: wait, then ask at its leaf.
                 if (!CONFLICT.equals(conflict.code()) || System.nanoTime() > deadline) throw conflict;

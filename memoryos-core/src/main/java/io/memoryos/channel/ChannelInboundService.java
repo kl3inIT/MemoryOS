@@ -4,6 +4,7 @@ import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
 import io.memoryos.channel.persistence.JdbcChannelInboundRepository;
+import io.memoryos.chat.ChatChannel;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.iam.MemberLookup;
@@ -290,7 +291,8 @@ public class ChannelInboundService {
         ChannelTurns.Answer answer;
         try {
             answer = step("turn", () -> turns.ask(actor, session, title(message.text()), request(connection, message),
-                    question, properties.orderWait(), () -> adapter.acknowledge(connection, message), () -> {
+                    question, new ChatChannel(connection.provider().platform(), !direct), properties.orderWait(),
+                    () -> adapter.acknowledge(connection, message), () -> {
                         var reply = step("reply", () -> adapter.reply(connection, message,
                                 ChannelNotice.WRITING.in(connection.noticeLanguage())));
                         opened.set(reply);

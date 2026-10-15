@@ -251,6 +251,7 @@ public class ChatTurnPersistence {
             var binding = selection.binding().forOptions(settings.options().sampling(), settings.options().outputTokenLimit());
             instructions = ChatPrompts.resolve(instructions,
                     binding.toolCalling() && settings.options().searches(), Instant.now(), language);
+            instructions = ChatPrompts.withChannel(instructions, command.channel());
             instructions = userInformation(tenant, actor, instructions, own, sessionId);
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
         }
