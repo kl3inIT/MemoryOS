@@ -203,6 +203,7 @@ jobs:
           MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
           MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
           MEMORYOS_SANDBOX_IMAGE: memoryos-sandbox:config-check
+          MEMORYOS_SANDBOX_COMPUTER_IMAGE: memoryos-sandbox-computer:config-check
           MEMORYOS_KEYCLOAK_IMAGE: memoryos-keycloak:config-check
           MEMORYOS_POSTGRES_ADMIN_PASSWORD: config-check-only
           MEMORYOS_DATABASE_PASSWORD: config-check-only

@@ -32,7 +32,7 @@ tasks.withType<Test>().configureEach {
 
 // Core holds the ports; no platform SDK and no parser reaches it (ADR 0027).
 classpathIsolation {
-    forbiddenGroups.addAll("com.larksuite.oapi", "com.google.apis", "com.google.api-client", "com.microsoft.graph", "org.apache.tika", "ai.docling")
+    forbiddenGroups.addAll("com.larksuite.oapi", "com.alibaba.opensandbox", "com.google.apis", "com.google.api-client", "com.microsoft.graph", "org.apache.tika", "ai.docling")
 }
 
 dependencies {

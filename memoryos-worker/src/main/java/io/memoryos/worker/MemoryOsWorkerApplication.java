@@ -12,6 +12,7 @@ import io.memoryos.library.LibraryWorkerComponents;
 import io.memoryos.mcp.McpWorkerComponents;
 import io.memoryos.objectstorage.ObjectStorageWorkerComponents;
 import io.memoryos.retrieval.RetrievalWorkerComponents;
+import io.memoryos.sandbox.SandboxWorkerComponents;
 import io.memoryos.usage.UsageWorkerComponents;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -36,6 +37,7 @@ import org.springframework.context.annotation.Import;
         ObjectStorageWorkerComponents.class,
         OcrWorkerComponents.class,
         RetrievalWorkerComponents.class,
+        SandboxWorkerComponents.class,
         UsageWorkerComponents.class
 })
 public class MemoryOsWorkerApplication {
