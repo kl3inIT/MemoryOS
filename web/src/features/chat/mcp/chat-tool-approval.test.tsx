@@ -72,7 +72,7 @@ it("keeps no buttons for a call nobody answered in time", () => {
       server="Gmail"
     />,
   );
-  expect(screen.getByText("Không có phản hồi nên công cụ không chạy.")).toBeInTheDocument();
+  expect(screen.getByText("Hết thời gian chờ, công cụ không chạy.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Cho phép" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Luôn cho phép" })).not.toBeInTheDocument();
 });

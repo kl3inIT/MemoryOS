@@ -720,7 +720,7 @@ test("regenerates with another catalog model and reveals answer timing on hover"
   await expect(timing).toHaveCSS("opacity", "1");
   // MEM-267: an answer streamed in this session adds assistant-ui's own timing to its time.
   await expect(timing).toHaveText(
-    /^\d{1,2}:\d{2} · Token đầu sau [\d,]+ giây · Tổng [\d,]+ giây · \d+ token\/giây$/,
+    /^\d{1,2}:\d{2} · Bắt đầu trả lời sau [\d,]+ giây · Xong trong [\d,]+ giây$/,
   );
   // A Markdown link renders as a source chip; an unknown host shows the generic globe, never a fetched favicon.
   const link = page.getByRole("link", { name: "Reference" });
