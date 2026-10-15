@@ -42,3 +42,29 @@ Found:
 Decision: the bounds stay as designed (48 in the API, 3 a person, 16 in `memoryos-channels`, the pool 15). The run
 shows they hold under this load with headroom; it gives no evidence for raising them, and the process bound
 stays a backstop that a burst from more people than eight would meet before the provider does.
+
+## The provider's limit (2026-10-15)
+
+What it checks: the provider's rate limit that the load run above did not reach.
+
+How: from the staging host, N short chat completions at once straight to the provider staging uses (9Router,
+model `cx/gpt-6-luna`, three Codex accounts behind it), with the benchmark's key, without MemoryOS; twenty seconds
+between levels.
+
+| Simultaneous requests | Outcome | Seconds (p50 / p90 / max) |
+| --- | --- | --- |
+| 24 | 24 answered | 1.9 / 3.6 / 6.8 |
+| 48 | 48 answered | 1.6 / 2.4 / 4.2 |
+| 96 | 96 answered | 1.8 / 3.2 / 88.7 |
+| 160 | 160 answered | 2.2 / 3.0 / 7.9 |
+| 256 | 40 answered, 216 refused (503 carrying Codex's 429) | 1.9 / 2.3 / 3.1 |
+
+Found:
+
+- The limit lies between 160 and 256 requests at once. Above it Codex answers `429 Rate limit exceeded`, and 9Router
+  then locks every account for the model, for 2 seconds up to 5 minutes.
+- Going over the limit stops every turn on staging, not only the excess: a MemoryOS turn sent right after failed
+  with `CHAT_EXECUTION_FAILED`, and turns answered again about a minute later. The same 9Router also serves
+  other applications on the host, which share this limit.
+- So the sum of the turn bounds of all processes that use the provider has to stay under its limit, with room
+  for a turn that makes several model calls: 48 in the API and 16 in `memoryos-channels` use 64 of about 160.
