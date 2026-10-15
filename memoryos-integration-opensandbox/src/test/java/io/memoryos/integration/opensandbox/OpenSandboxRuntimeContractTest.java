@@ -59,6 +59,14 @@ class OpenSandboxRuntimeContractTest {
                 assertThrows(IllegalArgumentException.class, () -> runtime.read(id, "/workspace/data/a.bin", 1024));
                 assertTrue(runtime.list(id, "/workspace", 2).stream().anyMatch(entry -> entry.path().endsWith("a.bin")));
 
+                // execd runs as root; a link the user plants must not hand the file calls root's files.
+                assertEquals(0, runtime.run(id, new SandboxCommand("ln -s /etc/shadow leak && ln -s /etc/passwd pw",
+                        "/workspace", 1000, TIMEOUT)).exitCode());
+                assertThrows(RuntimeException.class, () -> runtime.read(id, "/workspace/leak", 1 << 20));
+                assertThrows(RuntimeException.class, () -> runtime.write(id, "/workspace/pw", "x\n".getBytes()));
+                assertTrue(runtime.run(id, new SandboxCommand("head -1 /etc/passwd", "/workspace", 1000, TIMEOUT))
+                        .stdout().startsWith("root:"));
+
                 assertEquals("000", runtime.run(id, new SandboxCommand(
                         "curl -s -o /dev/null -w '%{http_code}' -m 8 https://example.com || true", "/workspace", 1000,
                         TIMEOUT)).stdout());

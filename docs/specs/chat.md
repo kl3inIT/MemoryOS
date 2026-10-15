@@ -667,6 +667,8 @@ calling and the deployment has a sandbox (`SandboxService.available()`); a turn 
   `/workspace`.
 - `publish_file(path, filename)`: the file (at most 100 MiB) becomes a generated-file artifact of the answer, linked
   like a `run_python` file.
+- **File rights.** `edit_file` and `publish_file` read and write as the sandbox user, as `bash` does
+  ([sandbox](sandbox.md#contract)).
 - **Timeline.** `bash` and `publish_file` publish the same code events as `run_python`; a `bash` running event carries
   the model's `description` as `title`, which titles the step. The four tools share the terminal and file icons.
 - **Guidance.** The prompt's Sandbox section lists the working rules and the tools installed in the computer image.

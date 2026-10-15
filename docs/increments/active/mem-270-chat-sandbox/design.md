@@ -162,6 +162,7 @@ bridge network) on the staging host, from a Java 25 program on the SDK 1.1.1 wit
 | Network, `dns+nft` mode | Allowed domain 200; other domains, direct IPs and every host port blocked; only the host's DNS resolvers remain reachable | Required: `[egress] mode = "dns+nft"` |
 | User | Commands run as root by default; `uid(1000)` runs them unprivileged; the image has no user 1000, no `/workspace` and no `git` | Run as 1000; the image adds the user, `/workspace` and `git` |
 | Renew | `renew(3 min)` moves `expiresAt` | Renew on every tool call |
+| File calls (2026-10-16) | execd runs as root. With execd `v1.1.0`, a link `/workspace/leak -> /etc/shadow` made by uid 1000 was read through `files().readStream`, and `files().write` through `/workspace/pw -> /etc/passwd` overwrote it. OpenSandbox 1.1.1 adds `/v1/filesystem/{uid}/{gid}` routes (`filesWithIdentity`), which run each file call as the given user | execd and egress move to `release-1.1.1`; every file call uses `filesWithIdentity(1000, 1000)` |
 | Topology | With the server on an internal network plus a bridge of its own, a client on the internal network alone created a sandbox, ran commands, wrote and read files and saw a timeout through `useServerProxy(true)`; the API key came from a secret file through a start script | `memoryos-internal` stays internal; Java uses the server's proxy |
 | Expired or killed sandbox | `connector().connect()` throws `SandboxNotFoundException` (HTTP 404 `DOCKER::SANDBOX_NOT_FOUND`) | That exception means "create a new one and restore the workspace" |
 
