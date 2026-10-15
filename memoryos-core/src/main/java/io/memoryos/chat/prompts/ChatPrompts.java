@@ -2,8 +2,12 @@ package io.memoryos.chat.prompts;
 
 import io.memoryos.chat.ChatChannel;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -241,11 +245,22 @@ public final class ChatPrompts {
     /**
      * The only source of the date in the system prompt, always present: the placeholder is filled, and instructions
      * without one get Onyx's {@code ADDITIONAL_INFO} date line. There is no per-agent switch to leave it out.
+     *
+     * <p>Onyx writes the time to the minute; MemoryOS writes the UTC day (MEM-260). The system prompt leads the prefix
+     * a provider caches, and a time that moved on every turn rewrote it on every turn; the day keeps it byte-identical
+     * for the whole of a conversation's day. pi dropped the time from its prompt for the same reason.
      */
     public static String resolve(String instructions, boolean searchEnabled, Instant now) {
-        String dated = instructions.contains("{{CURRENT_DATETIME}}") ? instructions.replace("{{CURRENT_DATETIME}}", now.toString())
-                : instructions + "\n\nAdditional Information:\n\t- The current date is " + now + ".";
+        String date = currentDate(now);
+        String dated = instructions.contains("{{CURRENT_DATETIME}}") ? instructions.replace("{{CURRENT_DATETIME}}", date)
+                : instructions + "\n\nAdditional Information:\n\t- The current date is " + date + ".";
         return dated + (searchEnabled ? "\n" + SEARCH_GUIDANCE : "");
+    }
+
+    /** The UTC day with its weekday, for example {@code Thursday 2026-10-15 (UTC)}. */
+    static String currentDate(Instant now) {
+        var day = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        return day.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + day + " (UTC)";
     }
 
     /** Account hint, not a translated system prompt. Custom Persona instructions keep their precedence. */
