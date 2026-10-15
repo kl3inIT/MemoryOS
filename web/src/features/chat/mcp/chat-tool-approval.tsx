@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { ShieldQuestion } from "lucide-react";
 import { ApprovalCard } from "@/components/assistant-ui/elements/approval-card";
 import { FieldError } from "@/components/ui/field";
@@ -46,10 +46,13 @@ export function ChatToolApproval({
   part,
   tool,
   server,
+  mark,
 }: {
   part: ToolPart;
   tool: string;
   server: string;
+  /** The app's logo, which takes the place of the generic icon. */
+  mark?: ReactNode;
 }) {
   const ui = useAppTranslation();
   const problem = useProblemMessage();
@@ -83,6 +86,7 @@ export function ChatToolApproval({
       <ApprovalCard
         state={state}
         icon={<ShieldQuestion className="size-4" />}
+        mark={mark}
         title={ui("Cho phép {{tool}} trên {{server}}?", {
           tool: descriptor.toolName ?? tool,
           server: descriptor.serverName ?? server,

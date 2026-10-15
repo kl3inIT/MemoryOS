@@ -7,6 +7,7 @@ import type { McpConnection } from "@/lib/hey-api/types.gen";
 import type { ToolProgress } from "@/features/chat/activity/chat-activity";
 import { parseMcpToolName, useMcpConnections } from "@/features/mcp/mcp-connections";
 import { ConnectAction, McpApiKeyDialog } from "@/features/mcp/mcp-connect-actions";
+import { McpServerMark } from "@/features/mcp/mcp-server-mark";
 import type { ToolPart } from "@/features/chat/activity/chat-activity-labels";
 import { ChatToolApproval } from "./chat-tool-approval";
 
@@ -15,10 +16,23 @@ export function ChatMcpApproval({ part }: { part: ToolPart }) {
   const connections = useMcpConnections();
   const mcp = parseMcpToolName(part.toolName);
   const slug = mcp?.slug ?? "";
-  const server = connections.data?.find((candidate) => candidate.slug === slug)?.name ?? slug;
+  const connection = connections.data?.find((candidate) => candidate.slug === slug);
+  const server = connection?.name ?? slug;
   return (
     <div className="my-3">
-      <ChatToolApproval part={part} tool={mcp?.tool ?? part.toolName} server={server} />
+      <ChatToolApproval
+        part={part}
+        tool={mcp?.tool ?? part.toolName}
+        server={server}
+        mark={
+          <McpServerMark
+            slug={slug}
+            url={connection?.url}
+            name={connection?.name ?? slug}
+            className="size-9"
+          />
+        }
+      />
     </div>
   );
 }
