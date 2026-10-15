@@ -84,6 +84,21 @@ class McpServerRulesTest {
     }
 
     @Test
+    void annotationsSetTheDefaultAndADestructiveToolNeverRunsUnasked() {
+        assertEquals(McpToolRisk.READ, McpServerRules.risk(true, "{\"readOnlyHint\":true,\"destructiveHint\":true}"));
+        assertEquals(McpToolRisk.DESTRUCTIVE, McpServerRules.risk(false, "{\"readOnlyHint\":false,\"destructiveHint\":true}"));
+        // The specification's implicit destructive default is not applied: an unannotated tool writes.
+        assertEquals(McpToolRisk.WRITE, McpServerRules.risk(false, "{}"));
+        assertEquals(McpToolPolicy.ALWAYS, McpServerRules.defaultPolicy(McpToolRisk.READ, true));
+        assertEquals(McpToolPolicy.ASK, McpServerRules.defaultPolicy(McpToolRisk.WRITE, true));
+        assertEquals(McpToolPolicy.ASK, McpServerRules.defaultPolicy(McpToolRisk.DESTRUCTIVE, true));
+        assertEquals(McpToolPolicy.OFF, McpServerRules.defaultPolicy(McpToolRisk.READ, false));
+        assertFalse(McpServerRules.allowed(McpToolRisk.DESTRUCTIVE, McpToolPolicy.ALWAYS));
+        assertTrue(McpServerRules.allowed(McpToolRisk.DESTRUCTIVE, McpToolPolicy.ASK));
+        assertTrue(McpServerRules.allowed(McpToolRisk.WRITE, McpToolPolicy.ALWAYS));
+    }
+
+    @Test
     void storedJsonThatIsNotTheExpectedShapeFailsClosed() {
         assertCode("MCP_CREDENTIAL_UNREADABLE", () -> McpServerRules.stringMap("[]"));
         assertCode("MCP_CREDENTIAL_UNREADABLE", () -> McpServerRules.stringMap("{\"a\":1}"));

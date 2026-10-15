@@ -5124,7 +5124,10 @@ class ChatSessionApiIntegrationTest {
             String id = created.path("id").asText();
             String server = "/api/mcp/servers/" + id;
             assertTrue(created.path("sharedCredentialConfigured").asBoolean());
-            assertEquals("CREATED", created.path("status").asText());
+            // A server with a shared connection lists its tools when it is saved (MEM-264).
+            assertEquals("CONNECTED", created.path("status").asText());
+            assertEquals(2, created.path("toolCount").asLong());
+            assertEquals(1, created.path("enabledToolCount").asLong());
             assertEquals("[\"Authorization\",\"X-Fixture\"]", created.path("headerNames").toString());
             assertFalse(created.toString().contains("fixture-mcp-key"));
             assertFalse(created.toString().contains("static-header-secret"));
@@ -5152,17 +5155,31 @@ class ChatSessionApiIntegrationTest {
             assertTrue(search != null && tooLong != null, refreshed.toString());
             assertTrue(search.path("exposable").asBoolean());
             assertTrue(search.path("readOnlyHint").asBoolean());
-            // A newly listed read-only tool starts on; one whose model-facing name cannot fit stays off.
-            assertTrue(search.path("enabled").asBoolean());
+            // A read-only tool runs without asking; one whose model-facing name cannot fit stays off.
+            assertEquals("READ", search.path("risk").asText());
+            assertEquals("ALWAYS", search.path("policy").asText());
+            assertFalse(search.path("policyCustomized").asBoolean());
             assertFalse(tooLong.path("exposable").asBoolean());
-            assertFalse(tooLong.path("enabled").asBoolean());
-            mockMvc.perform(put(server + "/tools/" + tooLong.path("id").asText() + "/enabled").param("revision", tooLong.path("revision").asText())
+            assertEquals("DESTRUCTIVE", tooLong.path("risk").asText());
+            assertEquals("OFF", tooLong.path("policy").asText());
+            mockMvc.perform(put(server + "/tools/" + tooLong.path("id").asText() + "/policy").param("revision", tooLong.path("revision").asText())
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"enabled\":true}")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_TOOL_NAME_UNSUPPORTED"));
-            mockMvc.perform(put(server + "/tools/" + search.path("id").asText() + "/enabled").param("revision", search.path("revision").asText())
+                    .content("{\"policy\":\"ASK\"}")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_TOOL_NAME_UNSUPPORTED"));
+            mockMvc.perform(put(server + "/tools/policy").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"risk\":\"DESTRUCTIVE\",\"policy\":\"ALWAYS\"}"))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_TOOL_POLICY_NOT_ALLOWED"));
+            mockMvc.perform(put(server + "/tools/" + search.path("id").asText() + "/policy").param("revision", search.path("revision").asText())
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"enabled\":true}")).andExpect(status().isOk())
-                    .andExpect(jsonPath("$.enabled").value(true)).andExpect(jsonPath("$.modelName").value("mcp_" + created.path("slug").asText() + "_search_files"));
+                    .content("{\"policy\":\"ASK\"}")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.policy").value("ASK")).andExpect(jsonPath("$.policyCustomized").value(true))
+                    .andExpect(jsonPath("$.modelName").value("mcp_" + created.path("slug").asText() + "_search_files"));
+            // A refresh keeps the administrator's choice; resetting returns the default.
+            refreshed = Json.mapper().readTree(mockMvc.perform(post(server + "/tools/refresh").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertTrue(refreshed.toString().contains("\"policy\":\"ASK\",\"policyCustomized\":true"), refreshed.toString());
+            mockMvc.perform(delete(server + "/tools/policy").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.name=='search_files')].policy").value("ALWAYS"))
+                    .andExpect(jsonPath("$[?(@.name=='search_files')].policyCustomized").value(false));
 
             long revision = refreshed.path("server").path("revision").asLong();
             var keep = mcpServerBody(created.path("slug").asText(), fixture.url());
@@ -5725,9 +5742,6 @@ class ChatSessionApiIntegrationTest {
             UUID serverId = UUID.fromString(created.path("id").asText());
             mockMvc.perform(post("/api/mcp/servers/" + serverId + "/tools/refresh").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
-            mockMvc.perform(put("/api/mcp/servers/" + serverId + "/tools/enabled").with(authentication(actor)).with(csrf())
-                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
-                    .andExpect(status().isOk());
 
             String toolName = "mcp_" + slug + "_search_files";
             // Assertions inside the mock would fail the whole turn and hide the cause, so record and check after.
@@ -5844,9 +5858,6 @@ class ChatSessionApiIntegrationTest {
             UUID serverId = UUID.fromString(created.path("id").asText());
             mockMvc.perform(post("/api/mcp/servers/" + serverId + "/tools/refresh").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
-            mockMvc.perform(put("/api/mcp/servers/" + serverId + "/tools/enabled").with(authentication(actor)).with(csrf())
-                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
-                    .andExpect(status().isOk());
             String toolName = "mcp_" + slug + "_search_files";
 
             var prompts = new CopyOnWriteArrayList<String>();

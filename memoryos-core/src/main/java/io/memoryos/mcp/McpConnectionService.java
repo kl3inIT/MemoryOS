@@ -148,7 +148,7 @@ public class McpConnectionService {
                 : List.of();
         return new ConnectionView(server.getId(), server.slug(), server.name(), server.description(), server.url(),
                 server.authType(), server.authPerformer(), server.status(), state, options,
-                tools.countByTenantIdAndServerIdAndEnabledTrue(tenant, server.getId()),
+                tools.countByTenantIdAndServerIdAndPolicyNot(tenant, server.getId(), McpToolPolicy.OFF),
                 own == null ? null : own.updatedAt(), server.revision());
     }
 

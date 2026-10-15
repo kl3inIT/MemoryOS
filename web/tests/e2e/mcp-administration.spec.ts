@@ -73,8 +73,9 @@ const tools: ListMcpServerToolsResponse = [
     description: "Tìm tệp theo tên hoặc nội dung trong Drive của người dùng.",
     readOnlyHint: true,
     destructiveHint: false,
-    enabled: true,
-    approvalRequired: false,
+    risk: "READ",
+    policy: "ALWAYS",
+    policyCustomized: false,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -87,8 +88,9 @@ const tools: ListMcpServerToolsResponse = [
     description: "Trả về nội dung văn bản của một tệp Drive.",
     readOnlyHint: true,
     destructiveHint: false,
-    enabled: true,
-    approvalRequired: false,
+    risk: "READ",
+    policy: "ASK",
+    policyCustomized: true,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -101,8 +103,9 @@ const tools: ListMcpServerToolsResponse = [
     description: "Chuyển một tệp vào thùng rác.",
     readOnlyHint: false,
     destructiveHint: true,
-    enabled: false,
-    approvalRequired: true,
+    risk: "DESTRUCTIVE",
+    policy: "ASK",
+    policyCustomized: false,
     exposable: true,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -115,8 +118,9 @@ const tools: ListMcpServerToolsResponse = [
     description: "Công cụ có tên quá dài nên không gửi cho mô hình được.",
     readOnlyHint: true,
     destructiveHint: false,
-    enabled: false,
-    approvalRequired: false,
+    risk: "READ",
+    policy: "OFF",
+    policyCustomized: false,
     exposable: false,
     snapshotAt: "2026-09-16T03:10:00Z",
     revision: 1,
@@ -333,7 +337,14 @@ test("MCP administration lists servers, tools and OAuth applications", async ({ 
     .first()
     .click();
   await expect(page.getByText("Tasco Miền Bắc")).toBeVisible();
-  await expect(page.getByText("Có thể thay đổi dữ liệu")).toBeVisible();
+  await expect(page.getByText("Ghi đè hoặc xóa · 1")).toBeVisible();
+  await expect(page.getByText("Đã chỉnh", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Về mặc định" })).toBeVisible();
+  // A tool that may overwrite or delete always asks first.
+  await page.getByRole("combobox", { name: "delete_file" }).click();
+  await expect(page.getByRole("option", { name: "Hỏi trước" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Luôn cho phép" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(page.getByText("Tên quá dài", { exact: true })).toBeVisible();
   // A tool whose model-facing name cannot fit is visible but not switchable.
   await expect(
