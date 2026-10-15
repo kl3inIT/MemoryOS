@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.sandbox.SandboxCommand;
+import io.memoryos.sandbox.SandboxFileException;
 import io.memoryos.sandbox.SandboxGoneException;
 import io.memoryos.sandbox.SandboxSpec;
 import java.time.Duration;
@@ -62,8 +63,8 @@ class OpenSandboxRuntimeContractTest {
                 // execd runs as root; a link the user plants must not hand the file calls root's files.
                 assertEquals(0, runtime.run(id, new SandboxCommand("ln -s /etc/shadow leak && ln -s /etc/passwd pw",
                         "/workspace", 1000, TIMEOUT)).exitCode());
-                assertThrows(RuntimeException.class, () -> runtime.read(id, "/workspace/leak", 1 << 20));
-                assertThrows(RuntimeException.class, () -> runtime.write(id, "/workspace/pw", "x\n".getBytes()));
+                assertThrows(SandboxFileException.class, () -> runtime.read(id, "/workspace/leak", 1 << 20));
+                assertThrows(SandboxFileException.class, () -> runtime.write(id, "/workspace/pw", "x\n".getBytes()));
                 assertTrue(runtime.run(id, new SandboxCommand("head -1 /etc/passwd", "/workspace", 1000, TIMEOUT))
                         .stdout().startsWith("root:"));
 

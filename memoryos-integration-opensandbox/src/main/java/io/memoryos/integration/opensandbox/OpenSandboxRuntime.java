@@ -4,6 +4,7 @@ import com.alibaba.opensandbox.sandbox.Sandbox;
 import com.alibaba.opensandbox.sandbox.SandboxManager;
 import com.alibaba.opensandbox.sandbox.domain.services.Filesystem;
 import com.alibaba.opensandbox.sandbox.config.ConnectionConfig;
+import com.alibaba.opensandbox.sandbox.domain.exceptions.SandboxApiException;
 import com.alibaba.opensandbox.sandbox.domain.exceptions.SandboxNotFoundException;
 import com.alibaba.opensandbox.sandbox.domain.models.execd.executions.Execution;
 import com.alibaba.opensandbox.sandbox.domain.models.execd.executions.OutputMessage;
@@ -16,6 +17,7 @@ import com.alibaba.opensandbox.sandbox.domain.models.sandboxes.SandboxState;
 import io.memoryos.sandbox.SandboxCommand;
 import io.memoryos.sandbox.SandboxCommandResult;
 import io.memoryos.sandbox.SandboxEntry;
+import io.memoryos.sandbox.SandboxFileException;
 import io.memoryos.sandbox.SandboxGoneException;
 import io.memoryos.sandbox.SandboxRuntime;
 import io.memoryos.sandbox.SandboxService;
@@ -100,7 +102,7 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
 
     @Override
     public void write(String id, String path, byte[] content) {
-        on(id, sandbox -> {
+        onFile(id, sandbox -> {
             files(sandbox).write(List.of(WriteEntry.builder().path(path).data(content).mode(FILE_MODE).build()));
             return path;
         });
@@ -135,6 +137,9 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
         } catch (SandboxNotFoundException gone) {
             sandbox.close();
             throw new SandboxGoneException(id, gone);
+        } catch (SandboxApiException failed) {
+            sandbox.close();
+            throw refusal(failed);
         } catch (RuntimeException failed) {
             sandbox.close();
             throw failed;
@@ -143,7 +148,7 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
 
     @Override
     public List<SandboxEntry> list(String id, String path, int depth) {
-        return on(id, sandbox -> files(sandbox).listDirectory(path, depth).stream()
+        return onFile(id, sandbox -> files(sandbox).listDirectory(path, depth).stream()
                 .map(entry -> new SandboxEntry(entry.getPath(), "directory".equalsIgnoreCase(entry.getType()),
                         entry.getSize()))
                 .toList());
@@ -185,6 +190,27 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
 
     private static Filesystem files(Sandbox sandbox) {
         return sandbox.filesWithIdentity(SandboxService.USER, SandboxService.USER);
+    }
+
+    /** {@link #on} for a file call, whose refusal by execd is the file's, not the sandbox's. */
+    private <T> T onFile(String id, Function<Sandbox, T> operation) {
+        try {
+            return on(id, operation);
+        } catch (SandboxApiException failed) {
+            throw refusal(failed);
+        }
+    }
+
+    /**
+     * execd answered, so the sandbox is up: a missing path, a directory or a file the user may not touch comes back as
+     * an error with execd's message ({@code RUNTIME_ERROR}, HTTP 500, for "permission denied"). A rate limit or a proxy
+     * that could not reach execd (502 to 504) stays a runtime failure.
+     */
+    private static RuntimeException refusal(SandboxApiException failed) {
+        Integer status = failed.getStatusCode();
+        String message = failed.getError().getMessage();
+        if (status == null || status == 429 || status >= 502 || message == null || message.isBlank()) return failed;
+        return new SandboxFileException(message, failed);
     }
 
     private Sandbox connect(String id) {

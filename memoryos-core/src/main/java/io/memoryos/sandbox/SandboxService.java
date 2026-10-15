@@ -218,11 +218,11 @@ public class SandboxService {
         return runtime;
     }
 
-    /** A runtime failure other than a gone sandbox becomes {@code SANDBOX_UNAVAILABLE}. */
+    /** A runtime failure other than a gone sandbox or a refused file becomes {@code SANDBOX_UNAVAILABLE}. */
     private static <T> T call(Callable<T> call) {
         try {
             return call.call();
-        } catch (SandboxGoneException | SandboxException | IllegalArgumentException expected) {
+        } catch (SandboxGoneException | SandboxFileException | SandboxException | IllegalArgumentException expected) {
             throw expected;
         } catch (Exception failed) {
             throw SandboxException.unavailable(failed);
