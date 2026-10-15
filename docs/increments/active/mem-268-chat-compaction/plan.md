@@ -18,6 +18,9 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 3. Writing the summary
 
+- [ ] Probe, only where unsure: the prompt on two or three long staging conversations through 9Router
+  `cx/gpt-6-luna`; a follow-up that needs an early turn, answered with the summary and with the window alone; the
+  summary's tokens against the model's own count. Recorded in `verification.md`.
 - [ ] `ModelFlow.CHAT_COMPACTION` (task model row for every Tenant, the Models page row, `OFF` reasoning), the prompt,
   the trigger at 75 % of what the next turn replays, the 25 % kept tail cut before a USER message.
 - [ ] `ChatTurnService`: after the answer is saved, on a virtual thread, claimed per session; failure logged with a
