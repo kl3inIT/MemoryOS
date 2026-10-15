@@ -17,12 +17,15 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,6 +109,34 @@ class PostgresSandboxServiceTest {
         // An idle sandbox no longer counts against the bound.
         clock.advance(Duration.ofMinutes(31));
         service.acquire(tenant, owner, conversation());
+    }
+
+    @Test
+    void twoConversationsStartingAtOnceCannotBothTakeTheLastPlace() throws Exception {
+        var service = service(properties(1));
+        UUID first = conversation();
+        UUID second = conversation();
+        runtime.startDelay = Duration.ofMillis(500);
+        var start = new CountDownLatch(1);
+        var outcomes = new ConcurrentLinkedQueue<String>();
+        List<Thread> threads = new ArrayList<>();
+        for (UUID conversation : List.of(first, second)) {
+            threads.add(Thread.ofVirtual().start(() -> {
+                try {
+                    start.await();
+                    service.acquire(tenant, owner, conversation);
+                    outcomes.add("started");
+                } catch (SandboxException busy) {
+                    outcomes.add(busy.code());
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }));
+        }
+        start.countDown();
+        for (Thread thread : threads) thread.join();
+        assertEquals(1, runtime.created.size());
+        assertTrue(outcomes.contains("started") && outcomes.contains("SANDBOX_BUSY"), outcomes.toString());
     }
 
     @Test
@@ -228,10 +259,11 @@ class PostgresSandboxServiceTest {
 
     private static final class FakeRuntime implements SandboxRuntime {
         static final String NAME = "OPENSANDBOX";
-        final List<String> created = new ArrayList<>();
-        final List<String> killed = new ArrayList<>();
-        final Map<String, Instant> createdAt = new HashMap<>();
-        final Set<String> alive = new HashSet<>();
+        final List<String> created = Collections.synchronizedList(new ArrayList<>());
+        final List<String> killed = Collections.synchronizedList(new ArrayList<>());
+        final Map<String, Instant> createdAt = new ConcurrentHashMap<>();
+        final Set<String> alive = ConcurrentHashMap.newKeySet();
+        volatile Duration startDelay = Duration.ZERO;
         final Clock clock;
         int renewals;
         String dieOnNextRun;
@@ -247,7 +279,12 @@ class PostgresSandboxServiceTest {
 
         @Override
         public String create(SandboxSpec spec) {
-            String id = "sbx-" + (created.size() + 1);
+            try {
+                Thread.sleep(startDelay);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            String id = "sbx-" + UUID.randomUUID();
             created.add(id);
             alive.add(id);
             createdAt.put(id, clock.instant());

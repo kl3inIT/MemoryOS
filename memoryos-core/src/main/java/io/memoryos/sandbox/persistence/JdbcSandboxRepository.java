@@ -89,6 +89,14 @@ public class JdbcSandboxRepository {
                 .update();
     }
 
+    /**
+     * Serialises starting sandboxes across conversations until the transaction ends, so the running bound is counted
+     * and taken by one caller at a time: the row lock alone lets two conversations both see room and both start one.
+     */
+    public void lockStarts() {
+        jdbc.sql("SELECT pg_advisory_xact_lock(hashtext('memoryos.sandbox.start'))").query().singleRow();
+    }
+
     /** How many sandboxes of {@code runtime} were used since {@code since}, so are still alive in it. */
     public int running(String runtime, Instant since) {
         return jdbc.sql("""

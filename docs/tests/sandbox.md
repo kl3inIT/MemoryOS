@@ -6,6 +6,7 @@
 | A sandbox the runtime no longer has is replaced | `PostgresSandboxServiceTest.aSandboxTheRuntimeNoLongerHasIsReplaced` |
 | A sandbox past its total life is killed and replaced | `PostgresSandboxServiceTest.aSandboxPastItsLifetimeIsKilledAndReplaced` |
 | The running bound refuses another conversation with `SANDBOX_BUSY`; an idle sandbox stops counting | `PostgresSandboxServiceTest.pastTheBoundAnotherConversationIsToldTheSandboxesAreBusy` |
+| Two conversations starting at once cannot both take the last place (fails without the advisory lock: 2 sandboxes under a bound of 1) | `PostgresSandboxServiceTest.twoConversationsStartingAtOnceCannotBothTakeTheLastPlace` |
 | A call whose sandbox went away mid-call runs again in a fresh one | `PostgresSandboxServiceTest.aCommandRunsAgainInAFreshSandboxWhenItsOwnWentAwayMidCall` |
 | No computer image or runtime: `SANDBOX_NOT_CONFIGURED` | `PostgresSandboxServiceTest.withoutAnImageOrARuntimeThereIsNoSandbox` |
 | The Worker kills orphans older than the grace and clears rows whose sandbox is gone | `PostgresSandboxServiceTest.theReconciliationKillsOrphansAndClearsRowsWhoseSandboxIsGone` |

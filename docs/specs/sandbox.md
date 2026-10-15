@@ -18,7 +18,7 @@ computer that keeps its files while the conversation works in it. No Chat tool c
   timeout; a command stopped at its timeout is reported as `timedOut`.
 - **Network.** Every sandbox is created with a policy that denies egress except to the configured domains.
 - **Bound.** At most `memoryos.sandbox.max-running` sandboxes used within the idle timeout run at once; past it,
-  acquiring a new one fails with `SANDBOX_BUSY`. A deployment without a computer image or a runtime answers
+  acquiring a new one fails with `SANDBOX_BUSY`. Starting a sandbox is serialised across conversations by a transaction-scoped advisory lock, so two conversations cannot both take the last place. A deployment without a computer image or a runtime answers
   `SANDBOX_NOT_CONFIGURED`; a runtime failure is `SANDBOX_UNAVAILABLE`.
 - **Reconciliation.** Every five minutes the Worker clears rows whose sandbox the runtime no longer holds and kills
   sandboxes labelled `memoryos.io/managed` that no row records and that are older than two minutes.

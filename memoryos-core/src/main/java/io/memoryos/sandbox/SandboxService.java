@@ -87,6 +87,7 @@ public class SandboxService {
                 }
                 workspaces.cleared(tenant, conversation, recorded);
             }
+            workspaces.lockStarts();
             int running = workspaces.running(runtime.name(), now.minus(properties.idleTimeout()));
             if (running >= properties.maxRunning()) {
                 LOG.atWarn().addKeyValue("event", "sandbox.busy").addKeyValue("running", running)
