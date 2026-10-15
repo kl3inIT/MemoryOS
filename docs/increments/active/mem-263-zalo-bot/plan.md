@@ -27,12 +27,17 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 4. The Zalo adapter
 
-- [ ] `memoryos-integration-zalo`: the `@HttpExchange` client, `verify` by `getMe`, the webhook transport and the
+- [x] `memoryos-integration-zalo`: the `@HttpExchange` client, `verify` by `getMe`, the webhook transport and the
   polling transport, the conversion of an update, the reply with typing, pieces, sources and footer, `429` as
-  `CHANNEL_PROVIDER_QUOTA`; dependency rule test and classpath isolation.
-- [ ] `memoryos-channels`: `POST /hooks/channels/{id}` answering after the claim; the web nginx route;
-  the bot's transport with `testWebhook` on switching on; `CHANNEL_WEB_URL_MISSING`, `CHANNEL_WEBHOOK_UNREACHABLE`.
-- [ ] `/api/channels` for `ZALO_BOT`; contract, `openapi.yml`, the web client.
+  `CHANNEL_PROVIDER_QUOTA`; dependency rule test and classpath isolation (`ZaloChannelAdapterTest` against a local
+  stand-in for Zalo, `ZaloDependencyRulesTest`).
+- [x] `memoryos-channels`: `POST /hooks/channels/{id}` answering after the claim (`ChannelSupervisor.deliver`,
+  `ChannelWebhookController`); the web nginx route; the transport chosen for each bot in its settings, the webhook
+  registered once served (`ChannelWebhook.register`, `CHANNEL_WEBHOOK_UNREACHABLE`, which waits for the bot's next
+  revision); `CHANNEL_WEB_URL_MISSING`; compose and the staging example. Migration V168 (Zalo's provider, app id and
+  transport checks).
+- [x] `/api/channels` for `ZALO_BOT` (`/zalo/test`, `/zalo`, `PUT /{id}/transport`); contract, `openapi.yml`, the
+  web client.
 
 ## 5. The web
 

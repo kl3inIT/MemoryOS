@@ -98,6 +98,24 @@ describe("nginx MCP routes", () => {
 });
 
 /**
+ * MEM-263: Zalo pushes a bot's messages to `/hooks/channels/<bot id>`, which the bots' own process serves; under the
+ * web app's fallback it would be answered with `index.html` and Zalo would count the message delivered.
+ */
+describe("nginx chat bot webhook route", () => {
+  it("sends a bot's webhook to the bots' process with a bounded body", () => {
+    const block = chosen("/hooks/channels/0af099b0-b70f-455d-af56-a05a53bbc7c5");
+    expect(block?.selector).toBe("^~ /hooks/channels/");
+    expect(block.body).toMatch(/set\s+\$memoryos_channels\s+http:\/\/memoryos-channels:8082\s*;/);
+    expect(block.body).toMatch(/proxy_pass\s+\$memoryos_channels\s*;/);
+    expect(block.body).toMatch(/client_max_body_size\s+64k\s*;/);
+  });
+
+  it.each(["/hooks", "/hooks/other"])("leaves %s with the web app", (path) => {
+    expect(chosen(path).selector).toBe("/");
+  });
+});
+
+/**
  * Nginx inherits `add_header` into a location only when that location declares none of its own, so one
  * `add_header` in a location silently strips the policy headers from every response it serves.
  */

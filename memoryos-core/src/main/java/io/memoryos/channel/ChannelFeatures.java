@@ -6,9 +6,11 @@ package io.memoryos.channel;
  *
  * @param organisations whether the provider names an organisation for each sender, by which a bot admits only its own
  * @param editsReply whether a reply can be rewritten while it is written; one that cannot gets the answer in pieces
+ * @param quotes whether a message can reply to another so that the provider names it, by which a group continues an
+ * answer's conversation
  * @param maxText the longest text one message takes
  */
-public record ChannelFeatures(boolean organisations, boolean editsReply, int maxText) {
+public record ChannelFeatures(boolean organisations, boolean editsReply, boolean quotes, int maxText) {
     public ChannelFeatures {
         if (maxText < 1) throw new IllegalArgumentException("maxText must be positive");
     }

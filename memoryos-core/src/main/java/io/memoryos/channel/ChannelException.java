@@ -40,6 +40,24 @@ public final class ChannelException extends BusinessException {
                 "The platform did not answer. Try again in a moment.", "Channel platform did not answer");
     }
 
+    public static ChannelException webUrlMissing() {
+        return new ChannelException("CHANNEL_WEB_URL_MISSING", FailureCategory.VALIDATION,
+                "This deployment has no public web address, so the platform cannot push messages to it. Choose polling.",
+                "memoryos.channel.web-url is empty");
+    }
+
+    /** The platform could not call the bot's webhook; {@code outcome} is the platform's typed reason, never its text. */
+    public static ChannelException webhookUnreachable(String outcome) {
+        return new ChannelException("CHANNEL_WEBHOOK_UNREACHABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "The platform could not reach this deployment's public address. Check the address or choose polling.",
+                "Channel webhook check failed: " + outcome);
+    }
+
+    public static ChannelException providerQuota() {
+        return new ChannelException("CHANNEL_PROVIDER_QUOTA", FailureCategory.SERVICE_UNAVAILABLE,
+                "The bot has used up its plan's messages on the platform.", "Channel platform quota exceeded");
+    }
+
     public static ChannelException appInUse() {
         return new ChannelException("CHANNEL_APP_IN_USE", FailureCategory.CONFLICT,
                 "Another bot already uses this app. Each bot needs an app of its own.", "Channel app is already connected");

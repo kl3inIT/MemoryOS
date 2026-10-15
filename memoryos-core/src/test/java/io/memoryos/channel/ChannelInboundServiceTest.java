@@ -259,7 +259,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void onAPlatformWithoutOrganisationsAStrangerIsToldHowToLinkOnceAMinuteAndNotAnswered() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         service.receive(zalo("z1", "zu_ha", "Question"));
         service.receive(zalo("z2", "zu_ha", "Hello?"));
 
@@ -273,7 +273,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void aLiveCodeLinksItsSenderOnceWhoIsThenAnsweredAsThemself() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         String code = links.code(ha, connection).code();
         service.receive(zalo("z1", "zu_ha", " " + code.substring(0, 4).toLowerCase() + "-" + code.substring(4) + " "));
         assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
@@ -292,7 +292,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void anExpiredCodeOrOneSentInAGroupDoesNotLink() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         String code = links.code(ha, connection).code();
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", null, null, true,
                 ChannelMessage.Type.TEXT, code, null));
@@ -306,7 +306,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void aSenderWithFiveWrongCodesInAnHourIsNotHeardEvenWithALiveOne() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         for (int i = 1; i <= 5; i++) service.receive(zalo("w" + i, "zu_guess", "ABCDEFG" + (i + 1)));
         String code = links.code(ha, connection).code();
         service.receive(zalo("w6", "zu_guess", code));
@@ -318,7 +318,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
 
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
@@ -332,8 +332,31 @@ class ChannelInboundServiceTest {
     }
 
     @Test
+    void onAPlatformLikeZalosALinkedSenderIsAnsweredAndAGroupIsToldToAskDirectlyRatherThanToReply() throws Exception {
+        // Zalo's features: no organisations, no rewritten reply, no quoting.
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+
+        service.receive(zalo("z2", "zu_ha", "How many leave days?"));
+        assertEquals("ANSWERED", outcome("z2"));
+        assertEquals("finish:Answer|footer=[Continue in MemoryOS](https://memoryos.example/chat/" + session("z2") + ")",
+                adapter.replies.getLast());
+        service.receive(zalo("z3", "zu_guest", "How many leave days?"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z3") + ":" + reason("z3"));
+
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("finish:Answer|footer=Send the assistant a direct message to ask from your own documents.",
+                adapter.replies.getLast());
+        jdbc.sql("UPDATE channel_connections SET notice_language = 'vi'").update();
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Remote work?", null));
+        assertEquals("finish:Answer|footer=Nhắn riêng cho trợ lý để hỏi theo tài liệu của riêng bạn.", adapter.replies.getLast());
+    }
+
+    @Test
     void aLinkIsLeftOutOnceItsMemberIsNoLongerActive() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
         jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor").param("actor", ha.value()).update();
 
@@ -344,7 +367,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void aLinkedAccountIsNotMovedByAnotherCodeAndLearnsNothingOfIt() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         var quan = member();
         service.receive(zalo("z0", "zu_ha", links.code(ha, connection).code()));
         String quans = links.code(quan, connection).code();
@@ -367,7 +390,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void everyCodeThatDoesNotLinkGetsTheSameNotice() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         String used = links.code(ha, connection).code();
         service.receive(zalo("u0", "zu_ha", used));
         String expired = links.code(member(), connection).code();
@@ -383,7 +406,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void codesStillBeingTriedCountTowardTheLock() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         // Five attempts of the sender in flight: recorded as wrong until they link, not yet settled otherwise.
         for (int i = 1; i <= 5; i++) {
             jdbc.sql("""
@@ -401,7 +424,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void aPlatformWithoutOrganisationsNeverAnswersFromAnEmailOrARememberedAccount() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         adapter.emails.put("zu_ha", "ha@tasco.vn");
         inbound.remember(tenant, connection, "zu_ha", ha, Instant.now());
 
@@ -412,7 +435,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void anAccountRelinkedToAnotherMemberNeverContinuesTheFirstMembersConversation() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
         var quan = member();
         service.receive(zalo("z1", "zu_shared", links.code(ha, connection).code()));
         service.receive(zalo("z2", "zu_shared", "Ha's question"));
@@ -435,7 +458,7 @@ class ChannelInboundServiceTest {
 
     @Test
     void aReplyThatCannotBeRewrittenGetsTheWholeAnswerInPiecesAndNoPartialText() throws Exception {
-        adapter.features = new ChannelFeatures(true, false, 4);
+        adapter.features = new ChannelFeatures(true, false, true, 4);
         service.receive(direct("m1", "ou_ha", "Question", null));
 
         assertEquals(1, adapter.replies.size());
@@ -552,7 +575,7 @@ class ChannelInboundServiceTest {
         final List<String> notices = new ArrayList<>();
         final List<String> acknowledged = new ArrayList<>();
         int emailLookups;
-        ChannelFeatures features = new ChannelFeatures(true, true, 150_000);
+        ChannelFeatures features = new ChannelFeatures(true, true, true, 150_000);
 
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
@@ -602,5 +625,7 @@ class ChannelInboundServiceTest {
         }
 
         @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }
+
+        @Override public Map<String, String> settings(Map<String, String> requested) { return requested; }
     }
 }

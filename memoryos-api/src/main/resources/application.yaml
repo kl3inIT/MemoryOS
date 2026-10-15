@@ -234,6 +234,8 @@ memoryos:
   channel:
     credential-encryption-key: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:}
+    # MEM-263: whether a Zalo bot may receive by webhook, which needs the address Zalo pushes to.
+    web-url: ${MEMORYOS_CHANNEL_WEB_URL:}
   mcp:
     credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
     # HTTPS (or loopback HTTP) ending in /login/oauth2/code/mcp; registered with each OAuth client.

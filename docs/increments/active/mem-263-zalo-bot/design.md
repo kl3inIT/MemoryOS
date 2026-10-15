@@ -64,12 +64,13 @@ Four parts of today's `ChannelAdapter` are Lark's and change before Zalo is adde
    and the encrypted secret (Lark's App Secret, Zalo's token). `verify(ChannelCredentials)` takes them and answers
    the normalised app id with the bot's name, so Zalo's id comes from its token. The API keeps a typed `region`,
    required for Lark and refused for others.
-2. **Features, stated.** `features()` answers `ChannelFeatures(organisations, editsReply, maxText)`: whether the
-   provider names an organisation for each sender, whether a reply can be rewritten while it is written, and the
-   longest text one message takes. The inbound service reads the first for its admission rule; a provider that does
+2. **Features, stated.** `features()` answers `ChannelFeatures(organisations, editsReply, quotes, maxText)`: whether
+   the provider names an organisation for each sender, whether a reply can be rewritten while it is written, whether
+   a message can reply to another so that the provider names it, and the longest text one message takes. The inbound service reads the first for its admission rule; a provider that does
    not edit never sees `append`, and its `finish` is given the answer cut by a shared splitter at `maxText`
    (paragraph, line, sentence, then hard ends), as OpenClaw's shared delivery chunks and GoClaw's shared helper
-   does. Lark: organisations, edits, 150,000. Zalo: none, no, 2,000.
+   does. Lark: organisations, edits, quotes, 150,000. Zalo: none, no, no, 2,000. A group answer closes by inviting a reply
+   only where the provider quotes; Zalo's invites a direct message instead (`GROUP_FOOTER_DIRECT`).
 3. **Inbound transport.** An adapter's transport either keeps a connection (Lark's WebSocket, Zalo's polling) or
    receives over HTTP. The second is an optional `ChannelWebhook` the adapter returns from `open`: `accept(headers,
    body)` checks the provider's secret and parses, as WeKnora's `VerifyCallback`/`ParseCallback`; the route and the
@@ -176,6 +177,29 @@ the linked-member count. Settings › Chat gains the Zalo link rows.
   membership.
 - One app serves one bot by `(provider, app_id)` alone: the settings, where a Zalo bot keeps its transport, are no
   part of it, so one bot is never stored twice with two transports.
+
+## Deviations during delivery
+
+Decided while building plan step 4, against the text above:
+
+- **An unreachable webhook leaves the bot on, failing.** Switching a webhook bot on does not run `testWebhook` and
+  keep it off. `ChannelWebhook.register()` relies on the verification `setWebhook` itself makes, then `testWebhook`
+  when that answers nothing clear; a failure leaves the bot switched on with `CHANNEL_WEBHOOK_UNREACHABLE` as its last
+  failure, shown by code on its page, and the supervisor does not reopen it until its revision changes (a new
+  secret, transport or switch). Zalo's outcome (`webhook.err.dns` and the like) goes only to the diagnostic and the
+  log. Switching off and on, or changing the transport, retries it.
+- **Endpoints per provider.** Not one `/api/channels` with an optional `region`: `POST /api/channels/zalo/test` and
+  `POST /api/channels/zalo` take a Zalo bot's own request (name, token, transport, language), and
+  `PUT /api/channels/{id}/transport` changes a bot's transport under its revision. Lark keeps its endpoints;
+  `ChannelResponse.region` is optional and `transport` is new.
+- **`426` is not counted.** Zalo's `426` on a webhook check is its daily limit of checks, not the bot's address; it
+  is not held against the bot.
+- **The default transport follows `web-url`.** A Zalo bot created without a transport gets `WEBHOOK` when
+  `memoryos.channel.web-url` is set and `POLLING` otherwise, so a deployment Zalo cannot reach still works.
+- **The API process needs `MEMORYOS_CHANNEL_WEB_URL`.** It chooses that default and refuses a webhook bot without an
+  address, so the API service has the variable as well as `memoryos-channels` (compose and the staging example).
+- **A quick empty poll waits a second.** A `getUpdates` that answers empty in under a second waits one second before
+  the next, so a Zalo that does not hold the poll is not called in a tight loop.
 
 ## Not in scope
 

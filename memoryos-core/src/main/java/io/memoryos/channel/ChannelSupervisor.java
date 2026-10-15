@@ -11,7 +11,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,7 +43,16 @@ public class ChannelSupervisor implements SmartLifecycle {
     private final ChannelAdapters adapters;
     private final ChannelInboundService inbound;
     private final Clock clock;
+    /**
+     * Failures that opening again cannot mend until an administrator changes the bot: the provider could not reach the
+     * webhook, or this deployment has no address to give it. They wait for the next revision rather than being tried
+     * every pass, which would spend the provider's daily webhook checks.
+     */
+    private static final Set<String> AWAIT_CHANGE = Set.of("CHANNEL_WEBHOOK_UNREACHABLE", "CHANNEL_WEB_URL_MISSING");
+
     private final Map<UUID, Held> held = new HashMap<>();
+    /** The webhook of each bot whose transport receives over HTTP, read by the route without the pass's lock. */
+    private final Map<UUID, Pushed> webhooks = new ConcurrentHashMap<>();
     private final ExecutorService answers = Executors.newVirtualThreadPerTaskExecutor();
     private @Nullable ScheduledExecutorService passes;
 
@@ -98,8 +109,10 @@ public class ChannelSupervisor implements SmartLifecycle {
                 var connection = enabled.connection();
                 wanted.add(connection.id());
                 var current = held.get(connection.id());
-                if (current != null && current.revision == connection.revision() && current.transport != null
-                        && current.transport.connected()) {
+                boolean awaitsChange = current != null && current.transport == null && current.failureCode != null
+                        && AWAIT_CHANGE.contains(current.failureCode);
+                if (current != null && current.revision == connection.revision()
+                        && (awaitsChange || current.transport != null && current.transport.connected())) {
                     connections.recordState(connection.id(), current.openedAt, current.failureCode, current.failedAt,
                             current.lastMessageAt, now);
                     continue;
@@ -132,10 +145,18 @@ public class ChannelSupervisor implements SmartLifecycle {
             secret = credentials.cipher(connection.provider()).decrypt(enabled.tenant(), connection.id(), SECRET_PURPOSE, envelope);
             held.transport = adapters.of(connection.provider()).open(connection, new String(secret, StandardCharsets.UTF_8),
                     message -> receive(held, message));
+            var webhook = held.transport.webhook().orElse(null);
+            if (webhook != null) {
+                // Served before the provider is given its address, so the provider's check reaches this transport.
+                held.connectionId = connection.id();
+                webhooks.put(connection.id(), new Pushed(webhook, held));
+                webhook.register();
+            }
             held.openedAt = now;
             LOG.atInfo().addKeyValue("event", "channel.connection.opened").addKeyValue("provider", connection.provider())
                     .log("Channel connection opened");
         } catch (RuntimeException failure) {
+            held.close();
             held.failureCode = failure instanceof BusinessException business ? business.code() : "CHANNEL_OPEN_FAILED";
             held.failedAt = now;
             LOG.atWarn().addKeyValue("event", "channel.connection.failed").addKeyValue("provider", connection.provider())
@@ -152,11 +173,34 @@ public class ChannelSupervisor implements SmartLifecycle {
         answers.execute(() -> inbound.receive(message));
     }
 
+    /**
+     * What the route the provider pushes to does with one request (MEM-263): the bot's webhook checks and reads it, each
+     * message it carries is claimed before this returns, so the provider is answered only once they are recorded, and
+     * answered afterwards on a thread of its own.
+     */
+    public Delivery deliver(UUID connectionId, Map<String, String> headers, byte[] body) {
+        var pushed = webhooks.get(connectionId);
+        if (pushed == null) return Delivery.UNKNOWN;
+        var messages = pushed.webhook().accept(headers, body).orElse(null);
+        if (messages == null) return Delivery.REFUSED;
+        for (var message : messages) {
+            pushed.held().lastMessageAt = clock.instant();
+            inbound.claim(message).ifPresent(answers::execute);
+        }
+        return Delivery.ACCEPTED;
+    }
+
+    /** {@code UNKNOWN}: no transport of that bot receives over HTTP here; {@code REFUSED}: not the provider's request. */
+    public enum Delivery { ACCEPTED, REFUSED, UNKNOWN }
+
+    private record Pushed(ChannelWebhook webhook, Held held) {}
+
     /** One open transport, or one that failed to open, at a revision of its bot. */
-    private static final class Held {
+    private final class Held {
         final long revision;
         volatile @Nullable Instant lastMessageAt;
         @Nullable ChannelTransport transport;
+        @Nullable UUID connectionId;
         @Nullable Instant openedAt;
         @Nullable String failureCode;
         @Nullable Instant failedAt;
@@ -167,6 +211,7 @@ public class ChannelSupervisor implements SmartLifecycle {
         }
 
         void close() {
+            if (connectionId != null) webhooks.computeIfPresent(connectionId, (_, pushed) -> pushed.held() == this ? null : pushed);
             if (transport == null) return;
             try {
                 transport.close();

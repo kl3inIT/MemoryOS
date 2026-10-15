@@ -1454,6 +1454,10 @@ export const zDocumentSetSharingInput = z.object({
     groupIds: z.array(z.uuid()).optional()
 });
 
+export const zUpdateChannelTransportRequest = z.object({
+    transport: z.enum(['WEBHOOK', 'POLLING'])
+});
+
 export const zAiUsageLimitRequest = z.object({
     scope: z.enum([
         'TENANT',
@@ -2472,6 +2476,17 @@ export const zChatExport = z.object({
     failure: z.string().nullable(),
     createdAt: z.iso.datetime(),
     expiresAt: z.iso.datetime().nullable()
+});
+
+export const zCreateZaloChannelRequest = z.object({
+    name: z.string().min(0).max(100),
+    token: z.string().min(0).max(256),
+    noticeLanguage: z.enum(['vi', 'en']),
+    transport: z.enum(['WEBHOOK', 'POLLING']).optional()
+});
+
+export const zZaloBotRequest = z.object({
+    token: z.string().min(0).max(256)
 });
 
 /**
@@ -4168,9 +4183,10 @@ export const zReplaceChannelSecretRequest = z.object({
 
 export const zChannelResponse = z.object({
     id: z.uuid(),
-    provider: z.enum(['LARK']),
+    provider: z.enum(['LARK', 'ZALO_BOT']),
     name: z.string(),
-    region: z.enum(['LARK', 'FEISHU']),
+    region: z.enum(['LARK', 'FEISHU']).optional(),
+    transport: z.enum(['WEBHOOK', 'POLLING']).optional(),
     appId: z.string(),
     noticeLanguage: z.string(),
     enabled: z.boolean(),
@@ -4228,7 +4244,7 @@ export const zChannelLinkCodeResponse = z.object({
 export const zChannelLinkResponse = z.object({
     connectionId: z.uuid(),
     botName: z.string(),
-    provider: z.enum(['LARK']),
+    provider: z.enum(['LARK', 'ZALO_BOT']),
     linkedAt: z.iso.datetime().optional()
 });
 
@@ -5458,6 +5474,21 @@ export const zShareDocumentSetQuery = z.object({
  * Updated Document Set
  */
 export const zShareDocumentSetResponse = zView;
+
+export const zUpdateChannelTransportBody = zUpdateChannelTransportRequest;
+
+export const zUpdateChannelTransportHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateChannelTransportPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zUpdateChannelTransportResponse = zChannelResponse;
 
 export const zDeleteAiUsageLimitPath = z.object({
     limitId: z.uuid()
@@ -6832,6 +6863,20 @@ export const zCreateDocumentSetBody = zInput;
  * Created Document Set
  */
 export const zCreateDocumentSetResponse = zView;
+
+export const zCreateZaloChannelBody = zCreateZaloChannelRequest;
+
+/**
+ * Added bot
+ */
+export const zCreateZaloChannelResponse = zChannelResponse;
+
+export const zTestZaloChannelBotBody = zZaloBotRequest;
+
+/**
+ * Zalo accepts the token
+ */
+export const zTestZaloChannelBotResponse = zChannelAppCheckResponse;
 
 /**
  * Successful result

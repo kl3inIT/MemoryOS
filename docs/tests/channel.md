@@ -30,6 +30,7 @@
 | An expired code, or one sent in a group, does not link | `ChannelInboundServiceTest.anExpiredCodeOrOneSentInAGroupDoesNotLink` |
 | Five wrong codes in an hour lock the sender out, even with a live code | `ChannelInboundServiceTest.aSenderWithFiveWrongCodesInAnHourIsNotHeardEvenWithALiveOne` |
 | A linked sender in a group is answered as the bot; a stranger there is told how to link | `ChannelInboundServiceTest.aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink` |
+| On a platform like Zalo's (no organisations, no rewriting, no quoting) a linked direct sender is answered, an unlinked one is told to link, and a group answer closes by inviting a direct message, in the bot's language | `ChannelInboundServiceTest.onAPlatformLikeZalosALinkedSenderIsAnsweredAndAGroupIsToldToAskDirectlyRatherThanToReply` |
 | A link is ignored once its member is not active | `ChannelInboundServiceTest.aLinkIsLeftOutOnceItsMemberIsNoLongerActive` |
 | A linked account is not moved by another member's code, and a live code and a wrong one get the same answer | `ChannelInboundServiceTest.aLinkedAccountIsNotMovedByAnotherCodeAndLearnsNothingOfIt` |
 | A used, an expired and a wrong code get the same notice | `ChannelInboundServiceTest.everyCodeThatDoesNotLinkGetsTheSameNotice` |
@@ -58,6 +59,22 @@
 | A bot whose revision changed is reopened after its old transport closed; one switched off is closed | `ChannelSupervisorTest.aBotSwitchedOffOrChangedIsClosedOrReopened` |
 | A dropped transport is reopened; a failed open is recorded and retried | `ChannelSupervisorTest.aDroppedTransportIsReopenedAndAFailedOpenIsRecordedAndRetried` |
 | Stopping closes every connection | `ChannelSupervisorTest.stoppingClosesEveryConnection` |
+| A webhook is served before the provider is given its address; a pushed message is claimed before the provider is answered; a request without the secret is refused, an unknown bot unknown | `ChannelSupervisorTest.aPushedMessageIsClaimedBeforeTheProviderIsAnswered` |
+| A webhook the provider cannot reach is recorded and waits for the bot's next revision | `ChannelSupervisorTest.aWebhookTheProviderCannotReachWaitsForTheBotToChange` |
+| A setting changes as the provider accepts it and moves the revision; one it does not have is refused | `PostgresChannelConnectionTest.aSettingChangesWhatTheProviderAcceptsAndMovesTheRevision` |
+| The database holds a Zalo bot by its number and how it receives, and refuses anything else | `PostgresChannelConnectionTest.theDatabaseHoldsAZaloBotByItsNumberAndHowItReceives` |
+| The webhook route answers `200` after the claim, `403` without the secret, `404` for an unknown bot and `413` past 64 KB without reading it | `ChannelWebhookControllerTest` |
+| The channels process serves the webhook route without a session and has the Zalo adapter | `ChannelsApplicationTest.startsWithWhatATurnNeedsAndReportsReady` |
+| nginx sends `/hooks/channels/` to the bots' process with a bounded body | `nginx-config.test.mjs` |
+| A Zalo bot is its token and Zalo names it; a token of another shape is never sent; a refused token is rejected, an unanswered one unavailable | `ZaloChannelAdapterTest.aBotIsItsTokenAndZaloNamesIt`, `aTokenOfAnotherShapeOrOneZaloRefusesIsNotABot` |
+| A failed Zalo call names its code, never the token | `ZaloChannelAdapterTest.aFailedCallNamesItsCodeAndNeverTheToken` |
+| A Zalo bot receives by webhook where the deployment has an address, else by polling | `ZaloChannelAdapterTest.aBotReceivesByWebhookWhereTheDeploymentHasAnAddressElseByPolling` |
+| A webhook gets its address and a secret of its opening, accepts only Zalo's secret and is removed on close; Zalo's failed check is reported, and tested once when its answer carries none | `ZaloChannelAdapterTest.aWebhookIsGivenItsAddressAndASecretOfItsOpeningAndChecksIt`, `aWebhookZaloCannotReachIsReportedWithZalosOutcome`, `withoutAVerificationInItsAnswerTheWebhookIsTestedOnce` |
+| A polling bot drops any webhook and hands over what Zalo has | `ZaloChannelAdapterTest.aPollingBotDropsAnyWebhookAndHandsOverWhatZaloHas` |
+| A Zalo group message addresses the bot only when it names it; a bot's message is dropped; an image is not text | `ZaloChannelAdapterTest.aGroupMessageAddressesTheBotOnlyWhenItNamesIt` |
+| A Zalo answer is sent in pieces with the asker's name in a group, its sources and closing line, markdown and the typing mark; refused markdown is sent plain; a spent plan is `CHANNEL_PROVIDER_QUOTA`; no message exceeds 2,000 characters | `ZaloChannelAdapterTest.anAnswerIsSentInPiecesWithItsSourcesAndTheTypingMarkMeanwhile`, `aBotOutOfItsPlanSaysSoAndMarkdownZaloRefusesIsSentPlain`, `longPiecesAndAGroupNameNeverExceedWhatAMessageTakes` |
+| The Zalo API adds a bot by its token with its transport, answers no region and no token, and changes the transport with the revision | `ChannelApiTest.aZaloBotIsAddedByItsTokenAndItsTransportChangesWithTheRevision` |
+| The Zalo integration depends on public capability APIs and no other platform | `ZaloDependencyRulesTest`, `:memoryos-integration-zalo:checkRuntimeClasspathIsolation` |
 | The channels process starts from its own composition with everything a turn reaches, runs the supervisor and reports ready | `ChannelsApplicationTest.startsWithWhatATurnNeedsAndReportsReady` |
 | The channels process scans only itself, names no module's implementation and imports only what the channel capability publishes for it | `ChannelsDependencyRulesTest` |
 | A Lark group message naming the bot is addressed, its mention removed and another's kept, with the sender's and the app's organisations from the event | `LarkChannelAdapterTest.aGroupMessageNamingTheBotIsAddressedWithTheMentionRemovedAndBothOrganisations` |
@@ -82,4 +99,6 @@ streaming reply, e-mail and external-chat calls, which need a live Lark tenant. 
 messages from a mapped member answered as that member, the session opened and continued on the web by its
 address, a restart of the process while idle, and the load and provider limits
 ([verification](../increments/active/mem-246-lark-bot/verification.md)). A group message naming the bot, `@all`,
-a second message during an answer and the three-account acceptance wait for a person on the Lark test tenant.
+a second message during an answer and the three-account acceptance wait for a person on the Lark test tenant. The
+Zalo adapter runs against a local stand-in for Zalo; a real bot, its group mention and the webhook on staging are
+the probe and acceptance of [MEM-263](../increments/active/mem-263-zalo-bot/plan.md).

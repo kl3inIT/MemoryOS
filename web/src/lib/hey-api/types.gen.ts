@@ -1544,6 +1544,10 @@ export type DocumentSetSharingInput = {
     groupIds?: Array<string>;
 };
 
+export type UpdateChannelTransportRequest = {
+    transport: 'WEBHOOK' | 'POLLING';
+};
+
 export type AiUsageLimitRequest = {
     scope: 'TENANT' | 'GROUP' | 'PERSON';
     groupId?: string;
@@ -2560,6 +2564,32 @@ export type ChatExport = {
     failure: string | null;
     createdAt: string;
     expiresAt: string | null;
+};
+
+export type CreateZaloChannelRequest = {
+    /**
+     * The bot's name here, and its account's
+     */
+    name: string;
+    /**
+     * The bot's token from Zalo Bot Creator
+     */
+    token: string;
+    /**
+     * The language of the bot's notices
+     */
+    noticeLanguage: 'vi' | 'en';
+    /**
+     * How the bot receives: WEBHOOK where the deployment has a public address, which is the default there, else POLLING
+     */
+    transport?: 'WEBHOOK' | 'POLLING';
+};
+
+export type ZaloBotRequest = {
+    /**
+     * The bot's token from Zalo Bot Creator
+     */
+    token: string;
 };
 
 /**
@@ -4189,9 +4219,19 @@ export type ReplaceChannelSecretRequest = {
 
 export type ChannelResponse = {
     id: string;
-    provider: 'LARK';
+    provider: 'LARK' | 'ZALO_BOT';
     name: string;
-    region: 'LARK' | 'FEISHU';
+    /**
+     * Where a Lark bot's app is hosted; absent for another platform
+     */
+    region?: 'LARK' | 'FEISHU';
+    /**
+     * How a Zalo bot receives; absent for a platform with one way of its own
+     */
+    transport?: 'WEBHOOK' | 'POLLING';
+    /**
+     * The platform's id of the bot's app
+     */
     appId: string;
     noticeLanguage: string;
     enabled: boolean;
@@ -4291,7 +4331,7 @@ export type ChannelLinkCodeResponse = {
 export type ChannelLinkResponse = {
     connectionId: string;
     botName: string;
-    provider: 'LARK';
+    provider: 'LARK' | 'ZALO_BOT';
     linkedAt?: string;
 };
 
@@ -9040,6 +9080,56 @@ export type ShareDocumentSetResponses = {
 };
 
 export type ShareDocumentSetResponse = ShareDocumentSetResponses[keyof ShareDocumentSetResponses];
+
+export type UpdateChannelTransportData = {
+    body: UpdateChannelTransportRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/transport';
+};
+
+export type UpdateChannelTransportErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChannelTransportError = UpdateChannelTransportErrors[keyof UpdateChannelTransportErrors];
+
+export type UpdateChannelTransportResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type UpdateChannelTransportResponse = UpdateChannelTransportResponses[keyof UpdateChannelTransportResponses];
 
 export type DeleteAiUsageLimitData = {
     body?: never;
@@ -14393,6 +14483,96 @@ export type CreateDocumentSetResponses = {
 };
 
 export type CreateDocumentSetResponse = CreateDocumentSetResponses[keyof CreateDocumentSetResponses];
+
+export type CreateZaloChannelData = {
+    body: CreateZaloChannelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/zalo';
+};
+
+export type CreateZaloChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type CreateZaloChannelError = CreateZaloChannelErrors[keyof CreateZaloChannelErrors];
+
+export type CreateZaloChannelResponses = {
+    /**
+     * Added bot
+     */
+    201: ChannelResponse;
+};
+
+export type CreateZaloChannelResponse = CreateZaloChannelResponses[keyof CreateZaloChannelResponses];
+
+export type TestZaloChannelBotData = {
+    body: ZaloBotRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/zalo/test';
+};
+
+export type TestZaloChannelBotErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type TestZaloChannelBotError = TestZaloChannelBotErrors[keyof TestZaloChannelBotErrors];
+
+export type TestZaloChannelBotResponses = {
+    /**
+     * Zalo accepts the token
+     */
+    200: ChannelAppCheckResponse;
+};
+
+export type TestZaloChannelBotResponse = TestZaloChannelBotResponses[keyof TestZaloChannelBotResponses];
 
 export type ListUsageReportsData = {
     body?: never;

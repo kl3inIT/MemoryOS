@@ -3,10 +3,13 @@ package io.memoryos.channels;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.memoryos.channel.ChannelAdapters;
 import io.memoryos.channel.ChannelInboundService;
+import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelSupervisor;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.ChatTurnService;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -54,5 +57,9 @@ class ChannelsApplicationTest {
 
         var response = http.getForEntity("/actuator/health/readiness", String.class);
         assertEquals(HttpStatus.OK, response.getStatusCode(), response.getBody());
+        // MEM-263: the address a platform pushes to is served, without a session; no bot receives over it here.
+        context.getBean(ChannelAdapters.class).of(ChannelProvider.ZALO_BOT);
+        var pushed = http.postForEntity("/hooks/channels/" + UUID.randomUUID(), "{}", String.class);
+        assertEquals(HttpStatus.NOT_FOUND, pushed.getStatusCode());
     }
 }
