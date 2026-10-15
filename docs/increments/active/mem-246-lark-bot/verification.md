@@ -68,3 +68,9 @@ Found:
   other applications on the host, which share this limit.
 - So the sum of the turn bounds of all processes that use the provider has to stay under its limit, with room
   for a turn that makes several model calls: 48 in the API and 16 in `memoryos-channels` use 64 of about 160.
+
+Decision, which replaces the load run's: the API's bound becomes 80 and `memoryos-channels`' 24, 104 of about 160,
+leaving room for the other applications on the same 9Router and for a turn that calls the model in parallel. A
+person's bound stays 3. The API's database pool stays 15: the pools of the API and the Worker are held to 25 by
+the sizing policy, staging's role allows 40, and the 24 turns at once above ran on 15, since a turn holds a
+connection only for its writes. The host was measured up to 24 turns at once; a run with more accounts checks 80.

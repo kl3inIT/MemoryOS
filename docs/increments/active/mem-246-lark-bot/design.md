@@ -166,12 +166,13 @@ stream says it is waiting, and the web shows that instead of an error. A run tha
 with the capacity code.
 
 What a person meets is their own bound: three turns at once (LibreChat ships two), the fourth waiting. The
-process's bound stays as a backstop, not a throttle: 48 turns in the API and 16 in `memoryos-channels`
+process's bound stays as a backstop, not a throttle: 80 turns in the API and 24 in `memoryos-channels`
 (`memoryos.chat.execution.concurrency` of each), where it was 8. Without one, a burst reaches the provider's rate
 limit, the database pool, the stream readers and the spend limit (which counts settled turns only) with worse
-failures than waiting. LibreChat and Onyx set no such bound and are held by their own resources. The numbers are a
-starting point: a load run on staging raises them to what the host and the provider take, and the database pool
-(15) and the stream readers (256) with them.
+failures than waiting. LibreChat and Onyx set no such bound and are held by their own resources. The load run on
+staging set them from 48 and 16: their sum stays under the provider's limit, about 160 requests at once, because
+going over it locks the provider for every turn; the database pool (15) and the stream readers (256) stay
+([verification](verification.md#the-providers-limit-2026-10-15)).
 
 ### The port
 
