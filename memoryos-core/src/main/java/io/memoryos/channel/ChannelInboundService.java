@@ -43,6 +43,8 @@ public class ChannelInboundService {
     private static final String NEW_CONVERSATION = "/new";
     private static final int TITLE_LENGTH = 80;
     private static final int ASKER_LENGTH = 64;
+    /** Who a group's one conversation is kept for in {@code channel_conversations}: the group, not one of its members. */
+    static final String GROUP = "@group";
     /** Spans of a received message and of each of its steps; {@code step} is link, refusal, sender, conversation, reply, turn or finish. */
     static final String MESSAGE = "memoryos.channel.message";
     static final String STEP = "memoryos.channel.message.step";
@@ -118,8 +120,10 @@ public class ChannelInboundService {
                 refuse(connection, adapter, message, refusal);
                 return "REFUSED";
             }
-            if (message.kind() == ChannelMessage.Kind.DIRECT && NEW_CONVERSATION.equals(message.text().strip())) {
-                inbound.forget(connection.id(), message.chatId(), message.senderId());
+            if (NEW_CONVERSATION.equals(message.text().strip())) {
+                // A group's one conversation is started over by any member the bot answers there, as OpenClaw's /new.
+                boolean group = message.kind() == ChannelMessage.Kind.GROUP;
+                inbound.forget(connection.id(), message.chatId(), group ? GROUP : message.senderId());
                 adapter.notice(connection, message, ChannelNotice.NEW_CONVERSATION.in(connection.noticeLanguage()));
                 inbound.settle(connection.id(), message.messageId(), "ANSWERED", "NEW_CONVERSATION", null, null, null);
                 return "NEW_CONVERSATION";
@@ -227,8 +231,8 @@ public class ChannelInboundService {
             return "REFUSED";
         }
         if (linked) return null;
-        if (links.noticeDue(connection.id(), sender)) {
-            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, linkNotice(message)));
+        if (links.noticeDue(connection.id(), sender, message.chatId())) {
+            refuseUnlinked(connection, adapter, message);
         } else {
             refuse(connection, adapter, message, new Refusal("LINK_REQUIRED_QUIET", null));
         }
@@ -236,11 +240,19 @@ public class ChannelInboundService {
     }
 
     /**
-     * How a sender is told to link: in a direct message, how; in a group, only to message the bot directly, where the
-     * instructions are not posted for everyone.
+     * Tells a sender to link: in a direct message, how, ending with the web address where the code is got when one is
+     * configured, bare since a provider may show no link markup; in a group, only to message the bot directly, where
+     * the instructions are not posted for everyone.
      */
-    private static ChannelNotice linkNotice(ChannelMessage message) {
-        return message.kind() == ChannelMessage.Kind.DIRECT ? ChannelNotice.LINK_REQUIRED : ChannelNotice.LINK_IN_DIRECT;
+    private void refuseUnlinked(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message) {
+        if (message.kind() != ChannelMessage.Kind.DIRECT) {
+            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, ChannelNotice.LINK_IN_DIRECT));
+            return;
+        }
+        String instructions = ChannelNotice.LINK_REQUIRED.in(connection.noticeLanguage());
+        String address = properties.linkingUrl();
+        notice(connection, adapter, message, address == null ? instructions : instructions + "\n" + address);
+        refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, null));
     }
 
     /**
@@ -264,7 +276,7 @@ public class ChannelInboundService {
         boolean direct = message.kind() == ChannelMessage.Kind.DIRECT;
         // A link removed since it was checked: the sender is no longer anyone here, and is not answered as the bot.
         if (sender == null && !adapter.features().organisations()) {
-            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, linkNotice(message)));
+            refuseUnlinked(connection, adapter, message);
             return false;
         }
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
@@ -306,6 +318,7 @@ public class ChannelInboundService {
         // From here the reply is open, so whatever fails ends it, and its typing mark with it, in the sender's sight.
         try {
             if (direct) inbound.keep(tenant, connection.id(), message.chatId(), message.senderId(), answered.session(), now);
+            else inbound.keep(tenant, connection.id(), message.chatId(), GROUP, answered.session(), now);
             if (answered.status() != ChatMessage.Status.COMPLETED) {
                 var notice = "CHAT_CAPACITY_EXCEEDED".equals(answered.failureCode()) ? ChannelNotice.BUSY : ChannelNotice.FAILED;
                 reply.fail(notice.in(connection.noticeLanguage()));
@@ -316,7 +329,7 @@ public class ChannelInboundService {
             }
             var pieces = features.editsReply() ? List.of(answered.text()) : ChannelText.pieces(answered.text(), features.maxText());
             var sources = sources(answered.sources());
-            var footer = footer(connection, features, direct, sender, answered.session());
+            var footer = footer(connection, direct, sender, answered.session());
             String replyId;
             try {
                 replyId = step("finish", () -> reply.finish(pieces, sources, footer));
@@ -367,15 +380,24 @@ public class ChannelInboundService {
         return actor;
     }
 
-    /** The session the message continues, or null for a new one. */
+    /**
+     * The session the message continues, or null for a new one. A group has one conversation, as OpenClaw keys a
+     * session by group (its Feishu default {@code groupSessionScope: group}), continued while it is recent: it runs as
+     * the bot's account, so it holds only what everyone in the group may read, and each question in it carries its
+     * asker's name. A reply in a group continues the conversation of the answer it replies to, looked up in that group
+     * alone, so it never leaves the group for someone's direct conversation.
+     */
     private @Nullable UUID conversation(ChannelConnection connection, ChannelMessage message, ActorId actor, Instant now) {
         UUID session = null;
-        if (message.repliesTo() != null) {
-            session = inbound.sessionOf(connection.id(), message.repliesTo()).orElse(null);
-        } else if (message.kind() == ChannelMessage.Kind.DIRECT) {
-            session = inbound.conversation(connection.id(), message.chatId(), message.senderId())
-                    .filter(last -> last.lastMessageAt().plus(properties.conversationIdle()).isAfter(now))
-                    .map(JdbcChannelInboundRepository.Conversation::session).orElse(null);
+        if (message.kind() == ChannelMessage.Kind.GROUP) {
+            if (message.repliesTo() != null) {
+                session = inbound.sessionOf(connection.id(), message.chatId(), message.repliesTo()).orElse(null);
+            }
+            if (session == null) session = recent(connection, message.chatId(), GROUP, properties.groupConversationIdle(), now);
+        } else if (message.repliesTo() != null) {
+            session = inbound.sessionOf(connection.id(), message.chatId(), message.repliesTo()).orElse(null);
+        } else {
+            session = recent(connection, message.chatId(), message.senderId(), properties.conversationIdle(), now);
         }
         // A conversation is continued only by whoever it belongs to: a sender who gained or lost an account since
         // starts over, and a reply to another person's direct conversation never opens it.
@@ -389,9 +411,20 @@ public class ChannelInboundService {
                 .addKeyValue("reason", refusal.reason()).log("Channel message refused");
     }
 
+    /** The conversation a chat continues for one person, or for a group, while its last message is within {@code idle}. */
+    private @Nullable UUID recent(ChannelConnection connection, String chatId, String person, Duration idle, Instant now) {
+        return inbound.conversation(connection.id(), chatId, person)
+                .filter(last -> last.lastMessageAt().plus(idle).isAfter(now))
+                .map(JdbcChannelInboundRepository.Conversation::session).orElse(null);
+    }
+
     private void notice(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message, ChannelNotice notice) {
+        notice(connection, adapter, message, notice.in(connection.noticeLanguage()));
+    }
+
+    private void notice(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message, String text) {
         try {
-            adapter.notice(connection, message, notice.in(connection.noticeLanguage()));
+            adapter.notice(connection, message, text);
         } catch (RuntimeException undelivered) {
             LOG.atWarn().addKeyValue("event", "channel.notice.failed").addKeyValue("provider", connection.provider())
                     .addKeyValue("error_type", undelivered.getClass().getName()).log("Channel notice was not delivered");
@@ -421,15 +454,12 @@ public class ChannelInboundService {
     }
 
     /**
-     * The closing line: in a group, how to continue, or only how to ask on one's own where nothing can be replied to;
-     * to a sender without an account, how to get one; to a sender's
-     * own direct conversation, the link that opens it in MemoryOS, where it continues.
+     * The closing line, in a direct conversation only: to a sender without an account, how to get one; to a sender's
+     * own conversation, the link that opens it in MemoryOS, where it continues.
      */
-    private @Nullable String footer(ChannelConnection connection, ChannelFeatures features, boolean direct,
-                                    @Nullable ActorId sender, UUID session) {
-        if (!direct) {
-            return (features.quotes() ? ChannelNotice.GROUP_FOOTER : ChannelNotice.GROUP_FOOTER_DIRECT).in(connection.noticeLanguage());
-        }
+    private @Nullable String footer(ChannelConnection connection, boolean direct, @Nullable ActorId sender, UUID session) {
+        // A group answer has no closing line: its conversation continues by itself, and no reference bot adds one.
+        if (!direct) return null;
         if (sender == null) return ChannelNotice.UNMAPPED_FOOTER.in(connection.noticeLanguage());
         String url = properties.sessionUrl(session);
         return url == null ? null : "[" + ChannelNotice.CONTINUE_ON_WEB.in(connection.noticeLanguage()) + "](" + url + ")";

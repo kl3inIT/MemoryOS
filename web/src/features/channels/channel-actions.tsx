@@ -1,4 +1,5 @@
-import { KeyRound, MoreHorizontal, Trash2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { KeyRound, Link2, MoreHorizontal, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +55,13 @@ export function ChannelMenu({ channel, admin }: { channel: ChannelResponse; admi
             <KeyRound />{" "}
             {channel.provider === "ZALO_BOT" ? ui("Thay token") : ui("Thay App Secret")}
           </DropdownMenuItem>
+          {channel.provider === "ZALO_BOT" ? (
+            <DropdownMenuItem asChild>
+              <Link to="/settings/chat">
+                <Link2 /> {ui("Liên kết tài khoản của bạn")}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>

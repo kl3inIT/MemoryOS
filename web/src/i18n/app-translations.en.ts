@@ -2180,6 +2180,7 @@ Object.assign(vietnameseUi, {
   "Nền tảng kiểm tra bot trước khi lưu; bot bị từ chối sẽ không được lưu.":
     "The platform checks the bot before it is saved; a bot it rejects is not saved.",
   "Thay token": "Replace token",
+  "Liên kết tài khoản của bạn": "Link your account",
   "Thay token của bot": "Replace the bot's token",
   "Đã thay token": "Token replaced",
   "Zalo đã chấp nhận token mới của {{v1}}.": "Zalo accepted the new token of {{v1}}.",

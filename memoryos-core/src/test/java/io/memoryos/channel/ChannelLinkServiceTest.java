@@ -243,7 +243,7 @@ class ChannelLinkServiceTest {
     }
 
     private ChannelLinkService service(boolean organisations) {
-        var adapters = new ChannelAdapters(List.of(new Platform(new ChannelFeatures(organisations, false, false, 2_000))));
+        var adapters = new ChannelAdapters(List.of(new Platform(new ChannelFeatures(organisations, false, 2_000))));
         var transactions = new DataSourceTransactionManager(dataSource);
         return new ChannelLinkService(authorization, new JdbcChannelConnectionRepository(jdbc), new JdbcChannelLinkRepository(jdbc),
                 adapters, TestDatabase.audit(jdbc, transactions), transactions);

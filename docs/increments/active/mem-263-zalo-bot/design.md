@@ -64,13 +64,13 @@ Four parts of today's `ChannelAdapter` are Lark's and change before Zalo is adde
    and the encrypted secret (Lark's App Secret, Zalo's token). `verify(ChannelCredentials)` takes them and answers
    the normalised app id with the bot's name, so Zalo's id comes from its token. The API keeps a typed `region`,
    required for Lark and refused for others.
-2. **Features, stated.** `features()` answers `ChannelFeatures(organisations, editsReply, quotes, maxText)`: whether
-   the provider names an organisation for each sender, whether a reply can be rewritten while it is written, whether
-   a message can reply to another so that the provider names it, and the longest text one message takes. The inbound service reads the first for its admission rule; a provider that does
+2. **Features, stated.** `features()` answers `ChannelFeatures(organisations, editsReply, maxText)`: whether
+   the provider names an organisation for each sender, whether a reply can be rewritten while it is written, and the
+   longest text one message takes. The inbound service reads the first for its admission rule; a provider that does
    not edit never sees `append`, and its `finish` is given the answer cut by a shared splitter at `maxText`
    (paragraph, line, sentence, then hard ends), as OpenClaw's shared delivery chunks and GoClaw's shared helper
-   does. Lark: organisations, edits, quotes, 150,000. Zalo: none, no, no, 2,000. A group answer closes by inviting a reply
-   only where the provider quotes; Zalo's invites a direct message instead (`GROUP_FOOTER_DIRECT`).
+   does. Lark: organisations, edits, 150,000. Zalo: none, no, 2,000. A `quotes` flag, which chose a group answer's
+   closing line, was removed with that line (see "A group's conversation").
 3. **Inbound transport.** An adapter's transport either keeps a connection (Lark's WebSocket, Zalo's polling) or
    receives over HTTP. The second is an optional `ChannelWebhook` the adapter returns from `open`: `accept(headers,
    body)` checks the provider's secret and parses, as WeKnora's `VerifyCallback`/`ParseCallback`; the route and the
@@ -110,6 +110,30 @@ For a provider without organisations: a direct message from an unlinked sender i
 a message that is a live code links its sender; a group question is answered only when its sender is linked, from
 what the bot's account may read, as in Lark, and an unlinked sender in a group gets the linking notice. Every
 answer is thus paid for by a member of the Tenant, and a stranger who adds the bot to a group gets nothing.
+
+The linking notice goes at most once a minute in each chat, not for each sender: on staging (2026-10-15) a group
+notice at 19:04:30 silenced the same person's direct message at 19:04:37, and the direct chat is where the
+instructions matter. When `memoryos.channel.web-url` is set the instructions end with the bare address of Settings ›
+Chat (Zalo shows no link markup), and the bot's page offers "Liên kết tài khoản của bạn", which opens it.
+
+### A group's conversation
+
+Zalo has no reply, so a group question could not continue an earlier answer as in Lark. After a code study of
+OpenClaw, GoClaw, WeKnora, RAGFlow, spring-agent and Onyx, the owner chose (2026-10-15) that Lark and Zalo behave the
+same: as OpenClaw keys a session by group (its Feishu default `groupSessionScope: group`, core routing
+`resolveAgentRoute(peer {kind: group, id})`), every provider's group has one conversation, in the capability, kept in
+`channel_conversations` for the group (`external_user_id` `@group`, no migration), continued by every member's
+question while its last message is younger than `memoryos.channel.group-conversation-idle` (4 hours, like OpenClaw's
+idle reset), and started over by `/new`. On Lark a reply in the group still continues the conversation of the answer
+it replies to, looked up in that chat alone, so it never leaves the group for someone's direct conversation. It runs as the bot's account, so it holds only what everyone in the group may
+read, and each question keeps its `[name]: question` label. Questions in it are ordered by the wait for the running
+turn as any conversation's. A direct conversation is never mixed with it. Summarising a long conversation before it
+reaches the model's limit is [MEM-268](https://linear.app/memory-os/issue/MEM-268), a separate increment.
+
+A group answer has no closing line, on any provider: with a group conversation nobody has to be taught to reply,
+and the second sentence, to message the assistant for one's own documents, has no precedent in any reference.
+`GROUP_FOOTER`, `GROUP_FOOTER_DIRECT` and `ChannelFeatures.quotes` are removed. A direct answer keeps its link to
+continue on the web, and a sender without an account keeps their line.
 
 ### Transport: webhook or polling, chosen for each bot
 
