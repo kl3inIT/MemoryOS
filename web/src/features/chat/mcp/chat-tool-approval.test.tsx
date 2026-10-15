@@ -76,3 +76,14 @@ it("keeps no buttons for a call nobody answered in time", () => {
   expect(screen.queryByRole("button", { name: "Cho phép" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Luôn cho phép" })).not.toBeInTheDocument();
 });
+
+it("names the tool by the title its server gives", () => {
+  render(
+    <ChatToolApproval
+      part={part(undefined, { toolTitle: "Send email" })}
+      tool="send_email"
+      server="Gmail"
+    />,
+  );
+  expect(screen.getByText("Cho phép Send email trên Gmail?")).toBeInTheDocument();
+});

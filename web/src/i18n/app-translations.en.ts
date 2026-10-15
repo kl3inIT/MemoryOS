@@ -1094,7 +1094,6 @@ export const vietnameseUi: Record<string, string> = {
   "Bạn đã từ chối.": "You declined it.",
   "Hết thời gian chờ, công cụ không chạy.": "Timed out; the tool did not run.",
   "Cho phép {{tool}} trên {{server}}?": "Allow {{tool}} on {{server}}?",
-  "Công cụ này có thể thay đổi dữ liệu": "This tool can change data",
   "Đang chạy…": "Running…",
   // MEM-253 the composer's apps
   "{{count}} đang bật": "{{count}} on",

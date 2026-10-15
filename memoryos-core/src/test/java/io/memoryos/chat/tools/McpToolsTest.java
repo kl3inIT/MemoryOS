@@ -43,7 +43,7 @@ class McpToolsTest {
     private final List<ChatToolEvent> events = new ArrayList<>();
     private final MeterRegistry meters = new SimpleMeterRegistry();
     private final McpTurnTools.Binding binding = new McpTurnTools.Binding(SERVER, "drive", "Drive", "search_files",
-            "mcp_drive_search_files", "Search files.", "{\"type\":\"object\"}", true, false);
+            "mcp_drive_search_files", "Search files.", "{\"type\":\"object\"}", true, false, null);
 
     private McpTools tools(int maxCalls, int contextTokens) {
         when(turn.bindings()).thenReturn(List.of(binding));
@@ -65,7 +65,7 @@ class McpToolsTest {
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 Tokenizers.o200k(), meters);
         when(turn.bindings()).thenReturn(List.of(new McpTurnTools.Binding(SERVER, "drive", "Drive", "delete_file",
-                "mcp_drive_delete_file", "Delete a file.", "{\"type\":\"object\"}", false, false)));
+                "mcp_drive_delete_file", "Delete a file.", "{\"type\":\"object\"}", false, false, null)));
         assertTrue(writeTool.tools().getFirst().getDefinition().getDescription()
                 .startsWith("This tool can change or delete data."));
     }
@@ -76,7 +76,7 @@ class McpToolsTest {
         var bindings = new ArrayList<McpTurnTools.Binding>();
         for (int i = 0; i <= McpTools.DIRECT_TOOLS; i++)
             bindings.add(new McpTurnTools.Binding(linear, "linear", "Linear", "tool_" + i, "mcp_linear_tool_" + i,
-                    "Tool " + i + ".", "{\"type\":\"object\"}", i > 0, false));
+                    "Tool " + i + ".", "{\"type\":\"object\"}", i > 0, false, null));
         bindings.add(binding);
         when(turn.bindings()).thenReturn(bindings);
         when(turn.unavailable()).thenReturn(List.of());
@@ -146,7 +146,7 @@ class McpToolsTest {
     @Test
     void runsACallThatRequiresApprovalOnlyOnceThePersonApproves() {
         var send = new McpTurnTools.Binding(SERVER, "gmail", "Gmail", "send_email", "mcp_gmail_send_email",
-                "Send an email.", "{\"type\":\"object\"}", false, true);
+                "Send an email.", "{\"type\":\"object\"}", false, true, null);
         when(turn.bindings()).thenReturn(List.of(send));
         when(turn.unavailable()).thenReturn(List.of());
         when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("sent", false));

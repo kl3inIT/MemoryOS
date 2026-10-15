@@ -3672,6 +3672,7 @@ export const zToolApprovalEvent = z.object({
     toolCallId: z.string(),
     serverName: z.string(),
     toolName: z.string(),
+    toolTitle: z.string().optional(),
     arguments: z.string(),
     decision: z.enum([
         'APPROVED',

@@ -42,6 +42,8 @@ export const toolApprovalSchema = eventSchema.extend({
   toolCallId: z.string().min(1).max(256),
   serverName: z.string().max(200),
   toolName: z.string().max(128),
+  /** MEM-274: the tool's display name, when the server gives one. */
+  toolTitle: z.string().max(200).nullish(),
   arguments: z.string().max(4000),
   decision: z.enum(["APPROVED", "DECLINED", "NO_DECISION"]).nullish(),
   /** MEM-267: the reply's owner may answer with "always allow". */

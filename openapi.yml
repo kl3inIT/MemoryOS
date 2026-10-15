@@ -32542,6 +32542,9 @@ components:
           type: string
         toolName:
           type: string
+        toolTitle:
+          type: string
+          description: "The tool's display name, when the server gives one"
         arguments:
           type: string
           description: "The call's JSON arguments, cut at 4,000 characters"

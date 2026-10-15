@@ -12,6 +12,9 @@ public record ToolApprovalEvent(@Schema(requiredMode = REQUIRED) UUID assistantM
                                 @Schema(requiredMode = REQUIRED) String toolCallId,
                                 @Schema(requiredMode = REQUIRED) String serverName,
                                 @Schema(requiredMode = REQUIRED) String toolName,
+                                @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                                        description = "The tool's display name, when the server gives one")
+                                @Nullable String toolTitle,
                                 @Schema(requiredMode = REQUIRED, description = "The call's JSON arguments, cut at 4,000 characters")
                                 String arguments,
                                 @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, allowableValues = {"APPROVED", "DECLINED", "NO_DECISION"},

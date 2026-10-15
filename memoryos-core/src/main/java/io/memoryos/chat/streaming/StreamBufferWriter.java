@@ -194,10 +194,10 @@ public final class StreamBufferWriter {
     }
 
     /** A call waiting for the person, or with {@code decision}, the person's answer to it. */
-    public void approval(UUID id, String toolCallId, String serverName, String toolName, String arguments,
-                         ToolApproval.@Nullable Decision decision, boolean alwaysAllowable) {
-        publishNow(id, sequence -> new ToolApproval(id, sequence, toolCallId, serverName, toolName, arguments, decision,
-                alwaysAllowable));
+    public void approval(UUID id, String toolCallId, String serverName, String toolName, @Nullable String toolTitle,
+                         String arguments, ToolApproval.@Nullable Decision decision, boolean alwaysAllowable) {
+        publishNow(id, sequence -> new ToolApproval(id, sequence, toolCallId, serverName, toolName, toolTitle, arguments,
+                decision, alwaysAllowable));
     }
 
     public void image(UUID id, ChatImageEvent event) {

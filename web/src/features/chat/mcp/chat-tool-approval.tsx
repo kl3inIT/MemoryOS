@@ -7,8 +7,8 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 
-/** What the server streamed with the gate (MEM-253): the app, the tool and the call's JSON arguments. */
-type Descriptor = { serverName?: string; toolName?: string; arguments?: string };
+/** What the server streamed with the gate (MEM-253): the app, the tool, its display name and the call's JSON arguments. */
+type Descriptor = { serverName?: string; toolName?: string; toolTitle?: string; arguments?: string };
 
 /** The fields assistant-ui reads from the gate's descriptor (MEM-267): the answers offered and how it ended. */
 type Gate = {
@@ -88,10 +88,9 @@ export function ChatToolApproval({
         icon={<ShieldQuestion className="size-4" />}
         mark={mark}
         title={ui("Cho phép {{tool}} trên {{server}}?", {
-          tool: descriptor.toolName ?? tool,
+          tool: descriptor.toolTitle ?? descriptor.toolName ?? tool,
           server: descriptor.serverName ?? server,
         })}
-        subtitle={ui("Công cụ này có thể thay đổi dữ liệu")}
         details={details(descriptor.arguments)}
         allowOnceLabel={ui("Cho phép")}
         alwaysAllowLabel={ui("Luôn cho phép")}

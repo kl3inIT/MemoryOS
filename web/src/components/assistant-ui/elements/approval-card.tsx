@@ -56,7 +56,7 @@ export function ApprovalCard({
   state: ApprovalState;
   command?: string | undefined;
   title: string;
-  subtitle: string;
+  subtitle?: string | undefined;
   description?: string | undefined;
   details?: readonly { label: string; value: string }[] | undefined;
   variant?: "default" | "destructive" | undefined;
@@ -104,7 +104,7 @@ export function ApprovalCard({
           <p id={titleId} className="text-sm font-medium">
             {title}
           </p>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+          {subtitle ? <p className="text-xs text-muted-foreground">{subtitle}</p> : null}
         </div>
       </div>
 

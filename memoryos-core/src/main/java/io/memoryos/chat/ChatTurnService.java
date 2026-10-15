@@ -562,7 +562,7 @@ public final class ChatTurnService implements AutoCloseable {
         UUID reply = run.setup.assistantMessageId();
         McpTurnTools.Decision decision;
         try {
-            streams.approval(reply, callId, binding.serverName(), binding.toolName(), arguments, null, alwaysAllowable);
+            streams.approval(reply, callId, binding.serverName(), binding.toolName(), binding.title(), arguments, null, alwaysAllowable);
             // A Stop between registering and publishing would otherwise leave the call waiting for the full period.
             if (run.stopReason.get() != null) pending.complete(McpTurnTools.Decision.DECLINED);
             try {
@@ -579,7 +579,7 @@ public final class ChatTurnService implements AutoCloseable {
             run.approvals.remove(callId, pending);
             run.approvalBindings.remove(callId, binding);
         }
-        streams.approval(reply, callId, binding.serverName(), binding.toolName(), arguments,
+        streams.approval(reply, callId, binding.serverName(), binding.toolName(), binding.title(), arguments,
                 ToolApproval.Decision.valueOf(decision.name()), false);
         LOG.atInfo().addKeyValue("event", "chat.tool_approval.decided").addKeyValue("message_id", reply)
                 .addKeyValue("mcp_server_id", binding.serverId()).addKeyValue("tool", binding.modelName())

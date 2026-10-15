@@ -106,7 +106,7 @@ final class ChatEventStream {
             }
             case TurnWaiting turn -> new WaitingEvent(assistant, sequence, turn.waiting());
             case ToolApproval approval -> new ToolApprovalEvent(assistant, sequence, approval.toolCallId(),
-                    approval.serverName(), approval.toolName(), approval.arguments(),
+                    approval.serverName(), approval.toolName(), approval.toolTitle(), approval.arguments(),
                     approval.decision() == null ? null : approval.decision().name(), approval.alwaysAllowable());
             case UnknownEvent _ -> throw new IllegalArgumentException("Unknown Chat event type");
         };
