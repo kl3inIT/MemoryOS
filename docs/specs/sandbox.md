@@ -6,7 +6,7 @@ computer that keeps its files while the conversation works in it. No Chat tool c
 
 ## Contract
 
-- **One row a conversation.** `sandbox_workspaces` (V176) holds the conversation, its owner, the runtime and the
+- **One row a conversation.** `sandbox_workspaces` (V179) holds the conversation, its owner, the runtime and the
   sandbox alive in it, if any. Deleting the conversation or the owner's membership deletes the row.
 - **Acquire.** `SandboxService.acquire(tenant, actor, conversation)` locks the row, renews the recorded sandbox by the
   idle timeout and answers it. Otherwise it starts one in three steps: a short transaction takes a place in the running

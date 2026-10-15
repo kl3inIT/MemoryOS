@@ -4,7 +4,7 @@ Design: [design.md](design.md).
 
 Status 2026-10-15: step 0 done (references read, probe on staging recorded in the design). Step 1 merged in PR #684
 (`memoryos-sandbox/` server and computer images, the `sandbox` Compose service, CI job, `deploy.sh`, runbook, ADR
-0029). Step 2 in progress on `dathip04/mem-270-sandbox-capability`: the `sandbox` capability (V176
+0029). Step 2 in progress on `dathip04/mem-270-sandbox-capability`: the `sandbox` capability (V179
 `sandbox_workspaces`, `SandboxService`, `SandboxReconciliation`), `memoryos-integration-opensandbox`, the Worker task,
 API and Worker configuration, spec and test matrix; `PostgresSandboxServiceTest` (8), the architecture tests and the
 integration's `check` pass on the staging host. Comes before MEM-265 (owner, 2026-10-15).
