@@ -111,6 +111,7 @@ memoryos:
   channel:
     credential-encryption-key: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:}
+    web-url: ${MEMORYOS_CHANNEL_WEB_URL:}
   mcp:
     credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
     connect-timeout: 5s

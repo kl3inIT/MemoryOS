@@ -114,7 +114,8 @@ class ChannelInboundServiceTest {
         });
         service = new ChannelInboundService(new JdbcChannelConnectionRepository(jdbc), inbound, new ChannelAdapters(List.of(adapter)),
                 (ignored, email) -> "ha@tasco.vn".equals(email) ? Optional.of(ha) : Optional.empty(), turns,
-                new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3)), observations);
+                new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3),
+                "https://memoryos.example/"), observations);
     }
 
     @AfterEach
@@ -131,7 +132,9 @@ class ChannelInboundServiceTest {
         service.receive(message);
 
         verify(turns, times(1)).ask(eq(ha), any(), eq("How many leave days?"), any(), eq("How many leave days?"), any(), any(), any());
-        assertEquals(List.of("append:An", "finish:Answer|footer=null"), adapter.replies);
+        // A sender's own direct answer links to its session on the web, where it continues.
+        assertEquals(List.of("append:An", "finish:Answer|footer=[Continue in MemoryOS](https://memoryos.example/chat/"
+                + session("m1") + ")"), adapter.replies);
         assertEquals("ANSWERED", outcome("m1"));
         assertEquals(ha.value(), owner(session("m1")));
         // Each step of the answer is a span inside the message's, so the time before a turn starts can be read.
@@ -288,7 +291,7 @@ class ChannelInboundServiceTest {
         service.receive(direct("m2", "ou_ha", "Recent", null));
         jdbc.sql("UPDATE channel_messages SET received_at = received_at - INTERVAL '91 days' WHERE external_message_id = 'm1'").update();
 
-        var retention = new ChannelMessageRetention(inbound, new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3)));
+        var retention = new ChannelMessageRetention(inbound, new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3), ""));
         assertEquals(1, retention.sweep());
         assertEquals(List.of("m2"), jdbc.sql("SELECT external_message_id FROM channel_messages").query(String.class).list());
         assertNull(inbound.sessionOf(connection, "m1").orElse(null));

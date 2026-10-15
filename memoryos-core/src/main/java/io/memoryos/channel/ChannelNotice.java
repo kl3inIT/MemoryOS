@@ -18,6 +18,7 @@ enum ChannelNotice {
     FAILED("Trợ lý chưa trả lời được câu này. Hãy thử lại.", "The assistant could not answer this. Try again."),
     GROUP_FOOTER("Trả lời vào tin này để hỏi tiếp. Nhắn riêng cho trợ lý để hỏi theo tài liệu của riêng bạn.",
             "Reply to this message to continue. Send the assistant a direct message to ask from your own documents."),
+    CONTINUE_ON_WEB("Tiếp tục trên MemoryOS", "Continue in MemoryOS"),
     UNMAPPED_FOOTER("Đăng nhập MemoryOS bằng email công việc để trợ lý dùng được tài liệu của riêng bạn.",
             "Sign in to MemoryOS with your work e-mail so the assistant can use your own documents.");
 

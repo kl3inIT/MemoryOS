@@ -198,7 +198,7 @@ public class ChannelInboundService {
         }
         var answered = answer;
         String replyId = step("finish", () -> reply.finish(answered.text(), sources(answered.sources()),
-                footer(connection, direct, sender)));
+                footer(connection, direct, sender, answered.session())));
         inbound.settle(connection.id(), message.messageId(), "ANSWERED", null, answer.session(), answer.assistantMessage(),
                 replyId);
         LOG.atInfo().addKeyValue("event", "channel.message.answered").addKeyValue("provider", connection.provider())
@@ -270,9 +270,15 @@ public class ChannelInboundService {
         return failure instanceof BusinessException business ? business.code() : "CHANNEL_FAILED";
     }
 
-    private static @Nullable String footer(ChannelConnection connection, boolean direct, @Nullable ActorId sender) {
+    /**
+     * The closing line: in a group, how to continue; to a sender without an account, how to get one; to a sender's
+     * own direct conversation, the link that opens it in MemoryOS, where it continues.
+     */
+    private @Nullable String footer(ChannelConnection connection, boolean direct, @Nullable ActorId sender, UUID session) {
         if (!direct) return ChannelNotice.GROUP_FOOTER.in(connection.noticeLanguage());
-        return sender == null ? ChannelNotice.UNMAPPED_FOOTER.in(connection.noticeLanguage()) : null;
+        if (sender == null) return ChannelNotice.UNMAPPED_FOOTER.in(connection.noticeLanguage());
+        String url = properties.sessionUrl(session);
+        return url == null ? null : "[" + ChannelNotice.CONTINUE_ON_WEB.in(connection.noticeLanguage()) + "](" + url + ")";
     }
 
     private static List<ChannelReply.Source> sources(List<ChatSource> sources) {
