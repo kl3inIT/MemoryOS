@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
-import { channelLine, settling } from "./channel-status";
+import { channelFailure, channelLine, settling } from "./channel-status";
 
 const bot = (overrides: Partial<ChannelResponse>): ChannelResponse => ({
   id: "b1",
@@ -51,6 +51,14 @@ describe("channelLine for a Zalo bot", () => {
     expect(channelLine(zalo({ status: "FAILED", failureCode: "CHANNEL_SOMETHING" })).line).toBe(
       "Không kết nối được tới Zalo",
     );
+  });
+
+  it("words the last failure where it has its own words, else keeps its code", () => {
+    expect(channelFailure(zalo({ failureCode: "CHANNEL_WEBHOOK_UNREACHABLE" }))).toBe(
+      "Zalo không gọi được tới webhook",
+    );
+    expect(channelFailure(zalo({ failureCode: "CHANNEL_SOMETHING" }))).toBe("CHANNEL_SOMETHING");
+    expect(channelFailure(zalo({}))).toBeUndefined();
   });
 
   it("keeps Lark's own line for a failure code only Zalo explains", () => {

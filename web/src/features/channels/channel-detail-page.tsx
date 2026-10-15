@@ -21,7 +21,7 @@ import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { ChannelMark, ChannelMenu, ChannelSwitch } from "./channel-actions";
 import { type ChannelAdmin, useChannelAdmin, useChannels } from "./channel-admin";
-import { channelLine, channelState } from "./channel-status";
+import { channelFailure, channelLine, channelState } from "./channel-status";
 
 /** One bot's page: its name, line and switch at the top, then its facts and the scopes Lark still refuses. */
 export function ChannelDetailPage() {
@@ -81,10 +81,12 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
     [ui("Kết nối từ"), when(channel.connectedAt)],
     [ui("Tin nhắn gần nhất"), when(channel.lastMessageAt)],
     ...(channel.failureCode
-      ? ([[ui("Lỗi gần nhất"), `${channel.failureCode} · ${when(channel.failedAt)}`]] as [
-          string,
-          ReactNode,
-        ][])
+      ? ([
+          [
+            ui("Lỗi gần nhất"),
+            `${ui(channelFailure(channel) ?? "")} · ${when(channel.failedAt)}`,
+          ],
+        ] as [string, ReactNode][])
       : []),
   ];
 

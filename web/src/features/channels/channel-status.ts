@@ -48,6 +48,15 @@ export function channelLine(channel: ChannelResponse): Line {
   }
 }
 
+/** The last failure in words where it has its own, else its code. */
+export function channelFailure(channel: ChannelResponse): string | undefined {
+  if (!channel.failureCode) return undefined;
+  return (
+    (channel.provider === "ZALO_BOT" ? ZALO_FAILURES[channel.failureCode] : undefined) ??
+    channel.failureCode
+  );
+}
+
 /** The status in a word or two, for the facts of a bot's page. */
 export function channelState(status: ChannelResponse["status"]): string {
   switch (status) {

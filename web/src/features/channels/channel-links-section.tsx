@@ -186,7 +186,7 @@ function LinkCodeDialog({
         <DialogHeader>
           <DialogTitle>{ui("Mã liên kết")}</DialogTitle>
           <DialogDescription>
-            {ui("Gửi mã này cho {{name}} trên Zalo.", { name: botName })}
+            {ui("Gửi mã này cho bot {{name}}.", { name: botName })}
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-center justify-center gap-2 rounded-xl border border-border-subtle bg-surface-base px-4 py-5">

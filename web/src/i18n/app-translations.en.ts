@@ -2211,7 +2211,7 @@ Object.assign(vietnameseUi, {
   "Lấy mã": "Get a code",
   "Lấy mã mới": "Get a new code",
   "Mã liên kết": "Link code",
-  "Gửi mã này cho {{name}} trên Zalo.": "Send this code to {{name}} in Zalo.",
+  "Gửi mã này cho bot {{name}}.": "Send this code to the bot {{name}}.",
   "Sao chép mã": "Copy the code",
   "Mã đã hết hạn.": "The code has expired.",
   "Hết hạn sau {{time}}": "Expires in {{time}}",
