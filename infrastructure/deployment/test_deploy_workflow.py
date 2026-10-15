@@ -149,14 +149,17 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
 
     def test_interpreter_images_join_the_release_contract(self):
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        interpreter = CI_WORKFLOW.split("  interpreter:\n", 1)[1].split("\n  backend-images:\n", 1)[0]
+        interpreter = CI_WORKFLOW.split("  interpreter:\n", 1)[1].split("\n  sandbox:\n", 1)[0]
         self.assertIn("components: interpreter interpreter-executor", interpreter)
         self.assertIn("${{ needs.interpreter.outputs.images }}", publish)
-        self.assertIn("for component in api worker web interpreter interpreter-executor keycloak channels; do", publish)
+        self.assertIn(
+            "for component in api worker web interpreter interpreter-executor keycloak channels sandbox sandbox-computer; do",
+            publish)
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
         self.assertIn("key=${component//-/_}", PUSH_ACTION)
-        self.assertIn("images=(api worker web interpreter interpreter-executor keycloak channels)", SCRIPT)
+        self.assertIn(
+            "images=(api worker web interpreter interpreter-executor keycloak channels sandbox sandbox-computer)", SCRIPT)
         # images.env holds one line per image plus the release; the count follows the list.
         self.assertIn('[[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]]', SCRIPT)
         self.assertNotIn('== 7 ]]', SCRIPT)
@@ -171,7 +174,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
 
     def test_only_a_main_build_pushes_and_only_the_gate_makes_a_release(self):
         main_push = "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}\n        uses: ./.github/actions/push-release-images"
-        for job, end in (("frontend-image", "landing"), ("interpreter", "backend-images"), ("backend-images", "secrets")):
+        for job, end in (("frontend-image", "landing"), ("interpreter", "sandbox"), ("sandbox", "backend-images"),
+                         ("backend-images", "secrets")):
             text = CI_WORKFLOW.split(f"  {job}:\n", 1)[1].split(f"\n  {end}:\n", 1)[0]
             self.assertEqual(text.count("uses: ./.github/actions/push-release-images"), 1, job)
             self.assertIn(main_push, text, job)
@@ -179,15 +183,32 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         # Images are pushed with the labels that name this revision; a tag alone is never deployable.
         self.assertIn('.["org.opencontainers.image.revision"] == $sha', PUSH_ACTION)
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        self.assertIn("needs: [gate, backend-images, frontend-image, interpreter]", publish)
+        self.assertIn("needs: [gate, backend-images, frontend-image, interpreter, sandbox]", publish)
         self.assertIn("packages: read", publish)
         self.assertNotIn("docker push", publish)
         # A main push whose tree a pull request verified skips the test jobs behind the gate; without a status
         # function that skip would skip the release too, so the gate and the image jobs are checked by name.
         condition = CI_WORKFLOW.split("  publish:\n", 1)[1].split("    needs:", 1)[0]
         self.assertIn("!cancelled()", condition)
-        for job in ("gate", "backend-images", "frontend-image", "interpreter"):
+        for job in ("gate", "backend-images", "frontend-image", "interpreter", "sandbox"):
             self.assertIn(f"needs.{job}.result == 'success'", condition, job)
+
+    def test_sandbox_images_join_the_release_contract(self):
+        sandbox = CI_WORKFLOW.split("  sandbox:\n", 1)[1].split("\n  backend-images:\n", 1)[0]
+        self.assertIn("components: sandbox sandbox-computer", sandbox)
+        self.assertIn("context: memoryos-sandbox/computer", sandbox)
+        self.assertIn("context: memoryos-sandbox/server", sandbox)
+        publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
+        self.assertIn("${{ needs.sandbox.outputs.images }}", publish)
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # The computer image is not a Compose service: pull it with the job-scoped credentials before reserving.
+        pull = 'docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")"'
+        self.assertLess(deploy.index("docker login ghcr.io"), deploy.index(pull))
+        self.assertLess(deploy.index(pull), deploy.index('> "$state/pending"'))
+        # A runtime accepted before the sandbox joined the release has no sandbox server to capture.
+        self.assertIn('has_sandbox "$state/current.env"', deploy)
+        rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
+        self.assertIn('target=candidate; compose stop --timeout 30 sandbox', rollback)
 
     def test_keycloak_is_rolled_out_by_the_release_on_every_host(self):
         backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
@@ -547,10 +568,10 @@ else:
 
 class VerifiedTreeReuseTest(unittest.TestCase):
     JOBS = ("backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview",
-            "infrastructure", "interpreter", "landing", "secrets")
+            "infrastructure", "interpreter", "landing", "sandbox", "secrets")
     AREAS = {"backend": (["infrastructure", "backend"], ["backend-images"]),
              "web": (["frontend-check", "frontend", "frontend-preview"], ["frontend-image"]),
-             "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"])}
+             "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"]), "sandbox": ([], ["sandbox"])}
 
     def gate(self, outputs, override=None):
         jq = shutil.which("jq")
@@ -573,7 +594,7 @@ class VerifiedTreeReuseTest(unittest.TestCase):
                               capture_output=True).returncode
 
     def test_a_verified_area_skips_its_tests_but_still_builds_its_images(self):
-        every = {"backend": "true", "web": "true", "landing": "true", "interpreter": "true"}
+        every = {"backend": "true", "web": "true", "landing": "true", "interpreter": "true", "sandbox": "true"}
         self.assertEqual(0, self.gate(every))
         verified = {**every, "backend_verified": "true", "web_verified": "true"}
         self.assertEqual(0, self.gate(verified))
@@ -581,8 +602,10 @@ class VerifiedTreeReuseTest(unittest.TestCase):
         self.assertNotEqual(0, self.gate(verified, {"frontend-image": "failure"}))
         # Tests may be skipped only when the area was found verified.
         self.assertNotEqual(0, self.gate(every, {"backend": "skipped"}))
-        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "interpreter": "false"},
-                                         {"backend-images": "success"}))
+        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "interpreter": "false",
+                                          "sandbox": "false"}, {"backend-images": "success"}))
+        # The sandbox images are built whenever the sandbox area is selected.
+        self.assertNotEqual(0, self.gate(every, {"sandbox": "skipped"}))
 
     def test_only_a_successful_same_repository_pull_request_run_of_this_commit_is_trusted(self):
         changes = CI_WORKFLOW.split("  changes:\n", 1)[1].split("\n  infrastructure:\n", 1)[0]

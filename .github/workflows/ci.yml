@@ -43,10 +43,12 @@ jobs:
       web: ${{ steps.scope.outputs.web }}
       landing: ${{ steps.scope.outputs.landing }}
       interpreter: ${{ steps.scope.outputs.interpreter }}
+      sandbox: ${{ steps.scope.outputs.sandbox }}
       tree: ${{ steps.scope.outputs.tree }}
       backend_verified: ${{ steps.verified.outputs.backend }}
       web_verified: ${{ steps.verified.outputs.web }}
       interpreter_verified: ${{ steps.verified.outputs.interpreter }}
+      sandbox_verified: ${{ steps.verified.outputs.sandbox }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -64,6 +66,7 @@ jobs:
           web=true
           landing=true
           interpreter=true
+          sandbox=true
           # Main pushes build and publish every area. A pull request selects areas from its merge
           # commit, whose first parent is the base branch tip; unknown paths or an empty diff select all.
           if [[ "$EVENT_NAME" == pull_request ]]; then
@@ -73,6 +76,7 @@ jobs:
               web=false
               landing=false
               interpreter=false
+              sandbox=false
               for path in "${changed[@]}"; do
                 # Mirror paths-ignore: only root-level Markdown is documentation; nested .md can be source.
                 if [[ "$path" != */* && "$path" == *.md ]]; then
@@ -95,6 +99,9 @@ jobs:
                   interpreter/*)
                     interpreter=true
                     ;;
+                  memoryos-sandbox/*)
+                    sandbox=true
+                    ;;
                   web/*)
                     web=true
                     ;;
@@ -106,14 +113,15 @@ jobs:
                     web=true
                     landing=true
                     interpreter=true
+                    sandbox=true
                     ;;
                 esac
               done
             fi
           fi
-          printf 'backend=%s\nweb=%s\nlanding=%s\ninterpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_OUTPUT"
+          printf 'backend=%s\nweb=%s\nlanding=%s\ninterpreter=%s\nsandbox=%s\n' "$backend" "$web" "$landing" "$interpreter" "$sandbox" >> "$GITHUB_OUTPUT"
           printf 'tree=%s\n' "$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
-          printf 'Verification areas: backend=%s web=%s landing=%s interpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Verification areas: backend=%s web=%s landing=%s interpreter=%s sandbox=%s\n' "$backend" "$web" "$landing" "$interpreter" "$sandbox" >> "$GITHUB_STEP_SUMMARY"
 
       # A main commit whose tree a same-repository pull request run already verified does not run those tests
       # again; its images are still built, because their revision label names the main commit (ADR 0021). A fork's
@@ -146,7 +154,7 @@ jobs:
             return 1
           }
           if run=$(areas); then
-            for area in backend web interpreter; do
+            for area in backend web interpreter sandbox; do
               verified=false
               if grep -qx "$area=true" "$RUNNER_TEMP/verified/areas"; then verified=true; fi
               printf '%s=%s\n' "$area" "$verified" >> "$GITHUB_OUTPUT"
@@ -194,6 +202,7 @@ jobs:
           MEMORYOS_WEB_IMAGE: memoryos-web:config-check
           MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
           MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
+          MEMORYOS_SANDBOX_IMAGE: memoryos-sandbox:config-check
           MEMORYOS_KEYCLOAK_IMAGE: memoryos-keycloak:config-check
           MEMORYOS_POSTGRES_ADMIN_PASSWORD: config-check-only
           MEMORYOS_DATABASE_PASSWORD: config-check-only
@@ -692,6 +701,112 @@ jobs:
         if: ${{ always() }}
         run: docker logout ghcr.io
 
+  # MEM-270: the OpenSandbox server with MemoryOS's configuration, and the computer image every conversation's sandbox
+  # starts from. The smoke test proves the tools the design lists are in the computer image.
+  sandbox:
+    needs: changes
+    if: ${{ needs.changes.outputs.sandbox == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read # Check out the revision the images are built from.
+      packages: write # Push the verified images to GHCR on a main push; no pull request step pushes.
+    outputs:
+      images: ${{ steps.push.outputs.images }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve image metadata
+        id: meta
+        run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Layer caches live in GHCR beside the images, outside the Actions cache and its 10 GB eviction. Every run
+      # reads them; only a main push writes them.
+      - name: Authenticate to GHCR for layer caches
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Build computer image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: memoryos-sandbox/computer
+          tags: memoryos-sandbox-computer:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-sandbox-computer:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-sandbox-computer:buildcache,mode=max,ignore-error=true' || '' }}
+
+      - name: Check the computer image's tools
+        if: ${{ needs.changes.outputs.sandbox_verified != 'true' }}
+        run: |
+          docker run --rm --user 1000 "memoryos-sandbox-computer:sha-$GITHUB_SHA" bash -euo pipefail -c '
+            [[ "$(id -un)" == sandbox && "$PWD" == /workspace && -w /workspace ]]
+            for tool in bash git jq rg fd file 7z bc pandoc soffice tesseract convert ffmpeg node python3 sqlite3 \
+                qpdf pdftotext recalc-xlsx check-docx pptx-to-pdf; do
+              command -v "$tool" > /dev/null || { echo "missing $tool" >&2; exit 1; }
+            done
+            tesseract --list-langs 2>/dev/null | grep -qx vie
+            node -e "require(\"pptxgenjs\")"
+            python3 -c "import duckdb, matplotlib, openpyxl, pandas, plotly, pypdfium2, pytesseract, xlsxwriter"
+          '
+
+      - name: Build server image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: memoryos-sandbox/server
+          tags: memoryos-sandbox:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+
+      # The server must start with the key from a file, on a read-only root, and refuse a request without the key.
+      - name: Start the server as Compose runs it
+        if: ${{ needs.changes.outputs.sandbox_verified != 'true' }}
+        run: |
+          key_dir=$(mktemp -d)
+          openssl rand -hex 32 > "$key_dir/api-key.txt"
+          docker run --detach --name memoryos-sandbox-ci --publish 127.0.0.1:8090:8090 --read-only \
+            --tmpfs /tmp --tmpfs /root --user root --cap-drop ALL --cap-add DAC_OVERRIDE \
+            --volume /var/run/docker.sock:/var/run/docker.sock --volume "$key_dir:/run/secrets:ro" \
+            --env SANDBOX_API_KEY_FILE=/run/secrets/api-key.txt "memoryos-sandbox:sha-$GITHUB_SHA"
+          for _ in {1..30}; do
+            curl --silent --fail http://127.0.0.1:8090/health && break
+            sleep 2
+          done
+          curl --silent --fail http://127.0.0.1:8090/health
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8090/v1/sandboxes)
+          [[ "$status" == 401 || "$status" == 403 ]] || { echo "Unauthenticated request answered $status" >&2; exit 1; }
+
+      - name: Show server logs on failure
+        if: ${{ failure() }}
+        run: docker logs memoryos-sandbox-ci || true
+
+      - name: Push verified sandbox images to GHCR
+        id: push
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/push-release-images
+        with:
+          components: sandbox sandbox-computer
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
+
   backend-images:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
@@ -833,7 +948,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets]
+    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, sandbox, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -851,13 +966,14 @@ jobs:
                 if $area[name] != "true" then ok(tests + images; "skipped")
                 elif $area[name + "_verified"] == "true" then ok(tests; "skipped") and ok(images; "success")
                 else ok(tests + images; "success") end;
-            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "secrets"]
+            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "sandbox", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
             and selected("backend"; ["infrastructure", "backend"]; ["backend-images"])
             and selected("web"; ["frontend-check", "frontend", "frontend-preview"]; ["frontend-image"])
             and selected("landing"; []; ["landing"])
             and selected("interpreter"; []; ["interpreter"])
+            and selected("sandbox"; []; ["sandbox"])
           ' <<< "$RESULTS"
 
       # A main commit with this exact tree can reuse these results instead of running the tests again.
@@ -867,7 +983,7 @@ jobs:
           AREAS: ${{ toJSON(needs.changes.outputs) }}
         run: |
           mkdir -p verified
-          jq --raw-output '"backend=\(.backend)\nweb=\(.web)\nlanding=\(.landing)\ninterpreter=\(.interpreter)"' <<< "$AREAS" > verified/areas
+          jq --raw-output '"backend=\(.backend)\nweb=\(.web)\nlanding=\(.landing)\ninterpreter=\(.interpreter)\nsandbox=\(.sandbox)"' <<< "$AREAS" > verified/areas
 
       - name: Preserve the verified tree for main
         if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
@@ -886,10 +1002,11 @@ jobs:
     if: >-
       ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main'
       && needs.gate.result == 'success' && needs.backend-images.result == 'success'
-      && needs.frontend-image.result == 'success' && needs.interpreter.result == 'success' }}
+      && needs.frontend-image.result == 'success' && needs.interpreter.result == 'success'
+      && needs.sandbox.result == 'success' }}
     # The image jobs already pushed what they verified; this job only names those digests as a release, and only
     # after CI Gate. A tag in GHCR without this job's artifact is not deployable.
-    needs: [gate, backend-images, frontend-image, interpreter]
+    needs: [gate, backend-images, frontend-image, interpreter, sandbox]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -909,9 +1026,10 @@ jobs:
             ${{ needs.backend-images.outputs.images }}
             ${{ needs.frontend-image.outputs.images }}
             ${{ needs.interpreter.outputs.images }}
+            ${{ needs.sandbox.outputs.images }}
         run: |
           mkdir release
-          for component in api worker web interpreter interpreter-executor keycloak channels; do
+          for component in api worker web interpreter interpreter-executor keycloak channels sandbox sandbox-computer; do
             # Compose rejects a hyphen in an environment key.
             key=${component//-/_}
             key="MEMORYOS_${key^^}_IMAGE"

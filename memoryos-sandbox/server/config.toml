@@ -1,0 +1,44 @@
+# OpenSandbox lifecycle server for the Chat sandbox (MEM-270), baked into memoryos-sandbox. Options: OpenSandbox
+# server/configuration.md. The API key is not here: start.sh reads it from the Compose secret into
+# OPENSANDBOX_SERVER_API_KEY.
+
+[server]
+host = "0.0.0.0"
+port = 8090
+
+[log]
+level = "INFO"
+
+[runtime]
+type = "docker"
+# Pulled by the server on the host daemon; pinned by digest.
+execd_image = "opensandbox/execd:v1.1.0@sha256:6cf7dba2f21f0b536e100563d841ac58a9f31c2b0a081b7ac76796a24d6f47e2"
+
+[egress]
+image = "opensandbox/egress:v1.1.7@sha256:db7345d567b0970f384b8e3fa7a93a71b7f43d4b16bb2009de34096e9a87b3b5"
+# The default "dns" mode filters names only: the MEM-270 probe reached direct IPs and the host's ports through it.
+mode = "dns+nft"
+
+[docker]
+# Sandboxes run on the default bridge with their ports published on its gateway only, so the host's other
+# interfaces never expose execd. The server reaches them there; Java callers go through the server's proxy.
+network_mode = "bridge"
+host_ip = "172.17.0.1"
+publish_host = "172.17.0.1"
+port_range_min = 40000
+port_range_max = 40999
+drop_capabilities = ["AUDIT_WRITE", "MKNOD", "NET_ADMIN", "NET_RAW", "SYS_ADMIN", "SYS_MODULE", "SYS_PTRACE", "SYS_TIME", "SYS_TTY_CONFIG"]
+no_new_privileges = true
+pids_limit = 512
+
+[proxy]
+# The server sits on Compose networks, not on the default bridge, so it targets the published ports.
+resolve_internal = false
+
+[ingress]
+mode = "direct"
+
+[store]
+# Snapshot metadata only, which MemoryOS does not use; the workspace is archived to Object Storage.
+type = "sqlite"
+path = "/tmp/opensandbox.db"

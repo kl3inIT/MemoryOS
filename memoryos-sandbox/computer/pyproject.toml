@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memoryos-sandbox"
+version = "0.1.0"
+description = "Python packages of the MemoryOS sandbox image"
+requires-python = ">=3.14,<3.15"
+license = { text = "MIT" }
+authors = [{ name = "MemoryOS" }]
+dependencies = [
+  "fpdf2==2.8.9",
+  "matplotlib>=3.11.2,<3.12",
+  "matplotlib-inline>=0.1.7",
+  "matplotlib-venn>=1.1.2",
+  "numpy==2.5.3",
+  # Headless: the sandbox has no display, and the GUI build fails to import without libGL.
+  "opencv-python-headless>=5.0.0.93",
+  "openpyxl>=3.1.5",
+  "pandas==3.0.6",
+  "pdfplumber>=0.11.7",
+  "pydantic>=2.11.9",
+  "pypdf==6.19.0",
+  "python-docx==1.2.0",
+  "python-pptx>=1.0.2",
+  "reportlab>=5.0.0",
+  "scikit-image>=0.25.2",
+  "scikit-learn>=1.7.2",
+  "scipy>=1.16.2",
+  "seaborn>=0.13.2",
+  "svglib>=2.0.2",
+  "xgboost>=3.0.5",
+  # MemoryOS additions (MEM-110): office, finance and encoding work beyond the Onyx baseline.
+  "beautifulsoup4>=4.13",
+  "chardet>=5.2",
+  "jinja2>=3.1",
+  "markdown>=3.8",
+  "markitdown[docx,pdf,pptx,xls,xlsx]>=0.1.2",
+  "pdf2image>=1.17",
+  "pyarrow>=21",
+  "statsmodels>=0.14.5",
+  "sympy>=1.14",
+  "tabulate>=0.9",
+  "xlrd>=2.0.2",
+  "xlsxwriter>=3.2.9",
+  # MemoryOS additions (MEM-270): what Dust or Claude's code execution ship beyond the executor.
+  "duckdb>=1.4",
+  "plotly>=6.3",
+  "pypdfium2>=4.30",
+  "pytesseract>=0.3.13",
+]
+
+[tool.uv]
+# xgboost pulls the CUDA NCCL wheel (~380 MB) on Linux; the sandbox has no GPU.
+override-dependencies = ["nvidia-nccl-cu12; sys_platform == 'never'"]
+
+[tool.hatch.build.targets.wheel]
+packages = []
+include = [
+  "README.md",
+]
