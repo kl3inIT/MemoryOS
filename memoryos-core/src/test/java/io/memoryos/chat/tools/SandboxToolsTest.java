@@ -43,6 +43,9 @@ class SandboxToolsTest {
     private final InterpreterService artifacts = mock(InterpreterService.class);
     @TempDir
     Path root;
+    /** The commands' captured streams, outside the workspace so a listing of it does not show them. */
+    @TempDir
+    Path streams;
     private SandboxTools tools;
 
     @BeforeEach
@@ -144,8 +147,8 @@ class SandboxToolsTest {
     private SandboxCommandResult run(SandboxCommand command) {
         try {
             // Output goes to files, not pipes: a pipe the test reads only after waitFor blocks a chatty command.
-            Path out = Files.createTempFile(root.getParent(), "out", ".txt");
-            Path err = Files.createTempFile(root.getParent(), "err", ".txt");
+            Path out = Files.createTempFile(streams, "out", ".txt");
+            Path err = Files.createTempFile(streams, "err", ".txt");
             var process = new ProcessBuilder("bash", "-c", command.command().replace(SandboxService.WORKSPACE, root.toString()))
                     .directory(root.toFile()).redirectOutput(out.toFile()).redirectError(err.toFile()).start();
             long began = System.nanoTime();

@@ -284,8 +284,11 @@ public final class SandboxTools {
                     bytes.length))));
             return "Published " + name + ": file_link /api/chat/file-artifacts/" + id + "/content";
         } catch (ChatException refused) {
-            if (!"CHAT_STORAGE_FULL".equals(refused.code())) throw refused;
             publish(ChatCodeEvent::failed);
+            if (!"CHAT_STORAGE_FULL".equals(refused.code())) {
+                activity.fail();
+                throw refused;
+            }
             return "The user's file library is full; tell the user to free space in their library.";
         } catch (SandboxException unavailable) {
             return failed("publish_file", unavailable.safeMessage());
