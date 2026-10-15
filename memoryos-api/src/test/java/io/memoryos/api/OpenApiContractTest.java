@@ -350,6 +350,8 @@ class OpenApiContractTest {
             "/api/channels/{channelId}",
             "/api/channels/{channelId}/enabled",
             "/api/channels/{channelId}/secret",
+            "/api/channel-links",
+            "/api/channel-links/{connectionId}",
             "/api/credentials/lark",
             "/api/credentials/lark/{credentialId}",
             "/api/credentials/lark/{credentialId}/secret",

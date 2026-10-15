@@ -171,6 +171,8 @@ the linked-member count. Settings › Chat gains the Zalo link rows.
 - `channel_account_links (tenant_id, connection_id, external_user_id, actor_id, linked_at)`, unique on
   `(connection_id, external_user_id)` and on `(connection_id, actor_id)`; cascades from the connection and the
   membership.
+- One app serves one bot by `(provider, app_id)` alone: the settings, where a Zalo bot keeps its transport, are no
+  part of it, so one bot is never stored twice with two transports.
 
 ## Not in scope
 

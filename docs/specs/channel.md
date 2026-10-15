@@ -160,11 +160,13 @@ acknowledged it to the provider:
    with a reason); the text is in the chat session.
 3. It is refused with a notice when the sender's organisation is not the organisation the event names for the
    bot's app, or not the one recorded for the bot when one is (`OUTSIDER`; an event that names neither admits
-   nobody, and a provider without organisations admits nobody until linked accounts exist), when it is not text (`NOT_TEXT`) or when the group has people outside the organisation
-   (`EXTERNAL_GROUP`).
-4. The sender's account is the one active person whose verified e-mail equals the e-mail the provider holds
-   ([identity](identity.md#account-classification-and-group-authority)), remembered in `channel_identities` for
-   `memoryos.channel.identity-ttl` (1 hour); a sender without one is remembered as such.
+   nobody), when it is not text (`NOT_TEXT`) or when the group has people outside the organisation
+   (`EXTERNAL_GROUP`). A provider without organisations admits only a linked sender instead
+   ([linked accounts](#linked-accounts)).
+4. The sender's account is the one they linked on this bot; else the one active person whose verified e-mail
+   equals the e-mail the provider holds ([identity](identity.md#account-classification-and-group-authority)),
+   remembered in `channel_identities` for `memoryos.channel.identity-ttl` (1 hour); a sender without one is
+   remembered as such.
 5. A direct message from a sender with an account runs as that person. A group message, and a direct message from
    a sender without an account, runs as the bot's service account, which reads what every member may read.
 6. The conversation: a reply to a message, the question or the bot's answer, continues that message's session
@@ -183,9 +185,34 @@ says "busy", a spend limit names the limit, anything else says the bot could not
 connection's language.
 
 A claimed message is one `memoryos.channel.message` observation (`provider`, `kind`, `outcome`: `ANSWERED`,
-`REFUSED`, `NEW_CONVERSATION` or `FAILED`), with a child `memoryos.channel.message.step` for each step (`step`:
-`refusal`, `sender`, `conversation`, `reply`, `turn`, `finish`); the Chat turn's spans sit under `turn`, so a trace
+`REFUSED`, `LINKED`, `NEW_CONVERSATION` or `FAILED`), with a child `memoryos.channel.message.step` for each step (`step`:
+`link`, `refusal`, `sender`, `conversation`, `reply`, `turn`, `finish`); the Chat turn's spans sit under `turn`, so a trace
 shows where the time before an answer goes.
+
+### Linked accounts
+
+A provider whose sender has no e-mail and no organisation, such as Zalo, answers only members who linked their
+account on it to their MemoryOS account ([MEM-263](../increments/active/mem-263-zalo-bot/design.md)).
+`ChannelLinkService` keeps the links (`channel_account_links`) and the codes that make them (`channel_link_codes`).
+
+- **The code.** A member makes it in MemoryOS (`POST /api/channel-links`): eight characters of
+  `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, valid ten minutes, stored as its SHA-256 hash, one live code a member and
+  bot, which a new one replaces. The member sends it to the bot in a direct message; the account that sends a live
+  code is linked to the member who made it, the code is used up, and the bot says so (`LINKED`). A code in a group
+  is not read. A message is a code only when it is one code alone, case and hyphens aside.
+- **The link.** One account on the platform links to one member and a member to one account a bot; linking again
+  replaces either. It does not expire; it is removed by the member (`DELETE /api/channel-links/{connectionId}`,
+  which also drops their code), with their membership and with the bot, and it is ignored while the member is not
+  active. `GET /api/channel-links` lists the Tenant's bots that take a link with the member's own on each.
+- **Who is answered.** A linked sender is answered as any member is: as themself in a direct message, as the bot in
+  a group. A sender who is not linked is told how to link (`LINK_REQUIRED`), at most once a minute (later
+  messages settle `LINK_REQUIRED_QUIET` without a notice), and is not answered, in a group too. A provider without
+  organisations knows a sender only by the link: no e-mail and no remembered identity is read, and a link removed
+  while a message is handled leaves it unanswered rather than answered as the bot.
+- **Guessing.** Every code in a direct message is an attempt, a linked sender's too: it is recorded on its message
+  as `LINK_CODE_INVALID` before it is tried and stays so unless it links, so attempts still in flight count. A
+  sender with five within the hour is not heard for the rest of it (`LINK_LOCKED`, no notice), questions included.
+  The sender's rate counts every message, codes included, and is checked before a code is tried.
 
 The Worker task `memoryos-channel-message-retention-v1` runs daily and deletes `channel_messages` rows older than
 `memoryos.channel.message-retention` (90 days); a reply to a message that old starts a new conversation.

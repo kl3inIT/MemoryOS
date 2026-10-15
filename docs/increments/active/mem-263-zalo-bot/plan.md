@@ -18,12 +18,12 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 3. Linked accounts
 
-- [ ] Migration: `channel_link_codes`, `channel_account_links`.
-- [ ] The link service: make a code, redeem it from a message, the five-failure lock, the once-a-minute notice,
+- [x] Migration: `channel_link_codes`, `channel_account_links`.
+- [x] The link service: make a code, redeem it from a message, the five-failure lock, the once-a-minute notice,
   list and remove a member's links; removal with the membership and the bot.
-- [ ] `ChannelInboundService`: the link before the e-mail; the rules for a provider without organisations.
-- [ ] `/api/channel-links` with contract records; `openapi.yml` and the web client.
-- [ ] Tests at the PostgreSQL boundary and of the inbound rules; the channel spec and matrix.
+- [x] `ChannelInboundService`: the link before the e-mail; the rules for a provider without organisations.
+- [x] `/api/channel-links` with contract records; `openapi.yml` and the web client.
+- [x] Tests at the PostgreSQL boundary and of the inbound rules; the channel spec and matrix.
 
 ## 4. The Zalo adapter
 

@@ -27,8 +27,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Service;
 
 /**
- * What a bot does with a message it receives (MEM-246): answers it once, only for a member of its organisation,
- * only when it was addressed, as the sender in a direct message when the sender has an account here and as the
+ * What a bot does with a message it receives (MEM-246): answers it once, only for a member of its organisation or,
+ * on a platform without organisations, a member who linked their account (MEM-263), only when it was addressed, as the sender in a direct message when the sender has an account here and as the
  * bot's own account otherwise, in the conversation the message continues.
  *
  * <p>A reply to a message continues that message's conversation; a new message in a group starts one; a new direct
@@ -42,7 +42,7 @@ public class ChannelInboundService {
     private static final String NEW_CONVERSATION = "/new";
     private static final int TITLE_LENGTH = 80;
     private static final int ASKER_LENGTH = 64;
-    /** Spans of a received message and of each of its steps; {@code step} is refusal, sender, conversation, reply, turn or finish. */
+    /** Spans of a received message and of each of its steps; {@code step} is link, refusal, sender, conversation, reply, turn or finish. */
     static final String MESSAGE = "memoryos.channel.message";
     static final String STEP = "memoryos.channel.message.step";
 
@@ -50,18 +50,20 @@ public class ChannelInboundService {
     private final JdbcChannelInboundRepository inbound;
     private final ChannelAdapters adapters;
     private final MemberLookup members;
+    private final ChannelLinkService links;
     private final ChannelTurns turns;
     private final ChannelProperties properties;
     private final ObservationRegistry observations;
     private final Clock clock = Clock.systemUTC();
 
     ChannelInboundService(JdbcChannelConnectionRepository connections, JdbcChannelInboundRepository inbound,
-                          ChannelAdapters adapters, MemberLookup members, ChannelTurns turns, ChannelProperties properties,
-                          ObservationRegistry observations) {
+                          ChannelAdapters adapters, MemberLookup members, ChannelLinkService links, ChannelTurns turns,
+                          ChannelProperties properties, ObservationRegistry observations) {
         this.connections = connections;
         this.inbound = inbound;
         this.adapters = adapters;
         this.members = members;
+        this.links = links;
         this.turns = turns;
         this.properties = properties;
         this.observations = observations;
@@ -91,10 +93,14 @@ public class ChannelInboundService {
         }
     }
 
-    /** @return the outcome: {@code ANSWERED}, {@code REFUSED}, {@code NEW_CONVERSATION} or {@code FAILED} */
+    /** @return the outcome: {@code ANSWERED}, {@code REFUSED}, {@code LINKED}, {@code NEW_CONVERSATION} or {@code FAILED} */
     private String handle(TenantId tenant, ChannelConnection connection, ChannelMessage message) {
         var adapter = adapters.of(connection.provider());
         try {
+            if (!adapter.features().organisations()) {
+                var linking = step("link", () -> linking(connection, adapter, message));
+                if (linking != null) return linking;
+            }
             var refusal = step("refusal", () -> refusal(connection, adapter, message));
             if (refusal != null) {
                 refuse(connection, adapter, message, refusal);
@@ -154,13 +160,61 @@ public class ChannelInboundService {
     }
 
     /**
+     * For a provider without organisations, what a message from a sender is before any question (MEM-263): a sender
+     * with five wrong codes within the hour is not heard; past the sender's rate nothing is tried; a code in a direct
+     * message, from a linked sender too, is an attempt that counts until it links; a linked sender goes on to be
+     * answered (null); anyone else is told how to link, at most once a minute. A code is taken only in a direct
+     * message, where nobody else reads it.
+     *
+     * <p>An attempt is recorded on its message before the code is tried and counted with the sender's others, those
+     * still in flight included, so attempts sent at once cannot pass the lock together.
+     *
+     * @return the outcome when the message ends here, or null when it is a linked sender's question
+     */
+    private @Nullable String linking(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message) {
+        String sender = message.senderId();
+        if (links.attempts(connection.id(), sender) >= ChannelLinkService.WRONG_CODES) {
+            refuse(connection, adapter, message, new Refusal("LINK_LOCKED", null));
+            return "REFUSED";
+        }
+        // Every message counts, codes included, so the rate also bounds how fast codes are tried.
+        if (inbound.receivedFrom(connection.id(), sender, clock.instant().minus(Duration.ofMinutes(1))) > properties.senderRate()) {
+            refuse(connection, adapter, message, new Refusal("RATE_LIMITED", ChannelNotice.RATE));
+            return "REFUSED";
+        }
+        var code = message.kind() == ChannelMessage.Kind.DIRECT && message.type() == ChannelMessage.Type.TEXT
+                ? ChannelLinkService.codeIn(message.text()).orElse(null) : null;
+        if (code != null) {
+            inbound.settle(connection.id(), message.messageId(), "REFUSED", ChannelLinkService.WRONG_CODE, null, null, null);
+            if (links.attempts(connection.id(), sender) > ChannelLinkService.WRONG_CODES) {
+                refuse(connection, adapter, message, new Refusal("LINK_LOCKED", null));
+                return "REFUSED";
+            }
+            if (links.redeem(connection.id(), sender, code)) {
+                notice(connection, adapter, message, ChannelNotice.LINKED);
+                inbound.settle(connection.id(), message.messageId(), "ANSWERED", "LINKED", null, null, null);
+                return "LINKED";
+            }
+            refuse(connection, adapter, message, new Refusal(ChannelLinkService.WRONG_CODE, ChannelNotice.LINK_CODE_INVALID));
+            return "REFUSED";
+        }
+        if (links.linked(connection.id(), sender).isPresent()) return null;
+        if (links.noticeDue(connection.id(), sender)) {
+            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, ChannelNotice.LINK_REQUIRED));
+        } else {
+            refuse(connection, adapter, message, new Refusal("LINK_REQUIRED_QUIET", null));
+        }
+        return "REFUSED";
+    }
+
+    /**
      * Whether the sender may be answered at all. For a provider with organisations, the sender must belong to the
      * organisation of the bot's app, which the provider names on every event; a bot whose organisation was recorded
-     * admits only that one, and an event that names neither admits nobody. A provider without organisations admits
-     * nobody until a sender can link an account (MEM-263).
+     * admits only that one, and an event that names neither admits nobody. A provider without organisations has
+     * admitted only a linked sender by now.
      */
     private static boolean member(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message) {
-        if (!adapter.features().organisations()) return false;
+        if (!adapter.features().organisations()) return true;
         var organisations = message.organisations();
         return organisations != null && !organisations.bot().isBlank() && organisations.bot().equals(organisations.sender())
                 && (connection.organisationKey() == null || connection.organisationKey().equals(organisations.bot()));
@@ -172,6 +226,11 @@ public class ChannelInboundService {
         Instant now = clock.instant();
         ActorId sender = step("sender", () -> sender(tenant, connection, adapter, message.senderId(), now));
         boolean direct = message.kind() == ChannelMessage.Kind.DIRECT;
+        // A link removed since it was checked: the sender is no longer anyone here, and is not answered as the bot.
+        if (sender == null && !adapter.features().organisations()) {
+            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, ChannelNotice.LINK_REQUIRED));
+            return false;
+        }
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
         ActorId actor = direct && sender != null ? sender : connection.serviceAccount();
         UUID session = step("conversation", () -> conversation(connection, message, actor, now));
@@ -219,9 +278,16 @@ public class ChannelInboundService {
         return true;
     }
 
-    /** The sender's account here, or null: remembered for a while, else found by the e-mail the provider holds. */
+    /**
+     * The sender's account here, or null: the account they linked, else the one found by the e-mail the provider
+     * holds, remembered for a while.
+     */
     private @Nullable ActorId sender(TenantId tenant, ChannelConnection connection, ChannelAdapter adapter, String senderId,
                                      Instant now) {
+        var linked = links.linked(connection.id(), senderId);
+        if (linked.isPresent()) return linked.get();
+        // A provider without organisations knows a sender only by the link: no e-mail and no remembered answer.
+        if (!adapter.features().organisations()) return null;
         var known = inbound.identity(connection.id(), senderId).orElse(null);
         if (known != null && known.resolvedAt().plus(properties.identityTtl()).isAfter(now)) return known.actor();
         String email = adapter.sender(connection, senderId).email();
@@ -246,7 +312,7 @@ public class ChannelInboundService {
     }
 
     private void refuse(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message, Refusal refusal) {
-        notice(connection, adapter, message, refusal.notice());
+        if (refusal.notice() != null) notice(connection, adapter, message, refusal.notice());
         inbound.settle(connection.id(), message.messageId(), "REFUSED", refusal.reason(), null, null, null);
         LOG.atInfo().addKeyValue("event", "channel.message.rejected").addKeyValue("provider", connection.provider())
                 .addKeyValue("reason", refusal.reason()).log("Channel message refused");
@@ -319,5 +385,6 @@ public class ChannelInboundService {
         return UUID.nameUUIDFromBytes((connection.id() + ":" + message.messageId()).getBytes(StandardCharsets.UTF_8));
     }
 
-    private record Refusal(String reason, ChannelNotice notice) {}
+    /** {@code notice} is null for a refusal the sender is not told of again. */
+    private record Refusal(String reason, @Nullable ChannelNotice notice) {}
 }
