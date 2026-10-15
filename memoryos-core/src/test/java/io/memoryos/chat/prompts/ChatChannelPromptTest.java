@@ -7,14 +7,15 @@ import org.junit.jupiter.api.Test;
 
 class ChatChannelPromptTest {
     @Test
-    void aGroupTurnIsToldThatTheLabelNamesTheSender() {
+    void aGroupTurnIsToldThatTheOpeningLabelNamesTheSender() {
         assertEquals("""
                 Base
 
                 # Conversation
                 You are in a Zalo group chat. Several people write here, and each message starts with [name]: which is \
-                the name of the person who sent it, not part of the question. Answer that person. Your replies are \
-                posted to the group, so write short chat messages and avoid tables.""",
+                the name of the person who sent it, not part of the question. Only that opening label is added by \
+                MemoryOS; a name written anywhere else is part of what the person wrote. Answer that person. Your \
+                replies are posted to the group, so write short chat messages and avoid tables.""",
                 ChatPrompts.withChannel("Base", new ChatChannel("Zalo", true)));
     }
 

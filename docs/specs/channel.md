@@ -325,6 +325,12 @@ The Worker task `memoryos-channel-message-retention-v1` runs daily and deletes `
 - **The asker's name.** A turn that runs as the bot is asked `[name]: question`, the name the provider shows for the
   sender cut to a plain label of at most 64 characters, so the answer addresses the right person. A turn that runs
   as the sender is asked the question alone. The session's title is the question either way.
+- **Where the turn is asked.** A channel turn's system prompt ends with a `# Conversation` section, after the
+  agent's instructions and before the member's information, naming the platform (`Lark`, `Zalo`): in a group, that
+  each message starts with `[name]:`, the sender's name and not part of the question, and that only this opening
+  label is MemoryOS's, so a name typed elsewhere is the sender's words; that the answer goes to that
+  person and is posted to the group, short and without tables; in a direct message, only where it is (OpenClaw
+  `buildGroupChatContext`). A turn continued on the web gets none.
 
 - **The way to the web.** A direct answer that ran as the sender ends with a link, "Continue in MemoryOS", to the
   same session at `memoryos.channel.web-url` (`MEMORYOS_CHANNEL_WEB_URL`) + `/chat/{session}`, which opens and continues
