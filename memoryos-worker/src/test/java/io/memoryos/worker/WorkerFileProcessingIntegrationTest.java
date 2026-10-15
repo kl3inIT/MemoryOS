@@ -478,9 +478,12 @@ class WorkerFileProcessingIntegrationTest {
         assertEquals(1, registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count());
         sources.removeItem(OWNER, sourceId, upload.item().id());
         await(() -> sources.listItems(OWNER, sourceId, null, 25).items().isEmpty());
-        extractionArtifacts.cleanup();
-        await(() -> jdbcClient.sql("SELECT COUNT(*) FROM document_extraction_artifacts")
-                .query(Integer.class).single() == 0);
+        // The item leaves the listing before its document lets go of the artifact, and cleanup claims only an artifact
+        // no document holds, so a single sweep could run too early and leave nothing to wait for. Sweep until it is gone.
+        await(() -> {
+            extractionArtifacts.cleanup();
+            return jdbcClient.sql("SELECT COUNT(*) FROM document_extraction_artifacts").query(Integer.class).single() == 0;
+        });
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM stored_objects").query(Long.class).single());
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM object_uploads").query(Long.class).single());
         assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM source_uploads").query(Long.class).single());
