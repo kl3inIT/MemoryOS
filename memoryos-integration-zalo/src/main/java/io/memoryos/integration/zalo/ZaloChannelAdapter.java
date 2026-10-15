@@ -47,7 +47,7 @@ import tools.jackson.databind.json.JsonMapper;
 public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ZaloChannelAdapter.class);
     static final int MAX_TEXT = 2_000;
-    private static final ChannelFeatures FEATURES = new ChannelFeatures(false, false, false, MAX_TEXT);
+    private static final ChannelFeatures FEATURES = new ChannelFeatures(false, false, MAX_TEXT);
     /** A token is the bot's number, a colon and its secret. */
     private static final Pattern TOKEN = Pattern.compile("^([0-9]{1,32}):(\\S{1,200})$");
     static final String SECRET_HEADER = "x-bot-api-secret-token";

@@ -96,11 +96,9 @@ confirmation. The route composes the section into the chat settings page, since 
 
 A platform is a `ChannelAdapter`, one a `ChannelProvider`, found through `ChannelAdapters`; the port carries no
 provider's shape. It owns the transport, the provider's ids and the shape of a reply, and states what the
-provider's chats can do with `features()`: `ChannelFeatures(organisations, editsReply, quotes, maxText)`, whether the
-provider names an organisation for each sender, whether a reply can be rewritten while it is written, whether a
-message can reply to another so that the provider names it, and the longest text one message takes. A group answer
-on a provider that quotes closes by inviting a reply to continue; on one that does not (Zalo), only by inviting a
-direct message (`GROUP_FOOTER_DIRECT`). `reply(connection, message)` opens a `ChannelReply` that quotes the message where
+provider's chats can do with `features()`: `ChannelFeatures(organisations, editsReply, maxText)`, whether the
+provider names an organisation for each sender, whether a reply can be rewritten while it is written, and the
+longest text one message takes. `reply(connection, message)` opens a `ChannelReply` that quotes the message where
 the provider can: `append` text as it is written, called only when the reply can be rewritten; then
 `finish(pieces, sources, footer)`, given the whole answer as one piece when the reply can be rewritten and otherwise
 cut by `ChannelText.pieces` at `maxText` (at the last paragraph, line, sentence or space that fits), returning the
@@ -251,20 +249,21 @@ acknowledged it to the provider:
 5. A direct message from a sender with an account runs as that person. A group message, and a direct message from
    a sender without an account, runs as the bot's service account, which reads what every member may read.
 6. The conversation: a reply to a message, the question or the bot's answer, continues that message's session
-   however old and whoever replies; a new message in a group of a provider that quotes (Lark) starts a session; a
-   new direct message continues the one in `channel_conversations` while its last message is younger than
-   `memoryos.channel.conversation-idle` (1 hour); `/new` in a direct message forgets it and says so. A group of a
-   provider that cannot quote (Zalo), where nothing can be replied to, has one conversation, as OpenClaw keys a
-   session by group: kept in `channel_conversations` for the group (`external_user_id` `@group`) and continued by
-   every member's question while its last message is younger than `memoryos.channel.group-conversation-idle`
-   (4 hours); `/new` there starts it over. It runs as the bot's account, so it holds only what everyone in the group
-   may read, and each question in it carries its asker's name. A session is continued only by the account that
+   however old and whoever replies, looked up in the same chat, so a reply in a group never reaches a direct
+   conversation; a new direct message continues the one in `channel_conversations` while its last message is
+   younger than `memoryos.channel.conversation-idle` (1 hour). A group has one conversation, on every provider, as
+   OpenClaw keys a session by group (its Feishu default `groupSessionScope: group`): kept in
+   `channel_conversations` for the group (`external_user_id` `@group`) and continued by every member's question
+   while its last message is younger than `memoryos.channel.group-conversation-idle` (4 hours). `/new` forgets the
+   direct or the group conversation and says so. A group's conversation runs as the bot's account, so it holds only
+   what everyone in the group may read, and each question in it carries its asker's name. A session is continued only by the account that
    owns it, so a sender who gained or lost an account starts over.
 7. The question becomes a Chat turn through the API the web uses: a session created with
    `ChatSessionService.createInChannel`, a `SEND` at `ChatSessionService.leaf` with a request id derived from
    the provider's message id, the reply's stream read for text, and the saved answer read for its text and
-   sources. The answer is finished with a closing line in a group ("reply to continue, send a direct message for
-   your own documents") and for a sender without an account ("sign in").
+   sources. A direct answer is finished with a closing line: the link that opens a sender's own conversation in
+   MemoryOS, or, for a sender without an account, "sign in". A group answer has none: its conversation continues
+   by itself, and no reference bot adds one.
 
 A failure is a notice and a recorded reason, never a provider message or the question: a refused or busy turn
 says "busy", a spend limit names the limit, anything else says the bot could not answer. Notices are in the

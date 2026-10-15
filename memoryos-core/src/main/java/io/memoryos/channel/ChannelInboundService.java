@@ -120,11 +120,10 @@ public class ChannelInboundService {
                 refuse(connection, adapter, message, refusal);
                 return "REFUSED";
             }
-            boolean groupConversation = message.kind() == ChannelMessage.Kind.GROUP && !adapter.features().quotes();
-            if ((message.kind() == ChannelMessage.Kind.DIRECT || groupConversation)
-                    && NEW_CONVERSATION.equals(message.text().strip())) {
+            if (NEW_CONVERSATION.equals(message.text().strip())) {
                 // A group's one conversation is started over by any member the bot answers there, as OpenClaw's /new.
-                inbound.forget(connection.id(), message.chatId(), groupConversation ? GROUP : message.senderId());
+                boolean group = message.kind() == ChannelMessage.Kind.GROUP;
+                inbound.forget(connection.id(), message.chatId(), group ? GROUP : message.senderId());
                 adapter.notice(connection, message, ChannelNotice.NEW_CONVERSATION.in(connection.noticeLanguage()));
                 inbound.settle(connection.id(), message.messageId(), "ANSWERED", "NEW_CONVERSATION", null, null, null);
                 return "NEW_CONVERSATION";
@@ -282,8 +281,7 @@ public class ChannelInboundService {
         }
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
         ActorId actor = direct && sender != null ? sender : connection.serviceAccount();
-        boolean groupConversation = !direct && !adapter.features().quotes();
-        UUID session = step("conversation", () -> conversation(connection, message, actor, groupConversation, now));
+        UUID session = step("conversation", () -> conversation(connection, message, actor, now));
         // The reply is opened once the question is accepted, so it is written while the turn is prepared and is not
         // shown while the question waits for a turn its conversation is running.
         var opened = new AtomicReference<ChannelReply>();
@@ -320,7 +318,7 @@ public class ChannelInboundService {
         // From here the reply is open, so whatever fails ends it, and its typing mark with it, in the sender's sight.
         try {
             if (direct) inbound.keep(tenant, connection.id(), message.chatId(), message.senderId(), answered.session(), now);
-            else if (groupConversation) inbound.keep(tenant, connection.id(), message.chatId(), GROUP, answered.session(), now);
+            else inbound.keep(tenant, connection.id(), message.chatId(), GROUP, answered.session(), now);
             if (answered.status() != ChatMessage.Status.COMPLETED) {
                 var notice = "CHAT_CAPACITY_EXCEEDED".equals(answered.failureCode()) ? ChannelNotice.BUSY : ChannelNotice.FAILED;
                 reply.fail(notice.in(connection.noticeLanguage()));
@@ -331,7 +329,7 @@ public class ChannelInboundService {
             }
             var pieces = features.editsReply() ? List.of(answered.text()) : ChannelText.pieces(answered.text(), features.maxText());
             var sources = sources(answered.sources());
-            var footer = footer(connection, features, direct, sender, answered.session());
+            var footer = footer(connection, direct, sender, answered.session());
             String replyId;
             try {
                 replyId = step("finish", () -> reply.finish(pieces, sources, footer));
@@ -383,19 +381,23 @@ public class ChannelInboundService {
     }
 
     /**
-     * The session the message continues, or null for a new one. A group of a provider that cannot quote has one
-     * conversation, as OpenClaw keys a session by group, continued while it is recent: it runs as the bot's account,
-     * so it holds only what everyone in the group may read, and each question in it carries its asker's name.
+     * The session the message continues, or null for a new one. A group has one conversation, as OpenClaw keys a
+     * session by group (its Feishu default {@code groupSessionScope: group}), continued while it is recent: it runs as
+     * the bot's account, so it holds only what everyone in the group may read, and each question in it carries its
+     * asker's name. A reply in a group continues the conversation of the answer it replies to, looked up in that group
+     * alone, so it never leaves the group for someone's direct conversation.
      */
-    private @Nullable UUID conversation(ChannelConnection connection, ChannelMessage message, ActorId actor,
-                                        boolean groupConversation, Instant now) {
+    private @Nullable UUID conversation(ChannelConnection connection, ChannelMessage message, ActorId actor, Instant now) {
         UUID session = null;
-        if (message.repliesTo() != null) {
-            session = inbound.sessionOf(connection.id(), message.repliesTo()).orElse(null);
-        } else if (message.kind() == ChannelMessage.Kind.DIRECT) {
+        if (message.kind() == ChannelMessage.Kind.GROUP) {
+            if (message.repliesTo() != null) {
+                session = inbound.sessionOf(connection.id(), message.chatId(), message.repliesTo()).orElse(null);
+            }
+            if (session == null) session = recent(connection, message.chatId(), GROUP, properties.groupConversationIdle(), now);
+        } else if (message.repliesTo() != null) {
+            session = inbound.sessionOf(connection.id(), message.chatId(), message.repliesTo()).orElse(null);
+        } else {
             session = recent(connection, message.chatId(), message.senderId(), properties.conversationIdle(), now);
-        } else if (groupConversation) {
-            session = recent(connection, message.chatId(), GROUP, properties.groupConversationIdle(), now);
         }
         // A conversation is continued only by whoever it belongs to: a sender who gained or lost an account since
         // starts over, and a reply to another person's direct conversation never opens it.
@@ -452,15 +454,12 @@ public class ChannelInboundService {
     }
 
     /**
-     * The closing line: in a group, how to continue, or only how to ask on one's own where nothing can be replied to;
-     * to a sender without an account, how to get one; to a sender's
-     * own direct conversation, the link that opens it in MemoryOS, where it continues.
+     * The closing line, in a direct conversation only: to a sender without an account, how to get one; to a sender's
+     * own conversation, the link that opens it in MemoryOS, where it continues.
      */
-    private @Nullable String footer(ChannelConnection connection, ChannelFeatures features, boolean direct,
-                                    @Nullable ActorId sender, UUID session) {
-        if (!direct) {
-            return (features.quotes() ? ChannelNotice.GROUP_FOOTER : ChannelNotice.GROUP_FOOTER_DIRECT).in(connection.noticeLanguage());
-        }
+    private @Nullable String footer(ChannelConnection connection, boolean direct, @Nullable ActorId sender, UUID session) {
+        // A group answer has no closing line: its conversation continues by itself, and no reference bot adds one.
+        if (!direct) return null;
         if (sender == null) return ChannelNotice.UNMAPPED_FOOTER.in(connection.noticeLanguage());
         String url = properties.sessionUrl(session);
         return url == null ? null : "[" + ChannelNotice.CONTINUE_ON_WEB.in(connection.noticeLanguage()) + "](" + url + ")";

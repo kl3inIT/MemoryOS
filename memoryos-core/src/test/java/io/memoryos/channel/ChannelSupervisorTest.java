@@ -246,7 +246,7 @@ class ChannelSupervisorTest {
 
         @Override public void acknowledge(ChannelConnection connection, ChannelMessage message) {}
 
-        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, true, 150_000); }
+        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, 150_000); }
 
         @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return ChannelSender.UNKNOWN; }
 

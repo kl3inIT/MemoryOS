@@ -26,10 +26,6 @@ enum ChannelNotice {
     LIMIT("Đã hết hạn mức sử dụng AI. Hãy liên hệ quản trị viên.", "The AI usage limit is reached. Contact an administrator."),
     FAILED("Trợ lý chưa trả lời được câu này. Hãy thử lại.", "The assistant could not answer this. Try again."),
     INCOMPLETE("Câu trả lời chưa gửi hết. Hãy hỏi lại.", "The answer was not sent in full. Ask again."),
-    GROUP_FOOTER("Trả lời vào tin này để hỏi tiếp. Nhắn riêng cho trợ lý để hỏi theo tài liệu của riêng bạn.",
-            "Reply to this message to continue. Send the assistant a direct message to ask from your own documents."),
-    GROUP_FOOTER_DIRECT("Nhắn riêng cho trợ lý để hỏi theo tài liệu của riêng bạn.",
-            "Send the assistant a direct message to ask from your own documents."),
     CONTINUE_ON_WEB("Tiếp tục trên MemoryOS", "Continue in MemoryOS"),
     UNMAPPED_FOOTER("Đăng nhập MemoryOS bằng email công việc để trợ lý dùng được tài liệu của riêng bạn.",
             "Sign in to MemoryOS with your work e-mail so the assistant can use your own documents.");

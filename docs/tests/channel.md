@@ -19,7 +19,7 @@
 | The secret envelope moved to the shared kernel unchanged | `CredentialCipherTest` |
 | A direct message runs as its sender and a message handed over twice is answered once; the message and each of its steps are spans; the answer ends with the link to its session on the web | `ChannelInboundServiceTest.aDirectMessageRunsAsItsSenderAndIsAnsweredOnce` |
 | A sender without an account is answered as the bot, told to sign in, and the provider is asked once while that is remembered | `ChannelInboundServiceTest.aSenderWithoutAnAccountIsAnsweredAsTheBotAndRememberedForAWhile` |
-| A group is answered only when the bot is named, as the bot, with the closing line; a new group message starts a conversation | `ChannelInboundServiceTest.aGroupIsAnsweredOnlyWhenTheBotIsNamedAndAsTheBot` |
+| A group is answered only when the bot is named, as the bot, with no closing line; the group's next message continues its conversation | `ChannelInboundServiceTest.aGroupIsAnsweredOnlyWhenTheBotIsNamedAndAsTheBot` |
 | A reply to the bot's answer or to the question continues its conversation, however old and whoever replies | `ChannelInboundServiceTest.aReplyContinuesItsConversationHoweverOldAndWhoeverReplies` |
 | A direct conversation ends after the idle window and on `/new` | `ChannelInboundServiceTest.aDirectConversationEndsAfterTheIdleWindowOrOnTheNewCommand` |
 | A conversation is continued only by the account it belongs to | `ChannelInboundServiceTest.aConversationIsContinuedOnlyByWhoeverItBelongsTo` |
@@ -30,7 +30,7 @@
 | An expired code, or one sent in a group, does not link | `ChannelInboundServiceTest.anExpiredCodeOrOneSentInAGroupDoesNotLink` |
 | Five wrong codes in an hour lock the sender out, even with a live code | `ChannelInboundServiceTest.aSenderWithFiveWrongCodesInAnHourIsNotHeardEvenWithALiveOne` |
 | A linked sender in a group is answered as the bot; a stranger there is told how to link | `ChannelInboundServiceTest.aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink` |
-| On a platform like Zalo's (no organisations, no rewriting, no quoting) a linked direct sender is answered, an unlinked one is told to link, and a group answer closes by inviting a direct message, in the bot's language | `ChannelInboundServiceTest.onAPlatformLikeZalosALinkedSenderIsAnsweredAndAGroupIsToldToAskDirectlyRatherThanToReply` |
+| On a platform like Zalo's (no organisations, no rewriting) a linked direct sender is answered with the link to continue on the web, an unlinked one is told to link, and a group answer has no closing line | `ChannelInboundServiceTest.onAPlatformLikeZalosALinkedSenderIsAnsweredAndAGroupAnswerHasNoClosingLine` |
 | A link is ignored once its member is not active | `ChannelInboundServiceTest.aLinkIsLeftOutOnceItsMemberIsNoLongerActive` |
 | A linked account is not moved by another member's code, and a live code and a wrong one get the same answer | `ChannelInboundServiceTest.aLinkedAccountIsNotMovedByAnotherCodeAndLearnsNothingOfIt` |
 | A used, an expired and a wrong code get the same notice | `ChannelInboundServiceTest.everyCodeThatDoesNotLinkGetsTheSameNotice` |
@@ -94,8 +94,8 @@
 | Mention tags are written out, long text is cut, the summary is one line | `LarkReplyCardTest.mentionTagsAreWrittenOutLongTextIsCutAndTheSummaryIsOneLine` |
 | The linking instructions end with the bare address of Settings › Chat | `ChannelInboundServiceTest.theLinkingInstructionsEndWithTheAddressWhereACodeIsGot` |
 | A group's linking notice never silences the instructions in the sender's direct chat; within one chat the notice goes once a minute | `ChannelInboundServiceTest.aGroupsNoticeNeverSilencesTheInstructionsInTheSendersDirectChat` |
-| A group that cannot quote has one conversation, run as the bot, shared by its members' questions while recent, apart from direct ones, started over past the idle window or on `/new` | `ChannelInboundServiceTest.aGroupThatCannotQuoteHasOneConversationWhileItIsRecent` |
-| A group that quotes continues only by reply and keeps no conversation | `ChannelInboundServiceTest.aGroupThatQuotesContinuesOnlyByReply` |
+| A group has one conversation, run as the bot, shared by its members' questions while recent, apart from direct ones, started over past the idle window or on `/new` | `ChannelInboundServiceTest.aGroupHasOneConversationWhileItIsRecent` |
+| A reply in a group continues the conversation of the answer it replies to, however old, and a reply naming a direct message's id never reaches that conversation | `ChannelInboundServiceTest.aReplyInAGroupContinuesTheGroupsConversationAndNeverReachesADirectOne` |
 | A sender past the minute's rate is refused and told to wait | `ChannelInboundServiceTest.aSenderPastTheMinutesRateIsToldToWait` |
 | A turn run as the bot is told the asker's name as a plain label; a sender's own turn is not | `ChannelInboundServiceTest.aTurnRunAsTheBotIsToldTheAskersNameAsALabel` |
 | A question waits for its conversation's running turn, is acknowledged once and asks at the new leaf | `ChannelTurnsTest.aQuestionWaitsForTheTurnItsConversationIsRunningAndAsksAtTheNewLeaf` |
