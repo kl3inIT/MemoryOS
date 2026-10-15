@@ -38,6 +38,28 @@ describe("channelLine", () => {
   });
 });
 
+describe("channelLine for a Zalo bot", () => {
+  const zalo = (overrides: Partial<ChannelResponse>) =>
+    bot({ provider: "ZALO_BOT", region: undefined, transport: "WEBHOOK", ...overrides });
+
+  it("names Zalo, and why it failed when the failure has a line of its own", () => {
+    expect(channelLine(zalo({})).line).toBe("Đang trả lời trên Zalo");
+    expect(channelLine(zalo({ status: "CONNECTING" })).line).toBe("Đang kết nối tới Zalo…");
+    expect(
+      channelLine(zalo({ status: "FAILED", failureCode: "CHANNEL_WEBHOOK_UNREACHABLE" })),
+    ).toEqual({ line: "Zalo không gọi được tới webhook", tone: "danger" });
+    expect(channelLine(zalo({ status: "FAILED", failureCode: "CHANNEL_SOMETHING" })).line).toBe(
+      "Không kết nối được tới Zalo",
+    );
+  });
+
+  it("keeps Lark's own line for a failure code only Zalo explains", () => {
+    expect(
+      channelLine(bot({ status: "FAILED", failureCode: "CHANNEL_WEBHOOK_UNREACHABLE" })).line,
+    ).toBe("Không kết nối được tới Lark");
+  });
+});
+
 describe("settling", () => {
   it("polls only while a bot switched on is not connected", () => {
     expect(settling([bot({}), bot({ status: "OFF", enabled: false })])).toBe(false);
