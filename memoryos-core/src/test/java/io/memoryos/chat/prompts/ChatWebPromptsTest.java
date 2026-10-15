@@ -51,10 +51,23 @@ class ChatWebPromptsTest {
         assertTrue(last.contains("Always answer with the KPI month."));
         var now = Instant.parse("2026-09-17T00:00:00Z");
         var standard = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null);
-        assertEquals(1, standard.split("2026-09-17T00:00:00Z", -1).length - 1);
+        assertEquals(1, standard.split("2026-09-17", -1).length - 1);
         assertFalse(standard.contains("CURRENT_DATETIME"));
         var custom = ChatPrompts.resolve("You answer HR questions.", false, now, null);
-        assertTrue(custom.endsWith("Additional Information:\n\t- The current date is 2026-09-17T00:00:00Z."));
+        assertTrue(custom.endsWith("Additional Information:\n\t- The current date is Thursday 2026-09-17 (UTC)."));
+    }
+
+    @Test void theSystemPromptStaysTheSameForTheWholeDaySoProvidersCanCacheIt() {
+        // MEM-260: turns of one conversation hours apart send a byte-identical system prompt; the next UTC day
+        // changes it once.
+        var morning = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, true, Instant.parse("2026-10-15T01:02:03.456789Z"), "vi");
+        var evening = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, true, Instant.parse("2026-10-15T23:59:59.999Z"), "vi");
+        assertEquals(morning, evening);
+        assertTrue(morning.contains("The current date is Thursday 2026-10-15 (UTC)."));
+        assertEquals(ChatPrompts.resolve("You answer HR questions.", false, Instant.parse("2026-10-15T08:00:00Z")),
+                ChatPrompts.resolve("You answer HR questions.", false, Instant.parse("2026-10-15T09:30:00Z")));
+        var nextDay = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, true, Instant.parse("2026-10-16T00:00:00Z"), "vi");
+        assertTrue(nextDay.contains("The current date is Friday 2026-10-16 (UTC)."));
     }
 
     @Test void webOnlyDoesNotAdvertiseInternalSearchAndPreservesOriginalPrompt() {
