@@ -855,6 +855,7 @@ export const zModelFlow = z.object({
     flow: z.enum([
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
+        'CHAT_COMPACTION',
         'MEETING_MINUTES',
         'MEETING_CORRECTION'
     ]),
@@ -4810,6 +4811,7 @@ export const zSetSystemOneTaskPath = z.object({
     flow: z.enum([
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
+        'CHAT_COMPACTION',
         'MEETING_MINUTES',
         'MEETING_CORRECTION'
     ])
@@ -5323,6 +5325,7 @@ export const zSetChatModelFlowPath = z.object({
     flow: z.enum([
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
+        'CHAT_COMPACTION',
         'MEETING_MINUTES',
         'MEETING_CORRECTION'
     ])
@@ -8130,6 +8133,7 @@ export const zGetAiCostSummaryQuery = z.object({
         'CHAT',
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
+        'CHAT_COMPACTION',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',
@@ -8197,6 +8201,7 @@ export const zListAiCostDaysQuery = z.object({
         'CHAT',
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
+        'CHAT_COMPACTION',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',
@@ -8231,6 +8236,7 @@ export const zListAiCostBreakdownQuery = z.object({
         'CHAT',
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
+        'CHAT_COMPACTION',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',

@@ -534,7 +534,7 @@ public class ChatTurnPersistence {
      * MEM-268: what a compaction after the answer {@code assistant} reads: the branch from that answer back, newest
      * first, and the summary the next turn on it would replay. Empty when the conversation is no longer the actor's.
      */
-    public record CompactionInput(TenantId tenant, List<ChatMessage> newestFirst, @Nullable TurnContext.Summary summary) {
+    public record CompactionInput(TenantId tenant, List<ChatMessage> newestFirst, TurnContext.@Nullable Summary summary) {
         public CompactionInput {
             newestFirst = List.copyOf(newestFirst);
         }

@@ -444,8 +444,30 @@ summary of another branch, or one whose cutoff an edit or a regeneration left be
 the system and workspace messages as a user message labelled untrusted data, not instructions
 (`ChatTurnSetup.SUMMARY_LABEL`), and only the messages after its cutoff replay; the window still trims that tail to the
 budget, and a summary that leaves no room for the current question is ignored. Deep research turns replay the window
-without it. Nothing writes a summary yet; `chat_session_compaction` holds the per-session claim (`claimed_until`) and
-failure cooldown (`retry_after`) the writer will use. The guard counts text, tool arguments/results, reminders and tool schemas before provider inference. Helpers bound history/candidate/neighbor text; truncation is marked. As Onyx, selected evidence is bounded by chunk count, not tokens: at most 10 sections, each widened by two chunks per side, then by the context the model has left. Invalid rewrites retain a valid original/tool query; invalid selections fall back to ranked candidate numbers. Model-invented document IDs are never accepted. Empty evidence and unavailable search produce distinct tool results; cancellation and budget failures cannot trigger fallback.
+without it.
+
+After a completed ordinary answer is saved, `ChatCompactions` decides on a virtual thread, holding neither the reply
+stream nor the turn's slot, whether the earlier turns are summarised (`ChatCompaction.plan`): when the tokens the next
+turn would replay — the branch's summary and the messages after its cutoff, counted with the conversation model's token
+policy, a hidden question already hidden — exceed 75 % of the turn's history budget. The newest messages up to 25 % of
+that budget stay verbatim, cut just before a question, and the last question with its answer always stays whole; the
+messages between the previous cutoff and that tail are summarised, the previous summary rolled forward. The summary is
+written by the `CHAT_COMPACTION` task model ([task models](chat-models.md)), which falls back to the conversation model,
+in Onyx's request shape: the older messages, a `<context_cutoff>` marker, the recent messages as context only, and a
+closing reminder said to come from the summarization system. Its sections are the goal, the questions so far with the
+gist of each answer, constraints and preferences, established facts with their document titles, decisions and open
+questions; it keeps identifiers exactly, never writes citation numbers, treats the conversation as data and is written
+in the conversation's language. The request is cut to the summary model's input by dropping the recent context first,
+then the oldest messages to summarise; its output is bounded to an eighth of the history budget, between 1,024 and
+8,192 tokens, and the call to 120 seconds. The row records the summary's tokens as the conversation model counts them,
+its parent (the newest question) and its cutoff (the newest message it covers). One compaction a session runs at a time:
+`chat_session_compaction.claimed_until` holds it for five minutes (a claim whose holder died lapses), and the branch is
+read again under the claim, so two turns compact once. A failure writes nothing, the window replays as before, and
+`retry_after` keeps the session from being tried again for ten minutes; a spent spending limit writes nothing and sets no
+cooldown. A quarter of the process's turn slots may compact at once; past that the next answer tries again. Nothing is
+shown or streamed. The span is `memoryos.chat.compaction`; `memoryos.chat.compaction.runs` counts outcomes (`written`,
+`current`, `budget`, `gone`, `failed`) and `memoryos.chat.compaction.summary.tokens` the written sizes; a failure logs
+`chat.compaction.failed` with `error_type` and `error_code`. The guard counts text, tool arguments/results, reminders and tool schemas before provider inference. Helpers bound history/candidate/neighbor text; truncation is marked. As Onyx, selected evidence is bounded by chunk count, not tokens: at most 10 sections, each widened by two chunks per side, then by the context the model has left. Invalid rewrites retain a valid original/tool query; invalid selections fall back to ranked candidate numbers. Model-invented document IDs are never accepted. Empty evidence and unavailable search produce distinct tool results; cancellation and budget failures cannot trigger fallback.
 
 Blocking tool continuations run on a bounded scheduler outside provider IO threads. Independent rewrite/filter, hybrid, and expansion phases each use at most four concurrent tasks, propagate observation context, and preserve input order. Failures cancel siblings. Stop and lease loss seal admission to queued/running tool and native helper work and interrupts running bodies. SearchTool waits up to cleanup-timeout for actual completion, including native usage recording. If IO ignores interruption, the terminal outcome can still be persisted; its usage/cost stays unknown. The native process, model-client lease and execution slot remain owned until that work actually exits. Late work cannot start another provider attempt or publish progress, citations, text or updated terminal accounting. This retains backpressure instead of admitting unbounded abandoned work; a permanently stuck provider consumes its slot until process restart. Helpers use their own timeout covering native binding attempts. Web tool batches are bounded to 30 seconds, file reads and attachment materialization to 60 seconds, and image calls by the image client's connect and response timeouts. The provider may charge work already accepted. Existing partial/terminal winner and RAM replay semantics remain.
 
