@@ -20,18 +20,22 @@ import io.memoryos.ai.ModelFlow;
 import io.memoryos.chat.web.WebConnectionService;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.mcp.McpTurnService;
+import io.memoryos.mcp.McpTurnTools;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageLimitException;
 import io.memoryos.usage.AiUsageLimitService;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.springaicommunity.typesafe.response.Usage;
 import io.memoryos.shared.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
+import io.memoryos.chat.streaming.ToolApproval;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CancellationException;
@@ -59,6 +63,8 @@ import reactor.core.publisher.Sinks;
  */
 public final class ChatTurnService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTurnService.class);
+    /** How long a tool call waits for the person's approval, as Onyx Craft parks a request at its proxy (MEM-253). */
+    static final Duration APPROVAL_WAIT = Duration.ofMinutes(10);
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
     private final ChatModelSelector models;
@@ -161,6 +167,7 @@ public final class ChatTurnService implements AutoCloseable {
     public record Accepted(UUID userMessageId, UUID assistantMessageId, @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {}
     public record Cancellation(UUID assistantMessageId, ChatMessage.Status status) {}
 
+
     /** The browser invokes this after the first completed exchange, never in the answer stream. */
     public void generateTitle(ActorId actor, UUID session) {
         if (!accepting.get() || !occupyForNaming()) return;
@@ -227,7 +234,11 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             // Credentials and OAuth refresh settle here, so the model never waits on an authorization server.
             // A Stop that arrives meanwhile cancels the run; execution then settles it without calling the model.
-            if (admission.opensMcp()) run.setup = run.setup.withMcp(Objects.requireNonNull(mcp).open(actor, command.mcpServerIds()));
+            if (admission.opensMcp()) {
+                var tools = Objects.requireNonNull(mcp).open(actor, command.mcpServerIds());
+                tools.approvals((binding, callId, arguments) -> awaitApproval(run, binding, callId, arguments));
+                run.setup = run.setup.withMcp(tools);
+            }
             failure = "CHAT_SUBMIT_FAILED";
             if (!accepting.get()) throw ChatException.busy();
             if (run.slot) executor.execute(() -> execute(run));
@@ -488,6 +499,55 @@ public final class ChatTurnService implements AutoCloseable {
             }
             return new Cancellation(assistant, status);
         } finally { lock.unlock(); }
+    }
+
+    /**
+     * The person's answer to a call that waits for approval (MEM-253). Only the reply's owner may answer; the decision
+     * reaches the run on this process, which is the one that runs every turn.
+     */
+    public void decide(ActorId actor, UUID session, UUID assistant, String callId, boolean approved) {
+        persistence.require(actor, IamCapability.CHAT_WRITE);
+        var lock = commandLock(session);
+        lock.lock();
+        try {
+            var status = persistence.authorizeReply(actor, session, assistant);
+            var run = active.get(assistant);
+            var pending = run == null || status != ChatMessage.Status.RUNNING ? null : run.approvals.get(callId);
+            if (pending == null || !pending.complete(approved ? McpTurnTools.Decision.APPROVED : McpTurnTools.Decision.DECLINED))
+                throw ChatException.approvalNotPending();
+        } finally { lock.unlock(); }
+    }
+
+    /** Publishes the call to the person and waits for their answer, a Stop, or {@link #APPROVAL_WAIT}. */
+    private McpTurnTools.Decision awaitApproval(Active run, McpTurnTools.Binding binding, String callId, String arguments) {
+        run.check();
+        var pending = new CompletableFuture<McpTurnTools.Decision>();
+        if (run.approvals.putIfAbsent(callId, pending) != null) return McpTurnTools.Decision.DECLINED;
+        UUID reply = run.setup.assistantMessageId();
+        McpTurnTools.Decision decision;
+        try {
+            streams.approval(reply, callId, binding.serverName(), binding.toolName(), arguments, null);
+            // A Stop between registering and publishing would otherwise leave the call waiting for the full period.
+            if (run.stopReason.get() != null) pending.complete(McpTurnTools.Decision.DECLINED);
+            try {
+                decision = pending.get(APPROVAL_WAIT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException expired) {
+                decision = McpTurnTools.Decision.NO_DECISION;
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                decision = McpTurnTools.Decision.DECLINED;
+            } catch (ExecutionException | CancellationException unexpected) {
+                decision = McpTurnTools.Decision.DECLINED;
+            }
+        } finally {
+            run.approvals.remove(callId, pending);
+        }
+        streams.approval(reply, callId, binding.serverName(), binding.toolName(), arguments,
+                ToolApproval.Decision.valueOf(decision.name()));
+        LOG.atInfo().addKeyValue("event", "chat.tool_approval.decided").addKeyValue("message_id", reply)
+                .addKeyValue("mcp_server_id", binding.serverId()).addKeyValue("tool", binding.modelName())
+                .addKeyValue("decision", decision.name()).log("Tool approval decided");
+        return decision;
     }
 
     public Supplier<StreamBufferWriter.Reader> subscribe(ActorId actor, UUID session, UUID assistant, long after) {
@@ -913,6 +973,8 @@ public final class ChatTurnService implements AutoCloseable {
         final StringBuilder plan = new StringBuilder();
         volatile boolean clarification;
         final AtomicReference<StopReason> stopReason = new AtomicReference<>();
+        /** Calls waiting for the person's approval, by provider call ID (MEM-253). */
+        final Map<String, CompletableFuture<McpTurnTools.Decision>> approvals = new ConcurrentHashMap<>();
         final Sinks.One<Boolean> cancellation = Sinks.one();
         final CompletableFuture<Void> finished = new CompletableFuture<>();
         CompletableFuture<Void> draining = CompletableFuture.completedFuture(null);
@@ -955,6 +1017,8 @@ public final class ChatTurnService implements AutoCloseable {
             if (outcome != null) return;
             stopReason.compareAndSet(null, reason);
             cancellation.tryEmitValue(true);
+            // A call waiting for the person is declined, so Stop does not wait out the approval period.
+            approvals.values().forEach(pending -> pending.complete(McpTurnTools.Decision.DECLINED));
         }
         synchronized void append(String text, int limit) {
             check();

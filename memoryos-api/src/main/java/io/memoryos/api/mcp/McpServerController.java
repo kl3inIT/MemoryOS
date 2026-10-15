@@ -4,6 +4,7 @@ import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatGroupPageResponse;
 import io.memoryos.api.mcp.contract.McpServerRequest;
 import io.memoryos.api.mcp.contract.McpServerResponse;
+import io.memoryos.api.mcp.contract.McpToolApprovalRequest;
 import io.memoryos.api.mcp.contract.McpToolEnablementRequest;
 import io.memoryos.api.mcp.contract.McpToolRefreshResponse;
 import io.memoryos.api.mcp.contract.McpToolResponse;
@@ -125,6 +126,15 @@ class McpServerController {
                                    @PathVariable UUID serverId, @PathVariable UUID toolId, @RequestParam @Positive long revision,
                                    @RequestBody McpToolEnablementRequest request) {
         return McpToolResponse.from(servers.setToolEnabled(identity.actorId(), serverId, toolId, revision, request.enabled()));
+    }
+
+    @PutMapping("/servers/{serverId}/tools/{toolId}/approval")
+    @ApiResponse(responseCode = "200", description = "Saved tool", useReturnTypeSchema = true)
+    @Operation(operationId = "setMcpServerToolApproval", summary = "Set whether an enabled tool asks the person before each call, at the expected revision")
+    McpToolResponse setToolApproval(@CurrentActor IdentityContext identity,
+                                    @PathVariable UUID serverId, @PathVariable UUID toolId, @RequestParam @Positive long revision,
+                                    @RequestBody McpToolApprovalRequest request) {
+        return McpToolResponse.from(servers.setToolApproval(identity.actorId(), serverId, toolId, revision, request.approvalRequired()));
     }
 
     @PutMapping("/servers/{serverId}/tools/enabled")

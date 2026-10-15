@@ -16,13 +16,15 @@ public record McpToolResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Boolean readOnlyHint,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Boolean destructiveHint,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean enabled,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "An enabled tool waits for the person to approve each call")
+        boolean approvalRequired,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean exposable,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant snapshotAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision
 ) {
     public static McpToolResponse from(McpServerService.ToolView value) {
         return new McpToolResponse(value.id(), value.name(), value.modelName(), value.title(), value.description(),
-                value.readOnlyHint(), value.destructiveHint(), value.enabled(), value.exposable(), value.snapshotAt(),
+                value.readOnlyHint(), value.destructiveHint(), value.enabled(), value.approvalRequired(), value.exposable(), value.snapshotAt(),
                 value.revision());
     }
 }

@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAttachOnOpen } from "@/features/chat/composer/use-attach-on-open";
 import { useAuiState } from "@assistant-ui/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,9 +26,13 @@ import {
   ChatTemporaryToggle,
 } from "@/features/chat/session/chat-temporary";
 import { ChatConversationSearch } from "@/features/chat/thread/chat-conversation-search";
-import { projectOf, type Project } from "@/features/chat/projects/chat-projects-api";
+import {
+  projectOf,
+  projectsOptions,
+  type Project,
+} from "@/features/chat/projects/chat-projects-api";
 import { ProjectContextPanel } from "@/features/chat/projects/project-context-panel";
-import { ProjectConversationList } from "@/features/chat/projects/project-conversation-list";
+import { ProjectTabs } from "@/features/chat/projects/project-tabs";
 import { useChatThreads } from "@/features/chat/runtime/chat-threads-context";
 import type { ChatThreadController } from "@/features/chat/runtime/chat-thread-controller";
 import { ChatModelPicker } from "./chat-model-picker";
@@ -66,9 +70,13 @@ export function ChatPage() {
       state.threads.threadItems.find((item) => item.id === state.threads.mainThreadId)?.remoteId,
   );
   const controller = useSyncExternalStore(registry.subscribe, () => registry.get(mainId));
+  const cache = useQueryClient();
   const project = useQuery({
     ...getChatProjectOptions({ path: { projectId: projectId ?? "" } }),
     select: projectOf,
+    // The sidebar already holds the Project, so the page shows it at once instead of a loader while it refreshes.
+    placeholderData: () =>
+      cache.getQueryData(projectsOptions().queryKey)?.find((item) => item.id === projectId),
     enabled: !!projectId,
     retry: false,
   });
@@ -257,7 +265,7 @@ function ChatConversationBody({
               }}
             />
           ) : project && !session ? (
-            <ProjectConversationList projectId={project.id} />
+            <ProjectTabs project={project} />
           ) : undefined
         }
         starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}

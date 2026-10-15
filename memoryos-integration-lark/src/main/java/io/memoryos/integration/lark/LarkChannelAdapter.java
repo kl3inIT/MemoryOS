@@ -6,6 +6,9 @@ import com.lark.oapi.channel.model.NormalizedMessage;
 import com.lark.oapi.channel.model.SendInput;
 import com.lark.oapi.channel.model.SendOptions;
 import com.lark.oapi.service.contact.v3.model.GetUserReq;
+import com.lark.oapi.service.im.v1.model.CreateMessageReactionReq;
+import com.lark.oapi.service.im.v1.model.CreateMessageReactionReqBody;
+import com.lark.oapi.service.im.v1.model.Emoji;
 import com.lark.oapi.service.im.v1.model.GetChatReq;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
 import io.memoryos.channel.ChannelAdapter;
@@ -47,6 +50,7 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     /** The budget of a call the SDK makes outside any exchange the adapter binds: sending, streaming, reading. */
     static final LarkTransport.Exchange CALL = new LarkTransport.Exchange(Duration.ofSeconds(30), 1_048_576);
     private static final Duration CHAT_TTL = Duration.ofHours(1);
+    private static final String WAITING = "Get";
 
     private final LarkTransport transport;
     private final @Nullable RestLarkGateway gateway;
@@ -168,6 +172,23 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
             throw failed;
         } catch (Exception failed) {
             throw new IllegalStateException("the Lark reply could not be sent", failed);
+        }
+    }
+
+    /** The {@code Get} reaction, as spring-agent's Feishu bot puts on a message that waits behind another. */
+    @Override
+    public void acknowledge(ChannelConnection connection, ChannelMessage message) {
+        try {
+            var answer = channel(connection).getRawClient().im().v1().messageReaction().create(CreateMessageReactionReq
+                    .newBuilder().messageId(message.messageId()).createMessageReactionReqBody(CreateMessageReactionReqBody
+                            .newBuilder().reactionType(Emoji.newBuilder().emojiType(WAITING).build()).build()).build());
+            if (answer == null || !answer.success()) {
+                LOG.atWarn().addKeyValue("event", "channel.lark.reaction_failed")
+                        .addKeyValue("error_code", answer == null ? -1 : answer.getCode()).log("Lark reaction was not put");
+            }
+        } catch (Exception unput) {
+            LOG.atWarn().addKeyValue("event", "channel.lark.reaction_failed")
+                    .addKeyValue("error_type", unput.getClass().getName()).log("Lark reaction was not put");
         }
     }
 

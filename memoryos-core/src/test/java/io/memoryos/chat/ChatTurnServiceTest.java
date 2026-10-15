@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -587,6 +588,73 @@ class ChatTurnServiceTest {
             when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
                     .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));
             service.send(actor, session, parent, UUID.randomUUID(), "Question", null);
+        }
+    }
+
+    private static final McpTurnTools.Binding SEND = new McpTurnTools.Binding(UUID.randomUUID(), "gmail", "Gmail",
+            "send_email", "mcp_gmail_send_email", "Send an email.", "{}", false, true);
+
+    /** A model that calls one tool requiring approval and records the person's decision. */
+    private AtomicReference<McpTurnTools.Decision> modelAskingApproval(CountDownLatch asking) {
+        var gate = new AtomicReference<McpTurnTools.Approvals>();
+        doAnswer(call -> { gate.set(call.getArgument(0)); return null; }).when(tools).approvals(any());
+        when(mcp.open(any(), any())).thenReturn(tools);
+        var decided = new AtomicReference<McpTurnTools.Decision>();
+        doAnswer(call -> {
+            asking.countDown();
+            decided.set(gate.get().decide(SEND, "call-1", "{\"to\":\"a@example.com\"}"));
+            Consumer<String> output = call.getArgument(3);
+            output.accept("Done");
+            return null;
+        }).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        return decided;
+    }
+
+    /** Answers the waiting call once it is waiting; a decision before then is refused as not pending. */
+    private void decideWhenWaiting(ChatTurnService service, boolean approved) throws InterruptedException {
+        for (int attempt = 0; attempt < 200; attempt++) {
+            try {
+                service.decide(actor, session, pair.assistantMessageId(), "call-1", approved);
+                return;
+            } catch (ChatException notYet) {
+                assertEquals("CHAT_TOOL_APPROVAL_NOT_PENDING", notYet.code());
+                Thread.sleep(25);
+            }
+        }
+        throw new AssertionError("The call never waited for approval");
+    }
+
+    @Test
+    void aCallRequiringApprovalRunsOnceTheOwnerApprovesAndASecondAnswerIsRefused() throws Exception {
+        prepare();
+        when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
+        var decided = modelAskingApproval(new CountDownLatch(1));
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(limits, tasks::execute)) {
+            service.command(actor, session, mcpCommand(request));
+            decideWhenWaiting(service, true);
+            verify(persistence, timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED),
+                    eq("Done"), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals(McpTurnTools.Decision.APPROVED, decided.get());
+            assertEquals("CHAT_TOOL_APPROVAL_NOT_PENDING", assertThrows(ChatException.class,
+                    () -> service.decide(actor, session, pair.assistantMessageId(), "call-1", false)).code());
+        }
+    }
+
+    @Test
+    void stopWhileACallWaitsForApprovalDeclinesItAtOnce() throws Exception {
+        prepare();
+        when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
+        var asking = new CountDownLatch(1);
+        var decided = modelAskingApproval(asking);
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(limits, tasks::execute)) {
+            service.command(actor, session, mcpCommand(request));
+            assertTrue(asking.await(5, TimeUnit.SECONDS));
+            // Let the call reach its wait, then Stop: the wait ends at once instead of after ten minutes.
+            Thread.sleep(200);
+            service.cancel(actor, session, pair.assistantMessageId());
+            verify(persistence, timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.CANCELED),
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals(McpTurnTools.Decision.DECLINED, decided.get());
         }
     }
 

@@ -55,7 +55,8 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
   `ChannelWorkerComponents`. The inbound service: the claim, the rules, the sender, who the turn runs as, the
   conversation, the turn and its reply, notices. `ChatSessionService.leaf`.
 - [ ] 3c-2. What 3c-1 left: the sender's rate, the order within a conversation, the reaction that acknowledges
-  a message, the asker's name a bot turn is told, the link to a direct conversation on the web. Originally: the rules, the sender, who the turn runs as and the asker's name it is told, the
+  a message, the asker's name a bot turn is told (done), and the link to a direct conversation on the web, which
+  waits for the address of the web on staging and for step 2's check that a bot session opens by its address. Originally: the rules, the sender, who the turn runs as and the asker's name it is told, the
   conversation, the turn and its reply; the order within a conversation and the sender's rate.
 - [x] 3d-1. The model catalog, `ModelCalls`, the native Asyncer and the tool-observation sanitizer move from the
   API module into `chat.execution`, so every process that runs turns has them. `ChannelAdapter.open` and
@@ -94,9 +95,10 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
 
 ## 5. The settings page
 
-- [ ] `web/src/features/channels`: the Lark bot section under administration, in both languages, following the
-  Lark credential section's components.
-- [ ] Screenshots reviewed at desktop and phone widths, light and dark.
+- [x] `web/src/features/channels`: "Kênh chat" under administration (`/admin/channels`), in both languages,
+  listed and opened as the MCP servers now are (the shared `AppRow`, a page a bot), the add dialog following the
+  Lark credential dialog.
+- [x] Screenshots reviewed at desktop and phone widths, light and dark (`channels-administration.spec.ts`).
 
 ## 6. Acceptance and consolidation
 

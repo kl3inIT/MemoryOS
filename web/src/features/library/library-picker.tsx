@@ -143,9 +143,11 @@ function PickerBody({
         <LibraryCategoryFilter categories={categories} onCategories={setCategories} size="md" />
         <Tabs value={source} onValueChange={(value) => setSource(value as typeof source)}>
           <TabsList aria-label={ui("Nguồn tệp")}>
-            <TabsTrigger value="ALL">{ui("Tất cả")}</TabsTrigger>
+            <TabsTrigger value="ALL" focus="soft">
+              {ui("Tất cả")}
+            </TabsTrigger>
             {(["UPLOAD", "GENERATED", "IMAGE"] as const).map((value) => (
-              <TabsTrigger key={value} value={value}>
+              <TabsTrigger key={value} value={value} focus="soft">
                 {sourceLabels[value]}
               </TabsTrigger>
             ))}
@@ -229,6 +231,7 @@ function PickerBody({
               )}
             >
               <Checkbox
+                focus="soft"
                 aria-label={ui("Chọn {{name}}", { name: file.filename })}
                 checked={checked}
                 disabled={attached || full}

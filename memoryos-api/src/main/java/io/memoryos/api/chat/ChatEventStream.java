@@ -13,6 +13,7 @@ import io.memoryos.api.chat.contract.ResetEvent;
 import io.memoryos.api.chat.contract.TextEvent;
 import io.memoryos.api.chat.contract.ToolEvent;
 import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
+import io.memoryos.api.chat.contract.ToolApprovalEvent;
 import io.memoryos.api.chat.contract.WaitingEvent;
 
 import io.memoryos.api.chat.contract.ChatSourceResponse;
@@ -27,6 +28,7 @@ import io.memoryos.chat.streaming.ResearchAgentStart;
 import io.memoryos.chat.streaming.ResearchPlan;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.streaming.TextDelta;
+import io.memoryos.chat.streaming.ToolApproval;
 import io.memoryos.chat.streaming.ToolProgress;
 import io.memoryos.chat.streaming.TopLevelBranching;
 import io.memoryos.chat.streaming.TurnWaiting;
@@ -102,6 +104,9 @@ final class ChatEventStream {
                         run.stream());
             }
             case TurnWaiting turn -> new WaitingEvent(assistant, sequence, turn.waiting());
+            case ToolApproval approval -> new ToolApprovalEvent(assistant, sequence, approval.toolCallId(),
+                    approval.serverName(), approval.toolName(), approval.arguments(),
+                    approval.decision() == null ? null : approval.decision().name());
             case UnknownEvent _ -> throw new IllegalArgumentException("Unknown Chat event type");
         };
     }

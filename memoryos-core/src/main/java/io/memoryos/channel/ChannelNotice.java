@@ -13,6 +13,7 @@ enum ChannelNotice {
     NEW_CONVERSATION("Đã bắt đầu cuộc trò chuyện mới.", "A new conversation has started."),
     WRITING("Đang trả lời…", "Answering…"),
     BUSY("Trợ lý đang bận. Hãy hỏi lại sau ít phút.", "The assistant is busy. Ask again in a moment."),
+    RATE("Bạn đang gửi quá nhanh. Hãy đợi một phút rồi hỏi tiếp.", "You are sending messages too fast. Wait a minute, then ask again."),
     LIMIT("Đã hết hạn mức sử dụng AI. Hãy liên hệ quản trị viên.", "The AI usage limit is reached. Contact an administrator."),
     FAILED("Trợ lý chưa trả lời được câu này. Hãy thử lại.", "The assistant could not answer this. Try again."),
     GROUP_FOOTER("Trả lời vào tin này để hỏi tiếp. Nhắn riêng cho trợ lý để hỏi theo tài liệu của riêng bạn.",

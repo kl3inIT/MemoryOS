@@ -78,7 +78,12 @@ const settingsPages: readonly SettingsEntry[] = [
   generalSettings,
   { id: "chat", to: "/settings/chat", label: appText("Chat"), icon: MessageSquare },
   { id: "storage", to: "/settings/storage", label: appText("Bộ nhớ lưu trữ"), icon: HardDrive },
-  { id: "connections", to: "/settings/connections", label: appText("Connections"), icon: Blocks },
+  {
+    id: "connections",
+    to: "/settings/connections",
+    label: appText("Ứng dụng đã kết nối"),
+    icon: Blocks,
+  },
   { id: "mcp", to: "/settings/mcp", label: appText("MemoryOS MCP"), icon: Cable },
   { id: "usage", to: "/settings/usage", label: appText("Usage"), icon: ChartColumn },
 ];

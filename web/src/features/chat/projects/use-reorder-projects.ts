@@ -54,7 +54,7 @@ export function useReorderProjects() {
     const ordered = current.map((project) =>
       moved.has(project.id) ? (next[taken++] ?? project) : project,
     );
-    reorder.mutate({
+    return reorder.mutateAsync({
       body: { projectIds: ordered.map((project) => project.id) },
       signal: AbortSignal.timeout(30000),
     });

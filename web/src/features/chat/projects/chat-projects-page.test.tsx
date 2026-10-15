@@ -65,6 +65,7 @@ async function show() {
       </ActionNotifications>
     </QueryClientProvider>,
   );
+  return router;
 }
 
 beforeEach(() => i18n.changeLanguage("vi"));
@@ -247,4 +248,59 @@ it("restores the order and says the result is unconfirmed when the write fails",
 
   expect(await screen.findByText(/Chưa xác nhận được kết quả/)).toBeInTheDocument();
   expect(listedNames()).toEqual(["Kế hoạch", "Tài chính", "Rà soát"]);
+});
+
+it("reorders by dragging a row from anywhere and does not open the project when the pointer is released", async () => {
+  stackRows("li");
+  const saved: unknown[] = [];
+  server.use(
+    handleListChatProjects({ body: [planning, finance, reviews] }),
+    handleReorderChatProjects(async ({ request }) => {
+      saved.push(await request.json());
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  const router = await show();
+  const user = userEvent.setup();
+  const link = await screen.findByRole("link", { name: /Kế hoạch/ });
+
+  await user.pointer([
+    { keys: "[MouseLeft>]", target: link, coords: { x: 20, y: 10 } },
+    { coords: { x: 20, y: 30 } },
+    { coords: { x: 20, y: 55 } },
+    { coords: { x: 20, y: 65 } },
+    { keys: "[/MouseLeft]" },
+  ]);
+
+  await waitFor(() => expect(saved).toHaveLength(1));
+  expect(router.state.location.pathname).toBe("/projects");
+});
+
+it("does not drag the row behind the editor when text is selected by dragging inside it", async () => {
+  stackRows("li");
+  const saved: unknown[] = [];
+  server.use(
+    handleListChatProjects({ body: [planning, finance, reviews] }),
+    handleReorderChatProjects(async ({ request }) => {
+      saved.push(await request.json());
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  await show();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Thao tác với Kế hoạch" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Sửa" }));
+  const name = within(await screen.findByRole("dialog")).getByRole("textbox", { name: /Tên/ });
+
+  await user.pointer([
+    { keys: "[MouseLeft>]", target: name, coords: { x: 20, y: 10 } },
+    { coords: { x: 20, y: 30 } },
+    { coords: { x: 20, y: 55 } },
+    { coords: { x: 20, y: 65 } },
+    { keys: "[/MouseLeft]" },
+  ]);
+
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  expect(saved).toHaveLength(0);
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
 });

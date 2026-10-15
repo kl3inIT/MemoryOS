@@ -1,6 +1,7 @@
 package io.memoryos.channel;
 
 import io.memoryos.chat.ChatCommand;
+import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.ChatSource;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +24,8 @@ import org.springframework.stereotype.Component;
 @Component
 class ChannelTurns {
     private static final Duration SAVED_WAIT = Duration.ofMinutes(15);
+    private static final Duration RETRY = Duration.ofSeconds(1);
+    private static final String CONFLICT = "CHAT_CONFLICT";
 
     private final ChatSessionService sessions;
     private final ChatTurnService turns;
@@ -42,17 +46,19 @@ class ChannelTurns {
     }
 
     /**
-     * Asks in {@code session}, or in a new one when it is null, and returns once the reply has ended.
+     * Asks in {@code session}, or in a new one when it is null, and returns once the reply has ended. A conversation
+     * runs one turn at a time: while it runs another, the question waits for it, up to {@code wait}, and
+     * {@code onWaiting} is told once.
      *
      * @param request one id a question: a question handed over twice is answered once
-     * @param onText each piece of the answer as it is written
+     * @param onAccepted called once the question is accepted; it opens the reply and returns where the answer's
+     *        text goes as it is written, while the turn is already being prepared
      */
-    Answer ask(ActorId actor, @Nullable UUID session, String title, UUID request, String text, Consumer<String> onText)
-            throws InterruptedException {
+    Answer ask(ActorId actor, @Nullable UUID session, String title, UUID request, String text, Duration wait,
+               Runnable onWaiting, Supplier<Consumer<String>> onAccepted) throws InterruptedException {
         UUID conversation = session != null ? session : sessions.createInChannel(actor, title).id();
-        UUID parent = sessions.leaf(actor, conversation);
-        var accepted = turns.command(actor, conversation,
-                ChatCommand.builder(ChatCommand.Operation.SEND, parent, request, text).build());
+        var accepted = accept(actor, conversation, request, text, wait, onWaiting);
+        Consumer<String> onText = onAccepted.get();
         try (var reader = turns.subscribe(actor, conversation, accepted.assistantMessageId(), 0).get()) {
             while (true) {
                 var batch = reader.read();
@@ -66,6 +72,27 @@ class ChannelTurns {
         ChatMessage reply = saved(actor, conversation, accepted.userMessageId(), accepted.assistantMessageId());
         return new Answer(conversation, reply.id(), reply.status(), reply.content() == null ? "" : reply.content(),
                 reply.sources(), reply.failureCode());
+    }
+
+    ChatTurnService.Accepted accept(ActorId actor, UUID conversation, UUID request, String text, Duration wait,
+                                    Runnable onWaiting) throws InterruptedException {
+        long deadline = System.nanoTime() + wait.toNanos();
+        boolean waiting = false;
+        while (true) {
+            try {
+                UUID parent = sessions.leaf(actor, conversation);
+                return turns.command(actor, conversation,
+                        ChatCommand.builder(ChatCommand.Operation.SEND, parent, request, text).build());
+            } catch (ChatException conflict) {
+                // The conversation has a reply running, or moved on while this was read: wait, then ask at its leaf.
+                if (!CONFLICT.equals(conflict.code()) || System.nanoTime() > deadline) throw conflict;
+                if (!waiting) {
+                    waiting = true;
+                    onWaiting.run();
+                }
+                Thread.sleep(RETRY.toMillis());
+            }
+        }
     }
 
     /**

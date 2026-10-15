@@ -13,9 +13,12 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +40,7 @@ public class ChannelInboundService {
     private static final Logger LOG = LoggerFactory.getLogger(ChannelInboundService.class);
     private static final String NEW_CONVERSATION = "/new";
     private static final int TITLE_LENGTH = 80;
+    private static final int ASKER_LENGTH = 64;
     /** Spans of a received message and of each of its steps; {@code step} is refusal, sender, conversation, reply, turn or finish. */
     static final String MESSAGE = "memoryos.channel.message";
     static final String STEP = "memoryos.channel.message.step";
@@ -139,6 +143,11 @@ public class ChannelInboundService {
                 && message.botOrganisationKey().equals(message.organisationKey())
                 && (connection.organisationKey() == null || connection.organisationKey().equals(message.botOrganisationKey()));
         if (!member) return new Refusal("OUTSIDER", ChannelNotice.OUTSIDER);
+        // This message is already claimed, so it is counted with the minute's others.
+        if (inbound.receivedFrom(connection.id(), message.senderId(), clock.instant().minus(Duration.ofMinutes(1)))
+                > properties.senderRate()) {
+            return new Refusal("RATE_LIMITED", ChannelNotice.RATE);
+        }
         if (message.type() != ChannelMessage.Type.TEXT || message.text().isBlank()) {
             return new Refusal("NOT_TEXT", ChannelNotice.TEXT_ONLY);
         }
@@ -157,17 +166,27 @@ public class ChannelInboundService {
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
         ActorId actor = direct && sender != null ? sender : connection.serviceAccount();
         UUID session = step("conversation", () -> conversation(connection, message, actor, now));
-        var reply = step("reply", () -> adapter.reply(connection, message,
-                ChannelNotice.WRITING.in(connection.noticeLanguage())));
+        // The reply is opened once the question is accepted, so it is written while the turn is prepared and is not
+        // shown while the question waits for a turn its conversation is running.
+        var opened = new AtomicReference<ChannelReply>();
+        String question = actor.equals(connection.serviceAccount()) ? asked(message) : message.text();
         ChannelTurns.Answer answer;
         try {
             answer = step("turn", () -> turns.ask(actor, session, title(message.text()), request(connection, message),
-                    message.text(), reply::append));
+                    question, properties.orderWait(), () -> adapter.acknowledge(connection, message), () -> {
+                        var reply = step("reply", () -> adapter.reply(connection, message,
+                                ChannelNotice.WRITING.in(connection.noticeLanguage())));
+                        opened.set(reply);
+                        return reply::append;
+                    }));
         } catch (RuntimeException failure) {
-            reply.fail(noticeFor(failure).in(connection.noticeLanguage()));
+            var notice = noticeFor(failure);
+            if (opened.get() != null) opened.get().fail(notice.in(connection.noticeLanguage()));
+            else notice(connection, adapter, message, notice);
             fail(connection, message, session, codeOf(failure), failure);
             return false;
         }
+        var reply = Objects.requireNonNull(opened.get(), "the reply was not opened");
         if (direct) inbound.keep(tenant, connection.id(), message.chatId(), message.senderId(), answer.session(), now);
         if (answer.status() != ChatMessage.Status.COMPLETED) {
             var notice = "CHAT_CAPACITY_EXCEEDED".equals(answer.failureCode()) ? ChannelNotice.BUSY : ChannelNotice.FAILED;
@@ -258,6 +277,17 @@ public class ChannelInboundService {
 
     private static List<ChannelReply.Source> sources(List<ChatSource> sources) {
         return sources.stream().map(source -> new ChannelReply.Source(source.title(), source.providerUrl())).distinct().toList();
+    }
+
+    /**
+     * The question a turn that runs as the bot is asked: labelled with the asker's name, so the answer addresses
+     * them. The label names; it is cut to a plain name so that it cannot pass for an instruction.
+     */
+    static String asked(ChannelMessage message) {
+        String name = message.senderName() == null ? "" : message.senderName().replaceAll("[\\[\\]\\s]+", " ").strip();
+        if (name.isEmpty()) return message.text();
+        if (name.length() > ASKER_LENGTH) name = name.substring(0, ASKER_LENGTH).strip();
+        return "[" + name + "]: " + message.text();
     }
 
     private static String title(String text) {

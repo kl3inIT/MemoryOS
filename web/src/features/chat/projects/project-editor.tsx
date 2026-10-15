@@ -218,6 +218,7 @@ function ProjectInstructionsField({ disabled }: { disabled: boolean }) {
         name={field.name}
         maxLength={32000}
         rows={6}
+        focus="quiet"
         disabled={disabled}
         value={field.state.value}
         aria-invalid={invalid || undefined}

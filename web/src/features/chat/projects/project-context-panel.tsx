@@ -1,10 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
-import { Alert, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,17 +11,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
-import { actionErrorText } from "@/lib/action-errors";
-import { ChatFilePicker } from "@/features/library/file-picker";
-import { fileReference } from "@/features/library/files";
-import { ChatFilePart } from "@/features/chat/thread/chat-attachments";
 import type { Project } from "./chat-projects-api";
 import { ProjectDeleteDialog } from "./project-delete-dialog";
 import { ProjectEditor } from "./project-editor";
 import { ProjectIcon } from "./project-icon";
-import { useProjectFiles } from "./use-project-files";
 
-/** The Project page above its composer: name, actions, description and shared files. */
+/** The Project page above its composer: name, actions and description. */
 export function ProjectContextPanel({ project }: { project: Project }) {
   const ui = useAppTranslation();
   const [editing, setEditing] = useState(false);
@@ -57,13 +49,17 @@ export function ProjectContextPanel({ project }: { project: Project }) {
             }}
           >
             <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={() => setEditing(true)}>
+              <DropdownMenuItem className="cursor-pointer" onSelect={() => setEditing(true)}>
                 <Pencil /> {ui("Chỉnh sửa dự án")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(true)}>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                variant="destructive"
+                onSelect={() => setDeleting(true)}
+              >
                 <Trash2 /> {ui("Xóa dự án")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -80,84 +76,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
       {project.description && (
         <p className="text-sm whitespace-pre-wrap text-content-secondary">{project.description}</p>
       )}
-      <ProjectFiles project={project} />
       {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}
     </div>
-  );
-}
-
-function ProjectFiles({ project }: { project: Project }) {
-  const ui = useAppTranslation();
-  const { files, setFiles, saving, saveError } = useProjectFiles(project);
-  const ids = project.fileIds;
-  return (
-    <section aria-label={ui("Tệp dự án")} className="flex flex-col gap-3">
-      <Collapsible>
-        <div className="flex items-center justify-between gap-3">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="group flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <ChevronDown className="size-4 shrink-0 text-content-muted transition-transform group-data-[state=closed]:-rotate-90" />
-              <h2 className="font-medium">
-                {ids.length > 0 ? ui("Tệp ({{count}})", { count: ids.length }) : ui("Tệp")}
-              </h2>
-            </button>
-          </CollapsibleTrigger>
-          <ChatFilePicker
-            selected={ids}
-            disabled={saving}
-            onSelect={setFiles}
-            trigger={
-              <Button type="button" size="sm" prominence="secondary" disabled={saving}>
-                <Plus data-icon="inline-start" />
-                {ui("Thêm tệp")}
-              </Button>
-            }
-          />
-        </div>
-        {ids.length === 0 && (
-          <p className="text-sm text-content-muted">
-            {ui("Thêm tài liệu dùng chung cho các hội thoại trong dự án.")}
-          </p>
-        )}
-        {(saveError || files.isError) && (
-          <Alert variant="destructive">
-            <AlertTitle>
-              {saveError ? ui(actionErrorText(saveError)) : ui("Không tải được tệp dự án.")}
-            </AlertTitle>
-          </Alert>
-        )}
-        <CollapsibleContent>
-          <ul className="flex flex-col gap-2 pt-1">
-            {files.data?.map(({ fileId, file }) => (
-              <li key={fileId} className="flex min-w-0 items-center justify-between gap-2">
-                {file ? (
-                  <ChatFilePart
-                    filename={file.filename}
-                    mimeType={file.mediaType}
-                    data={fileReference(file.id)}
-                  />
-                ) : (
-                  <span className="text-sm text-content-muted">{ui("Tệp không còn khả dụng")}</span>
-                )}
-                <IconButton
-                  size="sm"
-                  prominence="internal"
-                  disabled={saving}
-                  aria-label={ui("Gỡ {{v1}} khỏi dự án", {
-                    v1: file?.filename ?? ui("tệp không còn khả dụng"),
-                  })}
-                  onClick={() => setFiles(ids.filter((id) => id !== fileId))}
-                >
-                  <X />
-                </IconButton>
-              </li>
-            ))}
-          </ul>
-        </CollapsibleContent>
-      </Collapsible>
-    </section>
   );
 }

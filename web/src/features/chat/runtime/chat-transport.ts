@@ -3,6 +3,7 @@ import type { ChatTransport, UIMessageChunk } from "ai";
 import { ApiError } from "@/lib/api";
 import {
   cancelChatMessage,
+  decideChatToolCall,
   getChatHistory,
   pinChatReasoningEffort,
   sendChatMessage,
@@ -48,6 +49,7 @@ import {
   pause,
   waitingSchema,
   textSchema,
+  toolApprovalSchema,
 } from "./chat-stream-events";
 import {
   ActivityChunks,
@@ -354,6 +356,16 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     return this.read(this.openReader(options.abortSignal));
   }
 
+  /** The person's answer to a tool call of the running reply that waits for approval (MEM-253). */
+  async decideToolCall(toolCallId: string, approved: boolean): Promise<void> {
+    if (!this.runId || !this.session) throw new Error("No running reply to answer");
+    await decideChatToolCall({
+      path: { sessionId: this.session.id, assistantMessageId: this.runId, toolCallId },
+      body: { approved },
+      throwOnError: true,
+    });
+  }
+
   stop(): Promise<void> {
     if (!this.runId || !this.session) {
       if (this.sending) this.stopWhenAccepted = true;
@@ -539,6 +551,22 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                 codeSchema.parse(data),
               ));
               yield { type: "message-metadata", messageMetadata: { codeRuns, generatedFiles } };
+            } else if (envelope.event === "tool_approval") {
+              // MEM-253: the AI SDK's own approval gate on the tool part; assistant-ui adds respondToApproval to it,
+              // and the runtime's onRespondToToolApproval sends the answer to the server, which owns the paused call.
+              // The decided event needs nothing: the gate already holds the answer given here.
+              const approval = toolApprovalSchema.parse(data);
+              if (!approval.decision)
+                yield {
+                  type: "tool-approval-request",
+                  approvalId: approval.toolCallId,
+                  toolCallId: approval.toolCallId,
+                  approvalDescriptor: {
+                    serverName: approval.serverName,
+                    toolName: approval.toolName,
+                    arguments: approval.arguments,
+                  },
+                };
             } else if (envelope.event === "waiting") {
               yield {
                 type: "message-metadata",

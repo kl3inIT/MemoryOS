@@ -69,7 +69,8 @@ function serveSessions(byProject: Record<string, ChatSession[]>) {
         projectId: params.projectId,
         limit: new URL(request.url).searchParams.get("limit"),
       });
-      return HttpResponse.json(byProject[params.projectId] ?? []);
+      const offset = Number(new URL(request.url).searchParams.get("offset") ?? 0);
+      return HttpResponse.json((byProject[params.projectId] ?? []).slice(offset, offset + 5));
     }),
   );
   return requests;
@@ -187,6 +188,7 @@ it("opens and closes the section and remembers it", async () => {
   await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" });
 
   const toggle = screen.getByRole("button", { name: "Danh sách dự án" });
+  expect(toggle.querySelector("svg.lucide-chevron-right")).toBeNull();
   expect(toggle).toHaveAttribute("aria-expanded", "true");
   await user.click(toggle);
   expect(screen.queryByRole("button", { name: "Hội thoại trong Dự án 1" })).not.toBeInTheDocument();
@@ -210,18 +212,35 @@ it("fetches a project's five latest conversations only once it is opened", async
   await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" });
   expect(requests).toEqual([]);
 
-  await user.click(screen.getByRole("button", { name: "Hội thoại trong Dự án 1" }));
+  const projectToggle = screen.getByRole("button", { name: "Hội thoại trong Dự án 1" });
+  expect(projectToggle.querySelector("svg.lucide-chevron-right")).toBeNull();
+  expect(projectToggle).toHaveAttribute("aria-expanded", "false");
+  await user.click(projectToggle);
+  expect(projectToggle).toHaveAttribute("aria-expanded", "true");
 
   expect(await screen.findByRole("link", { name: "Hội thoại 5" })).toHaveAttribute(
     "href",
     `/chat/${id(105)}`,
   );
   expect(requests).toEqual([{ projectId: id(1), limit: "5" }]);
-  // A full page may have more behind it, so the row leads to the project page.
-  expect(screen.getByRole("link", { name: "Xem thêm" })).toHaveAttribute(
-    "href",
-    `/projects/${id(1)}`,
-  );
+  // A full page may have more behind it, so the row loads the next conversations in place.
+  expect(screen.getByRole("button", { name: "Xem thêm" })).toBeInTheDocument();
+});
+
+it("loads the next conversations in place and never opens the project page", async () => {
+  const user = userEvent.setup();
+  serveSessions({ [id(1)]: [1, 2, 3, 4, 5, 6, 7].map((n) => session(n, id(1))) });
+  const router = await show([project(1)]);
+
+  await user.click(await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" }));
+  await screen.findByRole("link", { name: "Hội thoại 5" });
+  expect(screen.queryByRole("link", { name: "Hội thoại 6" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Xem thêm" }));
+
+  expect(await screen.findByRole("link", { name: "Hội thoại 7" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Xem thêm" })).not.toBeInTheDocument();
+  expect(router.state.location.pathname).toBe("/");
 });
 
 it("shows no 'Xem thêm' for a short page, and a muted line for an empty project", async () => {
@@ -231,7 +250,7 @@ it("shows no 'Xem thêm' for a short page, and a muted line for an empty project
 
   await user.click(await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" }));
   await screen.findByRole("link", { name: "Hội thoại 1" });
-  expect(screen.queryByRole("link", { name: "Xem thêm" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Xem thêm" })).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Hội thoại trong Dự án 2" }));
   expect(await screen.findByText("Chưa có hội thoại.")).toBeInTheDocument();

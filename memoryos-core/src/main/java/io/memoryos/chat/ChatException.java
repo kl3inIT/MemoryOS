@@ -26,6 +26,12 @@ public final class ChatException extends BusinessException {
         return new ChatException("CHAT_CONFLICT", FailureCategory.CONFLICT, "Chat changed or has an active reply.");
     }
 
+    /** No call of the reply waits for approval: it was answered, it timed out, or the turn ended (MEM-253). */
+    public static ChatException approvalNotPending() {
+        return new ChatException("CHAT_TOOL_APPROVAL_NOT_PENDING", FailureCategory.CONFLICT,
+                "No call of this reply waits for approval.");
+    }
+
     public static ChatException busy() {
         return new ChatException("CHAT_CAPACITY_EXCEEDED", FailureCategory.SERVICE_UNAVAILABLE, "Chat is busy. Retry later.");
     }

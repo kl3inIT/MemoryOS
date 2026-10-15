@@ -59,7 +59,13 @@ export function ThreadListRow({
     <div
       data-slot="thread-list-row"
       draggable={!!onDragStart}
-      onDragStart={onDragStart}
+      // A dialog the row's menu opens is in its React tree, so the drag of text selected there bubbles here.
+      onDragStart={
+        onDragStart &&
+        ((event) => {
+          if (event.currentTarget.contains(event.target as Node)) onDragStart(event);
+        })
+      }
       className={cn(
         "group flex min-w-0 items-center gap-1 rounded-lg px-1 text-sm focus-within:bg-surface-sunken hover:bg-surface-sunken",
         selected && "bg-surface-sunken",

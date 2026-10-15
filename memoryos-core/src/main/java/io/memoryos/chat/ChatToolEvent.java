@@ -22,10 +22,11 @@ public record ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nu
     public enum Stage { STARTED, SEARCHING, SELECTING, EXPANDING, SOURCE, COMPLETED, FAILED }
 
     /**
-     * Why a FAILED step failed, when the person can act on it: reconnect, retry later, or ask an administrator.
+     * Why a FAILED step failed, when the person can act on it: reconnect, retry later, or ask an administrator;
+     * or that the person declined a call that waited for them, or never answered it (MEM-253).
      * A category only; upstream bodies, endpoints and status codes never reach the stream or history.
      */
-    public enum Failure { AUTHORIZATION_REQUIRED, TIMEOUT, UNAVAILABLE }
+    public enum Failure { AUTHORIZATION_REQUIRED, TIMEOUT, UNAVAILABLE, DECLINED, NO_DECISION }
 
     public record Call(String id, String name) {
         public Call {
