@@ -419,8 +419,8 @@ export type McpServerView = {
     revision: number;
 };
 
-export type McpToolEnablement = {
-    enabled: boolean;
+export type McpToolPolicyChange = {
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
 };
 
 /**
@@ -437,18 +437,32 @@ export type McpToolView = {
     description: string;
     readOnlyHint: boolean | null;
     destructiveHint: boolean | null;
-    enabled: boolean;
     /**
-     * An enabled tool waits for the person to approve each call
+     * From the annotations: READ, WRITE or DESTRUCTIVE
      */
-    approvalRequired: boolean;
+    risk: 'READ' | 'WRITE' | 'DESTRUCTIVE';
+    /**
+     * ALWAYS runs, ASK waits for the person, OFF is never offered
+     */
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
+    /**
+     * An administrator chose the policy; refreshes keep it
+     */
+    policyCustomized: boolean;
     exposable: boolean;
     snapshotAt: string;
     revision: number;
 };
 
-export type McpToolApproval = {
-    approvalRequired: boolean;
+export type McpToolGroupPolicyChange = {
+    /**
+     * The group of tools to change
+     */
+    risk: 'READ' | 'WRITE' | 'DESTRUCTIVE';
+    /**
+     * DESTRUCTIVE refuses ALWAYS
+     */
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
 };
 
 /**
@@ -1546,6 +1560,10 @@ export type DocumentSetSharingInput = {
     groupIds?: Array<string>;
 };
 
+export type UpdateChannelTransportRequest = {
+    transport: 'WEBHOOK' | 'POLLING';
+};
+
 export type AiUsageLimitRequest = {
     scope: 'TENANT' | 'GROUP' | 'PERSON';
     groupId?: string;
@@ -2407,6 +2425,10 @@ export type BranchChatSessionRequest = {
 
 export type ChatToolDecision = {
     approved: boolean;
+    /**
+     * With approved, the tool also runs without asking from now on; needs MCP_MANAGE and a tool that is not destructive
+     */
+    alwaysAllow?: boolean | null;
 };
 
 export type Cancellation = {
@@ -2559,6 +2581,32 @@ export type ChatExport = {
     failure: string | null;
     createdAt: string;
     expiresAt: string | null;
+};
+
+export type CreateZaloChannelRequest = {
+    /**
+     * The bot's name here, and its account's
+     */
+    name: string;
+    /**
+     * The bot's token from Zalo Bot Creator
+     */
+    token: string;
+    /**
+     * The language of the bot's notices
+     */
+    noticeLanguage: 'vi' | 'en';
+    /**
+     * How the bot receives: WEBHOOK where the deployment has a public address, which is the default there, else POLLING
+     */
+    transport?: 'WEBHOOK' | 'POLLING';
+};
+
+export type ZaloBotRequest = {
+    /**
+     * The bot's token from Zalo Bot Creator
+     */
+    token: string;
 };
 
 /**
@@ -3320,6 +3368,14 @@ export type ChatMessage = {
      * Why a COMPLETED reply declined instead of answering: no_evidence, uncited or blocked_topic (answers from documents only, sensitive topics); null otherwise
      */
     refusalReason: string | null;
+    /**
+     * Estimated input tokens of the reply's last model call; null when unknown
+     */
+    contextTokens: number | null;
+    /**
+     * The model's input limit for that call; null when unknown
+     */
+    contextLimit: number | null;
 };
 
 export type ChatMessageResearch = {
@@ -3441,6 +3497,14 @@ export type OutcomeEvent = {
     status: 'COMPLETED' | 'CANCELED' | 'FAILED';
     failureCode: string | null;
     hasArtifacts: boolean;
+    /**
+     * Estimated input tokens of the reply's last model call
+     */
+    contextTokens: number | null;
+    /**
+     * The model's input limit for that call
+     */
+    contextLimit: number | null;
 };
 
 export type ResetEvent = {
@@ -3566,6 +3630,10 @@ export type ToolApprovalEvent = {
      * Absent while the call waits
      */
     decision?: 'APPROVED' | 'DECLINED' | 'NO_DECISION';
+    /**
+     * The reply's owner may answer with always allow
+     */
+    alwaysAllowable: boolean;
 };
 
 export type ChatBranch = {
@@ -4168,9 +4236,19 @@ export type ReplaceChannelSecretRequest = {
 
 export type ChannelResponse = {
     id: string;
-    provider: 'LARK';
+    provider: 'LARK' | 'ZALO_BOT';
     name: string;
-    region: 'LARK' | 'FEISHU';
+    /**
+     * Where a Lark bot's app is hosted; absent for another platform
+     */
+    region?: 'LARK' | 'FEISHU';
+    /**
+     * How a Zalo bot receives; absent for a platform with one way of its own
+     */
+    transport?: 'WEBHOOK' | 'POLLING';
+    /**
+     * The platform's id of the bot's app
+     */
     appId: string;
     noticeLanguage: string;
     enabled: boolean;
@@ -4256,6 +4334,22 @@ export type ChannelAppRequest = {
 export type ChannelAppCheckResponse = {
     botName: string;
     missingScopes: Array<string>;
+};
+
+export type CreateChannelLinkCodeRequest = {
+    connectionId: string;
+};
+
+export type ChannelLinkCodeResponse = {
+    code: string;
+    expiresAt: string;
+};
+
+export type ChannelLinkResponse = {
+    connectionId: string;
+    botName: string;
+    provider: 'LARK' | 'ZALO_BOT';
+    linkedAt?: string;
 };
 
 export type ReplaceSharePointScopeData = {
@@ -5280,116 +5374,16 @@ export type UpdateMcpServerResponses = {
 
 export type UpdateMcpServerResponse = UpdateMcpServerResponses[keyof UpdateMcpServerResponses];
 
-export type SetMcpServerToolEnabledData = {
-    body: McpToolEnablement;
-    path: {
-        serverId: string;
-        toolId: string;
-    };
-    query: {
-        revision: number;
-    };
-    url: '/api/mcp/servers/{serverId}/tools/{toolId}/enabled';
-};
-
-export type SetMcpServerToolEnabledErrors = {
-    /**
-     * Invalid MCP configuration or tool snapshot
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * MCP server or tool not accessible
-     */
-    404: ApiProblem;
-    /**
-     * Stale revision, duplicate slug, missing credential or server authorization required
-     */
-    409: ApiProblem;
-    /**
-     * MCP server or credential encryption key unavailable
-     */
-    503: ApiProblem;
-};
-
-export type SetMcpServerToolEnabledError = SetMcpServerToolEnabledErrors[keyof SetMcpServerToolEnabledErrors];
-
-export type SetMcpServerToolEnabledResponses = {
-    /**
-     * Saved tool
-     */
-    200: McpToolView;
-};
-
-export type SetMcpServerToolEnabledResponse = SetMcpServerToolEnabledResponses[keyof SetMcpServerToolEnabledResponses];
-
-export type SetMcpServerToolApprovalData = {
-    body: McpToolApproval;
-    path: {
-        serverId: string;
-        toolId: string;
-    };
-    query: {
-        revision: number;
-    };
-    url: '/api/mcp/servers/{serverId}/tools/{toolId}/approval';
-};
-
-export type SetMcpServerToolApprovalErrors = {
-    /**
-     * Invalid MCP configuration or tool snapshot
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * MCP server or tool not accessible
-     */
-    404: ApiProblem;
-    /**
-     * Stale revision, duplicate slug, missing credential or server authorization required
-     */
-    409: ApiProblem;
-    /**
-     * MCP server or credential encryption key unavailable
-     */
-    503: ApiProblem;
-};
-
-export type SetMcpServerToolApprovalError = SetMcpServerToolApprovalErrors[keyof SetMcpServerToolApprovalErrors];
-
-export type SetMcpServerToolApprovalResponses = {
-    /**
-     * Saved tool
-     */
-    200: McpToolView;
-};
-
-export type SetMcpServerToolApprovalResponse = SetMcpServerToolApprovalResponses[keyof SetMcpServerToolApprovalResponses];
-
-export type SetAllMcpServerToolsEnabledData = {
-    body: McpToolEnablement;
+export type ResetMcpServerToolPoliciesData = {
+    body?: never;
     path: {
         serverId: string;
     };
     query?: never;
-    url: '/api/mcp/servers/{serverId}/tools/enabled';
+    url: '/api/mcp/servers/{serverId}/tools/policy';
 };
 
-export type SetAllMcpServerToolsEnabledErrors = {
+export type ResetMcpServerToolPoliciesErrors = {
     /**
      * Invalid MCP configuration or tool snapshot
      */
@@ -5416,16 +5410,113 @@ export type SetAllMcpServerToolsEnabledErrors = {
     503: ApiProblem;
 };
 
-export type SetAllMcpServerToolsEnabledError = SetAllMcpServerToolsEnabledErrors[keyof SetAllMcpServerToolsEnabledErrors];
+export type ResetMcpServerToolPoliciesError = ResetMcpServerToolPoliciesErrors[keyof ResetMcpServerToolPoliciesErrors];
 
-export type SetAllMcpServerToolsEnabledResponses = {
+export type ResetMcpServerToolPoliciesResponses = {
+    /**
+     * Tools with their default policies
+     */
+    200: Array<McpToolView>;
+};
+
+export type ResetMcpServerToolPoliciesResponse = ResetMcpServerToolPoliciesResponses[keyof ResetMcpServerToolPoliciesResponses];
+
+export type SetMcpServerToolGroupPolicyData = {
+    body: McpToolGroupPolicyChange;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools/policy';
+};
+
+export type SetMcpServerToolGroupPolicyErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpServerToolGroupPolicyError = SetMcpServerToolGroupPolicyErrors[keyof SetMcpServerToolGroupPolicyErrors];
+
+export type SetMcpServerToolGroupPolicyResponses = {
     /**
      * Saved tools
      */
     200: Array<McpToolView>;
 };
 
-export type SetAllMcpServerToolsEnabledResponse = SetAllMcpServerToolsEnabledResponses[keyof SetAllMcpServerToolsEnabledResponses];
+export type SetMcpServerToolGroupPolicyResponse = SetMcpServerToolGroupPolicyResponses[keyof SetMcpServerToolGroupPolicyResponses];
+
+export type SetMcpServerToolPolicyData = {
+    body: McpToolPolicyChange;
+    path: {
+        serverId: string;
+        toolId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/tools/{toolId}/policy';
+};
+
+export type SetMcpServerToolPolicyErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpServerToolPolicyError = SetMcpServerToolPolicyErrors[keyof SetMcpServerToolPolicyErrors];
+
+export type SetMcpServerToolPolicyResponses = {
+    /**
+     * Saved tool
+     */
+    200: McpToolView;
+};
+
+export type SetMcpServerToolPolicyResponse = SetMcpServerToolPolicyResponses[keyof SetMcpServerToolPolicyResponses];
 
 export type DeleteMcpServerOAuthClientData = {
     body?: never;
@@ -9006,6 +9097,56 @@ export type ShareDocumentSetResponses = {
 };
 
 export type ShareDocumentSetResponse = ShareDocumentSetResponses[keyof ShareDocumentSetResponses];
+
+export type UpdateChannelTransportData = {
+    body: UpdateChannelTransportRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/transport';
+};
+
+export type UpdateChannelTransportErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChannelTransportError = UpdateChannelTransportErrors[keyof UpdateChannelTransportErrors];
+
+export type UpdateChannelTransportResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type UpdateChannelTransportResponse = UpdateChannelTransportResponses[keyof UpdateChannelTransportResponses];
 
 export type DeleteAiUsageLimitData = {
     body?: never;
@@ -14359,6 +14500,96 @@ export type CreateDocumentSetResponses = {
 };
 
 export type CreateDocumentSetResponse = CreateDocumentSetResponses[keyof CreateDocumentSetResponses];
+
+export type CreateZaloChannelData = {
+    body: CreateZaloChannelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/zalo';
+};
+
+export type CreateZaloChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type CreateZaloChannelError = CreateZaloChannelErrors[keyof CreateZaloChannelErrors];
+
+export type CreateZaloChannelResponses = {
+    /**
+     * Added bot
+     */
+    201: ChannelResponse;
+};
+
+export type CreateZaloChannelResponse = CreateZaloChannelResponses[keyof CreateZaloChannelResponses];
+
+export type TestZaloChannelBotData = {
+    body: ZaloBotRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/zalo/test';
+};
+
+export type TestZaloChannelBotErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type TestZaloChannelBotError = TestZaloChannelBotErrors[keyof TestZaloChannelBotErrors];
+
+export type TestZaloChannelBotResponses = {
+    /**
+     * Zalo accepts the token
+     */
+    200: ChannelAppCheckResponse;
+};
+
+export type TestZaloChannelBotResponse = TestZaloChannelBotResponses[keyof TestZaloChannelBotResponses];
 
 export type ListUsageReportsData = {
     body?: never;
@@ -20731,3 +20962,116 @@ export type DeleteChannelResponses = {
 };
 
 export type DeleteChannelResponse = DeleteChannelResponses[keyof DeleteChannelResponses];
+
+export type ListChannelLinksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/channel-links';
+};
+
+export type ListChannelLinksErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type ListChannelLinksError = ListChannelLinksErrors[keyof ListChannelLinksErrors];
+
+export type ListChannelLinksResponses = {
+    /**
+     * Bots and links
+     */
+    200: Array<ChannelLinkResponse>;
+};
+
+export type ListChannelLinksResponse = ListChannelLinksResponses[keyof ListChannelLinksResponses];
+
+export type CreateChannelLinkCodeData = {
+    body: CreateChannelLinkCodeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channel-links';
+};
+
+export type CreateChannelLinkCodeErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type CreateChannelLinkCodeError = CreateChannelLinkCodeErrors[keyof CreateChannelLinkCodeErrors];
+
+export type CreateChannelLinkCodeResponses = {
+    /**
+     * Linking code
+     */
+    201: ChannelLinkCodeResponse;
+};
+
+export type CreateChannelLinkCodeResponse = CreateChannelLinkCodeResponses[keyof CreateChannelLinkCodeResponses];
+
+export type DeleteChannelLinkData = {
+    body?: never;
+    path: {
+        connectionId: string;
+    };
+    query?: never;
+    url: '/api/channel-links/{connectionId}';
+};
+
+export type DeleteChannelLinkErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type DeleteChannelLinkError = DeleteChannelLinkErrors[keyof DeleteChannelLinkErrors];
+
+export type DeleteChannelLinkResponses = {
+    /**
+     * Link removed
+     */
+    204: void;
+};
+
+export type DeleteChannelLinkResponse = DeleteChannelLinkResponses[keyof DeleteChannelLinkResponses];

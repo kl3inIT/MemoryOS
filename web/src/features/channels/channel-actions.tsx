@@ -1,4 +1,5 @@
-import { KeyRound, MoreHorizontal, Trash2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { KeyRound, Link2, MoreHorizontal, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { Switch } from "@/components/ui/switch";
+import { LarkIcon } from "@/components/lark-icon";
+import { ZaloIcon } from "@/components/zalo-icon";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import type { ChannelAdmin } from "./channel-admin";
@@ -49,8 +52,16 @@ export function ChannelMenu({ channel, admin }: { channel: ChannelResponse; admi
       <DropdownMenuContent align="end" className="min-w-44">
         <DropdownMenuGroup>
           <DropdownMenuItem onSelect={() => admin.replaceSecret(channel)}>
-            <KeyRound /> {ui("Thay App Secret")}
+            <KeyRound />{" "}
+            {channel.provider === "ZALO_BOT" ? ui("Thay token") : ui("Thay App Secret")}
           </DropdownMenuItem>
+          {channel.provider === "ZALO_BOT" ? (
+            <DropdownMenuItem asChild>
+              <Link to="/settings/chat">
+                <Link2 /> {ui("Liên kết tài khoản của bạn")}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
@@ -60,5 +71,17 @@ export function ChannelMenu({ channel, admin }: { channel: ChannelResponse; admi
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** The platform's own mark on a white tile, as the MCP list shows a service's own logo. */
+export function ChannelMark({ provider }: { provider: ChannelResponse["provider"] }) {
+  return (
+    <span
+      className="grid size-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-black/10"
+      aria-hidden="true"
+    >
+      {provider === "ZALO_BOT" ? <ZaloIcon className="size-7" /> : <LarkIcon className="size-6" />}
+    </span>
   );
 }

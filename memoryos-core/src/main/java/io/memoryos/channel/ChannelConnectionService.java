@@ -12,12 +12,13 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
-import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +31,6 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class ChannelConnectionService {
-    private static final Pattern LARK_APP_ID = Pattern.compile("^cli_[0-9a-z]{8,40}$");
     private static final Set<String> LANGUAGES = Set.of("vi", "en");
     private static final String SECRET_PURPOSE = "app-secret";
     private static final int CONCURRENT_VERIFICATIONS = 2;
@@ -80,12 +80,11 @@ public class ChannelConnectionService {
     }
 
     /** Checks an app with its platform without storing anything. */
-    public ChannelVerification test(ActorId actor, ChannelProvider provider, ChannelRegion region, String appId, String secret) {
-        String checked = appId(provider, appId);
-        Objects.requireNonNull(region, "region must not be null");
-        String plain = secretText(secret);
+    public ChannelVerification test(ActorId actor, ChannelProvider provider, ChannelCredentials credentials) {
+        Objects.requireNonNull(provider, "provider must not be null");
+        var given = given(credentials);
         transactions.executeWithoutResult(_ -> reader(actor));
-        return verify(provider, region, checked, plain);
+        return verify(provider, given);
     }
 
     public record Listed(ChannelConnection connection, ChannelConnectionState state, Status status) {
@@ -108,25 +107,29 @@ public class ChannelConnectionService {
      */
     public ChannelConnection create(ActorId actor, ChannelConnectionDraft draft) {
         Objects.requireNonNull(draft, "draft must not be null");
+        Objects.requireNonNull(draft.provider(), "provider must not be null");
         String name = name(draft.name());
-        String appId = appId(draft.provider(), draft.appId());
         String language = language(draft.noticeLanguage());
-        Objects.requireNonNull(draft.region(), "region must not be null");
-        String plain = secretText(draft.secret());
+        var asked = given(draft.credentials());
+        var given = new ChannelCredentials(asked.appId(), asked.secret(),
+                adapters.of(draft.provider()).settings(asked.settings()));
         transactions.executeWithoutResult(_ -> {
             writer(actor);
             credentials.cipher(draft.provider());
-            if (connections.appInUse(draft.provider(), draft.region(), appId)) throw ChannelException.appInUse();
+            if (given.appId() != null && connections.appInUse(draft.provider(), given.appId())) {
+                throw ChannelException.appInUse();
+            }
         });
-        var verification = verify(draft.provider(), draft.region(), appId, plain);
+        var verification = verify(draft.provider(), given);
+        String appId = verification.appId();
         return Objects.requireNonNull(transactions.execute(_ -> {
             var tenant = writer(actor);
-            if (connections.appInUse(draft.provider(), draft.region(), appId)) throw ChannelException.appInUse();
+            if (connections.appInUse(draft.provider(), appId)) throw ChannelException.appInUse();
             UUID id = UUID.randomUUID();
             var envelope = credentials.cipher(draft.provider()).encrypt(tenant, id, SECRET_PURPOSE,
-                    plain.getBytes(StandardCharsets.UTF_8));
+                    given.secret().getBytes(StandardCharsets.UTF_8));
             ActorId account = accounts.create(tenant, id, name, language);
-            connections.insert(tenant, id, draft.provider(), name, draft.region(), appId, envelope, language, account);
+            connections.insert(tenant, id, draft.provider(), name, appId, given.settings(), envelope, language, account);
             connections.recordVerification(tenant, id, verification);
             audit.record(AuditRecord.of(AuditAction.CHANNEL_CREATE, tenant).actor(actor)
                     .resource("CHANNEL", id, name).detail("provider", draft.provider().name()).detail("app", appId).build());
@@ -144,7 +147,9 @@ public class ChannelConnectionService {
             credentials.cipher(found.provider());
             return found;
         }));
-        var verification = verify(current.provider(), current.region(), current.appId(), plain);
+        var verification = verify(current.provider(), new ChannelCredentials(current.appId(), plain, current.settings()));
+        // A secret of another app, as a Zalo token of another bot is, does not replace this one's.
+        if (!verification.appId().equals(current.appId())) throw ChannelException.rejected();
         return Objects.requireNonNull(transactions.execute(_ -> {
             var tenant = writer(actor);
             var envelope = credentials.cipher(current.provider()).encrypt(tenant, id, SECRET_PURPOSE,
@@ -158,10 +163,10 @@ public class ChannelConnectionService {
     }
 
     /** At most a few checks at once, so a burst of them cannot hold the platform's connections. */
-    private ChannelVerification verify(ChannelProvider provider, ChannelRegion region, String appId, String secret) {
+    private ChannelVerification verify(ChannelProvider provider, ChannelCredentials credentials) {
         if (!verifications.tryAcquire()) throw ChannelException.providerUnavailable();
         try {
-            return adapters.of(provider).verify(region, appId, secret);
+            return adapters.of(provider).verify(credentials);
         } finally {
             verifications.release();
         }
@@ -172,6 +177,24 @@ public class ChannelConnectionService {
         var tenant = writer(actor);
         var updated = connections.setEnabled(tenant, id, revision, enabled).orElseThrow(() -> missingOrChanged(tenant, id));
         record(actor, tenant, updated, enabled ? "enabled" : "disabled");
+        return updated;
+    }
+
+    /**
+     * Changes some of a bot's public settings, such as how a Zalo bot receives; the provider checks the result. The
+     * revision moves on, so the process that holds the bot opens it again with them.
+     */
+    @Transactional
+    public ChannelConnection updateSettings(ActorId actor, UUID id, long revision, Map<String, String> changes) {
+        Objects.requireNonNull(changes, "changes must not be null");
+        var tenant = writer(actor);
+        var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        if (current.revision() != revision) throw ChannelException.changed();
+        var merged = new HashMap<>(current.settings());
+        merged.putAll(changes);
+        var settings = adapters.of(current.provider()).settings(merged);
+        var updated = connections.updateSettings(tenant, id, revision, settings).orElseThrow(() -> missingOrChanged(tenant, id));
+        record(actor, tenant, updated, "settings");
         return updated;
     }
 
@@ -208,13 +231,11 @@ public class ChannelConnectionService {
         return stripped;
     }
 
-    private static String appId(ChannelProvider provider, String appId) {
-        Objects.requireNonNull(provider, "provider must not be null");
-        String stripped = appId == null ? "" : appId.strip();
-        if (provider == ChannelProvider.LARK && !LARK_APP_ID.matcher(stripped).matches()) {
-            throw ChannelException.invalid("Supply the App ID of the Lark app, which starts with cli_.");
-        }
-        return stripped;
+    /** The credentials as given, trimmed; whether they are the provider's shape is its adapter's to say. */
+    private static ChannelCredentials given(ChannelCredentials credentials) {
+        Objects.requireNonNull(credentials, "credentials must not be null");
+        String appId = credentials.appId() == null || credentials.appId().isBlank() ? null : credentials.appId().strip();
+        return new ChannelCredentials(appId, secretText(credentials.secret()), credentials.settings());
     }
 
     private static String language(String language) {

@@ -18,6 +18,12 @@ public class ChannelAdapters {
         }
     }
 
+    /** Whether a bot of the provider answers members who link an account: its provider names no organisation. */
+    public boolean takesLinks(ChannelProvider provider) {
+        var adapter = adapters.get(provider);
+        return adapter != null && !adapter.features().organisations();
+    }
+
     public ChannelAdapter of(ChannelProvider provider) {
         var adapter = adapters.get(provider);
         if (adapter == null) throw new IllegalStateException("no channel adapter for " + provider);

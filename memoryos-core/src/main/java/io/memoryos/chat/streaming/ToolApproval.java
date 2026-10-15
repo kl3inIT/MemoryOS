@@ -10,7 +10,8 @@ import org.jspecify.annotations.Nullable;
  * read only by those who may read the reply.
  */
 public record ToolApproval(UUID assistantMessageId, long sequence, String toolCallId, String serverName,
-                           String toolName, String arguments, @Nullable Decision decision) implements ChatStreamEvent {
+                           String toolName, String arguments, @Nullable Decision decision, boolean alwaysAllowable)
+        implements ChatStreamEvent {
     public static final String TYPE = "tool_approval";
     /** The arguments shown in the card; a longer value is cut, the call itself is unchanged. */
     public static final int MAX_ARGUMENTS = 4000;

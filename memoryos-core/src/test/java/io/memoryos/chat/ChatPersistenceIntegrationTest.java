@@ -23,6 +23,7 @@ import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JdbcChatSummaryRepository;
 import io.memoryos.chat.session.persistence.JdbcChatSearchRepository;
 import io.memoryos.chat.persona.persistence.JdbcPromptShortcutRepository;
 import io.memoryos.chat.session.persistence.JpaChatFeedbackRepository;
@@ -153,7 +154,7 @@ class ChatPersistenceIntegrationTest {
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
-                new JdbcImageArtifactRepository(jdbc)));
+                new JdbcImageArtifactRepository(jdbc), new JdbcChatSummaryRepository(jdbc)));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
@@ -790,6 +791,68 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void aSummaryStandsForItsBranchUntilAnEditLeavesItsParentOrCutoffBehind() {
+        var summaries = new JdbcChatSummaryRepository(jdbc);
+        var session = sessions.create(owner, "Compacted");
+        var first = answered(session, session.rootMessageId(), "First question");
+        var second = answered(session, first.assistantMessageId(), "Second question");
+        summaries.insert(new TenantId(tenant), session.id(), second.userMessageId(), first.assistantMessageId(),
+                "The person compares two plans.", 12, null);
+        var third = reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Third question");
+        assertEquals(new ChatTurnPersistence.TurnContext.Summary(first.assistantMessageId(), "The person compares two plans."),
+                Objects.requireNonNull(third.context()).summary());
+        turns.finish(session.id(), third.assistantMessageId(), ChatMessage.Status.COMPLETED, "Third answer");
+
+        // An edit above the cutoff starts a branch that holds neither the parent nor the cutoff.
+        var aboveCutoff = turns.reserve(owner, session.id(), ChatCommand.builder(ChatCommand.Operation.EDIT,
+                first.userMessageId(), UUID.randomUUID(), "First question, edited").build(), Duration.ofMinutes(2), 32000, null);
+        assertNull(turns.loadContext(owner, session.id(), aboveCutoff).summary());
+        turns.finish(session.id(), aboveCutoff.assistantMessageId(), ChatMessage.Status.COMPLETED, "Edited answer");
+        sessions.selectBranch(owner, session.id(), first.userMessageId(), aboveCutoff.userMessageId());
+
+        // Editing the summary's own question keeps the cutoff on the branch but not the parent: another branch.
+        var sibling = turns.reserve(owner, session.id(), ChatCommand.builder(ChatCommand.Operation.EDIT,
+                second.userMessageId(), UUID.randomUUID(), "Second question, edited").build(), Duration.ofMinutes(2), 32000, null);
+        assertNull(turns.loadContext(owner, session.id(), sibling).summary());
+    }
+
+    @Test
+    void theNearestSummaryOnTheBranchWinsOverANewerOneFurtherUp() {
+        var summaries = new JdbcChatSummaryRepository(jdbc);
+        var session = sessions.create(owner, "Compacted twice");
+        var first = answered(session, session.rootMessageId(), "First question");
+        var second = answered(session, first.assistantMessageId(), "Second question");
+        var third = answered(session, second.assistantMessageId(), "Third question");
+        summaries.insert(new TenantId(tenant), session.id(), third.userMessageId(), second.assistantMessageId(),
+                "Rolled forward", 8, null);
+        summaries.insert(new TenantId(tenant), session.id(), second.userMessageId(), first.assistantMessageId(),
+                "First summary", 8, null);
+        var fourth = reserve(session, third.assistantMessageId(), UUID.randomUUID(), "Fourth question");
+        var summary = Objects.requireNonNull(turns.loadContext(owner, session.id(), fourth).summary());
+        assertEquals("Rolled forward", summary.content());
+        assertEquals(second.assistantMessageId(), summary.cutoffMessageId());
+    }
+
+    @Test
+    void deletingTheSessionDeletesItsSummariesAndCompactionState() {
+        var session = sessions.create(owner, "Deleted");
+        var first = answered(session, session.rootMessageId(), "First question");
+        new JdbcChatSummaryRepository(jdbc).insert(new TenantId(tenant), session.id(), first.userMessageId(),
+                first.userMessageId(), "Summary", 4, null);
+        jdbc.sql("INSERT INTO chat_session_compaction(session_id, tenant_id, retry_after) VALUES (:session, :tenant, CURRENT_TIMESTAMP)")
+                .param("session", session.id()).param("tenant", tenant).update();
+        jdbc.sql("DELETE FROM chat_session WHERE id = :session").param("session", session.id()).update();
+        assertEquals(0L, jdbc.sql("SELECT (SELECT count(*) FROM chat_session_summary) + (SELECT count(*) FROM chat_session_compaction)")
+                .query(Long.class).single());
+    }
+
+    private ChatTurnPersistence.Reservation answered(ChatSession session, UUID parent, String question) {
+        var reserved = reserve(session, parent, UUID.randomUUID(), question);
+        turns.finish(session.id(), reserved.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer to " + question);
+        return reserved;
+    }
+
+    @Test
     void authorizedCanceledOutcomeCannotBeOverwrittenByLateCompletion() {
         var session = sessions.create(owner, "Stop");
         var reserved = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
@@ -887,6 +950,18 @@ class ChatPersistenceIntegrationTest {
                 .param("actor", owner.value()).update();
         assertThrows(ChatException.class, () -> sessions.get(owner, first.id()));
         assertThrows(ChatException.class, () -> sessions.create(owner, "Denied"));
+    }
+
+    @Test
+    void aChannelConversationOpensForItsOwnerAndStaysOutOfTheSidebarAndSearch() {
+        var web = sessions.create(owner, "Doanh thu quý trên web");
+        var channel = sessions.createInChannel(owner, "Doanh thu quý từ Lark");
+
+        assertEquals(channel, sessions.get(owner, channel.id()), "its owner opens it by its address");
+        assertEquals(List.of(web.id()), sessions.list(owner, false, 0, 30).stream().map(ChatSession::id).toList());
+        assertEquals(List.of(web.id()), sessions.search(owner, "doanh thu", 0, 30).stream()
+                .map(match -> match.session().id()).toList());
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, channel.id())).code());
     }
 
     @Test
@@ -1329,6 +1404,12 @@ class ChatPersistenceIntegrationTest {
                 "Late", "CHAT_EXECUTION_FAILED", "model", 1L, 2L, null, List.of());
         assertEquals(new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.COMPLETED, null), late,
                 "the terminal winner is reported, not the late write");
+
+        // MEM-267: what the last model call carried is read back with the answer for the context gauge.
+        turns.recordContext(session.id(), pair.assistantMessageId(), new ChatContextUse(9_000, 128_000));
+        var answer = sessions.history(owner, session.id(), null, 100).stream()
+                .filter(message -> message.id().equals(pair.assistantMessageId())).findFirst().orElseThrow();
+        assertEquals(new ChatContextUse(9_000, 128_000), answer.context());
     }
 
     @Test

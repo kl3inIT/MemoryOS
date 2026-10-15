@@ -125,7 +125,8 @@ public class JdbcChatSessionPurgeRepository {
      * {@code user_file_id} for the same reason).
      */
     public void purge(UUID session) {
-        for (String table : List.of("chat_command", "chat_feedback", "chat_sharing")) {
+        for (String table : List.of("chat_command", "chat_feedback", "chat_sharing",
+                "chat_session_summary", "chat_session_compaction")) {
             jdbc.sql("DELETE FROM " + table + " WHERE session_id = :session").param("session", session).update();
         }
         // chat_session points at its root message and the messages point at each other; both constraints are

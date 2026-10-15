@@ -62,7 +62,7 @@ public enum AuditAction {
     MCP_SERVER_CREATE("mcp_server.create", AuditEventClass.API_ACTIVITY, "after"),
     MCP_SERVER_UPDATE("mcp_server.update", AuditEventClass.API_ACTIVITY, "before", "after", "credentialChange"),
     MCP_SERVER_DELETE("mcp_server.delete", AuditEventClass.API_ACTIVITY, "url"),
-    MCP_TOOL_CHANGE("mcp_tool.change", AuditEventClass.API_ACTIVITY, "tools", "enabled"),
+    MCP_TOOL_CHANGE("mcp_tool.change", AuditEventClass.API_ACTIVITY, "tools", "enabled", "policy", "risk"),
     MCP_OAUTH_CLIENT_CHANGE("mcp_oauth_client.change", AuditEventClass.API_ACTIVITY, "change", "client", "issuer"),
     MCP_CONNECTION_CHANGE("mcp_connection.change", AuditEventClass.API_ACTIVITY, "change"),
     /** MEM-114: the per-Tenant switch of the MemoryOS MCP endpoint. Calls through the endpoint are not recorded. */
@@ -94,6 +94,10 @@ public enum AuditAction {
     CHANNEL_CREATE("channel.create", AuditEventClass.API_ACTIVITY, "provider", "app"),
     CHANNEL_UPDATE("channel.update", AuditEventClass.API_ACTIVITY, "change"),
     CHANNEL_DELETE("channel.delete", AuditEventClass.API_ACTIVITY, "provider"),
+    /** A member linked their account on a bot's platform (MEM-263); the record names the member and the bot only. */
+    CHANNEL_ACCOUNT_LINK("channel.account_link", AuditEventClass.ACCOUNT_CHANGE),
+    /** A member removed the link of their account on a bot's platform. */
+    CHANNEL_ACCOUNT_UNLINK("channel.account_unlink", AuditEventClass.ACCOUNT_CHANGE),
 
     // What a Tenant may spend on AI (MEM-123).
     AI_LIMIT_CREATE("ai_limit.create", AuditEventClass.API_ACTIVITY, "scope", "group", "after"),

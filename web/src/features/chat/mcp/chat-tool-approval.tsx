@@ -10,6 +10,13 @@ import { useProblemMessage } from "@/lib/use-problem-message";
 /** What the server streamed with the gate (MEM-253): the app, the tool and the call's JSON arguments. */
 type Descriptor = { serverName?: string; toolName?: string; arguments?: string };
 
+/** The fields assistant-ui reads from the gate's descriptor (MEM-267): the answers offered and how it ended. */
+type Gate = {
+  options?: readonly { id: string; kind: string }[];
+  optionId?: string;
+  resolution?: "cancelled" | "expired";
+};
+
 /**
  * The arguments as the person reads them: each field of a JSON object on its own row, text as written (an email
  * body keeps its lines), anything else as indented JSON. A value that does not parse is one row as sent.
@@ -31,8 +38,9 @@ function details(json: string | undefined): { label: string; value: string }[] {
 
 /**
  * A call that waits for the person, rendered with assistant-ui's approval card on the tool part's own gate: Allow
- * or Decline while it waits, then a receipt. The answer goes through `respondToApproval`, which the runtime sends
- * to the server that holds the paused call.
+ * or Decline while it waits, plus Always allow when the gate offers it, then a receipt. The answer goes through
+ * `respondToApproval`, which the runtime sends to the server that holds the paused call. A call nobody answered in
+ * time, or a reloaded answer, shows only its receipt.
  */
 export function ChatToolApproval({
   part,
@@ -48,20 +56,25 @@ export function ChatToolApproval({
   const [failure, setFailure] = useState<unknown>(null);
   const approval = part.approval;
   if (!approval) return null;
-  const descriptor = (approval as { descriptor?: Descriptor }).descriptor ?? {};
-  const answer = async (approved: boolean) => {
+  const descriptor = (approval as { descriptor?: Descriptor & Gate }).descriptor ?? {};
+  const gate = { ...descriptor, ...(approval as Gate) };
+  const alwaysAllowable = gate.options?.some((option) => option.kind === "allow-always") ?? false;
+  const answer = async (approved: boolean, always = false) => {
     setFailure(null);
     try {
-      await part.respondToApproval({ approved });
+      await part.respondToApproval(
+        always ? { approved: true, optionId: "allow-always" } : { approved },
+      );
     } catch (cause) {
       setFailure(cause);
     }
   };
+  const expired = gate.resolution === "expired";
   const state =
-    approval.approved === undefined
-      ? "request"
-      : approval.approved === false
-        ? "denied"
+    expired || approval.approved === false
+      ? "denied"
+      : approval.approved === undefined
+        ? "request"
         : part.status.type === "running" || part.status.type === "requires-action"
           ? "running"
           : "done";
@@ -77,17 +90,23 @@ export function ChatToolApproval({
         subtitle={ui("Công cụ này có thể thay đổi dữ liệu")}
         details={details(descriptor.arguments)}
         allowOnceLabel={ui("Cho phép")}
+        alwaysAllowLabel={ui("Luôn cho phép")}
         denyLabel={ui("Từ chối")}
         statusLabel={
-          state === "denied"
-            ? ui("Bạn đã từ chối.")
-            : state === "running"
-              ? ui("Đang chạy…")
-              : state === "done"
-                ? ui("Bạn đã cho phép.")
-                : undefined
+          expired
+            ? ui("Hết thời gian chờ, công cụ không chạy.")
+            : state === "denied"
+              ? ui("Bạn đã từ chối.")
+              : state === "running"
+                ? ui("Đang chạy…")
+                : state === "done"
+                  ? gate.optionId === "allow-always"
+                    ? ui("Đã bật luôn cho phép công cụ này.")
+                    : ui("Bạn đã cho phép.")
+                  : undefined
         }
         onAllowOnce={() => void answer(true)}
+        onAlwaysAllow={alwaysAllowable ? () => void answer(true, true) : undefined}
         onDeny={() => void answer(false)}
       />
       {failure ? (

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { BotMessageSquare } from "lucide-react";
 import { BrandLoader } from "@/components/brand-loader";
@@ -7,14 +8,20 @@ import { SectionHeader } from "@/components/composites/section-header";
 import { SettingsLayout } from "@/components/composites/settings-layout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
-import { ChannelMenu, ChannelSwitch } from "./channel-actions";
+import { ChannelMark, ChannelMenu, ChannelSwitch } from "./channel-actions";
 import { type ChannelAdmin, useChannelAdmin, useChannels } from "./channel-admin";
-import { channelLine, channelState } from "./channel-status";
-import { ChannelMark } from "./channels-page";
+import { channelFailure, channelLine, channelState } from "./channel-status";
 
 /** One bot's page: its name, line and switch at the top, then its facts and the scopes Lark still refuses. */
 export function ChannelDetailPage() {
@@ -54,21 +61,29 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
   const ui = useAppTranslation();
   const { line, tone } = channelLine(channel);
   const when = (value?: string) => (value ? formatUiMoment(value) : ui("Chưa có"));
-  const facts: [string, string][] = [
+  const zalo = channel.provider === "ZALO_BOT";
+  const facts: [string, ReactNode][] = [
     [ui("Trạng thái"), ui(channelState(channel.status))],
-    [ui("Bot trên Lark"), channel.botName ?? ui("Chưa rõ")],
-    [ui("Khu vực"), channel.region === "FEISHU" ? ui("Feishu") : ui("Lark")],
-    [ui("App ID"), channel.appId],
+    [zalo ? ui("Bot trên Zalo") : ui("Bot trên Lark"), channel.botName ?? ui("Chưa rõ")],
+    ...(zalo
+      ? ([
+          [ui("Bot ID"), channel.appId],
+          [
+            ui("Cách nhận tin"),
+            <TransportSelect key="transport" channel={channel} admin={admin} />,
+          ],
+        ] as [string, ReactNode][])
+      : ([
+          [ui("Khu vực"), channel.region === "FEISHU" ? ui("Feishu") : ui("Lark")],
+          [ui("App ID"), channel.appId],
+        ] as [string, ReactNode][])),
     [ui("Ngôn ngữ thông báo"), channel.noticeLanguage === "en" ? ui("English") : ui("Tiếng Việt")],
     [ui("Kết nối từ"), when(channel.connectedAt)],
     [ui("Tin nhắn gần nhất"), when(channel.lastMessageAt)],
     ...(channel.failureCode
-      ? [
-          [ui("Lỗi gần nhất"), `${channel.failureCode} · ${when(channel.failedAt)}`] as [
-            string,
-            string,
-          ],
-        ]
+      ? ([
+          [ui("Lỗi gần nhất"), `${ui(channelFailure(channel) ?? "")} · ${when(channel.failedAt)}`],
+        ] as [string, ReactNode][])
       : []),
   ];
 
@@ -76,7 +91,7 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
     <>
       <DetailHeader
         parent={{ label: ui("Kênh chat"), to: "/admin/channels" }}
-        icon={<ChannelMark />}
+        icon={<ChannelMark provider={channel.provider} />}
         iconSize="lg"
         title={channel.name}
         description={
@@ -97,9 +112,9 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
         }
       />
 
-      {admin.toggleError ? (
+      {admin.changeError ? (
         <Alert variant="destructive" role="alert">
-          <AlertDescription>{ui(admin.toggleError)}</AlertDescription>
+          <AlertDescription>{ui(admin.changeError)}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -107,9 +122,9 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
         <SectionHeader level="group" title={ui("Thông tin")} />
         <dl className="divide-y divide-border-subtle rounded-xl border border-border-subtle font-secondary-body">
           {facts.map(([label, value]) => (
-            <div key={label} className="grid grid-cols-3 gap-4 px-4 py-3">
+            <div key={label} className="grid grid-cols-3 items-center gap-4 px-4 py-3">
               <dt className="text-content-muted">{label}</dt>
-              <dd className="col-span-2 break-all text-content-primary">{value}</dd>
+              <dd className="col-span-2 wrap-anywhere text-content-primary">{value}</dd>
             </div>
           ))}
         </dl>
@@ -128,5 +143,27 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
         </section>
       ) : null}
     </>
+  );
+}
+
+/** How a Zalo bot receives; saved on change, as the switch is. */
+function TransportSelect({ channel, admin }: { channel: ChannelResponse; admin: ChannelAdmin }) {
+  const ui = useAppTranslation();
+  return (
+    <Select
+      value={channel.transport ?? "WEBHOOK"}
+      disabled={admin.choosingTransport(channel)}
+      onValueChange={(next) =>
+        admin.setTransport(channel, next === "POLLING" ? "POLLING" : "WEBHOOK")
+      }
+    >
+      <SelectTrigger size="sm" className="w-40" aria-label={ui("Cách nhận tin")}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="WEBHOOK">{ui("Webhook")}</SelectItem>
+        <SelectItem value="POLLING">{ui("Polling")}</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }

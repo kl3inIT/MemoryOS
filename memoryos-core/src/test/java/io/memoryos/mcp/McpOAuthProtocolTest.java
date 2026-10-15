@@ -206,6 +206,20 @@ class McpOAuthProtocolTest {
     }
 
     @Test
+    void aGrantWithoutScopesIsAcceptedWhenTheServerAnswersAnEmptyScope() {
+        routes.put("POST /token", exchange -> respond(exchange, 200, Map.of("access_token", "access", "refresh_token", "refresh",
+                "token_type", "bearer", "expires_in", 3600, "scope", "")));
+        var client = new McpOAuthProtocol.Client("https://memoryos.example/mcp/oauth/client-metadata.json", null,
+                McpTokenEndpointAuthMethod.NONE);
+
+        var tokens = protocol.exchangeCode(URI.create(origin + "/token"), client, "the-code",
+                URI.create("https://memoryos.example/login/oauth2/code/mcp"), "verifier", origin + "/mcp");
+
+        assertEquals("access", tokens.accessToken());
+        assertNull(tokens.scope());
+    }
+
+    @Test
     void invalidGrantRequiresAuthorizationAndOtherFailuresStayGeneric() {
         var client = new McpOAuthProtocol.Client("public", null, McpTokenEndpointAuthMethod.NONE);
         routes.put("POST /token", exchange -> respond(exchange, 400, Map.of("error", "invalid_grant", "error_description", "upstream detail")));

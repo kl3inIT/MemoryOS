@@ -285,6 +285,9 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
             // sends it as response_format, and ResponsesRequestBuilder as text.format.
             if (options.<Object>getExtension(ModelBinding.OUTPUT_SCHEMA) instanceof String schema)
                 converted = converted.mutate().outputSchema(schema).build();
+            // An answer keeps its conversation on one prompt cache (MEM-269); the Responses route sends the same key.
+            if (options.<Object>getExtension(ModelBinding.PROMPT_CACHE_KEY) instanceof String key)
+                converted = converted.mutate().promptCacheKey(key).build();
             return converted;
         };
         var price = settings.pricing();
@@ -298,7 +301,7 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
                         OpenAiRequestPolicy.withSampling(
                                 llmService.getOptionsConverter().convertOptions(requested, requestedModel),
                                 requested, sampling, settings)),
-                OpenAiFailures::credentialRejected, null);
+                OpenAiFailures::read, null);
     }
 
     /** Onyx {@code is_true_openai_model}: the OpenAI API host, not a compatible gateway reusing this adapter. */

@@ -1483,181 +1483,12 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/mcp/servers/{serverId}/tools/{toolId}/enabled:
+  /api/mcp/servers/{serverId}/tools/policy:
     put:
       tags:
       - MCP
-      summary: Enable or disable one tool at the expected revision
-      operationId: setMcpServerToolEnabled
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: toolId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: revision
-        in: query
-        required: true
-        schema:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/McpToolEnablement"
-        required: true
-      responses:
-        "400":
-          description: Invalid MCP configuration or tool snapshot
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: MCP server or tool not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: "Stale revision, duplicate slug, missing credential or server\
-            \ authorization required"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: MCP server or credential encryption key unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Saved tool
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpToolView"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/servers/{serverId}/tools/{toolId}/approval:
-    put:
-      tags:
-      - MCP
-      summary: "Set whether an enabled tool asks the person before each call, at the\
-        \ expected revision"
-      operationId: setMcpServerToolApproval
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: toolId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: revision
-        in: query
-        required: true
-        schema:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/McpToolApproval"
-        required: true
-      responses:
-        "400":
-          description: Invalid MCP configuration or tool snapshot
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: MCP server or tool not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: "Stale revision, duplicate slug, missing credential or server\
-            \ authorization required"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: MCP server or credential encryption key unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Saved tool
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpToolView"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/servers/{serverId}/tools/enabled:
-    put:
-      tags:
-      - MCP
-      summary: Enable every exposable tool or disable every tool
-      operationId: setAllMcpServerToolsEnabled
+      summary: Set the policy of every tool of one risk
+      operationId: setMcpServerToolGroupPolicy
       parameters:
       - name: X-MemoryOS-CSRF
         in: header
@@ -1677,7 +1508,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/McpToolEnablement"
+              $ref: "#/components/schemas/McpToolGroupPolicyChange"
         required: true
       responses:
         "400":
@@ -1722,6 +1553,156 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Return every tool to the default policy of its risk
+      operationId: resetMcpServerToolPolicies
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Tools with their default policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/tools/{toolId}/policy:
+    put:
+      tags:
+      - MCP
+      summary: Set one tool's policy at the expected revision; refreshes keep it
+      operationId: setMcpServerToolPolicy
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpToolPolicyChange"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpToolView"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6693,6 +6674,81 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/{channelId}/transport:
+    put:
+      tags:
+      - Channels
+      summary: "Change how a bot receives, for a platform that offers both, with a\
+        \ revision precondition"
+      operationId: updateChannelTransport
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelTransportRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/limits/{limitId}:
     put:
       tags:
@@ -9399,8 +9455,8 @@ paths:
     post:
       tags:
       - MCP
-      summary: Explicitly list tools from the server with the administrator credential
-        and replace the snapshot
+      summary: "List tools from the server with the administrator credential and replace\
+        \ the snapshot, keeping customized policies"
       operationId: refreshMcpServerTools
       parameters:
       - name: X-MemoryOS-CSRF
@@ -14344,6 +14400,133 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/View"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/zalo:
+    post:
+      tags:
+      - Channels
+      summary: "Check a Zalo bot's token with Zalo and add the bot, switched off;\
+        \ nothing is stored when Zalo rejects it"
+      operationId: createZaloChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateZaloChannelRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Added bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/zalo/test:
+    post:
+      tags:
+      - Channels
+      summary: Check a Zalo bot's token with Zalo without storing anything
+      operationId: testZaloChannelBot
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZaloBotRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Zalo accepts the token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAppCheckResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -21562,7 +21745,8 @@ paths:
     post:
       tags:
       - Credentials
-      summary: Verify a Lark custom app with Lark and store it; nothing is stored when Lark rejects it
+      summary: Verify a Lark custom app with Lark and store it; nothing is stored
+        when Lark rejects it
       operationId: createLarkCredential
       parameters:
       - name: X-MemoryOS-CSRF
@@ -21832,7 +22016,8 @@ paths:
     post:
       tags:
       - Credentials
-      summary: "Ask Lark for a tenant token, read the bot and probe the read scopes; records what Lark said"
+      summary: "Ask Lark for a tenant token, read the bot and probe the read scopes;\
+        \ records what Lark said"
       operationId: testLarkCredential
       parameters:
       - name: X-MemoryOS-CSRF
@@ -21895,7 +22080,8 @@ paths:
     post:
       tags:
       - Sources
-      summary: Create a Lark source; its scope is verified with Lark before it takes effect
+      summary: Create a Lark source; its scope is verified with Lark before it takes
+        effect
       operationId: createLarkSource
       parameters:
       - name: X-MemoryOS-CSRF
@@ -22050,7 +22236,8 @@ paths:
     put:
       tags:
       - Sources
-      summary: Replace what a Lark source synchronizes; the new scope is verified before it applies
+      summary: Replace what a Lark source synchronizes; the new scope is verified
+        before it applies
       operationId: replaceLarkScope
       parameters:
       - name: X-MemoryOS-CSRF
@@ -22357,7 +22544,8 @@ paths:
     get:
       tags:
       - Sources
-      summary: "List the Wiki spaces the credential's app is a member of, read from Lark now"
+      summary: "List the Wiki spaces the credential's app is a member of, read from\
+        \ Lark now"
       operationId: listLarkSpaces
       parameters:
       - name: credentialId
@@ -22367,6 +22555,20 @@ paths:
           type: string
           format: uuid
       responses:
+        "200":
+          description: Wiki spaces a source may name
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkSpaceOptionResponse"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
         "400":
           description: Invalid Lark scope
           content:
@@ -22393,20 +22595,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Wiki spaces a source may name
-          content:
-            '*/*':
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LarkSpaceOptionResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -22797,6 +22985,143 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "204":
           description: Bot removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channel-links:
+    get:
+      tags:
+      - Channels
+      summary: "List the Tenant's bots that take a linked account, with the member's\
+        \ own link on each"
+      operationId: listChannelLinks
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Bots and links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChannelLinkResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Channels
+      summary: "Make a code, valid ten minutes, that links the platform account sending\
+        \ it to the bot to the member"
+      operationId: createChannelLinkCode
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelLinkCodeRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Linking code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelLinkCodeResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channel-links/{connectionId}:
+    delete:
+      tags:
+      - Channels
+      summary: "Remove the member's link on a bot, and any code they made for it"
+      operationId: deleteChannelLink
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: connectionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Link removed
       security:
       - bearerAuth: []
       - browserSession: []
@@ -23871,13 +24196,17 @@ components:
       - tenantWide
       - toolCount
       - url
-    McpToolEnablement:
+    McpToolPolicyChange:
       type: object
       properties:
-        enabled:
-          type: boolean
+        policy:
+          type: string
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
       required:
-      - enabled
+      - policy
     McpToolView:
       type: object
       description: Annotation hints come from the server and are not enforced guarantees
@@ -23904,11 +24233,23 @@ components:
           type:
           - boolean
           - "null"
-        enabled:
+        risk:
+          type: string
+          description: "From the annotations: READ, WRITE or DESTRUCTIVE"
+          enum:
+          - READ
+          - WRITE
+          - DESTRUCTIVE
+        policy:
+          type: string
+          description: "ALWAYS runs, ASK waits for the person, OFF is never offered"
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
+        policyCustomized:
           type: boolean
-        approvalRequired:
-          type: boolean
-          description: An enabled tool waits for the person to approve each call
+          description: An administrator chose the policy; refreshes keep it
         exposable:
           type: boolean
         snapshotAt:
@@ -23918,25 +24259,39 @@ components:
           type: integer
           format: int64
       required:
-      - approvalRequired
       - description
       - destructiveHint
-      - enabled
       - exposable
       - id
       - modelName
       - name
+      - policy
+      - policyCustomized
       - readOnlyHint
       - revision
+      - risk
       - snapshotAt
       - title
-    McpToolApproval:
+    McpToolGroupPolicyChange:
       type: object
       properties:
-        approvalRequired:
-          type: boolean
+        risk:
+          type: string
+          description: The group of tools to change
+          enum:
+          - READ
+          - WRITE
+          - DESTRUCTIVE
+        policy:
+          type: string
+          description: DESTRUCTIVE refuses ALWAYS
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
       required:
-      - approvalRequired
+      - policy
+      - risk
     McpOAuthClientInput:
       type: object
       description: A pre-registered OAuth client; the secret is write-only
@@ -24466,10 +24821,12 @@ components:
           type: string
         botName:
           type: string
-          description: "The bot Lark named at the last verification: what is added to a space or a folder"
+          description: "The bot Lark named at the last verification: what is added\
+            \ to a space or a folder"
         missingScopes:
           type: array
-          description: Read scopes Lark refused to the app's tenant token at the last verification
+          description: Read scopes Lark refused to the app's tenant token at the last
+            verification
           items:
             type: string
         credentialRevision:
@@ -26578,6 +26935,17 @@ components:
           items:
             type: string
             format: uuid
+    UpdateChannelTransportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        transport:
+          type: string
+          enum:
+          - WEBHOOK
+          - POLLING
+      required:
+      - transport
     AiUsageLimitRequest:
       type: object
       properties:
@@ -28812,6 +29180,12 @@ components:
       properties:
         approved:
           type: boolean
+        alwaysAllow:
+          type:
+          - boolean
+          - "null"
+          description: "With approved, the tool also runs without asking from now\
+            \ on; needs MCP_MANAGE and a tool that is not destructive"
       required:
       - approved
     Cancellation:
@@ -29206,6 +29580,49 @@ components:
       - sizeBytes
       - skipped
       - status
+    CreateZaloChannelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: "The bot's name here, and its account's"
+          maxLength: 100
+          minLength: 0
+        token:
+          type: string
+          description: The bot's token from Zalo Bot Creator
+          maxLength: 256
+          minLength: 0
+        noticeLanguage:
+          type: string
+          description: The language of the bot's notices
+          enum:
+          - vi
+          - en
+          pattern: vi|en
+        transport:
+          type: string
+          description: "How the bot receives: WEBHOOK where the deployment has a public\
+            \ address, which is the default there, else POLLING"
+          enum:
+          - WEBHOOK
+          - POLLING
+      required:
+      - name
+      - noticeLanguage
+      - token
+    ZaloBotRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          description: The bot's token from Zalo Bot Creator
+          maxLength: 256
+          minLength: 0
+      required:
+      - token
     UsageReportRequest:
       type: object
       description: An inclusive UTC day range of at most 366 days
@@ -31416,10 +31833,25 @@ components:
           description: "Why a COMPLETED reply declined instead of answering: no_evidence,\
             \ uncited or blocked_topic (answers from documents only, sensitive topics);\
             \ null otherwise"
+        contextTokens:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Estimated input tokens of the reply's last model call; null
+            when unknown
+        contextLimit:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: The model's input limit for that call; null when unknown
       required:
       - activity
       - artifacts
       - content
+      - contextLimit
+      - contextTokens
       - createdAt
       - failureCode
       - files
@@ -31735,8 +32167,22 @@ components:
           - "null"
         hasArtifacts:
           type: boolean
+        contextTokens:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Estimated input tokens of the reply's last model call
+        contextLimit:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: The model's input limit for that call
       required:
       - assistantMessageId
+      - contextLimit
+      - contextTokens
       - failureCode
       - hasArtifacts
       - sequence
@@ -32100,7 +32546,11 @@ components:
           - APPROVED
           - DECLINED
           - NO_DECISION
+        alwaysAllowable:
+          type: boolean
+          description: The reply's owner may answer with always allow
       required:
+      - alwaysAllowable
       - arguments
       - assistantMessageId
       - sequence
@@ -33427,15 +33877,25 @@ components:
           type: string
           enum:
           - LARK
+          - ZALO_BOT
         name:
           type: string
         region:
           type: string
+          description: Where a Lark bot's app is hosted; absent for another platform
           enum:
           - LARK
           - FEISHU
+        transport:
+          type: string
+          description: How a Zalo bot receives; absent for a platform with one way
+            of its own
+          enum:
+          - WEBHOOK
+          - POLLING
         appId:
           type: string
+          description: The platform's id of the bot's app
         noticeLanguage:
           type: string
         enabled:
@@ -33496,7 +33956,6 @@ components:
       - name
       - noticeLanguage
       - provider
-      - region
       - revision
       - serviceAccountId
       - status
@@ -33584,6 +34043,48 @@ components:
       required:
       - botName
       - missingScopes
+    CreateChannelLinkCodeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+      required:
+      - connectionId
+    ChannelLinkCodeResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - code
+      - expiresAt
+    ChannelLinkResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+        botName:
+          type: string
+        provider:
+          type: string
+          enum:
+          - LARK
+          - ZALO_BOT
+        linkedAt:
+          type: string
+          format: date-time
+      required:
+      - botName
+      - connectionId
+      - provider
   securitySchemes:
     browserSession:
       type: apiKey

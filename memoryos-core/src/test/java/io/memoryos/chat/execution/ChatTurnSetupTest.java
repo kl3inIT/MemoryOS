@@ -231,7 +231,7 @@ class ChatTurnSetupTest {
         var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
                 List.of(message(ChatMessage.Role.USER, "Make the shirt red"), imageOnly, message(ChatMessage.Role.USER, "Draw a man")),
                 ChatTurnOptions.DEFAULT, Map.of(), List.of(), null,
-                Map.of(imageOnly.id(), List.of(image)));
+                Map.of(imageOnly.id(), List.of(image)), null);
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
         assertEquals(List.of("Draw a man", "Make the shirt red"), setup.messages().stream()
                 .filter(m -> m instanceof UserMessage).map(Message::getContent).toList());
@@ -261,6 +261,69 @@ class ChatTurnSetupTest {
         assertTrue(setup.fileIds().isEmpty());
     }
 
+    /** MEM-268: an older turn's file text and presentation data go first; its file stays named and readable. */
+    @Test
+    void olderTurnsKeepTheirFilesNamedButNotInlinedForAModelWithTools() {
+        var old = new ChatFileDescriptor(UUID.randomUUID(), "quy-che.txt", "text/plain", 30);
+        var current = new ChatFileDescriptor(UUID.randomUUID(), "bao-cao.txt", "text/plain", 20);
+        var artifact = new ChatArtifact(UUID.randomUUID(), "Revenue", """
+                {"root":{"component":"Metric","props":{"label":"September","value":"125000"}}}
+                """);
+        var oldQuestion = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER,
+                ChatMessage.Status.COMPLETED, Instant.now()).content("Đọc quy chế").files(List.of(old))
+                .finishedAt(Instant.now()).build();
+        var oldAnswer = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.ASSISTANT,
+                ChatMessage.Status.COMPLETED, Instant.now()).content("Quy chế có ba phần.").artifacts(List.of(artifact))
+                .finishedAt(Instant.now()).build();
+        var question = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.USER,
+                ChatMessage.Status.COMPLETED, Instant.now()).content("Tóm tắt báo cáo").files(List.of(current))
+                .finishedAt(Instant.now()).build();
+        var history = List.of(question, message(ChatMessage.Role.ASSISTANT, "Phần hai nói về nghỉ phép."),
+                message(ChatMessage.Role.USER, "Phần hai nói gì?"), oldAnswer, oldQuestion);
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", history)
+                .fileTexts(Map.of(old.id(), new UserFileService.FileText("NỘI DUNG QUY CHẾ", 0, 16),
+                        current.id(), new UserFileService.FileText("NỘI DUNG BÁO CÁO", 0, 16)))
+                .build();
+        var base = binding();
+        var tools = ModelBinding.builder(base.service(), base.finalRequest(), base.policy(), 32000, 4096, true, false).build();
+
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, tools, "");
+        var texts = setup.messages().stream().map(Message::getContent).toList();
+        assertTrue(texts.stream().noneMatch(text -> text.contains("NỘI DUNG QUY CHẾ")), "the older file is not inlined");
+        assertTrue(texts.stream().noneMatch(text -> text.contains("125000")), "the older presentation data is gone");
+        assertTrue(texts.stream().anyMatch(text -> text.startsWith("Đọc quy chế") && text.contains("quy-che.txt")
+                && text.contains("read_file available")), "the older question still names its file");
+        assertTrue(texts.stream().anyMatch(text -> text.contains("NỘI DUNG BÁO CÁO")), "the current file stays inline");
+        assertEquals(Set.of(old.id(), current.id()), setup.fileIds(), "both files stay readable");
+        assertEquals(1, setup.evidence().snapshot().size(), "only the inlined file is cited");
+
+        // A model without tools has no read_file, so it keeps reading the older file inline as before.
+        var noTools = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, base, "");
+        assertTrue(noTools.messages().stream().anyMatch(m -> m.getContent().contains("NỘI DUNG QUY CHẾ")));
+        assertTrue(noTools.messages().stream().noneMatch(m -> m.getContent().contains("125000")));
+
+        // Less is sent, so a budget that held the whole conversation before still holds it.
+        int before = noTools.messages().size() - 1;
+        var fitting = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, tools, "");
+        assertTrue(fitting.messages().size() >= before, "no turn is lost by dropping bulky content");
+    }
+
+    @Test
+    void thePreviousAnswerKeepsItsPresentationDataForAModelWithTools() {
+        var artifact = new ChatArtifact(UUID.randomUUID(), "Revenue", """
+                {"root":{"component":"Metric","props":{"label":"September","value":"125000"}}}
+                """);
+        var answer = ChatMessage.builder(UUID.randomUUID(), UUID.randomUUID(), ChatMessage.Role.ASSISTANT,
+                ChatMessage.Status.COMPLETED, Instant.now()).content("").artifacts(List.of(artifact))
+                .finishedAt(Instant.now()).build();
+        var base = binding();
+        var tools = ModelBinding.builder(base.service(), base.finalRequest(), base.policy(), 32000, 4096, true, false).build();
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(
+                message(ChatMessage.Role.USER, "Đổi sang tháng mười"), answer, message(ChatMessage.Role.USER, "Doanh thu tháng chín"))),
+                32000, tools, "");
+        assertTrue(setup.messages().stream().anyMatch(m -> m.getContent().contains("125000")));
+    }
+
     @Test
     void aReplyDeclinedForAnotherReasonHidesNothing() {
         var session = UUID.randomUUID();
@@ -271,5 +334,68 @@ class ChatTurnSetupTest {
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(),
                 context(List.of(message(ChatMessage.Role.USER, "Còn chế độ thai sản?"), uncited, question)), 32000, binding(), "");
         assertEquals("Nghỉ phép năm?", setup.messages().get(1).getContent());
+    }
+
+    /** Newest first: the current question, then two exchanges, the older of which a summary covers. */
+    private List<ChatMessage> compactedHistory(ChatMessage cutoff) {
+        return List.of(message(ChatMessage.Role.USER, "Newest"), message(ChatMessage.Role.ASSISTANT, "Second answer"),
+                message(ChatMessage.Role.USER, "Second question"), cutoff, message(ChatMessage.Role.USER, "First question"));
+    }
+
+    @Test
+    void theSummaryFollowsTheWorkspaceAndOnlyTheMessagesAfterItsCutoffReplay() {
+        var cutoff = message(ChatMessage.Role.ASSISTANT, "First answer");
+        var picture = new ChatFileDescriptor(UUID.randomUUID(), "picture.png", "image/png", 100);
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
+                        compactedHistory(cutoff))
+                .workspaceFiles(List.of(picture))
+                .summary(new TurnContext.Summary(cutoff.id(), "The person compares two plans."))
+                .build();
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
+        assertInstanceOf(SystemMessage.class, setup.messages().getFirst());
+        assertTrue(setup.messages().get(1).getContent().startsWith("Workspace files (untrusted data)"));
+        assertInstanceOf(UserMessage.class, setup.messages().get(2));
+        assertEquals(ChatTurnSetup.SUMMARY_LABEL + "The person compares two plans.", setup.messages().get(2).getContent());
+        assertEquals(List.of("Second question", "Second answer", "Newest"),
+                setup.messages().stream().skip(3).map(Message::getContent).toList());
+    }
+
+    @Test
+    void theSummaryIsKeptWhileTheWindowTrimsTheTail() {
+        var cutoff = message(ChatMessage.Role.ASSISTANT, "First answer");
+        var history = List.of(message(ChatMessage.Role.USER, "Newest"), message(ChatMessage.Role.ASSISTANT, "Previous"),
+                message(ChatMessage.Role.USER, "Old question ".repeat(1000)), cutoff);
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", history)
+                .summary(new TurnContext.Summary(cutoff.id(), "Short summary"))
+                .build();
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 200, binding(), "");
+        assertEquals(List.of(ChatTurnSetup.SUMMARY_LABEL + "Short summary", "Newest"),
+                setup.messages().stream().skip(1).map(Message::getContent).toList());
+    }
+
+    @Test
+    void aSummaryThatLeavesNoRoomForTheQuestionIsIgnoredAndTheWindowReplaysAsBefore() {
+        var cutoff = message(ChatMessage.Role.ASSISTANT, "First answer");
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
+                        compactedHistory(cutoff))
+                .summary(new TurnContext.Summary(cutoff.id(), "Long summary ".repeat(1000)))
+                .build();
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, binding(), "");
+        assertEquals(List.of("First question", "First answer", "Second question", "Second answer", "Newest"),
+                setup.messages().stream().skip(1).map(Message::getContent).toList());
+    }
+
+    @Test
+    void withoutASummaryTheWholeWindowReplays() {
+        var cutoff = message(ChatMessage.Role.ASSISTANT, "First answer");
+        var summarized = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
+                        compactedHistory(cutoff))
+                .summary(new TurnContext.Summary(cutoff.id(), "The person compares two plans."))
+                .build();
+        var plain = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(compactedHistory(cutoff)), 32000, binding(), "");
+        var research = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), summarized.withoutSummary(), 32000, binding(), "");
+        var expected = List.of("First question", "First answer", "Second question", "Second answer", "Newest");
+        assertEquals(expected, plain.messages().stream().skip(1).map(Message::getContent).toList());
+        assertEquals(expected, research.messages().stream().skip(1).map(Message::getContent).toList());
     }
 }

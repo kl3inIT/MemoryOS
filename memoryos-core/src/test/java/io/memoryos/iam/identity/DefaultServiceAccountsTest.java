@@ -1,6 +1,7 @@
 package io.memoryos.iam.identity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -139,6 +140,20 @@ class DefaultServiceAccountsTest {
         // One account an owner.
         assertThrows(IllegalStateException.class,
                 () -> transactions.executeWithoutResult(_ -> accounts.create(TENANT, OWNER, "Again", "vi")));
+    }
+
+    @Test
+    void noSignInResolvesToAServiceAccount() {
+        ActorId bot = transactions.execute(_ -> accounts.create(TENANT, OWNER, "Lark", "vi"));
+
+        // A sign-in is resolved by the identity provider's issuer and subject; the account's issuer is MemoryOS's own,
+        // which no provider signs for, so even the owner's id as a provider subject reaches another account.
+        ActorId signedIn = transactions.execute(_ -> identities.resolveOrCreate(new ExternalIdentity(ISSUER, OWNER.toString())));
+        assertNotEquals(bot, signedIn);
+        assertEquals("STANDARD", jdbc.sql("SELECT account_type FROM actors WHERE id = :actor")
+                .param("actor", signedIn.value()).query(String.class).single());
+        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM external_identity_bindings WHERE actor_id = :actor")
+                .param("actor", bot.value()).query(Long.class).single());
     }
 
     @Test

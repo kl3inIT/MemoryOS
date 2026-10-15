@@ -382,11 +382,25 @@ public final class McpOAuthProtocol {
                 throw unusableToken(parameters, "expires_in");
             expiresAt = Instant.now().plusSeconds(seconds);
         }
+        String accessToken;
         try {
-            return new Tokens(text(token, "access_token", MAX_TOKEN_CHARACTERS),
-                    optionalText(token, "refresh_token", MAX_TOKEN_CHARACTERS), expiresAt, optionalText(token, "scope", 4096));
+            accessToken = text(token, "access_token", MAX_TOKEN_CHARACTERS);
         } catch (RuntimeException invalid) {
-            throw unusableToken(parameters, "token_fields");
+            throw unusableToken(parameters, "access_token");
+        }
+        String refreshToken;
+        try {
+            refreshToken = optionalText(token, "refresh_token", MAX_TOKEN_CHARACTERS);
+        } catch (RuntimeException invalid) {
+            throw unusableToken(parameters, "refresh_token");
+        }
+        // A grant without scopes comes back as "scope": "" from some servers (Linear); that is no scope, not a failure.
+        JsonNode scope = token.path("scope");
+        if (scope.isString() && scope.asString().isBlank()) return new Tokens(accessToken, refreshToken, expiresAt, null);
+        try {
+            return new Tokens(accessToken, refreshToken, expiresAt, optionalText(token, "scope", 4096));
+        } catch (RuntimeException invalid) {
+            throw unusableToken(parameters, "scope");
         }
     }
 

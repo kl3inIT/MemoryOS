@@ -34,13 +34,16 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -106,7 +109,11 @@ class PostgresChannelConnectionTest {
     }
 
     private ChannelConnectionDraft draft(String appId) {
-        return new ChannelConnectionDraft(ChannelProvider.LARK, " Trợ lý Lark ", ChannelRegion.LARK, appId, SECRET, "vi");
+        return new ChannelConnectionDraft(ChannelProvider.LARK, " Trợ lý Lark ", lark(appId), "vi");
+    }
+
+    private static ChannelCredentials lark(String appId) {
+        return new ChannelCredentials(appId, SECRET, Map.of(ChannelRegion.SETTING, "LARK"));
     }
 
     @Test
@@ -114,6 +121,8 @@ class PostgresChannelConnectionTest {
         var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
 
         assertEquals("Trợ lý Lark", bot.name());
+        assertEquals(Map.of("region", "LARK"), bot.settings());
+        assertEquals(Map.of("region", "LARK"), channels.get(owner, bot.id()).settings());
         assertFalse(bot.enabled());
         assertEquals("MemoryOS Bot", bot.botName());
         assertEquals("ou_bot", bot.botExternalId());
@@ -152,6 +161,36 @@ class PostgresChannelConnectionTest {
     }
 
     @Test
+    void aSettingChangesWhatTheProviderAcceptsAndMovesTheRevision() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        var changed = channels.updateSettings(owner, bot.id(), bot.revision(), Map.of(ChannelRegion.SETTING, "FEISHU"));
+        assertEquals(Map.of("region", "FEISHU"), changed.settings());
+        assertEquals(bot.revision() + 1, changed.revision());
+        assertEquals("CHANNEL_CHANGED", code(() -> channels.updateSettings(owner, bot.id(), bot.revision(),
+                Map.of(ChannelRegion.SETTING, "LARK"))));
+        assertEquals("CHANNEL_INVALID", code(() -> channels.updateSettings(owner, bot.id(), changed.revision(),
+                Map.of("transport", "POLLING"))));
+        assertEquals(Map.of("region", "FEISHU"), channels.get(owner, bot.id()).settings());
+        assertEquals("CHANNEL_NOT_FOUND", code(() -> channels.updateSettings(owner, UUID.randomUUID(), 0, Map.of())));
+    }
+
+    /** MEM-263: a Zalo bot's row is its number and how it receives; the database refuses anything else. */
+    @Test
+    void theDatabaseHoldsAZaloBotByItsNumberAndHowItReceives() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        jdbc.sql("UPDATE channel_connections SET provider = 'ZALO_BOT', app_id = '1234567890', "
+                + "settings = '{\"transport\": \"POLLING\"}' WHERE id = :id").param("id", bot.id()).update();
+        assertEquals("ZALO_BOT", jdbc.sql("SELECT provider FROM channel_connections WHERE id = :id")
+                .param("id", bot.id()).query(String.class).single());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql(
+                "UPDATE channel_connections SET settings = '{\"transport\": \"CARRIER_PIGEON\"}' WHERE id = :id")
+                .param("id", bot.id()).update());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql(
+                "UPDATE channel_connections SET app_id = 'cli_a1b2c3d4e5f6' WHERE id = :id")
+                .param("id", bot.id()).update());
+    }
+
+    @Test
     void removingABotRetiresItsAccountAndKeepsItsName() {
         var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
         channels.delete(owner, bot.id(), bot.revision());
@@ -165,11 +204,12 @@ class PostgresChannelConnectionTest {
 
     @Test
     void inputIsCheckedAndOnlyAHolderOfTheCapabilityManagesBots() {
-        assertEquals("CHANNEL_INVALID", code(() -> channels.create(owner, draft("app-without-prefix"))));
         assertEquals("CHANNEL_INVALID", code(() -> channels.create(owner,
-                new ChannelConnectionDraft(ChannelProvider.LARK, " ", ChannelRegion.LARK, "cli_a1b2c3d4e5f6", SECRET, "vi"))));
+                new ChannelConnectionDraft(ChannelProvider.LARK, " ", lark("cli_a1b2c3d4e5f6"), "vi"))));
         assertEquals("CHANNEL_INVALID", code(() -> channels.create(owner,
-                new ChannelConnectionDraft(ChannelProvider.LARK, "Bot", ChannelRegion.LARK, "cli_a1b2c3d4e5f6", SECRET, "fr"))));
+                new ChannelConnectionDraft(ChannelProvider.LARK, "Bot", lark("cli_a1b2c3d4e5f6"), "fr"))));
+        assertEquals("CHANNEL_INVALID", code(() -> channels.create(owner, new ChannelConnectionDraft(ChannelProvider.LARK,
+                "Bot", new ChannelCredentials("cli_a1b2c3d4e5f6", " ", Map.of()), "vi"))));
         assertThrows(BusinessException.class, () -> channels.list(member));
         assertThrows(BusinessException.class, () -> channels.create(member, draft("cli_a1b2c3d4e5f6")));
         assertTrue(jdbc.sql("SELECT count(*) FROM channel_connections").query(Long.class).single() == 0);
@@ -179,8 +219,8 @@ class PostgresChannelConnectionTest {
     void anAppThePlatformRefusesIsNotStoredAndATestStoresNothing() {
         platform.refusing = true;
         assertEquals("CHANNEL_APP_REJECTED", code(() -> channels.create(owner, draft("cli_a1b2c3d4e5f6"))));
-        assertEquals("CHANNEL_APP_REJECTED", code(() -> channels.test(owner, ChannelProvider.LARK, ChannelRegion.LARK,
-                "cli_a1b2c3d4e5f6", SECRET)));
+        assertEquals("CHANNEL_APP_REJECTED", code(() -> channels.test(owner, ChannelProvider.LARK,
+                lark("cli_a1b2c3d4e5f6"))));
         assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_connections").query(Long.class).single());
 
         platform.refusing = false;
@@ -190,12 +230,24 @@ class PostgresChannelConnectionTest {
         assertEquals(bot.revision(), channels.get(owner, bot.id()).revision());
 
         platform.refusing = false;
-        assertEquals("MemoryOS Bot", channels.test(owner, ChannelProvider.LARK, ChannelRegion.LARK, "cli_f6e5d4c3b2a1", SECRET)
+        assertEquals("MemoryOS Bot", channels.test(owner, ChannelProvider.LARK, lark("cli_f6e5d4c3b2a1"))
                 .botName());
         assertEquals(1, channels.list(owner).size());
-        assertThrows(BusinessException.class, () -> channels.test(member, ChannelProvider.LARK, ChannelRegion.LARK,
-                "cli_f6e5d4c3b2a1", SECRET));
+        assertThrows(BusinessException.class, () -> channels.test(member, ChannelProvider.LARK,
+                lark("cli_f6e5d4c3b2a1")));
         assertEquals(List.of(SECRET, SECRET, SECRET, "wrong", SECRET), platform.secrets);
+    }
+
+    @Test
+    void theAppIsTheOneThePlatformNamesAndASecretOfAnotherAppReplacesNothing() {
+        platform.answeredAppId = "cli_normalised01";
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        assertEquals("cli_normalised01", bot.appId());
+        assertEquals("CHANNEL_APP_IN_USE", code(() -> channels.create(owner, draft("cli_f6e5d4c3b2a1"))));
+
+        platform.answeredAppId = "cli_anotherapp01";
+        assertEquals("CHANNEL_APP_REJECTED", code(() -> channels.replaceSecret(owner, bot.id(), bot.revision(), "other")));
+        assertEquals(bot.revision(), channels.get(owner, bot.id()).revision());
     }
 
     @Test
@@ -231,14 +283,25 @@ class PostgresChannelConnectionTest {
     private static final class Platform implements ChannelAdapter {
         final List<String> secrets = new ArrayList<>();
         boolean refusing;
+        @Nullable String answeredAppId;
 
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
+        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, 150_000); }
+
         @Override
-        public ChannelVerification verify(ChannelRegion region, String appId, String secret) {
-            secrets.add(secret);
+        public ChannelVerification verify(ChannelCredentials credentials) {
+            secrets.add(credentials.secret());
             if (refusing) throw ChannelException.rejected();
-            return new ChannelVerification("MemoryOS Bot", "ou_bot", Set.of("contact:user.email:readonly"));
+            String appId = answeredAppId != null ? answeredAppId : Objects.requireNonNull(credentials.appId());
+            return new ChannelVerification(appId, "MemoryOS Bot", "ou_bot", Set.of("contact:user.email:readonly"));
+        }
+
+        /** A region is kept as given; a setting it does not have is refused, as a provider's adapter refuses one. */
+        @Override
+        public Map<String, String> settings(Map<String, String> requested) {
+            if (!Set.of(ChannelRegion.SETTING).containsAll(requested.keySet())) throw ChannelException.invalid("unknown setting");
+            return Map.copyOf(requested);
         }
 
         @Override
@@ -252,7 +315,7 @@ class PostgresChannelConnectionTest {
 
         @Override public void acknowledge(ChannelConnection connection, ChannelMessage message) {}
 
-        @Override public Optional<String> senderEmail(ChannelConnection connection, String senderId) { return Optional.empty(); }
+        @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return ChannelSender.UNKNOWN; }
 
         @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
     }

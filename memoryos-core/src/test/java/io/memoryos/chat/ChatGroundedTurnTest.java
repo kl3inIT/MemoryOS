@@ -89,7 +89,8 @@ class ChatGroundedTurnTest {
     private void prepare(boolean toolCalling, ChatSettingsService.TurnPolicy policy, ChatGuardrailCheck.Kind kind) {
         var binding = ModelBinding.builder(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p,
                 ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, toolCalling, false)
-                .credentialRejection(failure -> failure instanceof Refused || failure.getCause() instanceof Refused).build();
+                .failureReading(failure -> failure instanceof Refused || failure.getCause() instanceof Refused
+                        ? Optional.of(TurnFailure.PROVIDER_CREDENTIAL_REJECTED) : Optional.empty()).build();
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         // The guardrail task model; a test that needs its own model replaces this.

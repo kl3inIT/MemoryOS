@@ -58,15 +58,16 @@ public class JdbcChannelInboundRepository {
                 .param("connection", connection).param("message", messageId).update();
     }
 
-    /** The conversation of the message a reply names: the question itself or the bot's answer to it. */
-    public Optional<UUID> sessionOf(UUID connection, String repliedMessageId) {
+    /** The conversation of the message a reply names, the question itself or the bot's answer to it, in that chat alone. */
+    public Optional<UUID> sessionOf(UUID connection, String chatId, String repliedMessageId) {
         return jdbc.sql("""
                         SELECT session_id FROM channel_messages
-                        WHERE connection_id = :connection AND session_id IS NOT NULL
+                        WHERE connection_id = :connection AND external_chat_id = :chat AND session_id IS NOT NULL
                           AND (external_message_id = :message OR reply_external_message_id = :message)
                         ORDER BY received_at DESC LIMIT 1
                         """)
-                .param("connection", connection).param("message", repliedMessageId).query(UUID.class).optional();
+                .param("connection", connection).param("chat", chatId).param("message", repliedMessageId)
+                .query(UUID.class).optional();
     }
 
     public Optional<Identity> identity(UUID connection, String senderId) {
@@ -120,6 +121,18 @@ public class JdbcChannelInboundRepository {
                         WHERE connection_id = :connection AND external_chat_id = :chat AND external_user_id = :sender
                         """)
                 .param("connection", connection).param("chat", chatId).param("sender", senderId).update();
+    }
+
+    /**
+     * Settles as {@code FAILED}/{@code INTERRUPTED} every message claimed before {@code before} and never settled, which
+     * only a process that ended while handling it leaves; returns how many.
+     */
+    public int settleAbandoned(Instant before) {
+        return jdbc.sql("""
+                        UPDATE channel_messages SET outcome = 'FAILED', reason = 'INTERRUPTED'
+                        WHERE outcome = 'RECEIVED' AND received_at < :before
+                        """)
+                .param("before", Timestamp.from(before)).update();
     }
 
     /** Deletes at most {@code limit} messages received before {@code before}; returns how many. */

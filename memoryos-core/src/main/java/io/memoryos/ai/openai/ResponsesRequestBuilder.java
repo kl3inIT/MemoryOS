@@ -54,6 +54,7 @@ final class ResponsesRequestBuilder {
         if (maxOutput != null) builder.maxOutputTokens(maxOutput.longValue());
         if (options.getTemperature() != null) builder.temperature(options.getTemperature());
         if (options.getTopP() != null) builder.topP(options.getTopP());
+        if (options.getPromptCacheKey() != null) builder.promptCacheKey(options.getPromptCacheKey());
         var reasoningOptions = new LinkedHashMap<String, Object>();
         // Onyx ReasoningEffort.AUTO is "medium" for OpenAI (onyx/llm/models.py). Omitting it lets GPT-5.1 and later
         // default to no reasoning, so a reasoning model neither thought nor streamed a summary while it worked.

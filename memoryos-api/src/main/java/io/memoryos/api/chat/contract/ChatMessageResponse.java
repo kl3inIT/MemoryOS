@@ -32,7 +32,11 @@ public record ChatMessageResponse(
                 description = "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise") @Nullable String failureCode,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
                 description = "Why a COMPLETED reply declined instead of answering: no_evidence, uncited or blocked_topic (answers from documents only, sensitive topics); null otherwise")
-        @Nullable String refusalReason) {
+        @Nullable String refusalReason,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"},
+                description = "Estimated input tokens of the reply's last model call; null when unknown") @Nullable Integer contextTokens,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"},
+                description = "The model's input limit for that call; null when unknown") @Nullable Integer contextLimit) {
 
     /** A file run_python produced; bytes are served at /api/chat/file-artifacts/{id}/content. */
     public record GeneratedFileRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -88,6 +92,8 @@ public record ChatMessageResponse(
                                 agent.durationMs(), agent.report(), agent.citations().stream()
                                 .map(citation -> new Citation(citation.marker(), citation.citationId())).toList(), agent.activity())).toList()),
                 message.status() == ChatMessage.Status.FAILED ? message.failureCode() : null,
-                message.status() == ChatMessage.Status.COMPLETED ? message.refusalReason() : null);
+                message.status() == ChatMessage.Status.COMPLETED ? message.refusalReason() : null,
+                message.context() == null ? null : message.context().tokens(),
+                message.context() == null ? null : message.context().limit());
     }
 }

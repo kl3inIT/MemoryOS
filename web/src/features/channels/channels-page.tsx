@@ -3,14 +3,13 @@ import { BotMessageSquare, Plus } from "lucide-react";
 import { AppGrid, AppRow, appRowLinkClass } from "@/components/composites/app-row";
 import { EmptyState } from "@/components/composites/empty-state";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
-import { LarkIcon } from "@/components/lark-icon";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { ChannelSwitch } from "./channel-actions";
+import { ChannelMark, ChannelSwitch } from "./channel-actions";
 import { type ChannelAdmin, useChannelAdmin, useChannels } from "./channel-admin";
 import { channelLine } from "./channel-status";
 
@@ -32,14 +31,14 @@ export function ChannelsPage() {
         actions={
           <Button onClick={admin.add}>
             <Plus data-icon="inline-start" />
-            {ui("Thêm bot Lark")}
+            {ui("Thêm bot")}
           </Button>
         }
       />
 
-      {admin.toggleError ? (
+      {admin.changeError ? (
         <Alert variant="destructive" role="alert">
-          <AlertDescription>{ui(admin.toggleError)}</AlertDescription>
+          <AlertDescription>{ui(admin.changeError)}</AlertDescription>
         </Alert>
       ) : null}
       {list.isError ? (
@@ -71,7 +70,7 @@ function ChannelRow({ channel, admin }: { channel: ChannelResponse; admin: Chann
   const { line, tone } = channelLine(channel);
   return (
     <AppRow
-      mark={<ChannelMark />}
+      mark={<ChannelMark provider={channel.provider} />}
       title={channel.name}
       line={ui(line, { count: channel.missingScopes.length })}
       tone={tone}
@@ -86,17 +85,5 @@ function ChannelRow({ channel, admin }: { channel: ChannelResponse; admin: Chann
       )}
       action={<ChannelSwitch channel={channel} admin={admin} />}
     />
-  );
-}
-
-/** Lark's mark on a white tile, as the MCP list shows a service's own logo. */
-export function ChannelMark() {
-  return (
-    <span
-      className="grid size-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-black/10"
-      aria-hidden="true"
-    >
-      <LarkIcon className="size-6" />
-    </span>
   );
 }

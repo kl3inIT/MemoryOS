@@ -121,7 +121,11 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
     adapters: { attachments, history, dictation, speech },
     // MEM-253: the server owns the paused tool call, so the answer goes to its decision endpoint, not the next send.
     onRespondToToolApproval: (response, { toolCallId }) =>
-      controller.transport.decideToolCall(toolCallId, "approved" in response && response.approved),
+      controller.transport.decideToolCall(
+        toolCallId,
+        "approved" in response && response.approved,
+        "optionId" in response && response.optionId === "allow-always",
+      ),
     isSendDisabled: state.connection !== "ready" || state.unavailable || state.checking,
   });
   useEffect(() => {

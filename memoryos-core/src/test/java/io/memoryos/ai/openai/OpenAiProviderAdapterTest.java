@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelSampling;
 import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.ai.ModelSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -238,6 +239,43 @@ class OpenAiProviderAdapterTest {
                 var service = client.binding().service();
                 service.getChatModel().call(new Prompt("Write the minutes.", service.convertOptions(new LlmOptions().withMaxTokens(100))));
                 assertFalse(request.get().has("response_format"));
+            }
+        } finally { meters.close(); server.stop(0); }
+    }
+
+    @Test
+    void anAnswerCarriesItsConversationAsThePromptCacheKeyAndAHelperCarriesNone() throws Exception {
+        var request = new AtomicReference<JsonNode>();
+        var mapper = new ObjectMapper();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            request.set(mapper.readTree(exchange.getRequestBody().readAllBytes()));
+            byte[] body = """
+                    {"id":"test","object":"chat.completion","created":1,"model":"configured-model",
+                    "choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],
+                    "usage":{"prompt_tokens":2,"completion_tokens":1,"total_tokens":3}}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        var meters = new SimpleMeterRegistry();
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
+        try {
+            var connection = new ProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
+            try (var client = adapter.create(connection, "configured-model", settings(Map.of(), false), Duration.ofSeconds(5))) {
+                var binding = client.binding();
+                // The turn's sampling wraps the converter, and ModelGuard rewrites the request on the way out.
+                var service = binding.forOptions(new ModelSampling(0.4, null, false), null).service();
+                String conversation = "conversation-1";
+                var answer = service.convertOptions(new LlmOptions().withMaxTokens(100)
+                        .withExtension(ModelBinding.PROMPT_CACHE_KEY, conversation));
+                service.getChatModel().call(binding.policy().options().apply(new Prompt("Answer", answer)));
+                assertEquals("conversation-1", request.get().path("prompt_cache_key").asString());
+
+                service.getChatModel().call(new Prompt("Helper", service.convertOptions(new LlmOptions().withMaxTokens(100).withoutThinking())));
+                assertFalse(request.get().has("prompt_cache_key"));
             }
         } finally { meters.close(); server.stop(0); }
     }

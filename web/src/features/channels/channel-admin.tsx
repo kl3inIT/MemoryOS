@@ -7,6 +7,7 @@ import {
   listChannelsOptions,
   listChannelsQueryKey,
   updateChannelEnabledMutation,
+  updateChannelTransportMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
@@ -18,6 +19,8 @@ import { settling } from "./channel-status";
 /** How often a bot switched on but not connected yet is read again. */
 const SETTLING_POLL_MS = 5_000;
 
+type Transport = NonNullable<ChannelResponse["transport"]>;
+
 /** The Tenant's bots, read again while one is settling. */
 export function useChannels() {
   return useQuery({
@@ -27,8 +30,8 @@ export function useChannels() {
 }
 
 /**
- * The administrator's actions on bots, shared by the list and a bot's page: add, switch on or off, replace the
- * App Secret, delete. `dialogs` renders whichever of them is open.
+ * The administrator's actions on bots, shared by the list and a bot's page: add, switch on or off, choose how a Zalo
+ * bot receives, replace the secret, delete. `dialogs` renders whichever of them is open.
  */
 export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) {
   const ui = useAppTranslation();
@@ -45,8 +48,10 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
     replacing: null,
   });
   const [removing, setRemoving] = useState<ChannelResponse | null>(null);
+  const [changed, setChanged] = useState<ChannelResponse | null>(null);
   const reread = () => cache.invalidateQueries({ queryKey: listChannelsQueryKey() });
   const toggle = useMutation({ ...updateChannelEnabledMutation(), onSettled: reread });
+  const transport = useMutation({ ...updateChannelTransportMutation(), onSettled: reread });
   const remove = useMutation({
     ...deleteChannelMutation(),
     onSuccess: async () => {
@@ -56,7 +61,9 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
     },
   });
   const message = (failure: unknown) =>
-    channelError(failure) ?? problem(presentProblem(failure, "mutation").message);
+    channelError(failure, changed?.provider) ??
+    problem(presentProblem(failure, "mutation").message);
+  const failure = toggle.error ?? transport.error;
   const open = (replacing: ChannelResponse | null) => {
     trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDialog((current) => ({ open: true, session: current.session + 1, replacing }));
@@ -79,9 +86,15 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
         <ConfirmDialog
           open
           title={ui("Xóa bot {{name}}?", { name: removing.name })}
-          description={ui(
-            "Bot ngừng trả lời trên Lark và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
-          )}
+          description={
+            removing.provider === "ZALO_BOT"
+              ? ui(
+                  "Bot ngừng trả lời trên Zalo, các liên kết tài khoản bị xóa và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
+                )
+              : ui(
+                  "Bot ngừng trả lời trên Lark và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
+                )
+          }
           confirmLabel={ui("Xóa")}
           pendingLabel={ui("Đang xóa")}
           confirmTone="danger"
@@ -92,7 +105,7 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
             });
           }}
           errorMessage={(failure) =>
-            channelError(failure) ?? presentProblem(failure, "mutation").message
+            channelError(failure, removing.provider) ?? presentProblem(failure, "mutation").message
           }
           onOpenChange={(next) => {
             if (!next) setRemoving(null);
@@ -107,15 +120,30 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
     replaceSecret: (channel: ChannelResponse) => open(channel),
     remove: setRemoving,
     /** A switch saves on change; the list is read again whatever the outcome. */
-    setEnabled: (channel: ChannelResponse, enabled: boolean) =>
+    setEnabled: (channel: ChannelResponse, enabled: boolean) => {
+      setChanged(channel);
+      transport.reset();
       toggle.mutate({
         path: { channelId: channel.id },
         headers: { "If-Match": `"${channel.revision}"` },
         body: { enabled },
-      }),
+      });
+    },
     switching: (channel: ChannelResponse) =>
       toggle.isPending && toggle.variables?.path.channelId === channel.id,
-    toggleError: toggle.error ? message(toggle.error) : undefined,
+    /** How a Zalo bot receives; a choice saves on change, as the switch does. */
+    setTransport: (channel: ChannelResponse, next: Transport) => {
+      setChanged(channel);
+      toggle.reset();
+      transport.mutate({
+        path: { channelId: channel.id },
+        headers: { "If-Match": `"${channel.revision}"` },
+        body: { transport: next },
+      });
+    },
+    choosingTransport: (channel: ChannelResponse) =>
+      transport.isPending && transport.variables?.path.channelId === channel.id,
+    changeError: failure ? message(failure) : undefined,
     dialogs,
   };
 }

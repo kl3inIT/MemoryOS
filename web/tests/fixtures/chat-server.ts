@@ -112,6 +112,8 @@ function seedResearch(value: Session) {
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   };
   const assistant: ChatMessage = {
     id: assistantId,
@@ -132,6 +134,8 @@ function seedResearch(value: Session) {
     generatedFiles: [],
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
     research: {
       clarification: false,
       plan: "1. Xác định số ngày phép hằng năm theo thâm niên trong sổ tay nhân sự.\n2. Tìm quy trình duyệt đơn, ai duyệt và thời hạn báo trước.\n3. Đối chiếu với quy chế nội bộ mới nhất và ghi rõ khác biệt.\n4. Kiểm tra cách tính phép chưa dùng khi chuyển sang năm sau.\n5. Xem quy định nghỉ phép nửa ngày và nghỉ gộp nhiều ngày.\n6. Ghi lại các trường hợp ngoại lệ cần trưởng bộ phận phê duyệt.",
@@ -202,6 +206,8 @@ function seedMcp(value: Session) {
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   };
   const assistant: ChatMessage = {
     id: assistantId,
@@ -246,6 +252,8 @@ function seedMcp(value: Session) {
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   };
   value.messages.push(user, assistant);
   value.allMessages.set(user.id, user);
@@ -320,10 +328,17 @@ function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FA
       : state.mode === "rejected"
         ? "CHAT_PROVIDER_CREDENTIAL_REJECTED"
         : "CHAT_PROVIDER_FAILED";
+  // MEM-267: a long conversation's answer reports how full the context was.
+  if (status === "COMPLETED" && state.mode === "approval") {
+    message.contextTokens = 96_400;
+    message.contextLimit = 128_000;
+  }
   emit(run, "outcome", {
     status,
     hasArtifacts: message.artifacts.length > 0,
     failureCode: message.failureCode,
+    contextTokens: message.contextTokens,
+    contextLimit: message.contextLimit,
   });
   for (const listener of run.listeners) listener.end();
   run.listeners.clear();
@@ -712,6 +727,8 @@ export async function handleChatFixture(
         research: { clarification: false, plan: null, agents: [] },
         failureCode: null,
         refusalReason: null,
+        contextTokens: null,
+        contextLimit: null,
         sessionId: state.session.id,
         role: "USER",
         content: input.text,
@@ -732,6 +749,8 @@ export async function handleChatFixture(
         research: { clarification: false, plan: null, agents: [] },
         failureCode: null,
         refusalReason: null,
+        contextTokens: null,
+        contextLimit: null,
         sessionId: state.session.id,
         role: "ASSISTANT",
         content: "",
@@ -782,6 +801,8 @@ export async function handleChatFixture(
           body: "Chào anh An,\n\nEm gửi báo cáo doanh thu tháng 9 của khu vực miền Bắc.\n\nTrân trọng,\nMinh Anh",
         }),
         decision: null,
+        // MEM-267: the fixture's person manages MCP servers, so the card offers always allow.
+        alwaysAllowable: true,
       });
       return true;
     }
@@ -976,6 +997,7 @@ export async function handleChatFixture(
       toolName: "send_email",
       arguments: "{}",
       decision,
+      alwaysAllowable: false,
     });
     emit(run, "tool", {
       ...APPROVAL_CALL,

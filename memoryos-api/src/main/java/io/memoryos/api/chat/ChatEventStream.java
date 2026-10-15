@@ -86,7 +86,8 @@ final class ChatEventStream {
             case IntermediateReportCitations cited -> new IntermediateReportCitationsEvent(assistant, sequence, cited.toolCallId(),
                     cited.citations().stream().map(citation -> new ResearchCitation(citation.marker(), citation.citationId())).toList());
             case Outcome outcome -> new OutcomeEvent(assistant, sequence, outcome.status().name(), outcome.failureCode(),
-                    outcome.hasArtifacts());
+                    outcome.hasArtifacts(), outcome.context() == null ? null : outcome.context().tokens(),
+                    outcome.context() == null ? null : outcome.context().limit());
             case ToolProgress progress -> {
                 var tool = progress.tool();
                 yield new ToolEvent(assistant, sequence, tool.toolCallId(), tool.toolName(), tool.stage(),
@@ -106,7 +107,7 @@ final class ChatEventStream {
             case TurnWaiting turn -> new WaitingEvent(assistant, sequence, turn.waiting());
             case ToolApproval approval -> new ToolApprovalEvent(assistant, sequence, approval.toolCallId(),
                     approval.serverName(), approval.toolName(), approval.arguments(),
-                    approval.decision() == null ? null : approval.decision().name());
+                    approval.decision() == null ? null : approval.decision().name(), approval.alwaysAllowable());
             case UnknownEvent _ -> throw new IllegalArgumentException("Unknown Chat event type");
         };
     }

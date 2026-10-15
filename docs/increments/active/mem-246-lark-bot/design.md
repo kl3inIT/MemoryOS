@@ -166,12 +166,13 @@ stream says it is waiting, and the web shows that instead of an error. A run tha
 with the capacity code.
 
 What a person meets is their own bound: three turns at once (LibreChat ships two), the fourth waiting. The
-process's bound stays as a backstop, not a throttle: 48 turns in the API and 16 in `memoryos-channels`
+process's bound stays as a backstop, not a throttle: 80 turns in the API and 24 in `memoryos-channels`
 (`memoryos.chat.execution.concurrency` of each), where it was 8. Without one, a burst reaches the provider's rate
 limit, the database pool, the stream readers and the spend limit (which counts settled turns only) with worse
-failures than waiting. LibreChat and Onyx set no such bound and are held by their own resources. The numbers are a
-starting point: a load run on staging raises them to what the host and the provider take, and the database pool
-(15) and the stream readers (256) with them.
+failures than waiting. LibreChat and Onyx set no such bound and are held by their own resources. The load run on
+staging set them from 48 and 16: their sum stays under the provider's limit, about 160 requests at once, because
+going over it locks the provider for every turn; the database pool (15) and the stream readers (256) stay
+([verification](verification.md#the-providers-limit-2026-10-15)).
 
 ### The port
 
@@ -232,6 +233,11 @@ event again when its handler has not returned within three seconds, up to four m
    `email` unique within an organisation, but nothing read so far says whether a member can change their own;
    plan step 4 settles that on the test tenant before the adapter reads it, and uses only an address the
    organisation's administrator controls if a member's own is not safe;
+   what Lark publishes (read 2026-10-15) settles it in part: the contact `email` is unique within an organisation
+   (`邮箱不可重复`), so nobody can take the address of a person who has it in Lark, and it is the administrator who
+   assigns and changes it, with a field setting deciding whether members may edit a field. What is left is a
+   MemoryOS account whose address belongs to nobody in that Lark organisation, open only where the administrator
+   lets members edit `email`; the test tenant's own setting is to be read in its admin console;
 4. chooses who the turn runs as: the sender's account in a direct message when there is one, the bot's account
    in a group and for a sender without an account; then finds the conversation and its chat session (below);
 5. starts the turn with `ChatTurnService.command` (`SEND`, the session's current leaf, a request id derived from
@@ -294,22 +300,25 @@ A message continues a conversation by what it replies to before by when it was s
 
 | Message | Session |
 | --- | --- |
-| A reply to a message of a conversation (Lark's reply or thread) | That conversation's, however old |
-| A new message in a group | A new one |
+| A reply to a message of a conversation (Lark's reply or thread) | That conversation's, however old, looked up in the same chat |
+| A new message in a group | The group's one conversation while its last message is less than four hours old (`memoryos.channel.group-conversation-idle`), else a new one |
 | A new message in a direct message | The last one's while it is less than an hour old (`memoryos.channel.conversation-idle`), else a new one |
-| `/new` | A new one, and the next message starts in it |
+| `/new` | A new one, and the next message starts in it; in a group, the group's |
 
 `channel_messages` maps every message of a conversation, the bot's replies included, to its session, which is how
 a reply is resolved; `channel_conversations (connection_id, external_chat_id, external_user_id)` holds the current
-session of a direct message. In a group a reply by another member continues the same session: it runs as the bot,
-so nothing of the first asker's is lent, and a thread is shared in Dust and Hermes Agent too.
+session of a direct message and, for a group, the group's (`external_user_id` `@group`). A group has one
+conversation, shared by its members: it runs as the bot, so nothing of an asker's is lent, and each question carries
+its asker's name. A reply is looked up in its own chat, so a reply in a group never reaches a direct conversation.
 
 Onyx and Dust key on the thread and start anew outside it; a session that never ends until `/new` is Hermes
 Agent's and OpenClaw's default, which suits one operator's long work and not questions whose earlier turns shape
-the search. The hour is Claude's fallback in Slack for messages outside a thread. A question that follows another
-in a group without replying to it loses the context; the notice a group answer ends with says to reply to
-continue. If Lark's events do not carry the replied message reliably, the rule falls back to the idle window
-alone, per asker, and this section is corrected.
+the search. The hour is Claude's fallback in Slack for messages outside a thread. A group's conversation is keyed by
+the group, as OpenClaw's Feishu default `groupSessionScope: group` and its core routing
+(`resolveAgentRoute(peer {kind: group, id})`) do, and ends after four idle hours as OpenClaw's idle reset; so a
+question that follows another in a group keeps its context without a reply, the same on Lark and on Zalo, which has
+no reply (MEM-263, 2026-10-15). A group answer therefore ends with no closing line: no reference bot adds one, and
+nobody has to be taught to reply.
 
 The session is an ordinary chat session on the Tenant's default agent, owned by whoever the turn runs as: the
 sender, or the bot. `chat_session` gains one immutable column, `surface` (`WEB`, `CHANNEL`): the web sidebar and
@@ -350,6 +359,28 @@ administrative capability beside `SOURCES_MANAGE`, `MODELS_MANAGE` and `MCP_MANA
 administrators hold and an ordinary Group can be granted; changes are audited. The page lists the scopes and the
 console steps beside the
 form and saves a switch on change.
+
+### Notices
+
+What the bot says in its own voice (`ChannelNotice`), in the connection's language. Ready for review; the comparison
+column cites only what the research above recorded.
+
+| Notice | When | Vietnamese | English | Compared with |
+| --- | --- | --- | --- | --- |
+| `OUTSIDER` | The sender is not of the bot's organisation | Trợ lý này chỉ phục vụ thành viên của tổ chức. | This assistant serves members of the organisation only. | Not compared |
+| `EXTERNAL_GROUP` | The group has people outside the organisation | Trợ lý không trả lời trong nhóm có người ngoài tổ chức. Hãy nhắn riêng cho trợ lý. | The assistant does not answer in a group with people outside the organisation. Send it a direct message. | Glean, Microsoft, Agentforce and Aily refuse an external group; their wording not compared |
+| `TEXT_ONLY` | An image, file or other message type | Hiện trợ lý chỉ đọc được tin nhắn văn bản. | The assistant reads text messages only for now. | Not compared |
+| `NEW_CONVERSATION` | `/new` in a direct message or a group | Đã bắt đầu cuộc trò chuyện mới. | A new conversation has started. | Not compared |
+| `WRITING` | The answer card before the first text | Đang trả lời… | Answering… | Replaces the SDK card's fixed English placeholder |
+| `BUSY` | A turn refused or still waiting at its bound | Trợ lý đang bận. Hãy hỏi lại sau ít phút. | The assistant is busy. Ask again in a moment. | Not compared |
+| `RATE` | More than ten messages from one sender in a minute | Bạn đang gửi quá nhanh. Hãy đợi một phút rồi hỏi tiếp. | You are sending messages too fast. Wait a minute, then ask again. | WeKnora tells the sender; its wording not compared |
+| `LIMIT` | A spend limit refused the turn | Đã hết hạn mức sử dụng AI. Hãy liên hệ quản trị viên. | The AI usage limit is reached. Contact an administrator. | Not compared |
+| `FAILED` | Any other failure | Trợ lý chưa trả lời được câu này. Hãy thử lại. | The assistant could not answer this. Try again. | Not compared |
+| `CONTINUE_ON_WEB` | The link closing a sender's own direct answer | Tiếp tục trên MemoryOS | Continue in MemoryOS | Dust's "Continue on Dust" |
+| `UNMAPPED_FOOTER` | The closing line for a sender without an account | Đăng nhập MemoryOS bằng email công việc để trợ lý dùng được tài liệu của riêng bạn. | Sign in to MemoryOS with your work e-mail so the assistant can use your own documents. | Onyx answers an unmapped member as the bot; Dust replies that the sender is not a member; wording not compared |
+| Reaction `Get` | A question waiting for its conversation's running turn | — | — | spring-agent's Feishu bot |
+
+Claude in Slack was not part of the research, so no notice is compared with it.
 
 ### Observability
 

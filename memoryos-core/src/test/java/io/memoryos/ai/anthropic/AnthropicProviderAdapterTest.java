@@ -162,6 +162,10 @@ class AnthropicProviderAdapterTest {
             assertEquals("medium", sent.body().path("output_config").path("effort").asString());
             assertEquals("search", sent.body().path("tools").get(0).path("name").asString());
             assertFalse(sent.body().has("temperature"));
+            // An answer marks its tools and its conversation for the prompt cache (MEM-269).
+            assertEquals("ephemeral", sent.body().path("tools").get(0).path("cache_control").path("type").asString());
+            assertEquals("ephemeral", sent.body().path("messages").get(0).path("content").get(0)
+                    .path("cache_control").path("type").asString());
 
             // Embabel carries only the assistant message's metadata across the tool loop.
             var output = last.getResult().getOutput();
@@ -206,6 +210,7 @@ class AnthropicProviderAdapterTest {
             // A helper call does not think, whatever the model is configured to do.
             var helper = call(budgeted, new LlmOptions().withMaxTokens(100).withoutThinking(), received);
             assertEquals("disabled", helper.path("thinking").path("type").asString());
+            assertFalse(helper.toString().contains("cache_control"), "A helper's prompt is not written to the cache");
 
             // A configured budget model thinks within a budget that stays below the output bound.
             var budget = call(budgeted, new LlmOptions().withMaxTokens(4000), received);

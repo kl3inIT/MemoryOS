@@ -39,7 +39,7 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 | Module | Responsibility |
 | --- | --- |
 | `memoryos-core` | Capability implementations: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, `library`, `ai`, `voice`, `mcp`, `usage`, `meeting` and `audit`, over the `shared` kernel. IAM owns identity, Tenant membership, invitations, Users, Groups and authorization |
-| `memoryos-integration-lark`, `-google`, `-microsoft` | One module a platform: Lark Suite, Google Drive and SharePoint acquisition and their offline Docs, Sheets and page snapshots (`io.memoryos.integration.<platform>`) |
+| `memoryos-integration-lark`, `-google`, `-microsoft`, `-zalo` | One module a platform: Lark Suite, Google Drive and SharePoint acquisition and their offline Docs, Sheets and page snapshots, and the Zalo bot (`io.memoryos.integration.<platform>`) |
 | `memoryos-extraction` | XLSX/CSV readers, OCR for scans and images, Docling PDF/DOCX/PPTX with a bounded Tika fallback, and bounded Tika TXT/Markdown (`io.memoryos.ingestion.extraction`) |
 | `memoryos-api` | Spring Boot HTTP, validation, migration and security composition root; Chat runs here on virtual threads |
 | `memoryos-worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |

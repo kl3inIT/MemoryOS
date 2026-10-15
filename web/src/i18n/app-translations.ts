@@ -48,6 +48,12 @@ const unchanged = [
   "cli_a1b2c3d4e5f6a7b8",
   "App ID",
   "App Secret",
+  "Zalo",
+  "Bot ID",
+  "Token",
+  "Webhook",
+  "Polling",
+  "1234567890:abc-xyz",
 ];
 export const appEn: Record<string, string> = Object.fromEntries([
   ...Object.keys(englishUi).map((key) => [key, key]),

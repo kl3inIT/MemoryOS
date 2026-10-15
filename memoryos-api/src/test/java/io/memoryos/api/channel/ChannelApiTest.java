@@ -21,7 +21,12 @@ import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelConnectionService;
 import io.memoryos.channel.ChannelConnectionService.Listed;
 import io.memoryos.channel.ChannelConnectionState;
+import io.memoryos.channel.ChannelCredentials;
+import io.memoryos.channel.ChannelDelivery;
 import io.memoryos.channel.ChannelException;
+import io.memoryos.channel.ChannelLink;
+import io.memoryos.channel.ChannelLinkCode;
+import io.memoryos.channel.ChannelLinkService;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
 import io.memoryos.channel.ChannelVerification;
@@ -34,6 +39,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -81,6 +87,9 @@ class ChannelApiTest {
 
     @MockitoBean
     private ChannelConnectionService channels;
+
+    @MockitoBean
+    private ChannelLinkService links;
 
     private ActorAuthenticationToken owner;
     private ActorAuthenticationToken member;
@@ -197,7 +206,8 @@ class ChannelApiTest {
     }
 
     private static Listed listed(UUID id, boolean enabled, Listed.Status status) {
-        var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", ChannelRegion.LARK, "cli_a1b2c3d4e5f6", "vi",
+        var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", "cli_a1b2c3d4e5f6",
+                Map.of(ChannelRegion.SETTING, "LARK"), "vi",
                 enabled, new ActorId(UUID.randomUUID()), 3, Instant.now(), Instant.now(), null, "MemoryOS Bot", "ou_bot",
                 List.of("contact:user.email:readonly"));
         var state = new ChannelConnectionState(Instant.now(), null, null, null, Instant.now());
@@ -227,8 +237,9 @@ class ChannelApiTest {
         String body = """
                 {"region":"LARK","appId":"cli_a1b2c3d4e5f6","appSecret":"%s"}
                 """.formatted(SECRET);
-        when(channels.test(any(), eq(ChannelProvider.LARK), eq(ChannelRegion.LARK), eq("cli_a1b2c3d4e5f6"), eq(SECRET)))
-                .thenReturn(new ChannelVerification("MemoryOS Bot", "ou_bot", Set.of("im:chat:readonly")));
+        when(channels.test(any(), eq(ChannelProvider.LARK), eq(new ChannelCredentials("cli_a1b2c3d4e5f6", SECRET,
+                Map.of(ChannelRegion.SETTING, "LARK")))))
+                .thenReturn(new ChannelVerification("cli_a1b2c3d4e5f6", "MemoryOS Bot", "ou_bot", Set.of("im:chat:readonly")));
         mockMvc.perform(post("/api/channels/lark/test").with(authentication(owner))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden());
@@ -238,7 +249,7 @@ class ChannelApiTest {
                 .andExpect(jsonPath("$.botName").value("MemoryOS Bot"))
                 .andExpect(jsonPath("$.missingScopes[0]").value("im:chat:readonly"));
 
-        when(channels.test(any(), any(), any(), any(), any())).thenThrow(ChannelException.rejected());
+        when(channels.test(any(), any(), any())).thenThrow(ChannelException.rejected());
         mockMvc.perform(post("/api/channels/lark/test").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
@@ -259,13 +270,65 @@ class ChannelApiTest {
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.status").value("OFF"));
         verify(channels).create(any(), argThat(draft -> draft.provider() == ChannelProvider.LARK
-                && draft.secret().equals(SECRET) && draft.noticeLanguage().equals("vi")));
+                && draft.credentials().equals(new ChannelCredentials("cli_a1b2c3d4e5f6", SECRET, Map.of(ChannelRegion.SETTING, "LARK")))
+                && draft.noticeLanguage().equals("vi")));
 
         mockMvc.perform(post("/api/channels/lark").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content("""
                                 {"name":"Trợ lý","region":"LARK","appId":"cli_a1b2c3d4e5f6","appSecret":"%s","noticeLanguage":"fr"}
                                 """.formatted(SECRET)))
                 .andExpect(status().isBadRequest());
+    }
+
+    /** MEM-263: a Zalo bot is its token and how it receives; it answers with no region and never the token. */
+    @Test
+    void aZaloBotIsAddedByItsTokenAndItsTransportChangesWithTheRevision() throws Exception {
+        String token = "1234567890:zalo-token-for-the-test";
+        var id = UUID.randomUUID();
+        var bot = new ChannelConnection(id, ChannelProvider.ZALO_BOT, "Bot Zalo", "1234567890",
+                Map.of(ChannelDelivery.SETTING, "WEBHOOK"), "vi", false, new ActorId(UUID.randomUUID()), 1, Instant.now(),
+                Instant.now(), null, "Bot MemoryOS", "1234567890", List.of());
+        var created = new Listed(bot, ChannelConnectionState.NONE, Listed.Status.OFF);
+        when(channels.create(any(), any())).thenReturn(bot);
+        when(channels.listWithState(any())).thenReturn(List.of(created));
+        when(channels.test(any(), eq(ChannelProvider.ZALO_BOT), eq(new ChannelCredentials(null, token, Map.of()))))
+                .thenReturn(new ChannelVerification("1234567890", "Bot MemoryOS", "1234567890", Set.of()));
+
+        mockMvc.perform(post("/api/channels/zalo/test").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"%s\"}".formatted(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.botName").value("Bot MemoryOS"));
+
+        mockMvc.perform(post("/api/channels/zalo").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Bot Zalo","token":"%s","noticeLanguage":"vi","transport":"POLLING"}
+                                """.formatted(token)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.provider").value("ZALO_BOT"))
+                .andExpect(jsonPath("$.transport").value("WEBHOOK"))
+                .andExpect(jsonPath("$.region").doesNotExist())
+                .andExpect(jsonPath("$.token").doesNotExist());
+        verify(channels).create(any(), argThat(draft -> draft.provider() == ChannelProvider.ZALO_BOT
+                && draft.credentials().equals(new ChannelCredentials(null, token, Map.of(ChannelDelivery.SETTING, "POLLING")))));
+
+        mockMvc.perform(post("/api/channels/zalo").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Bot Zalo","token":"%s","noticeLanguage":"vi","transport":"CARRIER_PIGEON"}
+                                """.formatted(token)))
+                .andExpect(status().isBadRequest());
+
+        when(channels.updateSettings(any(), eq(id), eq(1L), eq(Map.of(ChannelDelivery.SETTING, "WEBHOOK"))))
+                .thenThrow(ChannelException.webUrlMissing());
+        mockMvc.perform(put("/api/channels/{id}/transport", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"transport\":\"WEBHOOK\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CHANNEL_WEB_URL_MISSING"));
+        mockMvc.perform(put("/api/channels/{id}/transport", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"transport\":\"POLLING\"}"))
+                .andExpect(status().isOk());
+        verify(channels).updateSettings(any(), eq(id), eq(1L), eq(Map.of(ChannelDelivery.SETTING, "POLLING")));
     }
 
     @Test
@@ -305,5 +368,43 @@ class ChannelApiTest {
                         .header("If-Match", "\"3\""))
                 .andExpect(status().isNoContent());
         verify(channels).delete(any(), eq(id), eq(3L));
+    }
+
+    @Test
+    void aMemberMakesACodeSeesTheirLinksAndUnlinks() throws Exception {
+        var bot = UUID.randomUUID();
+        var linkedAt = Instant.parse("2026-10-15T07:00:00Z");
+        when(links.links(any())).thenReturn(List.of(new ChannelLink(bot, "Zalo", ChannelProvider.LARK, linkedAt)));
+        mockMvc.perform(get("/api/channel-links").with(authentication(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].connectionId").value(bot.toString()))
+                .andExpect(jsonPath("$[0].botName").value("Zalo"))
+                .andExpect(jsonPath("$[0].linkedAt").value("2026-10-15T07:00:00Z"));
+
+        String body = "{\"connectionId\":\"" + bot + "\"}";
+        when(links.code(any(), eq(bot))).thenReturn(new ChannelLinkCode("ABCD2345", Instant.parse("2026-10-15T07:10:00Z")));
+        mockMvc.perform(post("/api/channel-links").with(authentication(member))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/channel-links").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value("ABCD2345"))
+                .andExpect(jsonPath("$.expiresAt").value("2026-10-15T07:10:00Z"));
+        mockMvc.perform(post("/api/channel-links").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+
+        var other = UUID.randomUUID();
+        when(links.code(any(), eq(other))).thenThrow(ChannelException.notFound());
+        mockMvc.perform(post("/api/channel-links").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"connectionId\":\"" + other + "\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CHANNEL_NOT_FOUND"));
+
+        mockMvc.perform(delete("/api/channel-links/{id}", bot).with(authentication(member)).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        verify(links).unlink(any(), eq(bot));
+        mockMvc.perform(get("/api/channel-links")).andExpect(status().isUnauthorized());
     }
 }

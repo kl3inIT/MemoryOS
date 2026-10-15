@@ -6,7 +6,7 @@ import type { ToolPart } from "@/features/chat/activity/chat-activity-labels";
 import { ChatToolApproval } from "./chat-tool-approval";
 
 /** A tool part as assistant-ui hands it to the step: the gate the server streamed and its answer callback. */
-function part(approved?: boolean): ToolPart {
+function part(approved?: boolean, gate: Record<string, unknown> = {}): ToolPart {
   return {
     type: "tool-call",
     toolCallId: "call-1",
@@ -21,6 +21,7 @@ function part(approved?: boolean): ToolPart {
         serverName: "Gmail",
         toolName: "send_email",
         arguments: JSON.stringify({ to: "an@tasco.vn", body: "Chào anh An,\nEm gửi báo cáo." }),
+        ...gate,
       },
     },
     respondToApproval: vi.fn().mockResolvedValue(undefined),
@@ -44,4 +45,34 @@ it("leaves a receipt instead of controls once answered", () => {
   render(<ChatToolApproval part={part(false)} tool="send_email" server="Gmail" />);
   expect(screen.getByText("Bạn đã từ chối.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Cho phép" })).not.toBeInTheDocument();
+});
+
+it("offers always allow only when the gate does, and answers it with that option", async () => {
+  const waiting = part(undefined, {
+    options: [
+      { id: "allow-once", kind: "allow-once" },
+      { id: "allow-always", kind: "allow-always" },
+    ],
+  });
+  render(<ChatToolApproval part={waiting} tool="send_email" server="Gmail" />);
+  await userEvent.click(screen.getByRole("button", { name: "Luôn cho phép" }));
+  await waitFor(() =>
+    expect(waiting.respondToApproval).toHaveBeenCalledWith({
+      approved: true,
+      optionId: "allow-always",
+    }),
+  );
+});
+
+it("keeps no buttons for a call nobody answered in time", () => {
+  render(
+    <ChatToolApproval
+      part={part(undefined, { resolution: "expired" })}
+      tool="send_email"
+      server="Gmail"
+    />,
+  );
+  expect(screen.getByText("Hết thời gian chờ, công cụ không chạy.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Cho phép" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Luôn cho phép" })).not.toBeInTheDocument();
 });

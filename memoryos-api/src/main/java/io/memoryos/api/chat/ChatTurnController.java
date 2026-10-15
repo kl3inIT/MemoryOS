@@ -57,7 +57,7 @@ class ChatTurnController {
                   @PathVariable UUID sessionId, @Valid @RequestBody ChatSendTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.SEND,
                 request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds()), null));
         return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -78,7 +78,8 @@ class ChatTurnController {
     @ApiResponse(responseCode = "409", description = "No call of this reply waits for approval")
     void decide(@CurrentActor IdentityContext identity, @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
                 @PathVariable @Size(min = 1, max = 256) String toolCallId, @Valid @RequestBody ChatToolDecisionRequest request) {
-        turns.decide(identity.actorId(), sessionId, assistantMessageId, toolCallId, request.approved());
+        turns.decide(identity.actorId(), sessionId, assistantMessageId, toolCallId, request.approved(),
+                Boolean.TRUE.equals(request.alwaysAllow()));
     }
 
     @PostMapping("/{userMessageId}/edit")
@@ -89,7 +90,7 @@ class ChatTurnController {
             @PathVariable UUID userMessageId, @Valid @RequestBody ChatEditTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
                 userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds()), null));
         return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -101,7 +102,7 @@ class ChatTurnController {
             @PathVariable UUID userMessageId, @Valid @RequestBody ChatRegenerateTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.REGENERATE,
                 userMessageId, request.clientRequestId(), "", request.modelConfigurationId(), List.of(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds()), null));
         return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 

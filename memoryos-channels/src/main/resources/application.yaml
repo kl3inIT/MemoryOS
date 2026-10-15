@@ -92,8 +92,8 @@ memoryos:
     execution:
       # MEM-246: a bot's turns. Every group question runs as the bot's one account, so a bound for each person
       # would be the process's bound; the person's own rate is the channel's.
-      concurrency: ${MEMORYOS_CHANNELS_TURN_CONCURRENCY:16}
-      per-actor-concurrency: ${MEMORYOS_CHANNELS_TURN_CONCURRENCY:16}
+      concurrency: ${MEMORYOS_CHANNELS_TURN_CONCURRENCY:24}
+      per-actor-concurrency: ${MEMORYOS_CHANNELS_TURN_CONCURRENCY:24}
       max-waiting: 100
       wait-limit: 60s
       lease-ttl: 3m
@@ -111,6 +111,7 @@ memoryos:
   channel:
     credential-encryption-key: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:}
+    web-url: ${MEMORYOS_CHANNEL_WEB_URL:}
   mcp:
     credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
     connect-timeout: 5s

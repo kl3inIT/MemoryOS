@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
  * cost, so a single silent call no longer erases the usage of every other call of the turn.
  */
 public record ModelAccounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost, long cacheRead, boolean used,
-                              boolean complete) {
+                              boolean complete, @Nullable Integer contextTokens, @Nullable Integer contextLimit) {
     public static final ModelAccounting NONE = new ModelAccounting(null, null, null, 0, false);
 
     /** Accounting whose totals are complete exactly when both token counts are known. */
@@ -20,12 +20,26 @@ public record ModelAccounting(@Nullable Long input, @Nullable Long output, @Null
         this(input, output, cost, cacheRead, used, input != null && output != null);
     }
 
+    public ModelAccounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost, long cacheRead, boolean used,
+                           boolean complete) {
+        this(input, output, cost, cacheRead, used, complete, null, null);
+    }
+
+    /**
+     * With what the conversation's last model call carried against the model's input limit (MEM-267). Totals sum every
+     * call of a turn, so they overstate the context of a turn that called tools.
+     */
+    public ModelAccounting withContext(@Nullable Integer tokens, int limit) {
+        return tokens == null || limit <= 0 ? this
+                : new ModelAccounting(input, output, cost, cacheRead, used, complete, tokens, limit);
+    }
+
     /**
      * The totals a stored answer shows as its own: only complete ones. Partial totals go to the usage ledger, which counts
      * the turn as having an unknown cost; on the answer they would read as the whole turn.
      */
     public ModelAccounting shown() {
-        return complete ? this : new ModelAccounting(null, null, null, 0, used, false);
+        return complete ? this : new ModelAccounting(null, null, null, 0, used, false, contextTokens, contextLimit);
     }
 
     public static ModelAccounting of(List<? extends ModelGuard> guards, AgentProcess process, LlmMetadata metadata) {
@@ -36,10 +50,12 @@ public record ModelAccounting(@Nullable Long input, @Nullable Long output, @Null
         // Only calls that reported usage were recorded on the process, so its totals are theirs.
         var usage = process.usage();
         long cached = used.stream().mapToLong(ModelGuard::cacheReadTokens).sum();
+        long written = used.stream().mapToLong(ModelGuard::cacheWriteTokens).sum();
         Double cost = metadata.getPricingModel() != null ? process.cost() : null;
-        // Embabel prices every input token at the input rate; cached input is billed at the model's cache rate.
+        // Embabel prices every input token at the input rate; cached input is billed at the model's cache rate, and
+        // input written to the cache at the provider's write rate.
         if (cost != null && metadata.getPricingModel() instanceof ModelPricing pricing)
-            cost = Math.max(0, cost - pricing.cacheDiscount(cached));
+            cost = Math.max(0, cost - pricing.cacheDiscount(cached) + pricing.cacheWritePremium(written));
         long input = usage.getPromptTokens() == null ? 0 : usage.getPromptTokens().longValue();
         long output = usage.getCompletionTokens() == null ? 0 : usage.getCompletionTokens().longValue();
         return new ModelAccounting(input, output, cost, Math.min(cached, input), true, complete);

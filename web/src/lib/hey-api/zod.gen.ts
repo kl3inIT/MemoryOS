@@ -395,8 +395,12 @@ export const zMcpServerView = z.object({
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zMcpToolEnablement = z.object({
-    enabled: z.boolean()
+export const zMcpToolPolicyChange = z.object({
+    policy: z.enum([
+        'ALWAYS',
+        'ASK',
+        'OFF'
+    ])
 });
 
 /**
@@ -410,15 +414,33 @@ export const zMcpToolView = z.object({
     description: z.string(),
     readOnlyHint: z.boolean().nullable(),
     destructiveHint: z.boolean().nullable(),
-    enabled: z.boolean(),
-    approvalRequired: z.boolean(),
+    risk: z.enum([
+        'READ',
+        'WRITE',
+        'DESTRUCTIVE'
+    ]),
+    policy: z.enum([
+        'ALWAYS',
+        'ASK',
+        'OFF'
+    ]),
+    policyCustomized: z.boolean(),
     exposable: z.boolean(),
     snapshotAt: z.iso.datetime(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zMcpToolApproval = z.object({
-    approvalRequired: z.boolean()
+export const zMcpToolGroupPolicyChange = z.object({
+    risk: z.enum([
+        'READ',
+        'WRITE',
+        'DESTRUCTIVE'
+    ]),
+    policy: z.enum([
+        'ALWAYS',
+        'ASK',
+        'OFF'
+    ])
 });
 
 /**
@@ -1468,6 +1490,10 @@ export const zDocumentSetSharingInput = z.object({
     groupIds: z.array(z.uuid()).optional()
 });
 
+export const zUpdateChannelTransportRequest = z.object({
+    transport: z.enum(['WEBHOOK', 'POLLING'])
+});
+
 export const zAiUsageLimitRequest = z.object({
     scope: z.enum([
         'TENANT',
@@ -2325,7 +2351,8 @@ export const zBranchChatSessionRequest = z.object({
 });
 
 export const zChatToolDecision = z.object({
-    approved: z.boolean()
+    approved: z.boolean(),
+    alwaysAllow: z.boolean().nullish()
 });
 
 export const zCancellation = z.object({
@@ -2486,6 +2513,17 @@ export const zChatExport = z.object({
     failure: z.string().nullable(),
     createdAt: z.iso.datetime(),
     expiresAt: z.iso.datetime().nullable()
+});
+
+export const zCreateZaloChannelRequest = z.object({
+    name: z.string().min(0).max(100),
+    token: z.string().min(0).max(256),
+    noticeLanguage: z.enum(['vi', 'en']),
+    transport: z.enum(['WEBHOOK', 'POLLING']).optional()
+});
+
+export const zZaloBotRequest = z.object({
+    token: z.string().min(0).max(256)
 });
 
 /**
@@ -3471,7 +3509,9 @@ export const zChatMessage = z.object({
     generatedFiles: z.array(zGeneratedFileRef),
     research: zChatMessageResearch,
     failureCode: z.string().nullable(),
-    refusalReason: z.string().nullable()
+    refusalReason: z.string().nullable(),
+    contextTokens: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
+    contextLimit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable()
 });
 
 export const zTextEvent = z.object({
@@ -3489,7 +3529,9 @@ export const zOutcomeEvent = z.object({
         'FAILED'
     ]),
     failureCode: z.string().nullable(),
-    hasArtifacts: z.boolean()
+    hasArtifacts: z.boolean(),
+    contextTokens: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
+    contextLimit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable()
 });
 
 export const zResetEvent = z.object({
@@ -3634,7 +3676,8 @@ export const zToolApprovalEvent = z.object({
         'APPROVED',
         'DECLINED',
         'NO_DECISION'
-    ]).optional()
+    ]).optional(),
+    alwaysAllowable: z.boolean()
 });
 
 export const zChatBranch = z.object({
@@ -4193,9 +4236,10 @@ export const zReplaceChannelSecretRequest = z.object({
 
 export const zChannelResponse = z.object({
     id: z.uuid(),
-    provider: z.enum(['LARK']),
+    provider: z.enum(['LARK', 'ZALO_BOT']),
     name: z.string(),
-    region: z.enum(['LARK', 'FEISHU']),
+    region: z.enum(['LARK', 'FEISHU']).optional(),
+    transport: z.enum(['WEBHOOK', 'POLLING']).optional(),
     appId: z.string(),
     noticeLanguage: z.string(),
     enabled: z.boolean(),
@@ -4239,6 +4283,22 @@ export const zChannelAppRequest = z.object({
 export const zChannelAppCheckResponse = z.object({
     botName: z.string(),
     missingScopes: z.array(z.string())
+});
+
+export const zCreateChannelLinkCodeRequest = z.object({
+    connectionId: z.uuid()
+});
+
+export const zChannelLinkCodeResponse = z.object({
+    code: z.string(),
+    expiresAt: z.iso.datetime()
+});
+
+export const zChannelLinkResponse = z.object({
+    connectionId: z.uuid(),
+    botName: z.string(),
+    provider: z.enum(['LARK', 'ZALO_BOT']),
+    linkedAt: z.iso.datetime().optional()
 });
 
 export const zReplaceSharePointScopeBody = zReplaceSharePointScopeRequest;
@@ -4529,48 +4589,41 @@ export const zUpdateMcpServerQuery = z.object({
  */
 export const zUpdateMcpServerResponse = zMcpServerView;
 
-export const zSetMcpServerToolEnabledBody = zMcpToolEnablement;
-
-export const zSetMcpServerToolEnabledPath = z.object({
-    serverId: z.uuid(),
-    toolId: z.uuid()
-});
-
-export const zSetMcpServerToolEnabledQuery = z.object({
-    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+export const zResetMcpServerToolPoliciesPath = z.object({
+    serverId: z.uuid()
 });
 
 /**
- * Saved tool
+ * Tools with their default policies
  */
-export const zSetMcpServerToolEnabledResponse = zMcpToolView;
+export const zResetMcpServerToolPoliciesResponse = z.array(zMcpToolView);
 
-export const zSetMcpServerToolApprovalBody = zMcpToolApproval;
+export const zSetMcpServerToolGroupPolicyBody = zMcpToolGroupPolicyChange;
 
-export const zSetMcpServerToolApprovalPath = z.object({
-    serverId: z.uuid(),
-    toolId: z.uuid()
-});
-
-export const zSetMcpServerToolApprovalQuery = z.object({
-    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
-});
-
-/**
- * Saved tool
- */
-export const zSetMcpServerToolApprovalResponse = zMcpToolView;
-
-export const zSetAllMcpServerToolsEnabledBody = zMcpToolEnablement;
-
-export const zSetAllMcpServerToolsEnabledPath = z.object({
+export const zSetMcpServerToolGroupPolicyPath = z.object({
     serverId: z.uuid()
 });
 
 /**
  * Saved tools
  */
-export const zSetAllMcpServerToolsEnabledResponse = z.array(zMcpToolView);
+export const zSetMcpServerToolGroupPolicyResponse = z.array(zMcpToolView);
+
+export const zSetMcpServerToolPolicyBody = zMcpToolPolicyChange;
+
+export const zSetMcpServerToolPolicyPath = z.object({
+    serverId: z.uuid(),
+    toolId: z.uuid()
+});
+
+export const zSetMcpServerToolPolicyQuery = z.object({
+    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Saved tool
+ */
+export const zSetMcpServerToolPolicyResponse = zMcpToolView;
 
 export const zDeleteMcpServerOAuthClientPath = z.object({
     serverId: z.uuid(),
@@ -5482,6 +5535,21 @@ export const zShareDocumentSetQuery = z.object({
  * Updated Document Set
  */
 export const zShareDocumentSetResponse = zView;
+
+export const zUpdateChannelTransportBody = zUpdateChannelTransportRequest;
+
+export const zUpdateChannelTransportHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateChannelTransportPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zUpdateChannelTransportResponse = zChannelResponse;
 
 export const zDeleteAiUsageLimitPath = z.object({
     limitId: z.uuid()
@@ -6864,6 +6932,20 @@ export const zCreateDocumentSetBody = zInput;
  * Created Document Set
  */
 export const zCreateDocumentSetResponse = zView;
+
+export const zCreateZaloChannelBody = zCreateZaloChannelRequest;
+
+/**
+ * Added bot
+ */
+export const zCreateZaloChannelResponse = zChannelResponse;
+
+export const zTestZaloChannelBotBody = zZaloBotRequest;
+
+/**
+ * Zalo accepts the token
+ */
+export const zTestZaloChannelBotResponse = zChannelAppCheckResponse;
 
 /**
  * Successful result
@@ -8533,3 +8615,24 @@ export const zDeleteChannelPath = z.object({
  * Bot removed
  */
 export const zDeleteChannelResponse = z.void();
+
+/**
+ * Bots and links
+ */
+export const zListChannelLinksResponse = z.array(zChannelLinkResponse);
+
+export const zCreateChannelLinkCodeBody = zCreateChannelLinkCodeRequest;
+
+/**
+ * Linking code
+ */
+export const zCreateChannelLinkCodeResponse = zChannelLinkCodeResponse;
+
+export const zDeleteChannelLinkPath = z.object({
+    connectionId: z.uuid()
+});
+
+/**
+ * Link removed
+ */
+export const zDeleteChannelLinkResponse = z.void();

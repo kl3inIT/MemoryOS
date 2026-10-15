@@ -182,8 +182,9 @@ memoryos:
       max-readers: 256
     execution:
       # A backstop sized to what the host and the provider take, not a throttle: a person is held by their own
-      # bound, and a turn beyond either waits in arrival order instead of being refused.
-      concurrency: 48
+      # bound, and a turn beyond either waits in arrival order instead of being refused. With memoryos-channels' 24
+      # it stays under the provider's limit, about 160 requests at once on staging (MEM-246 verification).
+      concurrency: 80
       per-actor-concurrency: 3
       max-waiting: 200
       wait-limit: 60s
@@ -233,6 +234,8 @@ memoryos:
   channel:
     credential-encryption-key: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:}
+    # MEM-263: whether a Zalo bot may receive by webhook, which needs the address Zalo pushes to.
+    web-url: ${MEMORYOS_CHANNEL_WEB_URL:}
   mcp:
     credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
     # HTTPS (or loopback HTTP) ending in /login/oauth2/code/mcp; registered with each OAuth client.

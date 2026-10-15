@@ -11,7 +11,8 @@ import org.jspecify.annotations.Nullable;
 public record ChatMessage(UUID id, UUID sessionId, @Nullable UUID parentMessageId,
         @Nullable UUID latestChildMessageId, Role role, @Nullable String content, Status status,
         Instant createdAt, @Nullable Instant finishedAt, List<ChatSource> sources, List<ChatFileDescriptor> files, List<ChatArtifact> artifacts,
-        ChatActivity activity, ChatResearch research, @Nullable String failureCode, @Nullable String refusalReason) {
+        ChatActivity activity, ChatResearch research, @Nullable String failureCode, @Nullable String refusalReason,
+        @Nullable ChatContextUse context) {
     /** MEM-195 refusal reasons: a completed answer that declined rather than answered. */
     public static final String NO_EVIDENCE = "no_evidence";
     public static final String UNCITED = "uncited";
@@ -58,6 +59,7 @@ public record ChatMessage(UUID id, UUID sessionId, @Nullable UUID parentMessageI
         private ChatResearch research = ChatResearch.EMPTY;
         private @Nullable String failureCode;
         private @Nullable String refusalReason;
+        private @Nullable ChatContextUse context;
 
         private Builder(UUID id, UUID sessionId, Role role, Status status, Instant createdAt) {
             this.id = id;
@@ -78,10 +80,11 @@ public record ChatMessage(UUID id, UUID sessionId, @Nullable UUID parentMessageI
         public Builder research(ChatResearch value) { research = value; return this; }
         public Builder failureCode(@Nullable String value) { failureCode = value; return this; }
         public Builder refusalReason(@Nullable String value) { refusalReason = value; return this; }
+        public Builder context(@Nullable ChatContextUse value) { context = value; return this; }
 
         public ChatMessage build() {
             return new ChatMessage(id, sessionId, parentMessageId, latestChildMessageId, role, content, status, createdAt,
-                    finishedAt, sources, files, artifacts, activity, research, failureCode, refusalReason);
+                    finishedAt, sources, files, artifacts, activity, research, failureCode, refusalReason, context);
         }
     }
 }

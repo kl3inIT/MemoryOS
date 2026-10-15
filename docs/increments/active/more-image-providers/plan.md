@@ -2,7 +2,7 @@
 
 - [x] Check each candidate's current request and response shape; keep the four that answer one synchronous request with base64
 - [x] Catalog sizes accept aspect ratios; `ImageCall` encodes and decodes data URIs
-- [x] `GEMINI_IMAGE`, `OPENROUTER_IMAGE`, `XAI_IMAGE` and `FAL_AI` with their adapters; V165 widens the provider CHECK
+- [x] `GEMINI_IMAGE`, `OPENROUTER_IMAGE`, `XAI_IMAGE` and `FAL_AI` with their adapters; V172 widens the provider CHECK
 - [x] Unit tests for each adapter's generation, edit and failure shapes; registry and catalog invariants
 - [x] `openapi.yml` enums and the Hey API client
 - [x] Web names, marks, sites and endpoint hints; logos under `public/provider-logos`

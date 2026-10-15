@@ -48,7 +48,7 @@ export function ServerMenu({
           </DropdownMenuItem>
           {step === null ? (
             <DropdownMenuItem onSelect={() => admin.refresh(server)}>
-              <RefreshCw /> {ui("Lấy lại công cụ")}
+              <RefreshCw /> {ui("Làm mới công cụ")}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuGroup>

@@ -67,6 +67,8 @@ services:
       # MEM-246: administrators store a bot's app secret with this key; bots run on staging only until accepted.
       MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/channel_credential_encryption_key
       MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION}
+      # MEM-263: a Zalo bot may receive by webhook only where this public address is set.
+      MEMORYOS_CHANNEL_WEB_URL: ${MEMORYOS_CHANNEL_WEB_URL:-}
     secrets:
       - channel_credential_encryption_key
     depends_on:
@@ -123,6 +125,8 @@ services:
       MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
       MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
       MEMORYOS_DATABASE_POOL_SIZE: ${MEMORYOS_CHANNELS_DATABASE_POOL_SIZE:-5}
+      # The web address a direct answer links to its session with, and a Zalo webhook's address; empty for neither.
+      MEMORYOS_CHANNEL_WEB_URL: ${MEMORYOS_CHANNEL_WEB_URL:-}
       MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
       MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
       MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}

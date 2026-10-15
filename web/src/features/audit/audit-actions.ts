@@ -64,6 +64,8 @@ const actionLabels: Record<string, AppCopy> = {
   "channel.create": "Added a chat bot",
   "channel.update": "Updated a chat bot",
   "channel.delete": "Removed a chat bot",
+  "channel.account_link": "Linked an account to a chat bot",
+  "channel.account_unlink": "Unlinked an account from a chat bot",
   "audit.export": "Exported the audit log",
   "permission.denied": "Access refused",
 };
