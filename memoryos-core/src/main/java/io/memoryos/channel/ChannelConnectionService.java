@@ -112,7 +112,7 @@ public class ChannelConnectionService {
         transactions.executeWithoutResult(_ -> {
             writer(actor);
             credentials.cipher(draft.provider());
-            if (given.appId() != null && connections.appInUse(draft.provider(), given.appId(), given.settings())) {
+            if (given.appId() != null && connections.appInUse(draft.provider(), given.appId())) {
                 throw ChannelException.appInUse();
             }
         });
@@ -120,7 +120,7 @@ public class ChannelConnectionService {
         String appId = verification.appId();
         return Objects.requireNonNull(transactions.execute(_ -> {
             var tenant = writer(actor);
-            if (connections.appInUse(draft.provider(), appId, given.settings())) throw ChannelException.appInUse();
+            if (connections.appInUse(draft.provider(), appId)) throw ChannelException.appInUse();
             UUID id = UUID.randomUUID();
             var envelope = credentials.cipher(draft.provider()).encrypt(tenant, id, SECRET_PURPOSE,
                     given.secret().getBytes(StandardCharsets.UTF_8));
